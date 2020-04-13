@@ -217,14 +217,139 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     // For unary snarls with unary children we kick the bottom-most unary child
     // up to this level as a trivial chain, and the rest gets rewritten into a
     // normal chain.
+    vector<stSnarl*> child_unary_leaves;
     
     // For each child unary snarl
     
-    // See if it has unary children
+#ifdef debug
+    cerr << "Look at " << stList_length(unary_snarls_list) << " child unary snarls" << endl;
+#endif
     
-    // If not, put it in the new list of direct unary child leaves
+    for (size_t i = 0; i < stList_length(unary_snarls_list); i++) {
+        // for each child unary snarl
+        stSnarl* child_snarl = (stSnarl*)stList_get(unary_snarls_list, i);
+        
+        if (stList_length(child_snarl->unarySnarls) == 0) {
+            // It is a child leaf unary snarl. Keep it unmodified.
+            child_unary_leaves.push_back(child_snarl);
+        } else {
+            // It has unary children. We're going to find the stick of nested unary snarls to make into a chain.
+            vector<stSnarl*> stick_stack{child_snarl};
+            
+            while (stList_length(stick_stack.back()->unarySnarls) != 0) {
+                // We haven't made it to the tip of the stick yet.
+                
+                // Find the child with the greatest weight
+                stSnarl* heavy_child = nullptr;
+                for (size_t j = 0; j < stList_length(stick_stack.back()->unarySnarls); j++) {
+                    // For each unary child of what's on top of the stack
+                    stSnarl* tip_child = (stSnarl*)stList_get(stick_stack.back()->unarySnarls, j);
+                    if (heavy_child == nullptr || unary_weights.at(heavy_child) < unary_weights.at(tip_child)) {
+                        // This is a better, heavier child. Use it instead.
+                        heavy_child = tip_child;
+                    }
+                }
+                
+                // Since there is a child, heavy_child must be filled in.
+                // Put it on the stack.
+                stick_stack.push_back(heavy_child);
+            }
+            
+            // When we get here, we have made the best stick.
+            
+            // Promote the very end of the stick to a direct unary child
+            child_unary_leaves.push_back(stick_stack.back());
+            
+            // Remember it (loop scratch)
+            stSnarl* inner = stick_stack.back()
+            
+            // Pop the innermost snarl off
+            stick_stack.pop_back();
+            
+            // Make the chain we will turn it into.
+            child_chains.emplace_back();
+            auto& chain = child_chains.back();
+            // Make sure it is the right size so we can set each member.
+            chain.resize(stick_stack.size());
+            
+            while (!stick_stack.empty()) {
+                // Until the stick stack is empty
+                
+                // Synthesize a binary snarl for the topmost unary snarl, binarizing it vs. the node defining the previous unary snarl.
+                stSnarl binarized;
+                // It ends at the exterior of what used to be the inner snarl
+                binarized.edgeEnd2 = inner->edgeEnd1->otherEdgeEnd;
+                // And it starts where this unary snarl started
+                binarized.edgeEnd1 = stick_stack.back()->edgeEnd1;
+                // TODO do any of the edge ends need link fileld in/matching?
+                // We don't appear to use it, but if we start to we will have to fake it here.
+                // It shares all the child chains of the unary snarl
+                binarized.chains = stick_stack.back()->chains;
+                // But it has a new non-owning list of child unary snarls
+                binarized.unarySnarls = stList_construct();
+                for (size_t j = 0; j < stList_length(stick_stack.back()->unarySnarls); j++) {
+                    // For each child unary snarl in the snarl we are rewriting
+                    auto here = (stSnarl*)stList_get(stick_stack.back()->unarySnarls, j);
+                    if (here != inner) {
+                        // Keep them all except the one we binarized against.
+                        stList_append(binarized.unarySnarls, here);
+                    }
+                }
+                
+                // Work out where the rewritten snarl starts and ends in VG terms
+                CactusSide* cac_rewritten_outer = (CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd1);
+                CactusSide* cac_rewritten_inner = (CactusSide*)stCactusEdgeEnd_getObject(inner->edgeEnd1);
+                Visit rewritten_start;
+                rewritten_start.set_node_id(cac_rewritten_outer->node);
+                // Start is backward if the interior of the snarl we are rewriting is not an end
+                rewritten_start.set_backward(!cac_rewritten_outer->is_end);
+                Visit rewritten_end;
+                rewritten_end.set_node_id(cac_rewritten_inner->node);
+                // End is backward if the interior of the snarl we are rewriting against is not an end
+                rewritten_end.set_backward(!cac_rewritten_inner->is_end);
+                
+                // Recurse into the rewritten, binary snarl. Put the result in the chain forward, building from back to front.
+                chain[stick_stack.size() - 1] = make_pair(recursively_emit_snarls(rewritten_start, rewritten_end, start, end,
+                                                          binarized.chains, binarized.unarySnarls,
+                                                          unary_weights, destination), false);
+                
+                // Destroy the modified unary child list
+                stList_destruct(binarized.unarySnarls);
+                
+                // Save the snarl we rewrote as the new inner snarl and pop it.
+                inner = stick_stack.back();
+                stick_stack.pop_back();
+            }
+            
+        }
+
+        // TODO: deduplicate this code
+
+        // scrape the vg coordinate information out of the cactus ends where we stuck
+        // it during cactus construction
+        CactusSide* cac_child_side1 = (CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd1);
+        CactusSide* cac_child_side2 = (CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd2);
+        
+        // Convert from CactusSide (the interior endpoint of each node) to Visit (inward at start, outward at end)
+        Visit child_start;
+        child_start.set_node_id(cac_child_side1->node);
+        // Start is backward if the interior is not an end
+        child_start.set_backward(!cac_child_side1->is_end);
+        Visit child_end;
+        child_end.set_node_id(cac_child_side2->node);
+        // End is backward if the interior is an end
+        child_end.set_backward(cac_child_side2->is_end);
+        
+        // Make a trivial chain
+        child_chains.emplace_back();
+        auto& chain = child_chains.back();
+        
+        // Recursively create a snarl for the child, and then add it to the trivial chain as forward
+        chain.emplace_back(recursively_emit_snarls(child_start, child_end, start, end,
+                                                   child_snarl->chains, child_snarl->unarySnarls,
+                                                   unary_weights, destination), false);
+    }
     
-    // If it does, put it on a stack
     
     // While the top of the stack has unary children
     
