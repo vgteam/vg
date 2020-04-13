@@ -49,7 +49,11 @@ SnarlManager CactusSnarlFinder::find_snarls_impl(bool known_single_component, bo
     SnarlManager snarl_manager;
     
     // Fill the manager with all of the snarls, recursively.
-    recursively_emit_snarls(Visit(), Visit(), Visit(), Visit(), cactus_chains_list, cactus_unary_snarls_list, {}, snarl_manager);
+    // Make sure to give it a place to cache unary snarl weights
+    {
+        unordered_map<stSnarl*, size_t> unary_weights;
+        recursively_emit_snarls(Visit(), Visit(), Visit(), Visit(), cactus_chains_list, cactus_unary_snarls_list, unary_weights, snarl_manager);
+    }
     
     // Free the decomposition
     stSnarlDecomposition_destruct(snarls);
@@ -265,7 +269,7 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
             child_unary_leaves.push_back(stick_stack.back());
             
             // Remember it (loop scratch)
-            stSnarl* inner = stick_stack.back()
+            stSnarl* inner = stick_stack.back();
             
             // Pop the innermost snarl off
             stick_stack.pop_back();
@@ -286,7 +290,7 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
                 // We pass through the non-unary children unmodified, but the
                 // unary children need to be filtered to remove what we are
                 // binarizing against.
-                filtered_unary_snarls = stList_construct();
+                stList* filtered_unary_snarls = stList_construct();
                 for (size_t j = 0; j < stList_length(stick_stack.back()->unarySnarls); j++) {
                     // For each child unary snarl in the snarl we are rewriting
                     auto here = (stSnarl*)stList_get(stick_stack.back()->unarySnarls, j);

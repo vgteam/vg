@@ -17,7 +17,7 @@
 
 namespace vg {
 namespace unittest {
-    TEST_CASE( "multiple clusters in a chain",
+    TEST_CASE( "SnarlSeedClusterer works with multiple clusters in a chain",
                    "[cluster]" ) {
         VG graph;
 
@@ -178,7 +178,7 @@ namespace unittest {
         }
     }//End test case
 
-    TEST_CASE( "Revese in chain right","[cluster]" ) {
+    TEST_CASE( "SnarlSeedClusterer works with revese in chain right","[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -236,7 +236,7 @@ namespace unittest {
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
-    TEST_CASE( "Reverse in chain left","[cluster]" ) {
+    TEST_CASE( "SnarlSeedClusterer works with reverse in chain left","[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -306,7 +306,7 @@ namespace unittest {
     }//end test case
 
 
-    TEST_CASE( "Clusters in snarl","[cluster]" ) {
+    TEST_CASE( "SnarlSeedClusterer works with clusters in snarl","[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -487,7 +487,7 @@ namespace unittest {
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
-    TEST_CASE("Top level unary snarl", "[cluster]") {
+    TEST_CASE("SnarlSeedClusterer works with top level unary snarl", "[cluster]") {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -575,7 +575,7 @@ namespace unittest {
             REQUIRE( clusters.size() == 0);
         }
     }
-    TEST_CASE( "Disconnected graph",
+    TEST_CASE( "SnarlSeedClusterer works with disconnected graph",
                    "[cluster]" ) {
         VG graph;
 
@@ -630,7 +630,7 @@ namespace unittest {
 
         }
     }
-    TEST_CASE("Top level loop creates looping chain", "[cluster]") {
+    TEST_CASE("SnarlSeedClusterer works with top level loop that creates looping chain", "[cluster]") {
         VG graph;
  
         Node* n1 = graph.create_node("G");
@@ -706,7 +706,7 @@ namespace unittest {
     }//End test case
 
 
-    TEST_CASE( "Nested unary snarls","[cluster]" ) {
+    TEST_CASE( "SnarlSeedClusterer works with nested unary snarls","[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -785,7 +785,7 @@ namespace unittest {
 
 
     /*
-    TEST_CASE("Load graph", "[cluster]"){
+    TEST_CASE("SnarlSeedClusterer works with loaded graph", "[cluster]"){
 
         ifstream vg_stream("testGraph");
         VG vg(vg_stream);
@@ -826,7 +826,7 @@ namespace unittest {
                 fragment_clusters[1].size() == 4));
     }//end test case
     */
-    TEST_CASE("Random graphs", "[cluster]"){
+    TEST_CASE("SnarlSeedClusterer works with random graphs", "[cluster]"){
 
         for (int i = 0; i < 0; i++) {
             // For each random graph
