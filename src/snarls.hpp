@@ -69,9 +69,13 @@ class CactusSnarlFinder : public SnarlFinder {
     /// snarl is created, all the child chains are added as root chains, and
     /// null is returned. If parent_start and parent_end are empty Visits, no
     /// parent() is added to the produced snarl.
+    ///
+    /// Uses unary_weights to memoize the total bases in unary snarls, for
+    /// binarizing them sensibly. Should initially be empty.
     const Snarl* recursively_emit_snarls(const Visit& start, const Visit& end,
         const Visit& parent_start, const Visit& parent_end,
-        stList* chains_list, stList* unary_snarls_list, SnarlManager& destination);
+        stList* chains_list, stList* unary_snarls_list,
+        unordered_map<stSnarl*, size_t>& unary_weights, SnarlManager& destination);
 
     /**
      * Find all the snarls with Cactus, and put them into a SnarlManager.

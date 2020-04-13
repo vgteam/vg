@@ -49,7 +49,7 @@ SnarlManager CactusSnarlFinder::find_snarls_impl(bool known_single_component, bo
     SnarlManager snarl_manager;
     
     // Fill the manager with all of the snarls, recursively.
-    recursively_emit_snarls(Visit(), Visit(), Visit(), Visit(), cactus_chains_list, cactus_unary_snarls_list, snarl_manager);
+    recursively_emit_snarls(Visit(), Visit(), Visit(), Visit(), cactus_chains_list, cactus_unary_snarls_list, {}, snarl_manager);
     
     // Free the decomposition
     stSnarlDecomposition_destruct(snarls);
@@ -120,7 +120,9 @@ SnarlManager CactusSnarlFinder::find_snarls_parallel() {
 
 const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, const Visit& end,
                                                         const Visit& parent_start, const Visit& parent_end,
-                                                        stList* chains_list, stList* unary_snarls_list, SnarlManager& destination) {
+                                                        stList* chains_list, stList* unary_snarls_list, 
+                                                        unordered_map<stSnarl*, size_t>& unary_weights,
+                                                        SnarlManager& destination) {
         
 #ifdef debug    
     cerr << "Explore snarl " << start << " -> " << end << endl;
@@ -155,6 +157,95 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     // chain, plus trivial chains for the unary snarls.
     vector<Chain> child_chains;
     
+    // First we need to promote sticks of deeply nested unary snarls to chains
+    // of normal snarls, and single non-nested unary snarls, so we don't
+    // violate the minimality constraint.
+    
+    // In order to resolve the case where multiple unary snarls are children of
+    // a unary snarl, to work out which should provide the other end for
+    // binarizing, we need a map that tells us which unary child snarl is
+    // heavier.
+    //
+    // We don't want to do more snarl-bounded DFS looking for contents, so we
+    // define weight as the total depth of unary snarls we can resolve/total
+    // snarls in the resulting re-written chain.
+#ifdef debug
+    cerr << "Weigh " << stList_length(unary_snarls_list) << " child unary snarls" << endl;
+#endif
+    vector<stSnarl*> to_weigh;
+    for (int64_t i = 0; i < stList_length(unary_snarls_list); i++) {
+        // for each child unary snarl
+        stSnarl* child_snarl = (stSnarl*)stList_get(unary_snarls_list, i);
+        // Queue it up to be weighed
+        to_weigh.push_back(child_snarl);
+    }
+    
+    while (!to_weigh.empty()) {
+        stSnarl* top = to_weigh.back();
+        auto found = unary_weights.find(top);
+        if (found != unary_weights.end()) {
+            // Snarl weight is known.
+            to_weigh.pop_back();
+        } else {
+            // Our weight isn't known but maybe our unary childrens' weights are.
+            size_t max_weight = 0;
+            bool unweighed_children = false;
+            for (int64_t i = 0; i < stList_length(top->unarySnarls); i++) {
+                stSnarl* child_snarl = (stSnarl*)stList_get(top->unarySnarls, i);
+                auto child_found = unary_weights.find(child_snarl);
+                if (child_found == unary_weights.end()) {
+                    // This child hasn't been weighed yet, queue it up
+                    to_weigh.push_back(child_snarl);
+                    unweighed_children = true;
+                } else {
+                    // This child has been weighed; max it in.
+                    max_weight = std::max(max_weight, child_found->second);
+                }
+            }
+            if (!unweighed_children) {
+                // All our children have been weighed so we can weigh ourselves.
+                unary_weights.insert(found, make_pair(top, max_weight + 1));
+                // Our weight is now known
+                to_weigh.pop_back();
+            }
+            // Else we continue with the children on the to_weigh stack.
+        }
+    }
+    
+    // Now we can start rewriting the child unary snarls into Chain objects.
+    // For unary snarls with no unary children, we make trivial single-snarl chains.
+    // For unary snarls with unary children we kick the bottom-most unary child
+    // up to this level as a trivial chain, and the rest gets rewritten into a
+    // normal chain.
+    
+    // For each child unary snarl
+    
+    // See if it has unary children
+    
+    // If not, put it in the new list of direct unary child leaves
+    
+    // If it does, put it on a stack
+    
+    // While the top of the stack has unary children
+    
+    // If the thing at the top does have unary children, find the one with
+    // greatest weight that comes first in the list of children, and put that
+    // onto the stack.
+   
+    // If not, rewrite the whole stack into a chain, with whatever was at the
+    // very top as its own unary leaf child chain, but providing the far
+    // endpoint for the main chain
+    
+        // As you go along the stack, make a fake cactus snarl for the binary
+        // version of the top snarl, between its node and the previous top
+        // snarl's node, with the previous top snarl elided as a unary child.
+        
+        // Recurse on that and make a Snarl* of it
+        
+        // Then put that in the new chain we are building
+        
+    // Then continue with all the non-unary children and unary leaf children.
+        
 #ifdef debug
     cerr << "Look at " << stList_length(chains_list) << " child chains" << endl;
 #endif
@@ -195,7 +286,8 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
                 
             // Recursively create a snarl for the child
             const Snarl* converted_child = recursively_emit_snarls(child_start, child_end, start, end,
-                                                             child_snarl->chains, child_snarl->unarySnarls, destination);
+                                                             child_snarl->chains, child_snarl->unarySnarls,
+                                                             unary_weights, destination);
             // Work out if it should be backward in the chain
             bool backward_in_chain = false;
             if (!chain.empty()) {
@@ -241,7 +333,8 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         
         // Recursively create a snarl for the child, and then add it to the trivial chain as forward
         chain.emplace_back(recursively_emit_snarls(child_start, child_end, start, end,
-                                                   child_snarl->chains, child_snarl->unarySnarls, destination), false);
+                                                   child_snarl->chains, child_snarl->unarySnarls,
+                                                   unary_weights, destination), false);
     }
 
     if (snarl.start().node_id() != 0 || snarl.end().node_id() != 0) {
