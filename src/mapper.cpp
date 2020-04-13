@@ -1644,6 +1644,15 @@ void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_
     // Save the consistency exponent
     this->haplotype_consistency_exponent = haplotype_consistency_exponent;
 }
+
+void BaseMapper::set_alignment_scores(istream& matrix_stream, int8_t gap_open, int8_t gap_extend,
+                                      int8_t full_length_bonus, uint32_t xdrop_max_gap_length, double haplotype_consistency_exponent) {
+    
+    AlignerClient::set_alignment_scores(matrix_stream, gap_open, gap_extend, full_length_bonus, xdrop_max_gap_length);
+    
+    // Save the consistency exponent
+    this->haplotype_consistency_exponent = haplotype_consistency_exponent;
+}
     
 void PairedEndMapper::set_fragment_length_distr_params(size_t maximum_sample_size, size_t reestimation_frequency,
                                                   double robust_estimation_fraction) {
@@ -1806,8 +1815,6 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         node_trans = overlay_node_translations(dagify_trans, node_trans);
     }
 
-    auto order = algorithms::topological_order(&align_graph);
-
     if (banded_global) {
         // the banded global alignment no longer constructs an internal representation of the graph
         // for topological sorting, etc., instead counting on the HandleGraph to do that itself. accordingly
@@ -1818,13 +1825,13 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
         get_aligner(!aln.quality().empty())->align_global_banded(aligned, align_graph, band_padding, false);
     } else if (pinned_alignment) {
-        get_aligner(!aln.quality().empty())->align_pinned(aligned, align_graph, order, pin_left);
+        get_aligner(!aln.quality().empty())->align_pinned(aligned, align_graph, pin_left);
     } else if (xdrop_alignment) {
-        get_aligner(!aln.quality().empty())->get_xdrop().align(aligned, align_graph, order,
-                                                               translate_mems(mems, node_trans),
-                                                               (xdrop_alignment == 1) ? false : true);
+        get_aligner(!aln.quality().empty())->align_xdrop(aligned, align_graph,
+                                                         translate_mems(mems, node_trans),
+                                                         xdrop_alignment != 1);
     } else {
-        get_aligner(!aln.quality().empty())->align(aligned, align_graph, order, traceback, false);
+        get_aligner(!aln.quality().empty())->align(aligned, align_graph, traceback, false);
     }
     if (traceback && !keep_bonuses && aligned.score()) {
         remove_full_length_bonuses(aligned);
