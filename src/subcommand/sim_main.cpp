@@ -367,7 +367,9 @@ int main_sim(int argc, char** argv) {
         // Make a sample to sample reads with
         Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions, haplotype_transcripts);
         
-        Aligner rescorer(default_match, default_mismatch, default_gap_open, default_gap_extension, default_full_length_bonus);
+        // initialize an aligner
+        Aligner rescorer(default_score_matrix, default_gap_open, default_gap_extension,
+                         default_full_length_bonus, vg::default_gc_content);
 
         // We define a function to score a using the aligner
         auto rescore = [&] (Alignment& aln) {
@@ -451,7 +453,8 @@ int main_sim(int argc, char** argv) {
     else {
         // Use the trained error rate
         
-        Aligner aligner(default_match, default_mismatch, default_gap_open, default_gap_extension, 5);
+        Aligner aligner(default_score_matrix, default_gap_open, default_gap_extension,
+                         default_full_length_bonus, vg::default_gc_content);
         
         NGSSimulator sampler(*xgidx,
                              fastq_name,
