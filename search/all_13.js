@@ -385,6 +385,7 @@ var searchData=
   ['str',['STR',['../version_8cpp.html#a6a96991688ffe6ae2293f0a4b5f813d2',1,'version.cpp']]],
   ['strand_5fis_5frev',['strand_is_rev',['../structvg_1_1GFFRecord.html#a08edb7d13481c70c0cfbba949e4f81ce',1,'vg::GFFRecord']]],
   ['strand_5fsampler',['strand_sampler',['../classvg_1_1NGSSimulator.html#a71a4b2c30a477a86d4b7c9f5d6ab3a28',1,'vg::NGSSimulator']]],
+  ['strand_5fsplit_5foverlay_2ecpp',['strand_split_overlay.cpp',['../strand__split__overlay_8cpp.html',1,'']]],
   ['strandsplitgraph',['StrandSplitGraph',['../classbdsg_1_1StrandSplitGraph.html',1,'bdsg::StrandSplitGraph'],['../classvg_1_1StrandSplitGraph.html',1,'vg::StrandSplitGraph'],['../classvg_1_1StrandSplitGraph.html#a0e170b8ad07ca370e31497b804932220',1,'vg::StrandSplitGraph::StrandSplitGraph(const HandleGraph *graph)'],['../classvg_1_1StrandSplitGraph.html#aede16e10fc0b17f2527a62861f155c6d',1,'vg::StrandSplitGraph::StrandSplitGraph()=default'],['../classbdsg_1_1StrandSplitGraph.html#aced11e5bdfa82600c85b0e95617592f8',1,'bdsg::StrandSplitGraph::StrandSplitGraph(const HandleGraph *graph)'],['../classbdsg_1_1StrandSplitGraph.html#af05eac91af15ac87216a3350af7887aa',1,'bdsg::StrandSplitGraph::StrandSplitGraph()=default']]],
   ['stream_2ecpp',['stream.cpp',['../stream_8cpp.html',1,'']]],
   ['stream_2ehpp',['stream.hpp',['../stream_8hpp.html',1,'']]],

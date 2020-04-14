@@ -13,6 +13,8 @@ var searchData=
   ['test_5fmutable_5fpath_5fhandle_5fgraphs',['test_mutable_path_handle_graphs',['../test__libbdsg_8cpp.html#a6c7b80e776fbd371136133195f2520ab',1,'test_libbdsg.cpp']]],
   ['test_5fpacked_5fdeque',['test_packed_deque',['../test__libbdsg_8cpp.html#a2acf7000dccb968d71551bca418c5346',1,'test_libbdsg.cpp']]],
   ['test_5fpacked_5fgraph',['test_packed_graph',['../test__libbdsg_8cpp.html#a48ebbd2865f16430b56a63ad24edd631',1,'test_libbdsg.cpp']]],
+  ['test_5fpacked_5fset',['test_packed_set',['../test__libbdsg_8cpp.html#afced331483bc73a8f4991eb49823bc04',1,'test_libbdsg.cpp']]],
+  ['test_5fpacked_5fsubgraph_5foverlay',['test_packed_subgraph_overlay',['../test__libbdsg_8cpp.html#a7488dc9247c5d7bcf250078104ec1bd5',1,'test_libbdsg.cpp']]],
   ['test_5fpacked_5fvector',['test_packed_vector',['../test__libbdsg_8cpp.html#a1fcdcc8ed15c992b63744e19a5f196bd',1,'test_libbdsg.cpp']]],
   ['test_5fpaged_5fvector',['test_paged_vector',['../test__libbdsg_8cpp.html#ae4a246e3aec42dd6c0a469324e235f6e',1,'test_libbdsg.cpp']]],
   ['test_5fpath_5fposition_5foverlays',['test_path_position_overlays',['../test__libbdsg_8cpp.html#a77afd66128f79dab16e249a94301ff2b',1,'test_libbdsg.cpp']]],

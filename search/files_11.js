@@ -39,6 +39,7 @@ var searchData=
   ['statistics_2ecpp',['statistics.cpp',['../statistics_8cpp.html',1,'']]],
   ['statistics_2ehpp',['statistics.hpp',['../statistics_8hpp.html',1,'']]],
   ['stats_5fmain_2ecpp',['stats_main.cpp',['../stats__main_8cpp.html',1,'']]],
+  ['strand_5fsplit_5foverlay_2ecpp',['strand_split_overlay.cpp',['../strand__split__overlay_8cpp.html',1,'']]],
   ['stream_2ecpp',['stream.cpp',['../stream_8cpp.html',1,'']]],
   ['stream_2ehpp',['stream.hpp',['../stream_8hpp.html',1,'']]],
   ['stream_5findex_2ecpp',['stream_index.cpp',['../stream__index_8cpp.html',1,'']]],

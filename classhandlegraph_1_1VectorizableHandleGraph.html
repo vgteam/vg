@@ -97,6 +97,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a5aa85bce7358af90d1e63d2060a50a39"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#a5aa85bce7358af90d1e63d2060a50a39">edge_index</a> (const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;edge) const =0</td></tr>
 <tr class="memdesc:a5aa85bce7358af90d1e63d2060a50a39"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a unique index among edges in the graph.  <a href="#a5aa85bce7358af90d1e63d2060a50a39">More...</a><br /></td></tr>
 <tr class="separator:a5aa85bce7358af90d1e63d2060a50a39"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acb73ffef7b675caa5576df272fc0af1f"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#acb73ffef7b675caa5576df272fc0af1f">id_to_rank</a> (const <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &amp;node_id) const =0</td></tr>
+<tr class="memdesc:acb73ffef7b675caa5576df272fc0af1f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the rank of a node (ranks start at 1)  <a href="#acb73ffef7b675caa5576df272fc0af1f">More...</a><br /></td></tr>
+<tr class="separator:acb73ffef7b675caa5576df272fc0af1f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a56efef723eaabc70f6cd750a879b0416"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#a56efef723eaabc70f6cd750a879b0416">rank_to_id</a> (const size_t &amp;rank) const =0</td></tr>
+<tr class="memdesc:a56efef723eaabc70f6cd750a879b0416"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the node with a given rank.  <a href="#a56efef723eaabc70f6cd750a879b0416">More...</a><br /></td></tr>
+<tr class="separator:a56efef723eaabc70f6cd750a879b0416"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="ae5986cf718d8f9d98b20f7e819db43f3"></a>
@@ -152,6 +158,36 @@ Public Member Functions</h2></td></tr>
 <p>Return a unique index among edges in the graph. </p>
 
 <p>Implemented in <a class="el" href="classxg_1_1XG.html#a184f3b8960859cee3ef5d929a4391e0b">xg::XG</a>, and <a class="el" href="classbdsg_1_1VectorizableOverlay.html#a7665c7c7aa21c58b6e8fedae4b99fd31">bdsg::VectorizableOverlay</a>.</p>
+
+</div>
+</div>
+<a id="acb73ffef7b675caa5576df272fc0af1f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acb73ffef7b675caa5576df272fc0af1f">&#9670;&nbsp;</a></span>id_to_rank()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual size_t handlegraph::VectorizableHandleGraph::id_to_rank </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>node_id</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Return the rank of a node (ranks start at 1) </p>
+
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#a39172dc94153da745dd765f3c45ceeea">xg::XG</a>.</p>
 
 </div>
 </div>
@@ -211,6 +247,36 @@ Public Member Functions</h2></td></tr>
 <p>Return the start position of the node in a (possibly implict) sorted array constructed from the concatenation of the node sequences </p>
 
 <p>Implemented in <a class="el" href="classxg_1_1XG.html#abc79b8d077e089d9a847a6a4a4be70cc">xg::XG</a>, and <a class="el" href="classbdsg_1_1VectorizableOverlay.html#a08c7cb59b44ca3fb1b02eded1d71488b">bdsg::VectorizableOverlay</a>.</p>
+
+</div>
+</div>
+<a id="a56efef723eaabc70f6cd750a879b0416"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a56efef723eaabc70f6cd750a879b0416">&#9670;&nbsp;</a></span>rank_to_id()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> handlegraph::VectorizableHandleGraph::rank_to_id </td>
+          <td>(</td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
+          <td class="paramname"><em>rank</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Return the node with a given rank. </p>
+
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#aee052f301d8cae7b30c50c115c6b950b">xg::XG</a>.</p>
 
 </div>
 </div>
