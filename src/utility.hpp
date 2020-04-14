@@ -56,6 +56,9 @@ bool isATGC(const char& b);
 bool allATGC(const string& s);
 bool allATGCN(const string& s);
 string nonATGCNtoN(const string& s);
+/// Convert known IUPAC ambiguity codes (which we don't support) to N (which we
+/// do), while leaving any other garbage to trigger validation checks later.
+string allAmbiguousToN(const string& s);
 // Convert ASCII-encoded DNA to upper case
 string toUppercase(const string& s);
 

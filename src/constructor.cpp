@@ -215,22 +215,41 @@ namespace vg {
             #pragma omp critical (cerr)
             {
                 // Note that the pragma also protects this mutable map that we update
-                if (!warned_sequences.count(reference_path_name)) {
+                if (!lowercase_warned_sequences.count(reference_path_name)) {
                     // We haven't warned about this sequence yet
                     cerr << "warning:[vg::Constructor] Lowercase characters found in "
                         << reference_path_name << "; coercing to uppercase." << endl;
-                    warned_sequences.insert(reference_path_name);
+                    lowercase_warned_sequences.insert(reference_path_name);
                 }    
             }
         }
-        swap(reference_sequence, uppercase_sequence);
-
-        if (!allATGCN(reference_sequence)) {
-            // We don't know what to do with gaps or IUPAC ambiguity codes, and
-            // we want to catch complete garbage.
+        reference_sequence = std::move(uppercase_sequence);
+        
+        // Make sure all IUPAC codes are Ns
+        string n_sequence = allAmbiguousToN(reference_sequence);
+        
+        if (n_sequence != reference_sequence && warn_on_ambiguous) {
             #pragma omp critical (cerr)
             {
-                cerr << "error:[vg::Constructor] non-ATGCN characters found in " 
+                // Note that the pragma also protects this mutable map that we update
+                if (!ambiguous_warned_sequences.count(reference_path_name)) {
+                    // We haven't warned about this sequence yet
+                    cerr << "warning:[vg::Constructor] Unsupported IUPAC ambiguity codes found in "
+                        << reference_path_name << "; coercing to N." << endl;
+                    ambiguous_warned_sequences.insert(reference_path_name);
+                }    
+            }
+        }
+        reference_sequence = std::move(n_sequence);
+
+        // TODO: this is like the forth scan of the whole string we do; can we
+        // condense this all into one pass?
+        if (!allATGCN(reference_sequence)) {
+            // We don't know what to do with gaps, and we want to catch
+            // complete garbage.
+            #pragma omp critical (cerr)
+            {
+                cerr << "error:[vg::Constructor] unacceptable characters found in " 
                     << reference_path_name << "." << endl;
                 exit(1);
             }
@@ -514,12 +533,12 @@ namespace vg {
                     for (auto& alt : variant->alt) {
                         string upper_case_alt = toUppercase(alt);
                         if (alt != upper_case_alt) {
-                            if (!warned_alt && warn_on_lowercase) {
+                            if (!lowercase_warned_alt && warn_on_lowercase) {
                                 #pragma omp critical (cerr)
                                 {
                                     cerr << "warning:[vg::Constructor] Lowercase characters found in "
                                          << "variant, coercing to uppercase:\n" << *variant << endl;
-                                    warned_alt = true;
+                                    lowercase_warned_alt = true;
                                 }
                             }
                             swap(alt, upper_case_alt);

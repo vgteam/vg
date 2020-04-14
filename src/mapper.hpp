@@ -210,6 +210,10 @@ public:
     void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
                               uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length, double haplotype_consistency_exponent = 1);
     
+    /// Same, but loading a 4x4 substitution score matrix from a stream
+    void set_alignment_scores(istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
+                              uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length, double haplotype_consistency_exponent = 1);
+    
     void set_cache_size(int new_cache_size);
     
     // MEM-based mapping
