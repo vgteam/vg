@@ -1815,16 +1815,23 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
             //cluster_head_indices immediately after top-level seed clusters on the start node
             int64_t offset_in_chain = start_rank == 0 ? start_length : chain_index.prefix_sum[start_rank] + start_length - 1;
 
-            //Distance from the start of chain to the start of the current snarl
-            int64_t add_dist_left = start_rank == 0 ? 0 : chain_index.prefix_sum[start_rank] - 1;
-
-            //TODO: I'm like 50% sure this is the right distance
-            int64_t add_dist_right = start_rank +1 == chain_index.prefix_sum.size() - 2 ? 0 : 
-                                    chain_index.prefix_sum[chain_index.prefix_sum.size()-1] - chain_index.prefix_sum[start_rank+1] - end_length;
-
             //Combine snarl clusters that can be reached by looping
             int64_t loop_dist_end = chain_index.loop_fd[start_rank + 1] - 1 ;
             int64_t loop_dist_start = chain_index.loop_rev[start_rank] - 1;
+
+            //Distance from the start of chain to the start of the current snarl
+            int64_t add_dist_left_left = start_rank == 0 ? 0 : chain_index.prefix_sum[start_rank] - 1;
+
+
+            //TODO: I'm like 50% sure this is the right distance
+            int64_t add_dist_right_right = start_rank +1 == chain_index.prefix_sum.size() - 2 ? 0 : 
+                                    chain_index.prefix_sum[chain_index.prefix_sum.size()-1] - chain_index.prefix_sum[start_rank+1] - end_length;
+
+            //TODO should probably use the chain index's interface
+            int64_t add_dist_left_right = start_rank == 0 || loop_dist_start == -1 ? -1 : 
+                                          loop_dist_start + add_dist_right_right + snarl_length;
+            int64_t add_dist_right_left = start_rank+1 == chain_index.prefix_sum.size() - 2 || loop_dist_end == -1 ? -1 :
+                                           loop_dist_end+ add_dist_left_left + snarl_length;
 
             hash_set<pair<size_t,size_t>> to_add;//new cluster group ids from snarl clusters
             vector<pair<size_t,size_t>> to_erase; //old cluster group ids
@@ -1843,7 +1850,7 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                 // that includes chain clusters
                 size_t read_num = cluster_head.first;
 
-                pair<int64_t, int64_t> snarl_dists = std::move(tree_state.read_cluster_dists[read_num][cluster_head.second]);
+                pair<int64_t, int64_t> snarl_dists = tree_state.read_cluster_dists[read_num][cluster_head.second];
 
                 if (loop_dist_start != -1) {
                     //If there is a loop going out and back into the start of
@@ -1925,13 +1932,23 @@ cerr << "  Maybe combining this cluster from the right" << endl;
                 //Add the clusters on this snarl to our overall list of clusters and update the distances
                 //for each of the clusters
                 insert_in_order(cluster_head_indices, make_tuple(offset_in_chain, cluster_head.first, cluster_head.second));
-                tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first  = 
-                    tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first == -1 ? -1 
-                        : tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first +  add_dist_left;
 
-                tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second = 
-                    tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second == -1 ? -1 
-                        : tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second + add_dist_right;
+                //Get the distance to the start side of the chain
+                int64_t dist_left_left = tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first == -1 ? -1 
+                        : tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first +  add_dist_left_left;
+                int64_t dist_right_left = tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second == -1 
+                        || add_dist_right_left == -1 ? -1 
+                        : tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second +  add_dist_right_left;
+
+                tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first  = min_not_minus_one(dist_left_left, dist_right_left); 
+
+                int64_t dist_right_right = tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second == -1 ? -1 
+                        : tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second + add_dist_right_right;
+                int64_t dist_left_right = tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first == -1 ||
+                        add_dist_left_right == -1 ? -1 
+                        : tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first + add_dist_left_right;
+
+                tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second = min_not_minus_one(dist_right_right, dist_left_right); 
 
             }
 
