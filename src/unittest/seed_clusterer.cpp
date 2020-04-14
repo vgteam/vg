@@ -738,6 +738,12 @@ namespace unittest {
         //Unary snarl at 8 nested in unary snarl at 6 nested in 
         //unary snarl at  4 nested in regular snarl at 2 (ending at 3)
         //nested in unary snarl at 1
+        
+        cerr << pb2json(graph.graph) << endl;
+        
+        // Make sure we decomposed the graph properly
+        bool decomposed = snarl_manager.is_decomposition_of(graph);
+        REQUIRE(decomposed);
 
         SECTION( "One cluster" ) {
             vector<pos_t> seeds;

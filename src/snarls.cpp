@@ -3,7 +3,6 @@
 //
 //
 
-//#define debug
 
 #include <vg/io/protobuf_emitter.hpp>
 
@@ -13,6 +12,8 @@
 #include "algorithms/is_acyclic.hpp"
 #include "algorithms/weakly_connected_components.hpp"
 #include "subgraph_overlay.hpp"
+
+#define debug
 
 namespace vg {
 
@@ -122,6 +123,7 @@ SnarlManager CactusSnarlFinder::find_snarls_parallel() {
 }
 
 
+#define debug
 const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, const Visit& end,
                                                         const Visit& parent_start, const Visit& parent_end,
                                                         stList* chains_list, stList* unary_snarls_list, 
@@ -235,13 +237,18 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         
         if (stList_length(child_snarl->unarySnarls) == 0) {
             // It is a child leaf unary snarl. Keep it unmodified.
+            
+#ifdef debug
+            cerr << "Unary child " << i << " on " << ((CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd1))->node << " is a leaf" << endl;
+#endif
+            
             child_unary_leaves.push_back(child_snarl);
         } else {
             // It has unary children. We're going to find the stick of nested unary snarls to make into a chain.
             vector<stSnarl*> stick_stack{child_snarl};
             
 #ifdef debug
-            cerr << "Unary child " << i << " has unary children and needs to be rewritten" << endl;
+            cerr << "Unary child " << i << " on " << ((CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd1))->node << " has unary children and needs to be rewritten" << endl;
 #endif
             
             while (stList_length(stick_stack.back()->unarySnarls) != 0) {
@@ -261,12 +268,20 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
                 // Since there is a child, heavy_child must be filled in.
                 // Put it on the stack.
                 stick_stack.push_back(heavy_child);
+                
+#ifdef debug
+                cerr << "Add unary snarl on " << ((CactusSide*)stCactusEdgeEnd_getObject(stick_stack.back()->edgeEnd1))->node << " to stick" << endl;
+#endif
             }
             
             // When we get here, we have made the best stick.
             
             // Promote the very end of the stick to a direct unary child
             child_unary_leaves.push_back(stick_stack.back());
+            
+#ifdef debug
+            cerr << "Promote unary leaf snarl on " << ((CactusSide*)stCactusEdgeEnd_getObject(stick_stack.back()->edgeEnd1))->node << " to sibling of stick chain" << endl;
+#endif
             
             // Remember it (loop scratch)
             stSnarl* inner = stick_stack.back();
@@ -279,6 +294,10 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
             auto& chain = child_chains.back();
             // Make sure it is the right size so we can set each member.
             chain.resize(stick_stack.size());
+            
+#ifdef debug
+            cerr << "Create chain of " << stick_stack.size() << " snarls" << endl;
+#endif
             
             while (!stick_stack.empty()) {
                 // Until the stick stack is empty
@@ -301,7 +320,7 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
                 }
                 
                 // Work out where the rewritten snarl starts and ends in VG terms
-                CactusSide* cac_rewritten_outer = (CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd1);
+                CactusSide* cac_rewritten_outer = (CactusSide*)stCactusEdgeEnd_getObject(stick_stack.back()->edgeEnd1);
                 CactusSide* cac_rewritten_inner = (CactusSide*)stCactusEdgeEnd_getObject(inner->edgeEnd1);
                 Visit rewritten_start;
                 rewritten_start.set_node_id(cac_rewritten_outer->node);
@@ -311,6 +330,12 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
                 rewritten_end.set_node_id(cac_rewritten_inner->node);
                 // End is backward if the interior of the snarl we are rewriting against is not an end
                 rewritten_end.set_backward(!cac_rewritten_inner->is_end);
+                
+#ifdef debug
+                cerr << "Rewrite unary snarl on " << rewritten_start.node_id() << " against contained unary snarl on " << rewritten_end.node_id()
+                    << " to create snarl " << rewritten_start.node_id() << " " << (rewritten_start.backward() ? "rev" : "fwd")
+                    << " -> " << rewritten_end.node_id() << " " << (rewritten_end.backward() ? "rev" : "fwd") << " at index " << (stick_stack.size() - 1) << " in chain"<< endl;
+#endif
                 
                 // Recurse into the implicit, rewritten, binary snarl. Put the result in the chain forward, building from back to front.
                 chain[stick_stack.size() - 1] = make_pair(recursively_emit_snarls(rewritten_start, rewritten_end, start, end,
@@ -326,7 +351,9 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
             }
         
 #ifdef debug
-            cerr << "Unary child " << i << " rewritten to chain of " << chain.size() << " binary snarls and unary cap" << endl;
+            cerr << "Unary child " << i << " rewritten to chain of " << chain.size()
+                << " binary snarls " << chain.front().first->start().node_id() << " to " << chain.back().first->end().node_id()
+                << " and unary cap on " << ((CactusSide*)stCactusEdgeEnd_getObject(child_unary_leaves.back()->edgeEnd1))->node << endl;
 #endif
         
         }
@@ -393,10 +420,11 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     }
     
 #ifdef debug
-    cerr << "Look at " << child_unary_leaves.szie() << " child unary leaf snarls" << endl;
+    cerr << "Look at " << child_unary_leaves.size() << " child unary leaf snarls" << endl;
 #endif
     
-    for (stSnarl* child_snarl : child_unary_leaves) {
+    for (size_t i = 0; i < child_unary_leaves.size(); i++) {
+        stSnarl* child_snarl = child_unary_leaves[i];
         // TODO: deduplicate this code
 
         // scrape the vg coordinate information out of the cactus ends where we stuck
@@ -417,6 +445,12 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         // Make a trivial chain
         child_chains.emplace_back();
         auto& chain = child_chains.back();
+        
+        assert(stList_length(child_snarl->unarySnarls) == 0);
+        
+#ifdef debug
+        cerr << "Visit unary leaf child " << i << " on " << cac_child_side1->node << endl;
+#endif
         
         // Recursively create a snarl for the child, and then add it to the trivial chain as forward
         chain.emplace_back(recursively_emit_snarls(child_start, child_end, start, end,
@@ -610,6 +644,7 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     // Return a pointer to the managed snarl.
     return managed;
 }
+#undef debug
 
 bool start_backward(const Chain& chain) {
     // The start snarl is backward if it is marked backward.
@@ -1072,6 +1107,31 @@ int SnarlManager::num_snarls()const{
     return num_snarls;
 
 }
+
+#define debug
+bool SnarlManager::is_decomposition_of(const HandleGraph& graph) const {
+    size_t expected_nodes = graph.get_node_count();
+    
+    size_t observed_nodes = 0;
+    
+    for_each_snarl_preorder([&](const Snarl* snarl) {
+        auto contents = shallow_contents(snarl, graph, false);
+        
+#ifdef debug
+        cerr << "Snarl " << snarl->start().node_id() << "->" << snarl->end().node_id() << " contains:";
+        for (auto& id : contents.first) {
+            cerr << " " << id;
+        }
+        cerr << endl;
+#endif
+        
+        // Sum up the nodes in all the snarls. Child snarl boundaries belong to the parent snarl.
+        observed_nodes += contents.first.size(); 
+    });
+    
+    return observed_nodes == expected_nodes;
+}
+#undef debug
 
     
 void SnarlManager::flip(const Snarl* snarl) {

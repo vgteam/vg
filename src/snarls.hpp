@@ -575,10 +575,10 @@ public:
     /// Execute a function on all sites in parallel
     void for_each_snarl_parallel(const function<void(const Snarl*)>& lambda) const;
     
-    /// Ececute a function on all chains
+    /// Execute a function on all chains
     void for_each_chain(const function<void(const Chain*)>& lambda) const;
     
-    /// Ececute a function on all chains in parallel
+    /// Execute a function on all chains in parallel
     void for_each_chain_parallel(const function<void(const Chain*)>& lambda) const;
 
     /// Iterate over snarls as they are stored in deque<SnarlRecords>
@@ -590,10 +590,13 @@ public:
 
     /// Sample snarls discrete uniformly 
     /// Returns a nullptr if no snarls are found 
-    const Snarl* discrete_uniform_sample(minstd_rand0& random_engine)const;
+    const Snarl* discrete_uniform_sample(minstd_rand0& random_engine) const;
 
     /// Count snarls in deque<SnarlRecords>, a master list of snarls in graph
-    int num_snarls()const;
+    int num_snarls() const;
+    
+    /// Returns true if all nodes in the graph are in a snarl, and false otherwise.
+    bool is_decomposition_of(const HandleGraph& graph) const;
 
         
 private:
