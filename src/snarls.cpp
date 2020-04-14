@@ -13,8 +13,6 @@
 #include "algorithms/weakly_connected_components.hpp"
 #include "subgraph_overlay.hpp"
 
-#define debug
-
 namespace vg {
 
 CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph& graph, const string& hint_path) :
@@ -644,7 +642,6 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     // Return a pointer to the managed snarl.
     return managed;
 }
-#undef debug
 
 bool start_backward(const Chain& chain) {
     // The start snarl is backward if it is marked backward.
@@ -1108,7 +1105,6 @@ int SnarlManager::num_snarls()const{
 
 }
 
-#define debug
 bool SnarlManager::is_decomposition_of(const HandleGraph& graph) const {
     size_t expected_nodes = graph.get_node_count();
     
@@ -1131,9 +1127,7 @@ bool SnarlManager::is_decomposition_of(const HandleGraph& graph) const {
     
     return observed_nodes == expected_nodes;
 }
-#undef debug
 
-    
 void SnarlManager::flip(const Snarl* snarl) {
         
     // Get a non-const pointer to the SnarlRecord, which we own.
