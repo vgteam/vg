@@ -52,5 +52,6 @@ var searchData=
   ['drop_5fchain',['drop_chain',['../classvg_1_1Mapper.html#a838f9ae9f5f33ba048cf036788dece6a',1,'vg::Mapper']]],
   ['drop_5fhairpin_5fpaths',['drop_hairpin_paths',['../classvg_1_1SmallSnarlSimplifier.html#a929e965d0e8441162fa2fe94c29760de',1,'vg::SmallSnarlSimplifier']]],
   ['drop_5fsplit',['drop_split',['../classvg_1_1ReadFilter.html#a6eba4b03f0f697ae6540a255dd7b0627',1,'vg::ReadFilter']]],
-  ['dynamic_5fmax_5falt_5falns',['dynamic_max_alt_alns',['../classvg_1_1MultipathMapper.html#a0b5bddc4e714e176cfe9c1a9680fa60a',1,'vg::MultipathMapper']]]
+  ['dynamic_5fmax_5falt_5falns',['dynamic_max_alt_alns',['../classvg_1_1MultipathMapper.html#a0b5bddc4e714e176cfe9c1a9680fa60a',1,'vg::MultipathMapper']]],
+  ['dz',['dz',['../classvg_1_1XdropAligner.html#a295e2d0944a90dc202bcb86e312e63bf',1,'vg::XdropAligner']]]
 ];

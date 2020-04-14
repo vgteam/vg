@@ -79,7 +79,7 @@ var searchData=
   ['init_5fcoverage_5fbin',['init_coverage_bin',['../classvg_1_1Packer.html#abdd9bd13b38dced4c61d78e5baf3c0fb',1,'vg::Packer']]],
   ['init_5fedge_5fcoverage_5fbin',['init_edge_coverage_bin',['../classvg_1_1Packer.html#a693598b3d8227598075e02fbc8124789',1,'vg::Packer']]],
   ['init_5fmapper',['init_mapper',['../classvg_1_1Filter.html#abd9fa5045b867b20e1b20e3d74d77e4b',1,'vg::Filter']]],
-  ['init_5fmapping_5fquality',['init_mapping_quality',['../classvg_1_1GSSWAligner.html#aa940804996a9028d35d110475701c3dd',1,'vg::GSSWAligner::init_mapping_quality()'],['../classvg_1_1QualAdjAligner.html#a0bae95094ac53c096eaf4ab381762d39',1,'vg::QualAdjAligner::init_mapping_quality()']]],
+  ['init_5fmapping_5fquality',['init_mapping_quality',['../classvg_1_1GSSWAligner.html#ab7540eba367eaa6d11ca74b7f68bad32',1,'vg::GSSWAligner']]],
   ['initial_5fposition',['initial_position',['../namespacevg.html#acd31d3a8dc67801f147d0ba1b0059c3f',1,'vg']]],
   ['initialize_5fsam_5ffile',['initialize_sam_file',['../classvg_1_1HTSAlignmentEmitter.html#a13ea72ef0fd7badeb2ae3e951acc8c43',1,'vg::HTSAlignmentEmitter']]],
   ['inject_5fmain_2ecpp',['inject_main.cpp',['../inject__main_8cpp.html',1,'']]],

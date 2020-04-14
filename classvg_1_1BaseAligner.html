@@ -88,15 +88,12 @@ Inheritance diagram for vg::BaseAligner:</div>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:ab3a34237fdab3a6ea2aa3addbc17cbf8"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseAligner.html#ab3a34237fdab3a6ea2aa3addbc17cbf8">align</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool traceback_aln, bool print_score_matrices) const =0</td></tr>
 <tr class="separator:ab3a34237fdab3a6ea2aa3addbc17cbf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1c96363e80c97b3033f2d447b344e5c5"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseAligner.html#a1c96363e80c97b3033f2d447b344e5c5">align</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order, bool traceback_aln, bool print_score_matrices) const =0</td></tr>
-<tr class="memdesc:a1c96363e80c97b3033f2d447b344e5c5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Same as previous, but takes advantage of a pre-computed topological order.  <a href="#a1c96363e80c97b3033f2d447b344e5c5">More...</a><br /></td></tr>
-<tr class="separator:a1c96363e80c97b3033f2d447b344e5c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>The abstract interface that any <a class="el" href="classvg_1_1Aligner.html">Aligner</a> should implement. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="ab3a34237fdab3a6ea2aa3addbc17cbf8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab3a34237fdab3a6ea2aa3addbc17cbf8">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ab3a34237fdab3a6ea2aa3addbc17cbf8">&#9670;&nbsp;</a></span>align()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -143,64 +140,6 @@ Public Member Functions</h2></td></tr>
 <p>Store optimal local alignment against a graph in the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object. Gives the full length bonus separately on each end of the alignment. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#aad86c9501203a634e2498e86e7f7de4c">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a143e59003d560cb7ea7114e3ee2b9e40">vg::Aligner</a>.</p>
-
-</div>
-</div>
-<a id="a1c96363e80c97b3033f2d447b344e5c5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1c96363e80c97b3033f2d447b344e5c5">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual void vg::BaseAligner::align </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>alignment</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>g</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>topological_order</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>traceback_aln</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>print_score_matrices</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Same as previous, but takes advantage of a pre-computed topological order. </p>
-
-<p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#a2cb85deafa144c5f76d6ad5fddec032b">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#aad460ce05384435cbd77a7b00f7b42c4">vg::Aligner</a>.</p>
 
 </div>
 </div>

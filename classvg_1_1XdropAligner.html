@@ -85,126 +85,63 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a1821b31c8dcadd3e65f2b124bcd11495"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a1821b31c8dcadd3e65f2b124bcd11495">XdropAligner</a> (int8_t _match, int8_t _mismatch, int8_t _gap_open, int8_t _gap_extension, int32_t _full_length_bonus, uint32_t _max_gap_length)</td></tr>
-<tr class="separator:a1821b31c8dcadd3e65f2b124bcd11495"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad475d9a53dd450243c8b0c2160425579"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#ad475d9a53dd450243c8b0c2160425579">XdropAligner</a> (const int8_t *_score_matrix, int8_t _gap_open, int8_t _gap_extension, int32_t _full_length_bonus, uint32_t _max_gap_length)</td></tr>
+<tr class="memdesc:ad475d9a53dd450243c8b0c2160425579"><td class="mdescLeft">&#160;</td><td class="mdescRight">Main constructor. Expects a 4 x 4 score matrix.  <a href="#ad475d9a53dd450243c8b0c2160425579">More...</a><br /></td></tr>
 <tr class="separator:ad475d9a53dd450243c8b0c2160425579"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a76bd0589c6847bc786c320f5f5d841d9"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a76bd0589c6847bc786c320f5f5d841d9">XdropAligner</a> ()</td></tr>
 <tr class="separator:a76bd0589c6847bc786c320f5f5d841d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaa342dfcc4afb1448b98857fd216044a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#aaa342dfcc4afb1448b98857fd216044a">~XdropAligner</a> (void)</td></tr>
 <tr class="separator:aaa342dfcc4afb1448b98857fd216044a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a23975114fde9df918f9ed7a5cc8051b2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a23975114fde9df918f9ed7a5cc8051b2">align</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented) const</td></tr>
-<tr class="separator:a23975114fde9df918f9ed7a5cc8051b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaf88c59dfbbfd4c7034432004f8f05f5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#aaf88c59dfbbfd4c7034432004f8f05f5">align</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented) const</td></tr>
-<tr class="memdesc:aaf88c59dfbbfd4c7034432004f8f05f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Implementation of <a class="el" href="classvg_1_1XdropAligner.html#a23975114fde9df918f9ed7a5cc8051b2">align()</a> that automatically wraps up a topologically-ordered Protobuf graph as an <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a>.  <a href="#aaf88c59dfbbfd4c7034432004f8f05f5">More...</a><br /></td></tr>
-<tr class="separator:aaf88c59dfbbfd4c7034432004f8f05f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0b7c44aca5ba4fc98a691d5ab667ee87"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a0b7c44aca5ba4fc98a691d5ab667ee87">align_pinned</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left) const</td></tr>
-<tr class="separator:a0b7c44aca5ba4fc98a691d5ab667ee87"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a850f3ceb6edd996bfb2f59c031bc9cc3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a850f3ceb6edd996bfb2f59c031bc9cc3">align_pinned</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order, bool pin_left) const</td></tr>
-<tr class="separator:a850f3ceb6edd996bfb2f59c031bc9cc3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a605020a268ee52042da27755b773a155"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a605020a268ee52042da27755b773a155">XdropAligner</a> (<a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> const &amp;)</td></tr>
-<tr class="separator:a605020a268ee52042da27755b773a155"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2195a7231e605e9179f2de889ac71ec4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a2195a7231e605e9179f2de889ac71ec4">operator=</a> (<a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> const &amp;)</td></tr>
-<tr class="separator:a2195a7231e605e9179f2de889ac71ec4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af8fca674950eef5af6a9a32aaafd17a8"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#af8fca674950eef5af6a9a32aaafd17a8">XdropAligner</a> (<a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&amp;)</td></tr>
-<tr class="separator:af8fca674950eef5af6a9a32aaafd17a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa742262d1837a035f149a86bcf8fb9ea"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#aa742262d1837a035f149a86bcf8fb9ea">operator=</a> (<a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&amp;)</td></tr>
-<tr class="separator:aa742262d1837a035f149a86bcf8fb9ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af42a02f900600c3c375fa0b6644c97a9"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#af42a02f900600c3c375fa0b6644c97a9">XdropAligner</a> (const <a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;other)</td></tr>
+<tr class="memdesc:af42a02f900600c3c375fa0b6644c97a9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Copy constructor.  <a href="#af42a02f900600c3c375fa0b6644c97a9">More...</a><br /></td></tr>
+<tr class="separator:af42a02f900600c3c375fa0b6644c97a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5bb2cfcbd85802990c1386827ac98192"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a5bb2cfcbd85802990c1386827ac98192">operator=</a> (const <a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;other)</td></tr>
+<tr class="memdesc:a5bb2cfcbd85802990c1386827ac98192"><td class="mdescLeft">&#160;</td><td class="mdescRight">Copy assignment.  <a href="#a5bb2cfcbd85802990c1386827ac98192">More...</a><br /></td></tr>
+<tr class="separator:a5bb2cfcbd85802990c1386827ac98192"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2eb9135c8b9e7534b90124968e4d3f48"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a2eb9135c8b9e7534b90124968e4d3f48">XdropAligner</a> (<a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&amp;other)</td></tr>
+<tr class="memdesc:a2eb9135c8b9e7534b90124968e4d3f48"><td class="mdescLeft">&#160;</td><td class="mdescRight">Move constructor.  <a href="#a2eb9135c8b9e7534b90124968e4d3f48">More...</a><br /></td></tr>
+<tr class="separator:a2eb9135c8b9e7534b90124968e4d3f48"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a39627c50a6e60a7f065332fbd99fdcba"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a39627c50a6e60a7f065332fbd99fdcba">operator=</a> (<a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&amp;other)</td></tr>
+<tr class="memdesc:a39627c50a6e60a7f065332fbd99fdcba"><td class="mdescLeft">&#160;</td><td class="mdescRight">Move assignment.  <a href="#a39627c50a6e60a7f065332fbd99fdcba">More...</a><br /></td></tr>
+<tr class="separator:a39627c50a6e60a7f065332fbd99fdcba"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a40d27b7a7a9c5832abac089625a64735"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a40d27b7a7a9c5832abac089625a64735">align</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented)</td></tr>
+<tr class="separator:a40d27b7a7a9c5832abac089625a64735"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a43a30365d55a27e1952f3d53a446b55f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a43a30365d55a27e1952f3d53a446b55f">align_pinned</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left)</td></tr>
+<tr class="separator:a43a30365d55a27e1952f3d53a446b55f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
 <tr class="memitem:a1a0c54bcbc1acb9d0be1ad615b78f321"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a1a0c54bcbc1acb9d0be1ad615b78f321">calculate_seed_position</a> (const <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a> &amp;graph, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, size_t query_length, bool direction) const</td></tr>
 <tr class="separator:a1a0c54bcbc1acb9d0be1ad615b78f321"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab2f1cc3cb81d6504bf862636f070a700"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#ab2f1cc3cb81d6504bf862636f070a700">calculate_max_position</a> (const <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a> &amp;graph, const <a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a> &amp;seed_pos, size_t max_node_index, bool direction, dz_s *dz, const vector&lt; const dz_forefront_s *&gt; &amp;forefronts) const</td></tr>
-<tr class="separator:ab2f1cc3cb81d6504bf862636f070a700"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6df254b3222ef7c54b8c6c66a137b92f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a6df254b3222ef7c54b8c6c66a137b92f">scan_seed_position</a> (const <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a> &amp;graph, const string &amp;query_seq, bool direction, dz_s *dz, vector&lt; const dz_forefront_s *&gt; &amp;forefronts) const</td></tr>
-<tr class="separator:a6df254b3222ef7c54b8c6c66a137b92f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3b520c9e0a29ba341f0996e4731b0ff2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a3b520c9e0a29ba341f0996e4731b0ff2">calculate_max_position</a> (const <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a> &amp;graph, const <a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a> &amp;seed_pos, size_t max_node_index, bool direction, const vector&lt; const dz_forefront_s *&gt; &amp;forefronts)</td></tr>
+<tr class="separator:a3b520c9e0a29ba341f0996e4731b0ff2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adb0616df2daf0ed53a7bd7a36891f3d9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#adb0616df2daf0ed53a7bd7a36891f3d9">scan_seed_position</a> (const <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a> &amp;graph, const string &amp;query_seq, bool direction, vector&lt; const dz_forefront_s *&gt; &amp;forefronts)</td></tr>
+<tr class="separator:adb0616df2daf0ed53a7bd7a36891f3d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1db5e65dc39cde38d86f3e8b2e0fb0df"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a1db5e65dc39cde38d86f3e8b2e0fb0df">push_edit</a> (<a class="el" href="structvg_1_1Mapping.html">Mapping</a> *mapping, uint8_t op, const char *alt, size_t len) const</td></tr>
 <tr class="separator:a1db5e65dc39cde38d86f3e8b2e0fb0df"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a19a898c257ba5cb896a1fe31beffc870"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a19a898c257ba5cb896a1fe31beffc870">extend</a> (const <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a> &amp;graph, const dz_query_s *packed_query, const vector&lt; <a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a> &gt; &amp;seed_positions, bool right_to_left, dz_s *dz, vector&lt; const dz_forefront_s *&gt; &amp;forefronts) const</td></tr>
-<tr class="separator:a19a898c257ba5cb896a1fe31beffc870"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5ba4cca0001224ded648192688c132a5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a5ba4cca0001224ded648192688c132a5">calculate_and_save_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a> &amp;graph, const vector&lt; <a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a> &gt; &amp;head_positions, size_t tail_node_index, bool left_to_right, dz_s *dz, const vector&lt; const dz_forefront_s *&gt; &amp;forefronts) const</td></tr>
-<tr class="separator:a5ba4cca0001224ded648192688c132a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8c2296800651b303259370a9f59ec436"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a8c2296800651b303259370a9f59ec436">align_downward</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a> &amp;graph, const vector&lt; <a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a> &gt; &amp;head_positions, bool left_to_right, dz_s *dz, vector&lt; const dz_forefront_s *&gt; &amp;forefronts) const</td></tr>
-<tr class="separator:a8c2296800651b303259370a9f59ec436"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaeadc37e17bc196873325a6e2c52ad20"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#aaeadc37e17bc196873325a6e2c52ad20">extend</a> (const <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a> &amp;graph, const dz_query_s *packed_query, const vector&lt; <a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a> &gt; &amp;seed_positions, bool right_to_left, vector&lt; const dz_forefront_s *&gt; &amp;forefronts)</td></tr>
+<tr class="separator:aaeadc37e17bc196873325a6e2c52ad20"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e563b6dee99127d291e7d686e63d4c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a2e563b6dee99127d291e7d686e63d4c6">calculate_and_save_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a> &amp;graph, const vector&lt; <a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a> &gt; &amp;head_positions, size_t tail_node_index, bool left_to_right, const vector&lt; const dz_forefront_s *&gt; &amp;forefronts)</td></tr>
+<tr class="separator:a2e563b6dee99127d291e7d686e63d4c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a11081edb8756b1c3d309de08ba566de1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a11081edb8756b1c3d309de08ba566de1">align_downward</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a> &amp;graph, const vector&lt; <a class="el" href="structvg_1_1XdropAligner_1_1graph__pos__s.html">graph_pos_s</a> &gt; &amp;head_positions, bool left_to_right, vector&lt; const dz_forefront_s *&gt; &amp;forefronts)</td></tr>
+<tr class="separator:a11081edb8756b1c3d309de08ba566de1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
-<tr class="memitem:a9b657c20f4559caedc19ca02d31875ce"><td class="memItemLeft" align="right" valign="top">int8_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a9b657c20f4559caedc19ca02d31875ce">score_matrix</a> = nullptr</td></tr>
-<tr class="memdesc:a9b657c20f4559caedc19ca02d31875ce"><td class="mdescLeft">&#160;</td><td class="mdescRight">4 x 4 matrix of match/mismatch scores  <a href="#a9b657c20f4559caedc19ca02d31875ce">More...</a><br /></td></tr>
-<tr class="separator:a9b657c20f4559caedc19ca02d31875ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a24c9d02835db5d40ddbfecf169798cfe"><td class="memItemLeft" align="right" valign="top">uint16_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a24c9d02835db5d40ddbfecf169798cfe">gap_open</a> = 0</td></tr>
-<tr class="memdesc:a24c9d02835db5d40ddbfecf169798cfe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Amount paid in addition to gap_extend on first base of a gap.  <a href="#a24c9d02835db5d40ddbfecf169798cfe">More...</a><br /></td></tr>
-<tr class="separator:a24c9d02835db5d40ddbfecf169798cfe"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4106821ab23b6b6248277a4efae0d99a"><td class="memItemLeft" align="right" valign="top">uint16_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a4106821ab23b6b6248277a4efae0d99a">gap_extend</a> = 0</td></tr>
-<tr class="memdesc:a4106821ab23b6b6248277a4efae0d99a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Amount paid on each base of a gap.  <a href="#a4106821ab23b6b6248277a4efae0d99a">More...</a><br /></td></tr>
-<tr class="separator:a4106821ab23b6b6248277a4efae0d99a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5a33499c77eb31aec0f4445546556766"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a5a33499c77eb31aec0f4445546556766">full_length_bonus</a> = 0</td></tr>
-<tr class="separator:a5a33499c77eb31aec0f4445546556766"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aef7521b9f4c9b6ef1f3e7d64526ba833"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#aef7521b9f4c9b6ef1f3e7d64526ba833">max_gap_length</a> = 0</td></tr>
-<tr class="separator:aef7521b9f4c9b6ef1f3e7d64526ba833"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a295e2d0944a90dc202bcb86e312e63bf"><td class="memItemLeft" align="right" valign="top">dz_s *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a295e2d0944a90dc202bcb86e312e63bf">dz</a> = nullptr</td></tr>
+<tr class="memdesc:a295e2d0944a90dc202bcb86e312e63bf"><td class="mdescLeft">&#160;</td><td class="mdescRight">The core dozeu class, which does the alignments.  <a href="#a295e2d0944a90dc202bcb86e312e63bf">More...</a><br /></td></tr>
+<tr class="separator:a295e2d0944a90dc202bcb86e312e63bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Align to a graph using the xdrop algorithm, as implemented in dozeu.</p>
 <p>The underlying Dozeu library is fundamentally based around semi-global alignment: extending an alignment from a known matching position (what in other parts of vg we call "pinned" alignment).</p>
 <p>To simulate non-pinned alignment, we align in two passes in different directions. One from a guess of a pinning position, to get a more accurate "head" pinning position for the other end, and once back from where the previous pass ended up, to get an overall hopefully-optimal alignment.</p>
 <p>If the input graph is not reverse-complemented, direction = false (reverse, right to left) on the first pass, and direction = true (forward, left to right) on the second. If it is reverse complemented, we flip them.</p>
-<p>This won't actually work in theory to get the optimal local alignment in all cases, but it works well in practice. </p>
+<p>This won't actually work in theory to get the optimal local alignment in all cases, but it works well in practice.</p>
+<p>This class maintains an internal dz_s, which is <em>NOT THREADSAFE</em>, and non-const during alignments. However, it may be reused for subsequent alignments. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a1821b31c8dcadd3e65f2b124bcd11495"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1821b31c8dcadd3e65f2b124bcd11495">&#9670;&nbsp;</a></span>XdropAligner() <span class="overload">[1/5]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">XdropAligner::XdropAligner </td>
-          <td>(</td>
-          <td class="paramtype">int8_t&#160;</td>
-          <td class="paramname"><em>_match</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int8_t&#160;</td>
-          <td class="paramname"><em>_mismatch</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int8_t&#160;</td>
-          <td class="paramname"><em>_gap_open</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int8_t&#160;</td>
-          <td class="paramname"><em>_gap_extension</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int32_t&#160;</td>
-          <td class="paramname"><em>_full_length_bonus</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">uint32_t&#160;</td>
-          <td class="paramname"><em>_max_gap_length</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="ad475d9a53dd450243c8b0c2160425579"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad475d9a53dd450243c8b0c2160425579">&#9670;&nbsp;</a></span>XdropAligner() <span class="overload">[2/5]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ad475d9a53dd450243c8b0c2160425579">&#9670;&nbsp;</a></span>XdropAligner() <span class="overload">[1/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -247,10 +184,12 @@ Private Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
+<p>Main constructor. Expects a 4 x 4 score matrix. </p>
+
 </div>
 </div>
 <a id="a76bd0589c6847bc786c320f5f5d841d9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a76bd0589c6847bc786c320f5f5d841d9">&#9670;&nbsp;</a></span>XdropAligner() <span class="overload">[3/5]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a76bd0589c6847bc786c320f5f5d841d9">&#9670;&nbsp;</a></span>XdropAligner() <span class="overload">[2/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -284,8 +223,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a605020a268ee52042da27755b773a155"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a605020a268ee52042da27755b773a155">&#9670;&nbsp;</a></span>XdropAligner() <span class="overload">[4/5]</span></h2>
+<a id="af42a02f900600c3c375fa0b6644c97a9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af42a02f900600c3c375fa0b6644c97a9">&#9670;&nbsp;</a></span>XdropAligner() <span class="overload">[3/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -293,17 +232,19 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">XdropAligner::XdropAligner </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> const &amp;&#160;</td>
-          <td class="paramname"><em>rhs</em></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&#160;</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
+<p>Copy constructor. </p>
+
 </div>
 </div>
-<a id="af8fca674950eef5af6a9a32aaafd17a8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af8fca674950eef5af6a9a32aaafd17a8">&#9670;&nbsp;</a></span>XdropAligner() <span class="overload">[5/5]</span></h2>
+<a id="a2eb9135c8b9e7534b90124968e4d3f48"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2eb9135c8b9e7534b90124968e4d3f48">&#9670;&nbsp;</a></span>XdropAligner() <span class="overload">[4/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -312,17 +253,19 @@ Private Attributes</h2></td></tr>
           <td class="memname">XdropAligner::XdropAligner </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&amp;&#160;</td>
-          <td class="paramname"><em>rhs</em></td><td>)</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
+<p>Move constructor. </p>
+
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a23975114fde9df918f9ed7a5cc8051b2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a23975114fde9df918f9ed7a5cc8051b2">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
+<a id="a40d27b7a7a9c5832abac089625a64735"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a40d27b7a7a9c5832abac089625a64735">&#9670;&nbsp;</a></span>align()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -342,12 +285,6 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>topological_order</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>mems</em>, </td>
         </tr>
@@ -360,64 +297,21 @@ Private Attributes</h2></td></tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td> const</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
 <p>align query: forward-backward banded alignment</p>
-<p>Compute an alignment of the given <a class="el" href="structvg_1_1Alignment.html">Alignment</a>'s sequence against the given topologically sorted graph, using (one of) the given MEMs to seed the alignment.</p>
+<p>Compute an alignment of the given <a class="el" href="structvg_1_1Alignment.html">Alignment</a>'s sequence against the given DAG, using (one of) the given MEMs to seed the alignment.</p>
 <p>reverse_complemented is true if the topologically sorted graph we have was reverse-complemented when extracted from a larger containing graph, and false if it is in the same orientation as it exists in the larger containing graph. The MEMs and the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> are interpreted as being against the forward strand of the passed subgraph no matter the value of this setting.</p>
 <p>reverse_complemented true means we will compute the alignment forward in the topologically-sorted order of the given graph (anchoring to the first node if no MEMs are provided) and false if we want to compute the alignment backward in the topological order (anchoring to the last node).</p>
-<p>All the graph edges must go from earlier to later nodes, and from_start and to_end must alsways be false.</p>
 <p>First the head (the most upstream) seed in MEMs is selected and extended downward to detect the downstream breakpoint. Next the alignment path is generated by second upward extension from the downstream breakpoint.</p>
 <p>The MEM list may be empty. If MEMs are provided, uses only the begin, end, and nodes fields of the <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> objects. It uses the first occurrence of the last MEM if reverse_complemented is true, and the last occurrence of the first MEM otherwise. </p>
 
 </div>
 </div>
-<a id="aaf88c59dfbbfd4c7034432004f8f05f5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aaf88c59dfbbfd4c7034432004f8f05f5">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void XdropAligner::align </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>alignment</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>mems</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>reverse_complemented</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Implementation of <a class="el" href="classvg_1_1XdropAligner.html#a23975114fde9df918f9ed7a5cc8051b2">align()</a> that automatically wraps up a topologically-ordered Protobuf graph as an <a class="el" href="structvg_1_1XdropAligner_1_1OrderedGraph.html">OrderedGraph</a>. </p>
-
-</div>
-</div>
-<a id="a8c2296800651b303259370a9f59ec436"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8c2296800651b303259370a9f59ec436">&#9670;&nbsp;</a></span>align_downward()</h2>
+<a id="a11081edb8756b1c3d309de08ba566de1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a11081edb8756b1c3d309de08ba566de1">&#9670;&nbsp;</a></span>align_downward()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -452,19 +346,13 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">dz_s *&#160;</td>
-          <td class="paramname"><em>dz</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">vector&lt; const dz_forefront_s *&gt; &amp;&#160;</td>
           <td class="paramname"><em>forefronts</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td> const</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -477,8 +365,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a0b7c44aca5ba4fc98a691d5ab667ee87"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0b7c44aca5ba4fc98a691d5ab667ee87">&#9670;&nbsp;</a></span>align_pinned() <span class="overload">[1/2]</span></h2>
+<a id="a43a30365d55a27e1952f3d53a446b55f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a43a30365d55a27e1952f3d53a446b55f">&#9670;&nbsp;</a></span>align_pinned()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -504,7 +392,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td> const</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -513,49 +401,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a850f3ceb6edd996bfb2f59c031bc9cc3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a850f3ceb6edd996bfb2f59c031bc9cc3">&#9670;&nbsp;</a></span>align_pinned() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void XdropAligner::align_pinned </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>alignment</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>g</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>topological_order</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>pin_left</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p><a class="el" href="classvg_1_1Version.html" title="Class for holding vg version and build environment information. ">Version</a> of align_pinned that allows you to pass your own topological order. The topological order MUST be left to right, no matter whether you are pinning left or right. If alignment needs to proceed backward, it will be reversed internally. </p>
-
-</div>
-</div>
-<a id="a5ba4cca0001224ded648192688c132a5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5ba4cca0001224ded648192688c132a5">&#9670;&nbsp;</a></span>calculate_and_save_alignment()</h2>
+<a id="a2e563b6dee99127d291e7d686e63d4c6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2e563b6dee99127d291e7d686e63d4c6">&#9670;&nbsp;</a></span>calculate_and_save_alignment()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -596,19 +443,13 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">dz_s *&#160;</td>
-          <td class="paramname"><em>dz</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">const vector&lt; const dz_forefront_s *&gt; &amp;&#160;</td>
           <td class="paramname"><em>forefronts</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td> const</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -622,8 +463,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ab2f1cc3cb81d6504bf862636f070a700"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab2f1cc3cb81d6504bf862636f070a700">&#9670;&nbsp;</a></span>calculate_max_position()</h2>
+<a id="a3b520c9e0a29ba341f0996e4731b0ff2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3b520c9e0a29ba341f0996e4731b0ff2">&#9670;&nbsp;</a></span>calculate_max_position()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -658,19 +499,13 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">dz_s *&#160;</td>
-          <td class="paramname"><em>dz</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">const vector&lt; const dz_forefront_s *&gt; &amp;&#160;</td>
           <td class="paramname"><em>forefronts</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td> const</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -733,8 +568,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a19a898c257ba5cb896a1fe31beffc870"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a19a898c257ba5cb896a1fe31beffc870">&#9670;&nbsp;</a></span>extend()</h2>
+<a id="aaeadc37e17bc196873325a6e2c52ad20"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaeadc37e17bc196873325a6e2c52ad20">&#9670;&nbsp;</a></span>extend()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -769,19 +604,13 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">dz_s *&#160;</td>
-          <td class="paramname"><em>dz</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">vector&lt; const dz_forefront_s *&gt; &amp;&#160;</td>
           <td class="paramname"><em>forefronts</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td> const</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -799,8 +628,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a2195a7231e605e9179f2de889ac71ec4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2195a7231e605e9179f2de889ac71ec4">&#9670;&nbsp;</a></span>operator=() <span class="overload">[1/2]</span></h2>
+<a id="a5bb2cfcbd85802990c1386827ac98192"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5bb2cfcbd85802990c1386827ac98192">&#9670;&nbsp;</a></span>operator=() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -808,17 +637,19 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname"><a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp; XdropAligner::operator= </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> const &amp;&#160;</td>
-          <td class="paramname"><em>rhs</em></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&#160;</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
+<p>Copy assignment. </p>
+
 </div>
 </div>
-<a id="aa742262d1837a035f149a86bcf8fb9ea"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa742262d1837a035f149a86bcf8fb9ea">&#9670;&nbsp;</a></span>operator=() <span class="overload">[2/2]</span></h2>
+<a id="a39627c50a6e60a7f065332fbd99fdcba"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a39627c50a6e60a7f065332fbd99fdcba">&#9670;&nbsp;</a></span>operator=() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -827,11 +658,13 @@ Private Attributes</h2></td></tr>
           <td class="memname"><a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp; XdropAligner::operator= </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&amp;&#160;</td>
-          <td class="paramname"><em>rhs</em></td><td>)</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Move assignment. </p>
 
 </div>
 </div>
@@ -884,8 +717,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a6df254b3222ef7c54b8c6c66a137b92f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6df254b3222ef7c54b8c6c66a137b92f">&#9670;&nbsp;</a></span>scan_seed_position()</h2>
+<a id="adb0616df2daf0ed53a7bd7a36891f3d9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adb0616df2daf0ed53a7bd7a36891f3d9">&#9670;&nbsp;</a></span>scan_seed_position()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -914,19 +747,13 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">dz_s *&#160;</td>
-          <td class="paramname"><em>dz</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">vector&lt; const dz_forefront_s *&gt; &amp;&#160;</td>
           <td class="paramname"><em>forefronts</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td> const</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -941,8 +768,8 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="a5a33499c77eb31aec0f4445546556766"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5a33499c77eb31aec0f4445546556766">&#9670;&nbsp;</a></span>full_length_bonus</h2>
+<a id="a295e2d0944a90dc202bcb86e312e63bf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a295e2d0944a90dc202bcb86e312e63bf">&#9670;&nbsp;</a></span>dz</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -951,7 +778,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int32_t vg::XdropAligner::full_length_bonus = 0</td>
+          <td class="memname">dz_s* vg::XdropAligner::dz = nullptr</td>
         </tr>
       </table>
   </td>
@@ -961,99 +788,7 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-</div>
-</div>
-<a id="a4106821ab23b6b6248277a4efae0d99a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4106821ab23b6b6248277a4efae0d99a">&#9670;&nbsp;</a></span>gap_extend</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">uint16_t vg::XdropAligner::gap_extend = 0</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Amount paid on each base of a gap. </p>
-
-</div>
-</div>
-<a id="a24c9d02835db5d40ddbfecf169798cfe"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a24c9d02835db5d40ddbfecf169798cfe">&#9670;&nbsp;</a></span>gap_open</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">uint16_t vg::XdropAligner::gap_open = 0</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Amount paid in addition to gap_extend on first base of a gap. </p>
-
-</div>
-</div>
-<a id="aef7521b9f4c9b6ef1f3e7d64526ba833"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aef7521b9f4c9b6ef1f3e7d64526ba833">&#9670;&nbsp;</a></span>max_gap_length</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">uint32_t vg::XdropAligner::max_gap_length = 0</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a9b657c20f4559caedc19ca02d31875ce"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9b657c20f4559caedc19ca02d31875ce">&#9670;&nbsp;</a></span>score_matrix</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">int8_t* vg::XdropAligner::score_matrix = nullptr</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>4 x 4 matrix of match/mismatch scores </p>
+<p>The core dozeu class, which does the alignments. </p>
 
 </div>
 </div>

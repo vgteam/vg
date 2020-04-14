@@ -35,6 +35,7 @@ var searchData=
   ['parse_5fintrons',['parse_introns',['../classvg_1_1Transcriptome.html#a954160949915051dde8820f2b22f822b',1,'vg::Transcriptome']]],
   ['parse_5fkmer',['parse_kmer',['../classvg_1_1Index.html#a68bed6e28a6e9e2c71024292477cc104',1,'vg::Index']]],
   ['parse_5fmapping',['parse_mapping',['../classvg_1_1Index.html#ae64eec10b2a79efca1621217b7cb23c7',1,'vg::Index']]],
+  ['parse_5fmatrix',['parse_matrix',['../classvg_1_1AlignerClient.html#afe30f7cbea293a0fe369c21e22bf7881',1,'vg::AlignerClient']]],
   ['parse_5fnode',['parse_node',['../classvg_1_1Index.html#a76dd2982617012d1ed4d32e267a01770',1,'vg::Index']]],
   ['parse_5fnode_5fpath',['parse_node_path',['../classvg_1_1Index.html#aa924c65de2a0ab1c430eee8ac4ba0041',1,'vg::Index']]],
   ['parse_5fpath_5fposition',['parse_path_position',['../classvg_1_1Index.html#a1d385835be4e163907c3d7cb290f8093',1,'vg::Index']]],

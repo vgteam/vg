@@ -31,7 +31,6 @@ var searchData=
   ['load_5fpack_5fas_5fsupports',['load_pack_as_supports',['../structvg_1_1SupportAugmentedGraph.html#ac7374e695e572eb9eace645005992ec9',1,'vg::SupportAugmentedGraph']]],
   ['load_5fpaths',['load_paths',['../classvg_1_1Index.html#a8f24c391c502aa89f3f089c5a2c4eada',1,'vg::Index']]],
   ['load_5fproto_5fto_5fgraph',['load_proto_to_graph',['../namespacevg_1_1io.html#aeef1360dbaeba693008f3ee0d39dde30',1,'vg::io::load_proto_to_graph(vg::MutablePathMutableHandleGraph *destination, const vg::io::message_sender_function_t &amp;for_each_message)'],['../namespacevg_1_1io.html#ad96a1414b35d7f181ddbb3194d6dcf6c',1,'vg::io::load_proto_to_graph(vg::MutablePathMutableHandleGraph *destination, const function&lt; void(const function&lt; void(Graph &amp;)&gt; &amp;)&gt; &amp;chunk_sender)']]],
-  ['load_5fscoring_5fmatrix',['load_scoring_matrix',['../classvg_1_1GSSWAligner.html#a76a56281ddd422dfee5e617c7a39bcbc',1,'vg::GSSWAligner::load_scoring_matrix()'],['../classvg_1_1AlignerClient.html#a2ef1e755d0886e16328eb9818ae31fb2',1,'vg::AlignerClient::load_scoring_matrix()']]],
   ['load_5fsupports',['load_supports',['../structvg_1_1SupportAugmentedGraph.html#a1aef5debe026648525732be7bc6cc4b1',1,'vg::SupportAugmentedGraph']]],
   ['load_5ftranslations',['load_translations',['../structvg_1_1AugmentedGraph.html#af86dc51d58ee0cfa4513602dccc373cd',1,'vg::AugmentedGraph']]],
   ['local_5fhandle',['local_handle',['../classxg_1_1XGPath.html#a6a9566f974aebd3c74fc00ee9dc0c5f0',1,'xg::XGPath']]],

@@ -61,7 +61,6 @@ var searchData=
   ['load_5fproto_5fto_5fgraph',['load_proto_to_graph',['../namespacevg_1_1io.html#aeef1360dbaeba693008f3ee0d39dde30',1,'vg::io::load_proto_to_graph(vg::MutablePathMutableHandleGraph *destination, const vg::io::message_sender_function_t &amp;for_each_message)'],['../namespacevg_1_1io.html#ad96a1414b35d7f181ddbb3194d6dcf6c',1,'vg::io::load_proto_to_graph(vg::MutablePathMutableHandleGraph *destination, const function&lt; void(const function&lt; void(Graph &amp;)&gt; &amp;)&gt; &amp;chunk_sender)']]],
   ['load_5fproto_5fto_5fgraph_2ecpp',['load_proto_to_graph.cpp',['../load__proto__to__graph_8cpp.html',1,'']]],
   ['load_5fproto_5fto_5fgraph_2ehpp',['load_proto_to_graph.hpp',['../load__proto__to__graph_8hpp.html',1,'']]],
-  ['load_5fscoring_5fmatrix',['load_scoring_matrix',['../classvg_1_1GSSWAligner.html#a76a56281ddd422dfee5e617c7a39bcbc',1,'vg::GSSWAligner::load_scoring_matrix()'],['../classvg_1_1AlignerClient.html#a2ef1e755d0886e16328eb9818ae31fb2',1,'vg::AlignerClient::load_scoring_matrix()']]],
   ['load_5fsearching',['LOAD_SEARCHING',['../classvg_1_1io_1_1VPKG.html#a8628083f85511abc137b64c80985160fa13a501190b9ad99796a37541966ba2df',1,'vg::io::VPKG']]],
   ['load_5fsuccess',['LOAD_SUCCESS',['../classvg_1_1io_1_1VPKG.html#a8628083f85511abc137b64c80985160fa0144ac24be607b318784e8f649a5e805',1,'vg::io::VPKG']]],
   ['load_5fsupports',['load_supports',['../structvg_1_1SupportAugmentedGraph.html#a1aef5debe026648525732be7bc6cc4b1',1,'vg::SupportAugmentedGraph']]],

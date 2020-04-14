@@ -65,7 +65,6 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="classvg_1_1QualAdjAligner-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -87,35 +86,22 @@ Inheritance diagram for vg::QualAdjAligner:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a66f0d6d56b8927f1e0c8e07b8f67b4df"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a66f0d6d56b8927f1e0c8e07b8f67b4df">QualAdjAligner</a> (int8_t _match=default_match, int8_t _mismatch=default_mismatch, int8_t _gap_open=default_gap_open, int8_t _gap_extension=default_gap_extension, int8_t _full_length_bonus=default_full_length_bonus, int8_t _max_scaled_score=default_max_scaled_score, uint8_t _max_qual_score=default_max_qual_score, double gc_content=default_gc_content)</td></tr>
-<tr class="separator:a66f0d6d56b8927f1e0c8e07b8f67b4df"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abb28b2864e6e48ed6e7ffe705be68a48"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#abb28b2864e6e48ed6e7ffe705be68a48">QualAdjAligner</a> (const int8_t *_score_matrix=default_score_matrix, int8_t _gap_open=default_gap_open, int8_t _gap_extension=default_gap_extension, int8_t _full_length_bonus=default_full_length_bonus, double _gc_content=default_gc_content)</td></tr>
+<tr class="separator:abb28b2864e6e48ed6e7ffe705be68a48"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad46461869b49eb5b7e4fe90437c86c99"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#ad46461869b49eb5b7e4fe90437c86c99">~QualAdjAligner</a> (void)=default</td></tr>
 <tr class="separator:ad46461869b49eb5b7e4fe90437c86c99"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aad86c9501203a634e2498e86e7f7de4c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#aad86c9501203a634e2498e86e7f7de4c">align</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool traceback_aln, bool print_score_matrices) const</td></tr>
 <tr class="separator:aad86c9501203a634e2498e86e7f7de4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2cb85deafa144c5f76d6ad5fddec032b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a2cb85deafa144c5f76d6ad5fddec032b">align</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order, bool traceback_aln, bool print_score_matrices) const</td></tr>
-<tr class="memdesc:a2cb85deafa144c5f76d6ad5fddec032b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Same as previous, but takes advantage of a pre-computed topological order.  <a href="#a2cb85deafa144c5f76d6ad5fddec032b">More...</a><br /></td></tr>
-<tr class="separator:a2cb85deafa144c5f76d6ad5fddec032b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab9e5a1a0233d35ee28789516b9344f43"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#ab9e5a1a0233d35ee28789516b9344f43">align_global_banded</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t band_padding=0, bool permissive_banding=true) const</td></tr>
 <tr class="separator:ab9e5a1a0233d35ee28789516b9344f43"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3425703cc1e73181b610972312558db9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a3425703cc1e73181b610972312558db9">align_pinned</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left) const</td></tr>
-<tr class="separator:a3425703cc1e73181b610972312558db9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6fdcb3b1e16589d596e7f6f313e7cc06"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a6fdcb3b1e16589d596e7f6f313e7cc06">align_pinned</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order, bool pin_left) const</td></tr>
-<tr class="separator:a6fdcb3b1e16589d596e7f6f313e7cc06"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9dc508d3399eec5ef6b92d4197484c5e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a9dc508d3399eec5ef6b92d4197484c5e">align_pinned</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left, bool xdrop=false) const</td></tr>
+<tr class="separator:a9dc508d3399eec5ef6b92d4197484c5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a70b09053f260e4a49da46b4a6799c729"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a70b09053f260e4a49da46b4a6799c729">align_global_banded_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t max_alt_alns, int32_t band_padding=0, bool permissive_banding=true) const</td></tr>
 <tr class="separator:a70b09053f260e4a49da46b4a6799c729"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4a3999dbef4ad44d15f9475c62809ec2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a4a3999dbef4ad44d15f9475c62809ec2">align_pinned_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left, int32_t max_alt_alns) const</td></tr>
 <tr class="separator:a4a3999dbef4ad44d15f9475c62809ec2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aca312f7f55919b4a8ff479e9aba74624"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#aca312f7f55919b4a8ff479e9aba74624">align_pinned_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order, bool pin_left, int32_t max_alt_alns) const</td></tr>
-<tr class="separator:aca312f7f55919b4a8ff479e9aba74624"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a76d48a8ce625da0fa4510ee5249ce06c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a76d48a8ce625da0fa4510ee5249ce06c">align_xdrop</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented) const</td></tr>
 <tr class="separator:a76d48a8ce625da0fa4510ee5249ce06c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a70dda2d7b14957eecddf5ebb9767bcd1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a70dda2d7b14957eecddf5ebb9767bcd1">align_xdrop_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented, int32_t max_alt_alns) const</td></tr>
-<tr class="separator:a70dda2d7b14957eecddf5ebb9767bcd1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aef28fc39c5128de79e446302c5fd5284"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#aef28fc39c5128de79e446302c5fd5284">get_xdrop</a> () const</td></tr>
-<tr class="separator:aef28fc39c5128de79e446302c5fd5284"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0bae95094ac53c096eaf4ab381762d39"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a0bae95094ac53c096eaf4ab381762d39">init_mapping_quality</a> (double gc_content)</td></tr>
-<tr class="separator:a0bae95094ac53c096eaf4ab381762d39"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac206da9087de3fd77d26147e26ebb9dd"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#ac206da9087de3fd77d26147e26ebb9dd">score_exact_match</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t read_offset, size_t length) const</td></tr>
 <tr class="separator:ac206da9087de3fd77d26147e26ebb9dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a89a12943aa532cda18ebbd5ccb8ac7f9"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a89a12943aa532cda18ebbd5ccb8ac7f9">score_exact_match</a> (const string &amp;sequence, const string &amp;base_quality) const</td></tr>
@@ -159,17 +145,21 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:adc2d6f944b926b5ea68c2efafa6148d4 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af219d7a5a78802188e43979c495ac015 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#af219d7a5a78802188e43979c495ac015">score_ungapped_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool strip_bonuses=false) const</td></tr>
 <tr class="separator:af219d7a5a78802188e43979c495ac015 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a76a56281ddd422dfee5e617c7a39bcbc inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a76a56281ddd422dfee5e617c7a39bcbc">load_scoring_matrix</a> (std::istream &amp;matrix_stream)</td></tr>
-<tr class="separator:a76a56281ddd422dfee5e617c7a39bcbc inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a092c4c915bea1128d93f8f26056d0e84 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a092c4c915bea1128d93f8f26056d0e84">remove_bonuses</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool pinned=false, bool pin_left=false) const</td></tr>
 <tr class="separator:a092c4c915bea1128d93f8f26056d0e84 inherit pub_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
-Public Attributes</h2></td></tr>
-<tr class="memitem:ab94be1b8f877c101da37516e5184fab7"><td class="memItemLeft" align="right" valign="top">uint8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#ab94be1b8f877c101da37516e5184fab7">max_qual_score</a></td></tr>
-<tr class="separator:ab94be1b8f877c101da37516e5184fab7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a23d8dac870d6d716120f91b287a7e88b"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a23d8dac870d6d716120f91b287a7e88b">scale_factor</a></td></tr>
-<tr class="separator:a23d8dac870d6d716120f91b287a7e88b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
+Private Member Functions</h2></td></tr>
+<tr class="memitem:a3fa05781542b5439b259ca4db239d469"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a3fa05781542b5439b259ca4db239d469">align_internal</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; *multi_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pinned, bool pin_left, int32_t max_alt_alns, bool traceback_aln, bool print_score_matrices) const</td></tr>
+<tr class="separator:a3fa05781542b5439b259ca4db239d469"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
+Additional Inherited Members</h2></td></tr>
+<tr class="inherit_header pub_static_methods_classvg_1_1GSSWAligner"><td colspan="2" onclick="javascript:toggleInherit('pub_static_methods_classvg_1_1GSSWAligner')"><img src="closed.png" alt="-"/>&#160;Static Public Member Functions inherited from <a class="el" href="classvg_1_1GSSWAligner.html">vg::GSSWAligner</a></td></tr>
+<tr class="memitem:a6f627fd08a61adb4cd8761b2715e2398 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a6f627fd08a61adb4cd8761b2715e2398">maximum_mapping_quality_exact</a> (const vector&lt; double &gt; &amp;scaled_scores, size_t *max_idx_out, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
+<tr class="separator:a6f627fd08a61adb4cd8761b2715e2398 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab0e776948467dcbe816f68b378ccd720 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab0e776948467dcbe816f68b378ccd720">maximum_mapping_quality_approx</a> (const vector&lt; double &gt; &amp;scaled_scores, size_t *max_idx_out, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
+<tr class="separator:ab0e776948467dcbe816f68b378ccd720 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_attribs_classvg_1_1GSSWAligner"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1GSSWAligner')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1GSSWAligner.html">vg::GSSWAligner</a></td></tr>
 <tr class="memitem:a73b117b8b0b894ce486bdb2c4eeeeb10 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">int8_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a73b117b8b0b894ce486bdb2c4eeeeb10">nt_table</a> = nullptr</td></tr>
 <tr class="separator:a73b117b8b0b894ce486bdb2c4eeeeb10 inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -187,19 +177,6 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a24ee1a1d5b84c90c7fc77a4b7d8660bd inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5a1a7e6edc3764ff32f7815999d6345f inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a5a1a7e6edc3764ff32f7815999d6345f">log_base</a> = 0.0</td></tr>
 <tr class="separator:a5a1a7e6edc3764ff32f7815999d6345f inherit pub_attribs_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
-Private Member Functions</h2></td></tr>
-<tr class="memitem:abdbac8e156ba5beded2d62dfd1260f49"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#abdbac8e156ba5beded2d62dfd1260f49">align_internal</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; *multi_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *topological_order, bool pinned, bool pin_left, int32_t max_alt_alns, bool traceback_aln, bool print_score_matrices) const</td></tr>
-<tr class="separator:abdbac8e156ba5beded2d62dfd1260f49"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
-Additional Inherited Members</h2></td></tr>
-<tr class="inherit_header pub_static_methods_classvg_1_1GSSWAligner"><td colspan="2" onclick="javascript:toggleInherit('pub_static_methods_classvg_1_1GSSWAligner')"><img src="closed.png" alt="-"/>&#160;Static Public Member Functions inherited from <a class="el" href="classvg_1_1GSSWAligner.html">vg::GSSWAligner</a></td></tr>
-<tr class="memitem:a6f627fd08a61adb4cd8761b2715e2398 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a6f627fd08a61adb4cd8761b2715e2398">maximum_mapping_quality_exact</a> (const vector&lt; double &gt; &amp;scaled_scores, size_t *max_idx_out, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
-<tr class="separator:a6f627fd08a61adb4cd8761b2715e2398 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab0e776948467dcbe816f68b378ccd720 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab0e776948467dcbe816f68b378ccd720">maximum_mapping_quality_approx</a> (const vector&lt; double &gt; &amp;scaled_scores, size_t *max_idx_out, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
-<tr class="separator:ab0e776948467dcbe816f68b378ccd720 inherit pub_static_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classvg_1_1GSSWAligner"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1GSSWAligner')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1GSSWAligner.html">vg::GSSWAligner</a></td></tr>
 <tr class="memitem:a02c1c427118eb1a8244274d852684c79 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79">GSSWAligner</a> ()=default</td></tr>
 <tr class="separator:a02c1c427118eb1a8244274d852684c79 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -207,8 +184,6 @@ Additional Inherited Members</h2></td></tr>
 <tr class="separator:a14f93c839c3aab59afee99708cb83430 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a56a0a0d3962e573dc9ed372394fbd13a inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">gssw_graph *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a56a0a0d3962e573dc9ed372394fbd13a">create_gssw_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g) const</td></tr>
 <tr class="separator:a56a0a0d3962e573dc9ed372394fbd13a inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3586c13d270cfe66ec95046d646e7b2b inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">gssw_graph *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a3586c13d270cfe66ec95046d646e7b2b">create_gssw_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order) const</td></tr>
-<tr class="separator:a3586c13d270cfe66ec95046d646e7b2b inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9e07985027f6dffb561b132a32fc0fae inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a9e07985027f6dffb561b132a32fc0fae">identify_pinning_points</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph) const</td></tr>
 <tr class="separator:a9e07985027f6dffb561b132a32fc0fae inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:add9329344fdf10d65d9d6c2fd35e8cf2 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#add9329344fdf10d65d9d6c2fd35e8cf2">unreverse_graph_mapping</a> (gssw_graph_mapping *gm) const</td></tr>
@@ -223,14 +198,14 @@ Additional Inherited Members</h2></td></tr>
 <tr class="separator:ab28b533e37bb8cfa19c2e080a7e88bd2 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa5cbf3bce1fe039727bf1e91581d7df1 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#aa5cbf3bce1fe039727bf1e91581d7df1">estimate_next_best_score</a> (int length, double min_diffs) const</td></tr>
 <tr class="separator:aa5cbf3bce1fe039727bf1e91581d7df1 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa940804996a9028d35d110475701c3dd inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#aa940804996a9028d35d110475701c3dd">init_mapping_quality</a> (double gc_content)</td></tr>
-<tr class="separator:aa940804996a9028d35d110475701c3dd inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab7540eba367eaa6d11ca74b7f68bad32 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab7540eba367eaa6d11ca74b7f68bad32">init_mapping_quality</a> (const int8_t *<a class="el" href="classvg_1_1GSSWAligner.html#a9ad471080a267eb489e31523ef2b5f2b">score_matrix</a>, double gc_content)</td></tr>
+<tr class="separator:ab7540eba367eaa6d11ca74b7f68bad32 inherit pro_methods_classvg_1_1GSSWAligner"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>An aligner that uses read base qualities to adjust its scores and alignments. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a66f0d6d56b8927f1e0c8e07b8f67b4df"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a66f0d6d56b8927f1e0c8e07b8f67b4df">&#9670;&nbsp;</a></span>QualAdjAligner()</h2>
+<a id="abb28b2864e6e48ed6e7ffe705be68a48"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abb28b2864e6e48ed6e7ffe705be68a48">&#9670;&nbsp;</a></span>QualAdjAligner()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -238,14 +213,8 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="memname">QualAdjAligner::QualAdjAligner </td>
           <td>(</td>
-          <td class="paramtype">int8_t&#160;</td>
-          <td class="paramname"><em>_match</em> = <code>default_match</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int8_t&#160;</td>
-          <td class="paramname"><em>_mismatch</em> = <code>default_mismatch</code>, </td>
+          <td class="paramtype">const int8_t *&#160;</td>
+          <td class="paramname"><em>_score_matrix</em> = <code>default_score_matrix</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -268,20 +237,8 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int8_t&#160;</td>
-          <td class="paramname"><em>_max_scaled_score</em> = <code>default_max_scaled_score</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">uint8_t&#160;</td>
-          <td class="paramname"><em>_max_qual_score</em> = <code>default_max_qual_score</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
           <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>gc_content</em> = <code>default_gc_content</code>&#160;</td>
+          <td class="paramname"><em>_gc_content</em> = <code>default_gc_content</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -321,7 +278,7 @@ Additional Inherited Members</h2></td></tr>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
 <a id="aad86c9501203a634e2498e86e7f7de4c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aad86c9501203a634e2498e86e7f7de4c">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#aad86c9501203a634e2498e86e7f7de4c">&#9670;&nbsp;</a></span>align()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -371,64 +328,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a2cb85deafa144c5f76d6ad5fddec032b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2cb85deafa144c5f76d6ad5fddec032b">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void QualAdjAligner::align </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>alignment</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>g</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>topological_order</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>traceback_aln</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>print_score_matrices</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Same as previous, but takes advantage of a pre-computed topological order. </p>
-
-<p>Implements <a class="el" href="classvg_1_1BaseAligner.html#a1c96363e80c97b3033f2d447b344e5c5">vg::BaseAligner</a>.</p>
-
-</div>
-</div>
 <a id="ab9e5a1a0233d35ee28789516b9344f43"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab9e5a1a0233d35ee28789516b9344f43">&#9670;&nbsp;</a></span>align_global_banded()</h2>
 
@@ -474,6 +373,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>store optimal global alignment against a graph within a specified band in the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object permissive banding auto detects the width of band needed so that paths can travel through every node in the graph </p>
 
 <p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#a350908e38cee67ddbe77395624a1cb50">vg::GSSWAligner</a>.</p>
 
@@ -536,13 +436,14 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>store top scoring global alignments in the vector in descending score order up to a maximum number of alternate alignments (including the optimal alignment). if there are fewer than the maximum number of alignments in the return value, then the vector contains all possible alignments. the optimal alignment will be stored in both the vector and the original alignment object </p>
 
 <p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#ab3b92372eb75a5b54311b74aa6fe9190">vg::GSSWAligner</a>.</p>
 
 </div>
 </div>
-<a id="abdbac8e156ba5beded2d62dfd1260f49"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abdbac8e156ba5beded2d62dfd1260f49">&#9670;&nbsp;</a></span>align_internal()</h2>
+<a id="a3fa05781542b5439b259ca4db239d469"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3fa05781542b5439b259ca4db239d469">&#9670;&nbsp;</a></span>align_internal()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -567,12 +468,6 @@ Additional Inherited Members</h2></td></tr>
           <td></td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>g</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *&#160;</td>
-          <td class="paramname"><em>topological_order</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -620,8 +515,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a3425703cc1e73181b610972312558db9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3425703cc1e73181b610972312558db9">&#9670;&nbsp;</a></span>align_pinned() <span class="overload">[1/2]</span></h2>
+<a id="a9dc508d3399eec5ef6b92d4197484c5e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9dc508d3399eec5ef6b92d4197484c5e">&#9670;&nbsp;</a></span>align_pinned()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -645,57 +540,13 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>pin_left</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#adba9ae12451d00c8ee05a118a09c32ca">vg::GSSWAligner</a>.</p>
-
-</div>
-</div>
-<a id="a6fdcb3b1e16589d596e7f6f313e7cc06"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6fdcb3b1e16589d596e7f6f313e7cc06">&#9670;&nbsp;</a></span>align_pinned() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void QualAdjAligner::align_pinned </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>alignment</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>g</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>topological_order</em>, </td>
+          <td class="paramname"><em>pin_left</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>pin_left</em>&#160;</td>
+          <td class="paramname"><em>xdrop</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -709,14 +560,16 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>The topological order MUST be left to right, no matter whether you are pinning left or right. If alignment needs to proceed backward, it will be reversed internally. </p>
+<p>store optimal alignment against a graph in the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object with one end of the sequence guaranteed to align to a source/sink node. if xdrop is selected, use the xdrop heuristic, which does not guarantee an optimal alignment.</p>
+<p>pinning left means that that the alignment starts with the first base of the read sequence and the first base of a source node sequence, pinning right means that the alignment starts with the final base of the read sequence and the final base of a sink node sequence</p>
+<p>Gives the full length bonus only on the non-pinned end of the alignment. </p>
 
-<p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#a8e52011802b84cb10b987744458cce72">vg::GSSWAligner</a>.</p>
+<p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#ad00f9fddfad65a9c029c17952796f673">vg::GSSWAligner</a>.</p>
 
 </div>
 </div>
 <a id="a4a3999dbef4ad44d15f9475c62809ec2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4a3999dbef4ad44d15f9475c62809ec2">&#9670;&nbsp;</a></span>align_pinned_multi() <span class="overload">[1/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a4a3999dbef4ad44d15f9475c62809ec2">&#9670;&nbsp;</a></span>align_pinned_multi()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -766,71 +619,9 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>store the top scoring pinned alignments in the vector in descending score order up to a maximum number of alignments (including the optimal one). if there are fewer than the maximum number in the return value, then it includes all alignments with a positive score. the optimal alignment will be stored in both the vector and in the main alignment object </p>
 
 <p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#a34052d83b0a62374e411ee89eead4175">vg::GSSWAligner</a>.</p>
-
-</div>
-</div>
-<a id="aca312f7f55919b4a8ff479e9aba74624"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aca312f7f55919b4a8ff479e9aba74624">&#9670;&nbsp;</a></span>align_pinned_multi() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void QualAdjAligner::align_pinned_multi </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>alignment</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>alt_alignments</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>g</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>topological_order</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>pin_left</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int32_t&#160;</td>
-          <td class="paramname"><em>max_alt_alns</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>The topological order MUST be left to right, no matter whether you are pinning left or right. If alignment needs to proceed backward, it will be reversed internally. </p>
-
-<p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#a8c2937921508a29d1aed03959daf7137">vg::GSSWAligner</a>.</p>
 
 </div>
 </div>
@@ -881,108 +672,6 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#ab7594e4528de9846bfdd560a7a6dd687">vg::GSSWAligner</a>.</p>
-
-</div>
-</div>
-<a id="a70dda2d7b14957eecddf5ebb9767bcd1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a70dda2d7b14957eecddf5ebb9767bcd1">&#9670;&nbsp;</a></span>align_xdrop_multi()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void QualAdjAligner::align_xdrop_multi </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>alignment</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>g</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>mems</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>reverse_complemented</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int32_t&#160;</td>
-          <td class="paramname"><em>max_alt_alns</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#ae8cc380a486ba7f6dad5356971ba6973">vg::GSSWAligner</a>.</p>
-
-</div>
-</div>
-<a id="aef28fc39c5128de79e446302c5fd5284"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aef28fc39c5128de79e446302c5fd5284">&#9670;&nbsp;</a></span>get_xdrop()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const <a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &amp; QualAdjAligner::get_xdrop </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Get a fresh <a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> instance to align with. TODO: make <a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> thread safe, and make it a thing you can get from GetAligner. </p>
-
-<p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#ab51740f54afba75018d62e880a4c90d5">vg::GSSWAligner</a>.</p>
-
-</div>
-</div>
-<a id="a0bae95094ac53c096eaf4ab381762d39"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0bae95094ac53c096eaf4ab381762d39">&#9670;&nbsp;</a></span>init_mapping_quality()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::QualAdjAligner::init_mapping_quality </td>
-          <td>(</td>
-          <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>gc_content</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>
@@ -1164,35 +853,6 @@ Additional Inherited Members</h2></td></tr>
 <p>Compute the score of a path against the given range of subsequence with the given qualities. </p>
 
 <p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#a5d843e8415e3080421f75ac6e98c6bd3">vg::GSSWAligner</a>.</p>
-
-</div>
-</div>
-<h2 class="groupheader">Member Data Documentation</h2>
-<a id="ab94be1b8f877c101da37516e5184fab7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab94be1b8f877c101da37516e5184fab7">&#9670;&nbsp;</a></span>max_qual_score</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">uint8_t vg::QualAdjAligner::max_qual_score</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a23d8dac870d6d716120f91b287a7e88b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a23d8dac870d6d716120f91b287a7e88b">&#9670;&nbsp;</a></span>scale_factor</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int8_t vg::QualAdjAligner::scale_factor</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>

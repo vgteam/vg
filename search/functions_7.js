@@ -250,7 +250,6 @@ var searchData=
   ['get_5funique_5fhaplotypes',['get_unique_haplotypes',['../classvg_1_1VariantAdder.html#acd379e97a733dc75c9a58b1a416f2c12',1,'vg::VariantAdder']]],
   ['get_5fvariants_5fin_5fsite',['get_variants_in_site',['../classvg_1_1VCFTraversalFinder.html#ae45b4f713e847be11c4aa07482de3e12',1,'vg::VCFTraversalFinder']]],
   ['get_5fversion',['get_version',['../classvg_1_1Version.html#aa6e698d728ebd5e3318511dfde778eaf',1,'vg::Version']]],
-  ['get_5fxdrop',['get_xdrop',['../classvg_1_1GSSWAligner.html#ab51740f54afba75018d62e880a4c90d5',1,'vg::GSSWAligner::get_xdrop()'],['../classvg_1_1Aligner.html#a57837100d60db1d578998e2ce548a7df',1,'vg::Aligner::get_xdrop()'],['../classvg_1_1QualAdjAligner.html#aef28fc39c5128de79e446302c5fd5284',1,'vg::QualAdjAligner::get_xdrop()']]],
   ['getchainassignment',['getChainAssignment',['../classvg_1_1MinimumDistanceIndex.html#aeede4c889f5306d5006a906ab3151078',1,'vg::MinimumDistanceIndex']]],
   ['getchainrank',['getChainRank',['../classvg_1_1MinimumDistanceIndex.html#a9b38bfb6e1bc96e377b45e8305f55a03',1,'vg::MinimumDistanceIndex']]],
   ['getoptions',['GetOptions',['../classvg_1_1Index.html#acb44a4066dcf73007720e40be8a54a0e',1,'vg::Index']]],

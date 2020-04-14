@@ -3,7 +3,7 @@ var searchData=
   ['qual_5fadj_5faligner',['qual_adj_aligner',['../classvg_1_1AlignerClient.html#ad808371671d657c01a8c0a57b34a2046',1,'vg::AlignerClient']]],
   ['qual_5ffilter',['qual_filter',['../classvg_1_1Filter.html#ac0b864f9350cb8d9be52e2c13e69c30c',1,'vg::Filter']]],
   ['qual_5foffset',['qual_offset',['../classvg_1_1Filter.html#ac989d47373aa80519790159a8a67cfc8',1,'vg::Filter']]],
-  ['qualadjaligner',['QualAdjAligner',['../classvg_1_1QualAdjAligner.html',1,'vg::QualAdjAligner'],['../classvg_1_1QualAdjAligner.html#a66f0d6d56b8927f1e0c8e07b8f67b4df',1,'vg::QualAdjAligner::QualAdjAligner()']]],
+  ['qualadjaligner',['QualAdjAligner',['../classvg_1_1QualAdjAligner.html',1,'vg::QualAdjAligner'],['../classvg_1_1QualAdjAligner.html#abb28b2864e6e48ed6e7ffe705be68a48',1,'vg::QualAdjAligner::QualAdjAligner()']]],
   ['qualities',['qualities',['../structvg_1_1BasePileup.html#aad9e72ab33cea5e54f6f3b37724699d9',1,'vg::BasePileup::qualities()'],['../structvg_1_1EdgePileup.html#a0102dbbfce9153e00bae0520dd15d1ec',1,'vg::EdgePileup::qualities()']]],
   ['quality',['quality',['../structvg_1_1Alignment.html#afe4dfd54e11b8139c3ccbb493faf98dc',1,'vg::Alignment::quality()'],['../structvg_1_1MultipathAlignment.html#aa507c2c93acbbcc309d7808ebae603b6',1,'vg::MultipathAlignment::quality()'],['../structvg_1_1Support.html#aef1cd52697f504165b42fb74ab55bfa9',1,'vg::Support::quality()']]],
   ['quality_5faligners',['quality_aligners',['../classvg_1_1Genotyper.html#a2705913bdfb5f6679afb5475a22ecf61',1,'vg::Genotyper']]],
