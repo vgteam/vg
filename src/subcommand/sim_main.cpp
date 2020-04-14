@@ -15,7 +15,6 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../xg.hpp"
 #include "../aligner.hpp"
 #include "../sampler.hpp"
 #include <vg/io/protobuf_emitter.hpp>
@@ -82,16 +81,17 @@ void help_sim(char** argv) {
     cerr << "usage: " << argv[0] << " sim [options]" << endl
          << "Samples sequences from the xg-indexed graph." << endl
          << endl
-         << "options:" << endl
-         << "    -x, --xg-name FILE          use the xg index (or graph) in FILE" << endl
+         << "basic options:" << endl
+         << "    -x, --xg-name FILE          use the graph in FILE (required)" << endl
+         << "    -n, --num-reads N           simulate N reads or read pairs" << endl
+         << "    -l, --read-length N         simulate reads of length N" << endl
+         << "    -r, --progress              show progress information" << endl
+         << "output options:" << endl
+         << "    -a, --align-out             generate true alignments on stdout rather than reads" << endl
+         << "    -J, --json-out              write alignments in json" << endl
+         << "simulation parameters:" << endl
          << "    -F, --fastq FILE            match the error profile of NGS reads in FILE, repeat for paired reads (ignores -l,-f)" << endl
          << "    -I, --interleaved           reads in FASTQ (-F) are interleaved read pairs" << endl
-         << "    -P, --path PATH             simulate from the given names path (multiple allowed, cannot also give -T)" << endl
-         << "    -A, --any-path              simulate from any path (overrides -P)" << endl
-         << "    -T, --tx-expr-file FILE     simulate from an expression profile formatted as RSEM output (cannot also give -P)" << endl
-         << "    -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i (required for -T on haplotype transcripts)" << endl
-         << "    -l, --read-length N         write reads of length N" << endl
-         << "    -n, --num-reads N           simulate N reads or read pairs" << endl
          << "    -s, --random-seed N         use this specific seed for the PRNG" << endl
          << "    -e, --sub-rate FLOAT        base substitution rate (default 0.0)" << endl
          << "    -i, --indel-rate FLOAT      indel rate (default 0.0)" << endl
@@ -101,8 +101,11 @@ void help_sim(char** argv) {
          << "    -p, --frag-len N            make paired end reads with given fragment length N" << endl
          << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
          << "    -N, --allow-Ns              allow reads to be sampled from the graph with Ns in them" << endl
-         << "    -a, --align-out             generate true alignments on stdout rather than reads" << endl
-         << "    -J, --json-out              write alignments in json" << endl;
+         << "simulate from paths:" << endl
+         << "    -P, --path PATH             simulate from this path (may repeat, cannot also give -T)" << endl
+         << "    -A, --any-path              simulate from any path (overrides -P)" << endl
+         << "    -T, --tx-expr-file FILE     simulate from an expression profile formatted as RSEM output (cannot also give -P)" << endl
+         << "    -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i (required for -T on haplotype transcripts)" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -112,8 +115,11 @@ int main_sim(int argc, char** argv) {
         return 1;
     }
 
-    int read_length = 100;
+    string xg_name;
     int num_reads = 1;
+    int read_length = 100;
+    bool progress = false;
+
     int seed_val = time(NULL);
     double base_error = 0;
     double indel_error = 0;
@@ -123,16 +129,17 @@ int main_sim(int argc, char** argv) {
     int fragment_length = 0;
     double fragment_std_dev = 0;
     bool reads_may_contain_Ns = false;
-    string xg_name;
     bool strip_bonuses = false;
     bool interleaved = false;
     double indel_prop = 0.0;
     double error_scale_factor = 1.0;
     string fastq_name;
     string fastq_2_name;
+
     // What path should we sample from? Empty string = the whole graph.
     vector<string> path_names;
     bool any_path = false;
+
     // Alternatively, which transcripts with how much expression?
     string rsem_file_name;
     vector<pair<string, double>> transcript_expressions;
@@ -148,6 +155,7 @@ int main_sim(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
+            {"progress", no_argument, 0, 'r'},
             {"fastq", required_argument, 0, 'F'},
             {"interleaved", no_argument, 0, 'I'},
             {"path", required_argument, 0, 'P'},
@@ -170,7 +178,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:P:AT:H:S:I",
+        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nd:F:P:AT:H:S:I",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -184,6 +192,10 @@ int main_sim(int argc, char** argv) {
             xg_name = optarg;
             break;
             
+        case 'r':
+            progress = true;
+            break;
+
         case 'F':
             if (fastq_name.empty()) {
                 fastq_name = optarg;
@@ -287,11 +299,14 @@ int main_sim(int argc, char** argv) {
     }
 
     if (xg_name.empty()) {
-        cerr << "[vg sim] error: we need an xg index to sample reads from" << endl;
+        cerr << "[vg sim] error: we need a graph to sample reads from" << endl;
         return 1;
     }
     
     if (!rsem_file_name.empty()) {
+        if (progress) {
+            std::cerr << "Reading transcription profile from " << rsem_file_name << std::endl;
+        }
         ifstream rsem_in(rsem_file_name);
         if (!rsem_in) {
             cerr << "[vg sim] error: could not open transcription profile file " << rsem_file_name << endl;
@@ -301,6 +316,9 @@ int main_sim(int argc, char** argv) {
     }
     
     if (!haplotype_transcript_file_name.empty()) {
+        if (progress) {
+            std::cerr << "Reading haplotype transcript file " << haplotype_transcript_file_name << std::endl;
+        }
         ifstream haplo_tx_in(haplotype_transcript_file_name);
         if (!haplo_tx_in) {
             cerr << "[vg sim] error: could not open haplotype transcript file " << haplotype_transcript_file_name << endl;
@@ -309,16 +327,20 @@ int main_sim(int argc, char** argv) {
         haplotype_transcripts = parse_haplotype_transcript_file(haplo_tx_in);
     }
 
-    unique_ptr<PathHandleGraph> path_handle_graph;
-    bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
-    PathPositionHandleGraph* xgidx = nullptr;
-
-    if (!xg_name.empty()) {
-        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
-        xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
+    if (progress) {
+        std::cerr << "Loading graph " << xg_name << std::endl;
     }
+    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+    if (progress) {
+        std::cerr << "Creating path position overlay" << std::endl;
+    }
+    bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
+    PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
 
     if (any_path) {
+        if (progress) {
+            std::cerr << "Selecting all paths" << std::endl;
+        }
         if (xgidx->get_path_count() == 0) {
             cerr << "[vg sim] error: the graph does not contain paths" << endl;
             return 1;
@@ -327,7 +349,10 @@ int main_sim(int argc, char** argv) {
         xgidx->for_each_path_handle([&](const path_handle_t& handle) {
             path_names.push_back(xgidx->get_path_name(handle));
         });
-    } else {
+    } else if (!path_names.empty()) {
+        if (progress) {
+            std::cerr << "Checking selected paths" << std::endl;
+        }
         for (auto& path_name : path_names) {
             if (xgidx->has_path(path_name) == false) {
                 cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
@@ -337,6 +362,9 @@ int main_sim(int argc, char** argv) {
     }
     
     if (haplotype_transcript_file_name.empty()) {
+        if (progress && !transcript_expressions.empty()) {
+            std::cerr << "Checking transcripts" << std::endl;
+        }
         for (auto& transcript_expression : transcript_expressions) {
             if (!xgidx->has_path(transcript_expression.first)) {
                 cerr << "[vg sim] error: transcript path for \""<< transcript_expression.first << "\" not found in index" << endl;
@@ -346,6 +374,9 @@ int main_sim(int argc, char** argv) {
         }
     }
     else {
+        if (progress) {
+            std::cerr << "Checking haplotype transcripts" << std::endl;
+        }
         for (auto& haplotype_transcript : haplotype_transcripts) {
             if (!xgidx->has_path(get<0>(haplotype_transcript))) {
                 cerr << "[vg sim] error: transcript path for \""<< get<0>(haplotype_transcript) << "\" not found in index" << endl;
@@ -360,7 +391,10 @@ int main_sim(int argc, char** argv) {
         // Make an emitter to emit Alignments
         aln_emitter = unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
     }
-    
+
+    if (progress) {
+        std::cerr << "Simulating reads" << std::endl; 
+    }
     if (fastq_name.empty()) {
         // Use the fixed error rate sampler
         
