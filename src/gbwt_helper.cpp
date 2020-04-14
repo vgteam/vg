@@ -3,8 +3,6 @@
 
 #include <sstream>
 
-using namespace xg;
-
 namespace vg {
 
 std::vector<std::string> parseGenotypes(const std::string& vcf_line, size_t num_samples) {
@@ -47,12 +45,41 @@ std::vector<std::string> parseGenotypes(const std::string& vcf_line, size_t num_
 
 //------------------------------------------------------------------------------
 
-std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i) {
-    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || i >= gbwt_index.metadata.paths()) {
+std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+
+    gbwt::size_type sequence_id = gbwt::Path::encode(id, false);
+    if (sequence_id >= gbwt_index.sequences()) {
+        std::cerr << "error: [insert_gbwt_path()] invalid path id: " << id << std::endl;
         return "";
     }
 
-    const gbwt::PathName& path = gbwt_index.metadata.path(i);
+    std::string path_name = thread_name(gbwt_index, id);
+    if (path_name.empty()) {
+        path_name = std::to_string(id);
+    }
+    if (graph.has_path(path_name)) {
+        std::cerr << "error: [insert_gbwt_path()] path name already exists: " << path_name << std::endl;
+        return "";
+    }
+
+    path_handle_t handle = graph.create_path_handle(path_name);
+    gbwt::edge_type pos = gbwt_index.start(sequence_id);
+    while (pos.first != gbwt::ENDMARKER) {
+        graph.append_step(handle, gbwt_to_handle(graph, pos.first));
+        pos = gbwt_index.LF(pos);
+    }
+
+    return path_name;
+}
+
+//------------------------------------------------------------------------------
+
+std::string thread_name(const gbwt::GBWT& gbwt_index, size_t id) {
+    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
+        return "";
+    }
+
+    const gbwt::PathName& path = gbwt_index.metadata.path(id);
     std::stringstream stream;
     stream << "_thread_";
     if (gbwt_index.metadata.hasSampleNames()) {
