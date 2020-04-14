@@ -16,9 +16,12 @@
 
 #include "../vg.hpp"
 #include "../aligner.hpp"
+#include "../gbwt_helper.hpp"
 #include "../sampler.hpp"
+#include "../algorithms/copy_graph.hpp"
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
+#include <bdsg/hash_graph.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
@@ -102,8 +105,10 @@ void help_sim(char** argv) {
          << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
          << "    -N, --allow-Ns              allow reads to be sampled from the graph with Ns in them" << endl
          << "simulate from paths:" << endl
-         << "    -P, --path PATH             simulate from this path (may repeat, cannot also give -T)" << endl
+         << "    -P, --path PATH             simulate from this path (may repeat; cannot also give -T)" << endl
          << "    -A, --any-path              simulate from any path (overrides -P)" << endl
+         << "    -m, --sample-name NAME      simulate from this sample (may repeat; requires -g)" << endl
+         << "    -g, --gbwt-name FILE        use samples from this GBWT index" << endl
          << "    -T, --tx-expr-file FILE     simulate from an expression profile formatted as RSEM output (cannot also give -P)" << endl
          << "    -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i (required for -T on haplotype transcripts)" << endl;
 }
@@ -140,6 +145,10 @@ int main_sim(int argc, char** argv) {
     vector<string> path_names;
     bool any_path = false;
 
+    // Sample from GBWT threads.
+    std::vector<std::string> sample_names;
+    std::string gbwt_name;
+
     // Alternatively, which transcripts with how much expression?
     string rsem_file_name;
     vector<pair<string, double>> transcript_expressions;
@@ -160,6 +169,8 @@ int main_sim(int argc, char** argv) {
             {"interleaved", no_argument, 0, 'I'},
             {"path", required_argument, 0, 'P'},
             {"any-path", no_argument, 0, 'A'},
+            {"sample-name", required_argument, 0, 'm'},
+            {"gbwt-name", required_argument, 0, 'g'},
             {"tx-expr-file", required_argument, 0, 'T'},
             {"read-length", required_argument, 0, 'l'},
             {"num-reads", required_argument, 0, 'n'},
@@ -178,7 +189,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nd:F:P:AT:H:S:I",
+        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nd:F:P:Am:g:T:H:S:I",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -220,7 +231,15 @@ int main_sim(int argc, char** argv) {
         case 'A':
             any_path = true;
             break;
-            
+
+        case 'm':
+            sample_names.push_back(optarg);
+            break;
+
+        case 'g':
+            gbwt_name = optarg;
+            break;
+
         case 'T':
             rsem_file_name = optarg;
             break;
@@ -302,7 +321,11 @@ int main_sim(int argc, char** argv) {
         cerr << "[vg sim] error: we need a graph to sample reads from" << endl;
         return 1;
     }
-    
+    if (gbwt_name.empty() != sample_names.empty()) {
+        cerr << "[vg sim] error: --gbwt-name and --sample-name must be used together" << endl;
+        return 1;
+    }
+
     if (!rsem_file_name.empty()) {
         if (progress) {
             std::cerr << "Reading transcription profile from " << rsem_file_name << std::endl;
@@ -331,15 +354,67 @@ int main_sim(int argc, char** argv) {
         std::cerr << "Loading graph " << xg_name << std::endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+
+    // Deal with GBWT threads
+    if (!gbwt_name.empty()) {
+        if (progress) {
+            std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
+        }
+        std::unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
+        if (!(gbwt_index->hasMetadata()) || !(gbwt_index->metadata.hasSampleNames()) || !(gbwt_index->metadata.hasPathNames())) {
+            std::cerr << "[vg sim] error: GBWT index does not contain sufficient metadata" << std::endl;
+            return 1;
+        }
+        if (progress) {
+            std::cerr << "Checking " << sample_names.size() << " samples" << std::endl;
+        }
+        hash_set<gbwt::size_type> sample_ids;
+        for (std::string& sample_name : sample_names) {
+            gbwt::size_type id = gbwt_index->metadata.sample(sample_name);
+            if (id >= gbwt_index->metadata.samples()) {
+                std::cerr << "[vg sim] error: sample \"" << sample_name << "\" not found in the GBWT index" << std::endl;
+                return 1;
+            }
+            sample_ids.insert(id);
+        }
+        MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(path_handle_graph.get());
+        if (mutable_graph == nullptr) {
+            if (progress) {
+                std::cerr << "Converting the graph into HashGraph" << std::endl;
+            }
+            mutable_graph = new bdsg::HashGraph();
+            algorithms::copy_path_handle_graph(path_handle_graph.get(), mutable_graph);
+            path_handle_graph.reset(mutable_graph);
+        }
+        if (progress) {
+            std::cerr << "Inserting " << sample_ids.size() << " samples into the graph" << std::endl;
+        }
+        size_t inserted = 0;
+        for (gbwt::size_type i = 0; i < gbwt_index->metadata.paths(); i++) {
+            auto& path = gbwt_index->metadata.path(i);
+            if (sample_ids.find(path.sample) != sample_ids.end()) {
+                std::string path_name = insert_gbwt_path(*mutable_graph, *gbwt_index, i);
+                if (!path_name.empty()) {
+                    path_names.push_back(path_name);
+                    inserted++;
+                }
+            }
+        }
+        if (progress) {
+            std::cerr << "Inserted " << inserted << " paths" << std::endl;
+        }
+    }
+
     if (progress) {
         std::cerr << "Creating path position overlay" << std::endl;
     }
     bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
 
+    // Deal with path names.
     if (any_path) {
         if (progress) {
-            std::cerr << "Selecting all paths" << std::endl;
+            std::cerr << "Selecting all " << xgidx->get_path_count() << " paths" << std::endl;
         }
         if (xgidx->get_path_count() == 0) {
             cerr << "[vg sim] error: the graph does not contain paths" << endl;
@@ -351,7 +426,7 @@ int main_sim(int argc, char** argv) {
         });
     } else if (!path_names.empty()) {
         if (progress) {
-            std::cerr << "Checking selected paths" << std::endl;
+            std::cerr << "Checking " << path_names.size() << " selected paths" << std::endl;
         }
         for (auto& path_name : path_names) {
             if (xgidx->has_path(path_name) == false) {
@@ -363,7 +438,7 @@ int main_sim(int argc, char** argv) {
     
     if (haplotype_transcript_file_name.empty()) {
         if (progress && !transcript_expressions.empty()) {
-            std::cerr << "Checking transcripts" << std::endl;
+            std::cerr << "Checking " << transcript_expressions.size() << " transcripts" << std::endl;
         }
         for (auto& transcript_expression : transcript_expressions) {
             if (!xgidx->has_path(transcript_expression.first)) {
@@ -375,7 +450,7 @@ int main_sim(int argc, char** argv) {
     }
     else {
         if (progress) {
-            std::cerr << "Checking haplotype transcripts" << std::endl;
+            std::cerr << "Checking " << haplotype_transcripts.size() << " haplotype transcripts" << std::endl;
         }
         for (auto& haplotype_transcript : haplotype_transcripts) {
             if (!xgidx->has_path(get<0>(haplotype_transcript))) {
@@ -393,8 +468,53 @@ int main_sim(int argc, char** argv) {
     }
 
     if (progress) {
-        std::cerr << "Simulating reads" << std::endl; 
+        std::cerr << "Simulating " << (fragment_length > 0 ? "read pairs" : "reads") << std::endl;
+        std::cerr << "--num-reads " << num_reads << std::endl;
+        std::cerr << "--read-length " << read_length << std::endl;
+        if (align_out) {
+            std::cerr << "--align-out" << std::endl;
+        }
+        if (json_out) {
+            std::cerr << "--json-out" << std::endl;
+        }
+        if (!fastq_name.empty()) {
+            std::cerr << "--fastq " << fastq_name << std::endl;
+            if (!fastq_2_name.empty()) {
+                std::cerr << "--fastq " << fastq_2_name << std::endl;
+            }
+            if (interleaved) {
+                std::cerr << "--interleaved" << std::endl;
+            }
+        } else {
+            if (base_error > 0.0) {
+                std::cerr << "--sub-rate " << base_error << std::endl;
+            }
+        }
+        if (indel_error > 0.0) {
+            std::cerr << "--indel-rate " << indel_error << std::endl;
+        }
+        if (!fastq_name.empty()) {
+            if (indel_prop > 0.0) {
+                std::cerr << "--indel-err-prop " << indel_prop << std::endl;
+            }
+            if (error_scale_factor != 1.0) {
+                std::cerr << "--scale-err " << error_scale_factor << std::endl;
+            }
+        }
+        if (forward_only) {
+            std::cerr << "--forward-only" << std::endl;
+        }
+        if (fragment_length > 0) {
+            std::cerr << "--frag-len " << fragment_length << std::endl;
+            if (fragment_std_dev > 0.0) {
+                std::cerr << "--frag-std-dev " << fragment_std_dev << std::endl;
+            }
+        }
+        if (reads_may_contain_Ns) {
+            std::cerr << "--allow-Ns" << std::endl;
+        }
     }
+
     if (fastq_name.empty()) {
         // Use the fixed error rate sampler
         
