@@ -72,9 +72,41 @@ std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gb
     return path_name;
 }
 
-//------------------------------------------------------------------------------
+Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
 
-std::string thread_name(const gbwt::GBWT& gbwt_index, size_t id) {
+    Path result;
+    gbwt::size_type sequence_id = gbwt::Path::encode(id, false);
+    if (sequence_id >= gbwt_index.sequences()) {
+        std::cerr << "error: [insert_gbwt_path()] invalid path id: " << id << std::endl;
+        return result;
+    }
+
+    std::string path_name = thread_name(gbwt_index, id);
+    if (path_name.empty()) {
+        path_name = std::to_string(id);
+    }
+    result.set_name(path_name);
+
+    gbwt::edge_type pos = gbwt_index.start(sequence_id);
+    size_t rank = 1;
+    while (pos.first != gbwt::ENDMARKER) {
+        Mapping* m = result.add_mapping();
+        Position* p = m->mutable_position();
+        p->set_node_id(gbwt::Node::id(pos.first));
+        p->set_is_reverse(gbwt::Node::is_reverse(pos.first));
+        Edit* e = m->add_edit();
+        size_t len = graph.get_length(gbwt_to_handle(graph, pos.first));
+        e->set_to_length(len);
+        e->set_from_length(len);
+        m->set_rank(rank);
+        pos = gbwt_index.LF(pos);
+        rank++;
+    }
+
+    return result;
+}
+
+std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
     if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
         return "";
     }

@@ -77,13 +77,17 @@ inline gbwt::vector_type path_predecessors(const HandleGraph& graph, const Path&
 
 //------------------------------------------------------------------------------
 
-/// Insert a GBWT path into the graph and return its name. Returns an empty string on failure.
+/// Insert a GBWT thread into the graph and return its name. Returns an empty string on failure.
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
 std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
+/// Extract a GBWT thread as a path in the given graph.
+/// NOTE: id is a gbwt path id, not a gbwt sequence id.
+Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id);
+
 /// Get a string representation of a thread name stored in GBWT metadata.
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
-std::string thread_name(const gbwt::GBWT& gbwt_index, size_t id);
+std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
 //------------------------------------------------------------------------------
 
