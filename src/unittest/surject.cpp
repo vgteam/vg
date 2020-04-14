@@ -9,7 +9,7 @@
 #include "aligner.hpp"
 
 #include "bdsg/hash_graph.hpp"
-#include "bdsg/path_position_overlays.hpp"
+#include "bdsg/overlays/path_position_overlays.hpp"
 #include <vg/vg.pb.h>
 
 namespace vg {

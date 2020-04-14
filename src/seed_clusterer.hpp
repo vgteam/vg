@@ -5,6 +5,7 @@
 #include "min_distance.hpp"
 #include "hash_map.hpp"
 #include <structures/union_find.hpp>
+#include <sdsl/int_vector.hpp>
 
 namespace vg{
 
@@ -12,22 +13,21 @@ class SnarlSeedClusterer {
 
     public:
 
-        //TODO: Get rid of this once the actual one gets made
+        /// Seed information used in Giraffe.
         struct Seed {
-            pos_t pos;
-            size_t source;
-            size_t component = std::numeric_limits<size_t>::max();
-            size_t offset = std::numeric_limits<size_t>::max();
+            pos_t  pos;
+            size_t source; // Source minimizer.
+            size_t component; // Component id in the distance index.
+            size_t offset; // Offset in the root chain.
+        };
 
-            Seed(pos_t pos) : pos(pos) {
-                component = std::numeric_limits<size_t>::max();
-                offset = std::numeric_limits<size_t>::max();
-            }
-
-            Seed() {
-                component = std::numeric_limits<size_t>::max();
-                offset = std::numeric_limits<size_t>::max();
-            }
+        /// Cluster information used in Giraffe.
+        struct Cluster {
+            std::vector<size_t> seeds; // Seed ids.
+            size_t fragment; // Fragment id.
+            double score; // Sum of scores of distinct source minimizers of the seeds.
+            double coverage; // Fraction of read covered by the seeds.
+            sdsl::bit_vector present; // Minimizers that are present in the cluster.
         };
 
         SnarlSeedClusterer(MinimumDistanceIndex& dist_index);
@@ -38,7 +38,8 @@ class SnarlSeedClusterer {
         //cluster the seeds such that two seeds whose minimum distance
         //between them (including both of the positions) is less than
         // the distance limit are in the same cluster
-        vector<vector<size_t>> cluster_seeds ( const vector<Seed>& seeds, int64_t read_distance_limit) const;
+
+        vector<Cluster> cluster_seeds ( const vector<Seed>& seeds, int64_t read_distance_limit) const;
         
         ///The same thing, but for paired end reads.
         //Given seeds from multiple reads of a fragment, cluster each read
@@ -49,17 +50,10 @@ class SnarlSeedClusterer {
         //The fragment clusters give seeds the index they would get if the vectors of
         // seeds were appended to each other in the order given
         // TODO: Fix documentation
-        // Returns: For each read, a vector of clusters. One cluster is a pair of the index of the fragment cluster and
-        // a vector of the indices of the seeds it contains
-        vector<vector<pair<vector<size_t>, size_t>>> cluster_seeds ( 
+        // Returns: For each read, a vector of clusters.
+
+        vector<vector<Cluster>> cluster_seeds ( 
                 const vector<vector<Seed>>& all_seeds, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
-
-
-        //The same clustering algorithms but using seed positions instead of structs
-        vector<vector<size_t>> cluster_seeds ( const vector<pos_t>& seed_positions, int64_t read_distance_limit) const;
-        
-        vector<vector<pair<vector<size_t>, size_t>>> cluster_seeds ( 
-                const vector<vector<pos_t>>& all_seed_positions, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
 
     private:
 

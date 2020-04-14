@@ -66,29 +66,21 @@ namespace unittest {
         
         //graph.to_dot(cerr);
 
-        SECTION( "One cluster" ) {
- 
-            id_t seed_nodes[] = {2, 3, 4, 7, 8, 9, 11};
-            //all are in the same cluster
-            vector<pos_t> seeds;
-            for (id_t n : seed_nodes) {
-                seeds.push_back(make_pos_t(n, false, 0));
-            }
-
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 10); 
-            REQUIRE(clusters.size() == 1); 
-
-        }
         SECTION( "One cluster with seed struct" ) {
  
             id_t seed_nodes[] = {2, 3, 4, 7, 8, 9, 11};
             //all are in the same cluster
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : seed_nodes) {
-                seeds.push_back(SnarlSeedClusterer::Seed(make_pos_t(n, false, 0)));
+                pos_t pos = make_pos_t(n, false, 0);
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.emplace_back();
+                seeds.back().pos = pos;
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
             REQUIRE(clusters.size() == 1); 
 
         }
@@ -97,17 +89,22 @@ namespace unittest {
             vector<id_t> seed_nodes( {2, 3, 4, 7, 8, 10, 11});
             //Clusters should be {2, 3, 4}, {7, 8, 10, 11}
             //Distance from pos on 4 to pos on 7 is 8, including one position
-            vector<pos_t> seeds;
+            vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : seed_nodes) {
-                seeds.push_back(make_pos_t(n, false, 0));
+                pos_t pos = make_pos_t(n, false, 0);
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.emplace_back();
+                seeds.back().pos = pos;
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
             }
 
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 7); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 7); 
             vector<hash_set<size_t>> cluster_sets;
-            for (vector<size_t> v : clusters) {
+            for (auto& c : clusters) {
                 hash_set<size_t> h;
-                for (size_t s : v) {
+                for (size_t s : c.seeds) {
                     h.insert(s);
                 }
                 cluster_sets.push_back(h);
@@ -137,27 +134,37 @@ namespace unittest {
             //Clusters should be {2, 3, 4}, {7, 8, 10, 11}
             //One fragment cluster
             //Distance from pos on 4 to pos on 7 is 8, including one position
-            vector<pos_t> seeds;
+            vector<SnarlSeedClusterer::Seed> seeds ;
             for (id_t n : seed_nodes) {
-                seeds.push_back(make_pos_t(n, false, 0));
+                pos_t pos = make_pos_t(n, false, 0);
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.emplace_back();
+                seeds.back().pos = pos;
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
             }
-            vector<pos_t> seeds1;
+            vector<SnarlSeedClusterer::Seed> seeds1;
             for (id_t n : seed_nodes1) {
-                seeds1.push_back(make_pos_t(n, false, 0));
+                pos_t pos = make_pos_t(n, false, 0);
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds1.emplace_back();
+                seeds1.back().pos = pos;
+                seeds1.back().component = offset.first;
+                seeds1.back().offset = offset.second;
             }
-            vector<vector<pos_t>> all_seeds;
+            vector<vector<SnarlSeedClusterer::Seed>> all_seeds;
             all_seeds.push_back(seeds);
             all_seeds.push_back(seeds1);
 
 
-            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 7, 15); 
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 7, 15); 
             //Should be [[<[0,1,2], 0>],[<[3,4,5,6], 0>]] 
             REQUIRE( paired_clusters.size() == 2);
             REQUIRE( paired_clusters[0].size() == 1);
             REQUIRE( paired_clusters[1].size() == 1);
-            REQUIRE( paired_clusters[0][0].first.size() == 3);
-            REQUIRE( paired_clusters[1][0].first.size() == 4);
-            REQUIRE( paired_clusters[0][0].second == paired_clusters[1][0].second);
+            REQUIRE( paired_clusters[0][0].seeds.size() == 3);
+            REQUIRE( paired_clusters[1][0].seeds.size() == 4);
+            REQUIRE( paired_clusters[0][0].fragment == paired_clusters[1][0].fragment);
         }
         SECTION( "Two fragment clusters with seed structs" ) {
  
@@ -169,14 +176,16 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
             vector<SnarlSeedClusterer::Seed> seeds1;
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds1.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds1.emplace_back();
+                seeds1.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds1.back().component = offset.first;
                 seeds1.back().offset = offset.second;
@@ -186,15 +195,15 @@ namespace unittest {
             all_seeds.push_back(seeds1);
 
 
-            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
             // read_clusters = [ [[0,1,2]],[[3,4],[5,6]] ]
             // fragment_clusters = [ [0,1,2], [3,4,5,6] ]
             REQUIRE( paired_clusters.size() == 2) ;
             REQUIRE( paired_clusters[0].size() == 1);
             REQUIRE( paired_clusters[1].size() == 2);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][0].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][1].second);
-            REQUIRE( paired_clusters[1][0].second == paired_clusters[1][1].second);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[1][0].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[1][1].fragment);
+            REQUIRE( paired_clusters[1][0].fragment == paired_clusters[1][1].fragment);
 
         }
         SECTION( "Two fragment clusters" ) {
@@ -203,28 +212,38 @@ namespace unittest {
             vector<id_t> seed_nodes1({7, 8, 10, 11});
             //Fragment clusters should be {2, 3, 4}, {7, 8, 10, 11}
             //Distance from pos on 4 to pos on 7 is 8, including one position
-            vector<pos_t> seeds;
+            vector<SnarlSeedClusterer::Seed> seeds ;
             for (id_t n : seed_nodes) {
-                seeds.push_back(make_pos_t(n, false, 0));
+                pos_t pos = make_pos_t(n, false, 0);
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.emplace_back();
+                seeds.back().pos = pos;
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
             }
-            vector<pos_t> seeds1;
+            vector<SnarlSeedClusterer::Seed> seeds1;
             for (id_t n : seed_nodes1) {
-                seeds1.push_back(make_pos_t(n, false, 0));
+                pos_t pos = make_pos_t(n, false, 0);
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds1.emplace_back();
+                seeds1.back().pos = pos;
+                seeds1.back().component = offset.first;
+                seeds1.back().offset = offset.second;
             }
-            vector<vector<pos_t>> all_seeds;
+            vector<vector<SnarlSeedClusterer::Seed>> all_seeds;
             all_seeds.push_back(seeds);
             all_seeds.push_back(seeds1);
 
 
-            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
             // read_clusters = [ [[0,1,2]],[[3,4],[5,6]] ]
             // fragment_clusters = [ [0,1,2], [3,4,5,6] ]
             REQUIRE( paired_clusters.size() == 2) ;
             REQUIRE( paired_clusters[0].size() == 1);
             REQUIRE( paired_clusters[1].size() == 2);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][0].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][1].second);
-            REQUIRE( paired_clusters[1][0].second == paired_clusters[1][1].second);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[1][0].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[1][1].fragment);
+            REQUIRE( paired_clusters[1][0].fragment == paired_clusters[1][1].fragment);
 
         }
     }//End test case
@@ -267,21 +286,33 @@ namespace unittest {
         SnarlSeedClusterer clusterer(dist_index);
 
         SECTION( "Same snarl" ) {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(3, false, 0));
-            seeds.push_back(make_pos_t(4, false, 0));
+            vector<id_t> seed_nodes ({3, 4});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : seed_nodes) {
+                pos_t pos = make_pos_t(n, false, 0);
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.emplace_back();
+                seeds.back().pos = pos;
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
 
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 13); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 13); 
 
             REQUIRE( clusters.size() == 1);
         }
         SECTION( "Different snarl" ) {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(3, false, 0));
-            seeds.push_back(make_pos_t(11, false, 9));
+            vector<SnarlSeedClusterer::Seed> seeds(2);
+            seeds[0].pos = make_pos_t(3, false, 0);
+            seeds[1].pos = make_pos_t(11, false, 9);
+            for (SnarlSeedClusterer::Seed& seed : seeds){
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
+                seed.component = offset.first;
+                seed.offset = offset.second;
+            }
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 8); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 8); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -325,31 +356,51 @@ namespace unittest {
         SnarlSeedClusterer clusterer(dist_index);
 
         SECTION( "One cluster" ) {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(7, false, 0));
-            seeds.push_back(make_pos_t(7, false, 0));
-            seeds.push_back(make_pos_t(6, false, 0));
+            vector<id_t> seed_nodes ({7, 7, 6});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : seed_nodes) {
+                pos_t pos = make_pos_t(n, false, 0);
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.emplace_back();
+                seeds.back().pos = pos;
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 20); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
 
 
             REQUIRE( clusters.size() == 1);
         }
         SECTION( "two clusters" ) {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(2, false, 0));
-            seeds.push_back(make_pos_t(6, true, 0));
+            vector<id_t> seed_nodes ({2, 6});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : seed_nodes) {
+                pos_t pos = make_pos_t(n, false, 0);
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.emplace_back();
+                seeds.back().pos = pos;
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 20); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
 
 
         }
         SECTION( "different snarl" ) {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(8, false, 0));
-            seeds.push_back(make_pos_t(6, false, 0));
+            vector<id_t> seed_nodes ({8, 6});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : seed_nodes) {
+                pos_t pos = make_pos_t(n, false, 0);
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.emplace_back();
+                seeds.back().pos = pos;
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 20); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -412,23 +463,29 @@ namespace unittest {
         SnarlSeedClusterer clusterer(dist_index);
 
         SECTION( "Two clusters in a chain and loop of snarl boundary" ) {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(2, false, 0));
-            seeds.push_back(make_pos_t(3, false, 0));
-            seeds.push_back(make_pos_t(5, false, 0));
-            seeds.push_back(make_pos_t(16, false, 0));
+            vector<SnarlSeedClusterer::Seed> seeds (7);
+            seeds[0].pos = make_pos_t(2, false, 0);
+            seeds[1].pos = make_pos_t(3, false, 0);
+            seeds[2].pos = make_pos_t(5, false, 0);
+            seeds[3].pos = make_pos_t(16, false, 0);
             //New cluster
-            seeds.push_back(make_pos_t(5, false, 10));
-            seeds.push_back(make_pos_t(6, false, 0));
-            seeds.push_back(make_pos_t(8, false, 0));
+            seeds[4].pos = make_pos_t(5, false, 10);
+            seeds[5].pos = make_pos_t(6, false, 0);
+            seeds[6].pos = make_pos_t(8, false, 0);
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            for (SnarlSeedClusterer::Seed& seed : seeds){
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
+                seed.component = offset.first;
+                seed.offset = offset.second;
+            }
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
             REQUIRE( clusters.size() == 2);
+
             vector<hash_set<size_t>> cluster_sets;
-            for (vector<size_t> v : clusters) {
+            for (auto& c : clusters) {
                 hash_set<size_t> h;
-                for (size_t s : v) {
+                for (size_t s : c.seeds) {
                     h.insert(s);
                 }
                 cluster_sets.push_back(h);
@@ -450,67 +507,85 @@ namespace unittest {
                        cluster_sets[0].count(6) == 1  )));
         }
         SECTION( "Four clusters" ) {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(3, false, 0));
-            seeds.push_back(make_pos_t(5, false, 0));
-            seeds.push_back(make_pos_t(16, false, 0));
+            vector<SnarlSeedClusterer::Seed> seeds (9);
+            seeds[0].pos = make_pos_t(3, false, 0);
+            seeds[1].pos = make_pos_t(5, false, 0);
+            seeds[2].pos = make_pos_t(16, false, 0);
             //New cluster
-            seeds.push_back(make_pos_t(5, false, 8));
-            //New cluster
-            seeds.push_back(make_pos_t(6, false, 0));
-            seeds.push_back(make_pos_t(8, false, 0));
-            //New cluster
-            seeds.push_back(make_pos_t(13, false, 1));
-            seeds.push_back(make_pos_t(14, false, 0));
-            seeds.push_back(make_pos_t(15, false, 0));
+            seeds[3].pos = make_pos_t(5, false, 8);
+            //New cluster 
+            seeds[4].pos = make_pos_t(6, false, 0);
+            seeds[5].pos = make_pos_t(8, false, 0);
+            //New cluster 
+            seeds[6].pos = make_pos_t(13, false, 1);
+            seeds[7].pos = make_pos_t(14, false, 0);
+            seeds[8].pos = make_pos_t(15, false, 0);
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            for (SnarlSeedClusterer::Seed& seed : seeds){
+                cerr << seed.pos << endl;
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
+                seed.component = offset.first;
+                seed.offset = offset.second;
+            }
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
             REQUIRE( clusters.size() == 4);
 
-            vector<vector<pos_t>> all_seeds;
+            vector<vector<SnarlSeedClusterer::Seed>> all_seeds;
+
             all_seeds.push_back(seeds);
-            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3); 
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3); 
 
             REQUIRE( paired_clusters.size() == 1);
             REQUIRE( paired_clusters[0].size() == 4);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[0][1].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[0][2].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[0][3].second);
-            REQUIRE( paired_clusters[0][1].second != paired_clusters[0][2].second);
-            REQUIRE( paired_clusters[0][1].second != paired_clusters[0][3].second);
-            REQUIRE( paired_clusters[0][2].second != paired_clusters[0][3].second);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[0][1].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[0][2].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[0][3].fragment);
+            REQUIRE( paired_clusters[0][1].fragment != paired_clusters[0][2].fragment);
+            REQUIRE( paired_clusters[0][1].fragment != paired_clusters[0][3].fragment);
+            REQUIRE( paired_clusters[0][2].fragment != paired_clusters[0][3].fragment);
 
             //New fragment clusters
         } SECTION ("Four fragment clusters") {
-            vector<vector<pos_t>> all_seeds;
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(3, false, 0));
-            seeds.push_back(make_pos_t(5, false, 0));
-            seeds.push_back(make_pos_t(16, false, 0));
-            //New cluster
-            seeds.push_back(make_pos_t(6, false, 0));
-            seeds.push_back(make_pos_t(8, false, 0));
+            vector<vector<SnarlSeedClusterer::Seed>> all_seeds;
+            vector<SnarlSeedClusterer::Seed> seeds (5);
+            seeds[0].pos = make_pos_t(3, false, 0);
+            seeds[1].pos = make_pos_t(5, false, 0);
+            seeds[2].pos = make_pos_t(16, false, 0);
+            //New cluster 
+            seeds[3].pos = make_pos_t(6, false, 0);
+            seeds[4].pos = make_pos_t(8, false, 0);
+            for (SnarlSeedClusterer::Seed& seed : seeds){
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
+                seed.component = offset.first;
+                seed.offset = offset.second;
+            }
             all_seeds.push_back(seeds);
             seeds.clear();
+            seeds.resize(4);
             //New cluster
-            seeds.push_back(make_pos_t(5, false, 8));
+            seeds[0].pos = make_pos_t(5, false, 8);
             //New cluster
-            seeds.push_back(make_pos_t(13, false, 1));
-            seeds.push_back(make_pos_t(14, false, 0));
-            seeds.push_back(make_pos_t(15, false, 0));
+            seeds[1].pos = make_pos_t(13, false, 1);
+            seeds[2].pos = make_pos_t(14, false, 0);
+            seeds[3].pos = make_pos_t(15, false, 0);
+            for (SnarlSeedClusterer::Seed& seed : seeds){
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
+                seed.component = offset.first;
+                seed.offset = offset.second;
+            }
             all_seeds.push_back(seeds);
 
-            vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3);
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3);
 
             REQUIRE( paired_clusters.size() == 2);
             REQUIRE( paired_clusters[0].size() == 2);
             REQUIRE( paired_clusters[1].size() == 2);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[0][1].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][0].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][1].second);
-            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][0].second);
-            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][1].second);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[0][1].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[1][0].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[1][1].fragment);
+            REQUIRE( paired_clusters[0][1].fragment != paired_clusters[1][0].fragment);
+            REQUIRE( paired_clusters[0][1].fragment != paired_clusters[1][1].fragment);
 
             //New fragment clusters
 
@@ -519,20 +594,25 @@ namespace unittest {
             REQUIRE( paired_clusters.size() == 2);
             REQUIRE( paired_clusters[0].size() == 2);
             REQUIRE( paired_clusters[1].size() == 2);
-            REQUIRE( paired_clusters[0][0].second == paired_clusters[0][1].second);
-            REQUIRE( paired_clusters[0][0].second == paired_clusters[1][0].second);
-            REQUIRE( paired_clusters[0][0].second != paired_clusters[1][1].second);
-            REQUIRE( paired_clusters[0][1].second == paired_clusters[1][0].second);
-            REQUIRE( paired_clusters[0][1].second != paired_clusters[1][1].second);
-            REQUIRE( paired_clusters[1][0].second != paired_clusters[1][1].second);
+            REQUIRE( paired_clusters[0][0].fragment == paired_clusters[0][1].fragment);
+            REQUIRE( paired_clusters[0][0].fragment == paired_clusters[1][0].fragment);
+            REQUIRE( paired_clusters[0][0].fragment != paired_clusters[1][1].fragment);
+            REQUIRE( paired_clusters[0][1].fragment == paired_clusters[1][0].fragment);
+            REQUIRE( paired_clusters[0][1].fragment != paired_clusters[1][1].fragment);
+            REQUIRE( paired_clusters[1][0].fragment != paired_clusters[1][1].fragment);
         }
         SECTION( "Same node, same cluster" ) {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(5, false, 0));
-            seeds.push_back(make_pos_t(5, false, 11));
-            seeds.push_back(make_pos_t(5, false, 5));
+            vector<SnarlSeedClusterer::Seed> seeds(3);
+            seeds[0].pos = make_pos_t(5, false, 0);
+            seeds[1].pos = make_pos_t(5, false, 11);
+            seeds[2].pos = make_pos_t(5, false, 5);
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 7); 
+            for (SnarlSeedClusterer::Seed& seed : seeds){
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
+                seed.component = offset.first;
+                seed.offset = offset.second;
+            }
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 7); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -577,55 +657,71 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters= clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters= clusterer.cluster_seeds(seeds, 10); 
 
 
             REQUIRE( clusters.size() == 1);
         }
         SECTION("One cluster") {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(1, false, 0));
-            seeds.push_back(make_pos_t(2, false, 0));
-            seeds.push_back(make_pos_t(7, false, 0));
-            seeds.push_back(make_pos_t(4, false, 0));
+            vector<SnarlSeedClusterer::Seed> seeds(4);
+            seeds[0].pos= make_pos_t(1, false, 0);
+            seeds[1].pos= make_pos_t(2, false, 0);
+            seeds[2].pos= make_pos_t(7, false, 0);
+            seeds[3].pos= make_pos_t(4, false, 0);
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 10); 
+            for (SnarlSeedClusterer::Seed& seed : seeds){
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
+                seed.component = offset.first;
+                seed.offset = offset.second;
+            }
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
 
 
             REQUIRE( clusters.size() == 1);
         }
         SECTION("One cluster") {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(2, false, 0));
-            seeds.push_back(make_pos_t(4, false, 0));
+            vector<SnarlSeedClusterer::Seed> seeds(2);
+            seeds[0].pos = make_pos_t(2, false, 0);
+            seeds[1].pos = make_pos_t(4, false, 0);
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 10); 
+            for (SnarlSeedClusterer::Seed& seed : seeds){
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
+                seed.component = offset.first;
+                seed.offset = offset.second;
+            }
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
 
 
 
             REQUIRE( clusters.size() == 1);
         }
         SECTION("Two clusters") {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(2, false, 0));
-            seeds.push_back(make_pos_t(4, false, 1));
-            seeds.push_back(make_pos_t(6, false, 0));
+            vector<SnarlSeedClusterer::Seed> seeds(3);
+            seeds[0].pos = make_pos_t(2, false, 0);
+            seeds[1].pos = make_pos_t(4, false, 1);
+            seeds[2].pos = make_pos_t(6, false, 0);
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 5); 
+            for (SnarlSeedClusterer::Seed& seed : seeds){
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
+                seed.component = offset.first;
+                seed.offset = offset.second;
+            }
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 2);
         }
         SECTION("No clusters") {
-            vector<pos_t> seeds;
+            vector<SnarlSeedClusterer::Seed> seeds;
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 0);
@@ -681,13 +777,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -699,13 +796,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -717,13 +815,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 4); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 4); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -735,13 +834,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 9); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 9); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -753,13 +853,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 6); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 6); 
 
             REQUIRE( clusters.size() == 1);
         }
@@ -808,12 +909,17 @@ namespace unittest {
         SnarlSeedClusterer clusterer(dist_index);
 
         SECTION("Two clusters") {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(2, false, 0));
-            seeds.push_back(make_pos_t(3, false, 0));
-            seeds.push_back(make_pos_t(9, false, 0));
+            vector<SnarlSeedClusterer::Seed> seeds ( 3);
+            seeds[0].pos = make_pos_t(2, false, 0);
+            seeds[1].pos = make_pos_t(3, false, 0);
+            seeds[2].pos = make_pos_t(9, false, 0);
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            for (SnarlSeedClusterer::Seed& seed : seeds){
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
+                seed.component = offset.first;
+                seed.offset = offset.second;
+            }
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -825,13 +931,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -843,13 +950,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -894,24 +1002,34 @@ namespace unittest {
         SnarlSeedClusterer clusterer(dist_index);
 
         SECTION("Two clusters") {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(2, false, 0));
-            seeds.push_back(make_pos_t(3, false, 0));
-            seeds.push_back(make_pos_t(8, false, 0));
+            vector<SnarlSeedClusterer::Seed> seeds(3);
+            seeds[0].pos = make_pos_t(2, false, 0);
+            seeds[1].pos = make_pos_t(3, false, 0);
+            seeds[2].pos = make_pos_t(8, false, 0);
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            for (SnarlSeedClusterer::Seed& seed : seeds){
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
+                seed.component = offset.first;
+                seed.offset = offset.second;
+            }
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
 
             REQUIRE( clusters.size() == 2);
 
         }
         SECTION("One cluster") {
-            vector<pos_t> seeds;
-            seeds.push_back(make_pos_t(1, false, 0));
-            seeds.push_back(make_pos_t(2, false, 0));
-            seeds.push_back(make_pos_t(7, false, 0));
+            vector<SnarlSeedClusterer::Seed> seeds(3);
+            seeds[0].pos = make_pos_t(1, false, 0);
+            seeds[1].pos = make_pos_t(2, false, 0);
+            seeds[2].pos = make_pos_t(7, false, 0);
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 6); 
+            for (SnarlSeedClusterer::Seed& seed : seeds){
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
+                seed.component = offset.first;
+                seed.offset = offset.second;
+            }
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 6); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -922,13 +1040,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -975,13 +1094,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -991,13 +1111,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1007,13 +1128,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
 
 
@@ -1024,13 +1146,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 15); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 15); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1063,13 +1186,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1107,13 +1231,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1124,13 +1249,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1141,13 +1267,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 18); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 18); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1185,13 +1312,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1202,13 +1330,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1218,13 +1347,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1234,13 +1364,14 @@ namespace unittest {
             vector<SnarlSeedClusterer::Seed> seeds;
             for (id_t n : ids) {
                 pos_t pos = make_pos_t(n, false, 0);
-                seeds.push_back(SnarlSeedClusterer::Seed(pos));
+                seeds.emplace_back();
+                seeds.back().pos = pos;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
                 seeds.back().component = offset.first;
                 seeds.back().offset = offset.second;
             }
 
-            vector<vector<size_t>> clusters =  clusterer.cluster_seeds(seeds, 7); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 7); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1279,10 +1410,10 @@ namespace unittest {
         all_seeds[0].push_back(make_pos_t(245, false, 0));
         all_seeds[0].push_back(make_pos_t(248, true, 0));
 
-        tuple<vector<vector<vector<size_t>>>, vector<vector<size_t>>> paired_clusters = 
+        tuple<vector<vector<SnarlSeedClusterer::Cluster>>, vector<SnarlSeedClusterer::Cluster>> paired_clusters = 
             clusterer.cluster_seeds(all_seeds, read_lim, fragment_lim); 
-        vector<vector<vector<size_t>>> read_clusters = std::get<0>(paired_clusters);
-        vector<vector<size_t>> fragment_clusters = std::get<1>(paired_clusters);
+        vector<vector<SnarlSeedClusterer::Cluster>> read_clusters = std::get<0>(paired_clusters);
+        vector<SnarlSeedClusterer::Cluster> fragment_clusters = std::get<1>(paired_clusters);
         cerr << "read cluster: " << read_clusters[0].size() << endl << "fragment clusters: " << fragment_clusters.size() << endl;
 
         REQUIRE(fragment_clusters.size() == 2);
@@ -1292,7 +1423,7 @@ namespace unittest {
     */
     TEST_CASE("Random graphs", "[cluster]"){
 
-        for (int i = 0; i < 0; i++) {
+        for (int i = 0; i < 1000; i++) {
             // For each random graph
             VG graph;
             random_graph(1000, 50, 100, &graph);
@@ -1342,13 +1473,14 @@ namespace unittest {
                         pos_t pos = make_pos_t(nodeID1,
                             uniform_int_distribution<int>(0,1)(generator) == 0,offset1 );
                         pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
-                        all_seeds[read].push_back(SnarlSeedClusterer::Seed(pos));
+                        all_seeds[read].emplace_back();
+                        all_seeds[read].back().pos = pos;
                         all_seeds[read].back().component = offset.first;
                         all_seeds[read].back().offset = offset.second;
 
                     }
                 }
-                vector<vector<pair<vector<size_t>, size_t>>> paired_clusters = clusterer.cluster_seeds(all_seeds, read_lim, fragment_lim); 
+                vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, read_lim, fragment_lim); 
 
 
                 
@@ -1360,8 +1492,8 @@ namespace unittest {
                         for (size_t a = 0; a < one_read_clusters.size(); a++) {
                             // For each cluster -cluster this cluster to ensure that 
                             // there is only one
-                            vector<size_t> clust = one_read_clusters[a].first;
-                            size_t fragment_cluster = one_read_clusters[a].second;
+                            vector<size_t> clust = one_read_clusters[a].seeds;
+                            size_t fragment_cluster = one_read_clusters[a].fragment;
                             if (fragment_cluster >= fragment_clusters.size()) {
                                 fragment_clusters.resize(fragment_cluster+1);
                             }
@@ -1377,7 +1509,7 @@ namespace unittest {
                                 for (size_t b = 0 ; b < one_read_clusters.size() ; b++) {
                                     if (b != a) {
                                         //For each other cluster
-                                        vector<size_t> clust2 = one_read_clusters[b].first;
+                                        vector<size_t> clust2 = one_read_clusters[b].seeds;
                                         for (size_t i2 = 0 ; i2 < clust2.size() ; i2++) {
                                             //And each position in each other cluster,
                                             //make sure that this position is far away from i1

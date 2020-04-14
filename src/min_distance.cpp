@@ -2528,7 +2528,7 @@ pair<size_t, size_t> MinimumDistanceIndex::offset_in_root_chain (pos_t pos) {
                             snarl_rank == snarl_index.num_nodes*2-1 || snarl_rank == snarl_index.num_nodes*2-2;
     size_t component = node_to_component[id - min_node_id]; 
     if (component == 0 || !is_boundary_node || !snarl_index.depth == 0 || !snarl_index.in_chain) {
-        return make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+        return make_pair(MIPayload::NO_VALUE, MIPayload::NO_VALUE);
     }
     int64_t node_offset = get_offset(pos);
     bool node_is_rev_in_snarl = snarl_rank% 2;
@@ -2559,5 +2559,10 @@ int64_t MinimumDistanceIndex::top_level_chain_length(id_t node_id) {
 size_t MinimumDistanceIndex::get_connected_component(id_t node_id) {
     return node_to_component[node_id-min_node_id];
 }
+
+constexpr MIPayload::code_type MIPayload::NO_CODE;
+constexpr size_t MIPayload::NO_VALUE;
+constexpr size_t MIPayload::ID_OFFSET;
+constexpr MIPayload::code_type MIPayload::OFFSET_MASK;
 
 }

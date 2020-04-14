@@ -3327,14 +3327,15 @@ vector<SnarlTraversal> FlowTraversalFinder::find_traversals(const Snarl& site) {
     return find_weighted_traversals(site).first;
 }
 
-pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_traversals(const Snarl& site) {
+pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_traversals(const Snarl& site, bool greedy_avg) {
 
     handle_t start_handle = graph.get_handle(site.start().node_id(), site.start().backward());
     handle_t end_handle = graph.get_handle(site.end().node_id(), site.end().backward());
 
     vector<pair<double, vector<handle_t>>> widest_paths = algorithms::yens_k_widest_paths(&graph, start_handle, end_handle, K,
                                                                                           node_weight_callback,
-                                                                                          edge_weight_callback);
+                                                                                          edge_weight_callback,
+                                                                                          greedy_avg);
 
     vector<SnarlTraversal> travs;
     travs.reserve(widest_paths.size());
