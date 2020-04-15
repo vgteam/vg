@@ -8,7 +8,6 @@ var searchData=
   ['xg',['XG',['../classxg_1_1XG.html',1,'xg::XG'],['../namespacexg.html',1,'xg'],['../classxg_1_1XG.html#ab71253786ed61320ec3101a06df3f369',1,'xg::XG::XG(void)=default'],['../classxg_1_1XG.html#a16821ba9ad761dac00ef46a1d9bc7424',1,'xg::XG::XG(const XG &amp;other)=delete'],['../classxg_1_1XG.html#a4bcac3042196387b5c04b6833de7a035',1,'xg::XG::XG(XG &amp;&amp;other)=delete']]],
   ['xg_2ecpp',['xg.cpp',['../xg_8cpp.html',1,'']]],
   ['xg_2ehpp',['xg.hpp',['../xg_8hpp.html',1,'']]],
-  ['xg_5fpath_5fto_5fgbwt',['xg_path_to_gbwt',['../namespacevg.html#aaa275a724a3f7cb35d3ebb3604640e00',1,'vg']]],
   ['xgformaterror',['XGFormatError',['../classxg_1_1XGFormatError.html',1,'xg']]],
   ['xgidx',['xgidx',['../classvg_1_1Sampler.html#a35bb39d138b576dd29e6652c3f170418',1,'vg::Sampler::xgidx()'],['../classvg_1_1Viz.html#a1c854dabf978e525e6fab1223927ab2c',1,'vg::Viz::xgidx()']]],
   ['xgpath',['XGPath',['../classxg_1_1XGPath.html',1,'xg::XGPath'],['../classxg_1_1XGPath.html#af623a612337301ad98ed9c45108b9616',1,'xg::XGPath::XGPath(void)=default'],['../classxg_1_1XGPath.html#a7a3d21f2e1ad0f36c25897591b6e31da',1,'xg::XGPath::XGPath(const std::string &amp;path_name, const std::vector&lt; handle_t &gt; &amp;path, bool is_circular, XG &amp;graph)'],['../classxg_1_1XGPath.html#aeb3f65f6d78a0fa02486f0c9c51c97a8',1,'xg::XGPath::XGPath(const XGPath &amp;other)=delete'],['../classxg_1_1XGPath.html#a010789a1a74731505b2b8a570f4e7547',1,'xg::XGPath::XGPath(XGPath &amp;&amp;other)=delete']]],

@@ -72,8 +72,8 @@ $(function() {
 <div class="contents">
 <div class="textblock"><code>#include &lt;vector&gt;</code><br />
 <code>#include &quot;<a class="el" href="position_8hpp.html">position.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="xg_8hpp.html">xg.hpp</a>&quot;</code><br />
 <code>#include &lt;gbwt/dynamic_gbwt.h&gt;</code><br />
+<code>#include &lt;<a class="el" href="mutable__path__handle__graph_8hpp.html">handlegraph/mutable_path_handle_graph.hpp</a>&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -99,17 +99,17 @@ Functions</h2></td></tr>
 <tr class="memitem:ace1a7180fda8bb98abba24fb19183e9d"><td class="memItemLeft" align="right" valign="top">gbwt::node_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ace1a7180fda8bb98abba24fb19183e9d">vg::mapping_to_gbwt</a> (const Mapping &amp;mapping)</td></tr>
 <tr class="memdesc:ace1a7180fda8bb98abba24fb19183e9d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert <a class="el" href="structvg_1_1Mapping.html">Mapping</a> to gbwt::node_type.  <a href="namespacevg.html#ace1a7180fda8bb98abba24fb19183e9d">More...</a><br /></td></tr>
 <tr class="separator:ace1a7180fda8bb98abba24fb19183e9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaa275a724a3f7cb35d3ebb3604640e00"><td class="memItemLeft" align="right" valign="top">gbwt::node_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaa275a724a3f7cb35d3ebb3604640e00">vg::xg_path_to_gbwt</a> (const <a class="el" href="classxg_1_1XGPath.html">xg::XGPath</a> &amp;path, size_t i)</td></tr>
-<tr class="memdesc:aaa275a724a3f7cb35d3ebb3604640e00"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a node on XGPath to gbwt::node_type.  <a href="namespacevg.html#aaa275a724a3f7cb35d3ebb3604640e00">More...</a><br /></td></tr>
-<tr class="separator:aaa275a724a3f7cb35d3ebb3604640e00"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a529e3aef69e8c01934184726b7937c37"><td class="memItemLeft" align="right" valign="top">gbwt::vector_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a529e3aef69e8c01934184726b7937c37">vg::path_to_gbwt</a> (const Path &amp;path)</td></tr>
 <tr class="memdesc:a529e3aef69e8c01934184726b7937c37"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert <a class="el" href="structvg_1_1Path.html">Path</a> to a GBWT path.  <a href="namespacevg.html#a529e3aef69e8c01934184726b7937c37">More...</a><br /></td></tr>
 <tr class="separator:a529e3aef69e8c01934184726b7937c37"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a39fda628749ec49cc168b8a92b951897"><td class="memItemLeft" align="right" valign="top">gbwt::vector_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a39fda628749ec49cc168b8a92b951897">vg::path_predecessors</a> (const HandleGraph &amp;graph, const Path &amp;path)</td></tr>
 <tr class="separator:a39fda628749ec49cc168b8a92b951897"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a521a6e5bc08cde58a9e9bf6b6bae9e7d"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a521a6e5bc08cde58a9e9bf6b6bae9e7d">vg::thread_name</a> (const gbwt::GBWT &amp;gbwt_index, size_t i)</td></tr>
-<tr class="memdesc:a521a6e5bc08cde58a9e9bf6b6bae9e7d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a string representation of a thread name stored in GBWT metadata.  <a href="namespacevg.html#a521a6e5bc08cde58a9e9bf6b6bae9e7d">More...</a><br /></td></tr>
-<tr class="separator:a521a6e5bc08cde58a9e9bf6b6bae9e7d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2a5c03248078b33eab4f3126d668a2f6"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2a5c03248078b33eab4f3126d668a2f6">vg::insert_gbwt_path</a> (MutablePathHandleGraph &amp;graph, const gbwt::GBWT &amp;gbwt_index, gbwt::size_type id)</td></tr>
+<tr class="separator:a2a5c03248078b33eab4f3126d668a2f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a768828fcd9f2ecf7661e7d873f23bc58"><td class="memItemLeft" align="right" valign="top">Path&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a768828fcd9f2ecf7661e7d873f23bc58">vg::extract_gbwt_path</a> (const HandleGraph &amp;graph, const gbwt::GBWT &amp;gbwt_index, gbwt::size_type id)</td></tr>
+<tr class="separator:a768828fcd9f2ecf7661e7d873f23bc58"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a490ce7f2c377c649eed822596c8a1916"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a490ce7f2c377c649eed822596c8a1916">vg::thread_name</a> (const gbwt::GBWT &amp;gbwt_index, gbwt::size_type id)</td></tr>
+<tr class="separator:a490ce7f2c377c649eed822596c8a1916"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a571047c58b73b78d02a767c3ab6ec222"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a571047c58b73b78d02a767c3ab6ec222">vg::get_gbwt</a> (const std::vector&lt; gbwt::vector_type &gt; &amp;paths)</td></tr>
 <tr class="memdesc:a571047c58b73b78d02a767c3ab6ec222"><td class="mdescLeft">&#160;</td><td class="mdescRight">Transform the paths into a GBWT index. Primarily for testing.  <a href="namespacevg.html#a571047c58b73b78d02a767c3ab6ec222">More...</a><br /></td></tr>
 <tr class="separator:a571047c58b73b78d02a767c3ab6ec222"><td class="memSeparator" colspan="2">&#160;</td></tr>

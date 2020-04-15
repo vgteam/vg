@@ -39,7 +39,7 @@ var searchData=
   ['thread_5fbreakpoint_5fcursors',['thread_breakpoint_cursors',['../classvg_1_1io_1_1StreamMultiplexer.html#a836843731535676ddd71a68cd3cd6d7f',1,'vg::io::StreamMultiplexer']]],
   ['thread_5fextension',['thread_extension',['../classvg_1_1Mapper.html#ad2f2408aba30a38eda90a10c28cbf410',1,'vg::Mapper']]],
   ['thread_5fids_5ft',['thread_ids_t',['../namespacevg.html#a5c7b3ebb9ad8d6c01a0c54668b102c26',1,'vg']]],
-  ['thread_5fname',['thread_name',['../namespacevg.html#a521a6e5bc08cde58a9e9bf6b6bae9e7d',1,'vg']]],
+  ['thread_5fname',['thread_name',['../namespacevg.html#a490ce7f2c377c649eed822596c8a1916',1,'vg']]],
   ['thread_5fqueue_5fbyte_5fcounts',['thread_queue_byte_counts',['../classvg_1_1io_1_1StreamMultiplexer.html#a9ec3374dee16f6ee0ce853b04a4d6967',1,'vg::io::StreamMultiplexer']]],
   ['thread_5fqueue_5fempty_5fslots',['thread_queue_empty_slots',['../classvg_1_1io_1_1StreamMultiplexer.html#a62843d99c1215b3d01109142f2356327',1,'vg::io::StreamMultiplexer']]],
   ['thread_5fqueue_5ffilled_5fslots',['thread_queue_filled_slots',['../classvg_1_1io_1_1StreamMultiplexer.html#ad34283d480d468d52412bce3daeae5c4',1,'vg::io::StreamMultiplexer']]],

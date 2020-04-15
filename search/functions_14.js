@@ -20,7 +20,7 @@ var searchData=
   ['test_5fpath_5fposition_5foverlays',['test_path_position_overlays',['../test__libbdsg_8cpp.html#a77afd66128f79dab16e249a94301ff2b',1,'test_libbdsg.cpp']]],
   ['test_5fserializable_5fhandle_5fgraphs',['test_serializable_handle_graphs',['../test__libbdsg_8cpp.html#a10327f20903c0fea3b0ab8175029fa83',1,'test_libbdsg.cpp']]],
   ['test_5fvectorizable_5foverlays',['test_vectorizable_overlays',['../test__libbdsg_8cpp.html#a629e5f8da0d7ea2108e9025b450784d5',1,'test_libbdsg.cpp']]],
-  ['thread_5fname',['thread_name',['../namespacevg.html#a521a6e5bc08cde58a9e9bf6b6bae9e7d',1,'vg']]],
+  ['thread_5fname',['thread_name',['../namespacevg.html#a490ce7f2c377c649eed822596c8a1916',1,'vg']]],
   ['thread_5fto_5fgraph_5fspanned',['thread_to_graph_spanned',['../namespacevg.html#aa24cc1f72643cab5fa0dfcc551f61d50',1,'vg']]],
   ['tick',['tick',['../structvg_1_1Range.html#a10f700e0447a5a922611122fa1811b61',1,'vg::Range']]],
   ['tick_5fchain',['tick_chain',['../structvg_1_1Range.html#ac43f1cdc096cf02b316361df308ff934',1,'vg::Range']]],

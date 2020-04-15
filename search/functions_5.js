@@ -121,6 +121,7 @@ var searchData=
   ['extract_5fencoded_5fpath_5fname',['extract_encoded_path_name',['../classbdsg_1_1PackedGraph.html#ac1bfe9d375da81afe833dde436d4fd4f',1,'bdsg::PackedGraph']]],
   ['extract_5fextending_5fgraph',['extract_extending_graph',['../namespacevg_1_1algorithms.html#a1f600eb589d48607c2616bed69ff2e27',1,'vg::algorithms']]],
   ['extract_5ffirst',['extract_first',['../classvg_1_1io_1_1VPKG.html#a770245b13c7784d97e8917184aab3ca0',1,'vg::io::VPKG']]],
+  ['extract_5fgbwt_5fpath',['extract_gbwt_path',['../namespacevg.html#a768828fcd9f2ecf7661e7d873f23bc58',1,'vg']]],
   ['extract_5fid_5frange',['extract_id_range',['../classvg_1_1PathChunker.html#a140b4a86b4f8ea18d29a39c7b1aab66f',1,'vg::PathChunker::extract_id_range()'],['../namespacevg_1_1algorithms.html#ac53dd7f2ff1b53bec309f368a79db951',1,'vg::algorithms::extract_id_range()']]],
   ['extract_5flinearized_5fpath_5fgraph',['extract_linearized_path_graph',['../classvg_1_1Surjector.html#af05f461840ebac9a70156214c843ee39',1,'vg::Surjector']]],
   ['extract_5foverlapping_5fpaths',['extract_overlapping_paths',['../classvg_1_1Surjector.html#a160910efa71892d87e316fe86d668150',1,'vg::Surjector']]],

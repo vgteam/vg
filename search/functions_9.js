@@ -47,6 +47,7 @@ var searchData=
   ['inputstream',['inputStream',['../namespacevg_1_1io.html#a857cf3810d138ef43e25aa37f147ac25',1,'vg::io']]],
   ['insert',['insert',['../classvg_1_1SnarlState.html#a428e616c3ef0bab94325edbd728819e3',1,'vg::SnarlState::insert(const vector&lt; pair&lt; handle_t, size_t &gt;&gt; &amp;haplotype)'],['../classvg_1_1SnarlState.html#a8489b6496d77d037d0ee2f0367119a3a',1,'vg::SnarlState::insert(size_t overall_lane, const vector&lt; handle_t &gt; &amp;haplotype, bool backward=false)'],['../classvg_1_1BitStringTree.html#ac323a5f006f9ad739facc0f306b1b6ed',1,'vg::BitStringTree::insert()'],['../structvg_1_1BitStringTree_1_1TreeNode.html#a1658df8b5e184e15cce3b5e70bc2769c',1,'vg::BitStringTree::TreeNode::insert()']]],
   ['insert_5fbefore',['insert_before',['../classbdsg_1_1HashGraph_1_1path__t.html#ac13ae020fa3e3a17d61b59c9e2fd25b4',1,'bdsg::HashGraph::path_t']]],
+  ['insert_5fgbwt_5fpath',['insert_gbwt_path',['../namespacevg.html#a2a5c03248078b33eab4f3126d668a2f6',1,'vg']]],
   ['insert_5fhandles',['insert_handles',['../classvg_1_1GenomeState.html#aa85289ade641db44976ac969c5fb6750',1,'vg::GenomeState']]],
   ['insert_5fhaplotype',['insert_haplotype',['../classvg_1_1GenomeState.html#a371e13f6d644e9979fa0e5177ffaadba',1,'vg::GenomeState']]],
   ['insert_5fleft',['insert_left',['../classvg_1_1PhasedGenome.html#a02e624546cf3f5675fbfa128c080c75d',1,'vg::PhasedGenome']]],
