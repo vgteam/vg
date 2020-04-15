@@ -521,7 +521,7 @@ namespace vg {
         // in case we're realigning a GAM, get rid of the path
         aln.clear_path();
         
-        aligner->align(aln, *align_dag, true, false);
+        aligner->align(aln, *align_dag, true);
         
         // get the IDs back into the space of the reference graph
         function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {

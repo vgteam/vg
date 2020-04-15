@@ -2176,7 +2176,7 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
 
     //Align to the subgraph
     rescued_alignment.clear_path();
-    get_regular_aligner()->align(rescued_alignment, align_graph, true, false);
+    get_regular_aligner()->align(rescued_alignment, align_graph, true);
 
     translate_oriented_node_ids(*rescued_alignment.mutable_path(), node_trans);
 
@@ -2201,7 +2201,7 @@ void MinimizerMapper::attempt_rescue_haplotypes(const Alignment& aligned_read, A
     
     // Align to the subgraph.
     rescued_alignment.clear_path();
-    this->get_regular_aligner()->align(rescued_alignment, align_graph, true, false);
+    this->get_regular_aligner()->align(rescued_alignment, align_graph, true);
 
     // Get the corresponding alignment to the original graph.
     this->extender.transform_alignment(rescued_alignment, haplotype_paths);
