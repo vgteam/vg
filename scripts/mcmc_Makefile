@@ -8,20 +8,27 @@ TOIL_JS="$(WORKDIR)/my-jobstore"
 #TOIL_OS="$(WORKDIR)/my-output"
 TOIL_OS="$(WORKDIR)/my-output-small"
 
+MCMC_ITERATIONS = 1000
+READS= 300
+
 #FASTA = CHR21.fa
 #TBI = 1kg_hg19-CHR21.vcf.gz.tbi
 #VCF = 1kg_hg19-CHR21.vcf.gz
 #BASENAME = CHR21
 #READS= 7050000
 
+
 FASTA = test/small/x.fa
 TBI = test/small/x.vcf.gz.tbi
 VCF = test/small/x.vcf.gz
 BASENAME = x_small
-READS= 100
+
+
+
 SAMP=1
 HAPLO_0 = 0
 HAPLO_1 = 1
+
 
 all: $(TOIL_OS)/$(BASENAME).svg
 
@@ -44,7 +51,7 @@ $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).xg: $(TOIL_OS)/$(BASENAME)_thre
 	vg index -x $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).xg $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).vg	
 
 $(TOIL_OS)/$(BASENAME)_$(HAPLO_0).gam: $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).xg
-	toil-vg sim --gam --sim_opts '--sub-rate 0.1 --indel-rate 0.1 --read-length 100' --container None --out_name $(BASENAME)_$(HAPLO_0) $(TOIL_JS) $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).xg 1000 $(TOIL_OS)
+	toil-vg sim --gam --sim_opts '--sub-rate 0.1 --indel-rate 0.1 --read-length 100' --container None --out_name $(BASENAME)_$(HAPLO_0) $(TOIL_JS) $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).xg $(READS) $(TOIL_OS)
 	
 $(TOIL_OS)/$(BASENAME)_$(HAPLO_1)_thread.merge.vg: $(TOIL_OS)/$(BASENAME).vg $(TOIL_OS)/$(BASENAME).gbwt $(TOIL_OS)/$(BASENAME).xg
 	vg paths -d -v $(TOIL_OS)/$(BASENAME).vg > $(TOIL_OS)/$(BASENAME)_$(HAPLO_1)_thread.merge.vg
@@ -57,7 +64,7 @@ $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).xg: $(TOIL_OS)/$(BASENAME)_thre
 	vg index -x $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).xg $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).vg	
 
 $(TOIL_OS)/$(BASENAME)_$(HAPLO_1).gam: $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).xg
-	toil-vg sim --gam --sim_opts '--sub-rate 0.1 --indel-rate 0.1 --read-length 100' --container None --out_name $(BASENAME)_$(HAPLO_1) $(TOIL_JS) $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).xg 1000 $(TOIL_OS)
+	toil-vg sim --gam --sim_opts '--sub-rate 0.1 --indel-rate 0.1 --read-length 100' --container None --out_name $(BASENAME)_$(HAPLO_1) $(TOIL_JS) $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).xg $(READS) $(TOIL_OS)
 	
 $(TOIL_OS)/$(BASENAME)_merged.gam: $(TOIL_OS)/$(BASENAME)_$(HAPLO_0).gam $(TOIL_OS)/$(BASENAME)_$(HAPLO_1).gam
 	cat $(TOIL_OS)/$(BASENAME)_$(HAPLO_0).gam $(TOIL_OS)/$(BASENAME)_$(HAPLO_1).gam > $(TOIL_OS)/$(BASENAME)_merged.gam
@@ -67,7 +74,7 @@ $(TOIL_OS)/$(BASENAME).mgam: $(TOIL_OS)/$(BASENAME).xg $(TOIL_OS)/$(BASENAME).gc
 	
     
 $(TOIL_OS)/$(BASENAME)_paths.vg: $(TOIL_OS)/$(BASENAME).mgam $(TOIL_OS)/$(BASENAME).snarls $(TOIL_OS)/$(BASENAME).vg
-	vg mcmc --vcf-out $(TOIL_OS)/$(BASENAME).vcf $(TOIL_OS)/$(BASENAME).mgam $(TOIL_OS)/$(BASENAME).vg $(TOIL_OS)/$(BASENAME).snarls > $(TOIL_OS)/$(BASENAME)_paths.vg
+	vg mcmc -i $(MCMC_ITERATIONS) --vcf-out $(TOIL_OS)/$(BASENAME).vcf $(TOIL_OS)/$(BASENAME).mgam $(TOIL_OS)/$(BASENAME).vg $(TOIL_OS)/$(BASENAME).snarls > $(TOIL_OS)/$(BASENAME)_paths.vg
 
 $(TOIL_OS)/$(BASENAME).svg: $(TOIL_OS)/$(BASENAME)_paths.vg
 	vg view -d -n $(TOIL_OS)/$(BASENAME)_paths.vg | dot -Tsvg -o $(TOIL_OS)/$(BASENAME).svg

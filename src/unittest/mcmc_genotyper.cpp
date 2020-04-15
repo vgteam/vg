@@ -862,27 +862,27 @@ namespace vg {
                     delete lcpidx;
                 }
 
-                cerr <<"****************************DONE TESTING****************************" << endl;
-                cerr << count_correct << " tests" << " out of " << max <<" matched both haplotypes from the haplotype pair " <<endl;
-                cerr << count_incorrect << " tests " << "out of " << max << " matched one haplotype from haplotype pair  " <<endl;
-                int percent_incorrect = (count_incorrect/max)*100;
-                int percent_correct = (count_correct/max)*100;  
+                // cerr <<"****************************DONE TESTING****************************" << endl;
+                // cerr << count_correct << " tests" << " out of " << max <<" matched both haplotypes from the haplotype pair " <<endl;
+                // cerr << count_incorrect << " tests " << "out of " << max << " matched one haplotype from haplotype pair  " <<endl;
+                // int percent_incorrect = (count_incorrect/max)*100;
+                // int percent_correct = (count_correct/max)*100;  
 
-                cerr << endl;
+                // cerr << endl;
             
-                cerr << percent_correct << "% percent with two matched haplotypes" <<endl;
-                cerr << percent_incorrect << "% percent with one haplotype mathced from haplotype pair" <<endl;
-                cerr <<endl;
-                cerr << failed_seeds.size() <<" seeds failed testing : "<<endl;
-                for(int i = 0; i < failed_seeds.size(); i++ ){
-                    cerr<< failed_seeds[i] << ", ";
-                }
-                cerr << endl;
+                // cerr << percent_correct << "% percent with two matched haplotypes" <<endl;
+                // cerr << percent_incorrect << "% percent with one haplotype mathced from haplotype pair" <<endl;
+                // cerr <<endl;
+                // cerr << failed_seeds.size() <<" seeds failed testing : "<<endl;
+                // for(int i = 0; i < failed_seeds.size(); i++ ){
+                //     cerr<< failed_seeds[i] << ", ";
+                // }
+                // cerr << endl;
             }
             
         }
         TEST_CASE("Test8"){
-            //Returns optimal phased genome on a 7-node graph, two connected snarls with 8 short read
+            //Returns optimal phased genome on a 7-node graph, two connected snarls with 9 short read
             SECTION("Test8: Requires haplotype pair to match truth set"){
                 
                 vector<int> failed_seeds;
@@ -892,10 +892,9 @@ namespace vg {
                 double count_minus = 0.0;
                 vector<double> results = vector<double>();
                 
-                int num_iterations = 30;
-                int seed_i = 3;
+                int num_iterations = 100;
+                int seed_i = -537267595;
                 
-                    
                 VG graph;
 
                 Node* n1 = graph.create_node("GCA"); //gets ID # in incremintal order starting at 1, used in mapping
@@ -948,7 +947,7 @@ namespace vg {
                 MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
 
                 
-                vector<string> reads = {"GCATCTGAGCCC", "GCATCTGAGCCC", "GCAGCTGAACCC", "GCAGCTGAACCC","GCAGCTGAACCC", "GCAGCTGAACCC", "GCAGCTGAGCCC", "GCAGCTGAGCCC"};
+                vector<string> reads = {"GCATCTGAGCCC","GCATCTGAGCCC", "GCATCTGAGCCC", "GCAGCTGAACCC", "GCAGCTGAACCC","GCAGCTGAACCC", "GCAGCTGAACCC", "GCAGCTGAGCCC", "GCAGCTGAGCCC","GCATCTGAACCC" };
                 vector<Alignment> alns = {reads.size(), Alignment()};
                 
                 // set alignment sequence
@@ -1007,7 +1006,7 @@ namespace vg {
                     pass = true;
                 }
                 // check if the haplotype set is equal to solution set 
-                // take into account the haplotypes do not have inherrent ordering 
+                // take into account the haplotypes do not have inherent ordering 
                 REQUIRE(pass); 
                  
                 // Clean up the GCSA/LCP index

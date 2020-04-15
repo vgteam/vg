@@ -22,7 +22,8 @@ namespace vg {
         // set a flag for invalid contents so a message is observed 
         bool invalid_contents = false;
         bool return_optimal = false;
-        bool swapped = false;
+        bool swapped_to_old_allele = false; 
+
 
         // generate initial value
         unique_ptr<PhasedGenome> genome = generate_initial_guess();
@@ -35,10 +36,9 @@ namespace vg {
         
         // build markov chain using Metropolis-Hastings
         for(int i = 0; i< n_iterations; i++){
-            
             // holds the previous sample allele
             double x_prev = log_target(genome, reads);
-        
+
             // get contents from proposal_sample
             tuple<int, const Snarl*, vector<NodeTraversal> > to_receive = proposal_sample(genome);
             int& modified_haplo = get<0>(to_receive);         
@@ -58,26 +58,25 @@ namespace vg {
                 // calculate likelihood ratio of posterior distribution 
                 double likelihood_ratio = exp(log_base*(x_new - x_prev));
                 
-                // cerr << "********************************" <<endl;
-                // cerr << "total score of new genome "<< x_new << endl;
-                // cerr << "total score of prev genome "<< x_prev << endl;
-                // cerr << "likelihood ratio            " << likelihood_ratio << endl;
-                // cerr << "prev log likelihood         " << current_likelihood << endl;                
-                
-                if(!swapped){
-                    // if we did not swap back then we use the prev likelihood 
+                // cerr << "\ttotal score of new genome "<< x_new << endl;
+                // cerr << "\ttotal score of prev genome "<< x_prev << endl;
+                // cerr << "\tlikelihood ratio            " << likelihood_ratio << endl;
+
+                if(!swapped_to_old_allele){
+                    //if we accepted new allele (did not swap back to old allele), we update prev = current
                     previous_likelihood = current_likelihood;
-                }// otherwise don't update it 
-
-                current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
-
-                // cerr << "current log likelihood      " << current_likelihood << endl;
-                // cerr << "max likelihood              " << max_likelihood << endl;
-                // cerr<< endl;
+                    current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
+                    // cerr << "\tprev log likelihood         " << previous_likelihood << endl; 
+                    // cerr << "\tcurrent log likelihood      " << current_likelihood << endl;
+                    cerr << current_likelihood << endl;
+                }else{
+                    //otherwise we did not accept new allele (did swap back to old allele) and prev,current do not change
+                    current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
+                    // cerr << "\tprev log likelihood         " << previous_likelihood << endl; 
+                    // cerr << "\tcurrent log likelihood      " << current_likelihood << endl;
+                    cerr << current_likelihood << endl;
+                }
                 
-                
-                // genome->print_phased_genome();
-                // cerr << "********************************" <<endl;
                 if (current_likelihood > max_likelihood){
                     max_likelihood = current_likelihood;
                     optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
@@ -88,25 +87,29 @@ namespace vg {
                 double acceptance_probability = min(1.0, likelihood_ratio);
 
                 // if u~U(0,1) > alpha, discard new allele and keep previous 
-                if(generate_continuous_uniform(0.0,1.0) > acceptance_probability){ 
-                    swapped = true;
+                auto uniform_smpl = generate_continuous_uniform(0.0,1.0);
+                // cerr << "\tuniform smpl " << uniform_smpl <<endl;
+                // cerr <<"\tacceptance prob " << acceptance_probability <<endl;
+                if(uniform_smpl > acceptance_probability){ 
+                    swapped_to_old_allele = true; 
                     genome->set_allele(modified_site, old_allele.begin(), old_allele.end(), modified_haplo); 
-                    // cerr << "************UPDATED HAPLOTYPE********************" <<endl;
+                    // cerr << "Rejected new allele" <<endl;
                     // genome->print_phased_genome();
-                    // cerr << "********************************" <<endl;
+                    
+                }else{
+                    swapped_to_old_allele = false;
+                    // cerr << "Accepted new allele" <<endl;
+                    // genome->print_phased_genome();
                 }         
             }
         } 
         if(invalid_contents || !return_optimal){
             // for graphs without snarls 
-            // cerr << "return genome"<<endl;
-            // cerr << "************FINAL******************************************" <<endl;
-            // genome->print_phased_genome();
             return genome; 
         }else{
-            // cerr << "return optimal"<<endl;
-            // cerr << "************FINAL******************************************" <<endl;
+            // cerr <<"optimal genome " <<endl;
             // optimal->print_phased_genome();
+            cerr << max_likelihood <<endl;
             return optimal; 
         }
 
@@ -314,9 +317,6 @@ namespace vg {
         // haplotype1 = haplotype2
         genome->add_haplotype(haplotype.begin(), haplotype.end());
         genome->add_haplotype(haplotype.begin(), haplotype.end());
-
-        // genome->print_phased_genome();
-        // cerr <<"this is the reference **********" <<endl;
 
         // index sites
         genome->build_indices();

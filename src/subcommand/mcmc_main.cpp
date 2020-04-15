@@ -54,7 +54,7 @@ int main_mcmc(int argc, char** argv) {
 
     // initialize parameters with their default options
     int n_iterations = 1000;
-    int seed = 1;
+    int seed = std::chrono::system_clock::now().time_since_epoch().count();
     string sample_name = "SAMPLE";
     
 
