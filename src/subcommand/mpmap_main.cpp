@@ -95,7 +95,7 @@ void help_mpmap(char** argv) {
     << "  -o, --gap-open INT            use this gap open penalty [6]" << endl
     << "  -y, --gap-extend INT          use this gap extension penalty [1]" << endl
     << "  -L, --full-l-bonus INT        add this score to alignments that align each end of the read [5]" << endl
-    << "  -w, --score-matrix FILE       read a 5x5 integer substitution scoring matrix from a file (in the order ACGTN)" << endl
+    << "  -w, --score-matrix FILE       read a 4x4 integer substitution scoring matrix from a file (in the order ACGT)" << endl
     << "  -m, --remove-bonuses          remove full length alignment bonuses in reported scores" << endl
     << "computational parameters:" << endl
     << "  -Z, --buffer-size INT         buffer this many alignments together (per compute thread) before outputting to stdout [200]" << endl;
@@ -1122,8 +1122,12 @@ int main_mpmap(int argc, char** argv) {
         snarl_manager.get(), distance_index.get());
     
     // set alignment parameters
-    multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
-    if(matrix_stream.is_open()) multipath_mapper.load_scoring_matrix(matrix_stream);
+    if (matrix_stream.is_open()) {
+        multipath_mapper.set_alignment_scores(matrix_stream, gap_open_score, gap_extension_score, full_length_bonus);
+    }
+    else {
+        multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
+    }
     multipath_mapper.adjust_alignments_for_base_quality = qual_adjusted;
     multipath_mapper.strip_bonuses = strip_full_length_bonus;
     multipath_mapper.band_padding_multiplier = band_padding_multiplier;
@@ -1455,8 +1459,11 @@ int main_mpmap(int argc, char** argv) {
             uint64_t n;
 #pragma omp atomic capture
             n = ++num_reads_mapped;
-            if (n % progress_frequency) {
-                cerr << "[vg mpmap] mapped " << n << " reads" << endl;
+            if (n % progress_frequency == 0) {
+#pragma omp critical
+                {
+                    cerr << "[vg mpmap] mapped " << n << " reads" << endl;
+                }
             }
         }
         
@@ -1519,8 +1526,11 @@ int main_mpmap(int argc, char** argv) {
             uint64_t n;
 #pragma omp atomic capture
             n = ++num_reads_mapped;
-            if (n % progress_frequency) {
-                cerr << "[vg mpmap] mapped " << n << " read pairs" << endl;
+            if (n % progress_frequency == 0) {
+#pragma omp critical
+                {
+                    cerr << "[vg mpmap] mapped " << n << " read pairs" << endl;
+                }
             }
         }
         
