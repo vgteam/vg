@@ -387,7 +387,8 @@ class MinimumDistanceIndex {
 
 
     //Header for the serialized file
-    string file_header = "distance index version 2";
+    string file_header = "distance index version 2.1";
+    bool include_component; //TODO: This is true for version 2.1 so it includes node_to_component, etc. 
 
     ////// Private helper functions
  

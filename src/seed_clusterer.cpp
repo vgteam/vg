@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
     SnarlSeedClusterer::SnarlSeedClusterer( MinimumDistanceIndex& dist_index) :

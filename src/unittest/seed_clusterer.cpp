@@ -522,7 +522,6 @@ namespace unittest {
             seeds[8].pos = make_pos_t(15, false, 0);
 
             for (SnarlSeedClusterer::Seed& seed : seeds){
-                cerr << seed.pos << endl;
                 pair<size_t, size_t> offset = dist_index.offset_in_root_chain(seed.pos);
                 seed.component = offset.first;
                 seed.offset = offset.second;
@@ -1423,7 +1422,7 @@ namespace unittest {
     */
     TEST_CASE("Random graphs", "[cluster]"){
 
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 0; i++) {
             // For each random graph
             VG graph;
             random_graph(1000, 50, 100, &graph);
@@ -1444,14 +1443,14 @@ namespace unittest {
             uniform_int_distribution<int> randSnarlIndex(0, allSnarls.size()-1);
             default_random_engine generator(time(NULL));
 
-            uniform_int_distribution<int> randPosCount(0, 100);
+            uniform_int_distribution<int> randPosCount(0, 500);
             for (size_t k = 0; k < randPosCount(generator) ; k++) {
 
                 vector<vector<SnarlSeedClusterer::Seed>> all_seeds;
                 all_seeds.emplace_back();
                 all_seeds.emplace_back();
-                int64_t read_lim = 15;// Distance between read clusters
-                int64_t fragment_lim = 30;// Distance between fragment clusters
+                int64_t read_lim = 30;// Distance between read clusters
+                int64_t fragment_lim = 50;// Distance between fragment clusters
                 for (size_t read = 0 ; read < 2 ; read ++) {
                     for (int j = 0; j < 10; j++) {
                         //Check clusters of j random positions 
