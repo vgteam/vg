@@ -32,10 +32,10 @@ public:
     /// Run call_snarl() on every top-level snarl in the manager.
     /// For any that return false, try the children, etc. (when recurse_on_fail true)
     /// Snarls are processed in parallel
-    virtual void call_top_level_snarls(bool recurse_on_fail = true);
+    virtual void call_top_level_snarls(int ploidy, bool recurse_on_fail = true);
 
     /// Call a given snarl, and print the output to out_stream
-    virtual bool call_snarl(const Snarl& snarl) = 0;
+    virtual bool call_snarl(const Snarl& snarl, int ploidy) = 0;
    
 protected:
 
@@ -110,7 +110,7 @@ public:
 
     virtual ~VCFGenotyper();
 
-    virtual bool call_snarl(const Snarl& snarl);
+    virtual bool call_snarl(const Snarl& snarl, int ploidy);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -154,7 +154,7 @@ public:
 
     virtual ~LegacyCaller();
 
-    virtual bool call_snarl(const Snarl& snarl);
+    virtual bool call_snarl(const Snarl& snarl, int ploidy);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -245,7 +245,7 @@ public:
    
     virtual ~FlowCaller();
 
-    virtual bool call_snarl(const Snarl& snarl);
+    virtual bool call_snarl(const Snarl& snarl, int ploidy);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -264,6 +264,9 @@ protected:
 
     /// keep track of offsets in the reference paths
     map<string, size_t> ref_offsets;
+
+    /// until we support nested snarls, cap snarl size we attempt to process
+    size_t max_snarl_edges = 500000;
 
 };
 

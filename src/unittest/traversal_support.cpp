@@ -15,7 +15,6 @@
 #include "traversal_finder.hpp"
 #include "../handle.hpp"
 #include "../json2pb.h"
-#include "../proto_handle_graph.hpp"
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
 
@@ -73,7 +72,7 @@ TEST_CASE( "Deletion allele supports found correctly",
     json2pb(g, graph_json);
     
     // Wrap the graph in a HandleGraph
-    ProtoHandleGraph graph(&g);
+    VG graph(g);
 
     unordered_map<nid_t, double> node_supports = {
         {31040, 17.5},

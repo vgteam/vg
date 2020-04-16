@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import logging
@@ -289,7 +289,7 @@ class VGCITest(TestCase):
             int(max(1, self.cores / 2)), self.cores)
         
         cmd = 'toil-vg run {} {} {} {}'.format(job_store, sample_name, out_store, opts)
-        print(("Run toil-vg with {}".format(cmd)))
+        print("Run toil-vg with {}".format(cmd))
         
         subprocess.check_call(cmd, shell=True)
 
@@ -897,7 +897,7 @@ class VGCITest(TestCase):
         self._end_message()
 
         # test the mapeval results, only looking at baseline keys
-        for key, val in baseline_dict.items():
+        for key, val in list(baseline_dict.items()):
             if key in stats_dict:
                 # For each graph we have a baseline and stats for, compare the
                 # columns we actually have in both.
@@ -946,7 +946,7 @@ class VGCITest(TestCase):
                 # Parse out the real stat values
                 score_stats_dict = self._tsv_to_dict(io.open(score_stats_path, 'r', encoding='utf8').read())
                     
-                for key in score_stats_dict.keys():
+                for key in list(score_stats_dict.keys()):
                     # For every kind of graph
                     
                     if compare_against == 'input' and (key != read_source_graph and
@@ -1256,7 +1256,7 @@ class VGCITest(TestCase):
                            acc_threshold=0.0075, auc_threshold=0.075, mappers = ['map', 'mpmap'],
                            sim_opts='-l 150 -p 570 -v 150 -e 0.01 -i 0.002')
 
-    @timeout_decorator.timeout(2400)        
+    @timeout_decorator.timeout(4400)        
     def test_sim_chr21_snp1kg_trained(self):
         self._test_mapeval(100000, 'CHR21', 'snp1kg',
                            ['primary', 'snp1kg'],

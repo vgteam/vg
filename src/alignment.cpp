@@ -125,7 +125,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
         } else {
             throw runtime_error("Found unexpected delimiter " + name.substr(0,1) + " in fastq/fasta input");
         }
-        name = name.substr(1, name.find(' ')); // trim off leading @ and things after the first whitespace
+        name = name.substr(1, name.find(' ') - 1); // trim off leading @ and things after the first whitespace
         // keep trailing /1 /2
         alignment.set_name(name);
     } else { return false; }
@@ -1830,6 +1830,56 @@ void normalize_alignment(Alignment& alignment) {
         // path, now replace the original with it
         *alignment.mutable_path() = move(normalized);
     }
+}
+
+bool uses_Us(const Alignment& alignment) {
+    
+    for (char nt : alignment.sequence()) {
+        switch (nt) {
+            case 'U':
+                return true;
+                break;
+                
+            case 'T':
+                return false;
+                break;
+                
+            default:
+                break;
+        }
+    }
+    return false;
+}
+
+void convert_alignment_char(Alignment& alignment, char from, char to) {
+    auto& seq = *alignment.mutable_sequence();
+    for (size_t i = 0; i < seq.size(); ++i) {
+        if (seq[i] == from) {
+            seq[i] = to;
+        }
+    }
+    if (alignment.has_path()) {
+        for (Mapping& mapping : *alignment.mutable_path()->mutable_mapping()) {
+            for (Edit& edit : *mapping.mutable_edit()) {
+                if (!edit.sequence().empty()) {
+                    auto& eseq = *edit.mutable_sequence();
+                    for (size_t i = 0; i < eseq.size(); ++i) {
+                        if (eseq[i] == from) {
+                            eseq[i] = to;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void convert_Us_to_Ts(Alignment& alignment) {
+    convert_alignment_char(alignment, 'U', 'T');
+}
+
+void convert_Ts_to_Us(Alignment& alignment) {
+    convert_alignment_char(alignment, 'T', 'U');
 }
 
 map<id_t, int> alignment_quality_per_node(const Alignment& aln) {

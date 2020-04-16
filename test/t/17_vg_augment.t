@@ -73,7 +73,7 @@ vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg map -x x.xg -g x.gcsa -G small/x-s1337-n100-e0.01-i0.005.gam -t 1 >x.gam
 vg augment -Z x.trans -i -S x.vg x.gam >x.mod.vg
-is $(vg view -Z x.trans | wc -l) 1288 "the expected graph translation is exported when the graph is edited"
+is $(vg view -Z x.trans | wc -l) 1290 "the expected graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
 
 vg construct -m 1000 -r tiny/tiny.fa >flat.vg

@@ -368,7 +368,7 @@ void variant_recall(VG* graph,
     else{
         Index gamindex;
         gamindex.open_read_only(gamfile);
-        vector<int64_t> vn(variant_nodes.begin(), variant_nodes.end());
+        vector<nid_t> vn(variant_nodes.begin(), variant_nodes.end());
         gamindex.for_alignment_to_nodes(vn, index_incr);
     }
 

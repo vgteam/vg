@@ -8,7 +8,7 @@
 #include "../build_index.hpp"
 #include "../algorithms/topological_sort.hpp"
 #include "../algorithms/normalize.hpp"
-#include "../convert_handle.hpp"
+#include "../algorithms/copy_graph.hpp"
 #include "../chunker.hpp"
 #include "xg.hpp"
 
@@ -429,7 +429,7 @@ int main_msga(int argc, char** argv) {
         if (graph == nullptr) {
             // Copy instead.
             graph = new vg::VG();
-            convert_path_handle_graph(loaded.get(), graph);
+            algorithms::copy_path_handle_graph(loaded.get(), graph);
             // Make sure the paths are all synced up
             graph->paths.to_graph(graph->graph);
         }
@@ -679,6 +679,7 @@ int main_msga(int argc, char** argv) {
             mapper->mapping_quality_method = mapping_quality_method;
             mapper->max_mapping_quality = max_mapping_quality;
             mapper->patch_alignments = patch_alignments;
+            mapper->max_xdrop_gap_length = default_xdrop_max_gap_length;
         }
     };
 

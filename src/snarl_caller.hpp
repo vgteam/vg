@@ -204,6 +204,8 @@ public:
         double gq;
         double posterior;
         double expected_depth;
+        double depth_err;
+        int max_trav_size;
     };
 
     /// Get the genotype of a site
@@ -236,13 +238,14 @@ protected:
     double genotype_likelihood(const vector<int>& genotype,
                                const vector<SnarlTraversal>& traversals,
                                const set<int>& trav_subset,
-                               int ref_trav_idx, double exp_depth, double depth_err);
+                               int ref_trav_idx, double exp_depth, double depth_err,
+                               int max_trav_size);
 
     /// Rank supports
     vector<int> rank_by_support(const vector<Support>& supports);
 
     /// Baseline mapping error rate (gets added to the standard error from coverage)
-    double baseline_mapping_error = 0.005;
+    double baseline_mapping_error = 0.01;
 
     /// Consider up to the top-k traversals (based on support) for genotyping
     size_t top_k = 20;

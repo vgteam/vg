@@ -22,7 +22,6 @@
 #include "mem.hpp"
 #include "cluster.hpp"
 #include "graph.hpp"
-#include "proto_handle_graph.hpp"
 #include "translator.hpp"
 // TODO: pull out ScoreProvider into its own file
 #include "haplotypes.hpp"
@@ -209,7 +208,11 @@ public:
     
     /// Override alignment score setting to support haplotype consistency exponent
     void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
-                              uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length, double haplotype_consistency_exponent = 1);
+                              double haplotype_consistency_exponent = 1);
+    
+    /// Same, but loading a 4x4 substitution score matrix from a stream
+    void set_alignment_scores(istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
+                              double haplotype_consistency_exponent = 1);
     
     void set_cache_size(int new_cache_size);
     
@@ -242,6 +245,13 @@ public:
                      int max_mem_length = 0,
                      int min_mem_length = 1,
                      int reseed_length = 0);
+    
+    vector<MaximalExactMatch>
+    find_stripped_matches(string::const_iterator seq_begin,
+                          string::const_iterator seq_end,
+                          size_t strip_length,
+                          size_t max_match_length,
+                          size_t target_count);
     
     /// identifies tracts of order-length MEMs that were unfilled because their hit count was above the max
     /// and fills one MEM in the tract (the one with the smallest hit count), assumes MEMs are lexicographically
@@ -620,6 +630,7 @@ public:
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
     bool include_full_length_bonuses;
+    int max_xdrop_gap_length;
     
     bool simultaneous_pair_alignment;
     int max_band_jump; // the maximum length edit we can detect via banded alignment
