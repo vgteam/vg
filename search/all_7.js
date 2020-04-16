@@ -373,7 +373,7 @@ var searchData=
   ['group_5ftag',['group_tag',['../classvg_1_1io_1_1MessageEmitter.html#ad240e5c3ae379aa3257c498dd4c4e1bf',1,'vg::io::MessageEmitter']]],
   ['group_5fvo',['group_vo',['../classvg_1_1io_1_1MessageIterator.html#ae569fd7dc6129edc5e5dac52b1a67f84',1,'vg::io::MessageIterator']]],
   ['growth',['Growth',['../structvg_1_1FlowSort_1_1Growth.html',1,'vg::FlowSort::Growth'],['../structvg_1_1FlowSort_1_1Growth.html#aa156ae24695e73aee936d00a7ef70d22',1,'vg::FlowSort::Growth::Growth()']]],
-  ['gssw_5fmapping_5fto_5falignment',['gssw_mapping_to_alignment',['../classvg_1_1GSSWAligner.html#acea6a5f1c28c51f6a61fe2733f74cb32',1,'vg::GSSWAligner']]],
+  ['gssw_5fmapping_5fto_5falignment',['gssw_mapping_to_alignment',['../classvg_1_1GSSWAligner.html#a3c6dcbacb6dd77cbd5b672c7a06a66ae',1,'vg::GSSWAligner']]],
   ['gsswaligner',['GSSWAligner',['../classvg_1_1GSSWAligner.html',1,'vg::GSSWAligner'],['../classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79',1,'vg::GSSWAligner::GSSWAligner()']]],
   ['protobuf',['protobuf',['../namespacegoogle_1_1protobuf.html',1,'google']]]
 ];
