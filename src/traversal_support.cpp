@@ -358,6 +358,38 @@ vector<int> TraversalSupportFinder::get_traversal_sizes(const vector<SnarlTraver
     
 }
 
+vector<double> TraversalSupportFinder::get_traversal_mapqs(const vector<SnarlTraversal>& traversals) const {
+    vector<double> mapqs;
+    mapqs.reserve(traversals.size());
+    for (int i = 0; i < traversals.size(); ++i) {
+        double total_mapq = 0;
+        double total_denominator = 0;
+        for (int j = 0; j < traversals[i].visit_size(); ++j) {
+            if (traversals[i].visit(j).node_id() != 0) {
+                double len = graph.get_length(graph.get_handle(traversals[i].visit(j).node_id()));
+                double sup = support_val(get_avg_node_support(traversals[i].visit(j).node_id()));
+                double mapq = get_avg_node_mapq(traversals[i].visit(j).node_id());
+                total_mapq += mapq * len * sup;
+                total_denominator += len * sup;
+            } else {
+                // just summing up the snarl contents, which isn't a great heuristic but will
+                // help in some cases
+                pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(
+                    snarl_manager.into_which_snarl(traversals[i].visit(j)), graph, true);
+                for (id_t node_id : contents.first) {
+                    double len = graph.get_length(graph.get_handle(node_id));
+                    double sup = support_val(get_avg_node_support(node_id));
+                    double mapq = get_avg_node_mapq(node_id);
+                    total_mapq += mapq * len * sup;
+                    total_denominator += len * sup;
+                }                               
+            }
+        }
+        mapqs.push_back(total_denominator > 0 ? total_mapq / total_denominator : 0);
+    }
+    return mapqs;
+}
+
 size_t TraversalSupportFinder::get_average_traversal_support_switch_threshold() const {
     return average_traversal_support_switch_threshold;
 }
@@ -438,6 +470,11 @@ Support PackedTraversalSupportFinder::get_avg_node_support(id_t node) const {
     return support;
 }
 
+size_t PackedTraversalSupportFinder::get_avg_node_mapq(id_t node) const {
+    size_t offset = packer.node_index(node);
+    return packer.average_node_quality(offset);    
+}
+
 
 CachedPackedTraversalSupportFinder::CachedPackedTraversalSupportFinder(const Packer& packer, SnarlManager& snarl_manager, size_t cache_size) :
     PackedTraversalSupportFinder(packer, snarl_manager) {
@@ -445,10 +482,12 @@ CachedPackedTraversalSupportFinder::CachedPackedTraversalSupportFinder(const Pac
     min_node_support_cache.resize(num_threads);
     avg_node_support_cache.resize(num_threads);
     edge_support_cache.resize(num_threads);
+    avg_node_mapq_cache.resize(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {
         min_node_support_cache[i] = new LRUCache<nid_t, Support>(cache_size);
         avg_node_support_cache[i] = new LRUCache<nid_t, Support>(cache_size);
         edge_support_cache[i] = new LRUCache<edge_t, Support>(cache_size);
+        avg_node_mapq_cache[i] = new LRUCache<nid_t, size_t>(cache_size);
     }
 }
 
@@ -457,6 +496,7 @@ CachedPackedTraversalSupportFinder::~CachedPackedTraversalSupportFinder() {
         delete min_node_support_cache[i];
         delete avg_node_support_cache[i];
         delete edge_support_cache[i];
+        delete avg_node_mapq_cache[i];
     }
 }
 
@@ -501,5 +541,17 @@ Support CachedPackedTraversalSupportFinder::get_avg_node_support(id_t node) cons
     }
 }
 
+size_t CachedPackedTraversalSupportFinder::get_avg_node_mapq(id_t node) const {
+    auto& mapq_cache = *avg_node_mapq_cache[omp_get_thread_num()];
+    pair<size_t, bool> cached = mapq_cache.retrieve(node);
+    if (cached.second == true) {
+        return cached.first;
+    } else {
+        size_t mapq = PackedTraversalSupportFinder::get_avg_node_mapq(node);
+        mapq_cache.put(node, mapq);
+        return mapq;
+    }
+    
+}
 
 }
