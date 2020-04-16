@@ -14,6 +14,7 @@
 
 #include "../vg.hpp"
 #include "../deconstructor.hpp"
+#include "../cactus_snarl_finder.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>

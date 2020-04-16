@@ -8,12 +8,13 @@
 #include <iostream>
 #include <sstream>
 #include <set>
-#include "json2pb.h"
+#include "../json2pb.h"
 #include <vg/vg.pb.h>
 #include "catch.hpp"
-#include "snarls.hpp"
-#include "genotypekit.hpp"
-#include "traversal_finder.hpp"
+#include "../snarls.hpp"
+#include "../cactus_snarl_finder.hpp"
+#include "../genotypekit.hpp"
+#include "../traversal_finder.hpp"
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
 

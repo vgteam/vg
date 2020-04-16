@@ -15,6 +15,7 @@
 #include "index_manager.hpp"
 #include "utility.hpp"
 #include "constructor.hpp"
+#include "cactus_snarl_finder.hpp"
 #include "haplotype_indexer.hpp"
 #include "io/save_handle_graph.hpp"
 

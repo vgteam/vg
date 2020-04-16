@@ -7,6 +7,7 @@
 #include "algorithms/id_sort.hpp"
 #include "algorithms/simplify_siblings.hpp"
 #include "algorithms/unchop.hpp"
+#include "cactus_snarl_finder.hpp"
 #include "augment.hpp"
 #include "prune.hpp"
 #include <raptor2/raptor2.h>

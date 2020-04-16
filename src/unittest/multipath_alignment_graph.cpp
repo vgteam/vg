@@ -5,6 +5,7 @@
 #include <iostream>
 #include "json2pb.h"
 #include <vg/vg.pb.h>
+#include "../cactus_snarl_finder.hpp"
 #include "../multipath_alignment_graph.hpp"
 #include "catch.hpp"
 

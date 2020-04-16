@@ -13,6 +13,7 @@
 #include "../vg.hpp"
 #include <vg/vg.pb.h>
 #include "../traversal_finder.hpp"
+#include "../cactus_snarl_finder.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
