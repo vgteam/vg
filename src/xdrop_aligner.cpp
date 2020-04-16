@@ -78,6 +78,8 @@ XdropAligner::XdropAligner() : dz(nullptr)
 XdropAligner::XdropAligner(const int8_t* _score_matrix, int8_t _gap_open, int8_t _gap_extension,
                            int32_t _full_length_bonus)
 {
+    // xdrop aligner uses the parameterization where both gap open and gap extend are paid when opening
+    // a gap
     assert(_gap_open - _gap_extension >= 0);
     assert(_gap_extension > 0);
     assert(_full_length_bonus >= 0);

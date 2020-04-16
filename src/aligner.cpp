@@ -910,8 +910,12 @@ Aligner::Aligner(const int8_t* _score_matrix,
         }
     }
     
-    xdrops.resize(omp_get_num_threads(), XdropAligner(_score_matrix, _gap_open, _gap_extension,
-                                                      _full_length_bonus));
+    // make an XdropAligner for each thread
+    int num_threads = get_thread_count();
+    xdrops.reserve(num_threads);
+    for (size_t i = 0; i < num_threads; ++i) {
+        xdrops.emplace_back(_score_matrix, _gap_open, _gap_extension, _full_length_bonus);
+    }
 }
 
 void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
