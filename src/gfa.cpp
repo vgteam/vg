@@ -197,14 +197,14 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // So let's start
     
     // Parse the GFA
-    GFAKluge gg;
-    gg.parse_gfa_file(in);
+    //GFAKluge gg;
+    //gg.parse_gfa_file(in);
     // This maps from GFA sequence name to GFA sequence record
-    map<string, sequence_elem, custom_key> gfa_sequences = gg.get_name_to_seq();
+    //map<string, sequence_elem, custom_key> gfa_sequences = gg.get_name_to_seq();
     // This maps from GFA sequence name to the GFA links for which it is the source
-    map<string, vector<edge_elem> > gfa_links = gg.get_seq_to_edges();
+    //map<string, vector<edge_elem> > gfa_links = gg.get_seq_to_edges();
     // This maps from path name to GFA path record
-    map<string, path_elem> gfa_paths = gg.get_name_to_path();
+    //map<string, path_elem> gfa_paths = gg.get_name_to_path();
     
     // Make a pinch thread set
     unique_ptr<stPinchThreadSet, decltype(&stPinchThreadSet_destruct)> pinch(stPinchThreadSet_construct(), &stPinchThreadSet_destruct);
@@ -220,18 +220,6 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         stPinchThreadSet_addThread(pinch.get(), pinch_name, 0, s.seq_length);
         name_to_seq[s.id] = s.seq;
     };
-    
-    // for(auto& name_and_record : gfa_sequences) {
-    //     // For each GFA sequence record by string name
-    //     auto& name = name_and_record.first;
-    //     auto& record = name_and_record.second;
-        
-    //     // Assign it a numeric pinch thread name
-    //     auto pinch_name = gfa_to_pinch.translate(name);
-        
-    //     // Add the thread to the pinch thread set
-    //     stPinchThreadSet_addThread(pinch.get(), pinch_name, 0, record.sequence.size());
-    // }
     
     // As we go through the links, we need to remmeber links which are straight abutments of sequences.
     // These won't be processed by the pinch graph; we need to store them and process them later.
@@ -330,7 +318,7 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 }
             }
 
-                      // Work out what thread the link is to
+            // Work out what thread the link is to
             auto sink_pinch_name = gfa_to_pinch.translate(e.sink_id);
             auto sink_thread = stPinchThreadSet_getThread(pinch.get(), sink_pinch_name);
             
@@ -366,7 +354,7 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
 
                     
             // Find the sink sequence data
-            auto& sink_string = gfa_sequences[e.sink_id].sequence;
+            auto& sink_string = name_to_seq[e.sink_id];
             // And sequence length
             auto sink_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch.get(), sink_pinch_name));
             
@@ -412,7 +400,7 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             int64_t sink_cursor = sink_backward ? (sink_sequence_length - 1) : 0;
             int64_t sink_motion = sink_backward ? -1 : 1;
             
-// Decide if we are pinching in agreeing orientations
+            // Decide if we are pinching in agreeing orientations
             bool pinch_same_strand = (source_backward == sink_backward);
             
             // Interpret the CIGAR string and perform pinches.
@@ -1110,7 +1098,7 @@ bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             auto segment_backward = !stPinchSegment_getBlockOrientationSafe(segment);
             
             // Go find the source DNA for the GFA sequence that created the thread
-            const string& thread_sequence = gfa_sequences[gfa_to_pinch.untranslate(segment_thread_name)].sequence;
+            const string& thread_sequence = name_to_seq[gfa_to_pinch.untranslate(segment_thread_name)];
             
             // Compute the sequence for the vg node we will make
             string node_sequence = thread_sequence.substr(segment_start, segment_length);
