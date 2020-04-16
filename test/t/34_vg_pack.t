@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 15
+plan tests 16
 
 vg construct -m 1000 -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
@@ -94,3 +94,16 @@ diff edge-table.vg.tsv edge-table.vg.t3.tsv
 is "$?" 0 "edge packs same on vg when using 2 threads as when using 1"
 
 rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx node-table.vg.tsv node-table.xg.tsv edge-table.vg.tsv edge-table.xg.tsv edge-table.vg.t3.tsv node-table.vg.t3.tsv
+
+vg construct -m 5 -r tiny/tiny.fa >flat.vg
+vg index flat.vg -g flat.gcsa
+# add a 20 mapq to nodes 1 and 2
+vg map -x flat.vg -g flat.gcsa -s CAAATAAGG | vg view -a - | sed -e 's/60/20/g' | vg view -JaG - > flat.gam
+# add a 10 mapq to nodes 2 and 3 and 4
+vg map -x flat.vg -g flat.gcsa -s GGCTTGGAA | vg view -a - | sed -e 's/60/10/g' | vg view -JaG - >> flat.gam
+# add a 60 mapq to node 9 and 10
+vg map -x flat.vg -g flat.gcsa -s AACTCTCTG | vg view -a - | vg view -JaG - >> flat.gam
+vg pack -x flat.vg -o flat.cx -g flat.gam
+is $(vg pack -x flat.vg -i flat.cx -u | awk ' NR>1 {print $2 "\t" $3}' | sort -g | awk '{print $2}' | tr '\n' '-') 20-15-10-10-0-0-0-0-60-60- "average node qualities are correct"
+
+rm -f flat.vg flat.gcsa flat.gam flat.cx

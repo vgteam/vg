@@ -454,7 +454,8 @@ void Packer::remove_edit_tmpfiles(void) {
 
 void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
     // mapping quality threshold filter
-    if (aln.mapping_quality() < min_mapq) {
+    int mapping_quality = aln.mapping_quality();
+    if (mapping_quality < min_mapq) {
         return;
     }
     // count the nodes, edges, and edits
@@ -465,7 +466,6 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
     size_t position_in_read = 0;
     for (size_t mi = 0; mi < aln.path().mapping_size(); ++mi) {
         auto& mapping = aln.path().mapping(mi);
-        int mapping_quality = aln.mapping_quality();
         if (!mapping.has_position()) {
 #ifdef debug
             cerr << "Mapping has no position" << endl;
@@ -480,6 +480,7 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
         }
         size_t i = position_in_basis(mapping.position());
         size_t node_quality_index = node_index(mapping.position().node_id());
+        size_t total_node_quality = 0;
         // keep track of average base quality in the mapping
         int bq_total = 0;
         int bq_count = 0;
@@ -498,8 +499,8 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
                         // base quality threshold filter (only if we found some kind of quality)
                         if (base_quality < 0 || base_quality >= min_baseq) {
                             increment_coverage(coverage_idx);
-                            if (record_qualities) {
-                                increment_node_quality(node_quality_index, aln.mapping_quality());
+                            if (record_qualities && mapping_quality > 0) {
+                                total_node_quality += mapping_quality;
                             }
                         }
                     }         
@@ -519,6 +520,9 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
                 if (!edit_is_match(edit)) {
                     position_in_read += edit.to_length();
                 }
+            }
+            if (total_node_quality > 0) {
+                increment_node_quality(node_quality_index, total_node_quality);
             }
         }
         
@@ -766,15 +770,23 @@ void Packer::increment_node_quality(size_t i, size_t v) {
 
 bool Packer::has_qualities() const {
     if (is_compacted) {
-        return node_quality_civ.size() > 0;
-    } else {
-        for (size_t i = 0; i < node_quality_dynamic.size(); ++i) {
-            if (node_quality_dynamic[i] != nullptr) {
+        for (size_t i = 0; i < node_quality_civ.size(); ++i) {
+            if (node_quality_civ[i] > 0) {
                 return true;
             }
         }
-        return false;
+    } else {
+        for (size_t i = 0; i < node_quality_dynamic.size(); ++i) {
+            if (node_quality_dynamic[i] != nullptr) {
+                for (size_t j = 0; j < node_quality_dynamic[i]->size(); ++j) {
+                    if ((*node_quality_dynamic.at(i))[j] > 0) {
+                        return true;
+                    }
+                }
+            }
+        }
     }
+    return false;
 }
 
 size_t Packer::coverage_at_position(size_t i) const {

@@ -106,8 +106,7 @@ public:
     /// and back
     nid_t index_to_node(size_t i) const;
     void increment_node_quality(size_t i, size_t v);
-    /// for backward compatibility: was this file made from a version of pack that didnt
-    /// do node qualities?
+    /// return true if there's at least one nonzero quality in the structure
     bool has_qualities() const;
     
 private:
