@@ -258,16 +258,16 @@ void MinimumDistanceIndex::load(istream& in){
             }
             char_index ++;
         }
-        if (in.peek() == EOF) {
-            cerr << "warning: Loading an out-of-date distance index" << endl;
-            include_component = false;
-        } else {
-            in.get();
+        if (in.peek() == '.') {
             if ((char) in.get() != '.' || (char)in.get() != '1') {
                 throw runtime_error ("Distance index file is outdated");
             }
             include_component = true;
+        } else {
+            cerr << "warning: Loading an out-of-date distance index" << endl;
+            include_component = false;
         }
+        char_index+=2;
         if (char_index < file_header.size()) {
             throw runtime_error ("Distance index file is outdated");
         }
