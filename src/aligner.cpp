@@ -2,6 +2,7 @@
 #include "xdrop_aligner.hpp"
 #include "json2pb.h"
 
+//#define debug_print_score_matrices
 
 using namespace vg;
 using namespace std;
@@ -111,8 +112,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph* graph,
                                             gssw_graph_mapping* gm,
                                             Alignment& alignment,
                                             bool pinned,
-                                            bool pin_left,
-                                            bool print_score_matrices) const {    
+                                            bool pin_left) const {
     alignment.clear_path();
     alignment.set_score(gm->score);
     alignment.set_query_position(0);
@@ -125,10 +125,9 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph* graph,
     string& to_seq = *alignment.mutable_sequence();
     //cerr << "-------------" << endl;
     
-    if (print_score_matrices) {
-        gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
-        //cerr << alignment.DebugString() << endl;
-    }
+#ifdef debug_print_score_matrices
+    gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
+#endif
     
     int to_pos = 0;
     int from_pos = gm->position;
@@ -883,8 +882,7 @@ Aligner::Aligner(const int8_t* _score_matrix,
                  int8_t _gap_open,
                  int8_t _gap_extension,
                  int8_t _full_length_bonus,
-                 double _gc_content,
-                 uint32_t _xdrop_max_gap_length)
+                 double _gc_content)
 {
     // TODO: now that everything is in terms of score matrices, having match/mismatch is a bit
     // misleading, but a fair amount of code depends on them
@@ -912,13 +910,16 @@ Aligner::Aligner(const int8_t* _score_matrix,
         }
     }
     
-    xdrops.resize(omp_get_num_threads(), XdropAligner(_score_matrix, _gap_open, _gap_extension,
-                                                      _full_length_bonus, _xdrop_max_gap_length));
+    // make an XdropAligner for each thread
+    int num_threads = get_thread_count();
+    xdrops.reserve(num_threads);
+    for (size_t i = 0; i < num_threads; ++i) {
+        xdrops.emplace_back(_score_matrix, _gap_open, _gap_extension, _full_length_bonus);
+    }
 }
 
 void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
-                             bool pinned, bool pin_left,int32_t max_alt_alns, bool traceback_aln,
-                             bool print_score_matrices) const {
+                             bool pinned, bool pin_left,int32_t max_alt_alns, bool traceback_aln) const {
     // bench_start(bench);
     // check input integrity
     if (pin_left && !pinned) {
@@ -1024,7 +1025,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                 }
                 
                 // have a mapping, can just convert normally
-                gssw_mapping_to_alignment(graph, gms[0], alignment, pinned, pin_left, print_score_matrices);
+                gssw_mapping_to_alignment(graph, gms[0], alignment, pinned, pin_left);
                 
                 if (multi_alignments) {
                     // determine how many non-null alignments were returned
@@ -1054,7 +1055,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                         next_alignment.set_quality(alignment.quality());
                         
                         // get path of the alternate alignment
-                        gssw_mapping_to_alignment(graph, gms[i], next_alignment, pinned, pin_left, print_score_matrices);
+                        gssw_mapping_to_alignment(graph, gms[i], next_alignment, pinned, pin_left);
                     }
                 }
             }
@@ -1119,7 +1120,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                                                             full_length_bonus,
                                                             full_length_bonus);
         
-            gssw_mapping_to_alignment(graph, gm, alignment, pinned, pin_left, print_score_matrices);
+            gssw_mapping_to_alignment(graph, gm, alignment, pinned, pin_left);
             gssw_graph_mapping_destroy(gm);
         }
     } else {
@@ -1130,9 +1131,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         p->set_node_id(graph->max_node->id);
         p->set_offset(graph->max_node->alignment->ref_end1); // mark end position; for de-duplication
     }
-    
-    //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);
-    
+        
     // this might be null if we're not doing pinned alignment, but delete doesn't care
     delete null_masked_graph;
     
@@ -1140,22 +1139,23 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     // bench_end(bench);
 }
 
-void Aligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const {
+void Aligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln) const {
     
-    align_internal(alignment, nullptr, g, false, false, 1, traceback_aln, print_score_matrices);
+    align_internal(alignment, nullptr, g, false, false, 1, traceback_aln);
 }
 
-void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop) const {
+void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop,
+                           uint16_t xdrop_max_gap_length) const {
     
     if (xdrop) {
         // XdropAligner manages its own stack, so it can never be threadsafe without be recreated
         // for every alignment, which meshes poorly with its stack implementation. We achieve
         // thread-safety by having one per thread, which makes this method const-ish.
         XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
-        xdrop.align_pinned(alignment, g, pin_left);
+        xdrop.align_pinned(alignment, g, pin_left, xdrop_max_gap_length);
     }
     else {
-        align_internal(alignment, nullptr, g, true, pin_left, 1, true, false);
+        align_internal(alignment, nullptr, g, true, pin_left, 1, true);
     }
 }
 
@@ -1167,7 +1167,7 @@ void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_al
         exit(EXIT_FAILURE);
     }
     
-    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, true, false);
+    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, true);
 }
 
 void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
@@ -1283,13 +1283,14 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
     }
 }
 
-void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const
+void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
+                          bool reverse_complemented, uint16_t max_gap_length) const
 {
     // XdropAligner manages its own stack, so it can never be threadsafe without be recreated
     // for every alignment, which meshes poorly with its stack implementation. We achieve
     // thread-safety by having one per thread, which makes this method const-ish.
     XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
-    xdrop.align(alignment, g, mems, reverse_complemented);
+    xdrop.align(alignment, g, mems, reverse_complemented, max_gap_length);
 }
 
 
@@ -1424,8 +1425,7 @@ QualAdjAligner::QualAdjAligner(const int8_t* _score_matrix,
 }
 
 void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
-                                    bool pinned, bool pin_left, int32_t max_alt_alns, bool traceback_aln,
-                                    bool print_score_matrices) const {
+                                    bool pinned, bool pin_left, int32_t max_alt_alns, bool traceback_aln) const {
     
     // check input integrity
     if (pin_left && !pinned) {
@@ -1544,7 +1544,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                 }
                 
                 // have a mapping, can just convert normally
-                gssw_mapping_to_alignment(graph, gms[0], alignment, pinned, pin_left, print_score_matrices);
+                gssw_mapping_to_alignment(graph, gms[0], alignment, pinned, pin_left);
                 
                 if (multi_alignments) {
                     // determine how many non-null alignments were returned
@@ -1574,7 +1574,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                         next_alignment.set_quality(alignment.quality());
                         
                         // get path of the alternate alignment
-                        gssw_mapping_to_alignment(graph, gms[i], next_alignment, pinned, pin_left, print_score_matrices);
+                        gssw_mapping_to_alignment(graph, gms[i], next_alignment, pinned, pin_left);
                     }
                 }
             }
@@ -1641,7 +1641,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                                                                      full_length_bonus,
                                                                      full_length_bonus);
         
-            gssw_mapping_to_alignment(graph, gm, alignment, pinned, pin_left, print_score_matrices);
+            gssw_mapping_to_alignment(graph, gm, alignment, pinned, pin_left);
             gssw_graph_mapping_destroy(gm);
         }
     } else {
@@ -1652,9 +1652,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         p->set_node_id(graph->max_node->id);
         p->set_offset(graph->max_node->alignment->ref_end1); // mark end position; for de-duplication
     }
-    
-    //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);
-    
+        
     // this might be null if we're not doing pinned alignment, but delete doesn't care
     delete null_masked_graph;
     
@@ -1662,24 +1660,25 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     
 }
 
-void QualAdjAligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const {
+void QualAdjAligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln) const {
     
-    align_internal(alignment, nullptr, g, false, false, 1, traceback_aln, print_score_matrices);
+    align_internal(alignment, nullptr, g, false, false, 1, traceback_aln);
 }
 
-void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop) const {
+void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop,
+                                  uint16_t xdrop_max_gap_length) const {
     if (xdrop) {
         cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
         exit(1);
     }
     else {
-        align_internal(alignment, nullptr, g, true, pin_left, 1, true, false);
+        align_internal(alignment, nullptr, g, true, pin_left, 1, true);
     }
 }
 
 void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                         bool pin_left, int32_t max_alt_alns) const {
-    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, true, false);
+    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, true);
 }
 
 void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
@@ -1709,7 +1708,8 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
 }
 
 // X-drop aligner
-void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const
+void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
+                                 bool reverse_complemented, uint16_t max_gap_length) const
 {
     // TODO: implement?
     cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
@@ -1813,7 +1813,7 @@ AlignerClient::AlignerClient(double gc_content_estimate) : gc_content_estimate(g
     // Adopt the default scoring parameters and make the aligners
     set_alignment_scores(default_score_matrix,
                          default_gap_open, default_gap_extension,
-                         default_full_length_bonus, default_xdrop_max_gap_length);
+                         default_full_length_bonus);
 }
 
 const GSSWAligner* AlignerClient::get_aligner(bool have_qualities) const {
@@ -1851,7 +1851,7 @@ int8_t* AlignerClient::parse_matrix(istream& matrix_stream) {
 }
 
 void AlignerClient::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, 
-                                         int8_t full_length_bonus, uint32_t xdrop_max_gap_length) {
+                                         int8_t full_length_bonus) {
     
     int8_t* matrix = (int8_t*) malloc(sizeof(int8_t) * 16);
     for (size_t i = 0; i < 16; ++i) {
@@ -1866,28 +1866,26 @@ void AlignerClient::set_alignment_scores(int8_t match, int8_t mismatch, int8_t g
     qual_adj_aligner = unique_ptr<QualAdjAligner>(new QualAdjAligner(matrix, gap_open, gap_extend,
                                                                      full_length_bonus, gc_content_estimate));
     regular_aligner = unique_ptr<Aligner>(new Aligner(matrix, gap_open, gap_extend,
-                                                      full_length_bonus, gc_content_estimate, xdrop_max_gap_length));
+                                                      full_length_bonus, gc_content_estimate));
                   
     free(matrix);
 }
 
 
-void AlignerClient::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
-                                         uint32_t xdrop_max_gap_length) {
+void AlignerClient::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
     
     qual_adj_aligner = unique_ptr<QualAdjAligner>(new QualAdjAligner(score_matrix, gap_open, gap_extend,
                                                                      full_length_bonus, gc_content_estimate));
     regular_aligner = unique_ptr<Aligner>(new Aligner(score_matrix, gap_open, gap_extend,
-                                                      full_length_bonus, gc_content_estimate, xdrop_max_gap_length));
+                                                      full_length_bonus, gc_content_estimate));
     
 }
 
-void AlignerClient::set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
-                                         uint32_t xdrop_max_gap_length) {
+void AlignerClient::set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
     int8_t* score_matrix = parse_matrix(matrix_stream);
     qual_adj_aligner = unique_ptr<QualAdjAligner>(new QualAdjAligner(score_matrix, gap_open, gap_extend,
                                                                      full_length_bonus, gc_content_estimate));
     regular_aligner = unique_ptr<Aligner>(new Aligner(score_matrix, gap_open, gap_extend,
-                                                      full_length_bonus, gc_content_estimate, xdrop_max_gap_length));
+                                                      full_length_bonus, gc_content_estimate));
     free(score_matrix);
 }

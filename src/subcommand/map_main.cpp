@@ -816,14 +816,15 @@ int main_map(int argc, char** argv) {
         m->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
         m->max_target_factor = max_target_factor;
         if (matrix_stream.is_open()) {
-            m->set_alignment_scores(matrix_stream, gap_open, gap_extend, full_length_bonus, max_gap_length, haplotype_consistency_exponent);
+            m->set_alignment_scores(matrix_stream, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent);
             // reset the stream for the next Mapper
             matrix_stream.seekg(0);
         }
         else {
-            m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, max_gap_length, haplotype_consistency_exponent);
+            m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent);
         }
         m->strip_bonuses = strip_bonuses;
+        m->max_xdrop_gap_length = max_gap_length;
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
         m->extra_multimaps = extra_multimaps;
         m->mapping_quality_method = mapping_quality_method;

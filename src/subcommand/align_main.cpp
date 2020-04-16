@@ -224,7 +224,7 @@ int main_align(int argc, char** argv) {
         }
         
         // initialize an aligner
-        Aligner aligner = Aligner(score_matrix, gap_open, gap_extend, full_length_bonus, vg::default_gc_content, seq.size());
+        Aligner aligner = Aligner(score_matrix, gap_open, gap_extend, full_length_bonus, vg::default_gc_content);
         
         free(score_matrix);
         
@@ -242,7 +242,7 @@ int main_align(int argc, char** argv) {
             aligner.align_global_banded(alignment, dag, 1, true);
         }
         else {
-            aligner.align(alignment, dag, true, debug);
+            aligner.align(alignment, dag, true);
         }
         
         // translate back from the overlays

@@ -374,22 +374,7 @@ int main_paths(int argc, char** argv) {
             }
             
             // Otherwise we need the actual thread data
-            gbwt::vector_type sequence = gbwt_index->extract(gbwt::Path::encode(id, false));
-            Path path;
-            path.set_name(name);
-            size_t rank = 1;
-            for (auto node : sequence) {
-                // Put each node in the constructed path
-                Mapping* m = path.add_mapping();
-                Position* p = m->mutable_position();
-                p->set_node_id(gbwt::Node::id(node));
-                p->set_is_reverse(gbwt::Node::is_reverse(node));
-                Edit* e = m->add_edit();
-                size_t len = graph->get_length(graph->get_handle(p->node_id()));
-                e->set_to_length(len);
-                e->set_from_length(len);
-                m->set_rank(rank++);
-            }
+            Path path = extract_gbwt_path(*graph, *gbwt_index, id);
             if (extract_as_gam) {
                 // Write as an Alignment. Must contain the whole path.
                 gam_emitter->write(alignment_from_path(*graph, path));
