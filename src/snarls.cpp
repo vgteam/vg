@@ -16,6 +16,12 @@
 
 namespace vg {
 
+SnarlManager SnarlFinder::find_snarls_parallel() {
+    // By default, just use a single thread, unless this finder has a parallel
+    // overriding implementation.
+    return find_snarls();
+}
+
 bool start_backward(const Chain& chain) {
     // The start snarl is backward if it is marked backward.
     return !chain.empty() && chain.front().second;

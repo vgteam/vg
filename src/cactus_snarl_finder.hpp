@@ -19,7 +19,8 @@ using namespace std;
  * interface.
  */
 class CactusSnarlFinder : public SnarlFinder {
-    
+
+protected:
     /// Holds the vg graph we are looking for sites in.
     const PathHandleGraph* graph;
     
@@ -60,7 +61,9 @@ public:
     virtual SnarlManager find_snarls();
 
     /**
-     * Find all the snarls of weakly connected components in parallel
+     * Find all the snarls of weakly connected components in parallel.
+     * Even single-threaded, this may be worth using as it will use less
+     * memory by only considering each component in the context of itself.
      */
     virtual SnarlManager find_snarls_parallel();
     
