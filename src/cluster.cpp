@@ -1215,6 +1215,24 @@ vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignmen
                               min_median_mem_coverage_for_split, suboptimal_edge_pruning_factor);
     
 }
+
+MEMClusterer::HitGraph NullClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
+                                                     const GSSWAligner* aligner, size_t min_mem_length) {
+    // intialize the hit nodes, but do not add any edges, and ignore the min mem length
+    return HitGraph(mems, alignment, aligner, 1);
+}
+
+vector<pair<pair<size_t, size_t>, int64_t>>  NullClusterer::pair_clusters(const Alignment& alignment_1,
+                                                                          const Alignment& alignment_2,
+                                                                          const vector<cluster_t*>& left_clusters,
+                                                                          const vector<cluster_t*>& right_clusters,
+                                                                          const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                                          const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
+                                                                          int64_t optimal_separation,
+                                                                          int64_t max_deviation) {
+    // do not cluster pairs.
+    return vector<pair<pair<size_t, size_t>, int64_t>>();
+}
     
 PathOrientedDistanceMeasurer::PathOrientedDistanceMeasurer(const PathPositionHandleGraph* graph,
                                                            const PathComponentIndex* path_component_index) :
@@ -2848,7 +2866,12 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     return tv_phase2(pos_1, pos_2, target_value, tolerance, node_to_target_shorter, node_to_target_longer, best_long, next_best, node_to_path);
 }
  
-vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance,  hash_map<pair<id_t, bool>, int64_t> node_to_target_shorter, hash_map<pair<id_t, bool>, int64_t>node_to_target_longer,  pair<int64_t, pair<pair<id_t, bool>, int64_t>> best_long,  pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best, hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>> node_to_path) {
+vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance,
+                                              hash_map<pair<id_t, bool>, int64_t>& node_to_target_shorter,
+                                              hash_map<pair<id_t, bool>, int64_t>& node_to_target_longer,
+                                              pair<int64_t, pair<pair<id_t, bool>, int64_t>>& best_long,
+                                              pair<int64_t, pair<pair<id_t, bool>, int64_t>>& next_best,
+                                              hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>>& node_to_path) {
 //TODO: Any path that has been found is probably still pretty good, could return it here 
 
     DistanceHeuristic& min_distance = *lower_bound_heuristic;
