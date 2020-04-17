@@ -143,13 +143,36 @@ IntegratedSnarlFinder::IntegratedSnarlFinder(const PathHandleGraph& graph) : gra
 void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void(handle_t, handle_t)>& iteratee) const {
     // Do the actual snarl finding work and then feed the iteratee our snarls.
     
-    // We need our base graph to be vectorizable, so we can have ranks for all the handles, so we can do a union-find over them.
-    PathVectorizableOverlayHelper overlay_helper;
-    // Get or create a vectorizability facet of the base graph, which we can use to go between ranks and handles.
-    VectorizableHandleGraph vectorized_graph = overlay_helper.apply(graph);
+    // We need a union-find over the adjacency components of the graph, in which we will build the cactus graph.
+    MergedAdjacencyGraph cactus(graph);
     
+    // It magically gets the adjacency components itself.
     
-    // We need a union-find over the whole graph.
+    // TODO: Now we need to do the 3 edge connected component merging, using Tsin's algorithm.
+    
+    // Then we need to copy the base Cactus graph so we can make the bridge forest
+    MergedAdjacencyGraph forest(cactus);
+    
+    // TODO: Then we need to actually condense simple cycles in order to make
+    // the bridge forest.
+    //
+    // TODO: We should find the lengths of the simple cycles in bases at the
+    // same time.
+    //
+    // TODO: We also want to find the longest simple cycle for each connected
+    // component of the bridge forest.
+    
+    // TODO: Then find the lengths of the bridge edge spanning trees. We want
+    // to be able to know the lengths no matter where we root, so I guess for
+    // each node we need to store the longest length in each direction.
+    
+    // TODO: For each bridge forest tree, find the longest bridge edge path and
+    // the longest simple cycle, and root with whichever is longer.
+    
+    // TODO: Recursively root things down the bridge edge trees off what we've
+    // already rooted.
+    
+    // TODO: When we encounter a snarl, feed it to the iteratee. 
 }
 
 SnarlManager IntegratedSnarlFinder::find_snarls() {
