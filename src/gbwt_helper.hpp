@@ -8,9 +8,9 @@
 #include <vector>
 
 #include "position.hpp"
-#include "xg.hpp"
 
 #include <gbwt/dynamic_gbwt.h>
+#include <handlegraph/mutable_path_handle_graph.hpp>
 
 namespace vg {
 
@@ -41,11 +41,6 @@ inline gbwt::node_type pos_to_gbwt(pos_t pos) {
 /// Convert Mapping to gbwt::node_type.
 inline gbwt::node_type mapping_to_gbwt(const Mapping& mapping) {
     return gbwt::Node::encode(mapping.position().node_id(), mapping.position().is_reverse());
-}
-
-/// Convert a node on XGPath to gbwt::node_type.
-inline gbwt::node_type xg_path_to_gbwt(const xg::XGPath& path, size_t i) {
-    return gbwt::Node::encode(path.node(i), path.is_reverse(i));
 }
 
 /// Convert Path to a GBWT path.
@@ -80,9 +75,19 @@ inline gbwt::vector_type path_predecessors(const HandleGraph& graph, const Path&
     return result;
 }
 
+//------------------------------------------------------------------------------
+
+/// Insert a GBWT thread into the graph and return its name. Returns an empty string on failure.
+/// NOTE: id is a gbwt path id, not a gbwt sequence id.
+std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id);
+
+/// Extract a GBWT thread as a path in the given graph.
+/// NOTE: id is a gbwt path id, not a gbwt sequence id.
+Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
 /// Get a string representation of a thread name stored in GBWT metadata.
-std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i);
+/// NOTE: id is a gbwt path id, not a gbwt sequence id.
+std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
 //------------------------------------------------------------------------------
 
