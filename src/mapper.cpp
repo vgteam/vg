@@ -1637,18 +1637,18 @@ int BaseMapper::random_match_length(double chance_random) {
 }
 
 void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend,
-    int8_t full_length_bonus, uint32_t xdrop_max_gap_length, double haplotype_consistency_exponent) {
+    int8_t full_length_bonus, double haplotype_consistency_exponent) {
     
-    AlignerClient::set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, xdrop_max_gap_length);
+    AlignerClient::set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
     
     // Save the consistency exponent
     this->haplotype_consistency_exponent = haplotype_consistency_exponent;
 }
 
 void BaseMapper::set_alignment_scores(istream& matrix_stream, int8_t gap_open, int8_t gap_extend,
-                                      int8_t full_length_bonus, uint32_t xdrop_max_gap_length, double haplotype_consistency_exponent) {
+                                      int8_t full_length_bonus, double haplotype_consistency_exponent) {
     
-    AlignerClient::set_alignment_scores(matrix_stream, gap_open, gap_extend, full_length_bonus, xdrop_max_gap_length);
+    AlignerClient::set_alignment_scores(matrix_stream, gap_open, gap_extend, full_length_bonus);
     
     // Save the consistency exponent
     this->haplotype_consistency_exponent = haplotype_consistency_exponent;
@@ -1829,9 +1829,10 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
     } else if (xdrop_alignment) {
         get_aligner(!aln.quality().empty())->align_xdrop(aligned, align_graph,
                                                          translate_mems(mems, node_trans),
-                                                         xdrop_alignment != 1);
+                                                         xdrop_alignment != 1,
+                                                         max_xdrop_gap_length);
     } else {
-        get_aligner(!aln.quality().empty())->align(aligned, align_graph, traceback, false);
+        get_aligner(!aln.quality().empty())->align(aligned, align_graph, traceback);
     }
     if (traceback && !keep_bonuses && aligned.score()) {
         remove_full_length_bonuses(aligned);

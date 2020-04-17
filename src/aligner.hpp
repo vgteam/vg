@@ -22,6 +22,7 @@
 #include "reverse_graph.hpp"
 #include "null_masking_graph.hpp"
 #include "algorithms/distance_to_tail.hpp"
+
 // #define BENCH
 // #include "bench.h"
 
@@ -34,12 +35,11 @@ namespace vg {
         -default_mismatch,  default_match,    -default_mismatch, -default_mismatch,
         -default_mismatch, -default_mismatch,  default_match,    -default_mismatch,
         -default_mismatch, -default_mismatch, -default_mismatch,  default_match
-    };;
+    };
     static constexpr int8_t default_gap_open = 6;
     static constexpr int8_t default_gap_extension = 1;
     static constexpr int8_t default_full_length_bonus = 5;
     static constexpr double default_gc_content = 0.5;
-    static constexpr uint32_t default_xdrop_max_gap_length = 40;
 
     /**
      * The abstract interface that any Aligner should implement.
@@ -49,7 +49,7 @@ namespace vg {
         
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
-        virtual void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const = 0;
+        virtual void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln) const = 0;
     };
 
     /**
@@ -80,8 +80,7 @@ namespace vg {
                                        gssw_graph_mapping* gm,
                                        Alignment& alignment,
                                        bool pinned,
-                                       bool pin_left,
-                                       bool print_score_matrices = false) const;
+                                       bool pin_left) const;
         string graph_cigar(gssw_graph_mapping* gm) const;
         
     public:
@@ -124,7 +123,8 @@ namespace vg {
         /// the final base of the read sequence and the final base of a sink node sequence
         ///
         /// Gives the full length bonus only on the non-pinned end of the alignment.
-        virtual void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false) const = 0;
+        virtual void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false,
+                                  uint16_t xdrop_max_gap_length = default_xdrop_max_gap_length) const = 0;
         
         /// store the top scoring pinned alignments in the vector in descending score order up to a maximum
         /// number of alignments (including the optimal one). if there are fewer than the maximum number in
@@ -147,7 +147,7 @@ namespace vg {
                                                const HandleGraph& g, int32_t max_alt_alns, int32_t band_padding = 0,
                                                bool permissive_banding = true) const = 0;
         // xdrop aligner
-        virtual void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const = 0;
+        virtual void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const = 0;
 
         /// Compute the score of an exact match in the given alignment, from the
         /// given offset, of the given length.
@@ -272,13 +272,12 @@ namespace vg {
                 int8_t _gap_open = default_gap_open,
                 int8_t _gap_extension = default_gap_extension,
                 int8_t _full_length_bonus = default_full_length_bonus,
-                double _gc_content = default_gc_content,
-                uint32_t _xdrop_max_gap_length = default_xdrop_max_gap_length);
+                double _gc_content = default_gc_content);
         ~Aligner(void) = default;
         
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
-        void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const;
+        void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln) const;
         
         /// store optimal alignment against a graph in the Alignment object with one end of the sequence
         /// guaranteed to align to a source/sink node. if xdrop is selected, use the xdrop heuristic, which
@@ -289,7 +288,8 @@ namespace vg {
         /// the final base of the read sequence and the final base of a sink node sequence
         ///
         /// Gives the full length bonus only on the non-pinned end of the alignment.
-        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false) const;
+        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false,
+                          uint16_t xdrop_max_gap_length = default_xdrop_max_gap_length) const;
                 
         /// store the top scoring pinned alignments in the vector in descending score order up to a maximum
         /// number of alignments (including the optimal one). if there are fewer than the maximum number in
@@ -312,7 +312,8 @@ namespace vg {
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true) const;
 
         // xdrop aligner
-        void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
+        void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
+                         bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const;
 
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
@@ -332,8 +333,7 @@ namespace vg {
         // internal function interacting with gssw for pinned and local alignment
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
                             bool pinned, bool pin_left, int32_t max_alt_alns,
-                            bool traceback_aln,
-                            bool print_score_matrices) const;
+                            bool traceback_aln) const;
         
         // members
         vector<XdropAligner> xdrops;
@@ -355,17 +355,19 @@ namespace vg {
         
         // base quality adjusted counterparts to functions of same name from Aligner
         
-        void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const;
+        void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln) const;
         void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true) const;
-        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false) const;
+        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop = false,
+                          uint16_t xdrop_max_gap_length = default_xdrop_max_gap_length) const;
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true) const;
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns) const;
                                 
         // TODO: xdrop isn't actually possible with the quality adjusted aligner (yet).
-        void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const;
+        void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
+                         bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const;
         
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
@@ -381,8 +383,7 @@ namespace vg {
         // internal function interacting with gssw for pinned and local alignment
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
                             bool pinned, bool pin_left, int32_t max_alt_alns,
-                            bool traceback_aln,
-                            bool print_score_matrices) const;
+                            bool traceback_aln) const;
         
 
     };
@@ -414,19 +415,16 @@ namespace vg {
     public:
         
         /// Set all the aligner scoring parameters and create the stored aligner instances.
-        void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
-                                  uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length);
+        void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
         /// Set the algner scoring parameters and create the stored aligner instances. The
         /// stream should contain a 4 x 4 whitespace-separated substitution matrix (in the
         /// order ACGT)
-        void set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
-                                  uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length);
+        void set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
         /// Set the algner scoring parameters and create the stored aligner instances. The
         /// score matrix should by a 4 x 4 array in the order (ACGT)
-        void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
-                                  uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length);
+        void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
         /// Allocates an array to hold a 4x4 substitution matrix and returns it
         static int8_t* parse_matrix(std::istream& matrix_stream);

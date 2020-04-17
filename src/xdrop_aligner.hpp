@@ -27,6 +27,8 @@ struct dz_query_s;
 
 namespace vg {
 
+    static constexpr uint16_t default_xdrop_max_gap_length = 40;
+
     /**
      * Align to a graph using the xdrop algorithm, as implemented in dozeu.
      *
@@ -60,8 +62,7 @@ namespace vg {
         XdropAligner(const int8_t* _score_matrix,
                      int8_t _gap_open,
                      int8_t _gap_extension,
-                     int32_t _full_length_bonus,
-                     uint32_t _max_gap_length);
+                     int32_t _full_length_bonus);
         XdropAligner();
         ~XdropAligner(void);
         
@@ -106,7 +107,7 @@ namespace vg {
          * true, and the last occurrence of the first MEM otherwise.
          */
         void align(Alignment& alignment, const HandleGraph& graph, const vector<MaximalExactMatch>& mems,
-                   bool reverse_complemented);
+                   bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length);
         
         /**
          * Compute a pinned alignment, where the start (pin_left=true) or end
@@ -117,7 +118,8 @@ namespace vg {
          * Does not account for multiple sources/sinks in the topological
          * order; whichever comes first/last ends up being used for the pin.
          */
-        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left);
+        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left,
+                          uint16_t max_gap_length = default_xdrop_max_gap_length);
         
     private:
         /**
@@ -151,7 +153,7 @@ namespace vg {
         /// and the query to align out from.
         ///
         /// This replaces scan_seed_position for the case where we have MEMs.
-		graph_pos_s calculate_seed_position(const OrderedGraph& graph, const vector<MaximalExactMatch>& mems,
+        graph_pos_s calculate_seed_position(const OrderedGraph& graph, const vector<MaximalExactMatch>& mems,
                                             size_t query_length, bool direction) const;
         /// Given the index of the node at which the winning score occurs, find
         /// the position in the node and read sequence at which the winning
@@ -166,7 +168,7 @@ namespace vg {
         ///
         /// This replaces calculate_seed_position for the case where we have no MEMs.
         graph_pos_s scan_seed_position(const OrderedGraph& graph, const string& query_seq, bool direction,
-                                       vector<const dz_forefront_s*>& forefronts);
+                                       vector<const dz_forefront_s*>& forefronts, uint16_t max_gap_length);
 
         /// Append an edit at the end of the current mapping array.
         /// Returns the length passed in.
@@ -197,7 +199,7 @@ namespace vg {
         /// safe to call dz_calc_max_qpos on the associated forefront!
 		size_t extend(const OrderedGraph& graph, const dz_query_s* packed_query,
                       const vector<graph_pos_s>& seed_positions, bool right_to_left,
-                      vector<const dz_forefront_s*>& forefronts);
+                      vector<const dz_forefront_s*>& forefronts, uint16_t);
        
         /**
          * After all the alignment work has been done, do the traceback and
@@ -223,9 +225,10 @@ namespace vg {
         /// unset, goes right to left and traces back the other way.
         void align_downward(Alignment &alignment, const OrderedGraph& graph,
                             const vector<graph_pos_s>& head_positions,
-                            bool left_to_right, vector<const dz_forefront_s*>& forefronts);
+                            bool left_to_right, vector<const dz_forefront_s*>& forefronts,
+                            uint16_t max_gap_length);
 
-        
+                
         /// The core dozeu class, which does the alignments
         dz_s* dz = nullptr;
 	};

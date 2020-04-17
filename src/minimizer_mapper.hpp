@@ -199,7 +199,6 @@ protected:
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes;
     MinimumDistanceIndex& distance_index;
-
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     

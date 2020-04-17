@@ -76,13 +76,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     if (track_provenance) {
         funnel.stage("cluster");
     }
-    // TODO Pass the actual seeds when the clusterer supports them.
-    std::vector<pos_t> temp_seeds;
-    temp_seeds.reserve(seeds.size());
-    for (size_t i = 0; i < seeds.size(); i++) {
-        temp_seeds.push_back(seeds[i].pos);
-    }
-    std::vector<Cluster> clusters = clusterer.cluster_seeds(temp_seeds, distance_limit);
+    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, distance_limit);
 
     // Determine the scores and read coverages for each cluster.
     // Also find the best and second-best cluster scores.
@@ -737,17 +731,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         funnels[0].stage("cluster");
         funnels[1].stage("cluster");
     }
-    // TODO: Pass the actual seeds when the clusterer supports them.
-    std::vector<std::vector<pos_t>> temp_seeds_by_read(seeds_by_read.size());
-    for (size_t read = 0; read < seeds_by_read.size(); read++) {
-        std::vector<Seed>& seeds = seeds_by_read[read];
-        std::vector<pos_t>& temp_seeds = temp_seeds_by_read[read];
-        temp_seeds.reserve(seeds.size());
-        for (size_t i = 0; i < seeds.size(); i++) {
-            temp_seeds.push_back(seeds[i].pos);
-        }
-    }
-    std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(temp_seeds_by_read, distance_limit, 
+    std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, distance_limit, 
             fragment_length_distr.mean() + 2 * fragment_length_distr.stdev());
 
     //For each fragment cluster, determine if it has clusters from both reads
@@ -2158,7 +2142,7 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
 
     //Align to the subgraph
     rescued_alignment.clear_path();
-    get_regular_aligner()->align(rescued_alignment, align_graph, true, false);
+    get_regular_aligner()->align(rescued_alignment, align_graph, true);
 
     translate_oriented_node_ids(*rescued_alignment.mutable_path(), node_trans);
 
@@ -2183,7 +2167,7 @@ void MinimizerMapper::attempt_rescue_haplotypes(const Alignment& aligned_read, A
     
     // Align to the subgraph.
     rescued_alignment.clear_path();
-    this->get_regular_aligner()->align(rescued_alignment, align_graph, true, false);
+    this->get_regular_aligner()->align(rescued_alignment, align_graph, true);
 
     // Get the corresponding alignment to the original graph.
     this->extender.transform_alignment(rescued_alignment, haplotype_paths);

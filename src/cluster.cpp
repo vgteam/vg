@@ -1257,7 +1257,7 @@ int64_t PathOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, cons
         path_strand_dists_2[path_occurrence].emplace_back(step, -((int64_t) offset(pos_2)));
         
 #ifdef debug_algorithms
-        cerr << "[PathDistance] second position " << id(pos_2) << "[" << offset(pos_2) << "]" << (is_rev(pos_2)) ? "-" : "+") << " has an initial path occurrence on " << as_integer(graph->get_path_handle_of_step(step)) << (graph->get_handle_of_step(step) != handle_2 ? "-" : "+") << endl;
+        cerr << "[PathDistance] second position " << id(pos_2) << "[" << offset(pos_2) << "]" << (is_rev(pos_2) ? "-" : "+") << " has an initial path occurrence on " << as_integer(graph->get_path_handle_of_step(step)) << (graph->get_handle_of_step(step) != handle_2 ? "-" : "+") << endl;
 #endif
         
         if (path_strand_dists_1.count(path_occurrence)) {
@@ -1667,7 +1667,6 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
     // now we use the strand clusters and the estimated distances to make the DAG for the
     // approximate MEM alignment
     
-    int64_t match_score = aligner->match;
     int64_t gap_open_score = aligner->gap_open;
     int64_t gap_extension_score = aligner->gap_extension;
     int64_t max_gap = aligner->longest_detectable_gap(alignment);
@@ -3128,7 +3127,7 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
 #endif
             
             if (tv_len == read_separation
-                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->begin < hit_node_1.mem->begin)
+                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->end < hit_node_1.mem->end)
                     || (hit_node_2.mem->begin > hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end))) {
                 // this has the appearance of being a redundant hit of a sub-MEM, which we don't want to form
                 // a separate cluster
@@ -3567,9 +3566,9 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
     
     // shim the hit graph nodes into the seed clusterer algorithm interface
-    vector<pos_t> positions(hit_graph.nodes.size());
+    vector<SnarlSeedClusterer::Seed> positions(hit_graph.nodes.size());
     for (size_t i = 0; i < hit_graph.nodes.size(); ++i)  {
-        positions[i] = hit_graph.nodes[i].start_pos;
+        positions[i].pos = hit_graph.nodes[i].start_pos;
     }
  
     typedef SnarlSeedClusterer::Cluster Cluster;

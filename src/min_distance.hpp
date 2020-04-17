@@ -67,14 +67,17 @@ class MinimumDistanceIndex {
                          SubHandleGraph& sub_graph, bool look_forward);
 
 
-    //Given a node id, return a unique identifier for the connected component that the node is on and
-    //the offset of the node in the root chain - the minimum distance from the beginning of the chain to 
+    //Given a position, return a unique identifier for the connected component that the node is on and
+    //the offset of the position in the root chain - the minimum distance from the beginning of the chain to 
     //the position
     //If the position is not on a root node (that is, a boundary node of a snarl in a root chain), returns
     //<MIPayload::NO_VALUE, MIPayload::NO_VALUE> 
     pair<size_t, size_t> offset_in_root_chain (pos_t pos);
 
-    bool in_same_connected_component(id_t node_id1, id_t node_id2);
+    //What is the length of the top level chain that this node belongs to?
+    int64_t top_level_chain_length(id_t node_id);
+
+    size_t get_connected_component(id_t node_id);
 
     ///Helper function to find the minimum value that is not -1
     static int64_t minPos(vector<int64_t> vals);
@@ -203,7 +206,6 @@ class MinimumDistanceIndex {
 
         friend class MinimumDistanceIndex;
         friend class SnarlSeedClusterer;
-        friend class TestMinDistanceIndex;
     };
 
 
@@ -295,7 +297,6 @@ class MinimumDistanceIndex {
 
         friend class MinimumDistanceIndex;   
         friend class SnarlSeedClusterer;
-        friend class TestMinDistanceIndex;
     }; 
 
 
@@ -312,11 +313,8 @@ class MinimumDistanceIndex {
     vector< ChainIndex> chain_indexes;
 
     //Each connected component of the graph gets a unique identifier
-    //Identifiers start at 1, 0 indicates that it is a trivial chain
-    //Assigns each node to its connected component and its offset in the root chain
-    //node_to_component[(id-min_node_id)*2] is the identifier
-    //If the node is on boundary node in the root snarl, then node_to_component[(id-min_node_id)*2+1] is the offset + 1, 
-    //otherwise 0
+    //Identifiers start at 1, 0 indicates that it is not in a component
+    //Assigns each node to its connected component
     sdsl::int_vector<> node_to_component;
     //TODO: These could be one vector but they're small enough it probably doesn't matter
     sdsl::int_vector<> component_to_chain_length;
@@ -389,7 +387,8 @@ class MinimumDistanceIndex {
 
 
     //Header for the serialized file
-    string file_header = "distance index version 2";
+    string file_header = "distance index version 2.1";
+    bool include_component; //TODO: This is true for version 2.1 so it includes node_to_component, etc. 
 
     ////// Private helper functions
  
@@ -472,7 +471,6 @@ class MinimumDistanceIndex {
     friend class SnarlIndex;
     friend class ChainIndex;
     friend class SnarlSeedClusterer;
-    friend class TestMinDistanceIndex;
 
 
 };
