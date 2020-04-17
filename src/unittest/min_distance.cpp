@@ -1029,7 +1029,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             REQUIRE (di.offset_in_root_chain(make_pos_t(13, false, 0)).first == 
                      di.offset_in_root_chain(make_pos_t(9, false, 0)).first);
 
-            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).first != std::numeric_limits<size_t>::max());
+            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).first != 
                      di.offset_in_root_chain(make_pos_t(9, false, 0)).first);
             REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).first != 
@@ -1051,9 +1051,9 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             REQUIRE (di.offset_in_root_chain(make_pos_t(11, false, 0)).second == 2);
             REQUIRE (di.offset_in_root_chain(make_pos_t(12, false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(13, false, 0)).second == 6);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).second == 1);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(15, false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(16, false, 0)).second == 2);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(16, false, 0)).second == std::numeric_limits<size_t>::max());
 
 
 
@@ -1127,7 +1127,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
             //Connected components should be have unique identifiers
 
-            REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).first != std::numeric_limits<size_t>::max());
+            REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(2 , false, 0)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(3 , false, 0)).first == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(4 , true, 3)).first == std::numeric_limits<size_t>::max());
@@ -1153,7 +1153,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
                      di.offset_in_root_chain(make_pos_t(11 , false, 0)).first);
 
             //Offsets should be correct
-            REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).second == 1);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(2 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(3 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(4 , true, 3)).second == std::numeric_limits<size_t>::max());
@@ -1162,7 +1162,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             REQUIRE (di.offset_in_root_chain(make_pos_t(7 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(8 , false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(10, true, 0)).second == 9);
+            REQUIRE (di.offset_in_root_chain(make_pos_t(10, true, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(11, true, 3)).second == 1);
             REQUIRE (di.offset_in_root_chain(make_pos_t(12, false, 0)).second == std::numeric_limits<size_t>::max());
             REQUIRE (di.offset_in_root_chain(make_pos_t(13, false, 0)).second == 5);

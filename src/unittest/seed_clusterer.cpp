@@ -827,6 +827,42 @@ namespace unittest {
             REQUIRE( clusters.size() == 2);
 
         }
+        SECTION("Only seeds two reads") {
+
+            vector<id_t> ids({1, 6, 14});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : ids) {
+                pos_t pos = make_pos_t(n, false, 0);
+                seeds.emplace_back();
+                seeds.back().pos = pos;
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds.back().component = offset.first;
+                seeds.back().offset = offset.second;
+            }
+            vector<id_t> ids1({8, 12});
+            vector<SnarlSeedClusterer::Seed> seeds1;
+            for (id_t n : ids1) {
+                pos_t pos = make_pos_t(n, false, 0);
+                seeds1.emplace_back();
+                seeds1.back().pos = pos;
+                pair<size_t, size_t> offset = dist_index.offset_in_root_chain(pos);
+                seeds1.back().component = offset.first;
+                seeds1.back().offset = offset.second;
+            }
+            vector<vector<SnarlSeedClusterer::Seed>> all_seeds;
+            all_seeds.emplace_back(seeds);
+            all_seeds.emplace_back(seeds1);
+
+            vector<vector<SnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds, 4, 5); 
+
+
+            REQUIRE( clusters.size() == 2);
+            REQUIRE( clusters[0].size() == 2);
+            REQUIRE( clusters[1].size() == 1);
+            REQUIRE( clusters[0][0].fragment == clusters[0][1].fragment);
+            REQUIRE( clusters[0][0].fragment == clusters[1][0].fragment);
+
+        }
         SECTION("Only snarls") {
 
             vector<id_t> ids({4, 5, 9});
@@ -1424,8 +1460,13 @@ namespace unittest {
 
         for (int i = 0; i < 0; i++) {
             // For each random graph
+            
+            default_random_engine generator(time(NULL));
+
+            uniform_int_distribution<int> variant_count(5, 200);
+
             VG graph;
-            random_graph(1000, 50, 100, &graph);
+            random_graph(1000, 50, variant_count(generator), &graph);
 
 
             CactusSnarlFinder bubble_finder(graph);
@@ -1441,7 +1482,6 @@ namespace unittest {
             snarl_manager.for_each_snarl_preorder(addSnarl);
 
             uniform_int_distribution<int> randSnarlIndex(0, allSnarls.size()-1);
-            default_random_engine generator(time(NULL));
 
             uniform_int_distribution<int> randPosCount(0, 500);
             for (size_t k = 0; k < randPosCount(generator) ; k++) {
