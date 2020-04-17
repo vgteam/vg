@@ -1,5 +1,5 @@
 ///
-///  \file snarls.cpp
+///  \file cactus_snarl_finder.cpp
 ///
 ///
 
