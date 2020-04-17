@@ -93,8 +93,8 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a5cfa35b77f2a1e0343a146e2dcc15d42"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a5cfa35b77f2a1e0343a146e2dcc15d42">PoissonSupportSnarlCaller</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;<a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#ab0f5bd05d950be25e87a9f5fbc345a5c">graph</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a86c40f2d62950d1f484aa6dd84abf60d">snarl_manager</a>, <a class="el" href="classvg_1_1TraversalSupportFinder.html">TraversalSupportFinder</a> &amp;<a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a2af17a0bf619778576c49627563994dc">support_finder</a>, const <a class="el" href="namespacevg_1_1algorithms.html#ae0218d4262c7c5c6836a0721c23bac34">algorithms::BinnedDepthIndex</a> &amp;<a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#adebf4d923f033aa67032c4340d9ebb1e">depth_index</a>)</td></tr>
-<tr class="separator:a5cfa35b77f2a1e0343a146e2dcc15d42"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aebde111c1431bf4af46929d8e56c7031"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#aebde111c1431bf4af46929d8e56c7031">PoissonSupportSnarlCaller</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;<a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#ab0f5bd05d950be25e87a9f5fbc345a5c">graph</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a86c40f2d62950d1f484aa6dd84abf60d">snarl_manager</a>, <a class="el" href="classvg_1_1TraversalSupportFinder.html">TraversalSupportFinder</a> &amp;<a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a2af17a0bf619778576c49627563994dc">support_finder</a>, const <a class="el" href="namespacevg_1_1algorithms.html#ae0218d4262c7c5c6836a0721c23bac34">algorithms::BinnedDepthIndex</a> &amp;<a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#adebf4d923f033aa67032c4340d9ebb1e">depth_index</a>, bool <a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a0588ea9ea69bf3c4c3f9108549e6102b">use_mapq</a>)</td></tr>
+<tr class="separator:aebde111c1431bf4af46929d8e56c7031"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5bef85e69a8ae047888c4fb72356f215"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a5bef85e69a8ae047888c4fb72356f215">~PoissonSupportSnarlCaller</a> ()</td></tr>
 <tr class="separator:a5bef85e69a8ae047888c4fb72356f215"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1be3298970827475c5b96486d58fd833"><td class="memItemLeft" align="right" valign="top">virtual pair&lt; vector&lt; int &gt;, unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">CallInfo</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a1be3298970827475c5b96486d58fd833">genotype</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, int ref_trav_idx, int ploidy, const string &amp;ref_path_name, pair&lt; size_t, size_t &gt; ref_range)</td></tr>
@@ -129,8 +129,8 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:af52b6d19160c7b36d2e53d42ca6b86a0"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#af52b6d19160c7b36d2e53d42ca6b86a0">genotype_likelihood</a> (const vector&lt; int &gt; &amp;<a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a1be3298970827475c5b96486d58fd833">genotype</a>, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const set&lt; int &gt; &amp;trav_subset, int ref_trav_idx, double exp_depth, double depth_err, int max_trav_size)</td></tr>
-<tr class="separator:af52b6d19160c7b36d2e53d42ca6b86a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac261dd04096164e8811cc1641120347a"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#ac261dd04096164e8811cc1641120347a">genotype_likelihood</a> (const vector&lt; int &gt; &amp;<a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a1be3298970827475c5b96486d58fd833">genotype</a>, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const set&lt; int &gt; &amp;trav_subset, const vector&lt; int &gt; &amp;traversal_sizes, const vector&lt; double &gt; &amp;traversal_mapqs, int ref_trav_idx, double exp_depth, double depth_err, int max_trav_size)</td></tr>
+<tr class="separator:ac261dd04096164e8811cc1641120347a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a300ca3bbff527fb43fbc12e65177d053"><td class="memItemLeft" align="right" valign="top">vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a300ca3bbff527fb43fbc12e65177d053">rank_by_support</a> (const vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt; &amp;supports)</td></tr>
 <tr class="memdesc:a300ca3bbff527fb43fbc12e65177d053"><td class="mdescLeft">&#160;</td><td class="mdescRight">Rank supports.  <a href="#a300ca3bbff527fb43fbc12e65177d053">More...</a><br /></td></tr>
 <tr class="separator:a300ca3bbff527fb43fbc12e65177d053"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -151,6 +151,9 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:adebf4d923f033aa67032c4340d9ebb1e"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="namespacevg_1_1algorithms.html#ae0218d4262c7c5c6836a0721c23bac34">algorithms::BinnedDepthIndex</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#adebf4d923f033aa67032c4340d9ebb1e">depth_index</a></td></tr>
 <tr class="memdesc:adebf4d923f033aa67032c4340d9ebb1e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Map path name to &lt;mean, std_err&gt; of depth coverage from the packer.  <a href="#adebf4d923f033aa67032c4340d9ebb1e">More...</a><br /></td></tr>
 <tr class="separator:adebf4d923f033aa67032c4340d9ebb1e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0588ea9ea69bf3c4c3f9108549e6102b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a0588ea9ea69bf3c4c3f9108549e6102b">use_mapq</a></td></tr>
+<tr class="memdesc:a0588ea9ea69bf3c4c3f9108549e6102b"><td class="mdescLeft">&#160;</td><td class="mdescRight">MAPQ information is available from the packer and we want to use it.  <a href="#a0588ea9ea69bf3c4c3f9108549e6102b">More...</a><br /></td></tr>
+<tr class="separator:a0588ea9ea69bf3c4c3f9108549e6102b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classvg_1_1SupportBasedSnarlCaller')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classvg_1_1SupportBasedSnarlCaller.html">vg::SupportBasedSnarlCaller</a></td></tr>
 <tr class="memitem:ab0f5bd05d950be25e87a9f5fbc345a5c inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#ab0f5bd05d950be25e87a9f5fbc345a5c">graph</a></td></tr>
 <tr class="separator:ab0f5bd05d950be25e87a9f5fbc345a5c inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -181,8 +184,8 @@ Additional Inherited Members</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Find the genotype of some traversals in a site using read support and a Poisson model based on expected depth. Inspired, in part, by Paragraph, which uses a similar approach for genotyping break points </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a5cfa35b77f2a1e0343a146e2dcc15d42"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5cfa35b77f2a1e0343a146e2dcc15d42">&#9670;&nbsp;</a></span>PoissonSupportSnarlCaller()</h2>
+<a id="aebde111c1431bf4af46929d8e56c7031"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aebde111c1431bf4af46929d8e56c7031">&#9670;&nbsp;</a></span>PoissonSupportSnarlCaller()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -209,7 +212,13 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="namespacevg_1_1algorithms.html#ae0218d4262c7c5c6836a0721c23bac34">algorithms::BinnedDepthIndex</a> &amp;&#160;</td>
-          <td class="paramname"><em>depth_index</em>&#160;</td>
+          <td class="paramname"><em>depth_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>use_mapq</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -311,8 +320,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="af52b6d19160c7b36d2e53d42ca6b86a0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af52b6d19160c7b36d2e53d42ca6b86a0">&#9670;&nbsp;</a></span>genotype_likelihood()</h2>
+<a id="ac261dd04096164e8811cc1641120347a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac261dd04096164e8811cc1641120347a">&#9670;&nbsp;</a></span>genotype_likelihood()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -337,6 +346,18 @@ Additional Inherited Members</h2></td></tr>
           <td></td>
           <td class="paramtype">const set&lt; int &gt; &amp;&#160;</td>
           <td class="paramname"><em>trav_subset</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; int &gt; &amp;&#160;</td>
+          <td class="paramname"><em>traversal_sizes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; double &gt; &amp;&#160;</td>
+          <td class="paramname"><em>traversal_mapqs</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -617,6 +638,30 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Consider up to the tom-m secondary traversals (based on support) for each top traversal (so at most top_k * top_m considered) </p>
+
+</div>
+</div>
+<a id="a0588ea9ea69bf3c4c3f9108549e6102b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0588ea9ea69bf3c4c3f9108549e6102b">&#9670;&nbsp;</a></span>use_mapq</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::PoissonSupportSnarlCaller::use_mapq</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>MAPQ information is available from the packer and we want to use it. </p>
 
 </div>
 </div>

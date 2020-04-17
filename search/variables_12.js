@@ -26,6 +26,7 @@ var searchData=
   ['record_5fbases',['record_bases',['../classvg_1_1Packer.html#a7a3debd842c660a3fc4755fc887c74ec',1,'vg::Packer']]],
   ['record_5fedges',['record_edges',['../classvg_1_1Packer.html#ab6fa0636229479a7368286e43f20ffa2',1,'vg::Packer']]],
   ['record_5fedits',['record_edits',['../classvg_1_1Packer.html#a8200ea3c39e408f3394c4a65fe2e3786',1,'vg::Packer']]],
+  ['record_5fqualities',['record_qualities',['../classvg_1_1Packer.html#ab29c0bdd5ae1db4a89db3476ba70ef68',1,'vg::Packer']]],
   ['redundant_5fvertexes',['redundant_vertexes',['../classvg_1_1MEMChainModel.html#a6a4132f34b8c9636e02c186ffa75a333',1,'vg::MEMChainModel::redundant_vertexes()'],['../classvg_1_1AlignmentChainModel.html#a2fd794e91dfc7ee2db7fdc9f921c5134',1,'vg::AlignmentChainModel::redundant_vertexes()']]],
   ['reestimation_5ffrequency',['reestimation_frequency',['../classvg_1_1FragmentLengthDistribution.html#a648954fbcb1fd0295fb22a37d79ed3e7',1,'vg::FragmentLengthDistribution']]],
   ['ref_5fbase',['ref_base',['../structvg_1_1BasePileup.html#a8d68d6e5d3ce5d2a9a448f90ed6dfc09',1,'vg::BasePileup']]],

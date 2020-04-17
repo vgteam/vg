@@ -3,7 +3,7 @@ var searchData=
   ['a',['a',['../classvg_1_1uniform__real__distribution.html#aac3912d0f456993e6ae7f7bbe4d732d7',1,'vg::uniform_real_distribution::a()'],['../classvg_1_1uniform__int__distribution.html#a2ac06e4375faf1706e7d6171c7e2e14b',1,'vg::uniform_int_distribution::a()']]],
   ['a_5fstar',['a_star',['../namespacevg_1_1algorithms.html#a5af5b6f1083925669832ae59d0e549e7',1,'vg::algorithms']]],
   ['accept_5frecord',['accept_record',['../classvg_1_1VcfRecordFilter.html#a2e39d3d4cb41426f965959c30b0de2d2',1,'vg::VcfRecordFilter']]],
-  ['add',['add',['../classvg_1_1Packer.html#acf47c57a145fc54c9614f6e343af64ca',1,'vg::Packer']]],
+  ['add',['add',['../classvg_1_1Packer.html#a9614c1b7fc494a00fc28215164c4b897',1,'vg::Packer']]],
   ['add_5falt_5fallele',['add_alt_allele',['../namespacevg.html#a6391a10ec421fbb6c487f491bd978ef6',1,'vg']]],
   ['add_5fbv',['add_bv',['../classVectorizer.html#a88203fab4049c471c963135c4c52ce03',1,'Vectorizer']]],
   ['add_5fchain_5fchild',['add_chain_child',['../classvg_1_1NetGraph.html#a0fadfaf9261a911ec04b4c10f75c5b9b',1,'vg::NetGraph']]],
@@ -167,6 +167,7 @@ var searchData=
   ['as_5finteger',['as_integer',['../namespacehandlegraph.html#a2bfd349561c52c6e3d32e11ad31a1056',1,'handlegraph::as_integer(handle_t &amp;handle)'],['../namespacehandlegraph.html#aa9b39d28e558d08900cf0659648edc66',1,'handlegraph::as_integer(const handle_t &amp;handle)'],['../namespacehandlegraph.html#aa046efc20cdba831aee499ca693b851a',1,'handlegraph::as_integer(path_handle_t &amp;handle)'],['../namespacehandlegraph.html#a1020b4ec56092e0413aa8deb3bd8097b',1,'handlegraph::as_integer(const path_handle_t &amp;handle)']]],
   ['as_5fintegers',['as_integers',['../namespacehandlegraph.html#a5a37d9e18dfe77f0342573269372f96d',1,'handlegraph::as_integers(step_handle_t &amp;step_handle)'],['../namespacehandlegraph.html#aa470ea0407a5de15a2e0da4ca0ac5df8',1,'handlegraph::as_integers(const step_handle_t &amp;step_handle)']]],
   ['as_5fpath_5fhandle',['as_path_handle',['../namespacehandlegraph.html#a4d0f261ff95d242a0ceeaa2f01b961c0',1,'handlegraph::as_path_handle(uint64_t &amp;value)'],['../namespacehandlegraph.html#abdee6d57b3c2132b34aae90c7766d213',1,'handlegraph::as_path_handle(const uint64_t &amp;value)']]],
+  ['as_5fquality_5ftable',['as_quality_table',['../classvg_1_1Packer.html#a4768a4ad03f393f7abdf1c6a977b8caf',1,'vg::Packer']]],
   ['as_5ftable',['as_table',['../classvg_1_1Packer.html#a51f56dd9782bb7841c7b50678f8ed868',1,'vg::Packer::as_table()'],['../classvg_1_1Packers.html#afcd4807c5743b90833a8e0f351f4fc77',1,'vg::Packers::as_table()']]],
   ['assemble',['assemble',['../classvg_1_1SRPE.html#af26ba46b029992347b35f35a896443b0',1,'vg::SRPE::assemble(vector&lt; Alignment &gt; alns, vector&lt; fml_utg_t &gt; &amp;unitigs)'],['../classvg_1_1SRPE.html#a4ef4826ee35bc536bc23eb856983ed3e',1,'vg::SRPE::assemble(string refpath, int64_t start_pos, int64_t end_pos, vector&lt; fml_utg_t &gt; &amp;unitigs)'],['../classvg_1_1SRPE.html#a3aad577dad70266ad448adfc765fe933',1,'vg::SRPE::assemble(int64_t node_id, int64_t offset, int window_size)']]],
   ['at',['at',['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#a613f2b4b5f02b68f1868830e3213ffe2',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;::at(size_t i)'],['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#a8e8fb7dad7fb3274f9dae3e11be2ed5c',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;::at(size_t i) const']]],
@@ -183,5 +184,6 @@ var searchData=
   ['augment_5ffrom_5falignment_5fedits',['augment_from_alignment_edits',['../structvg_1_1AugmentedGraph.html#a56ecda832a62dd3a22424bb8720a4601',1,'vg::AugmentedGraph']]],
   ['augment_5fimpl',['augment_impl',['../namespacevg.html#a989d9fcf282f8bb3d670c815cca64c8a',1,'vg']]],
   ['augment_5fsplice_5fgraph',['augment_splice_graph',['../classvg_1_1Transcriptome.html#a2ba1aad51046ea7ad2af88185596a9c0',1,'vg::Transcriptome']]],
+  ['average_5fnode_5fquality',['average_node_quality',['../classvg_1_1Packer.html#a5a5c771bdb82f53eeef987e598669566',1,'vg::Packer']]],
   ['avg_5fqual_5ffilter',['avg_qual_filter',['../classvg_1_1Filter.html#a3401568683899d1ebe2bcaf971a8374e',1,'vg::Filter']]]
 ];

@@ -9,7 +9,7 @@ var searchData=
   ['adaptive_5fdiff_5fexponent',['adaptive_diff_exponent',['../classvg_1_1BaseMapper.html#a653e029302e4442dbabd06a70ec4bbec',1,'vg::BaseMapper']]],
   ['adaptive_5freseed_5fdiff',['adaptive_reseed_diff',['../classvg_1_1BaseMapper.html#acf7556c347ea7596624700482dc58c8c',1,'vg::BaseMapper']]],
   ['adaptive_5freseed_5flength_5fmemo',['adaptive_reseed_length_memo',['../classvg_1_1BaseMapper.html#a279b5883907a56ada69b41796230b209',1,'vg::BaseMapper']]],
-  ['add',['add',['../classvg_1_1Packer.html#acf47c57a145fc54c9614f6e343af64ca',1,'vg::Packer']]],
+  ['add',['add',['../classvg_1_1Packer.html#a9614c1b7fc494a00fc28215164c4b897',1,'vg::Packer']]],
   ['add_5falt_5fallele',['add_alt_allele',['../namespacevg.html#a6391a10ec421fbb6c487f491bd978ef6',1,'vg']]],
   ['add_5fbv',['add_bv',['../classVectorizer.html#a88203fab4049c471c963135c4c52ce03',1,'Vectorizer']]],
   ['add_5fchain_5fchild',['add_chain_child',['../classvg_1_1NetGraph.html#a0fadfaf9261a911ec04b4c10f75c5b9b',1,'vg::NetGraph']]],
@@ -228,6 +228,7 @@ var searchData=
   ['as_5finteger',['as_integer',['../namespacehandlegraph.html#a2bfd349561c52c6e3d32e11ad31a1056',1,'handlegraph::as_integer(handle_t &amp;handle)'],['../namespacehandlegraph.html#aa9b39d28e558d08900cf0659648edc66',1,'handlegraph::as_integer(const handle_t &amp;handle)'],['../namespacehandlegraph.html#aa046efc20cdba831aee499ca693b851a',1,'handlegraph::as_integer(path_handle_t &amp;handle)'],['../namespacehandlegraph.html#a1020b4ec56092e0413aa8deb3bd8097b',1,'handlegraph::as_integer(const path_handle_t &amp;handle)']]],
   ['as_5fintegers',['as_integers',['../namespacehandlegraph.html#a5a37d9e18dfe77f0342573269372f96d',1,'handlegraph::as_integers(step_handle_t &amp;step_handle)'],['../namespacehandlegraph.html#aa470ea0407a5de15a2e0da4ca0ac5df8',1,'handlegraph::as_integers(const step_handle_t &amp;step_handle)']]],
   ['as_5fpath_5fhandle',['as_path_handle',['../namespacehandlegraph.html#a4d0f261ff95d242a0ceeaa2f01b961c0',1,'handlegraph::as_path_handle(uint64_t &amp;value)'],['../namespacehandlegraph.html#abdee6d57b3c2132b34aae90c7766d213',1,'handlegraph::as_path_handle(const uint64_t &amp;value)']]],
+  ['as_5fquality_5ftable',['as_quality_table',['../classvg_1_1Packer.html#a4768a4ad03f393f7abdf1c6a977b8caf',1,'vg::Packer']]],
   ['as_5ftable',['as_table',['../classvg_1_1Packer.html#a51f56dd9782bb7841c7b50678f8ed868',1,'vg::Packer::as_table()'],['../classvg_1_1Packers.html#afcd4807c5743b90833a8e0f351f4fc77',1,'vg::Packers::as_table()']]],
   ['assemble',['assemble',['../classvg_1_1SRPE.html#af26ba46b029992347b35f35a896443b0',1,'vg::SRPE::assemble(vector&lt; Alignment &gt; alns, vector&lt; fml_utg_t &gt; &amp;unitigs)'],['../classvg_1_1SRPE.html#a4ef4826ee35bc536bc23eb856983ed3e',1,'vg::SRPE::assemble(string refpath, int64_t start_pos, int64_t end_pos, vector&lt; fml_utg_t &gt; &amp;unitigs)'],['../classvg_1_1SRPE.html#a3aad577dad70266ad448adfc765fe933',1,'vg::SRPE::assemble(int64_t node_id, int64_t offset, int window_size)']]],
   ['assume_5facyclic',['assume_acyclic',['../classvg_1_1BaseMapper.html#a7127a75ac293b9b05093134ee8e51cd2',1,'vg::BaseMapper']]],
@@ -254,9 +255,11 @@ var searchData=
   ['augmented',['augmented',['../classvg_1_1NestedTraversalFinder.html#a313111e30533ab2a685d7c9e112a6b22',1,'vg::NestedTraversalFinder']]],
   ['augmentedgraph',['AugmentedGraph',['../structvg_1_1AugmentedGraph.html',1,'vg']]],
   ['available_5fshort_5foptions',['available_short_options',['../classvg_1_1ConfigurableParser.html#a529443bfe60e0ab272166ccc15991ce2',1,'vg::ConfigurableParser']]],
+  ['average_5fnode_5fquality',['average_node_quality',['../classvg_1_1Packer.html#a5a5c771bdb82f53eeef987e598669566',1,'vg::Packer']]],
   ['average_5fnode_5fsupport_5fswitch_5fthreshold',['average_node_support_switch_threshold',['../classvg_1_1TraversalSupportFinder.html#a31d877c8af983f565b507bbfa18c31b4',1,'vg::TraversalSupportFinder']]],
   ['average_5ftraversal_5fsupport_5fswitch_5fthreshold',['average_traversal_support_switch_threshold',['../classvg_1_1TraversalSupportFinder.html#a1d277cd424d213bf0d475fb4c64b26d2',1,'vg::TraversalSupportFinder']]],
   ['avg_5fnode_5flength',['avg_node_length',['../classvg_1_1BaseMapper.html#ad77c0e853fcfc715a15b8852b8b4f388',1,'vg::BaseMapper']]],
+  ['avg_5fnode_5fmapq_5fcache',['avg_node_mapq_cache',['../classvg_1_1CachedPackedTraversalSupportFinder.html#a4d51eddbde9c16f01aa0cc31de00ad7d',1,'vg::CachedPackedTraversalSupportFinder']]],
   ['avg_5fnode_5fsupport_5fcache',['avg_node_support_cache',['../classvg_1_1CachedPackedTraversalSupportFinder.html#adbdbdebba95326c21ba7c98017820707',1,'vg::CachedPackedTraversalSupportFinder']]],
   ['avg_5fqual_5ffilter',['avg_qual_filter',['../classvg_1_1Filter.html#a3401568683899d1ebe2bcaf971a8374e',1,'vg::Filter']]]
 ];

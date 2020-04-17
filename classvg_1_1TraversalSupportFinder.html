@@ -105,6 +105,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a42cf4393f0ff594d0eaf489b2127cdef"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1Support.html">Support</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#a42cf4393f0ff594d0eaf489b2127cdef">get_avg_node_support</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node) const =0</td></tr>
 <tr class="memdesc:a42cf4393f0ff594d0eaf489b2127cdef"><td class="mdescLeft">&#160;</td><td class="mdescRight">Average support of a node.  <a href="#a42cf4393f0ff594d0eaf489b2127cdef">More...</a><br /></td></tr>
 <tr class="separator:a42cf4393f0ff594d0eaf489b2127cdef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a55880f595d8f607a73e8617e7b2aa216"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#a55880f595d8f607a73e8617e7b2aa216">get_avg_node_mapq</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node) const =0</td></tr>
+<tr class="memdesc:a55880f595d8f607a73e8617e7b2aa216"><td class="mdescLeft">&#160;</td><td class="mdescRight">Average MAPQ of reads that map to a node.  <a href="#a55880f595d8f607a73e8617e7b2aa216">More...</a><br /></td></tr>
+<tr class="separator:a55880f595d8f607a73e8617e7b2aa216"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac46ef820b2a05e8b331677deb80871a9"><td class="memItemLeft" align="right" valign="top">virtual tuple&lt; <a class="el" href="structvg_1_1Support.html">Support</a>, <a class="el" href="structvg_1_1Support.html">Support</a>, int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#ac46ef820b2a05e8b331677deb80871a9">get_child_support</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl) const</td></tr>
 <tr class="memdesc:ac46ef820b2a05e8b331677deb80871a9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use node or edge support as proxy for child support (as was done in original calling code)  <a href="#ac46ef820b2a05e8b331677deb80871a9">More...</a><br /></td></tr>
 <tr class="separator:ac46ef820b2a05e8b331677deb80871a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -117,6 +120,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a95944f27ca78da63466f5623ad646ee4"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#a95944f27ca78da63466f5623ad646ee4">get_traversal_sizes</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals) const</td></tr>
 <tr class="memdesc:a95944f27ca78da63466f5623ad646ee4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the total length of all nodes in the traversal.  <a href="#a95944f27ca78da63466f5623ad646ee4">More...</a><br /></td></tr>
 <tr class="separator:a95944f27ca78da63466f5623ad646ee4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1a7ce9dabeac1835ce0c9765301fcafd"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#a1a7ce9dabeac1835ce0c9765301fcafd">get_traversal_mapqs</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals) const</td></tr>
+<tr class="separator:a1a7ce9dabeac1835ce0c9765301fcafd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a62c1864ae422d93cba4eb248890fd3e4"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#a62c1864ae422d93cba4eb248890fd3e4">get_average_traversal_support_switch_threshold</a> () const</td></tr>
 <tr class="memdesc:a62c1864ae422d93cba4eb248890fd3e4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the average traversal support thresholdek.  <a href="#a62c1864ae422d93cba4eb248890fd3e4">More...</a><br /></td></tr>
 <tr class="separator:a62c1864ae422d93cba4eb248890fd3e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -224,6 +229,36 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Get the average traversal support thresholdek. </p>
+
+</div>
+</div>
+<a id="a55880f595d8f607a73e8617e7b2aa216"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a55880f595d8f607a73e8617e7b2aa216">&#9670;&nbsp;</a></span>get_avg_node_mapq()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual size_t vg::TraversalSupportFinder::get_avg_node_mapq </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td>
+          <td class="paramname"><em>node</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Average MAPQ of reads that map to a node. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1CachedPackedTraversalSupportFinder.html#aa3fab4fec47f870d3cc6e2c1fdb46ccb">vg::CachedPackedTraversalSupportFinder</a>, and <a class="el" href="classvg_1_1PackedTraversalSupportFinder.html#a1fd604b1e8eac99954981aca81cafffd">vg::PackedTraversalSupportFinder</a>.</p>
 
 </div>
 </div>
@@ -504,6 +539,33 @@ Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>wrapper for using get_traversal_set_support to get the support for some alleles in a genotype, where everything is split evently among them anything not in the genotype gets a support using "exclusive_count" where nodes taken by the genotype are counted as 0 stuff not in the genotype is limited to other_trav_subset (or all if empty) </p>
+
+</div>
+</div>
+<a id="a1a7ce9dabeac1835ce0c9765301fcafd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1a7ce9dabeac1835ce0c9765301fcafd">&#9670;&nbsp;</a></span>get_traversal_mapqs()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; double &gt; vg::TraversalSupportFinder::get_traversal_mapqs </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>traversals</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Get the average MAPQ in each traversal Only consider nodes Normalize by base coverage (ie avg coverage / node by node length) </p>
 
 </div>
 </div>

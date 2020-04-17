@@ -60,6 +60,7 @@ var searchData=
   ['record_5fedges',['record_edges',['../classvg_1_1Packer.html#ab6fa0636229479a7368286e43f20ffa2',1,'vg::Packer']]],
   ['record_5fedits',['record_edits',['../classvg_1_1Packer.html#a8200ea3c39e408f3394c4a65fe2e3786',1,'vg::Packer']]],
   ['record_5ffragment_5fconfiguration',['record_fragment_configuration',['../classvg_1_1FragmentLengthStatistics.html#ae63195a980c56907de548ba00098c794',1,'vg::FragmentLengthStatistics']]],
+  ['record_5fqualities',['record_qualities',['../classvg_1_1Packer.html#ab29c0bdd5ae1db4a89db3476ba70ef68',1,'vg::Packer']]],
   ['record_5fread_5fpair_5fquality',['record_read_pair_quality',['../classvg_1_1NGSSimulator.html#aec434f0c212aec15e1760f4c4b1185e2',1,'vg::NGSSimulator']]],
   ['record_5fread_5fquality',['record_read_quality',['../classvg_1_1NGSSimulator.html#a8f34614e3dc660e31d26d9c18970e736',1,'vg::NGSSimulator']]],
   ['record_5ftransition',['record_transition',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#ab3609f759c7b20d77c1bc0ca7160c26a',1,'vg::NGSSimulator::MarkovDistribution']]],

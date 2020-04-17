@@ -49,5 +49,6 @@ var searchData=
   ['average_5fnode_5fsupport_5fswitch_5fthreshold',['average_node_support_switch_threshold',['../classvg_1_1TraversalSupportFinder.html#a31d877c8af983f565b507bbfa18c31b4',1,'vg::TraversalSupportFinder']]],
   ['average_5ftraversal_5fsupport_5fswitch_5fthreshold',['average_traversal_support_switch_threshold',['../classvg_1_1TraversalSupportFinder.html#a1d277cd424d213bf0d475fb4c64b26d2',1,'vg::TraversalSupportFinder']]],
   ['avg_5fnode_5flength',['avg_node_length',['../classvg_1_1BaseMapper.html#ad77c0e853fcfc715a15b8852b8b4f388',1,'vg::BaseMapper']]],
+  ['avg_5fnode_5fmapq_5fcache',['avg_node_mapq_cache',['../classvg_1_1CachedPackedTraversalSupportFinder.html#a4d51eddbde9c16f01aa0cc31de00ad7d',1,'vg::CachedPackedTraversalSupportFinder']]],
   ['avg_5fnode_5fsupport_5fcache',['avg_node_support_cache',['../classvg_1_1CachedPackedTraversalSupportFinder.html#adbdbdebba95326c21ba7c98017820707',1,'vg::CachedPackedTraversalSupportFinder']]]
 ];

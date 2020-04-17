@@ -62,6 +62,7 @@ var searchData=
   ['topological_5fsort',['topological_sort',['../classvg_1_1MultipathAlignmentGraph.html#a565b45f37d5be97cd30bce1d29c134fc',1,'vg::MultipathAlignmentGraph']]],
   ['topologically_5forder_5fsubpaths',['topologically_order_subpaths',['../namespacevg.html#ae03e9d67c4a774a71895ade9f10c6d19',1,'vg']]],
   ['total',['total',['../namespacevg.html#a0a064dd8829b2100c6a38780311073f3',1,'vg']]],
+  ['total_5fnode_5fquality',['total_node_quality',['../classvg_1_1Packer.html#a67a80245fcdbc4f5788b1062ee6b55f9',1,'vg::Packer']]],
   ['total_5fsupports',['total_supports',['../structvg_1_1BREAKPOINT.html#afc10d66ae6dad31e2086963bc6e34a06',1,'vg::BREAKPOINT']]],
   ['touppercase',['toUppercase',['../namespacevg.html#a00a949105ae94b18ca72452a442b8ddb',1,'vg::toUppercase()'],['../namespacebdsg.html#a75097b0785b927a1cbefcb651158436b',1,'bdsg::toUppercase()']]],
   ['trace',['trace',['../classvg_1_1SnarlState.html#a6b13fa6a070139c5d123983265d440bc',1,'vg::SnarlState']]],
