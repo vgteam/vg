@@ -23,11 +23,15 @@ protected:
     ///
     /// We rely on handles in the vectorizable overlay and handles in the
     /// backing graph being identical.
-    VectorizableOverlayHelper overlay_helper;
+    ///
+    /// TODO: make not-mutable when https://github.com/vgteam/libbdsg/issues/63
+    /// is fixed.
+    mutable bdsg::VectorizableOverlayHelper overlay_helper;
     
     /// Keep a union-find over the ranks of the merged oriented handles that
     /// make up each component. Runs with include_children=true so we can find
     /// all the members of each group.
+    ///
     /// Needs to be mutable because union-find find operations do internal tree
     /// massaging and aren't const.
     /// TODO: this makes read operations not thread safe!
@@ -71,7 +75,11 @@ handle_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_handle(size_t rank) con
 }
 
 IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const HandleGraph* graph) : graph(graph),
-    overlay_helper(), union_find(overlay_helper.apply(graph)->get_node_count() * 2, true) {
+    overlay_helper(), union_find(graph->get_node_count() * 2, true) {
+    
+    // Make sure we have our vectorizable version of the graph.
+    // TODO: remove const_cast when https://github.com/vgteam/libbdsg/issues/64 is fixed.
+    overlay_helper.apply(const_cast<HandleGraph*>(graph));
     
     // TODO: we want the adjacency components that are just single edges
     // between two handles (i.e. trivial snarls) to be implicit, so we don't
@@ -91,7 +99,7 @@ IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const HandleGr
         auto into_b = graph->flip(e.second);
         
         // Merge to create initial adjacency components
-        merge(e.first, into_b)
+        merge(e.first, into_b);
     });
 }
 
@@ -102,7 +110,7 @@ IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const MergedAd
     });
 }
 
-IntegratedSnarlFinder::MergedAdjacencyGraph::merge(handle_t into_a, handle_t into_b) {
+void IntegratedSnarlFinder::MergedAdjacencyGraph::merge(handle_t into_a, handle_t into_b) {
     // Get ranks and merge
     union_find.union_groups(uf_rank(into_a), uf_rank(into_b));
 }

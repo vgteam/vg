@@ -43,7 +43,7 @@ private:
     /// handle connects that component to another component: the component that
     /// contains the flipped version of the handle. Each component is
     /// identified by a "head" handle.
-    class IntegratedSnarlFinder::MergedAdjacencyGraph;
+    class MergedAdjacencyGraph;
     
 public:
     /**
@@ -65,6 +65,8 @@ public:
      */
     virtual SnarlManager find_snarls();
     
-}
+};
 
 }
+
+#endif
