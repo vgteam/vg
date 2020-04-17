@@ -28,23 +28,10 @@ protected:
     /// Keep a union-find over the ranks of the merged oriented handles that
     /// make up each component. Runs with include_children=true so we can find
     /// all the members of each group.
-    structures::UnionFind union_find;
-    
-    /// If not null, we represent a set of further merges on top of this
-    /// backing MergedAdjacencyGraph. The backing graph MAY NOT CHANGE as long
-    /// as we are alive, and we DO NOT OWN IT.
-    ///
-    /// Our union-find will be over the ranked heads of components in the base
-    /// MergedAdjacencyGraph, and our overlay helper will be unused.
-    const MergedAdjacencyGraph* base;
-    
-    /// If we are an overlay ourselves, we define a dense rank space over the
-    /// heads of the base's components.
-    /// TODO: When we get a good sparse union-find, get rid of this.
-    vector<handle_t> base_components;
-    /// And we map from handle to index in base_components.
-    unordered_map<handle_t, size_t> base_ranks;
-    // TODO: is keeping all this really better than just copying the union-find?
+    /// Needs to be mutable because union-find find operations do internal tree
+    /// massaging and aren't const.
+    /// TODO: this makes read operations not thread safe!
+    mutable structures::UnionFind union_find;
     
     /// Get the rank corresponding to the given handle, in the union-find.
     /// Our ranks are 0-based.
@@ -58,9 +45,8 @@ public:
     /// Make a MergedAdjacencyGraph representing the graph of adjacency components of the given HandleGraph.
     MergedAdjacencyGraph(const HandleGraph* graph);
     
-    /// Make a MergedAdjacencyGraph representing further merges of the
-    /// components of the given immutable MergedAdjacencyGraph.
-    MergedAdjacencyGraph(const MergedAdjacencyGraph* base);
+    /// Copy a MergedAdjacencyGraph by re-doing all the merges. Uses its own internal vectorization.
+    MergedAdjacencyGraph(const MergedAdjacencyGraph& other);
     
     /// Given handles reading into two components, a and b, merge them into a single component.
     void merge(handle_t into_a, handle_t into_b);
@@ -68,29 +54,24 @@ public:
     /// Find the handle heading the component that the given handle is in.
     handle_t find(handle_t into) const; 
     
-    /// Count the number of components in the MergedAdjacencyGraph
-    size_t size() const;
+    /// For each item other than the head in each component, calls the iteratee
+    /// with the head and the other item. Does not call the iteratee for
+    /// single-item components.
+    void for_each_membership(const function<void(handle_t, handle_t)>& iteratee) const;
 };
 
 size_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_rank(handle_t into) const {
-    if (base == nullptr) {
-        // We have a vectorizable overlay
-        return (overlay_helper.get()->id_to_rank(graph->get_id(into)) - 1) * 2 + (size_t) graph->get_is_reverse(into);
-    } else {
-        // We're really an overlay ourselves
-        
-    }
+    // We need to 0-base the backing rank, space it out, and make the low bit orientation
+    return (overlay_helper.get()->id_to_rank(graph->get_id(into)) - 1) * 2 + (size_t) graph->get_is_reverse(into);
 }
 
 handle_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_handle(size_t rank) const {
-    if (base == nullptr) {
-        return graph->get_handle(overlay_helper.get()->rank_to_id(rank / 2 + 1), rank % 2);
-    } else {
-    }
+    // We need to take the high bits and than make it 1-based, and get the orientation from the low bit
+    return graph->get_handle(overlay_helper.get()->rank_to_id(rank / 2 + 1), rank % 2);
 }
 
 IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const HandleGraph* graph) : graph(graph),
-    overlay_helper(), union_find(overlay_helper.apply(graph)->get_node_count() * 2, true), base(nullptr), base_components(), base_ranks()  {
+    overlay_helper(), union_find(overlay_helper.apply(graph)->get_node_count() * 2, true) {
     
     // TODO: we want the adjacency components that are just single edges
     // between two handles (i.e. trivial snarls) to be implicit, so we don't
@@ -101,6 +82,10 @@ IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const HandleGr
     // So we do this the easy way and compute all the merges for all adjacency
     // components, including tiny/numerous ones, right now.
     
+    // If we ever change this, we should also make MergedAdjacencyGraph
+    // stackable, to save a copy when we want to do further merges but keep the
+    // old state.
+    
     graph->for_each_edge([&](const handlegraph::edge_t& e) {
         // Get the inward-facing version of the second handle
         auto into_b = graph->flip(e.second);
@@ -110,14 +95,47 @@ IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const HandleGr
     });
 }
 
-IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const MergedAdjacencyGraph* base) : graph(base->graph),
-    overlay_helper(), union_find(base->size(), true), base(base)  {
-    
-    // Nothing to do!
+IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const MergedAdjacencyGraph& other) : MergedAdjacencyGraph(other.graph) {
+    other.for_each_membership([&](handle_t head, handle_t member) {
+        // For anything in a component, other than its head, do the merge with the head.
+        merge(head, member);
+    });
 }
 
-IntegratedSnarlFinder::MergedAdjacencyGraph::merge(
+IntegratedSnarlFinder::MergedAdjacencyGraph::merge(handle_t into_a, handle_t into_b) {
+    // Get ranks and merge
+    union_find.union_groups(uf_rank(into_a), uf_rank(into_b));
+}
+
+handle_t IntegratedSnarlFinder::MergedAdjacencyGraph::find(handle_t into) const {
+    // Get rank, find head, and get handle
+    return uf_handle(union_find.find_group(uf_rank(into)));
+}
     
+void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_membership(const function<void(handle_t, handle_t)>& iteratee) const {
+    // We do this weird iteration because it's vaguely efficient in the union-find we use.
+    vector<vector<size_t>> uf_components = union_find.all_groups();
+    
+    for (auto& component : uf_components) {
+        // For each component
+        for (size_t i = 1; i < component.size(); i++) {
+            // For everything other than the head, announce with the head.
+            iteratee(uf_handle(component[0]), uf_handle(component[i]));
+        }
+    }
+}
+
+    
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
 IntegratedSnarlFinder::IntegratedSnarlFinder(const PathHandleGraph& graph) : graph(&graph) {
     // Nothing to do!
 }
