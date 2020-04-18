@@ -3589,18 +3589,20 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
     
     // shim the hit graph nodes into the seed clusterer algorithm interface
-    vector<pos_t> positions(hit_graph.nodes.size());
+    vector<SnarlSeedClusterer::Seed> positions(hit_graph.nodes.size());
     for (size_t i = 0; i < hit_graph.nodes.size(); ++i)  {
-        positions[i] = hit_graph.nodes[i].start_pos;
+        positions[i].pos = hit_graph.nodes[i].start_pos;
     }
-    
+ 
+    typedef SnarlSeedClusterer::Cluster Cluster;
     SnarlSeedClusterer seed_clusterer(*distance_index);
-    vector<vector<size_t>> distance_components = seed_clusterer.cluster_seeds(positions, max_graph_separation);
+    std::vector<Cluster> distance_components = seed_clusterer.cluster_seeds(positions, max_graph_separation);
     
     // these components are returned by the structures::UnionFind::all_groups() method, which
     // always returns them in sorted order, so we can assume that they are still lexicographically
     // ordered internally
-    for (vector<size_t>& component : distance_components) {
+    for (Cluster& cluster : distance_components) {
+        std::vector<size_t>& component = cluster.seeds;
 #ifdef debug_mem_clusterer
         cerr << "looking edges in distance component containing:" << endl;
         for (size_t i : component) {

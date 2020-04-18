@@ -25,6 +25,15 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
     min_node_id = graph->min_node_id();
     max_node_id = graph->max_node_id();
 
+    node_to_component.resize(max_node_id - min_node_id + 1);
+    sdsl::util::set_to_value(node_to_component, 0);
+
+    component_to_chain_index.resize(24);
+    sdsl::util::set_to_value(component_to_chain_index, 0);
+
+    component_to_chain_length.resize(24);
+    sdsl::util::set_to_value(component_to_chain_length, 0);
+
     primary_snarl_assignments.resize(max_node_id - min_node_id + 1);
     primary_snarl_ranks.resize(max_node_id - min_node_id + 1);
     sdsl::util::set_to_value(primary_snarl_assignments, 0);
@@ -55,25 +64,47 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
     const vector<const Snarl*> top_snarls = snarl_manager->top_level_snarls();
 
     unordered_set<const Snarl*> seen_snarls;
+    size_t curr_component = 1;//Assign each connected component a unique identifier
     for (const Snarl* snarl : top_snarls) {
        //Make an index for each disconnected snarl/chain
- 
-       if (seen_snarls.count(snarl) == 0){
-          if (snarl_manager->in_nontrivial_chain(snarl)){
-              const Chain* chain = snarl_manager->chain_of(snarl);
-              calculateMinIndex(graph, snarl_manager, chain, 
-                     0, false, false, 0);
-              for (auto s : *chain) {
-                  seen_snarls.insert(s.first);
-              }
-           } else {
-               Chain curr_chain;
-               curr_chain.emplace_back(snarl, false);
-               calculateMinIndex(graph, snarl_manager, &curr_chain,
-                            0, false, true, 0);
-               seen_snarls.insert(snarl);
-           }
-       }
+        
+        if (seen_snarls.count(snarl) == 0){
+
+            //Assign this connected component to the chain index we're about to make
+            if (component_to_chain_index.size() < curr_component-1) {
+                component_to_chain_index.resize(curr_component);
+            }
+            component_to_chain_index[curr_component-1] = chain_indexes.size();
+            int64_t chain_length;
+
+            //Calculate the index for this connected component
+            if (snarl_manager->in_nontrivial_chain(snarl)){
+                //If this is an actual chain
+                const Chain* chain = snarl_manager->chain_of(snarl);
+
+                chain_length = calculateMinIndex(graph, snarl_manager, chain, 
+                       0, false, false, 0, curr_component);
+                for (auto s : *chain) {
+                    //TODO: Do this earlier instead of another sweep through the chain
+                    seen_snarls.insert(s.first);
+                }
+            } else {
+                //If this is a trivial chain, pretend that its a chain
+                Chain curr_chain;
+                curr_chain.emplace_back(snarl, false);
+                chain_length = calculateMinIndex(graph, snarl_manager, &curr_chain,
+                             0, false, true, 0, curr_component);
+                seen_snarls.insert(snarl);
+            }
+
+            //Give this connected component a length
+            if (component_to_chain_length.size() < curr_component) {
+                component_to_chain_length.resize(curr_component+1);
+            }
+            component_to_chain_length[curr_component-1] = chain_length;
+            curr_component++;
+
+        }
     }
 
     #ifdef debugIndex
@@ -172,6 +203,9 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
     util::bit_compress(chain_ranks);
     util::bit_compress(has_chain_bv);
     util::bit_compress(has_secondary_snarl_bv);
+    util::bit_compress(node_to_component);
+    util::bit_compress(component_to_chain_index);
+    util::bit_compress(component_to_chain_length);
 
 
     if (cap > 0) {
@@ -217,12 +251,23 @@ void MinimumDistanceIndex::load(istream& in){
     } else {
         //Check that the header is correct
         size_t char_index = 0;
-        while (in.peek() != EOF && char_index < file_header.size()) {
+        //TODO: We're only checking up to the last two so if the header changes this needs to change too
+        while (in.peek() != EOF && char_index < file_header.size()-2) {
             if ( (char) in.get() != file_header[char_index]) {
                 throw runtime_error ("Distance index file is outdated");
             }
             char_index ++;
         }
+        if (in.peek() == '.') {
+            if ((char) in.get() != '.' || (char)in.get() != '1') {
+                throw runtime_error ("Distance index file is outdated");
+            }
+            include_component = true;
+        } else {
+            cerr << "warning: Loading an out-of-date distance index" << endl;
+            include_component = false;
+        }
+        char_index+=2;
         if (char_index < file_header.size()) {
             throw runtime_error ("Distance index file is outdated");
         }
@@ -244,6 +289,11 @@ void MinimumDistanceIndex::load(istream& in){
     util::assign(has_secondary_snarl, 
                  rank_support_v<1>(&has_secondary_snarl_bv));
 
+    if (include_component) {
+        node_to_component.load(in);
+        component_to_chain_index.load(in);
+        component_to_chain_length.load(in);
+    }
     //Load serialized chains
     size_t num_chains;
     sdsl::read_member(num_chains, in);
@@ -292,6 +342,9 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
     secondary_snarl_ranks.serialize(out);
     has_secondary_snarl_bv.serialize(out);
     has_secondary_snarl.serialize(out);
+    node_to_component.serialize(out);
+    component_to_chain_index.serialize(out);
+    component_to_chain_length.serialize(out);
 
     //Serialize chains 
     sdsl::write_member(chain_indexes.size(), out);
@@ -320,11 +373,12 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
 /////////////////////////    MINIMUM INDEX    ///////////////////////////////
 
 
+//TODO: Add seen nodes here instead of going through them earlier
 int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                     const SnarlManager* snarl_manager,
                                     const Chain* chain, size_t parent_id,
                                     bool rev_in_parent, bool trivial_chain, 
-                                    size_t depth) {
+                                    size_t depth, size_t component_num) {
     /*Populate the MinimumDistanceIndex
      * Compute the ChainIndex for this chain and recursively calculate the 
      * SnarlIndexes for all snarls within the chain
@@ -410,6 +464,9 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                     //Otherwise this is the node's primary snarl
                     primary_snarl_assignments[id-min_node_id] = snarl_assignment+1;
                     primary_snarl_ranks[id - min_node_id] = all_nodes.size()+1;
+                    //Also assign this node to a connected component
+                    node_to_component[id - min_node_id] = component_num;
+
                 }
                 all_nodes.emplace(id, false);
                 all_nodes.emplace(id, true);
@@ -432,6 +489,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
         //Assign the second boundary node (relative to the chain) to this snarl
         //This will replace the first node in a chain if the chain loops
         primary_snarl_assignments[start_in_chain-min_node_id] = snarl_assignment + 1;
+        node_to_component[start_in_chain - min_node_id] = component_num;
         if (start_in_chain == snarl_start_id) {
             primary_snarl_ranks[start_in_chain-min_node_id] =  snarl_start_rev ? 2 : 1;
         } else {
@@ -442,6 +500,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
             //If the 2nd boundary node doesn't already have a primary snarl,
             //then assign it to this snarl
             primary_snarl_assignments[end_in_chain-min_node_id] =  snarl_assignment+1;
+            node_to_component[end_in_chain-min_node_id] = component_num;
             primary_snarl_ranks[end_in_chain-min_node_id] =  end_in_chain == snarl_end_id ?  
                  (snarl_end_rev ? all_nodes.size() : all_nodes.size() - 1) :
                  (snarl_start_rev ? 2 : 1);
@@ -469,7 +528,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                snarl_start_id == snarl_end_id,
                                depth, all_nodes.size()/2, true);
         }
-        populateSnarlIndex(graph, snarl_manager, ng, snarl, snarl_rev_in_chain, snarl_assignment, all_nodes, depth);
+        populateSnarlIndex(graph, snarl_manager, ng, snarl, snarl_rev_in_chain, snarl_assignment, all_nodes, depth, component_num);
 #ifdef debugIndex
 
     snarl_indexes[snarl_assignment].printSelf();
@@ -700,7 +759,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 
 void MinimumDistanceIndex::populateSnarlIndex(const HandleGraph* graph, const SnarlManager* snarl_manager, const NetGraph& ng,
                                               const Snarl* snarl, bool snarl_rev_in_chain, size_t snarl_assignment, 
-                                              hash_set<pair<id_t, bool>>& all_nodes, size_t depth) {
+                                              hash_set<pair<id_t, bool>>& all_nodes, size_t depth, size_t component_num) {
     //Fill in the given snarl index's distances by doing a dijkstra search starting from each node in the snarl
 
 
@@ -801,7 +860,7 @@ void MinimumDistanceIndex::populateSnarlIndex(const HandleGraph* graph, const Sn
                             bool rev_in_snarl = curr_id.first == get_start_of(*curr_chain).node_id()
                                       ? get_start_of(*curr_chain).backward() : !get_end_of(*curr_chain).backward();
                             node_len = calculateMinIndex(graph,  snarl_manager, curr_chain, 
-                                         start_in_chain, rev_in_snarl, false, depth + 1);
+                                         start_in_chain, rev_in_snarl, false, depth + 1, component_num);
 
                              chain_dists = &chain_indexes[chain_assignments[chain_start-min_node_id]-1]; 
                         }
@@ -851,7 +910,7 @@ void MinimumDistanceIndex::populateSnarlIndex(const HandleGraph* graph, const Sn
                             curr_chain.emplace_back(curr_snarl, false);
                             bool rev_in_snarl = curr_id.first == snarl_id ? snarl_rev : !end_rev;
                             calculateMinIndex(graph, snarl_manager, &curr_chain, start_in_chain,
-                                             rev_in_snarl, true, depth + 1);
+                                             rev_in_snarl, true, depth + 1, component_num);
 
                             snarl_dists = &snarl_indexes[primary_snarl_assignments[snarl_id-min_node_id]-1];
                         }
@@ -1545,7 +1604,6 @@ int64_t MinimumDistanceIndex::minPos (vector<int64_t> vals) {
 };
 
 void MinimumDistanceIndex::printSelf() {
-    //TODO: DOn't actually know the node ids when we're printing things out
     cerr << "node id \t primary snarl \t rank \t secondary snarl \t rank \t chain \t rank" << endl;
     for (size_t i = 0 ; i < primary_snarl_assignments.size() ; i ++ ) {
         if (primary_snarl_assignments[i] != 0){
@@ -2474,5 +2532,59 @@ void MinimumDistanceIndex::subgraphInRange(const Path& path, const HandleGraph* 
     return;
 }
 
+pair<size_t, size_t> MinimumDistanceIndex::offset_in_root_chain (pos_t pos) {
+    if (node_to_component.size() == 0) {
+        throw runtime_error("error: distance index is out-of-date");
+    }
+    id_t id = get_id(pos);
+    SnarlIndex& snarl_index = snarl_indexes[getPrimaryAssignment(id)];
+    size_t snarl_rank =  getPrimaryRank(id);
+
+    bool is_boundary_node = snarl_rank == 0 || snarl_rank == 1 || 
+                            snarl_rank == snarl_index.num_nodes*2-1 || snarl_rank == snarl_index.num_nodes*2-2;
+    size_t component = node_to_component[id - min_node_id]; 
+    if (component == 0 || !is_boundary_node || !snarl_index.depth == 0 || !snarl_index.in_chain) {
+        return make_pair(MIPayload::NO_VALUE, MIPayload::NO_VALUE);
+    }
+    int64_t node_offset = get_offset(pos);
+    bool node_is_rev_in_snarl = snarl_rank% 2;
+    node_is_rev_in_snarl = is_rev(pos) ? !node_is_rev_in_snarl : node_is_rev_in_snarl;
+    bool node_is_rev_in_chain = node_is_rev_in_snarl ? !snarl_index.rev_in_parent : snarl_index.rev_in_parent;
+    if (node_is_rev_in_chain){
+        node_offset = snarl_index.nodeLength(snarl_rank) - node_offset;
+    } else {
+        node_offset += 1;
+    }
+  
+    size_t offset;
+    if (snarl_index.in_chain) {
+        size_t length = component_to_chain_length[component-1];
+        size_t chain_rank = getChainRank(id); 
+        offset = chain_rank == 0 ? 0 : chain_indexes[component_to_chain_index[component-1]].prefix_sum[chain_rank] - 1;
+    } else {
+        offset = snarl_rank == 0 || snarl_rank == 1 ? 0 : 
+                 snarl_index.snarlLength()-snarl_index.nodeLength(snarl_index.num_nodes*2-1);
+    }
+    return make_pair(component, offset + node_offset);
+}
+
+int64_t MinimumDistanceIndex::top_level_chain_length(id_t node_id) {
+    if (node_to_component.size() == 0) {
+        throw runtime_error("error: distance index is out-of-date");
+    }
+    size_t component = node_to_component[node_id-min_node_id];
+    return component == 0 ? -1 : component_to_chain_length[component-1];
+}
+size_t MinimumDistanceIndex::get_connected_component(id_t node_id) {
+    if (node_to_component.size() == 0) {
+        throw runtime_error("error: distance index is out-of-date");
+    }
+    return node_to_component[node_id-min_node_id];
+}
+
+constexpr MIPayload::code_type MIPayload::NO_CODE;
+constexpr size_t MIPayload::NO_VALUE;
+constexpr size_t MIPayload::ID_OFFSET;
+constexpr MIPayload::code_type MIPayload::OFFSET_MASK;
 
 }
