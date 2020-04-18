@@ -172,25 +172,28 @@ namespace vg {
                                                                         OrientedDistanceMeasurer* distance_measurer) const {
         
         // note: we don't want to generate the distance measurer in this function because we want
-        // to be able to re-use the memoization if we cluster pairs later
+        // to be able to re-use its memoization if we cluster pairs later
         
-        // choose a clusterer
+        // choose a clusterer (ordered by expected most likely use for better branch prediction)
         unique_ptr<MEMClusterer> clusterer;
-        if (use_tvs_clusterer) {
-            clusterer = unique_ptr<MEMClusterer>(new TVSClusterer(xindex, distance_index));
+        if (!no_clustering && use_min_dist_clusterer && component_min_dist) {
+            clusterer = unique_ptr<MEMClusterer>(new ComponentMinDistanceClusterer(distance_index));
+        }
+        else if (!no_clustering && !use_min_dist_clusterer && !use_tvs_clusterer) {
+            clusterer = unique_ptr<MEMClusterer>(new OrientedDistanceClusterer(*distance_measurer,
+                                                                               max_expected_dist_approx_error));
+        }
+        else if (no_clustering) {
+            clusterer = unique_ptr<MEMClusterer>(new NullClusterer());
+        }
+        else if (use_min_dist_clusterer && !greedy_min_dist) {
+            clusterer = unique_ptr<MEMClusterer>(new MinDistanceClusterer(distance_index));
         }
         else if (use_min_dist_clusterer && greedy_min_dist) {
             clusterer = unique_ptr<MEMClusterer>(new GreedyMinDistanceClusterer(distance_index));
         }
-        else if (use_min_dist_clusterer && component_min_dist) {
-            clusterer = unique_ptr<MEMClusterer>(new ComponentMinDistanceClusterer(distance_index));
-        }
-        else if (use_min_dist_clusterer) {
-            clusterer = unique_ptr<MEMClusterer>(new MinDistanceClusterer(distance_index));
-        }
         else {
-            clusterer = unique_ptr<MEMClusterer>(new OrientedDistanceClusterer(*distance_measurer,
-                                                                               max_expected_dist_approx_error));
+            clusterer = unique_ptr<MEMClusterer>(new TVSClusterer(xindex, distance_index));
         }
         
         // generate clusters
@@ -239,16 +242,20 @@ namespace vg {
         }
         
         // Compute the pairs of cluster graphs and their approximate distances from each other
+        // (ordered by expected most likely use case for better branch prediction)
         unique_ptr<MEMClusterer> clusterer;
-        if (use_tvs_clusterer) {
-            clusterer = unique_ptr<MEMClusterer>(new TVSClusterer(xindex, distance_index));
-        }
-        else if (use_min_dist_clusterer) {
+        if (use_min_dist_clusterer && !no_clustering) {
             // greedy and non-greedy algorithms are the same, so don't bother distinguishing
             clusterer = unique_ptr<MEMClusterer>(new MinDistanceClusterer(distance_index));
         }
-        else {
+        else if (no_clustering) {
+            clusterer = unique_ptr<MEMClusterer>(new NullClusterer());
+        }
+        else if (!use_tvs_clusterer) {
             clusterer = unique_ptr<MEMClusterer>(new OrientedDistanceClusterer(*distance_measurer));
+        }
+        else {
+            clusterer = unique_ptr<MEMClusterer>(new TVSClusterer(xindex, distance_index));
         }
         return clusterer->pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
                                        alt_anchors_1, alt_anchors_2,
