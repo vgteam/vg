@@ -17,6 +17,7 @@ var searchData=
   ['minimizer',['Minimizer',['../structvg_1_1MinimizerMapper_1_1Minimizer.html',1,'vg::MinimizerMapper']]],
   ['minimizermapper',['MinimizerMapper',['../classvg_1_1MinimizerMapper.html',1,'vg']]],
   ['minimumdistanceindex',['MinimumDistanceIndex',['../classvg_1_1MinimumDistanceIndex.html',1,'vg']]],
+  ['mipayload',['MIPayload',['../structvg_1_1MIPayload.html',1,'vg']]],
   ['msaconverter',['MSAConverter',['../classvg_1_1MSAConverter.html',1,'vg']]],
   ['multipathalignment',['MultipathAlignment',['../structvg_1_1MultipathAlignment.html',1,'vg']]],
   ['multipathalignmentgraph',['MultipathAlignmentGraph',['../classvg_1_1MultipathAlignmentGraph.html',1,'vg']]],

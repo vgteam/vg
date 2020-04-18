@@ -2,6 +2,7 @@ var searchData=
 [
   ['sampler',['Sampler',['../classvg_1_1Sampler.html',1,'vg']]],
   ['scoreprovider',['ScoreProvider',['../classhaplo_1_1ScoreProvider.html',1,'haplo']]],
+  ['seed',['Seed',['../structvg_1_1SnarlSeedClusterer_1_1Seed.html',1,'vg::SnarlSeedClusterer']]],
   ['serializablehandlegraph',['SerializableHandleGraph',['../classhandlegraph_1_1SerializableHandleGraph.html',1,'handlegraph']]],
   ['shuffledpairs',['ShuffledPairs',['../classvg_1_1ShuffledPairs.html',1,'vg']]],
   ['simpleconsistencycalculator',['SimpleConsistencyCalculator',['../classvg_1_1SimpleConsistencyCalculator.html',1,'vg']]],
@@ -38,7 +39,7 @@ var searchData=
   ['string_5fhash_5fmap_3c_20bdsg_3a_3apackedvector_2c_20int64_5ft_20_3e',['string_hash_map&lt; bdsg::PackedVector, int64_t &gt;',['../classbdsg_1_1string__hash__map.html',1,'bdsg']]],
   ['string_5fhash_5fmap_3c_20std_3a_3astring_2c_20uint64_5ft_20_3e',['string_hash_map&lt; std::string, uint64_t &gt;',['../classbdsg_1_1string__hash__map.html',1,'bdsg']]],
   ['string_5fhash_5fmap_3c_20string_2c_20int64_5ft_20_3e',['string_hash_map&lt; string, int64_t &gt;',['../classbdsg_1_1string__hash__map.html',1,'bdsg']]],
-  ['string_5fhash_5fset',['string_hash_set',['../classvg_1_1string__hash__set.html',1,'vg::string_hash_set&lt; K &gt;'],['../classbdsg_1_1string__hash__set.html',1,'bdsg::string_hash_set&lt; K &gt;']]],
+  ['string_5fhash_5fset',['string_hash_set',['../classbdsg_1_1string__hash__set.html',1,'bdsg::string_hash_set&lt; K &gt;'],['../classvg_1_1string__hash__set.html',1,'vg::string_hash_set&lt; K &gt;']]],
   ['subcommand',['Subcommand',['../classvg_1_1subcommand_1_1Subcommand.html',1,'vg::subcommand']]],
   ['subgraphoverlay',['SubgraphOverlay',['../classvg_1_1SubgraphOverlay.html',1,'vg']]],
   ['subhandlegraph',['SubHandleGraph',['../classvg_1_1SubHandleGraph.html',1,'vg']]],

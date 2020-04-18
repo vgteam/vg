@@ -7,6 +7,7 @@ var searchData=
   ['callinfo',['CallInfo',['../structvg_1_1SnarlCaller_1_1CallInfo.html',1,'vg::SnarlCaller']]],
   ['chainindex',['ChainIndex',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html',1,'vg::MinimumDistanceIndex']]],
   ['chainiterator',['ChainIterator',['../structvg_1_1ChainIterator.html',1,'vg']]],
+  ['cluster',['Cluster',['../structvg_1_1SnarlSeedClusterer_1_1Cluster.html',1,'vg::SnarlSeedClusterer']]],
   ['colors',['Colors',['../classvg_1_1Colors.html',1,'vg']]],
   ['completedtranscriptpath',['CompletedTranscriptPath',['../structvg_1_1CompletedTranscriptPath.html',1,'vg']]],
   ['componentmindistanceclusterer',['ComponentMinDistanceClusterer',['../classvg_1_1ComponentMinDistanceClusterer.html',1,'vg']]],

@@ -1,14 +1,16 @@
 var searchData=
 [
-  ['occs',['occs',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a8c226c4bddcf03b1666f9da007676d8b',1,'vg::MinimizerMapper::Minimizer']]],
+  ['occs',['occs',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a023a81e9cd9f65fe3fa45293d08f643b',1,'vg::MinimizerMapper::Minimizer']]],
   ['occurrences',['occurrences',['../structbdsg_1_1HashGraph_1_1node__t.html#a1bca8e6a29ca8adbd49777e0da6165ff',1,'bdsg::HashGraph::node_t']]],
   ['odgi',['ODGI',['../classbdsg_1_1ODGI.html',1,'bdsg::ODGI'],['../classbdsg_1_1ODGI.html#aa10931aaf9f517e6c5063ab5aabd6e80',1,'bdsg::ODGI::ODGI()']]],
   ['odgi_2ecpp',['odgi.cpp',['../odgi_8cpp.html',1,'']]],
   ['odgi_2ehpp',['odgi.hpp',['../odgi_8hpp.html',1,'']]],
   ['of_5fnode',['of_node',['../classvg_1_1Paths.html#abda01c563a3455d491b152a23b22a27a',1,'vg::Paths']]],
   ['off_5ft',['off_t',['../namespacevg.html#a9cdb6d0305bd8cbf46efed9b2799877a',1,'vg::off_t()'],['../namespacehandlegraph.html#a4ceaa14f55bfa14f49b423fd9d903462',1,'handlegraph::off_t()']]],
-  ['offset',['offset',['../structvg_1_1GaplessExtension.html#a713e8ef2aad7aa94ae4ef91fbe83e159',1,'vg::GaplessExtension::offset()'],['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()'],['../namespacevg.html#a416939020600ce2996331c350f1fe68c',1,'vg::offset()'],['../namespacexg.html#ac689f45eccbedaba6fab410913961f8c',1,'xg::offset()']]],
+  ['offset',['offset',['../structvg_1_1GaplessExtension.html#a713e8ef2aad7aa94ae4ef91fbe83e159',1,'vg::GaplessExtension::offset()'],['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1SnarlSeedClusterer_1_1Seed.html#a6ff78e62ecc19fcf85d06ebdca488a1f',1,'vg::SnarlSeedClusterer::Seed::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()'],['../namespacevg.html#a416939020600ce2996331c350f1fe68c',1,'vg::offset()'],['../namespacexg.html#ac689f45eccbedaba6fab410913961f8c',1,'xg::offset()']]],
   ['offset_5fby_5fstep',['offset_by_step',['../classbdsg_1_1PositionOverlay.html#a2f767d5917baa329867d968bb159ae32',1,'bdsg::PositionOverlay']]],
+  ['offset_5fin_5froot_5fchain',['offset_in_root_chain',['../classvg_1_1MinimumDistanceIndex.html#a811be217badfa3d805c2c3b6a5d4047c',1,'vg::MinimumDistanceIndex']]],
+  ['offset_5fmask',['OFFSET_MASK',['../structvg_1_1MIPayload.html#a0f8d6f2aedd4f81feed73aad8e79d1a1',1,'vg::MIPayload']]],
   ['offsets',['offsets',['../classxg_1_1XGPath.html#a062c1a4ce4f13b67a90f8b57ec57e91e',1,'xg::XGPath']]],
   ['offsets_5fin_5fpaths',['offsets_in_paths',['../classxg_1_1XG.html#af77c93c34b8009c590fa4ee2b01fd64e',1,'xg::XG::offsets_in_paths()'],['../namespacevg_1_1algorithms.html#aef24fa77dadb09d5920ec94b88af2128',1,'vg::algorithms::offsets_in_paths()']]],
   ['offsets_5frank',['offsets_rank',['../classxg_1_1XGPath.html#aa6f1e3a71e8ceb8242a4b1f5157a789b',1,'xg::XGPath']]],

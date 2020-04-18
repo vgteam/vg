@@ -56,6 +56,7 @@ var searchData=
   ['get_5fcluster_5fpairs',['get_cluster_pairs',['../classvg_1_1MultipathMapper.html#a49fdf1a2efedda808c2d3a7bda5a7f98',1,'vg::MultipathMapper']]],
   ['get_5fclusters',['get_clusters',['../classvg_1_1MultipathMapper.html#aba1bbd634ce49ad3c4a44dc9043eb03a',1,'vg::MultipathMapper']]],
   ['get_5fcodename',['get_codename',['../classvg_1_1Version.html#a0bab20984ed75b2df12c3ef4a409f922',1,'vg::Version']]],
+  ['get_5fconnected_5fcomponent',['get_connected_component',['../classvg_1_1MinimumDistanceIndex.html#a4535483cf0257dd19412d5678119098f',1,'vg::MinimumDistanceIndex']]],
   ['get_5fconnected_5fcomponents',['get_connected_components',['../classvg_1_1MultipathAlignmentGraph.html#af4fc215d24f20c5ddc3916024c7ab62b',1,'vg::MultipathAlignmentGraph']]],
   ['get_5fconnected_5fnodes',['get_connected_nodes',['../classvg_1_1Index.html#a7f616c9c191bd1dfd925991cc301e644',1,'vg::Index']]],
   ['get_5fcontained_5forientations',['get_contained_orientations',['../structvg_1_1PathIndex.html#a6a7f7bbcd256a2ed34a58b8abefff712',1,'vg::PathIndex']]],

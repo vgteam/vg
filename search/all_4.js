@@ -13,7 +13,7 @@ var searchData=
   ['db_5foptions',['db_options',['../classvg_1_1Index.html#ad2dd73cd581069d8718b0d576b7d1961',1,'vg::Index']]],
   ['debug',['debug',['../classvg_1_1BaseMapper.html#a5ce344e730fbb7cdc6b6d57b4ca76cf2',1,'vg::BaseMapper']]],
   ['debug_5fverbose_5fvalidation',['debug_verbose_validation',['../multipath__alignment_8cpp.html#ae4664215856f6083618d6163c0158763',1,'multipath_alignment.cpp']]],
-  ['decode',['decode',['../namespacebdsg_1_1sqvarint.html#a10f8aed2672ca3d1908e1e037e3d608d',1,'bdsg::sqvarint::decode()'],['../namespacebdsg_1_1msbvarint.html#a6dda3ac8237027067c4badce948a8b38',1,'bdsg::msbvarint::decode(uint64_t *out, uint8_t *ptr)'],['../namespacebdsg_1_1msbvarint.html#a8a202df1de118aef2bd42799fdfa52ec',1,'bdsg::msbvarint::decode(uint64_t *out, uint8_t *ptr, uint64_t c)']]],
+  ['decode',['decode',['../structvg_1_1MIPayload.html#adc8c1b4046c4e5fe11ec8caca019b5cc',1,'vg::MIPayload::decode()'],['../namespacebdsg_1_1sqvarint.html#a10f8aed2672ca3d1908e1e037e3d608d',1,'bdsg::sqvarint::decode()'],['../namespacebdsg_1_1msbvarint.html#a6dda3ac8237027067c4badce948a8b38',1,'bdsg::msbvarint::decode(uint64_t *out, uint8_t *ptr)'],['../namespacebdsg_1_1msbvarint.html#a8a202df1de118aef2bd42799fdfa52ec',1,'bdsg::msbvarint::decode(uint64_t *out, uint8_t *ptr, uint64_t c)']]],
   ['decode_5fnucleotide',['decode_nucleotide',['../classbdsg_1_1PackedGraph.html#a1c47b9fdc2e68f6fd7bb8a7e98669ee9',1,'bdsg::PackedGraph']]],
   ['decode_5fpath_5fname',['decode_path_name',['../classbdsg_1_1PackedGraph.html#ae14f098d6c3013afcd7a235ea2250a57',1,'bdsg::PackedGraph']]],
   ['decode_5ftraversal',['decode_traversal',['../classbdsg_1_1PackedGraph.html#a05f5a45b2de1f7e25341e8081f31f336',1,'bdsg::PackedGraph']]],

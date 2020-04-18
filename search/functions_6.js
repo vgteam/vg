@@ -62,7 +62,7 @@ var searchData=
   ['find_5fpath_5ftraversals',['find_path_traversals',['../classvg_1_1PathTraversalFinder.html#a47716598ddfa8044c42f4b9a55d51d01',1,'vg::PathTraversalFinder']]],
   ['find_5fposition',['find_position',['../structvg_1_1PathIndex.html#a377bc15c246c708fe4a0264cb05588af',1,'vg::PathIndex']]],
   ['find_5fsaver',['find_saver',['../classvg_1_1io_1_1Registry.html#acfad8c6a18a1443150d0818fe1a14857',1,'vg::io::Registry']]],
-  ['find_5fseeds',['find_seeds',['../classvg_1_1MinimizerMapper.html#a0c6edb7097eaaf72ee65338364ef9b42',1,'vg::MinimizerMapper']]],
+  ['find_5fseeds',['find_seeds',['../classvg_1_1MinimizerMapper.html#ab9e0a0ad996ae2011c90e2a6d6dd4b4a',1,'vg::MinimizerMapper']]],
   ['find_5fshortest_5fpaths',['find_shortest_paths',['../namespacevg_1_1algorithms.html#adf04353684c13c57e117e2f14f749123',1,'vg::algorithms']]],
   ['find_5fsnarls',['find_snarls',['../classvg_1_1SnarlFinder.html#a28d2aa85a748836df818c8c4ac8a8fd9',1,'vg::SnarlFinder::find_snarls()'],['../classvg_1_1CactusSnarlFinder.html#a3060bcff3b01e21176f17ebb74d31452',1,'vg::CactusSnarlFinder::find_snarls()']]],
   ['find_5fsnarls_5fimpl',['find_snarls_impl',['../classvg_1_1CactusSnarlFinder.html#a9ff89d5f26398349404796d325b32f69',1,'vg::CactusSnarlFinder']]],

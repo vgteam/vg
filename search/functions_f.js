@@ -3,6 +3,7 @@ var searchData=
   ['odgi',['ODGI',['../classbdsg_1_1ODGI.html#aa10931aaf9f517e6c5063ab5aabd6e80',1,'bdsg::ODGI']]],
   ['of_5fnode',['of_node',['../classvg_1_1Paths.html#abda01c563a3455d491b152a23b22a27a',1,'vg::Paths']]],
   ['offset',['offset',['../namespacevg.html#a416939020600ce2996331c350f1fe68c',1,'vg::offset()'],['../namespacexg.html#ac689f45eccbedaba6fab410913961f8c',1,'xg::offset()']]],
+  ['offset_5fin_5froot_5fchain',['offset_in_root_chain',['../classvg_1_1MinimumDistanceIndex.html#a811be217badfa3d805c2c3b6a5d4047c',1,'vg::MinimumDistanceIndex']]],
   ['offsets_5fin_5fpaths',['offsets_in_paths',['../classxg_1_1XG.html#af77c93c34b8009c590fa4ee2b01fd64e',1,'xg::XG::offsets_in_paths()'],['../namespacevg_1_1algorithms.html#aef24fa77dadb09d5920ec94b88af2128',1,'vg::algorithms::offsets_in_paths()']]],
   ['omp_5fget_5fnum_5fthreads',['omp_get_num_threads',['../deps_2libbdsg_2src_2utility_8cpp.html#a9ed0474735f00e49f9e37e8c76e935e5',1,'utility.cpp']]],
   ['on_5fgroup',['on_group',['../classvg_1_1io_1_1MessageEmitter.html#a5b5f11b2f9b08a870fc68a980c91f1e4',1,'vg::io::MessageEmitter::on_group()'],['../classvg_1_1io_1_1ProtobufEmitter.html#af22328bc428af2be817a7a0d097ca370',1,'vg::io::ProtobufEmitter::on_group()']]],
