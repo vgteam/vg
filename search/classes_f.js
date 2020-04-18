@@ -13,7 +13,7 @@ var searchData=
   ['pair_5fhash_5fmap_3c_20pair_3c_20vg_3a_3anodeside_2c_20vg_3a_3anodeside_20_3e_2c_20vector_3c_20vg_3a_3aalignment_20_2a_3e_20_3e',['pair_hash_map&lt; pair&lt; vg::NodeSide, vg::NodeSide &gt;, vector&lt; vg::Alignment *&gt; &gt;',['../classvg_1_1pair__hash__map.html',1,'vg']]],
   ['pair_5fhash_5fmap_3c_20pair_3c_20vg_3a_3anodeside_2c_20vg_3a_3anodeside_20_3e_2c_20vg_3a_3aedge_20_2a_3e',['pair_hash_map&lt; pair&lt; vg::NodeSide, vg::NodeSide &gt;, vg::Edge *&gt;',['../classvg_1_1pair__hash__map.html',1,'vg']]],
   ['pair_5fhash_5fmap_3c_20std_3a_3apair_3c_20gbwt_3a_3anode_5ftype_2c_20gbwt_3a_3anode_5ftype_20_3e_2c_20gbwt_3a_3anode_5ftype_20_3e',['pair_hash_map&lt; std::pair&lt; gbwt::node_type, gbwt::node_type &gt;, gbwt::node_type &gt;',['../classvg_1_1pair__hash__map.html',1,'vg']]],
-  ['pair_5fhash_5fset',['pair_hash_set',['../classbdsg_1_1pair__hash__set.html',1,'bdsg::pair_hash_set&lt; K &gt;'],['../classvg_1_1pair__hash__set.html',1,'vg::pair_hash_set&lt; K &gt;']]],
+  ['pair_5fhash_5fset',['pair_hash_set',['../classvg_1_1pair__hash__set.html',1,'vg::pair_hash_set&lt; K &gt;'],['../classbdsg_1_1pair__hash__set.html',1,'bdsg::pair_hash_set&lt; K &gt;']]],
   ['pair_5fhash_5fset_3c_20std_3a_3apair_3c_20gbwt_3a_3anode_5ftype_2c_20gbwt_3a_3anode_5ftype_20_3e_20_3e',['pair_hash_set&lt; std::pair&lt; gbwt::node_type, gbwt::node_type &gt; &gt;',['../classvg_1_1pair__hash__set.html',1,'vg']]],
   ['pairedendmapper',['PairedEndMapper',['../classvg_1_1PairedEndMapper.html',1,'vg']]],
   ['pairoverlayhelper',['PairOverlayHelper',['../classbdsg_1_1PairOverlayHelper.html',1,'bdsg']]],

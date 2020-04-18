@@ -64,6 +64,7 @@ var searchData=
   ['normalize',['normalize',['../namespacevg_1_1algorithms.html#a871771c17515766ca57ffb98c65cf71a',1,'vg::algorithms']]],
   ['normalize_5falignment',['normalize_alignment',['../namespacevg.html#afa0c54720b2b1007ae540dc70b5b8024',1,'vg']]],
   ['nth_5fcopy_5fof_5fhandle',['nth_copy_of_handle',['../classvg_1_1DagifiedGraph.html#a716193b4f3dcecfd26de15acf83964b9',1,'vg::DagifiedGraph']]],
+  ['nullclusterer',['NullClusterer',['../classvg_1_1NullClusterer.html#a63ae2e8bfe748f6557df52cddf4b41e8',1,'vg::NullClusterer']]],
   ['nullmaskinggraph',['NullMaskingGraph',['../classvg_1_1NullMaskingGraph.html#a2d348fa5aa3bd9216fc4133d320575ef',1,'vg::NullMaskingGraph::NullMaskingGraph(const HandleGraph *graph)'],['../classvg_1_1NullMaskingGraph.html#addeb1ab4002f516c686a5af59018597f',1,'vg::NullMaskingGraph::NullMaskingGraph()=default']]],
   ['num_5fhaplotypes',['num_haplotypes',['../classvg_1_1PhasedGenome.html#af17e5f99a07028d41f94885480cdddf7',1,'vg::PhasedGenome']]],
   ['num_5fsnarls',['num_snarls',['../classvg_1_1SnarlManager.html#a727734d76e892a3fc0d421c6382349a1',1,'vg::SnarlManager']]]
