@@ -464,9 +464,11 @@ cerr << "Nested positions: " << endl << "\t";
 #endif
             }
         }
-        for (size_t component_num = 0 ; component_num < seen_components.size() ; component_num++) {
-            if (!seen_components[component_num]) {
-                cluster_only_top_level_seed_clusters(tree_state, tree_state.top_level_seed_clusters[component_num]);
+        if (depth == 0) {
+            for (size_t component_num = 0 ; component_num < seen_components.size() ; component_num++) {
+                if (!seen_components[component_num]) {
+                    cluster_only_top_level_seed_clusters(tree_state, tree_state.top_level_seed_clusters[component_num]);
+                }
             }
         }
     }
