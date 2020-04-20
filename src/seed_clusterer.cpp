@@ -22,6 +22,16 @@ namespace vg {
             result.emplace_back();
             result.back().seeds = std::move(cluster);
         }
+        //TODO: Sorting is probably unecessary and if not probably too slow
+        std::sort(result.begin(), result.end(), [&] (Cluster& cluster1, Cluster& cluster2) {
+            if ( cluster1.fragment < cluster2.fragment) {
+                return true;
+            } else if (cluster1.fragment > cluster2.fragment) {
+                return false;
+            } else {
+                return cluster1.seeds.front() < cluster2.seeds.front();
+            }
+        });
 
         return result;
     };
@@ -65,6 +75,16 @@ namespace vg {
                 curr.seeds = std::move(cluster);
                 curr.fragment = fragment_cluster_head;
             }
+            //TODO: Sorting is probably unecessary and if not probably too slow
+            std::sort(result.back().begin(), result.back().end(), [&] (Cluster& cluster1, Cluster& cluster2) {
+                if ( cluster1.fragment < cluster2.fragment) {
+                    return true;
+                } else if (cluster1.fragment > cluster2.fragment) {
+                    return false;
+                } else {
+                    return cluster1.seeds.front() < cluster2.seeds.front();
+                }
+            });
             read_num_offset += all_seeds[read_num].size();
         }
 
