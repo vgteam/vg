@@ -39,6 +39,9 @@ public:
     /// Average support of a node
     virtual Support get_avg_node_support(id_t node) const = 0;
 
+    /// Average MAPQ of reads that map to a node
+    virtual size_t get_avg_node_mapq(id_t node) const = 0;
+
     /// Use node or edge support as proxy for child support (as was done in original calling code)
     virtual tuple<Support, Support, int> get_child_support(const Snarl& snarl) const;
 
@@ -78,6 +81,11 @@ public:
     
     /// Get the total length of all nodes in the traversal
     virtual vector<int> get_traversal_sizes(const vector<SnarlTraversal>& traversals) const;
+
+    /// Get the average MAPQ in each traversal
+    /// Only consider nodes
+    /// Normalize by base coverage (ie avg coverage / node by node length)
+    virtual vector<double> get_traversal_mapqs(const vector<SnarlTraversal>& traversals) const;
 
     /// Get the average traversal support thresholdek
     virtual size_t get_average_traversal_support_switch_threshold() const;
@@ -122,6 +130,9 @@ public:
 
     /// Average support of a node
     virtual Support get_avg_node_support(id_t node) const;
+
+    /// Average MAPQ of reads that map to a node
+    virtual size_t get_avg_node_mapq(id_t node) const;
     
 protected:
 
@@ -148,6 +159,9 @@ public:
 
     /// Average support of a node
     virtual Support get_avg_node_support(id_t node) const;
+
+    /// Average MAPQ of reads that map to a node
+    virtual size_t get_avg_node_mapq(id_t node) const;
     
 protected:
 
@@ -155,6 +169,7 @@ protected:
     mutable vector<LRUCache<edge_t, Support>*> edge_support_cache;
     mutable vector<LRUCache<nid_t, Support>*> min_node_support_cache;
     mutable vector<LRUCache<nid_t, Support>*> avg_node_support_cache;
+    mutable vector<LRUCache<nid_t, size_t>*> avg_node_mapq_cache;
 };
 
 

@@ -196,7 +196,8 @@ class PoissonSupportSnarlCaller : public SupportBasedSnarlCaller {
 public:
     PoissonSupportSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
                               TraversalSupportFinder& support_finder,
-                              const algorithms::BinnedDepthIndex& depth_index);
+                              const algorithms::BinnedDepthIndex& depth_index,
+                              bool use_mapq);
     virtual ~PoissonSupportSnarlCaller();
 
     struct PoissonCallInfo : public SnarlCaller::CallInfo {
@@ -238,6 +239,8 @@ protected:
     double genotype_likelihood(const vector<int>& genotype,
                                const vector<SnarlTraversal>& traversals,
                                const set<int>& trav_subset,
+                               const vector<int>& traversal_sizes,
+                               const vector<double>& traversal_mapqs,
                                int ref_trav_idx, double exp_depth, double depth_err,
                                int max_trav_size);
 
@@ -258,6 +261,9 @@ protected:
     
     /// Map path name to <mean, std_err> of depth coverage from the packer
     const algorithms::BinnedDepthIndex& depth_index;
+
+    /// MAPQ information is available from the packer and we want to use it
+    bool use_mapq;
 
 };
 

@@ -23,11 +23,11 @@ void help_pack(char** argv) {
          << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
          << "    -d, --as-table         write table on stdout representing packs" << endl
          << "    -D, --as-edge-table    write table on stdout representing edge coverage" << endl
+         << "    -u, --as-qual-table    write table on stdout representing average node mapqs" << endl
          << "    -e, --with-edits       record and write edits rather than only recording graph-matching coverage" << endl
          << "    -b, --bin-size N       number of sequence bases per CSA bin [default: inf]" << endl
          << "    -n, --node ID          write table for only specified node(s)" << endl
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
-         << "    -q, --qual-adjust      scale coverage by phred quality (combined from mapq and base quality)" << endl
          << "    -Q, --min-mapq N       ignore reads with MAPQ < N and positions with base quality < N [default: 0]" << endl
          << "    -c, --expected-cov N   expected coverage.  used only for memory tuning [default : 128]" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
@@ -42,11 +42,11 @@ int main_pack(int argc, char** argv) {
     string gam_in;
     bool write_table = false;
     bool write_edge_table = false;
+    bool write_qual_table = false;
     bool record_edits = false;
     size_t bin_size = 0;
     vector<vg::id_t> node_ids;
     string node_list_file;
-    bool qual_adjust = false;
     int min_mapq = 0;
     int min_baseq = 0;
     size_t expected_coverage = 128;
@@ -68,19 +68,19 @@ int main_pack(int argc, char** argv) {
             {"gam", required_argument, 0, 'g'},
             {"as-table", no_argument, 0, 'd'},
             {"as-edge-table", no_argument, 0, 'D'},
+            {"as-qual-table", no_argument, 0, 'u'},
             {"threads", required_argument, 0, 't'},
             {"with-edits", no_argument, 0, 'e'},
             {"node", required_argument, 0, 'n'},
             {"node-list", required_argument, 0, 'N'},
             {"bin-size", required_argument, 0, 'b'},
-            {"qual-adjust", no_argument, 0, 'q'},
             {"min-mapq", required_argument, 0, 'Q'},
             {"expected-cov", required_argument, 0, 'c'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:dDt:eb:n:N:qQ:c:",
+        c = getopt_long (argc, argv, "hx:o:i:g:dDut:eb:n:N:Q:c:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -112,6 +112,9 @@ int main_pack(int argc, char** argv) {
         case 'D':
             write_edge_table = true;
             break;
+        case 'u':
+            write_qual_table = true;
+            break;
         case 'e':
             record_edits = true;
             break;
@@ -133,9 +136,6 @@ int main_pack(int argc, char** argv) {
             break;
         case 'N':
             node_list_file = optarg;
-            break;
-        case 'q':
-            qual_adjust = true;
             break;
         case 'Q':
             min_mapq = parse<int>(optarg);
@@ -165,7 +165,7 @@ int main_pack(int argc, char** argv) {
         exit(1);
     }
 
-    if (packs_out.empty() && write_table == false && write_edge_table == false) {
+    if (packs_out.empty() && write_table == false && write_edge_table == false && write_qual_table == false) {
         cerr << "error [vg pack]: Output must be selected with -o, -d or -D" << endl;
         exit(1);
     }
@@ -209,8 +209,8 @@ int main_pack(int argc, char** argv) {
     }
 
     if (!gam_in.empty()) {
-        std::function<void(Alignment&)> lambda = [&packer,&min_mapq,&min_baseq,&qual_adjust](Alignment& aln) {
-            packer.add(aln, min_mapq, min_baseq, qual_adjust);
+        std::function<void(Alignment&)> lambda = [&packer,&min_mapq,&min_baseq](Alignment& aln) {
+            packer.add(aln, min_mapq, min_baseq);
         };
         if (gam_in == "-") {
             vg::io::for_each_parallel(std::cin, lambda, batch_size);
@@ -228,13 +228,16 @@ int main_pack(int argc, char** argv) {
     if (!packs_out.empty()) {
         packer.save_to_file(packs_out);
     }
-    if (write_table || write_edge_table) {
+    if (write_table || write_edge_table || write_qual_table) {
         packer.make_compact();
         if (write_table) {
             packer.as_table(cout, record_edits, node_ids);
         }
         if (write_edge_table) {
             packer.as_edge_table(cout, node_ids);
+        }
+        if (write_qual_table) {
+            packer.as_quality_table(cout, node_ids);
         }
     }
 

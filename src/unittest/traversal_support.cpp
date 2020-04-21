@@ -55,6 +55,9 @@ public:
     virtual Support get_avg_node_support(id_t node) const {
         return get_min_node_support(node);
     }
+    virtual size_t get_avg_node_mapq(id_t node) const {
+        return 0;
+    }
     
 protected:    
     const unordered_map<nid_t, double> node_supports;
