@@ -194,7 +194,7 @@
 .
 :Component
   rdf:type owl:Class ;
-  rdfs:comment "A region between Links shared by all individuals."^^xsd:string ;
+  rdfs:comment "A region between Links structuring all bins and their present individuals into one component."^^xsd:string ;
   rdfs:label "Component"^^xsd:string ;
   rdfs:subClassOf owl:Thing ;
 .
