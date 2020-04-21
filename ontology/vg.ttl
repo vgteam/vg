@@ -133,11 +133,11 @@
   rdfs:label "binRank"^^xsd:string ;
   rdfs:range :Bin ;
 .
-:binEdge
+:forwardBinEdge
   rdf:type owl:DatatypeProperty ;
   rdfs:comment "The super property that says two bins are linked on the PangenomeSequence."^^xsd:string ;
   rdfs:domain :Bin ;
-  rdfs:label "binEdge"^^xsd:string ;
+  rdfs:label "forwardBinEdge"^^xsd:string ;
   rdfs:range xsd:positiveInteger ;
 .
 :arrival
@@ -156,11 +156,11 @@
   rdfs:label "departure"^^xsd:string ;
   rdfs:range :Bin ;
 .
-:paths
+:linkPaths
   rdf:type owl:ObjectProperty ;
-  rdfs:comment "This means that the path participates the non-linear links between bins."^^xsd:string ;
+  rdfs:comment "A link is shared by multiple paths."^^xsd:string ;
   rdfs:domain :Link ;
-  rdfs:label "paths"^^xsd:string ;
+  rdfs:label "linkPaths"^^xsd:string ;
   rdfs:range :Path ;
 .
 :ZoomLevel
@@ -189,11 +189,11 @@
   rdfs:label "Component"^^xsd:string ;
   rdfs:subClassOf owl:Thing ;
 .
-:componentEdge
+:forwardComponentEdge
   rdf:type owl:ObjectProperty ;
   rdfs:comment "The super property that says two components are linked on the PangenomeSequence."^^xsd:string ;
   rdfs:domain :Component ;
-  rdfs:label "componentEdge"^^xsd:string ;
+  rdfs:label "forwardComponentEdge"^^xsd:string ;
   rdfs:range :Component ;
 .
 :componentRank

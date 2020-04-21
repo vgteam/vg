@@ -59,31 +59,31 @@ On top of VG RDF, we can describe the same path information on Pantograph format
 
 ```ttl
 <pg/zoom10> a vg:ZoomLevel ;
-   vg:components <pg/zoom10/group1>, <pg/zoom10/group2> ;
+   vg:components <pg/zoom10/component1>, <pg/zoom10/component2> ;
    vg:zoomFactor 10 .
 <pg/zoom1000> a vg:ZoomLevel ;
-   vg:components <pg/zoom1000/group1>, <pg/zoom1000/group2> ;
+   vg:components <pg/zoom1000/component1>, <pg/zoom1000/component2> ;
    vg:zoomFactor 1000 . // zoomFactor is binWidth here.
-<pg/zoom1000/group1> a vg:Component ;
+<pg/zoom1000/component1> a vg:Component ;
    vg:componentRank 1 ;   # The order of component is inferred by rank.
-   vg:componentEdge <pg/zoom1000/group2> ;
-   vg:bins <pg/zoom1000/group1/bin1>, <pg/zoom1000/group1/bin2> ;
-<pg/zoom1000/group1/bin1> a vg:Bin ;
-   vg:binEdge <pg/zoom1000/group2/bin2> ;
+   vg:forwardComponentEdge <pg/zoom1000/component2> ;
+   vg:bins <pg/zoom1000/component1/bin1>, <pg/zoom1000/component1/bin2> ;
+<pg/zoom1000/component1/bin1> a vg:Bin ;
+   vg:forwardBinEdge <pg/zoom1000/component2/bin2> ;
    vg:binRank 1 ;
-   vg:cells <pg/zoom1000/group1/bin1/cell1>, <pg/zoom1000/group1/bin1/cell2> ;
-<pg/zoom1000/group2/bin2> a vg:Bin ;
-   vg:binEdge <pg/zoom1000/group2/bin3> ;
+   vg:cells <pg/zoom1000/component1/bin1/cell1>, <pg/zoom1000/component1/bin1/cell2> ;
+<pg/zoom1000/component2/bin2> a vg:Bin ;
+   vg:forwardBinEdge <pg/zoom1000/component2/bin3> ;
    vg:binRank 2 ;
-   vg:cells <pg/zoom1000/group1/bin2/cell1>, <pg/zoom1000/group1/bin2/cell2> ;
-<pg/zoom1000/group1/bin1/cell1> a vg:Cell ;
+   vg:cells <pg/zoom1000/component1/bin2/cell1>, <pg/zoom1000/component1/bin2/cell2> ;
+<pg/zoom1000/component1/bin1/cell1> a vg:Cell ;
    vg:positionPercent 0.04
    vg:inversionPercent 0.98
    vg:cellRegion <path1/region/6-100> .  # To infer firstNucleotide and last Nucleotide. faldo:begin of stepRegion is the first position. faldo:end of cellRegion is the last position.
 <pg/zoom1000/link1> a vg:Link ; # This is a non-linear connection between Bins.
-   vg:arrival <pg/zoom1000/group1/bin1>
-   vg:departure <pg/zoom1000/group2/bin2>
-   vg:paths <path1> <path2> # Participants of the link
+   vg:arrival <pg/zoom1000/component1/bin1>
+   vg:departure <pg/zoom1000/component2/bin2>
+   vg:linkPaths <path1> <path2> # Participants of the link
 <path1/region/6-100> a faldo:Region ;
    faldo:begin <path1/position/6>  ;
    faldo:end <path1/position/100>  ;
