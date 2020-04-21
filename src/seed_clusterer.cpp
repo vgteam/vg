@@ -24,13 +24,7 @@ namespace vg {
         }
         //TODO: Sorting is probably unecessary and if not probably too slow
         std::sort(result.begin(), result.end(), [&] (Cluster& cluster1, Cluster& cluster2) {
-            if ( cluster1.fragment < cluster2.fragment) {
-                return true;
-            } else if (cluster1.fragment > cluster2.fragment) {
-                return false;
-            } else {
-                return cluster1.seeds.front() < cluster2.seeds.front();
-            }
+            return cluster1.seeds.front() < cluster2.seeds.front();
         });
 
         return result;
@@ -77,13 +71,7 @@ namespace vg {
             }
             //TODO: Sorting is probably unecessary and if not probably too slow
             std::sort(result.back().begin(), result.back().end(), [&] (Cluster& cluster1, Cluster& cluster2) {
-                if ( cluster1.fragment < cluster2.fragment) {
-                    return true;
-                } else if (cluster1.fragment > cluster2.fragment) {
-                    return false;
-                } else {
-                    return cluster1.seeds.front() < cluster2.seeds.front();
-                }
+                return cluster1.seeds.front() < cluster2.seeds.front();
             });
             read_num_offset += all_seeds[read_num].size();
         }
@@ -115,6 +103,7 @@ cerr << endl << endl << endl << endl << "New cluster calculation:" << endl;
         //dist_index.snarl_indexes) at that level to nodes belonging to the snarl
         //This is later used to populate snarl_to_node in the tree state
         vector<hash_map<size_t, vector<pair<NetgraphNode, NodeClusters>>>> snarl_to_nodes_by_level;
+        //TODO: probably don't want to use the max depth of the snarl tree
         snarl_to_nodes_by_level.resize(dist_index.tree_depth+1);
 
 
