@@ -68,19 +68,18 @@ On top of VG RDF, we can describe the same path information on Pantograph format
    vg:componentRank 1 ;   # The order of component is inferred by rank.
    vg:componentEdge <pg/zoom1000/group2> ;
    vg:bins <pg/zoom1000/group1/bin1>, <pg/zoom1000/group1/bin2> ;
-   vg:rows <pg/zoom1000/group1/row1>, <pg/zoom1000/group1/row2> ;
-<pg/zoom1000/group1/row1> a vg:Row ;
-   vg:positionPercent 0.04
-   vg:inversionPercent 0.98
-   vg:rowRegion <path1/region/6-100> .  # To infer firstNucleotide and last Nucleotide. faldo:begin of stepRegion is the first position. faldo:end of rowRegion is the last position.
 <pg/zoom1000/group1/bin1> a vg:Bin ;
    vg:binEdge <pg/zoom1000/group2/bin2> ;
    vg:binRank 1 ;
-   vg:binRegion <path1/region/6-100>,<path2/region/7-101> .
+   vg:cells <pg/zoom1000/group1/bin1/cell1>, <pg/zoom1000/group1/bin1/cell2> ;
 <pg/zoom1000/group2/bin2> a vg:Bin ;
    vg:binEdge <pg/zoom1000/group2/bin3> ;
    vg:binRank 2 ;
-   vg:binRegion <path1/region/101-1000>,<path2/region/103-1004> .
+   vg:cells <pg/zoom1000/group1/bin2/cell1>, <pg/zoom1000/group1/bin2/cell2> ;
+<pg/zoom1000/group1/bin1/cell1> a vg:Cell ;
+   vg:positionPercent 0.04
+   vg:inversionPercent 0.98
+   vg:cellRegion <path1/region/6-100> .  # To infer firstNucleotide and last Nucleotide. faldo:begin of stepRegion is the first position. faldo:end of cellRegion is the last position.
 <pg/zoom1000/link1> a vg:Link ; # This is a non-linear connection between Bins.
    vg:arrival <pg/zoom1000/group1/bin1>
    vg:departure <pg/zoom1000/group2/bin2>
