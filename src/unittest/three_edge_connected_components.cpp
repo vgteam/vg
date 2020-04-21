@@ -37,6 +37,7 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
             if (is_first) {
                 // Find the first member of each component
                 first = member;
+                is_first = false;
             } else {
                 // And union everything into it
                 components.union_groups(first, member);
@@ -71,6 +72,14 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
         
         SECTION("Works with Tsin 2014") {
             algorithms::three_edge_connected_components_dense(adjacencies.size(), for_each_connected_node, component_callback);
+            
+            for (auto& group : components.all_groups()) {
+                cerr << "Group:";
+                for (auto& member : group) {
+                    cerr << " " << member;
+                }
+                cerr << endl;
+            }
             
             REQUIRE(components.size() == 4);
             REQUIRE(components.group_size(0) == 4);
