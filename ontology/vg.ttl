@@ -158,7 +158,7 @@
 .
 :linkPaths
   rdf:type owl:ObjectProperty ;
-  rdfs:comment "A link is shared by multiple paths."^^xsd:string ;
+  rdfs:comment "A list of paths that follow the same non-linear link between two bins."^^xsd:string ;
   rdfs:domain :Link ;
   rdfs:label "linkPaths"^^xsd:string ;
   rdfs:range :Path ;
