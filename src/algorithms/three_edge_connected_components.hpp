@@ -41,10 +41,27 @@ void three_edge_connected_components(const function<void(const function<void(TEC
  * Takes a function that loops an iteratee over all nodes, and a function that,
  * given a node, loops an iteratee over all nodes connected to it.
  *
+ * Calls same_component with pairs of nodes in (at least) a spanning tree of
+ * the set of nodes in each component (not restricted to the input graph).
+ * Doing merge operations on a union-find can get
+ * you the set of components.
+ */
+void three_edge_connected_component_merges_dense(size_t node_count, const function<void(const function<void(size_t)>&)>& for_each_node,
+    const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
+    const function<void(size_t, size_t)>& same_component);
+
+/**
+ * Get the three-edge-connected components of an arbitrary graph (not
+ * necessarily a handle graph). Only recognizes one kind of edge and one kind
+ * of node. Nodes are dense positive integers starting with 0.
+ *
+ * Takes a function that loops an iteratee over all nodes, and a function that,
+ * given a node, loops an iteratee over all nodes connected to it.
+ *
  * For each component identified, calls the given callback with a function that
  * iterates over all nodes in the component.
  */
-void three_edge_connected_components_dense(const function<void(const function<void(size_t)>&)>& for_each_node,
+void three_edge_connected_components_dense(size_t node_count, const function<void(const function<void(size_t)>&)>& for_each_node,
     const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
     const function<void(const function<void(const function<void(size_t)>&)>&)>& component_callback);
 
