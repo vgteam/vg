@@ -192,7 +192,7 @@
 .
 :Component
   rdf:type owl:Class ;
-  rdfs:comment "A region between Arrows shared by all individuals."^^xsd:string ;
+  rdfs:comment "A region between Links shared by all individuals."^^xsd:string ;
   rdfs:label "Component"^^xsd:string ;
   rdfs:subClassOf owl:Thing ;
 .
@@ -217,37 +217,37 @@
   rdfs:label "bins"^^xsd:string ;
   rdfs:range :Bin ;
 .
-:rows
+:cells
   rdf:type owl:ObjectProperty ;
-  rdfs:comment "A Component has one or more paths of a specific group (component) of a specific zoom. That is represented as rows on the matrix."^^xsd:string ;
+  rdfs:comment "A Component has one or more paths of a specific group (component) of a specific zoom. That is represented as cells on the matrix."^^xsd:string ;
   rdfs:domain :Component ;
-  rdfs:label "rows"^^xsd:string ;
-  rdfs:range :Row ;
+  rdfs:label "cells"^^xsd:string ;
+  rdfs:range :Cell ;
 .
-:Row
+:Cell
   rdf:type owl:Class ;
-  rdfs:comment "A row along a path of a specific group (component) of a specific zoom. A row to a :Component and a :Path with supplemental informations."^^xsd:string ;
-  rdfs:label "Row"^^xsd:string ;
+  rdfs:comment "A cell along a path of a specific group (component) of a specific zoom. A cell to a :Component and a :Path with supplemental informations."^^xsd:string ;
+  rdfs:label "Cell"^^xsd:string ;
   rdfs:subClassOf owl:Thing ;
 .
-:rowRegion
+:cellRegion
   rdf:type owl:ObjectProperty ;
-  rdfs:comment "A row is composed of the specific subsequence of paths."^^xsd:string ;
-  rdfs:domain :Row ;
-  rdfs:label "rowRegion"^^xsd:string ;
+  rdfs:comment "A cell is composed of the specific subsequence of paths."^^xsd:string ;
+  rdfs:domain :Cell ;
+  rdfs:label "cellRegion"^^xsd:string ;
   rdfs:range faldo:Region ;
 .
 :positionPercent
   rdf:type owl:DatatypeProperty ;
   rdfs:comment "The position coverage percent of the path in the component."^^xsd:string ;
-  rdfs:domain :Row ;
+  rdfs:domain :Cell ;
   rdfs:label "positionPercent"^^xsd:string ;
   rdfs:range xsd:float ;
 .
 :inversionPercent
   rdf:type owl:DatatypeProperty ;
   rdfs:comment "The inversion percent of the path in the component."^^xsd:string ;
-  rdfs:domain :Row ;
+  rdfs:domain :Cell ;
   rdfs:label "inversionPercent"^^xsd:string ;
   rdfs:range xsd:float ;
 .
