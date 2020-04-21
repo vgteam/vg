@@ -19,6 +19,7 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
     vector<vector<size_t>> adjacencies;
    
     auto for_each_connected_node = [&](size_t node, const function<void(size_t)>& iteratee) {
+        cerr << "Asked for edges of node " << node << endl;
         for (auto& other : adjacencies.at(node)) {
             iteratee(node);
         }
@@ -28,9 +29,11 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
     structures::UnionFind components(adjacencies.size(), true);
     
     auto component_callback = [&](const function<void(const function<void(size_t)>&)>& for_each_member) {
+        cerr << "Got component" << endl;
         size_t first = 0;
         bool is_first = true;
         for_each_member([&](size_t member) {
+            cerr << "Component contained " << member << endl;
             if (is_first) {
                 // Find the first member of each component
                 first = member;

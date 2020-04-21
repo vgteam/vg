@@ -377,6 +377,8 @@ void three_edge_connected_components_dense_cactus(size_t node_count,
     
     // TODO: No way to hint final size to the list, and we need the individual member lists to know their destructors for their elements.
     
+    cerr << "Running Cactus 3ecc on " << node_count << " nodes" << endl;
+    
     for (size_t rank = 0; rank < node_count; rank++) {
         while (rank >= stList_length(vertices)) {
             // Make sure we have an adjacency list allocated for the node
@@ -385,6 +387,8 @@ void three_edge_connected_components_dense_cactus(size_t node_count,
         }
         
         for_each_connected_node(rank, [&](size_t other_rank) {
+            cerr << "Connect node " << rank << " to node " << other_rank << endl;
+        
             // For each edge on the node, represent it as a 1-tuple in the node's list.
             stList_append((stList*) stList_get(vertices, rank), stIntTuple_construct1((int64_t) rank));
             // We don't have to do the back-edge now; we will do it when we visit the other node.
@@ -397,6 +401,8 @@ void three_edge_connected_components_dense_cactus(size_t node_count,
     // ranks in them.
     stList* components = computeThreeEdgeConnectedComponents(vertices);
     
+    cerr << "Got back " << stList_length(components) << " components" << endl;
+    
     for(size_t i = 0; i < stList_length(components); i++) {
         // For each component
         stList* component = (stList*) stList_get(components, i);
@@ -404,6 +410,8 @@ void three_edge_connected_components_dense_cactus(size_t node_count,
         component_callback([&](const function<void(size_t)>& visit_member) {
             // And when we get the function to feed the members to
             for (size_t j = 0; j < stList_length(component); j++) {
+                cerr << "Component " << i << " contains node " << j << endl;
+            
                 // Call it with each member
                 visit_member(stIntTuple_get((stIntTuple*) stList_get(component, j), 0));
             }
