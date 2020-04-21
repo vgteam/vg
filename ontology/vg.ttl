@@ -240,11 +240,11 @@
   rdfs:label "Cell"^^xsd:string ;
   rdfs:subClassOf owl:Thing ;
 .
-:cellRegion
+:cellRegions
   rdf:type owl:ObjectProperty ;
   rdfs:comment "A cell is composed of the specific subsequence of paths."^^xsd:string ;
   rdfs:domain :Cell ;
-  rdfs:label "cellRegion"^^xsd:string ;
+  rdfs:label "cellRegions"^^xsd:string ;
   rdfs:range faldo:Region ;
 .
 :positionPercent
