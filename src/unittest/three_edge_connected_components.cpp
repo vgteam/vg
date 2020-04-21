@@ -46,10 +46,6 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
     };
     
     SECTION("An empty graph") {
-        SECTION("Works with Cactus") {
-            algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);
-            REQUIRE(components.size() == 0);
-        }
         SECTION("Works with Tsin 2014") {
             algorithms::three_edge_connected_components_dense(adjacencies.size(), for_each_connected_node, component_callback);
             REQUIRE(components.size() == 0);
@@ -59,17 +55,6 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
     SECTION("A 4-node connected graph is one component") {
         adjacencies = {{1, 2, 3}, {0, 2, 3}, {0, 1, 3}, {0, 1, 2}};
         components = structures::UnionFind(adjacencies.size(), true);
-        
-        SECTION("Works with Cactus") {
-            algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);
-            
-            REQUIRE(components.size() == 4);
-            REQUIRE(components.group_size(0) == 4);
-            REQUIRE(components.group_size(1) == 4);
-            REQUIRE(components.group_size(2) == 4);
-            REQUIRE(components.group_size(3) == 4);
-        }
-        
         SECTION("Works with Tsin 2014") {
             algorithms::three_edge_connected_components_dense(adjacencies.size(), for_each_connected_node, component_callback);
             
