@@ -11,6 +11,7 @@ extern "C" {
 
 #include <limits>
 #include <cassert>
+#include <iostream>
 
 //#define debug
 

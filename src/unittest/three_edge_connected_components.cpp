@@ -21,7 +21,7 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
     auto for_each_connected_node = [&](size_t node, const function<void(size_t)>& iteratee) {
         cerr << "Asked for edges of node " << node << endl;
         for (auto& other : adjacencies.at(node)) {
-            iteratee(node);
+            iteratee(other);
         }
     };
     
