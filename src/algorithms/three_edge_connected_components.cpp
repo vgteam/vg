@@ -7,6 +7,8 @@ extern "C" {
 #include "3_Absorb3edge2x.h"
 }
 
+#include <structures/union_find.hpp>
+
 #include <limits>
 #include <cassert>
 
@@ -342,9 +344,32 @@ void three_edge_connected_components_dense(size_t node_count,
     const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
     const function<void(const function<void(const function<void(size_t)>&)>&)>& component_callback) {
     
-    // TODO: copy over or reimplement Tsin's Algorithm, or one of its successors in a way that doesn't have to copy everything.
+    // Make a union-find over all the nodes
+    structures::UnionFind uf(node_count, true);
     
-    // For now we just call into the properly licensed version that's part of pinchesAndCacti.
+    // Call Tsin's Algorithm
+    three_edge_connected_component_merges_dense(node_count, for_each_connected_node, [&](size_t a, size_t b) {
+        // When it says to do a merge, do it
+        uf.union_groups(a, b);
+    });
+    
+    for (auto& component : uf.all_groups()) {
+        // Call the callback for each group
+        component_callback([&](const function<void(size_t)>& emit_member) {
+            // And whrn it asks for the members
+            for (auto& member : component) {
+                // Send them all
+                emit_member(member);
+            }
+        });
+    }
+}
+
+void three_edge_connected_components_dense_cactus(size_t node_count, 
+    const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
+    const function<void(const function<void(const function<void(size_t)>&)>&)>& component_callback) {
+    
+    // Use the known good pinchesAndCacti algorithm
     
     // Make the stList of all the vertices, where each vertex is an stList of single element stIntTuple items that point to the ranks of connected nodes.
     // When an item is removed, use the list destructor on it.
