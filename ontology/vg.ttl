@@ -140,13 +140,6 @@
   rdfs:label "binEdge"^^xsd:string ;
   rdfs:range xsd:positiveInteger ;
 .
-:binRegion
-  rdf:type owl:ObjectProperty ;
-  rdfs:comment "A bin is composed of the specific subsequence of paths."^^xsd:string ;
-  rdfs:domain :Bin ;
-  rdfs:label "binRegion"^^xsd:string ;
-  rdfs:range faldo:Region ;
-.
 :arrival
   rdf:type owl:ObjectProperty ;
   rdfs:comment "An end bin of nonlinear link. Incoming edge of the bin."^^xsd:string ;
