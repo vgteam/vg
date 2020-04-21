@@ -131,14 +131,23 @@
   rdfs:comment "The rank records that step place along its pangenome sequence."^^xsd:string ;
   rdfs:domain :Bin ;
   rdfs:label "binRank"^^xsd:string ;
-  rdfs:range :Bin ;
+  rdfs:range xsd:positiveInteger ;
 .
 :forwardBinEdge
   rdf:type owl:DatatypeProperty ;
-  rdfs:comment "The super property that says two bins are linked on the PangenomeSequence."^^xsd:string ;
+  owl:inverseOf :reverseBinEdge ;
+  rdfs:comment "The super property that says two bins are linked in forward orientation on the pangenome sequence."^^xsd:string ;
   rdfs:domain :Bin ;
   rdfs:label "forwardBinEdge"^^xsd:string ;
-  rdfs:range xsd:positiveInteger ;
+  rdfs:domain :Bin ;
+.
+:reverseBinEdge
+  rdf:type owl:DatatypeProperty ;
+  owl:inverseOf :forwardBinEdge ;
+  rdfs:comment "The super property that says two bins are linked in reverse orientation on the pangenome sequence."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "reverseBinEdge"^^xsd:string ;
+  rdfs:domain :Bin ;
 .
 :arrival
   rdf:type owl:ObjectProperty ;
@@ -191,10 +200,18 @@
 .
 :forwardComponentEdge
   rdf:type owl:ObjectProperty ;
-  rdfs:comment "The super property that says two components are linked on the PangenomeSequence."^^xsd:string ;
+  rdfs:comment "The super property that says two components are linked in forward orientation on the pangenome sequence."^^xsd:string ;
   rdfs:domain :Component ;
   rdfs:label "forwardComponentEdge"^^xsd:string ;
   rdfs:range :Component ;
+.
+:reverseComponentEdge
+  rdf:type owl:DatatypeProperty ;
+  owl:inverseOf :forwardComponentEdge ;
+  rdfs:comment "The super property that says two components are linked in reverse orientation on the pangenome sequence."^^xsd:string ;
+  rdfs:domain :Component ;
+  rdfs:label "reverseComponentEdge"^^xsd:string ;
+  rdfs:domain :Component ;
 .
 :componentRank
   rdf:type owl:DatatypeProperty ;

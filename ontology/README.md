@@ -73,6 +73,7 @@ On top of VG RDF, we can describe the same path information on Pantograph format
    vg:binRank 1 ;
    vg:cells <pg/zoom1000/component1/bin1/cell1>, <pg/zoom1000/component1/bin1/cell2> ;
 <pg/zoom1000/component2/bin2> a vg:Bin ;
+   vg:reverseBinEdge <pg/zoom1000/component2/bin3> ;
    vg:forwardBinEdge <pg/zoom1000/component2/bin3> ;
    vg:binRank 2 ;
    vg:cells <pg/zoom1000/component1/bin2/cell1>, <pg/zoom1000/component1/bin2/cell2> ;
