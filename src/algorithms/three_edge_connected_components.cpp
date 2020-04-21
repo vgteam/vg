@@ -7,6 +7,9 @@ extern "C" {
 #include "3_Absorb3edge2x.h"
 }
 
+#include <limits>
+#include <cassert>
+
 //#define debug
 
 namespace vg {
@@ -14,7 +17,7 @@ namespace algorithms {
 
 using namespace std;
 
-void three_edge_connected_component_merges_dense(size_t node_count, const function<void(const function<void(size_t)>&)>& for_each_node,
+void three_edge_connected_component_merges_dense(size_t node_count, 
     const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
     const function<void(size_t, size_t)>& same_component) {
     
@@ -98,6 +101,7 @@ void three_edge_connected_component_merges_dense(size_t node_count, const functi
     // node, if we reach it. This lets us implement absorbing a range of a
     // path, as called for in the algorithm.
     auto absorb_all_along_path = [&](number_t into, number_t path_start, number_t path_past_end) {
+        number_t here = path_start;
         while (here != path_past_end) {
             // Until we hit the end of the path
             
@@ -129,7 +133,7 @@ void three_edge_connected_component_merges_dense(size_t node_count, const functi
             // Advance to the tail of the path
             here = here_node.path_tail;
         }
-    }
+    };
     
     // We need a DFS stack that we manage ourselves, to avoid stack-overflowing
     // as we e.g. walk along big cycles.
@@ -164,7 +168,8 @@ void three_edge_connected_component_merges_dense(size_t node_count, const functi
     while (next_unvisited != node_count) {
         // We haven't visited everything yet.
         // Stack up the next unvisited node.
-        stack.emplace_back(next_unvisited, {}, false);
+        stack.emplace_back();
+        stack.back().current = next_unvisited;
         
         while (!stack.empty()) {
             // While there's still nodes on the DFS stack from the last component we broke into
@@ -222,7 +227,8 @@ void three_edge_connected_component_merges_dense(size_t node_count, const functi
                             // So remember we are recursing.
                             frame.recursing = true;
                             // And set up the recursive frame.
-                            stack.emplace_back(neighbor_number, {}, false);
+                            stack.emplace_back();
+                            stack.back().current = neighbor_number;
                             // Kick back to the work loop; we will see the
                             // unvisited node on top of the stack and do its
                             // visit and add its edges to its to do list.
@@ -332,7 +338,7 @@ void three_edge_connected_component_merges_dense(size_t node_count, const functi
     // completed out search through all connected components of the graph.
 }
 
-void three_edge_connected_components_dense(size_t node_count, const function<void(const function<void(size_t)>&)>& for_each_node,
+void three_edge_connected_components_dense(size_t node_count, 
     const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
     const function<void(const function<void(const function<void(size_t)>&)>&)>& component_callback) {
     
@@ -346,7 +352,7 @@ void three_edge_connected_components_dense(size_t node_count, const function<voi
     
     // TODO: No way to hint final size to the list, and we need the individual member lists to know their destructors for their elements.
     
-    for_each_node([&](size_t rank) {
+    for (size_t rank = 0; rank < node_count; rank++) {
         while (rank >= stList_length(vertices)) {
             // Make sure we have an adjacency list allocated for the node
             // When an item in the node's adjacency list is destroyed, run the int tuple destructor.
@@ -358,7 +364,7 @@ void three_edge_connected_components_dense(size_t node_count, const function<voi
             stList_append((stList*) stList_get(vertices, rank), stIntTuple_construct1((int64_t) rank));
             // We don't have to do the back-edge now; we will do it when we visit the other node.
         });
-    });
+    }
     
     // Now we have the graph in the format Tsin's Algorithm wants, so run it.
     // The components come out as a list of lists, one for each component, with
