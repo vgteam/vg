@@ -122,29 +122,29 @@
 .
 :Link
   rdf:type owl:Class ;
-  rdfs:comment "An arrow marks a graph traversal along a nonlinear connection."^^xsd:string ;
-  rdfs:label "Arrow"^^xsd:string ;
+  rdfs:comment "A link marks a graph traversal along a nonlinear connection."^^xsd:string ;
+  rdfs:label "Link"^^xsd:string ;
   rdfs:subClassOf owl:Thing ;
 .
 :binRank
   rdf:type owl:ObjectProperty ;
-  rdfs:comment "The super property that says two bins are linked on the PangenomeSequence."^^xsd:string ;
+  rdfs:comment "The rank records that step place along its pangenome sequence."^^xsd:string ;
   rdfs:domain :Bin ;
-  rdfs:label "connects"^^xsd:string ;
+  rdfs:label "binRank"^^xsd:string ;
   rdfs:range :Bin ;
 .
 :binEdge
   rdf:type owl:DatatypeProperty ;
-  rdfs:comment "The rank records that step place along its panngenome sequence."^^xsd:string ;
+  rdfs:comment "The super property that says two bins are linked on the PangenomeSequence."^^xsd:string ;
   rdfs:domain :Bin ;
-  rdfs:label "rank"^^xsd:string ;
+  rdfs:label "binEdge"^^xsd:string ;
   rdfs:range xsd:positiveInteger ;
 .
 :binRegion
   rdf:type owl:ObjectProperty ;
-  rdfs:comment "A bin correspnds to the specific region of bins."^^xsd:string ;
+  rdfs:comment "A bin is composed of the specific subsequence of paths."^^xsd:string ;
   rdfs:domain :Bin ;
-  rdfs:label "is"^^xsd:string ;
+  rdfs:label "binRegion"^^xsd:string ;
   rdfs:range faldo:Region ;
 .
 :arrival
@@ -152,7 +152,7 @@
   rdfs:comment "An end bin of nonlinear link. Incoming edge of the bin."^^xsd:string ;
   owl:inverseOf :departure;
   rdfs:domain :Link ;
-  rdfs:label "to"^^xsd:string ;
+  rdfs:label "arrival"^^xsd:string ;
   rdfs:range :Bin ;
 .
 :departure
@@ -160,14 +160,14 @@
   rdfs:comment "A start bin of nonlinear link. Outgoing edge of the bin."^^xsd:string ;
   owl:inverseOf :arrival;
   rdfs:domain :Link ;
-  rdfs:label "from"^^xsd:string ;
+  rdfs:label "departure"^^xsd:string ;
   rdfs:range :Bin ;
 .
 :paths
   rdf:type owl:ObjectProperty ;
   rdfs:comment "This means that the path participates the non-linear links between bins."^^xsd:string ;
   rdfs:domain :Link ;
-  rdfs:label "consistsOf"^^xsd:string ;
+  rdfs:label "paths"^^xsd:string ;
   rdfs:range :Path ;
 .
 :ZoomLevel
@@ -180,14 +180,14 @@
   rdf:type owl:DatatypeProperty ;
   rdfs:comment "The zoom factor of pangenome, which is defined as bin width, generally."^^xsd:string ;
   rdfs:domain :ZoomLevel ;
-  rdfs:label "factor"^^xsd:string ;
+  rdfs:label "zoomFactor"^^xsd:string ;
   rdfs:range xsd:positiveInteger ;
 .
 :components
   rdf:type owl:ObjectProperty ;
   rdfs:comment "A zoom level has one or more components."^^xsd:string ;
   rdfs:domain :ZoomLevel ;
-  rdfs:label "has"^^xsd:string ;
+  rdfs:label "components"^^xsd:string ;
   rdfs:range :Component ;
 .
 :Component
@@ -200,28 +200,28 @@
   rdf:type owl:ObjectProperty ;
   rdfs:comment "The super property that says two components are linked on the PangenomeSequence."^^xsd:string ;
   rdfs:domain :Component ;
-  rdfs:label "connects"^^xsd:string ;
+  rdfs:label "componentEdge"^^xsd:string ;
   rdfs:range :Component ;
 .
 :componentRank
   rdf:type owl:DatatypeProperty ;
   rdfs:comment "The rank records that step place along its pangenome sequence."^^xsd:string ;
   rdfs:domain :Component ;
-  rdfs:label "rank"^^xsd:string ;
+  rdfs:label "componentRank"^^xsd:string ;
   rdfs:range xsd:positiveInteger ;
 .
 :bins
   rdf:type owl:ObjectProperty ;
   rdfs:comment "A Component has one or more Bins."^^xsd:string ;
   rdfs:domain :Component ;
-  rdfs:label "has"^^xsd:string ;
+  rdfs:label "bins"^^xsd:string ;
   rdfs:range :Bin ;
 .
 :rows
   rdf:type owl:ObjectProperty ;
   rdfs:comment "A Component has one or more paths of a specific group (component) of a specific zoom. That is represented as rows on the matrix."^^xsd:string ;
   rdfs:domain :Component ;
-  rdfs:label "has"^^xsd:string ;
+  rdfs:label "rows"^^xsd:string ;
   rdfs:range :Row ;
 .
 :Row
@@ -232,23 +232,23 @@
 .
 :rowRegion
   rdf:type owl:ObjectProperty ;
-  rdfs:comment "A bin correspnds to the specific region of paths."^^xsd:string ;
+  rdfs:comment "A row is composed of the specific subsequence of paths."^^xsd:string ;
   rdfs:domain :Row ;
-  rdfs:label "is"^^xsd:string ;
+  rdfs:label "rowRegion"^^xsd:string ;
   rdfs:range faldo:Region ;
 .
 :positionPercent
   rdf:type owl:DatatypeProperty ;
-  rdfs:comment "The position coverage of the path in the component."^^xsd:string ;
+  rdfs:comment "The position coverage percent of the path in the component."^^xsd:string ;
   rdfs:domain :Row ;
-  rdfs:label "coverage"^^xsd:string ;
+  rdfs:label "positionPercent"^^xsd:string ;
   rdfs:range xsd:float ;
 .
 :inversionPercent
   rdf:type owl:DatatypeProperty ;
-  rdfs:comment "The inversion percentage of the path in the component."^^xsd:string ;
+  rdfs:comment "The inversion percent of the path in the component."^^xsd:string ;
   rdfs:domain :Row ;
-  rdfs:label "inversion"^^xsd:string ;
+  rdfs:label "inversionPercent"^^xsd:string ;
   rdfs:range xsd:float ;
 .
 :VG_Format
