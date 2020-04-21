@@ -22,7 +22,7 @@ namespace vg {
             result.emplace_back();
             result.back().seeds = std::move(cluster);
         }
-        //TODO: Sorting is probably unecessary and if not probably too slow
+        //TODO: Sorting fixes determinism issues but seems unecessary
         std::sort(result.begin(), result.end(), [&] (Cluster& cluster1, Cluster& cluster2) {
             return cluster1.seeds.front() < cluster2.seeds.front();
         });
@@ -55,7 +55,18 @@ namespace vg {
             result.emplace_back();
             vector<vector<size_t>> read_clusters = read_union_finds->at(read_num).all_groups();
             for (vector<size_t>& cluster : read_clusters) {
-                size_t fragment_index = read_num_offset + cluster[0];
+                result.back().emplace_back();
+                Cluster& curr = result.back().back();
+                curr.seeds = std::move(cluster);
+            }
+        //TODO: Sorting fixes determinism issues but seems unecessary
+            std::sort(result.back().begin(), result.back().end(), [&] (Cluster& cluster1, Cluster& cluster2) {
+                return cluster1.seeds.front() < cluster2.seeds.front();
+            });
+        }
+        for (size_t read_num = 0 ; read_num < result.size() ; read_num++) {
+            for (Cluster& cluster : result[read_num]) {
+                size_t fragment_index = read_num_offset + cluster.seeds[0];
                 size_t fragment_cluster_head = fragment_union_find->find_group(fragment_index);
                 if (old_to_new_cluster_index.count(fragment_cluster_head) == 0) {
                     old_to_new_cluster_index.emplace(fragment_cluster_head, curr_index);
@@ -64,17 +75,11 @@ namespace vg {
                 } else {
                     fragment_cluster_head = old_to_new_cluster_index[fragment_cluster_head];
                 }
-                result.back().emplace_back();
-                Cluster& curr = result.back().back();
-                curr.seeds = std::move(cluster);
-                curr.fragment = fragment_cluster_head;
+                cluster.fragment = fragment_cluster_head;
             }
-            //TODO: Sorting is probably unecessary and if not probably too slow
-            std::sort(result.back().begin(), result.back().end(), [&] (Cluster& cluster1, Cluster& cluster2) {
-                return cluster1.seeds.front() < cluster2.seeds.front();
-            });
             read_num_offset += all_seeds[read_num].size();
         }
+
 
         return result;
     }
