@@ -212,8 +212,8 @@
 .
 :cells
   rdf:type owl:ObjectProperty ;
-  rdfs:comment "A Component has one or more paths of a specific group (component) of a specific zoom. That is represented as cells on the matrix."^^xsd:string ;
-  rdfs:domain :Component ;
+  rdfs:comment "A Bin has one or more paths of a specific group (component) of a specific zoom. That is represented as cells on the matrix."^^xsd:string ;
+  rdfs:domain :Bin ;
   rdfs:label "cells"^^xsd:string ;
   rdfs:range :Cell ;
 .
