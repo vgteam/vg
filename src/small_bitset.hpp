@@ -35,7 +35,7 @@ class SmallBitset {
         }
 
         SmallBitset(SmallBitset&& another) {
-            this->move(std::move(another));
+            this->move(another);
         }
 
         SmallBitset& operator=(const SmallBitset& another) {
@@ -49,7 +49,7 @@ class SmallBitset {
         SmallBitset& operator=(SmallBitset&& another) {
             if (&another != this) {
                 this->clear();
-                this->move(std::move(another));
+                this->move(another);
             }
             return *this;
         }
@@ -72,7 +72,6 @@ class SmallBitset {
         }
 
         void insert(size_t i) {
-            assert(i < this->size()); // FIXME
             if (this->small()) {
                 this->data.value |= static_cast<value_type>(1) << i;
             }
@@ -82,7 +81,6 @@ class SmallBitset {
         }
 
         bool contains(size_t i) const {
-            assert(i < this->size()); // FIXME
             if (this->small()) {
                 return (this->data.value & (static_cast<value_type>(1) << i));
             } else {
@@ -141,7 +139,7 @@ class SmallBitset {
             }
         }
 
-        void move(SmallBitset&& another) {
+        void move(SmallBitset& another) {
             this->universe_size = another.universe_size;
             if (this->small()) {
                 this->data.value = another.data.value;
