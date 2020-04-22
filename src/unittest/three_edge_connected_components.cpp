@@ -107,8 +107,6 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
             cerr << endl;
         }
         
-        REQUIRE(components.size() == 8); // Leave one for node 0
-        
         REQUIRE(components.group_size(1) == 2);
         REQUIRE(components.group_size(10) == 2);
         REQUIRE(components.find_group(1) == components.find_group(10));
