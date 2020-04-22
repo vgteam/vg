@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
     SnarlSeedClusterer::SnarlSeedClusterer( MinimumDistanceIndex& dist_index) :
@@ -425,7 +425,6 @@ cerr << "Nested positions: " << endl << "\t";
                 seen_components[tree_state.component_to_index[component]] = true;
             }
             // Compute the clusters for the chain
-            // TODO: If this doesn't become the new cluster_one_chain, then remove depth
             if (depth == 0) {
                 cluster_one_chain(tree_state, chain_i, depth);
             } else {
@@ -1082,10 +1081,8 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
     };
 
 
-//TODO: Make this and cluster_one_chain one thing, just add seed clusters if the depth is 0
     SnarlSeedClusterer::NodeClusters SnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chain_i, size_t depth) const {
 
-//TODO: should only get this if we need it, but only getting this once shouldn't be too bad since we're not looking up distances
         //Get the index of the chain we're on
         MinimumDistanceIndex::ChainIndex& chain_index = dist_index.chain_indexes[chain_i];
 
@@ -1143,7 +1140,6 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
             }
         }
 
-        //TODO: This is defined in cluster_one_chain too
         auto combine_snarl_clusters = [&] (size_t& new_group,
                         size_t& combined_group, size_t& fragment_combined_group,
                         vector<pair<size_t,size_t>>& to_erase, int64_t fragment_dist,int64_t read_dist,
@@ -1378,7 +1374,6 @@ cerr << "  Maybe combining this cluster from the right" << endl;
 
         //Keep track of the rightmost seed that came from a snarl cluster
         //Need the current snarl we're looking at and the last snarl that we saw since seeing a seed
-        //TODO: Make these sets or something so we can take things out as we cluster
         vector<int64_t> prev_best_dist_left_snarl_fragment;
         vector<int64_t> prev_best_dist_right_snarl_fragment;
         vector<size_t>  prev_cluster_head_snarl_fragment;
@@ -1405,7 +1400,6 @@ cerr << "  Maybe combining this cluster from the right" << endl;
         //The offset of the last snarl we got clusters from
         vector<int64_t> last_snarl_rank (tree_state.all_seeds->size(), -1);
         int64_t last_snarl_rank_fragment = -1;
-        //TODO: Need this for each read
 
 
         //The clusters of the chain that are built from the snarl and minimizer clusters
@@ -1793,10 +1787,8 @@ cerr <<  "\t\t cluster" << read_num << " " << prev_cluster_head_snarl_by_read[re
             for (pair<size_t, size_t> cluster_head : to_erase) {
                 chain_clusters.read_cluster_heads.erase(cluster_head);
 
-cerr << "Removing " << cluster_head.first << ":" <<  cluster_head.second << " = " << tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).pos << endl;
             }
             //Add the new group to cluster heads
-cerr << "Adding " << std::get<1>(seed_index) << ":" <<  std::get<2>(seed_index) << " = " << tree_state.all_seeds->at(std::get<1>(seed_index))->at(std::get<2>(seed_index)).pos << endl;
             chain_clusters.read_cluster_heads.emplace(std::get<1>(seed_index), new_cluster_head);
         }
         if (chain_index.is_looping_chain) {
