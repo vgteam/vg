@@ -39,19 +39,23 @@ class SmallBitset {
         }
 
         SmallBitset& operator=(const SmallBitset& another) {
-            this->clear();
-            this->copy(another);
+            if (&another != this) {
+                this->clear();
+                this->copy(another);
+            }
             return *this;
         }
 
         SmallBitset& operator=(SmallBitset&& another) {
-            this->clear();
-            this->move(std::move(another));
+            if (&another != this) {
+                this->clear();
+                this->move(std::move(another));
+            }
             return *this;
         }
 
         size_t size() const { return this->universe_size; }
-        bool small() const { return (this->universe_size <= VALUE_BITS); }
+        bool small() const { return (this->size() <= VALUE_BITS); }
         size_t data_size() const { return (this->size() + VALUE_BITS - 1) / VALUE_BITS; }
 
         size_t count() const {
@@ -68,6 +72,7 @@ class SmallBitset {
         }
 
         void insert(size_t i) {
+            assert(i < this->size()); // FIXME
             if (this->small()) {
                 this->data.value |= static_cast<value_type>(1) << i;
             }
@@ -77,6 +82,7 @@ class SmallBitset {
         }
 
         bool contains(size_t i) const {
+            assert(i < this->size()); // FIXME
             if (this->small()) {
                 return (this->data.value & (static_cast<value_type>(1) << i));
             } else {
@@ -142,7 +148,7 @@ class SmallBitset {
             } else {
                 this->data.pointer = another.data.pointer;
                 another.universe_size = 0;
-                another.data.pointer = nullptr;
+                another.data.value = 0;
             }
         }
 
