@@ -121,9 +121,10 @@ class SmallBitset {
 
         void clear() {
             if (!this->small()) {
-                delete this->data.pointer;
-                this->data.pointer = nullptr;
+                delete[] this->data.pointer;
             }
+            this->universe_size = 0;
+            this->data.value = 0;
         }
 
         void copy(const SmallBitset& another) {
