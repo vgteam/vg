@@ -119,7 +119,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     cluster_extensions.reserve(clusters.size());
     // To compute the windows present in any extended cluster, we need to get
     // all the minimizers in any extended cluster.
-    sdsl::bit_vector present_in_any_extended_cluster(minimizers.size(), 0);
+    SmallBitset present_in_any_extended_cluster(minimizers.size());
     //For each cluster, what fraction of "equivalent" clusters did we keep?
     vector<double> probability_cluster_lost;
     //What is the score and coverage we are considering and how many reads
@@ -830,7 +830,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     vector<vector<size_t>> unextended_clusters_by_read(2);
     // To compute the windows present in any extended cluster, we need to get
     // all the minimizers in any extended cluster.
-    vector<sdsl::bit_vector> present_in_any_extended_cluster_by_read(2);
+    vector<SmallBitset> present_in_any_extended_cluster_by_read(2);
     
 
     //Now that we've scored each of the clusters, extend and align them
@@ -871,7 +871,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         //size_t curr_count = 0;
 
         unextended_clusters_by_read[read_num].reserve(clusters.size());
-        present_in_any_extended_cluster_by_read[read_num] = sdsl::bit_vector(minimizers.size(), 0);
+        present_in_any_extended_cluster_by_read[read_num] = SmallBitset(minimizers.size());
         
         //Process clusters sorted by both score and read coverage
         process_until_threshold_c<Cluster, double>(clusters, [&](size_t i) -> double {
@@ -1814,7 +1814,7 @@ double MinimizerMapper::phred_for_at_least_one(size_t p, size_t n) const {
 
 double MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
     const std::vector<Minimizer>& minimizers,
-    const sdsl::bit_vector& present_in_any_extended_cluster) {
+    const SmallBitset& present_in_any_extended_cluster) {
 
     // We need to cap MAPQ based on the likelihood of generating all the windows in the extended clusters by chance, too.
 #ifdef debug
@@ -1825,7 +1825,7 @@ double MinimizerMapper::compute_mapq_caps(const Alignment& aln,
     vector<size_t> extended_cluster_minimizers;
     extended_cluster_minimizers.reserve(minimizers.size());
     for (size_t i = 0; i < minimizers.size(); i++) {
-        if (present_in_any_extended_cluster[i]) {
+        if (present_in_any_extended_cluster.contains(i)) {
             extended_cluster_minimizers.push_back(i);
         }
     }
@@ -2385,11 +2385,11 @@ void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const std::vecto
     // Initialize the values.
     cluster.score = 0.0;
     cluster.coverage = 0.0;
-    cluster.present = sdsl::bit_vector(minimizers.size(), 0);
+    cluster.present = SmallBitset(minimizers.size());
 
     // Determine the minimizers that are present in the cluster.
     for (auto hit_index : cluster.seeds) {
-        cluster.present[seeds[hit_index].source] = 1;
+        cluster.present.insert(seeds[hit_index].source);
 #ifdef debug
         cerr << "Minimizer " << seeds[hit_index].source << " is present in cluster " << i << endl;
 #endif
@@ -2398,7 +2398,7 @@ void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const std::vecto
     // Compute the score and cluster coverage.
     sdsl::bit_vector covered(seq_length, 0);
     for (size_t j = 0; j < minimizers.size(); j++) {
-        if (cluster.present[j]) {
+        if (cluster.present.contains(j)) {
             const Minimizer& minimizer = minimizers[j];
             cluster.score += minimizer.score;
 

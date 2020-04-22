@@ -4,8 +4,8 @@
 #include "snarls.hpp"
 #include "min_distance.hpp"
 #include "hash_map.hpp"
+#include "small_bitset.hpp"
 #include <structures/union_find.hpp>
-#include <sdsl/int_vector.hpp>
 
 namespace vg{
 
@@ -27,7 +27,7 @@ class SnarlSeedClusterer {
             size_t fragment; // Fragment id.
             double score; // Sum of scores of distinct source minimizers of the seeds.
             double coverage; // Fraction of read covered by the seeds.
-            sdsl::bit_vector present; // Minimizers that are present in the cluster.
+            SmallBitset present; // Minimizers that are present in the cluster.
         };
 
         SnarlSeedClusterer(MinimumDistanceIndex& dist_index);
