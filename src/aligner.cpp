@@ -1,6 +1,4 @@
 #include "aligner.hpp"
-#include "xdrop_aligner.hpp"
-#include "json2pb.h"
 
 //#define debug_print_score_matrices
 

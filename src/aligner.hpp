@@ -17,7 +17,7 @@
 #include "utility.hpp"
 #include "statistics.hpp"
 #include "banded_global_aligner.hpp"
-#include "xdrop_aligner.hpp"
+#include "dozeu_interface.hpp"
 #include "handle.hpp"
 #include "reverse_graph.hpp"
 #include "null_masking_graph.hpp"
