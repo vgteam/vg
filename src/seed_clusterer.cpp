@@ -22,6 +22,10 @@ namespace vg {
             result.emplace_back();
             result.back().seeds = std::move(cluster);
         }
+        //TODO: Sorting fixes determinism issues but seems unecessary
+        std::sort(result.begin(), result.end(), [&] (Cluster& cluster1, Cluster& cluster2) {
+            return cluster1.seeds.front() < cluster2.seeds.front();
+        });
 
         return result;
     };
@@ -51,7 +55,18 @@ namespace vg {
             result.emplace_back();
             vector<vector<size_t>> read_clusters = read_union_finds->at(read_num).all_groups();
             for (vector<size_t>& cluster : read_clusters) {
-                size_t fragment_index = read_num_offset + cluster[0];
+                result.back().emplace_back();
+                Cluster& curr = result.back().back();
+                curr.seeds = std::move(cluster);
+            }
+        //TODO: Sorting fixes determinism issues but seems unecessary
+            std::sort(result.back().begin(), result.back().end(), [&] (Cluster& cluster1, Cluster& cluster2) {
+                return cluster1.seeds.front() < cluster2.seeds.front();
+            });
+        }
+        for (size_t read_num = 0 ; read_num < result.size() ; read_num++) {
+            for (Cluster& cluster : result[read_num]) {
+                size_t fragment_index = read_num_offset + cluster.seeds[0];
                 size_t fragment_cluster_head = fragment_union_find->find_group(fragment_index);
                 if (old_to_new_cluster_index.count(fragment_cluster_head) == 0) {
                     old_to_new_cluster_index.emplace(fragment_cluster_head, curr_index);
@@ -60,15 +75,18 @@ namespace vg {
                 } else {
                     fragment_cluster_head = old_to_new_cluster_index[fragment_cluster_head];
                 }
-                result.back().emplace_back();
-                Cluster& curr = result.back().back();
-                curr.seeds = std::move(cluster);
-                curr.fragment = fragment_cluster_head;
+                cluster.fragment = fragment_cluster_head;
             }
             read_num_offset += all_seeds[read_num].size();
         }
 
+
         return result;
+    }
+
+    //Helper function to get the minimum value that is not -1
+    int64_t min_not_minus_one(int64_t n1, int64_t n2) {
+        return static_cast<int64_t>(std::min(static_cast<uint64_t>(n1), static_cast<uint64_t>(n2)));
     }
 
     tuple<vector<structures::UnionFind>, structures::UnionFind> SnarlSeedClusterer::cluster_seeds_internal (
@@ -90,6 +108,7 @@ cerr << endl << endl << endl << endl << "New cluster calculation:" << endl;
         //dist_index.snarl_indexes) at that level to nodes belonging to the snarl
         //This is later used to populate snarl_to_node in the tree state
         vector<hash_map<size_t, vector<pair<NetgraphNode, NodeClusters>>>> snarl_to_nodes_by_level;
+        //TODO: probably don't want to use the max depth of the snarl tree
         snarl_to_nodes_by_level.resize(dist_index.tree_depth+1);
 
 
@@ -142,6 +161,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
 
 
 #ifdef DEBUG_CLUSTER
+
         cerr << "Found read clusters : " << endl;
         for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
             cerr << "\t read num " << read_num << ": " ;
@@ -169,15 +189,79 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
             }
             cerr << endl;
         }
+
+        //CHeck read clusters
+        //TODO: This would be useful as part of the distance index
+        auto get_len = [&] (id_t id) {
+            return dist_index.snarl_indexes[dist_index.getPrimaryAssignment(id)].nodeLength(dist_index.getPrimaryRank(id));
+        };
+        for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
+            auto all_groups =  tree_state.read_union_find[read_num].all_groups();
+            for (size_t g1 = 0 ; g1 < all_groups.size() ; g1 ++ ){
+                auto group = all_groups[g1];
+                structures::UnionFind uf(group.size(), false);
+                for (size_t i1 = 0 ; i1 < group.size() ; i1++) {
+                    size_t c = group[i1];
+                    pos_t pos1 = tree_state.all_seeds->at(read_num)->at(c).pos;
+                    pos_t rev1 = make_pos_t(get_id(pos1), !is_rev(pos1), get_len(get_id(pos1)) - get_offset(pos1) - 1);
+
+                    for (size_t i2 = 0 ; i2 < i1 ; i2++) {
+                    
+                        size_t d = group[i2];
+                    
+                        pos_t pos2 = tree_state.all_seeds->at(read_num)->at(d).pos;
+                        pos_t rev2 = make_pos_t(get_id(pos2), !is_rev(pos2), get_len(get_id(pos2))- get_offset(pos2) - 1);
+                        int64_t d1 = dist_index.minDistance(pos1, pos2);
+                        int64_t d2 = min_not_minus_one(d1, dist_index.minDistance(pos1, rev2));
+                        int64_t d3 = min_not_minus_one(d2, dist_index.minDistance(rev1, rev2));
+                        int64_t d4 = min_not_minus_one(d3, dist_index.minDistance(rev1, pos2));
+                        if (d4 != -1 && d4 <= tree_state.read_distance_limit) {
+                        
+                             uf.union_groups(i1, i2);
+                        }
+                    }
+                    for (size_t g2 = 0 ; g2 < all_groups.size() ; g2 ++) {
+                        if (g2 != g1) {
+                            auto group2 = all_groups[g2];
+                            for (size_t d : group2) {
+                               pos_t pos2 = tree_state.all_seeds->at(read_num)->at(d).pos;
+                               pos_t rev2 = make_pos_t(get_id(pos2), !is_rev(pos2), get_len(get_id(pos2)) - get_offset(pos2) - 1);
+                               
+                               int64_t d1 = dist_index.minDistance(pos1, pos2);
+                               int64_t d2 = min_not_minus_one(d1, dist_index.minDistance(pos1, rev2));
+                               int64_t d3 = min_not_minus_one(d2, dist_index.minDistance(rev1, rev2));
+                               int64_t d4 = min_not_minus_one(d3, dist_index.minDistance(rev1, pos2));
+                               
+                               assert (d4 == -1 || d4 > tree_state.read_distance_limit);
+                            }  
+                        
+                        }
+                    }
+                }
+                if (uf.all_groups().size() != 1) {
+                    cerr << "These should be separate clusters: " << endl;
+                    for (auto uf_group : uf.all_groups()) {
+                        for (size_t i : uf_group) {
+                            size_t c = group[i];
+                            cerr << tree_state.all_seeds->at(read_num)->at(c).pos << ":" << tree_state.all_seeds->at(read_num)->at(c).component << ":"
+                                 << tree_state.all_seeds->at(read_num)->at(c).offset << ", ";
+                        }
+                        cerr << endl;
+                    }
+
+                }
+                assert (uf.all_groups().size() == 1);
+            }
+        }
+
+
+
+
 #endif
         return make_tuple(std::move(tree_state.read_union_find), std::move(tree_state.fragment_union_find));
 
     };
 
-    //Helper function to get the minimum value that is not -1
-    int64_t min_not_minus_one(int64_t n1, int64_t n2) {
-        return static_cast<int64_t>(std::min(static_cast<uint64_t>(n1), static_cast<uint64_t>(n2)));
-    }
 
     void SnarlSeedClusterer::get_nodes( TreeState& tree_state,
               vector<hash_map<size_t,vector<pair<NetgraphNode, NodeClusters>>>>&
@@ -336,8 +420,9 @@ cerr << "Nested positions: " << endl << "\t";
 #endif
 
             //Mark this component as being seen
-            if (tree_state.component_to_index.count(dist_index.get_connected_component(dist_index.chain_indexes[chain_i].id_in_parent)) != 0) {
-                seen_components[tree_state.component_to_index[dist_index.get_connected_component(dist_index.chain_indexes[chain_i].id_in_parent)]] = true;
+            size_t component = dist_index.get_connected_component(dist_index.chain_indexes[chain_i].id_in_parent);
+            if (tree_state.component_to_index.count(component) != 0) {
+                seen_components[tree_state.component_to_index[component]] = true;
             }
             // Compute the clusters for the chain
             // TODO: If this doesn't become the new cluster_one_chain, then remove depth
@@ -373,9 +458,11 @@ cerr << "Nested positions: " << endl << "\t";
 #endif
             }
         }
-        for (size_t component_num = 0 ; component_num < seen_components.size() ; component_num++) {
-            if (!seen_components[component_num]) {
-                cluster_only_top_level_seed_clusters(tree_state, tree_state.top_level_seed_clusters[component_num]);
+        if (depth == 0) {
+            for (size_t component_num = 0 ; component_num < seen_components.size() ; component_num++) {
+                if (!seen_components[component_num]) {
+                    cluster_only_top_level_seed_clusters(tree_state, tree_state.top_level_seed_clusters[component_num]);
+                }
             }
         }
     }
@@ -1948,6 +2035,7 @@ cerr << "  Maybe combining this cluster from the right" << endl;
 #ifdef DEBUG_CLUSTER
                 cerr << "At top-level seed cluster on read " << read_num << " with pos " << tree_state.all_seeds->at(read_num)->at(std::get<2>(seed_index)).pos 
                      << " at offset in chain " << tree_state.all_seeds->at(read_num)->at(std::get<2>(seed_index)).offset << endl;
+                assert( tree_state.all_seeds->at(read_num)->at(std::get<2>(seed_index)).component == connected_component_num); 
 
 #endif
                 //Move buffer for previous snarls
