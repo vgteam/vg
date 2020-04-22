@@ -45,33 +45,103 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
         });
     };
     
-    SECTION("An empty graph") {
-        SECTION("Works with Tsin 2014") {
-            algorithms::three_edge_connected_components_dense(adjacencies.size(), for_each_connected_node, component_callback);
-            REQUIRE(components.size() == 0);
-        }
+    SECTION("An empty graph works") {
+        algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
+        REQUIRE(components.size() == 0);
     }
     
     SECTION("A 4-node connected graph is one component") {
         adjacencies = {{1, 2, 3}, {0, 2, 3}, {0, 1, 3}, {0, 1, 2}};
         components = structures::UnionFind(adjacencies.size(), true);
-        SECTION("Works with Tsin 2014") {
-            algorithms::three_edge_connected_components_dense(adjacencies.size(), for_each_connected_node, component_callback);
+        
+        algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
             
-            for (auto& group : components.all_groups()) {
-                cerr << "Group:";
-                for (auto& member : group) {
-                    cerr << " " << member;
-                }
-                cerr << endl;
+        for (auto& group : components.all_groups()) {
+            cerr << "Group:";
+            for (auto& member : group) {
+                cerr << " " << member;
             }
-            
-            REQUIRE(components.size() == 4);
-            REQUIRE(components.group_size(0) == 4);
-            REQUIRE(components.group_size(1) == 4);
-            REQUIRE(components.group_size(2) == 4);
-            REQUIRE(components.group_size(3) == 4);
+            cerr << endl;
         }
+        
+        REQUIRE(components.size() == 4);
+        REQUIRE(components.group_size(0) == 4);
+        REQUIRE(components.group_size(1) == 4);
+        REQUIRE(components.group_size(2) == 4);
+        REQUIRE(components.group_size(3) == 4);
+    }
+    
+    SECTION("The Tsin 2007 paper graph works") {
+        // We reverse the adjacency lists because we reaverse them back to
+        // front in our DFS, and we want to match the paper's example.
+        // We add in a separate node 0 component so we can use the 1-based IDs in the paper.
+        adjacencies = {
+            {}, //0
+            {10, 10, 2}, //1
+            {1, 3, 8}, //2
+            {5, 4, 2}, //3
+            {6, 6, 3}, //4
+            {6, 7, 6, 3}, //5
+            {4, 4, 5, 5}, //6
+            {5, 17, 11, 17, 8, 12}, //7
+            {3, 7, 9}, //8
+            {8, 10}, //9
+            {1, 9, 1}, //10
+            {12, 7, 17}, //11
+            {16, 13, 7, 11}, //12
+            {14, 15, 12, 16}, //13
+            {15, 13, 16}, //14
+            {13, 16, 14}, //15
+            {13, 14, 15, 12}, //16
+            {7, 11, 7} //17
+        };
+        components = structures::UnionFind(adjacencies.size(), true);
+        
+        algorithms::three_edge_connected_components_dense(adjacencies.size(), 3, for_each_connected_node, component_callback);
+            
+        for (auto& group : components.all_groups()) {
+            cerr << "Group:";
+            for (auto& member : group) {
+                cerr << " " << member;
+            }
+            cerr << endl;
+        }
+        
+        REQUIRE(components.size() == 8); // Leave one for node 0
+        
+        REQUIRE(components.group_size(1) == 2);
+        REQUIRE(components.group_size(10) == 2);
+        REQUIRE(components.find_group(1) == components.find_group(10));
+        
+        REQUIRE(components.group_size(2) == 2);
+        REQUIRE(components.group_size(8) == 2);
+        REQUIRE(components.find_group(2) == components.find_group(8));
+        
+        REQUIRE(components.group_size(3) == 4);
+        REQUIRE(components.group_size(4) == 4);
+        REQUIRE(components.group_size(5) == 4);
+        REQUIRE(components.group_size(6) == 4);
+        REQUIRE(components.find_group(3) == components.find_group(4));
+        REQUIRE(components.find_group(3) == components.find_group(5));
+        REQUIRE(components.find_group(3) == components.find_group(6));
+        
+        REQUIRE(components.group_size(7) == 3);
+        REQUIRE(components.group_size(11) == 3);
+        REQUIRE(components.group_size(17) == 3);
+        REQUIRE(components.find_group(7) == components.find_group(11));
+        REQUIRE(components.find_group(7) == components.find_group(17));
+        
+        REQUIRE(components.group_size(9) == 1);
+        
+        REQUIRE(components.group_size(12) == 1);
+        
+        REQUIRE(components.group_size(13) == 4);
+        REQUIRE(components.group_size(14) == 4);
+        REQUIRE(components.group_size(15) == 4);
+        REQUIRE(components.group_size(16) == 4);
+        REQUIRE(components.find_group(13) == components.find_group(14));
+        REQUIRE(components.find_group(13) == components.find_group(15));
+        REQUIRE(components.find_group(13) == components.find_group(16));
     }
 }
 

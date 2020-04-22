@@ -38,15 +38,15 @@ void three_edge_connected_components(const function<void(const function<void(TEC
  * necessarily a handle graph). Only recognizes one kind of edge and one kind
  * of node. Nodes are dense positive integers starting with 0.
  *
- * Takes a total node count, and a function that, given a node, loops an
- * iteratee over all nodes connected to it.
+ * Takes a total node count, a suggested root (or 0), and a function that,
+ * given a node, loops an iteratee over all nodes connected to it.
  *
  * Calls same_component with pairs of nodes in (at least) a spanning tree of
  * the set of nodes in each component (not restricted to the input graph).
  * Doing merge operations on a union-find can get
  * you the set of components.
  */
-void three_edge_connected_component_merges_dense(size_t node_count,
+void three_edge_connected_component_merges_dense(size_t node_count, size_t first_root,
     const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
     const function<void(size_t, size_t)>& same_component);
 
@@ -55,34 +55,16 @@ void three_edge_connected_component_merges_dense(size_t node_count,
  * necessarily a handle graph). Only recognizes one kind of edge and one kind
  * of node. Nodes are dense positive integers starting with 0.
  *
- * Takes a total node count, and a function that, given a node, loops an
- * iteratee over all nodes connected to it.
+ * Takes a total node count, a suggested root (or 0), and a function that,
+ * given a node, loops an iteratee over all nodes connected to it.
  *
  * For each component identified, calls the given callback with a function that
  * iterates over all nodes in the component.
  */
-void three_edge_connected_components_dense(size_t node_count, 
+void three_edge_connected_components_dense(size_t node_count, size_t first_root, 
     const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
     const function<void(const function<void(const function<void(size_t)>&)>&)>& component_callback);
     
-/**
- * Get the three-edge-connected components of an arbitrary graph (not
- * necessarily a handle graph). Only recognizes one kind of edge and one kind
- * of node. Nodes are dense positive integers starting with 0.
- *
- * Wraps the known good the 3 edge connected components algorithm from the
- * pinchesAndCacti library.
- *
- * Takes a total node count, and a function that, given a node, loops an
- * iteratee over all nodes connected to it.
- *
- * For each component identified, calls the given callback with a function that
- * iterates over all nodes in the component.
- */
-void three_edge_connected_components_dense_cactus(size_t node_count, 
-    const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
-    const function<void(const function<void(const function<void(size_t)>&)>&)>& component_callback);
-
 // Implementation
 
 template<typename TECCNode>
@@ -101,7 +83,7 @@ void three_edge_connected_components(const function<void(const function<void(TEC
         rank_to_node.push_back(node);
     });
     
-    three_edge_connected_components_dense(rank_to_node.size(), [&](size_t rank, const function<void(size_t)> visit_connected) {
+    three_edge_connected_components_dense(rank_to_node.size(), 0, [&](size_t rank, const function<void(size_t)> visit_connected) {
         // Translate the rank we are asked about into a node
         for_each_connected_node(rank_to_node[rank], [&](TECCNode connected) {
             // And translate the node back into a rank
