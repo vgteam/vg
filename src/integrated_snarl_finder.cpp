@@ -215,11 +215,11 @@ void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_simple_cycle(const fu
             stack.emplace_back();
             stack.back().here = head;
             
-            while (!stack.back().empty()) {
+            while (!stack.empty()) {
                 // Until the DFS is done
                 auto& frame = stack.back();
                 // Find the node that following this edge got us to.
-                auto& frame_head = find(frame.here);
+                auto frame_head = find(frame.here);
                 auto& here_visited = visited_at[frame_head];
                 
                 if (!here_visited) {
