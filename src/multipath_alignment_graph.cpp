@@ -1399,8 +1399,9 @@ namespace vg {
     
         
         // Align the tails, not collecting a set of source subpaths.
-        auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns, nullptr);
-        
+        // TODO: factor of 1/2 is arbitray, but i do think it should be fewer than the max
+        auto tail_alignments = align_tails(alignment, align_graph, aligner, max<size_t>(1, max_alt_alns / 2),
+                                           dynamic_alt_alns, max_alt_alns, nullptr);
         
         
         for (bool handling_right_tail : {false, true}) {
@@ -3541,7 +3542,7 @@ namespace vg {
         unordered_set<size_t> sources;
         
         // Actually align the tails
-        auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns, &sources);
+        auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns, 0, &sources);
         
         // Handle the right tails
         for (auto& kv : tail_alignments[true]) {
@@ -3636,7 +3637,8 @@ namespace vg {
     unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
     MultipathAlignmentGraph::align_tails(const Alignment& alignment, const HandleGraph& align_graph,
                                          const GSSWAligner* aligner, size_t max_alt_alns,
-                                         bool dynamic_alt_alns, unordered_set<size_t>* sources) {
+                                         bool dynamic_alt_alns, size_t min_paths,
+                                         unordered_set<size_t>* sources) {
         
 #ifdef debug_multipath_alignment
         cerr << "doing tail alignments to:" << endl;
@@ -3677,8 +3679,17 @@ namespace vg {
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph)) :
-                                                             max_alt_alns;
+                    size_t num_alt_alns;
+                    if (dynamic_alt_alns) {
+                        size_t num_paths = algorithms::count_walks(&tail_graph);
+                        if (num_paths < min_paths) {
+                            continue;
+                        }
+                        num_alt_alns = min(max_alt_alns, num_paths);
+                    }
+                    else {
+                        num_alt_alns = max_alt_alns;
+                    }
                     
                     if (num_alt_alns > 0) {
                         
@@ -3765,8 +3776,17 @@ namespace vg {
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph)) :
-                                                             max_alt_alns;
+                    size_t num_alt_alns;
+                    if (dynamic_alt_alns) {
+                        size_t num_paths = algorithms::count_walks(&tail_graph);
+                        if (num_paths < min_paths) {
+                            continue;
+                        }
+                        num_alt_alns = min(max_alt_alns, num_paths);
+                    }
+                    else {
+                        num_alt_alns = max_alt_alns;
+                    }
                             
                     if (num_alt_alns > 0) {
                         
