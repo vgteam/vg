@@ -72,6 +72,16 @@ public:
     /// with the head and the other item. Does not call the iteratee for
     /// single-item components.
     void for_each_membership(const function<void(handle_t, handle_t)>& iteratee) const;
+    
+    /// For each simple cycle in the graph, call the given callback with an
+    /// iteration function that goes around the cycle. Shows the handles
+    /// corresponding to the edges in the graph followed to make the cycle.
+    ///
+    /// Only produces one cycle for a given cycle of nodes, even if there are
+    /// multiple edges, except for self-loop cycles.
+    ///
+    /// Graph may not be modified during iteration.
+    void for_each_simple_cycle(const function<void(const function<void(const function<void(handle_t)>&)>&)>& emit_cycle) const;
 };
 
 size_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_rank(handle_t into) const {
@@ -80,7 +90,7 @@ size_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_rank(handle_t into) const
 }
 
 handle_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_handle(size_t rank) const {
-    // We need to take the high bits and than make it 1-based, and get the orientation from the low bit
+    // We nefor here.ed to take the high bits and than make it 1-based, and get the orientation from the low bit
     return graph->get_handle(overlay_helper.get()->rank_to_id(rank / 2 + 1), rank % 2);
 }
 
@@ -180,6 +190,102 @@ void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_membership(const func
     }
 }
 
+void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_simple_cycle(const function<void(const function<void(const function<void(handle_t)>&)>&)>& emit_cycle) const {
+    // Do a DFS over all connected components of the graph
+    
+    // Track visitedness and DFS counter in one map.
+    unordered_map<handle_t, size_t> visited_at;
+    
+    // We need a stack.
+    // Stack is actually in terms of inward edges followed.
+    struct DFSFrame {
+        handle_t here;
+        vector<handle_t> todo;
+    };
+    
+    vector<DFSFrame> stack;
+    
+    size_t counter = 1;
+    
+    for_each_head([&](handle_t head) {
+        // For every node in the graph
+        
+        if (!visited_at[head]) {
+            // If it hasn't been searched yet, start a search
+            stack.emplace_back();
+            stack.back().here = head;
+            
+            while (!stack.back().empty()) {
+                // Until the DFS is done
+                auto& frame = stack.back();
+                // Find the node that following this edge got us to.
+                auto& frame_head = find(frame.here);
+                auto& here_visited = visited_at[frame_head];
+                
+                if (!here_visited) {
+                    // First visit to here.
+                    
+                    // Mark visited
+                    here_visited = counter;
+                    counter++;
+                    
+                    // Queue up edges
+                    for_each_member(frame_head, [&](handle_t member) {
+                        // Follow edge by flipping. But queue up the edge
+                        // foillowed instead of the node reached (head), so we
+                        // can emit the cycle later in terms of edges.
+                        frame.todo.push_back(graph->flip(member));
+                    });
+                }
+                
+                if (!frame.todo.empty()) {
+                    // Now do an edge
+                    handle_t edge_into = frame.todo.back();
+                    handle_t connected_head = find(edge_into);
+                    frame.todo.pop_back();
+                    
+                    // When if ever was the thing we connect to visited?
+                    auto& connected_visited = visited_at[connected_head];
+                    
+                    if (!connected_visited) {
+                        // Forward edge. Recurse.
+                        stack.emplace_back();
+                        stack.back().here = edge_into;
+                    } else {
+                        // Back edge
+                        if (here_visited >= connected_visited) {
+                            // We only care about the back edges looking up, or
+                            // being self loops. Only do them one way to avoid
+                            // emitting cycles twice.
+                            
+                            // Emit the cycle for here.
+                            emit_cycle([&](const function<void(handle_t)>& iteratee) {
+                                // Report each cycle member
+                                for (auto it = stack.rbegin(); it != stack.rend() && find(it->here) != connected_head; ++it) {
+                                    // Starting at the edge we followed to get
+                                    // here, and reading up the stack to before
+                                    // the frame that got into the node we can
+                                    // get back into another way
+                                    
+                                    // Emit taking the edge back up to the previous stack frame.
+                                    iteratee(graph->flip(it->here));
+                                }
+                                
+                                // Then emit the edge to close the loop, back from the top of the path up the stack down to here again.
+                                iteratee(graph->flip(edge_into));
+                                
+                            });
+                        }
+                    }
+                } else {
+                    // Clean up
+                    stack.pop_back();
+                }
+            }
+        }
+    });
+}
+
     
 
 
@@ -205,10 +311,9 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
     
     // Now we need to do the 3 edge connected component merging, using Tsin's algorithm.
     // We don't really have a good dense rank space on the adjacency components, so we use the general version.
-    // TODO: SOmehow have a nice dense rank space?
+    // TODO: Somehow have a nice dense rank space?
     // We represent each adjacency component (node) by its heading handle.
-    // When we get 3 edge connected components out, we merge all the adjacency components in a 3 edge connected component.
-    algorithms::three_edge_connected_components<handle_t>([&](const function<void(handle_t)>& emit_node) {
+    algorithms::three_edge_connected_component_merges<handle_t>([&](const function<void(handle_t)>& emit_node) {
         // Feed all the handles that head adjacency components into the algorithm
         cactus.for_each_head(emit_node);
     }, [&](handle_t node, const function<void(handle_t)>& emit_edge) {
@@ -241,30 +346,58 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                 emit_edge(member_connected_head);
             }
         });
-    }, [&](const function<void(const function<void(handle_t)>&)>& for_each_participant) {
-        // Now we got a 3-edge-connected component.
-        
-        // We need to grab the head of the first adjacency component that is part of this 3-edge-connected component
-        handle_t first;
-        bool is_first = true;
-        
-        for_each_participant([&](handle_t participating_head) {
-            // For each head that participates in the 3-edge-connected component
-            if (is_first) {
-                // If it's the first one, just save it.
-                first = participating_head;
-                is_first = false;
-            } else {
-                // For all subsequent ones, union them with the first
-                cactus.merge(first, participating_head);
-            }
-        });
+    }, [&](handle_t a, handle_t b) {
+        // Now we got a merge to create the 3 edge connected components.
+        // Tell the graph.
+        cactus.merge(a, b);
     });
     
     // Now our 3-edge-connected components have been condensed, and we have a proper Cactus graph.
     
     // Then we need to copy the base Cactus graph so we can make the bridge forest
     MergedAdjacencyGraph forest(cactus);
+    
+    // We remember the longest cycle and its length
+    size_t longest_cycle_length = 0;
+    vector<handle_t> longest_cycle_edges;
+    
+    // Now we find the simple cycles in the cactus graph
+    cactus.for_each_simple_cycle([&](const function<void(const function<void(handle_t)>&)>& for_each_step) {
+        // When we get a simple cycle (in terms of handles representing edges followed)
+        
+        // Compute its length in terms of fixed sequence on the edges followed.
+        size_t cycle_length = 0;
+        
+        // And make a vector of its edges in case it is the longest.
+        vector<handle_t> cycle_edges;
+        
+        // We need to remember the previous handle as we go around the cycle.
+        bool is_first = false;
+        handle_t last_handle;
+        
+        for_each_step([&](handle_t edge) {
+            if (!cycle_edges.empty()) {
+                // Merge with where the previous edge went in the bridge forest
+                forest.merge(cycle_edges.back(), edge);
+            }
+        
+            // Record the edge length into the cycle length
+            cycle_length += graph->get_length(edge);
+            
+            // Record the edge
+            cycle_edges.push_back(edge);
+        });
+        
+        if (cycle_length > longest_cycle_length || longest_cycle_edges.empty()) {
+            // Adopt this as the new longest cycle
+            longest_cycle_length = cycle_length;
+            longest_cycle_edges = std::move(cycle_edges);
+        }
+    });
+    
+    // We remember the longest one
+    
+    // And we condense them out in the bridge graph
     
     // TODO: Then we need to actually condense simple cycles in order to make
     // the bridge forest.
