@@ -1417,6 +1417,14 @@ QualAdjAligner::QualAdjAligner(const int8_t* _score_matrix,
     // finally, add in the 0s to the 5-th row and column for Ns
     score_matrix = gssw_add_ambiguous_char_to_adjusted_matrix(scaled_matrix, max_base_qual, num_nts);
     
+    
+    // make a QualAdjXdropAligner for each thread
+    int num_threads = get_thread_count();
+    xdrops.reserve(num_threads);
+    for (size_t i = 0; i < num_threads; ++i) {
+        xdrops.emplace_back(_score_matrix, scaled_matrix, _gap_open, _gap_extension, _full_length_bonus);
+    }
+    
     // free the temporary arrays we allocated
     free(scaled_matrix);
     free(nt_freqs);
@@ -1666,8 +1674,11 @@ void QualAdjAligner::align(Alignment& alignment, const HandleGraph& g, bool trac
 void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop,
                                   uint16_t xdrop_max_gap_length) const {
     if (xdrop) {
-        cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
-        exit(1);
+        // QualAdjXdropAligner manages its own stack, so it can never be threadsafe without be recreated
+        // for every alignment, which meshes poorly with its stack implementation. We achieve
+        // thread-safety by having one per thread, which makes this method const-ish.
+        QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
+        xdrop.align_pinned(alignment, g, pin_left, xdrop_max_gap_length);
     }
     else {
         align_internal(alignment, nullptr, g, true, pin_left, 1, true);

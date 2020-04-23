@@ -386,6 +386,8 @@ namespace vg {
                             bool traceback_aln) const;
         
 
+        // members
+        vector<QualAdjXdropAligner> xdrops;
     };
     
     
