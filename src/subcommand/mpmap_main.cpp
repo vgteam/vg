@@ -49,8 +49,9 @@ void help_mpmap(char** argv) {
     << "  -f, --fastq FILE              input FASTQ (possibly gzipped), can be given twice for paired ends (for stdin use -)" << endl
     << "  -i, --interleaved             input contains interleaved paired ends" << endl
     << "algorithm presets:" << endl
-    << "  -n, --nt-type TYPE            data type preset: 'DNA' for genomic data, 'RNA' for transcriptomic data [DNA]" << endl
-    << "  -l, --read-length TYPE        sequence length preset: 'short' for NGS, 'long' for ONT/PacBio [short]" << endl
+    << "  -n, --nt-type TYPE            sequence type preset: 'dna' for genomic data, 'rna' for transcriptomic data [dna]" << endl
+    << "  -l, --read-length TYPE        read length preset: 'very-short', 'short', or 'long' (approx. <50bp, 50-500bp, and >500bp) [short]" << endl
+    << "  -e, --error-rate TYPE         error rate preset: 'low' or 'high' (approx. PHRED >20 and <20) [low]" << endl
     << "output:" << endl
     << "  -S, --single-path-mode        output single-path alignments (GAM) instead of multipath alignments (GAMP)" << endl
     << "  -N, --sample NAME             add this sample name to output" << endl
@@ -69,7 +70,7 @@ void help_mpmap(char** argv) {
     //<< "  -X, --snarl-max-cut INT       do not align to extra paths in a snarl if there is an exact match this long (0 for no limit) [5]" << endl
     //<< "  -a, --alt-paths INT           align to (up to) this many alternate paths in snarls [10]" << endl
     //<< "      --suppress-tail-anchors   don't produce extra anchors when aligning to alternate paths in snarls" << endl
-    << "  -e, --same-strand             read pairs are from the same strand of the DNA molecule" << endl
+    << "  -T, --same-strand             read pairs are from the same strand of the DNA/RNA molecule" << endl
     << "  -M, --max-multimaps INT       report (up to) this many mappings per read [1]" << endl
     << "  -Q, --mq-max INT              cap mapping quality estimates at this much [60]" << endl
     << "  -b, --frag-sample INT         look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
@@ -98,10 +99,10 @@ void help_mpmap(char** argv) {
     << "scoring:" << endl
     << "  -A, --no-qual-adjust          do not perform base quality adjusted alignments even when base qualities are available" << endl
     << "  -q, --match INT               use this match score [1]" << endl
-    << "  -z, --mismatch INT            use this mismatch penalty [4 short / 1 long]" << endl
-    << "  -o, --gap-open INT            use this gap open penalty [6 short / 1 long]" << endl
+    << "  -z, --mismatch INT            use this mismatch penalty [4 low error, 1 high error]" << endl
+    << "  -o, --gap-open INT            use this gap open penalty [6 low error, 1 high error]" << endl
     << "  -y, --gap-extend INT          use this gap extension penalty [1]" << endl
-    << "  -L, --full-l-bonus INT        add this score to alignments that align each end of the read [5 short / 0 long]" << endl
+    << "  -L, --full-l-bonus INT        add this score to alignments that align each end of the read [(-z)+1 short, 0 long]" << endl
     << "  -w, --score-matrix FILE       read a 4x4 integer substitution scoring matrix from a file (in the order ACGT)" << endl
     << "  -m, --remove-bonuses          remove full length alignment bonuses in reported scores" << endl;
     //<< "computational parameters:" << endl
@@ -170,9 +171,11 @@ int main_mpmap(int argc, char** argv) {
     int max_num_mappings = 1;
     int buffer_size = 200;
     int hit_max = 1024;
-    int hard_hit_max_muliplier = 10;
+    int hit_max_arg = numeric_limits<int>::min();
+    int hard_hit_max_muliplier = 3;
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
+    int min_clustering_mem_length_arg = numeric_limits<int>::min();
     bool use_stripped_match_alg = false;
     int default_strip_length = 10;
     int stripped_match_alg_strip_length = default_strip_length;
@@ -180,7 +183,9 @@ int main_mpmap(int argc, char** argv) {
     int default_strip_count = 10;
     int stripped_match_alg_target_count = default_strip_count;
     int reseed_length = 28;
+    int reseed_length_arg = numeric_limits<int>::min();
     double reseed_diff = 0.45;
+    double reseed_diff_arg = numeric_limits<double>::lowest();
     double reseed_exp = 0.065;
     bool use_adaptive_reseed = true;
     double cluster_ratio = 0.2;
@@ -199,6 +204,7 @@ int main_mpmap(int argc, char** argv) {
     int num_alt_alns = default_num_alt_alns;
     double suboptimal_path_exponent = 1.25;
     double likelihood_approx_exp = 10.0;
+    double likelihood_approx_exp_arg = numeric_limits<double>::lowest();
     double recombination_penalty = 20.7;
     bool always_check_population = false;
     size_t force_haplotype_count = 0;
@@ -212,13 +218,14 @@ int main_mpmap(int argc, char** argv) {
     bool auto_calibrate_mismapping_detection = true;
     double max_mapping_p_value = 0.00001;
     size_t num_calibration_simulations = 100;
-    vector<size_t> calibration_read_lengths{50, 75, 100, 150, 250, 450, 750};
+    vector<size_t> calibration_read_lengths{50, 100, 150, 250, 450};
     bool use_weibull_calibration = false;
     size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
     double secondary_rescue_score_diff = 0.8;
     size_t secondary_rescue_attempts = 4;
+    size_t secondary_rescue_attempts_arg = numeric_limits<size_t>::max();
     size_t rescue_only_min = numeric_limits<size_t>::max(); // disabling this for now
     size_t rescue_only_anchor_max = 16;
     string sample_name = "";
@@ -239,8 +246,10 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus_arg = std::numeric_limits<int>::min();
     int reversing_walk_length = 1;
 
-    string nt_type = "DNA";
+    // default presets
+    string nt_type = "dna";
     string read_length = "short";
+    string error_rate = "low";
     
     bool suppress_progress = false;
     int fragment_length_warning_factor = 50;
@@ -264,7 +273,7 @@ int main_mpmap(int argc, char** argv) {
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
             {"interleaved", no_argument, 0, 'i'},
-            {"same-strand", no_argument, 0, 'e'},
+            {"same-strand", no_argument, 0, 'T'},
             {"single-path-mode", no_argument, 0, 'S'},
             {"snarls", required_argument, 0, 's'},
             {"synth-tail-anchors", no_argument, 0, OPT_SUPPRESS_TAIL_ANCHORS},
@@ -371,7 +380,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case OPT_SECONDARY_RESCUE_ATTEMPTS:
-                secondary_rescue_attempts = parse<int>(optarg);
+                secondary_rescue_attempts_arg = parse<int>(optarg);
                 break;
                 
             case OPT_SECONDARY_MAX_DIFF:
@@ -435,7 +444,7 @@ int main_mpmap(int argc, char** argv) {
                 interleaved_input = true;
                 break;
                 
-            case 'e':
+            case 'T':
                 same_strand = true;
                 break;
                 
@@ -525,15 +534,15 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'r':
-                reseed_length = parse<int>(optarg);
+                reseed_length_arg = parse<int>(optarg);
                 break;
                 
             case 'W':
-                reseed_diff = parse<double>(optarg);
+                reseed_diff_arg = parse<double>(optarg);
                 break;
                 
             case 'K':
-                min_clustering_mem_length = parse<int>(optarg);
+                min_clustering_mem_length_arg = parse<int>(optarg);
                 break;
                 
             case 'F':
@@ -549,7 +558,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'c':
-                hit_max = parse<int>(optarg);
+                hit_max_arg = parse<int>(optarg);
                 break;
                 
             case OPT_HARD_HIT_MAX_MULTIPLIER:
@@ -557,7 +566,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case OPT_APPROX_EXP:
-                likelihood_approx_exp = parse<double>(optarg);
+                likelihood_approx_exp_arg = parse<double>(optarg);
                 break;
                 
             case OPT_RECOMBINATION_PENALTY:
@@ -606,6 +615,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'l':
                 read_length = optarg;
+                break;
+                
+            case 'e':
+                error_rate = optarg;
                 break;
                 
             case 'n':
@@ -672,9 +685,158 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
-    // check for valid parameters
+    // normalize capitalization on preset options
+    if (read_length == "Long" || read_length == "LONG") {
+        read_length = "long";
+    }
+    else if (read_length == "Very-Short" || read_length == "Very-short" || read_length == "VERY-SHORT") {
+        read_length = "very-short";
+    }
+    else if (read_length != "Short" || read_length != "SHORT") {
+        read_length = "short";
+    }
     
+    if (nt_type == "RNA") {
+        nt_type = "rna";
+    }
+    else if (nt_type == "DNA") {
+        nt_type = "dna";
+    }
+    
+    if (error_rate == "Low" || error_rate == "LOW") {
+        error_rate = "low";
+    }
+    else if (error_rate == "High" || error_rate == "HIGH") {
+        error_rate = "high";
+    }
+    
+    // set baseline parameters according to presets
+    
+    if (error_rate == "high") {
+        // alignment scores that don't penalize gaps or mismatches as much
+        mismatch_score = 1;
+        gap_open_score = 1;
+    }
+    
+    if (read_length == "long") {
+        // we don't care so much about soft-clips on long reads
+        full_length_bonus = 0;
+    }
+    else if (read_length == "very-short") {
+        // clustering is unlikely to improve accuracy in very short data
+        // TODO: should i add a way to override this option?
+        no_clustering = true;
+        // we don't want to throw away short matches a priori in very short data
+        min_clustering_mem_length = 1;
+    }
+    else if (read_length != "short") {
+        // short is the default
+        cerr << "error:[vg mpmap] Cannot identify read length preset (-l): " << read_length << endl;
+        exit(1);
+    }
+    
+    if (nt_type == "rna") {
+        // RNA preset
+        if (distance_index_name.empty()) {
+            cerr << "warning:[vg mpmap] It is HIGHLY recommended to use a distance index (-d) for clustering on splice graphs. Both accuracy and speed will suffer without one." << endl;
+        }
+        // seed finding, cluster pruning, and rescue parameters tuned for a lower repeat content
+        secondary_rescue_attempts = 1;
+        hit_max = 256;
+        reseed_length = 40;
+        reseed_diff = 0.6;
+        likelihood_approx_exp = 6.0;
+    }
+    else if (nt_type != "dna") {
+        // DNA is the default
+        cerr << "error:[vg mpmap] Cannot identify sequencing type preset (-n): " << nt_type << endl;
+        exit(1);
+    }
+        
+    if (single_path_alignment_mode && read_length != "long") {
+        // we get better performance by splitting up clusters a bit more when we're forcing alignments to go to only one place
+        // long reads on the other hand display underclustering behavior with some parameter settings
+        min_median_mem_coverage_for_split = 2;
+        suppress_cluster_merging = true;
+    }
+    
+    if (read_length == "long" && !single_path_alignment_mode) {
+        // we sometimes need to synthesize anchors for the tails to get good multipath alignments on long reads
+        synthesize_tail_anchors = true;
+    }
+        
+    if (single_path_alignment_mode) {
+        // simplifying topologies is redundant work if we're just going to take the maximum weight path anyway
+        simplify_topologies = false;
+    }
+    
+    if (single_path_alignment_mode && population_max_paths == 0) {
+        // adjust parameters that produce irrelevant extra work or bad behavior single path mode
+//        if (!snarls_name.empty()) {
+//            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
+//            // TODO: Not true!
+//        }
+//
+//        if (snarl_cut_size != default_snarl_cut_size) {
+//            cerr << "warning:[vg mpmap] Snarl cut limit (-X) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
+//        }
+        
+        if (num_alt_alns != default_num_alt_alns) {
+            cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
+        }
+        
+        num_alt_alns = 1;
+    }
+    
+    // set the overrides to preset-controlled parameters
+    if (hit_max_arg != numeric_limits<int>::min()) {
+        hit_max = hit_max_arg;
+    }
+    if (reseed_length_arg != numeric_limits<int>::min()) {
+        reseed_length = reseed_length_arg;
+    }
+    if (reseed_diff_arg != numeric_limits<double>::lowest()) {
+        reseed_diff = reseed_diff_arg;
+    }
+    if (min_clustering_mem_length_arg != numeric_limits<int>::min()) {
+        min_clustering_mem_length = min_clustering_mem_length_arg;
+    }
+    if (secondary_rescue_attempts_arg != numeric_limits<size_t>::max()) {
+        secondary_rescue_attempts = secondary_rescue_attempts_arg;
+    }
+    if (likelihood_approx_exp_arg != numeric_limits<double>::lowest()) {
+        likelihood_approx_exp = likelihood_approx_exp_arg;
+    }
+    
+    // if we indicated any other scores, apply those, possibly overriding
+    if (match_score_arg != std::numeric_limits<int>::min()) {
+        match_score = match_score_arg;
+    }
+    if (mismatch_score_arg != std::numeric_limits<int>::min()) {
+        mismatch_score = mismatch_score_arg;
+    }
+    if (gap_open_score_arg != std::numeric_limits<int>::min()) {
+        gap_open_score = gap_open_score_arg;
+    }
+    if (gap_extension_score_arg != std::numeric_limits<int>::min()) {
+        gap_extension_score = gap_extension_score_arg;
+    }
+    if (full_length_bonus_arg != std::numeric_limits<int>::min()) {
+        full_length_bonus = full_length_bonus_arg;
+    }
+    
+    if (full_length_bonus_arg == std::numeric_limits<int>::min()
+        && read_length != "long") {
+        // TODO: not so elegant
+        // the full length bonus should override a mismatch unless we're in long read mode
+        full_length_bonus = min<int>(mismatch_score + 1, std::numeric_limits<int8_t>::max());
+    }
+    
+    // hits that are much more frequent than the number of hits we sample are unlikely to produce high MAPQs, so
+    // we can usually ignore them
     int hard_hit_max = hard_hit_max_muliplier * hit_max;
+    
+    // check for valid parameters
     
     if (std::isnan(frag_length_mean) != std::isnan(frag_length_stddev)) {
         cerr << "error:[vg mpmap] Cannot specify only one of fragment length mean (-I) and standard deviation (-D)." << endl;
@@ -906,7 +1068,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (no_clustering && !distance_index_name.empty()) {
-        cerr << "warning:[vg mpmap] no clustering option (--no-cluster) causes distance index (-d) to be ignored" << endl;
+        cerr << "warning:[vg mpmap] No clustering option (--no-cluster) causes distance index (-d) to be ignored. This option is activated by default for 'very-short' read lengths (-l)." << endl;
     }
     
     if (suboptimal_path_exponent < 1.0) {
@@ -921,93 +1083,8 @@ int main_mpmap(int argc, char** argv) {
     
     
     if ((match_score_arg != std::numeric_limits<int>::min() || mismatch_score_arg != std::numeric_limits<int>::min()) && !matrix_file_name.empty())  {
-        cerr << "error:[vg mpmap] Cannot choose custom scoring matrix (--score-matrix) and custom match/mismatch score (-q/-z) simultaneously." << endl;
+        cerr << "error:[vg mpmap] Cannot choose custom scoring matrix (-w) and custom match/mismatch score (-q/-z) simultaneously." << endl;
         exit(1);
-    }
-    
-    // adjust key parameters according to the presets
-    
-    if (read_length == "long") {
-        // alignment scores that don't penalize gaps as much
-        match_score = 1;
-        mismatch_score = 1;
-        gap_open_score = 1;
-        gap_extension_score = 1;
-        full_length_bonus = 0;
-    }
-    else if (read_length != "short") {
-        // short is the default
-        cerr << "error:[vg mpmap] Cannot identify read length preset (-l): " << read_length << endl;
-        exit(1);
-    }
-    
-    if (nt_type == "RNA" || nt_type == "rna") {
-        // RNA preset
-        if (distance_index_name.empty()) {
-            cerr << "warning:[vg mpmap] It is HIGHLY recommended to use a distance index (-d) for clustering on splice graphs. Both accuracy and speed will suffer without one." << endl;
-        }
-        // parameters tuned for a lower repeat content
-        secondary_rescue_attempts = 1;
-        hit_max = 256;
-        likelihood_approx_exp = 5.0;
-    }
-    else if (nt_type != "DNA" && nt_type != "dna") {
-        // DNA is the default
-        cerr << "error:[vg mpmap] Cannot identify sequencing type preset (-n): " << nt_type << endl;
-        exit(1);
-    }
-    
-    if (single_path_alignment_mode && read_length != "long") {
-        // we get better performance by splitting up clusters a bit more when we're forcing alignments to go to only one place
-        // long reads on the other hand display underclustering behavior with some parameter settings
-        min_median_mem_coverage_for_split = 2;
-        suppress_cluster_merging = true;
-    }
-    
-    if (single_path_alignment_mode) {
-        // simplifying topologies is redundant work if we're just going to take the maximum weight path anyway
-        simplify_topologies = false;
-    }
-    
-    if (read_length == "long" && !single_path_alignment_mode) {
-        // we sometimes need to synthesize anchors for the tails to get good multipath alignments on long reads
-        synthesize_tail_anchors = true;
-    }
-    
-    // adjust parameters that produce irrelevant extra work or bad behavior single path mode
-    
-    if (single_path_alignment_mode && population_max_paths == 0) {
-        if (!snarls_name.empty()) {
-            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
-            // TODO: Not true!
-        }
-        
-        if (snarl_cut_size != default_snarl_cut_size) {
-            cerr << "warning:[vg mpmap] Snarl cut limit (-X) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
-        }
-        
-        if (num_alt_alns != default_num_alt_alns) {
-            cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
-        }
-        
-        num_alt_alns = 1;
-    }
-    
-    // if we indicated any other scores, apply those, possibly overriding
-    if (match_score_arg != std::numeric_limits<int>::min()) {
-        match_score = match_score_arg;
-    }
-    if (mismatch_score_arg != std::numeric_limits<int>::min()) {
-        mismatch_score = mismatch_score_arg;
-    }
-    if (gap_open_score_arg != std::numeric_limits<int>::min()) {
-        gap_open_score = gap_open_score_arg;
-    }
-    if (gap_extension_score_arg != std::numeric_limits<int>::min()) {
-        gap_extension_score = gap_extension_score_arg;
-    }
-    if (full_length_bonus_arg != std::numeric_limits<int>::min()) {
-        full_length_bonus = full_length_bonus_arg;
     }
     
     if (match_score > std::numeric_limits<int8_t>::max() || mismatch_score > std::numeric_limits<int8_t>::max()
