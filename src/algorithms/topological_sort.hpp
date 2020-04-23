@@ -7,7 +7,7 @@
  * Defines a topological sort algorithm for handle graphs.
  */
 
-#include <unordered_map>
+#include <sparsepp/spp.h>
 
 #include <vg/vg.pb.h>
 

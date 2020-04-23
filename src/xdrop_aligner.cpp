@@ -34,107 +34,61 @@ enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 
 using namespace vg;
 
-XdropAligner::XdropAligner(XdropAligner const &rhs)
+XdropAligner::XdropAligner(const XdropAligner& other)
 {
-    score_matrix = (int8_t*) malloc(16 * sizeof(int8_t));
-    for (size_t i = 0; i < 16; ++i) {
-        score_matrix[i] = rhs.score_matrix[i];
-    }
-    gap_open = rhs.gap_open;
-    gap_extend = rhs.gap_extend;
-    full_length_bonus = rhs.full_length_bonus;
-    max_gap_length = rhs.max_gap_length;
+    *this = other;
 }
 
-XdropAligner& XdropAligner::operator=(XdropAligner const &rhs)
+XdropAligner& XdropAligner::operator=(const XdropAligner& other)
 {
-	if (this == &rhs) {
-        return *this;
-    }
-    free(score_matrix);
-    score_matrix = (int8_t*) malloc(16 * sizeof(int8_t));
-    for (size_t i = 0; i < 16; ++i) {
-        score_matrix[i] = rhs.score_matrix[i];
-    }
-    gap_open = rhs.gap_open;
-    gap_extend = rhs.gap_extend;
-    full_length_bonus = rhs.full_length_bonus;
-    max_gap_length = rhs.max_gap_length;
-	return *this;
-}
-
-XdropAligner::XdropAligner(XdropAligner&& rhs)
-{
-    score_matrix = rhs.score_matrix;
-    rhs.score_matrix = nullptr;
-    gap_open = rhs.gap_open;
-    gap_extend = rhs.gap_extend;
-    full_length_bonus = rhs.full_length_bonus;
-    max_gap_length = rhs.max_gap_length;
-}
-
-XdropAligner& XdropAligner::operator=(XdropAligner&& rhs)
-{
-	if (this == &rhs) {
-        return *this;
+	if (this != &other) {
         
+        if (dz) {
+            dz_destroy(dz);
+        }
+        dz = dz_init(other.dz->matrix,
+                     *((const uint16_t*) &other.dz->giv),
+                     *((const uint16_t*) &other.dz->gev),
+                     other.dz->bonus);
     }
-    score_matrix = rhs.score_matrix;
-    rhs.score_matrix = nullptr;
-    gap_open = rhs.gap_open;
-    gap_extend = rhs.gap_extend;
-    full_length_bonus = rhs.full_length_bonus;
-    max_gap_length = rhs.max_gap_length;
+    
 	return *this;
 }
 
-XdropAligner::XdropAligner()
+XdropAligner::XdropAligner(XdropAligner&& other)
 {
-	
+    *this = other;
 }
 
-XdropAligner::XdropAligner(int8_t const *_score_matrix, int8_t _gap_open, int8_t _gap_extension,
-                           int32_t _full_length_bonus, uint32_t _max_gap_length) :
-    gap_open(_gap_open - _gap_extension), gap_extend(_gap_extension), max_gap_length(_max_gap_length), full_length_bonus(_full_length_bonus)
+XdropAligner& XdropAligner::operator=(XdropAligner&& other)
 {
-	assert(_gap_open - _gap_extension >= 0);
-	assert(_gap_extension > 0);
-	assert(_full_length_bonus >= 0);
-	assert(_max_gap_length > 0);
-
-    score_matrix = (int8_t*) malloc(16 * sizeof(int8_t));
-    for (size_t i = 0; i < 16; ++i) {
-        score_matrix[i] = _score_matrix[i];
+	if (this != &other) {
+        dz = other.dz;
+        other.dz = nullptr;
     }
-	// bench_init(bench);
-}
-
-XdropAligner::XdropAligner(int8_t _match, int8_t _mismatch, int8_t _gap_open, int8_t _gap_extension,
-                           int32_t _full_length_bonus, uint32_t _max_gap_length) :
-    gap_open(_gap_open - _gap_extension), gap_extend(_gap_extension), max_gap_length(_max_gap_length), full_length_bonus(_full_length_bonus)
-{
-	assert(_match > 0);
-	assert(_mismatch > 0);
-	assert(_gap_open - _gap_extension >= 0);
-	assert(_gap_extension > 0);
-	assert(_full_length_bonus >= 0);
-	assert(_max_gap_length > 0);
     
-    score_matrix = (int8_t*) malloc(16 * sizeof(int8_t));
-    for (size_t i = 0; i < 16; ++i) {
-        if (i % 5 == 0) {
-            score_matrix[i] = _match;
-        }
-        else {
-            score_matrix[i] = -_mismatch;
-        }
-    }
-    // bench_init(bench);
+	return *this;
+}
+
+XdropAligner::XdropAligner() : dz(nullptr)
+{
+    // nothing to do
+}
+
+XdropAligner::XdropAligner(const int8_t* _score_matrix, int8_t _gap_open, int8_t _gap_extension,
+                           int32_t _full_length_bonus)
+{
+    // xdrop aligner uses the parameterization where both gap open and gap extend are paid when opening
+    // a gap
+    assert(_gap_open - _gap_extension >= 0);
+    assert(_gap_extension > 0);
+    assert(_full_length_bonus >= 0);
+    dz = dz_init(_score_matrix, _gap_open - _gap_extension, _gap_extension, _full_length_bonus);
 }
 
 XdropAligner::~XdropAligner(void)
 {
-    free(score_matrix);
+    dz_destroy(dz);
 	// fprintf(stderr, "xdrop: time(%lu), count(%lu)\n", bench_get(bench) / 1000, bench_get_count(bench));
 }
 
@@ -163,6 +117,7 @@ XdropAligner::graph_pos_s XdropAligner::calculate_seed_position(const OrderedGra
 	 * seed selection:
 	 * the most upstream for forward one, the most downstream one for reverse one.
 	 * FIXME: better selection strategy (or multiple trial) would be possible.
+     * TODO: longest MEM is a better heuristic, should just take a position, vector<MEM> is unnecessary
 	 *
 	 * node_id extraction:
 	 * use the most downstrem one for forward mapping to avoid any *artifact*
@@ -171,31 +126,33 @@ XdropAligner::graph_pos_s XdropAligner::calculate_seed_position(const OrderedGra
 	 * GSSW aligner avoids such artifacts because it does not depends on any seed positions on
 	 * computing the DP matrix (it is true local alignment).
 	 */
-    graph_pos_s pos;
-	const MaximalExactMatch& seed = mems[direction ? (mems.size() - 1) : 0];		// here mems is never empty
-
+	const MaximalExactMatch& seed = direction ? mems.back() : mems.front();		// here mems is never empty
 	auto seed_pos = direction ? seed.nodes.front() : seed.nodes.back();
-	size_t node_id = gcsa::Node::id(seed_pos);
-	size_t node_offset = gcsa::Node::offset(seed_pos);
-	pos.node_index = graph.index_of.at(graph.graph.get_handle(node_id));
-
+        
+    graph_pos_s pos;
+    
+    // get node index
+	pos.node_index = graph.index_of.at(graph.graph.get_handle(gcsa::Node::id(seed_pos)));
+    
 	// calc ref_offset
-	handle_t n = graph.order[pos.node_index];
-	pos.ref_offset = direction ? (graph.graph.get_length(n) - node_offset) : node_offset;
+	pos.ref_offset = direction ? (graph.graph.get_length(graph.order[pos.node_index]) - gcsa::Node::offset(seed_pos))
+                               : gcsa::Node::offset(seed_pos);
 
-	// calc query_offset (FIXME: is there O(1) solution?)
-    // TODO: i think we need access to the original Alignment to make this O(1)
-	pos.query_offset = query_length - (seed.end - seed.begin);
-	for (auto p = seed.end; *p != '\0'; pos.query_offset--, p++) {
-        // nothing to do in loop, just measuring
+    // calc query_offset (FIXME: is there O(1) solution?)
+    // TODO: i think we need access to the original Alignment to make this O(1), but the one available in
+    // the parent function seems to not be the one that these MEMs are from
+    pos.query_offset = query_length - seed.length();
+    for (auto p = seed.end; *p != '\0'; p++) {
+        pos.query_offset--;
     }
-	pos.query_offset = direction ? query_length - pos.query_offset : pos.query_offset;
+    pos.query_offset = direction ? query_length - pos.query_offset : pos.query_offset;
+    
 	// fprintf(stderr, "calc_seed_pos, direction(%d), rpos(%lu, %u), qpos(%u), len(%lu)\n", direction, pos.node_index, pos.ref_offset, pos.query_offset, seed.end - seed.begin);
 	return pos;
 }
 
 XdropAligner::graph_pos_s XdropAligner::calculate_max_position(const OrderedGraph& graph, const graph_pos_s& seed_pos, size_t max_node_index,
-                                                               bool direction, dz_s* dz, const vector<const dz_forefront_s*>& forefronts) const
+                                                               bool direction, const vector<const dz_forefront_s*>& forefronts)
 {
 	// save node id
 	graph_pos_s pos;
@@ -222,7 +179,7 @@ XdropAligner::graph_pos_s XdropAligner::calculate_max_position(const OrderedGrap
 }
 
 XdropAligner::graph_pos_s XdropAligner::scan_seed_position(const OrderedGraph& graph, const string& query_seq, bool direction,
-                                                           dz_s* dz, vector<const dz_forefront_s*>& forefronts) const
+                                                           vector<const dz_forefront_s*>& forefronts, uint16_t max_gap_length)
 {
 	const uint64_t qlen = query_seq.length(), scan_len = qlen < 15 ? qlen : 15;		// FIXME: scan_len should be variable
 
@@ -230,6 +187,9 @@ XdropAligner::graph_pos_s XdropAligner::scan_seed_position(const OrderedGraph& g
 		? dz_pack_query_reverse(dz, &query_seq.c_str()[0],               scan_len)
 		: dz_pack_query_forward(dz, &query_seq.c_str()[qlen - scan_len], scan_len)
 	);
+    
+    // make a root forefront
+    dz_alignment_init_s aln_init = dz_align_init(dz, max_gap_length);
 
 	int64_t inc = direction ? -1 : 1;
     int64_t max_idx  = direction ? graph.order.size() - 1 : 0;
@@ -246,14 +206,14 @@ XdropAligner::graph_pos_s XdropAligner::scan_seed_position(const OrderedGraph& g
         
         auto seq = graph.graph.get_sequence(handle);
         if (incoming_forefronts.empty()) {
-            forefronts[i] = dz_scan(dz, packed_query, dz_root(dz), 1,
+            forefronts[i] = dz_scan(dz, packed_query, &aln_init.root, 1,
                                     &seq.c_str()[direction ? seq.size() : 0],
-                                    direction ? -seq.size() : seq.size(), i);
+                                    direction ? -seq.size() : seq.size(), i, aln_init.xt);
         }
         else {
             forefronts[i] = dz_scan(dz,packed_query, incoming_forefronts.data(), incoming_forefronts.size(),
                                     &seq.c_str()[direction ? seq.size() : 0],
-                                    direction ? -seq.size() : seq.size(), i);
+                                    direction ? -seq.size() : seq.size(), i, aln_init.xt);
         }
         
         if(forefronts[i]->max + (direction & dz_geq(forefronts[i])) > forefronts[max_idx]->max) {
@@ -265,14 +225,14 @@ XdropAligner::graph_pos_s XdropAligner::scan_seed_position(const OrderedGraph& g
 	pos.node_index = 0;
 	pos.ref_offset = 0;
 	pos.query_offset = direction ? scan_len : qlen - scan_len;
-	graph_pos_s p = calculate_max_position(graph, pos, max_idx, direction, dz, forefronts);
-	debug("node_index(%lu), ref_offset(%d), query_offset(%d), max(%d)", p.node_index, p.ref_offset, p.query_offset, forefronts[max_node_index]->max);
+	graph_pos_s p = calculate_max_position(graph, pos, max_idx, direction, forefronts);
+	debug("node_index(%lu), ref_offset(%d), query_offset(%d), max(%d)", p.node_index, p.ref_offset, p.query_offset, forefronts[max_idx]->max);
 	return p;
 }
 
 size_t XdropAligner::extend(const OrderedGraph& graph, const dz_query_s* packed_query,
                             const vector<graph_pos_s>& seed_positions, bool right_to_left,
-                            dz_s* dz, vector<const dz_forefront_s*>& forefronts) const
+                            vector<const dz_forefront_s*>& forefronts, uint16_t max_gap_length)
 {
     // seed_offset: 0-------->L for both forward and reverse
     // right_to_left: true for a right-to-left pass with left-to-right traceback, false otherwise
@@ -284,6 +244,9 @@ size_t XdropAligner::extend(const OrderedGraph& graph, const dz_query_s* packed_
     
     // how far into the topological order we can start
     size_t start_idx = right_to_left ? 0 : graph.order.size();
+    
+    // initialze an alignment
+    dz_alignment_init_s aln_init = dz_align_init(dz, max_gap_length);
     
     // seed an alignment at each of the seed positions
     for (const graph_pos_s& seed_pos : seed_positions) {
@@ -297,9 +260,9 @@ size_t XdropAligner::extend(const OrderedGraph& graph, const dz_query_s* packed_
         debug("extend pass: %s over %lu forefronts from %lu", right_to_left ? "right-to-left" : "left-to-right", forefronts.size(), seed_pos.node_index);
         
         debug("rpos(%lu), rlen(%ld)", seed_pos.ref_offset, rlen);
-        forefronts[seed_pos.node_index] = dz_extend(dz, packed_query, dz_root(dz), 1,
+        forefronts[seed_pos.node_index] = dz_extend(dz, packed_query, &aln_init.root, 1,
                                                     root_seq.c_str() + seed_pos.ref_offset,
-                                                    rlen, seed_pos.node_index);
+                                                    rlen, seed_pos.node_index, aln_init.xt);
         
         // push the start index out as far as we can
         if (right_to_left) {
@@ -334,7 +297,7 @@ size_t XdropAligner::extend(const OrderedGraph& graph, const dz_query_s* packed_
             auto ref_seq = graph.graph.get_sequence(handle);
             forefronts[i] = dz_extend(dz, packed_query, incoming_forefronts.data(), incoming_forefronts.size(),
                                       &ref_seq.c_str()[right_to_left ? ref_seq.length() : 0],
-                                      right_to_left ? -ref_seq.length() : ref_seq.length(), i);
+                                      right_to_left ? -ref_seq.length() : ref_seq.length(), i, aln_init.xt);
         }
         
         if (forefronts[i] != nullptr) {
@@ -388,7 +351,7 @@ size_t XdropAligner::push_edit(Mapping *mapping, uint8_t op, char const *alt, si
 }
 
 void XdropAligner::calculate_and_save_alignment(Alignment &alignment, const OrderedGraph& graph, const vector<graph_pos_s>& head_positions,
-                                                size_t tail_node_index, bool left_to_right, dz_s* dz, const vector<const dz_forefront_s*>& forefronts) const
+                                                size_t tail_node_index, bool left_to_right, const vector<const dz_forefront_s*>& forefronts)
 {
 	
     
@@ -658,13 +621,12 @@ void XdropAligner::debug_print(const Alignment& alignment, const OrderedGraph& g
  *
  * Then we extend the head seed backing-downstream, and trace that back to find the optimal alignment.
  */
-void XdropAligner::align(Alignment &alignment, const HandleGraph& graph, const vector<handle_t>& topological_order,
-                         const vector<MaximalExactMatch>& mems, bool reverse_complemented) const
+void XdropAligner::align(Alignment& alignment, const HandleGraph& graph, const vector<MaximalExactMatch>& mems,
+                         bool reverse_complemented, uint16_t max_gap_length)
 {
 
+    vector<handle_t> topological_order = algorithms::lazy_topological_order(&graph);
     const OrderedGraph ordered_graph(graph, topological_order);
-    
-    dz_s* dz = dz_init(score_matrix, gap_open, gap_extend, max_gap_length, full_length_bonus);
     
 	// debug_print(alignment, graph, mems[0], reverse_complemented);
 
@@ -673,7 +635,6 @@ void XdropAligner::align(Alignment &alignment, const HandleGraph& graph, const v
 
 	// extract query
 	const string& query_seq = alignment.sequence();
-	const uint64_t qlen = query_seq.length();
 
 	// construct node_id -> index mapping table
     vector<const dz_forefront_s*> forefronts(ordered_graph.order.size(), nullptr);
@@ -684,30 +645,29 @@ void XdropAligner::align(Alignment &alignment, const HandleGraph& graph, const v
 		// seeds are not available here; probably called from mate_rescue
         
         // scan seed position mems is empty
-		head_pos = scan_seed_position(ordered_graph, query_seq, direction, dz, forefronts);
+		head_pos = scan_seed_position(ordered_graph, query_seq, direction, forefronts, max_gap_length);
 	}
     else {
 		// ordinary extension DP
         
         // we need seed to build edge table (for semi-global extension)
-		graph_pos_s seed_pos = calculate_seed_position(ordered_graph, mems, qlen, direction);
+		graph_pos_s seed_pos = calculate_seed_position(ordered_graph, mems, query_seq.size(), direction);
 
-		// pack query (upward)
+        // pack query (upward)
 		const dz_query_s* packed_query_seq_up = (direction
 			? dz_pack_query_reverse(dz, &query_seq.c_str()[0],                     seed_pos.query_offset)
-			: dz_pack_query_forward(dz, &query_seq.c_str()[seed_pos.query_offset], qlen - seed_pos.query_offset)
+			: dz_pack_query_forward(dz, &query_seq.c_str()[seed_pos.query_offset], query_seq.size() - seed_pos.query_offset)
 		);
-
 		// upward extension
 		head_pos = calculate_max_position(ordered_graph, seed_pos,
                                           extend(ordered_graph, packed_query_seq_up,
-                                                 {seed_pos}, direction, dz, forefronts),
-                                          direction, dz, forefronts);
+                                                 {seed_pos}, direction, forefronts, max_gap_length),
+                                          direction, forefronts);
 	}
 	// fprintf(stderr, "head_node_index(%lu), rpos(%lu, %u), qpos(%u), direction(%d)\n", head_pos.node_index, head_pos.node_index, head_pos.ref_offset, head_pos.query_offset, direction);
     
     // Now that we have determined head_pos, do the downward alignment from there, and the traceback.
-    align_downward(alignment, ordered_graph, {head_pos}, reverse_complemented, dz, forefronts);
+    align_downward(alignment, ordered_graph, {head_pos}, reverse_complemented, forefronts, max_gap_length);
     
     #ifdef DEBUG
 		if (mems.empty()) {
@@ -715,12 +675,11 @@ void XdropAligner::align(Alignment &alignment, const HandleGraph& graph, const v
         }
 	#endif
     
-    dz_destroy(dz);
     // bench_end(bench);
 }
     
 void XdropAligner::align_downward(Alignment &alignment, const OrderedGraph& graph, const vector<graph_pos_s>& head_positions,
-                                  bool left_to_right, dz_s* dz, vector<const dz_forefront_s*>& forefronts) const
+                                  bool left_to_right, vector<const dz_forefront_s*>& forefronts, uint16_t max_gap_length)
 { 
 
     // we're now allowing multiple graph start positions, but not multiple read start positions
@@ -740,38 +699,23 @@ void XdropAligner::align_downward(Alignment &alignment, const OrderedGraph& grap
 
 	// downward extension
 	calculate_and_save_alignment(alignment, graph, head_positions,
-                                 extend(graph, packed_query_seq_dn,
-                                        head_positions,
-                                        !left_to_right, dz, forefronts),
-                                 left_to_right, dz, forefronts);
+                                 extend(graph, packed_query_seq_dn, head_positions, !left_to_right,
+                                        forefronts, max_gap_length),
+                                 left_to_right, forefronts);
     
+    // clear the memory
 	dz_flush(dz);
 }
 
-void XdropAligner::align(Alignment &alignment, const HandleGraph& graph, const vector<MaximalExactMatch>& mems,
-                         bool reverse_complemented) const
-{
-    align(alignment, graph, algorithms::topological_order(&graph), mems, reverse_complemented);
-}
-
-void XdropAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const
+void XdropAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, uint16_t max_gap_length)
 {
     // Compute our own topological order
-    vector<handle_t> order = algorithms::topological_order(&g);
+    vector<handle_t> order = algorithms::lazy_topological_order(&g);
     
-    // Align with it
-    align_pinned(alignment, g, order, pin_left);
-}
-
-void XdropAligner::align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order, bool pin_left) const
-{
     if (order.empty()) {
         // Can't do anything with no nodes in the graph.
         return;
     }
-    
-    // Make a new dozeu instance
-    dz_s* dz = dz_init(score_matrix, gap_open, gap_extend, max_gap_length, full_length_bonus);
     
     // Dozeu needs a seed position to start at, but that position doesn't necessarily actually become a match.
     
@@ -804,9 +748,7 @@ void XdropAligner::align_pinned(Alignment& alignment, const HandleGraph& g, cons
     vector<const dz_forefront_s*> forefronts(ordered.order.size(), nullptr);
     
     // Do the left-to-right alignment from the fixed head_pos seed, and then do the traceback.
-    align_downward(alignment, ordered, head_positions, pin_left, dz, forefronts);
-
-    dz_destroy(dz);
+    align_downward(alignment, ordered, head_positions, pin_left, forefronts, max_gap_length);
 }
 
 /**

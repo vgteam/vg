@@ -8,7 +8,7 @@
 #include "../json2pb.h"
 #include <vg/vg.pb.h>
 #include "../vg.hpp"
-#include "../xdrop_aligner.hpp"
+#include "test_aligner.hpp"
 #include "catch.hpp"
 #include "bdsg/hash_graph.hpp"
 
@@ -21,7 +21,9 @@ TEST_CASE("XdropAligner can compute an alignment with no MEMs", "[xdrop][alignme
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 0, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");
@@ -39,7 +41,8 @@ TEST_CASE("XdropAligner can compute an alignment with no MEMs", "[xdrop][alignme
     
     vector<MaximalExactMatch> no_mems;
     
-    aligner.align(aln, graph, no_mems, false);
+    uint16_t max_gap_length =  40;
+    aligner.align_xdrop(aln, graph, no_mems, false, max_gap_length);
     
     // Make sure we got the right score
     REQUIRE(aln.score() == read.size());
@@ -56,7 +59,9 @@ TEST_CASE("XdropAligner can compute an alignment with no MEMs in reverse mode", 
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 0, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
    
     // Build the graph in normal topological order
     Node* n0 = graph.create_node("AGTG");
@@ -77,7 +82,8 @@ TEST_CASE("XdropAligner can compute an alignment with no MEMs in reverse mode", 
     vector<MaximalExactMatch> no_mems;
     
     // All this really changes is that we anchor on the last node instead of the first.
-    aligner.align(aln, graph, no_mems, true);
+    uint16_t max_gap_length =  40;
+    aligner.align_xdrop(aln, graph, no_mems, true);
     
     // Make sure we got the right score
     REQUIRE(aln.score() == read.size());
@@ -97,7 +103,9 @@ TEST_CASE("XdropAligner can compute an alignment with a MEM in the middle", "[xd
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 0, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");
@@ -120,7 +128,8 @@ TEST_CASE("XdropAligner can compute an alignment with a MEM in the middle", "[xd
     fake_mems.back().end = aln.sequence().begin() + 3;
     fake_mems.back().nodes.push_back(gcsa::Node::encode(n0->id(), 1, false));
     
-    aligner.align(aln, graph, fake_mems, false);
+    uint16_t max_gap_length =  40;
+    aligner.align_xdrop(aln, graph, fake_mems, false, max_gap_length);
     
     // Make sure we got the right score
     REQUIRE(aln.score() == read.size());
@@ -137,7 +146,9 @@ TEST_CASE("XdropAligner still incorrectly applies the full length bonus at only 
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 10, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");
@@ -160,7 +171,8 @@ TEST_CASE("XdropAligner still incorrectly applies the full length bonus at only 
     fake_mems.back().end = aln.sequence().begin() + 3;
     fake_mems.back().nodes.push_back(gcsa::Node::encode(n0->id(), 1, false));
     
-    aligner.align(aln, graph, fake_mems, false);
+    uint16_t max_gap_length =  40;
+    aligner.align_xdrop(aln, graph, fake_mems, false, max_gap_length);
     
     // Make sure we got the right score
     size_t expected_score = read.size() + 10 * 1;
@@ -172,7 +184,9 @@ TEST_CASE("XdropAligner still incorrectly applies the full length bonus at only 
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 10, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");
@@ -190,7 +204,8 @@ TEST_CASE("XdropAligner still incorrectly applies the full length bonus at only 
     
     vector<MaximalExactMatch> no_mems;
     
-    aligner.align(aln, graph, no_mems, false);
+    uint16_t max_gap_length =  40;
+    aligner.align_xdrop(aln, graph, no_mems, false, max_gap_length);
     
     size_t expected_score = read.size() + 10 * 1;
     REQUIRE(aln.score() == expected_score);
@@ -201,7 +216,9 @@ TEST_CASE("XdropAligner can be induced to pin with MEMs", "[xdrop][alignment][ma
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 0, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     Node* n0 = graph.create_node("GAAAAAAAAAAAAAAAAAAAAA");
     Node* n1 = graph.create_node("C");
@@ -220,7 +237,8 @@ TEST_CASE("XdropAligner can be induced to pin with MEMs", "[xdrop][alignment][ma
     SECTION("The optimal alignment is foud without a MEM") {
         vector<MaximalExactMatch> no_mems;
         
-        aligner.align(aln, graph, no_mems, false);
+        uint16_t max_gap_length =  40;
+        aligner.align_xdrop(aln, graph, no_mems, false, max_gap_length);
     
         // Make sure we got the right score
         REQUIRE(aln.score() == read.size());
@@ -239,7 +257,8 @@ TEST_CASE("XdropAligner can be induced to pin with MEMs", "[xdrop][alignment][ma
         fake_mems.back().end = aln.sequence().begin() + 1;
         fake_mems.back().nodes.push_back(gcsa::Node::encode(n0->id(), 0, false));
         
-        aligner.align(aln, graph, fake_mems, false);
+        uint16_t max_gap_length =  40;
+        aligner.align_xdrop(aln, graph, fake_mems, false, max_gap_length);
         
         // The score will probably be terrible.
     
@@ -254,7 +273,9 @@ TEST_CASE("XdropAligner can align pinned left", "[xdrop][alignment][mapping]") {
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 10, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");
@@ -271,7 +292,7 @@ TEST_CASE("XdropAligner can align pinned left", "[xdrop][alignment][mapping]") {
     aln.set_sequence(read);
     
     // Align pinned left, letting the graph compute a topological order
-    aligner.align_pinned(aln, graph, true);
+    aligner.align_pinned(aln, graph, true, true);
     
     // Make sure we got the right score.
     // Account for full length bonus, loss of a match, and gain of a mismatch.
@@ -298,7 +319,9 @@ TEST_CASE("XdropAligner can align pinned right", "[xdrop][alignment][mapping]") 
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 10, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");
@@ -315,7 +338,8 @@ TEST_CASE("XdropAligner can align pinned right", "[xdrop][alignment][mapping]") 
     aln.set_sequence(read);
     
     // Align pinned right, letting the graph compute a topological order
-    aligner.align_pinned(aln, graph, false);
+    uint16_t max_gap_length = 40;
+    aligner.align_pinned(aln, graph, false, true, max_gap_length);
     
     // Make sure we got the right score.
     // Account for full length bonus, loss of a match, and gain of a mismatch.
@@ -343,7 +367,9 @@ TEST_CASE("XdropAligner can align pinned left when that is a bad alignment", "[x
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 10, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     Node* n0 = graph.create_node("TTAAGCTGAGGGAATAGTGCCTGGCATCGAGGAAAGCCTCTGA");
     
@@ -352,7 +378,8 @@ TEST_CASE("XdropAligner can align pinned left when that is a bad alignment", "[x
     aln.set_sequence(read);
     
     // Align pinned left, letting the graph compute a topological order
-    aligner.align_pinned(aln, graph, true);
+    uint16_t max_gap_length = 40;
+    aligner.align_pinned(aln, graph, true, true, max_gap_length);
     
     // Make sure we got the right score.
     // Account for full length bonus, two extends, and one open
@@ -375,7 +402,9 @@ TEST_CASE("XdropAligner can align pinned left with a leading insertion", "[xdrop
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 10, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     Node* n0 = graph.create_node("AAAGAGGTCAATAGCCAAAT");
     
@@ -384,7 +413,8 @@ TEST_CASE("XdropAligner can align pinned left with a leading insertion", "[xdrop
     aln.set_sequence(read);
     
     // Align pinned left, letting the graph compute a topological order
-    aligner.align_pinned(aln, graph, true);
+    uint16_t max_gap_length = 40;
+    aligner.align_pinned(aln, graph, true, true, max_gap_length);
     
     // Make sure we got the right score.
     // Account for full length bonus and one open, and the lack of a match on
@@ -409,7 +439,9 @@ TEST_CASE("XdropAligner can align pinned right with a trailing insertion", "[xdr
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 10, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     Node* n0 = graph.create_node("ATTTGGCTATTGACCTCTTT");
     
@@ -418,7 +450,8 @@ TEST_CASE("XdropAligner can align pinned right with a trailing insertion", "[xdr
     aln.set_sequence(read);
     
     // Align pinned right, letting the graph compute a topological order
-    aligner.align_pinned(aln, graph, false);
+    uint16_t max_gap_length = 40;
+    aligner.align_pinned(aln, graph, false, true, max_gap_length);
     
     // Make sure we got the right score.
     // Account for full length bonus and one open, and the lack of a match on
@@ -446,7 +479,9 @@ TEST_CASE("XdropAligner can align pinned left when the entire read is an inserti
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 10, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     Node* n0 = graph.create_node("A");
     
@@ -456,7 +491,8 @@ TEST_CASE("XdropAligner can align pinned left when the entire read is an inserti
     aln.set_sequence(read);
     
     // Align pinned left, letting the graph compute a topological order
-    aligner.align_pinned(aln, graph, true);
+    uint16_t max_gap_length = 40;
+    aligner.align_pinned(aln, graph, true, true, max_gap_length);
     
     // Make sure we got the right score.
     // The whole sequence should just softclip.
@@ -506,12 +542,15 @@ TEST_CASE("XdropAligner can select the best head and tail nodes automatically in
     aln4.set_sequence("CTC");
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 5, 40);
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 5);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
     
-    aligner.align_pinned(aln1, graph, true);
-    aligner.align_pinned(aln2, graph, true);
-    aligner.align_pinned(aln3, graph, false);
-    aligner.align_pinned(aln4, graph, false);
+    uint16_t max_gap_length = 40;
+    aligner.align_pinned(aln1, graph, true, true, max_gap_length);
+    aligner.align_pinned(aln2, graph, true, true, max_gap_length);
+    aligner.align_pinned(aln3, graph, false, true, max_gap_length);
+    aligner.align_pinned(aln4, graph, false, true, max_gap_length);
     
     REQUIRE(aln1.score() == 8);
     REQUIRE(aln2.score() == 8);

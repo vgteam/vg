@@ -194,6 +194,7 @@ int main_align(int argc, char** argv) {
           exit(1);
       }
     }
+    
 
     Alignment alignment;
     if (!ref_seq.empty()) {
@@ -204,8 +205,28 @@ int main_align(int argc, char** argv) {
         SSWAligner ssw = SSWAligner(match, mismatch, gap_open, gap_extend);
         alignment = ssw.align(seq, ref_seq);
     } else {
-        Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus, vg::default_gc_content, seq.size());
-        if(matrix_stream.is_open()) aligner.load_scoring_matrix(matrix_stream);
+        
+        // construct a score matrix
+        int8_t* score_matrix;
+        if (matrix_stream.is_open()) {
+            score_matrix = AlignerClient::parse_matrix(matrix_stream);
+        }
+        else {
+            score_matrix = (int8_t*) malloc(sizeof(int8_t) * 16);
+            for (size_t i = 0; i < 16; ++i) {
+                if (i % 5 == 0) {
+                    score_matrix[i] = match;
+                }
+                else {
+                    score_matrix[i] = -mismatch;
+                }
+            }
+        }
+        
+        // initialize an aligner
+        Aligner aligner = Aligner(score_matrix, gap_open, gap_extend, full_length_bonus, vg::default_gc_content);
+        
+        free(score_matrix);
         
         // put everything on the forward strand
         StrandSplitGraph split(&(*graph));
@@ -221,7 +242,7 @@ int main_align(int argc, char** argv) {
             aligner.align_global_banded(alignment, dag, 1, true);
         }
         else {
-            aligner.align(alignment, dag, true, debug);
+            aligner.align(alignment, dag, true);
         }
         
         // translate back from the overlays

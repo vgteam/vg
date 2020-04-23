@@ -13,6 +13,7 @@
 #include "../handle.hpp"
 
 #include <structures/rank_pairing_heap.hpp>
+#include <sparsepp/spp.h>
 
 namespace vg {
 namespace algorithms {

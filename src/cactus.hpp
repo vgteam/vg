@@ -15,8 +15,8 @@
 #include "vg.hpp"
 
 extern "C" {
-#include "sonLib.h"
-#include "stCactusGraphs.h"
+#include <sonLib/sonLib.h>
+#include <sonLib/stCactusGraphs.h>
 }
 
 using namespace std;

@@ -1041,8 +1041,8 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
-                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse, see constructor for the X-drop threshold
-                    bool print_score_matrices = false);
+                    int xdrop_alignment = 0);                // 1 for forward, >1 for reverse, see constructor for the X-drop threshold
+    
     /// Align without base quality adjusted scores.
     /// Align to the graph.
     /// May modify the graph by re-ordering the nodes.
@@ -1059,8 +1059,7 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
-                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
-                    bool print_score_matrices = false);
+                    int xdrop_alignment = 0);
     Alignment align(const Alignment& alignment,
                     const Aligner* aligner,
                     bool traceback = true,
@@ -1072,8 +1071,7 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
-                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
-                    bool print_score_matrices = false);
+                    int xdrop_alignment = 0);
     
     /// Align with default Aligner.
     /// Align to the graph.
@@ -1089,8 +1087,7 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
-                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
-                    bool print_score_matrices = false);
+                    int xdrop_alignment = 0);                // 1 for forward, >1 for reverse
     /// Align with default Aligner.
     /// Align to the graph.
     /// May modify the graph by re-ordering the nodes.
@@ -1105,8 +1102,7 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
-                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
-                    bool print_score_matrices = false);
+                    int xdrop_alignment = 0);                // 1 for forward, >1 for reverse
     
     /// Align with base quality adjusted scores.
     /// Align to the graph.
@@ -1124,8 +1120,7 @@ public:
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
-                                  int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
-                                  bool print_score_matrices = false);
+                                  int xdrop_alignment = 0);              // 1 for forward, >1 for reverse
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   const QualAdjAligner* qual_adj_aligner,
                                   bool traceback = true,
@@ -1137,8 +1132,7 @@ public:
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
-                                  int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
-                                  bool print_score_matrices = false);
+                                  int xdrop_alignment = 0);              // 1 for forward, >1 for reverse
     /// Align with base quality adjusted scores.
     /// Align to the graph.
     /// May modify the graph by re-ordering the nodes.
@@ -1154,8 +1148,7 @@ public:
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
-                                  int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
-                                  bool print_score_matrices = false);
+                                  int xdrop_alignment = 0);              // 1 for forward, >1 for reverse
     
     
     void paths_between(Node* from, Node* to, vector<Path>& paths);
@@ -1263,8 +1256,7 @@ private:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
-                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
-                    bool print_score_matrices = false);
+                    int xdrop_alignment = 0);                // 1 for forward, >1 for reverse
 
 
 public:

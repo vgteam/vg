@@ -1215,6 +1215,24 @@ vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignmen
                               min_median_mem_coverage_for_split, suboptimal_edge_pruning_factor);
     
 }
+
+MEMClusterer::HitGraph NullClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
+                                                     const GSSWAligner* aligner, size_t min_mem_length) {
+    // intialize the hit nodes, but do not add any edges, and ignore the min mem length
+    return HitGraph(mems, alignment, aligner, 1);
+}
+
+vector<pair<pair<size_t, size_t>, int64_t>>  NullClusterer::pair_clusters(const Alignment& alignment_1,
+                                                                          const Alignment& alignment_2,
+                                                                          const vector<cluster_t*>& left_clusters,
+                                                                          const vector<cluster_t*>& right_clusters,
+                                                                          const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                                          const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
+                                                                          int64_t optimal_separation,
+                                                                          int64_t max_deviation) {
+    // do not cluster pairs.
+    return vector<pair<pair<size_t, size_t>, int64_t>>();
+}
     
 PathOrientedDistanceMeasurer::PathOrientedDistanceMeasurer(const PathPositionHandleGraph* graph,
                                                            const PathComponentIndex* path_component_index) :
@@ -1257,7 +1275,7 @@ int64_t PathOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, cons
         path_strand_dists_2[path_occurrence].emplace_back(step, -((int64_t) offset(pos_2)));
         
 #ifdef debug_algorithms
-        cerr << "[PathDistance] second position " << id(pos_2) << "[" << offset(pos_2) << "]" << (is_rev(pos_2)) ? "-" : "+") << " has an initial path occurrence on " << as_integer(graph->get_path_handle_of_step(step)) << (graph->get_handle_of_step(step) != handle_2 ? "-" : "+") << endl;
+        cerr << "[PathDistance] second position " << id(pos_2) << "[" << offset(pos_2) << "]" << (is_rev(pos_2) ? "-" : "+") << " has an initial path occurrence on " << as_integer(graph->get_path_handle_of_step(step)) << (graph->get_handle_of_step(step) != handle_2 ? "-" : "+") << endl;
 #endif
         
         if (path_strand_dists_1.count(path_occurrence)) {
@@ -1667,7 +1685,6 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
     // now we use the strand clusters and the estimated distances to make the DAG for the
     // approximate MEM alignment
     
-    int64_t match_score = aligner->match;
     int64_t gap_open_score = aligner->gap_open;
     int64_t gap_extension_score = aligner->gap_extension;
     int64_t max_gap = aligner->longest_detectable_gap(alignment);
@@ -2849,7 +2866,12 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     return tv_phase2(pos_1, pos_2, target_value, tolerance, node_to_target_shorter, node_to_target_longer, best_long, next_best, node_to_path);
 }
  
-vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance,  hash_map<pair<id_t, bool>, int64_t> node_to_target_shorter, hash_map<pair<id_t, bool>, int64_t>node_to_target_longer,  pair<int64_t, pair<pair<id_t, bool>, int64_t>> best_long,  pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best, hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>> node_to_path) {
+vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance,
+                                              hash_map<pair<id_t, bool>, int64_t>& node_to_target_shorter,
+                                              hash_map<pair<id_t, bool>, int64_t>& node_to_target_longer,
+                                              pair<int64_t, pair<pair<id_t, bool>, int64_t>>& best_long,
+                                              pair<int64_t, pair<pair<id_t, bool>, int64_t>>& next_best,
+                                              hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>>& node_to_path) {
 //TODO: Any path that has been found is probably still pretty good, could return it here 
 
     DistanceHeuristic& min_distance = *lower_bound_heuristic;
@@ -3128,7 +3150,7 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
 #endif
             
             if (tv_len == read_separation
-                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->begin < hit_node_1.mem->begin)
+                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->end < hit_node_1.mem->end)
                     || (hit_node_2.mem->begin > hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end))) {
                 // this has the appearance of being a redundant hit of a sub-MEM, which we don't want to form
                 // a separate cluster
@@ -3567,18 +3589,20 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
     
     // shim the hit graph nodes into the seed clusterer algorithm interface
-    vector<pos_t> positions(hit_graph.nodes.size());
+    vector<SnarlSeedClusterer::Seed> positions(hit_graph.nodes.size());
     for (size_t i = 0; i < hit_graph.nodes.size(); ++i)  {
-        positions[i] = hit_graph.nodes[i].start_pos;
+        positions[i].pos = hit_graph.nodes[i].start_pos;
     }
-    
+ 
+    typedef SnarlSeedClusterer::Cluster Cluster;
     SnarlSeedClusterer seed_clusterer(*distance_index);
-    vector<vector<size_t>> distance_components = seed_clusterer.cluster_seeds(positions, max_graph_separation);
+    std::vector<Cluster> distance_components = seed_clusterer.cluster_seeds(positions, max_graph_separation);
     
     // these components are returned by the structures::UnionFind::all_groups() method, which
     // always returns them in sorted order, so we can assume that they are still lexicographically
     // ordered internally
-    for (vector<size_t>& component : distance_components) {
+    for (Cluster& cluster : distance_components) {
+        std::vector<size_t>& component = cluster.seeds;
 #ifdef debug_mem_clusterer
         cerr << "looking edges in distance component containing:" << endl;
         for (size_t i : component) {

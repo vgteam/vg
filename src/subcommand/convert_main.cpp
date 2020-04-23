@@ -124,17 +124,27 @@ int main_convert(int argc, char** argv) {
             dynamic_cast<xg::XG*>(output_graph.get())->from_gfa(input_stream_name);
         }
         else {
-            if (output_path_graph != nullptr) {
-                MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
-                assert(mutable_output_graph != nullptr);
-                algorithms::gfa_to_path_handle_graph(input_stream_name, mutable_output_graph,
-                                                     input_stream_name != "-", output_format == "odgi");
-            }
-            else {
-                MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
-                assert(mutable_output_graph != nullptr);
-                algorithms::gfa_to_handle_graph(input_stream_name, mutable_output_graph,
-                                                input_stream_name != "-", false);
+            try {
+                if (output_path_graph != nullptr) {
+                    MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
+                    assert(mutable_output_graph != nullptr);
+                    algorithms::gfa_to_path_handle_graph(input_stream_name, mutable_output_graph,
+                                                         input_stream_name != "-", output_format == "odgi");
+                }
+                else {
+                    MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
+                    assert(mutable_output_graph != nullptr);
+                    algorithms::gfa_to_handle_graph(input_stream_name, mutable_output_graph,
+                                                    input_stream_name != "-", false);
+                }
+            } catch (algorithms::GFAFormatError& e) {
+                cerr << "error [vg convert]: Input GFA is not acceptable." << endl;
+                cerr << e.what() << endl;
+                exit(1);
+            } catch (std::ios_base::failure& e) {
+                cerr << "error [vg convert]: IO error processing input GFA." << endl;
+                cerr << e.what() << endl;
+                exit(1);
             }
         }
     }

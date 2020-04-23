@@ -679,6 +679,7 @@ int main_msga(int argc, char** argv) {
             mapper->mapping_quality_method = mapping_quality_method;
             mapper->max_mapping_quality = max_mapping_quality;
             mapper->patch_alignments = patch_alignments;
+            mapper->max_xdrop_gap_length = default_xdrop_max_gap_length;
         }
     };
 
