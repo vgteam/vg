@@ -46,7 +46,8 @@ public:
     /// record_bases : Store the base coverage
     /// record_edges : Store the edge coverage
     /// record_edits : Store the edits
-    Packer(const HandleGraph* graph, size_t bin_size = 0, size_t coverage_bins = 1, size_t data_width = 8, bool record_bases = true, bool record_edges = true, bool record_edits = true);
+    /// record_qualities : Store the average MAPQ for each node rank
+    Packer(const HandleGraph* graph, size_t bin_size = 0, size_t coverage_bins = 1, size_t data_width = 8, bool record_bases = true, bool record_edges = true, bool record_edits = true, bool record_qualities = true);
     ~Packer();
     void clear();
 
@@ -54,8 +55,7 @@ public:
     /// aln : given alignemnt
     /// min_mapq : ignore alignments with mapping_quality below this value
     /// min_baseq : ignore bases in the alignment if their read quality is below this value
-    /// qual_adjust : instead of incrementing the coverage by 1, increment it by the quality (mapq and baseq combined)
-    void add(const Alignment& aln, int min_mapq = 0, int min_baseq = 0, bool qual_adjust = false);
+    void add(const Alignment& aln, int min_mapq = 0, int min_baseq = 0);
 
     void merge_from_files(const vector<string>& file_names);
     void merge_from_dynamic(vector<Packer*>& packers);
@@ -75,6 +75,7 @@ public:
     void collect_coverage(const vector<Packer*>& packers);
     ostream& as_table(ostream& out, bool show_edits, vector<vg::id_t> node_ids);
     ostream& as_edge_table(ostream& out, vector<vg::id_t> node_ids);
+    ostream& as_quality_table(ostream& out, vector<vg::id_t> node_ids);
     ostream& show_structure(ostream& out); // debugging
     void write_edits(vector<ofstream*>& out) const; // for merge
     void write_edits(ostream& out, size_t bin) const; // for merge
@@ -93,18 +94,34 @@ public:
     /// or 0 if the edge does not exist in the graph.
     size_t edge_index(const Edge& e) const;
     void increment_edge_coverage(size_t i);
-    void increment_edge_coverage(size_t i, size_t v);    
-   
+    void increment_edge_coverage(size_t i, size_t v);
+
+    /// total node quality (faster from dynamimc)
+    size_t total_node_quality(size_t i) const;
+    /// average node quality (faster from static)
+    size_t average_node_quality(size_t i) const;
+    size_t node_quality_vector_size(void) const;
+    /// Return the 1-based node rank or 0 if node not in graph
+    size_t node_index(nid_t node_id) const;
+    /// and back
+    nid_t index_to_node(size_t i) const;
+    void increment_node_quality(size_t i, size_t v);
+    /// return true if there's at least one nonzero quality in the structure
+    bool has_qualities() const;
+    
 private:
     /// map from absolute postion to positions in the binned arrays
     pair<size_t, size_t> coverage_bin_offset(size_t i) const;
     pair<size_t, size_t> edge_coverage_bin_offset(size_t i) const;
+    pair<size_t, size_t> node_quality_bin_offset(size_t i) const;
     /// get the size of a bin
     size_t coverage_bin_size(size_t i) const;
     size_t edge_coverage_bin_size(size_t i) const;
+    size_t node_quality_bin_size(size_t i) const;
     /// initialize coverage bins on demand
     void init_coverage_bin(size_t i);
     void init_edge_coverage_bin(size_t i);
+    void init_node_quality_bin(size_t i);
     
     void ensure_edit_tmpfiles_open(void);
     void close_edit_tmpfiles(void);
@@ -116,9 +133,10 @@ private:
 
     // data with for counter arrays
     size_t data_width;
-    // bin sizes (last bins may be a bit bicker)
+    // bin sizes (last bins may be a bit bigger)
     size_t cov_bin_size;
     size_t edge_cov_bin_size;
+    size_t node_qual_bin_size;
 
     // dynamic model
     // base coverage.  we bin to make merging faster
@@ -133,6 +151,15 @@ private:
     size_t num_edges_dynamic;
     // one mutex per element of edge_coverage_dynamic
     std::mutex* edge_locks;
+    // node qualities
+    // in the dynamic structure, we keep count of total quality for a node
+    // and it gets averaged out in the static, so slightly different
+    // semantics than the node and edge coverage which store the same information
+    vector<gcsa::CounterArray*> node_quality_dynamic;
+    // total length of above
+    size_t num_nodes_dynamic;
+    // one mutex per element of node_quality_dynamic
+    std::mutex* node_quality_locks;
     
     vector<string> edit_tmpfile_names;
     vector<ofstream*> tmpfstreams;
@@ -145,6 +172,7 @@ private:
     size_t edit_count = 0;
     dac_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
     vlc_vector<> edge_coverage_civ; // edge coverage (compacted edge_coverage_dynamic)
+    vlc_vector<> node_quality_civ; // averge mapq for each node rank (compacted node_quality_dynamic)
     // edits
     vector<csa_sada<enc_vector<>, 32, 32, sa_order_sa_sampling<>, isa_sampling<>, succinct_byte_alphabet<> > > edit_csas;
     // make separators that are somewhat unusual, as we escape these
@@ -161,6 +189,7 @@ private:
     bool record_bases;
     bool record_edges;
     bool record_edits;
+    bool record_qualities;
     
     // Combine the MAPQ and base quality (if available) for a given position in the read
     int compute_quality(const Alignment& aln, size_t position_in_read) const;

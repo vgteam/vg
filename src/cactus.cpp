@@ -6,11 +6,6 @@
 #include "algorithms/strongly_connected_components.hpp"
 #include "algorithms/find_shortest_paths.hpp"
 
-extern "C" {
-#include "sonLib.h"
-#include "stCactusGraphs.h"
-}
-
 //#define debug
 
 namespace vg {

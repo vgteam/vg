@@ -130,6 +130,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_STRIP_COUNT 1016
     #define OPT_SECONDARY_RESCUE_ATTEMPTS 1017
     #define OPT_SECONDARY_MAX_DIFF 1018
+    #define OPT_NO_CLUSTER 1019
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -181,6 +182,7 @@ int main_mpmap(int argc, char** argv) {
     bool use_min_dist_clusterer = false;
     bool greedy_min_dist = false;
     bool component_min_dist = false;
+    bool no_clustering = false;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Exact;
@@ -290,6 +292,7 @@ int main_mpmap(int argc, char** argv) {
             {"min-dist-cluster", no_argument, 0, OPT_MIN_DIST_CLUSTER},
             {"greedy-min-dist", no_argument, 0, OPT_GREEDY_MIN_DIST},
             {"component-min-dist", no_argument, 0, OPT_COMPONENT_MIN_DIST},
+            {"no-cluster", no_argument, 0, OPT_NO_CLUSTER},
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, OPT_PRUNE_EXP},
             {"long-read-scoring", no_argument, 0, 'E'},
@@ -569,6 +572,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_COMPONENT_MIN_DIST:
                 component_min_dist = true;
+                break;
+                
+            case OPT_NO_CLUSTER:
+                no_clustering = true;
                 break;
                 
             case 'C':
@@ -880,6 +887,10 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (no_clustering && !distance_index_name.empty()) {
+        cerr << "warning:[vg mpmap] no clustering option (--no-cluster) causes distance index (-d) to be ignored" << endl;
+    }
+    
     if (suboptimal_path_exponent < 1.0) {
         cerr << "error:[vg mpmap] Suboptimal path likelihood root (--prune-exp) set to " << suboptimal_path_exponent << ", must set to at least 1.0." << endl;
         exit(1);
@@ -1003,7 +1014,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     ifstream distance_index_stream;
-    if (!distance_index_name.empty()) {
+    if (!distance_index_name.empty() && !no_clustering) {
         distance_index_stream.open(distance_index_name);
         if (!distance_index_stream) {
             cerr << "error:[vg mpmap] Cannot open distance index file " << distance_index_name << endl;
@@ -1108,7 +1119,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     unique_ptr<MinimumDistanceIndex> distance_index;
-    if (!distance_index_name.empty()) {
+    if (!distance_index_name.empty() && !no_clustering) {
         if (!suppress_progress) {
             cerr << "[vg mpmap] loading distance index from " << distance_index_name << endl;
         }
@@ -1176,6 +1187,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.force_haplotype_count = force_haplotype_count;
     
     // set pruning and clustering parameters
+    multipath_mapper.no_clustering = no_clustering;
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
     multipath_mapper.use_min_dist_clusterer = use_min_dist_clusterer;
     multipath_mapper.greedy_min_dist = greedy_min_dist;

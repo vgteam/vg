@@ -169,6 +169,7 @@ namespace vg {
         bool use_min_dist_clusterer = false;
         bool greedy_min_dist = false;
         bool component_min_dist = false;
+        bool no_clustering = false;
         // length of reversing walks during graph extraction
         size_t reversing_walk_length = 0;
         bool suppress_p_value_memoization = false;
