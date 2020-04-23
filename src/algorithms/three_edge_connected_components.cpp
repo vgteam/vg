@@ -681,8 +681,6 @@ void three_edge_connected_components_dense(size_t node_count, size_t first_root,
     }
 }
 
-#define debug
-
 void three_edge_connected_components_dense_cactus(size_t node_count, 
     const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
     const function<void(const function<void(const function<void(size_t)>&)>&)>& component_callback) {

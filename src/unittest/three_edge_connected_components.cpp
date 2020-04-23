@@ -63,7 +63,7 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
         SECTION("Works with Cactus") {
             algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);
             
-            REQUIRE(components.size() == 4);
+            REQUIRE(components.all_groups().size() == 1);
             REQUIRE(components.group_size(0) == 4);
             REQUIRE(components.group_size(1) == 4);
             REQUIRE(components.group_size(2) == 4);
@@ -73,7 +73,7 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
         SECTION("Works with Tsin 2014") {
             algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
             
-            REQUIRE(components.size() == 4);
+            REQUIRE(components.all_groups().size() == 1);
             REQUIRE(components.group_size(0) == 4);
             REQUIRE(components.group_size(1) == 4);
             REQUIRE(components.group_size(2) == 4);
@@ -81,7 +81,44 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
         }
     }
     
-    SECTION("The Tsin 2007 paper graph works") {
+    SECTION("A graph with a bridge edge") {
+        // This is two k-4s connected by a single edge
+        adjacencies = {{1, 2, 3}, {0, 2, 3}, {0, 1, 3}, {0, 1, 2, 7},
+                       {5, 6, 7}, {4, 6, 7}, {4, 5, 7}, {4, 5, 6, 3}};
+        components = structures::UnionFind(adjacencies.size(), true);
+        
+        SECTION("Works with Cactus") {
+            algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);
+            
+            REQUIRE(components.all_groups().size() == 2);
+            REQUIRE(components.group_size(0) == 4);
+            REQUIRE(components.group_size(1) == 4);
+            REQUIRE(components.group_size(2) == 4);
+            REQUIRE(components.group_size(3) == 4);
+            
+            REQUIRE(components.group_size(4) == 4);
+            REQUIRE(components.group_size(5) == 4);
+            REQUIRE(components.group_size(6) == 4);
+            REQUIRE(components.group_size(7) == 4);
+        }
+        
+        SECTION("Works with Tsin 2014") {
+            algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
+            
+            REQUIRE(components.all_groups().size() == 2);
+            REQUIRE(components.group_size(0) == 4);
+            REQUIRE(components.group_size(1) == 4);
+            REQUIRE(components.group_size(2) == 4);
+            REQUIRE(components.group_size(3) == 4);
+            
+            REQUIRE(components.group_size(4) == 4);
+            REQUIRE(components.group_size(5) == 4);
+            REQUIRE(components.group_size(6) == 4);
+            REQUIRE(components.group_size(7) == 4);
+        }
+    }
+    
+    SECTION("The Tsin 2007 paper graph works in Tsin 2014") {
         // We reverse the adjacency lists because we reaverse them back to
         // front in our DFS, and we want to match the paper's example.
         // We add in a separate node 0 component so we can use the 1-based IDs in the paper.
