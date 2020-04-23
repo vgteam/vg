@@ -154,13 +154,13 @@
 </tr>
 <tr><td><a href="#Properties">
                                     Properties (
-                                    26
+                                    29
                                     )
                             </a></td></tr>
 <tr>
 <td><a style="objectPropertySearch" href="#ObjectProperties">
                                     Object properties (
-                                    20
+                                    22
                                     )
                             </a></td>
 <td><select onChange="window.location.hash = document.getElementById('navi3').value" id="navi3"><option value="arrival">
@@ -179,6 +179,8 @@
 				vg:forwardBinEdge</option>
 <option value="forwardComponentEdge">
 				vg:forwardComponentEdge</option>
+<option value="forwardLinkEdge">
+				vg:forwardLinkEdge</option>
 <option value="linkPaths">
 				vg:linkPaths</option>
 <option value="links">
@@ -201,13 +203,15 @@
 				vg:reverseBinEdge</option>
 <option value="reverseComponentEdge">
 				vg:reverseComponentEdge</option>
+<option value="reverseLinkEdge">
+				vg:reverseLinkEdge</option>
 <option value="reverseOfNode">
 				vg:reverseOfNode</option></select></td>
 </tr>
 <tr>
 <td><a style="datatypePropertySearch" href="#DatatypeProperties">
                                     Datatype properties (
-                                    6
+                                    7
                                     )
                             </a></td>
 <td><select onChange="window.location.hash = window.location.hash = document.getElementById('navi4').value" id="navi4"><option value="binRank">
@@ -216,6 +220,8 @@
 				vg:componentRank</option>
 <option value="inversionPercent">
 				vg:inversionPercent</option>
+<option value="linkRank">
+				vg:linkRank</option>
 <option value="positionPercent">
 				vg:positionPercent</option>
 <option value="rank">
@@ -1164,6 +1170,48 @@
 </tbody>
 </table>
 <table class="subsection">
+<a name="http://biohackathon.org/resource/vg#forwardLinkEdge"></a><tbody>
+<tr><th id="forwardLinkEdge">
+				vg:forwardLinkEdge<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The super property that says two links are linked in forward orientation on the link column."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"forwardLinkEdge"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
 <a name="http://biohackathon.org/resource/vg#linkPaths"></a><tbody>
 <tr><th id="linkPaths">
 				vg:linkPaths<span class="cp-type">
@@ -1686,6 +1734,48 @@
 </tbody>
 </table>
 <table class="subsection">
+<a name="http://biohackathon.org/resource/vg#reverseLinkEdge"></a><tbody>
+<tr><th id="reverseLinkEdge">
+				vg:reverseLinkEdge<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The super property that says two links are linked in reverse orientation on the link column."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"reverseLinkEdge"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2002/07/owl#inverseOf">
+					owl:inverseOf</a></td>
+<td><a href="http://biohackathon.org/resource/vg#forwardLinkEdge">
+				vg:forwardLinkEdge</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
 <a name="http://biohackathon.org/resource/vg#reverseOfNode"></a><tbody>
 <tr><th id="reverseOfNode">
 				vg:reverseOfNode<span class="cp-type">
@@ -1851,6 +1941,48 @@
 					rdfs:range</a></td>
 <td><a href="http://www.w3.org/2001/XMLSchema#float">
 				xsd:float</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#linkRank"></a><tbody>
+<tr><th id="linkRank">
+				vg:linkRank<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#DatatypeProperty">
+					owl:DatatypeProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The rank records that step place along a link column."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"linkRank"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://www.w3.org/2001/XMLSchema#positiveInteger">
+				xsd:positiveInteger</a></td>
 </tr>
 </tbody>
 </table>

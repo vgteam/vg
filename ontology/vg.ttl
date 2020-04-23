@@ -114,64 +114,6 @@
   rdfs:label "reverseOfNode"^^xsd:string ;
   rdfs:range :Node ;
 .
-:Bin
-  rdf:type owl:Class ;
-  rdfs:comment "A bin in the output of odgi bin, representing a sequence section."^^xsd:string ;
-  rdfs:label "Bin"^^xsd:string ;
-  rdfs:subClassOf owl:Thing ;
-.
-:Link
-  rdf:type owl:Class ;
-  rdfs:comment "A link marks a graph traversal along a nonlinear connection."^^xsd:string ;
-  rdfs:label "Link"^^xsd:string ;
-  rdfs:subClassOf owl:Thing ;
-.
-:binRank
-  rdf:type owl:DatatypeProperty ;
-  rdfs:comment "The rank records that step place along its pangenome sequence."^^xsd:string ;
-  rdfs:domain :Bin ;
-  rdfs:label "binRank"^^xsd:string ;
-  rdfs:range xsd:positiveInteger ;
-.
-:forwardBinEdge
-  rdf:type owl:ObjectProperty ;
-  owl:inverseOf :reverseBinEdge ;
-  rdfs:comment "The super property that says two bins are linked in forward orientation on the pangenome sequence."^^xsd:string ;
-  rdfs:domain :Bin ;
-  rdfs:label "forwardBinEdge"^^xsd:string ;
-  rdfs:domain :Bin ;
-.
-:reverseBinEdge
-  rdf:type owl:ObjectProperty ;
-  owl:inverseOf :forwardBinEdge ;
-  rdfs:comment "The super property that says two bins are linked in reverse orientation on the pangenome sequence."^^xsd:string ;
-  rdfs:domain :Bin ;
-  rdfs:label "reverseBinEdge"^^xsd:string ;
-  rdfs:domain :Bin ;
-.
-:arrival
-  rdf:type owl:ObjectProperty ;
-  rdfs:comment "An end bin of nonlinear link. Incoming edge of the bin."^^xsd:string ;
-  owl:inverseOf :departure;
-  rdfs:domain :Link ;
-  rdfs:label "arrival"^^xsd:string ;
-  rdfs:range :Bin ;
-.
-:departure
-  rdf:type owl:ObjectProperty ;
-  rdfs:comment "A start bin of nonlinear link. Outgoing edge of the bin."^^xsd:string ;
-  owl:inverseOf :arrival;
-  rdfs:domain :Link ;
-  rdfs:label "departure"^^xsd:string ;
-  rdfs:range :Bin ;
-.
-:linkPaths
-  rdf:type owl:ObjectProperty ;
-  rdfs:comment "A list of paths that follow the same non-linear link between two bins."^^xsd:string ;
-  rdfs:domain :Link ;
-  rdfs:label "linkPaths"^^xsd:string ;
-  rdfs:range :Path ;
-.
 :ZoomLevel
   rdf:type owl:Class ;
   rdfs:comment "A zoom level of Pangenome."^^xsd:string ;
@@ -226,6 +168,86 @@
   rdfs:domain :Component ;
   rdfs:label "bins"^^xsd:string ;
   rdfs:range :Bin ;
+.
+:Bin
+  rdf:type owl:Class ;
+  rdfs:comment "A bin in the output of odgi bin, representing a sequence section."^^xsd:string ;
+  rdfs:label "Bin"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:binRank
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The rank records that step place along its pangenome sequence."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "binRank"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:forwardBinEdge
+  rdf:type owl:ObjectProperty ;
+  owl:inverseOf :reverseBinEdge ;
+  rdfs:comment "The super property that says two bins are linked in forward orientation on the pangenome sequence."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "forwardBinEdge"^^xsd:string ;
+  rdfs:domain :Bin ;
+.
+:reverseBinEdge
+  rdf:type owl:ObjectProperty ;
+  owl:inverseOf :forwardBinEdge ;
+  rdfs:comment "The super property that says two bins are linked in reverse orientation on the pangenome sequence."^^xsd:string ;
+  rdfs:domain :Bin ;
+  rdfs:label "reverseBinEdge"^^xsd:string ;
+  rdfs:domain :Bin ;
+.
+:Link
+  rdf:type owl:Class ;
+  rdfs:comment "A link marks a graph traversal along a nonlinear connection."^^xsd:string ;
+  rdfs:label "Link"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:arrival
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "An end bin of nonlinear link. Incoming edge of the bin."^^xsd:string ;
+  owl:inverseOf :departure;
+  rdfs:domain :Link ;
+  rdfs:label "arrival"^^xsd:string ;
+  rdfs:range :Bin ;
+.
+:departure
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A start bin of nonlinear link. Outgoing edge of the bin."^^xsd:string ;
+  owl:inverseOf :arrival;
+  rdfs:domain :Link ;
+  rdfs:label "departure"^^xsd:string ;
+  rdfs:range :Bin ;
+.
+:linkPaths
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A list of paths that follow the same non-linear link between two bins."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "linkPaths"^^xsd:string ;
+  rdfs:range :Path ;
+.
+:forwardLinkEdge
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "The super property that says two links are linked in forward orientation on the link column."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "forwardLinkEdge"^^xsd:string ;
+  rdfs:range :Link ;
+.
+:reverseLinkEdge
+  rdf:type owl:ObjectProperty ;
+  owl:inverseOf :forwardLinkEdge ;
+  rdfs:comment "The super property that says two links are linked in reverse orientation on the link column."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "reverseLinkEdge"^^xsd:string ;
+  rdfs:domain :Link ;
+.
+:linkRank
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The rank records that step place along a link column."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "linkRank"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
 .
 :cells
   rdf:type owl:ObjectProperty ;
