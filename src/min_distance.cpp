@@ -71,7 +71,7 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
         if (seen_snarls.count(snarl) == 0){
 
             //Assign this connected component to the chain index we're about to make
-            if (component_to_chain_index.size() < curr_component-1) {
+            if (component_to_chain_index.size() < curr_component) {
                 component_to_chain_index.resize(curr_component);
             }
             component_to_chain_index[curr_component-1] = chain_indexes.size();
