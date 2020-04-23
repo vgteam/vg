@@ -275,19 +275,16 @@ class SnarlSeedClusterer {
         NodeClusters cluster_one_node(TreeState& tree_state, 
                                           id_t node_id, int64_t node_length) const; 
 
-        //Cluster the seeds in a chain given by chain_index_i, an index into
-        //dist_index.chain_indexes
-        NodeClusters cluster_one_chain(TreeState& tree_state,
-                                           size_t chain_index_i) const;
 
         //Cluster the seeds in a snarl given by snarl_index_i, an index into
         //dist_index.snarl_indexes
         NodeClusters cluster_one_snarl(TreeState& tree_state,
                                        size_t snarl_index_i) const;
 
-        //Combine the top-level clusters from individual seeds in tree_state.top_level_seed_clusters
-        //with the clusters of other seeds in tree_state.top_level_clusters
-        void cluster_one_top_level_chain(TreeState& tree_state, size_t chain_i, size_t depth) const;
+        //Cluster the seeds in a chain given by chain_index_i, an index into
+        //dist_index.chain_indexes
+        //If the depth is 0, also incorporate the top-level seeds from tree_state.top_level_seed_clusters
+        NodeClusters cluster_one_chain(TreeState& tree_state, size_t chain_i, size_t depth) const;
 
         //Given a vector of only top level seeds, cluster them
         void cluster_only_top_level_seed_clusters(TreeState& tree_state, vector<pair<size_t, size_t>>& seed_clusters) const;
