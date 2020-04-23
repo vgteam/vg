@@ -84,6 +84,8 @@ On top of VG RDF, we can describe the same path information on Pantograph format
 <pg/zoom1000/link1> a vg:Link ; # This is a non-linear connection between Bins.
    vg:arrival <pg/zoom1000/component1/bin1>
    vg:departure <pg/zoom1000/component2/bin2>
+   vg:forwardLinkEdge <pg/zoom1000/link2> ;
+   vg:linkRank 1 ;
    vg:linkPaths <path1> <path2> # Participants of the link
 <path1/region/6-100> a faldo:Region ;
    faldo:begin <path1/position/6>  ;
