@@ -159,8 +159,8 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:aa9837be5f0b807534244afe266208448"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adba05a33bf075eb3eb7260e229245f06"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#adba05a33bf075eb3eb7260e229245f06">reorder_adjacency_lists</a> (const vector&lt; size_t &gt; &amp;order)</td></tr>
 <tr class="separator:adba05a33bf075eb3eb7260e229245f06"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aee4f887b7ce1bef26935c7416d7ae2fc"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; bool, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aee4f887b7ce1bef26935c7416d7ae2fc">align_tails</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t max_alt_alns, bool dynamic_alt_alns, unordered_set&lt; size_t &gt; *sources=nullptr)</td></tr>
-<tr class="separator:aee4f887b7ce1bef26935c7416d7ae2fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a10b2f3e5c9358da574eb093249d9b2e3"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; bool, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a10b2f3e5c9358da574eb093249d9b2e3">align_tails</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t max_alt_alns, bool dynamic_alt_alns, size_t min_paths, unordered_set&lt; size_t &gt; *sources=nullptr)</td></tr>
+<tr class="separator:a10b2f3e5c9358da574eb093249d9b2e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-methods"></a>
 Static Private Member Functions</h2></td></tr>
@@ -825,8 +825,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aee4f887b7ce1bef26935c7416d7ae2fc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aee4f887b7ce1bef26935c7416d7ae2fc">&#9670;&nbsp;</a></span>align_tails()</h2>
+<a id="a10b2f3e5c9358da574eb093249d9b2e3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a10b2f3e5c9358da574eb093249d9b2e3">&#9670;&nbsp;</a></span>align_tails()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -867,6 +867,12 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>min_paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">unordered_set&lt; size_t &gt; *&#160;</td>
           <td class="paramname"><em>sources</em> = <code>nullptr</code>&#160;</td>
         </tr>
@@ -882,7 +888,7 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Generate alignments of the tails of the query sequence, beyond the sources and sinks. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the one that owns the sequence we are working on. Returns a map from tail (left=false, right=true), to a map from subpath number to all the Alignments of the tail off of that subpath. Also computes the source subpaths and adds their numbers to the given set if not null. </p>
+<p>Generate alignments of the tails of the query sequence, beyond the sources and sinks. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the one that owns the sequence we are working on. Returns a map from tail (left=false, right=true), to a map from subpath number to all the Alignments of the tail off of that subpath. Also computes the source subpaths and adds their numbers to the given set if not null. If dynamic alignment count is also selected, can indicate a minimum number of paths that must be in the extending graph in order to do an alignment </p>
 
 </div>
 </div>
