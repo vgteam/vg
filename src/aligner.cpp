@@ -1150,7 +1150,21 @@ void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_
         // for every alignment, which meshes poorly with its stack implementation. We achieve
         // thread-safety by having one per thread, which makes this method const-ish.
         XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
-        xdrop.align_pinned(alignment, g, pin_left, xdrop_max_gap_length);
+        
+        // wrap the graph so that empty pinning points are handled correctly
+        DozeuGraphWrapper wrapper(&g, !pin_left);
+        
+        // do the alignment
+        xdrop.align_pinned(alignment, wrapper, pin_left, xdrop_max_gap_length);
+        
+        if (wrapper.performed_duplications()) {
+            // the overlay wrapper is not a strict subset of the underlying graph, so we may
+            // need to translate some node IDs
+            translate_oriented_node_ids(*alignment.mutable_path(), [&](id_t node_id) {
+                handle_t under = wrapper.get_underlying_handle(wrapper.get_handle(node_id));
+                return make_pair(g.get_id(under), g.get_is_reverse(under));
+            });
+        }
     }
     else {
         align_internal(alignment, nullptr, g, true, pin_left, 1, true);
@@ -1678,7 +1692,20 @@ void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bo
         // for every alignment, which meshes poorly with its stack implementation. We achieve
         // thread-safety by having one per thread, which makes this method const-ish.
         QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
+        
+        // wrap the graph so that empty pinning points are handled correctly
+        DozeuGraphWrapper wrapper(&g, !pin_left);
+        
         xdrop.align_pinned(alignment, g, pin_left, xdrop_max_gap_length);
+        
+        if (wrapper.performed_duplications()) {
+            // the overlay wrapper is not a strict subset of the underlying graph, so we may
+            // need to translate some node IDs
+            translate_oriented_node_ids(*alignment.mutable_path(), [&](id_t node_id) {
+                handle_t under = wrapper.get_underlying_handle(wrapper.get_handle(node_id));
+                return make_pair(g.get_id(under), g.get_is_reverse(under));
+            });
+        }
     }
     else {
         align_internal(alignment, nullptr, g, true, pin_left, 1, true);
