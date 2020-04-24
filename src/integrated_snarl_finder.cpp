@@ -10,7 +10,7 @@
 #include <bdsg/overlays/overlay_helper.hpp>
 #include <structures/union_find.hpp>
 
-#include <utility>
+#include <array>
 
 namespace vg {
 
@@ -87,8 +87,19 @@ public:
     /// self-loops.
     vector<pair<size_t, vector<handle_t>>> longest_cycles_in_connected_components(const function<void(handle_t, handle_t)>& move_in_same_circles) const;
     
-    /// Return the path length (total edge length in bp) and edges for the longst path in each tree in a forest.
-    vector<pair<size_t, vector<handle_t>>> longest_paths_in_forest() const;
+    /// Return the path length (total edge length in bp) and edges for the
+    /// longst path in each tree in a forest. Ignores self loops on tree nodes.
+    ///
+    /// Also return the map from the head of each component to the edge into
+    /// the child that is first along the longest path to a leaf. For
+    /// components not themselves on the longest leaf-leaf path in their tree,
+    /// these will always be dangling off/rooted by the longest leaf-leaf path
+    /// or longest simple cycle merged away, whichever is longer.
+    ///
+    /// Needs access to the longest simple cycles that were merged out, if any.
+    /// If a path in the forest doesn't beat the length of the cycle that lives
+    /// in its tree, it is omitted.
+    pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> longest_paths_in_forest(const vector<pair<size_t, vector<handle_t>>>& longest_simple_cycles) const;
 };
 
 size_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_rank(handle_t into) const {
@@ -390,7 +401,8 @@ vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGra
     return to_return;
 }
 
-vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGraph::longest_paths_in_forest() const {
+pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> IntegratedSnarlFinder::MergedAdjacencyGraph::longest_paths_in_forest(
+    const vector<pair<size_t, vector<handle_t>>>& longest_simple_cycles) const {
     
     // TODO: somehow unify DFS logic with cycle-finding DFS in a way that still
     // allows us to inspect our stack in each case?
@@ -400,13 +412,53 @@ vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGra
     // ought to overlap substantially, but either may be the real winner when
     // we get to where we rooted the DFS.
     
-    // When we find a longest path, we put its length and value in here. We
-    // describe it as edges followed.
-    vector<pair<size_t, vector<handle_t>>> to_return;
+    // Set up the return value
+    pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> to_return;
     
-    // We only need the tree edges, so we only need visited flags on the heads
-    // representing nodes.
-    unordered_set<handle_t> visited;
+    // When we find a longest path in a connected component (tree), we put its
+    // length and value in here. We describe it as edges followed.
+    auto& longest_tree_paths = to_return.first;
+    
+    // We use this as part of our DFS scratch to record the first edge on the
+    // deepest path to a leaf in a subtree. The actual length of that path is
+    // stored in the main record for the head of the component the given edge
+    // reaches. If we find a longest leaf-leaf path in the tree that beats the
+    // simple cycle (if any), we rewrite this to be rooted somewhere along that
+    // leaf-leaf path. Indexed by head.
+    auto& deepest_child_edge = to_return.second;
+    
+    // The DFS also needs records, one per component, indexed by head.
+    // Absence of a record = unvisited.
+    struct DFSRecord {
+        // Remember the edge to traverse to get back to the parent, so we can
+        // find the path from the longest leaf-leaf path's converging node to
+        // the DFS root if we need it.
+        handle_t parent_edge;
+        // How long is the deepest path to a leaf from here, plus the length of
+        // the edge followed to here from the parent?
+        // Filled in when we leave the stack, by looking at deepest_child_edge.
+        size_t leaf_path_length = 0;
+        // What edge goes to the second-deepest child, if we have one, to form
+        // the longest leaf-leaf path converging here?
+        handle_t second_deepest_child_edge;
+        // And do we have such a second-deepest child?
+        bool has_second_deepest_child = false;
+        // And what head in the graph is the convergance point of the longest
+        // leaf-leaf path in our subtree? If it points to us, and we don't have
+        // a second deepest child, there is no leaf-leaf path in our subtree.
+        //
+        // Actually filled in when we finish a node. When children write to it
+        // to max themselves in, they clobber it if it points back to us.
+        handle_t longest_subtree_path_root;
+        // We don't need to store this, because it's determined by the leaf
+        // path lengths of the best and second best children of the longest
+        // subtree path root, but to save a whole mess of transitive accesses
+        // we track the longest subtree paht length here as well. Will be 0
+        // when there is no subtree leaf-leaf path.
+        size_t longest_subtree_path_length;
+    };
+    unordered_map<handle_t, DFSRecord> records;
+    
     
     // We need a stack.
     // Stack is actually in terms of inward edges followed.
@@ -414,19 +466,19 @@ vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGra
         handle_t here;
         // What edges still need to be followed
         vector<handle_t> todo;
-        // When children finish they put entries here with path length and leaf-to-root edge path
-        vector<pair<size_t, vector<handle_t>>> child_results;
     };
     
     vector<DFSFrame> stack;
     
-    for_each_head([&](handle_t head) {
-        // For every node in the graph
-        
-        if (!visited.count(head)) {
+    // We have a function to try DFS from a root, if the root is unvisited.
+    // If root_cycle_length is nonzero, we will not rewrite deepest_child_edge
+    // to point towards the longest leaf-leaf path, if it isn't as long as the
+    // cycle or longer.
+    auto try_root = [&](handle_t traversal_root, size_t root_cycle_length) {
+        if (!records.count(traversal_root)) {
             // If it hasn't been searched yet, start a search
             stack.emplace_back();
-            stack.back().here = head;
+            stack.back().here = traversal_root;
             
             while (!stack.empty()) {
                 // Until the DFS is done
@@ -434,23 +486,35 @@ vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGra
                 // Find the node that following this edge got us to.
                 auto frame_head = find(frame.here);
                 
-                if (!visited.count(frame_head)) {
+                auto frame_it = records.find(frame_head);
+                if (frame_it == records.end()) {
                     // First visit to here.
                     
                     // Mark visited
-                    visited.insert(frame_head);
+                    frame_it = records.emplace_hint(frame_it, frame_head, DFSRecord());
+                    // And fill it in with default references.
+                    // Remember how to get back to the parent
+                    frame_it->second.parent_edge = graph->flip(frame.here);
+                    // Say there's no known leaf-leaf path converging anywhere under it yet.
+                    frame_it->second.longest_subtree_path_root = frame_head;
                     
                     // Queue up edges
                     for_each_member(frame_head, [&](handle_t member) {
-                        // Follow edge by flipping. But queue up the edge
-                        // followed instead of the node reached (head), so we
-                        // can emit the cycle later in terms of edges.
-                        frame.todo.push_back(graph->flip(member));
+                        // Follow edge by flipping.
+                        auto flipped = graph->flip(member);
+                        
+                        if (find(flipped) != frame_head) {
+                            // Only accept non-self-loops.
+                        
+                            // Queue up the edge followed instead of the node
+                            // reached (head), so we can emit the cycle later
+                            // in terms of edges.
+                            frame.todo.push_back(flipped);
+                        }
                     });
-                    
-                    // Allocate locations for child returns
-                    frame.child_results.reserve(frame.todo.size());
                 }
+                
+                auto& record = frame_it->second;
                 
                 if (!frame.todo.empty()) {
                     // Now do an edge
@@ -458,7 +522,7 @@ vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGra
                     handle_t connected_head = find(edge_into);
                     frame.todo.pop_back();
                     
-                    if (!visited.count(connected_head)) {
+                    if (!records.count(connected_head)) {
                         // Forward edge. Recurse.
                         stack.emplace_back();
                         stack.back().here = edge_into;
@@ -466,55 +530,242 @@ vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGra
                 } else {
                     // No children left.
                     
+                    // Did any of our children decalre themselves deepest?
+                    // Or do we have no children.
+                    auto deepest_child_edge_it = deepest_child_edge.find(frame_head);
+                    
                     if (stack.size() > 1) {
-                        // We aren't the root.
+                        // If we have a parent
+                        auto& parent_frame = stack[stack.size() - 2];
+                        auto parent_head = find(parent_frame.here);
+                        auto& parent_record = records[parent_head];
                         
-                        // Find our max subtree length result
-                        size_t best_child = numeric_limits<size_t>::max();
-                        for (size_t i = 0; i < frame.child_results.size(); i++) {
-                            // Look at results from all children
-                            if (best_child == numeric_limits<size_t>::max() || frame.child_results[best_child].first < frame.child_results[i].first) {
-                                // Select the one with the biggest total length
-                                best_child = i;
+                        // The length of the path to a leaf will involve the edge from the parent to here.
+                        record.leaf_path_length = graph->get_length(frame.here);
+                        
+                        if (deepest_child_edge_it != deepest_child_edge.end()) {
+                            // And if we have a child to go on with, we add the length of that path
+                            record.leaf_path_length += records[find(deepest_child_edge_it->second)].leaf_path_length;
+                        }
+                        
+                        // Fill in deepest_child_edge for the parent if not filled in already, or if we beat what's there.
+                        // Also maintain parent's second_deepest_child_edge.
+                        auto parent_deepest_child_it = deepest_child_edge.find(parent_head);
+                        if (parent_deepest_child_it == deepest_child_edge.end()) {
+                            // Emplace in the map where we didn't find anything.
+                            deepest_child_edge.emplace_hint(parent_deepest_child_it, parent_head, frame.here);
+                        } else if(records[find(parent_deepest_child_it->second)].leaf_path_length < record.leaf_path_length) {
+                            // We are longer than what's there now
+                            
+                            // Demote what's there to second-best
+                            parent_record.second_deepest_child_edge = parent_deepest_child_it->second;
+                            parent_record.has_second_deepest_child = true;
+                            
+                            // Replace the value we found
+                            parent_deepest_child_it->second = frame.here;
+                        } else if (parent_record.has_second_deepest_child && records[find(parent_record.second_deepest_child_edge)].leaf_path_length < record.leaf_path_length) {
+                            // We are a new second deepest child.
+                            parent_record.second_deepest_child_edge = frame.here;
+                        }
+                    }
+                    
+                    // The length of the longest leaf-leaf path converging at or under any child (if any) is in record.longest_subtree_path_length.
+                    
+                    if (record.has_second_deepest_child) {
+                        // If there's a second incoming leaf path there's a converging leaf-leaf path here.
+                        // Grab the length of the longest leaf-leaf path converging exactly here.
+                        // TODO: can we not look up he deepest child's record again?
+                        size_t longest_here_path_length = records[find(deepest_child_edge_it->second)].leaf_path_length;
+                        longest_here_path_length += records[find(record.second_deepest_child_edge)].leaf_path_length;
+                        
+                        if (record.longest_subtree_path_root == frame_head || longest_here_path_length > record.longest_subtree_path_length) {
+                            // If there's no path from a child, or this path is
+                            // longer, set record.longest_subtree_path_root
+                            // (back) to frame_head to record that.
+                            record.longest_subtree_path_root = frame_head;
+                            // And save the length.
+                            record.longest_subtree_path_length = longest_here_path_length;
+                            
+                            // Now we are the new root of the longest leaf-leaf path converging at or under us.
+                        }
+                    }
+                    
+                    if (stack.size() > 1 && record.longest_subtree_path_length > 0) {
+                        // We have a leaf-leaf path converging at or under here, and we have a parent.
+                        // TODO: we assume leaf-leaf paths are nonzero length here.
+                        // TODO: save searching up the parent record again
+                        auto& parent_frame = stack[stack.size() - 2];
+                        auto parent_head = find(parent_frame.here);
+                        auto& parent_record = records[parent_head];
+                        
+                        // Max our longest leaf-leaf path in against the paths contributed by previous children.
+                        if (parent_record.longest_subtree_path_root == parent_head ||
+                            parent_record.longest_subtree_path_length < record.longest_subtree_path_length) {
+                            
+                            // No child has contributed their leaf-leaf path so far, or ours is better.
+                            parent_record.longest_subtree_path_root = frame_head;
+                            parent_record.longest_subtree_path_length = record.longest_subtree_path_length;
+                        }
+                    }
+                   
+                    if (stack.size() == 1) {
+                        // When we get back to the root
+                        
+                        if (record.longest_subtree_path_length >= root_cycle_length) {
+                            // Either we didn't root at a cycle, or we found a longer leaf-leaf path that should be the decomposition root instead.
+                            
+                            // We need to record the longest tree path.
+                            longest_tree_paths.emplace_back();
+                            longest_tree_paths.back().first = record.longest_subtree_path_length;
+                            auto& path = longest_tree_paths.back().second;
+                            
+                            auto& path_root_frame = records[record.longest_subtree_path_root];
+                            assert(path_root_frame.has_second_deepest_child);
+                            // Collect the whole path down the second deepest child
+                            path.push_back(path_root_frame.second_deepest_child_edge);
+                            auto path_trace_it = deepest_child_edge.find(find(path.back()));
+                            while (path_trace_it != deepest_child_edge.end()) {
+                                // Follow the deepest child relationships until they run out.
+                                path.push_back(path_trace_it->second);
+                                path_trace_it = deepest_child_edge.find(find(path.back()));
+                            }
+                            // Reverse what's there and flip all the edges
+                            vector<handle_t> flipped;
+                            flipped.reserve(path.size());
+                            for (auto path_it = path.rbegin(); path_it != path.rend(); ++path_it) {
+                                flipped.push_back(graph->flip(*path_it));
+                            }
+                            path = std::move(flipped);
+                            // Now trace the actual longest path from root to leaf and add it on
+                            path.push_back(deepest_child_edge[record.longest_subtree_path_root]);
+                            path_trace_it = deepest_child_edge.find(find(path.back()));
+                            while (path_trace_it != deepest_child_edge.end()) {
+                                // Follow the deepest child relationships until they run out.
+                                path.push_back(path_trace_it->second);
+                                path_trace_it = deepest_child_edge.find(find(path.back()));
+                            }
+                            
+                            // OK now we have the longest leaf-leaf path saved.
+                            
+                            // We need to redo the path from the tree traversal
+                            // root to the longest path convergence point, to
+                            // fix up the subtree rooting information.
+                            
+                            // Go to the convergence point
+                            handle_t cursor = record.longest_subtree_path_root;
+                            
+                            // This will be the path of edges to take from the convergence point (new root) to the traversal root (old root)
+                            vector<handle_t> convergence_to_old_root;
+                            while (cursor != frame_head) {
+                                // Walk up the parent pointers to the traversal root and stack up the heads.
+                                // We may get nothing if the root happened to already be on the longest leaf-leaf path.
+                                auto& cursor_record = records[cursor];
+                                convergence_to_old_root.push_back(cursor_record.parent_edge);
+                                cursor = find(cursor_record.parent_edge);
+                            }
+                            
+                            while (!convergence_to_old_root.empty()) {
+                                // Then go down that stack
+                                
+                                // Define new child and parent
+                                handle_t parent_child_edge = convergence_to_old_root.back();
+                                handle_t child_head = find(parent_child_edge);
+                                handle_t parent_head = find(graph->flip(parent_child_edge));
+                                
+                                // TODO: find a way to demote parent to child here on each iteration
+                                auto& child_record = records[child_head];
+                                auto& parent_record = records[parent_head];
+                                
+                                // If the deepest child of the child is actually the parent, disqualify it
+                                deepest_child_edge_it = deepest_child_edge.find(child_head);
+                                
+                                if (deepest_child_edge_it != deepest_child_edge.end() && find(deepest_child_edge_it->second) == parent_head) {
+                                    // The parent was the child's deepest child. Can't have that.
+                                    if (child_record.has_second_deepest_child) {
+                                        // Promote the second deepest child.
+                                        deepest_child_edge_it->second = child_record.second_deepest_child_edge;
+                                        child_record.has_second_deepest_child = false;
+                                    } else {
+                                        // No more deepest child
+                                        deepest_child_edge.erase(deepest_child_edge_it);
+                                        deepest_child_edge_it = deepest_child_edge.end();
+                                    }
+                                }
+                                
+                                // The child may not have had a parent before.
+                                // So we need to fill in its longest leaf path
+                                // length counting its new parent edge.
+                                
+                                // But we know all its children are done.
+                                
+                                // The length of the path to a leaf will involve the edge from the parent to the child
+                                child_record.leaf_path_length = graph->get_length(parent_child_edge);
+                                
+                                if (deepest_child_edge_it != deepest_child_edge.end()) {
+                                    // And if we have a child to go on with, we add the length of that path
+                                    child_record.leaf_path_length += records[find(deepest_child_edge_it->second)].leaf_path_length;
+                                }
+                                
+                                // Now we have to mix ourselves into the parent.
+                                // We do it the same way as normal. Both the deepest and second-deepest child of the parent can't be the grandparent.
+                                // So if they both beat us we can't be the real deepest child.
+                                // If we beat the second deepest child, and the original deepest child gets disqualified for being the grandparent, we become the parent's deepest child.
+                                // And if we beat both it doesn't matter whether either gets disqualified, because we win.
+                                
+                                // TODO: deduplicate code with the original DFS?
+                                
+                                // Fill in deepest_child_edge for the parent if not filled in already, or if we beat what's there.
+                                // Also maintain parent's second_deepest_child_edge.
+                                auto parent_deepest_child_it = deepest_child_edge.find(parent_head);
+                                if (parent_deepest_child_it == deepest_child_edge.end()) {
+                                    // Emplace in the map where we didn't find anything.
+                                    deepest_child_edge.emplace_hint(parent_deepest_child_it, parent_head, parent_child_edge);
+                                } else if(records[find(parent_deepest_child_it->second)].leaf_path_length < child_record.leaf_path_length) {
+                                    // We are longer than what's there now
+                                    
+                                    // Demote what's there to second-best
+                                    parent_record.second_deepest_child_edge = parent_deepest_child_it->second;
+                                    parent_record.has_second_deepest_child = true;
+                                    
+                                    // Replace the value we found
+                                    parent_deepest_child_it->second = parent_child_edge;
+                                } else if (parent_record.has_second_deepest_child && records[find(parent_record.second_deepest_child_edge)].leaf_path_length < child_record.leaf_path_length) {
+                                    // We are a new second deepest child.
+                                    parent_record.second_deepest_child_edge = parent_child_edge;
+                                }
+                               
+                                // Now the new child, if its path is deep enough, is the parent's new deepest or second deepest child edge.
+                                // Go up a level, disqualify the grandparent, and see who wins.
+                                // The new root has no parent itself, so all its edges are eligible and the one with the longest path wins.
+                                convergence_to_old_root.pop_back();
                             }
                         }
-                    
-                        // Record the distance along us into our parent.
-                        auto& parent_frame = stack[stack.size() - 2];
-                        parent_frame.child_results.emplace_back(0, vector<handle_t>());
-                        auto& our_result = parent_frame.child_results.back();
-                        
-                        if (best_child != numeric_limits<size_t>::max()) {
-                            // We have a child result to forward
-                            our_result = std::move(frame.child_results[best_child]);
-                        }
-                        
-                        // Count our length
-                        our_result.first += graph->get_length(frame.here);
-                        
-                        // And add us to our path, going up
-                        our_result.second.push_back(graph->flip(frame.here));
-                    } else {
-                        // When we finally get to the root, we do it a bit differently.
-                        
-                        // TODO: implement!
-                        
-                        // Find the best and second best 
-                        
-                        // Pair them up and combine them
-                        
-                        // Save it to return (or just yield it?)
                     }
-                
+                    
+                    // Now we're done with this stack frame.
+                       
                     // Clean up
                     stack.pop_back();
                 }
             }
-                
-                
         }
-            
+    };
+    
+    for (auto it = longest_simple_cycles.begin(); it != longest_simple_cycles.end(); ++it) {
+        // Try it from the head of the component every input simple cycle got merged into.
+        assert(!it->second.empty());
+        try_root(find(it->second.front()), it->first);
+    }
+    
+    // And then try it on every head in general to mop up anything without a simple cycle in it
+    for_each_head([&](handle_t head) {
+        try_root(head, 0);
     });
+    
+    // The DFS records die with this function, but the rewritten deepest child
+    // edges survive and let us root snarls having only their incoming ends.
+    // And we have all the longest tree paths that beat their components
+    // rooting cycles, if any.
     
     return to_return;
 }
