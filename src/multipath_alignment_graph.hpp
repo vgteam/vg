@@ -246,9 +246,12 @@ namespace vg {
         /// Alignments of the tail off of that subpath. Also computes the
         /// source subpaths and adds their numbers to the given set if not
         /// null.
+        /// If dynamic alignment count is also selected, can indicate a minimum number
+        /// of paths that must be in the extending graph in order to do an alignment
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
         align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
-                    size_t max_alt_alns, bool dynamic_alt_alns, unordered_set<size_t>* sources = nullptr);
+                    size_t max_alt_alns, bool dynamic_alt_alns, size_t min_paths,
+                    unordered_set<size_t>* sources = nullptr);
     };
 }
 
