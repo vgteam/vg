@@ -119,7 +119,7 @@ namespace vg {
         size_t stripped_match_alg_max_length = 0;
         size_t stripped_match_alg_target_count = 5;
         size_t max_p_value_memo_size = 500;
-        size_t band_padding_memo_size = 500;
+        size_t band_padding_memo_size = 2000;
         bool use_weibull_calibration = false;
         double max_exponential_rate_intercept = 0.7612;
         double max_exponential_rate_slope = 0.0001496;
@@ -174,6 +174,7 @@ namespace vg {
         size_t reversing_walk_length = 0;
         bool suppress_p_value_memoization = false;
         size_t fragment_length_warning_factor = 0;
+        size_t max_alignment_gap = 5000;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;

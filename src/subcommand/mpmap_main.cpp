@@ -239,6 +239,7 @@ int main_mpmap(int argc, char** argv) {
     bool suppress_cluster_merging = false;
     bool dynamic_max_alt_alns = true;
     bool simplify_topologies = true;
+    int max_alignment_gap = 5000;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
     int gap_open_score_arg = std::numeric_limits<int>::min();
@@ -251,6 +252,7 @@ int main_mpmap(int argc, char** argv) {
     string read_length = "short";
     string error_rate = "low";
     
+    // logging and warning
     bool suppress_progress = false;
     int fragment_length_warning_factor = 50;
     uint64_t progress_frequency = 500000;
@@ -807,8 +809,6 @@ int main_mpmap(int argc, char** argv) {
     if (likelihood_approx_exp_arg != numeric_limits<double>::lowest()) {
         likelihood_approx_exp = likelihood_approx_exp_arg;
     }
-    
-    // if we indicated any other scores, apply those, possibly overriding
     if (match_score_arg != std::numeric_limits<int>::min()) {
         match_score = match_score_arg;
     }
@@ -824,7 +824,6 @@ int main_mpmap(int argc, char** argv) {
     if (full_length_bonus_arg != std::numeric_limits<int>::min()) {
         full_length_bonus = full_length_bonus_arg;
     }
-    
     if (full_length_bonus_arg == std::numeric_limits<int>::min()
         && read_length != "long") {
         // TODO: not so elegant
@@ -1075,6 +1074,11 @@ int main_mpmap(int argc, char** argv) {
         cerr << "error:[vg mpmap] Suboptimal path likelihood root (--prune-exp) set to " << suboptimal_path_exponent << ", must set to at least 1.0." << endl;
         exit(1);
     }
+    
+    if (max_alignment_gap < 0) {
+        cerr << "error:[vg mpmap] Max alignment grap set to " << max_alignment_gap << ", must set to a non-negative integer." << endl;
+        exit(1);
+    }
         
     if (buffer_size <= 0) {
         cerr << "error:[vg mpmap] Buffer size (-Z) set to " << buffer_size << ", must set to a positive integer." << endl;
@@ -1103,7 +1107,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (gcsa_name.empty()) {
-        cerr << "error:[vg mpmap] Multipath mapping requires a GCSA2 index, must provide GCSA2 file (-g)" << endl;
+        cerr << "error:[vg mpmap] Multipath mapping requires a GCSA2 index (-g)" << endl;
         exit(1);
     }
     
@@ -1392,6 +1396,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
     multipath_mapper.reversing_walk_length = reversing_walk_length;
     multipath_mapper.max_alt_mappings = max_num_mappings;
+    multipath_mapper.max_alignment_gap = max_alignment_gap;
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;

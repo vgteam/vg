@@ -204,6 +204,9 @@ public:
                                                                       int64_t optimal_separation,
                                                                       int64_t max_deviation) = 0;
     
+    /// The largest discrepency we will allow between the read-implied distances and the estimated  gap distance
+    int64_t max_gap = numeric_limits<int64_t>::max();
+    
 protected:
     
     class HitNode;
@@ -747,12 +750,6 @@ protected:
     
     /// Minimum distance between two seeds on the read
     const int64_t min_read_separation = -10;
-    
-    /// Maximum distance between two seeds on the read
-    const int64_t max_read_separation = 2500;
-    
-    /// The maximum distance we will look during component finding
-    const int64_t max_graph_separation = 5000;
     
     /// The number of connections from one hit in a component to another that we will consider (0 for no maximum)
     const int64_t early_stop_number = 2;

@@ -152,7 +152,7 @@ namespace vg {
         /// when the MultipathAlignmentGraph was constructed! TODO: Shouldn't
         /// the class hold a reference to the Alignment then?
         void synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
-                                     size_t min_anchor_size, size_t max_alt_alns, bool dynamic_alt_alns);
+                                     size_t min_anchor_size, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap);
         
         /// Add edges between reachable nodes and split nodes at overlaps
         void add_reachability_edges(const HandleGraph& vg,
@@ -170,7 +170,7 @@ namespace vg {
         /// order, even if this MultipathAlignmentGraph is. You MUST sort it
         /// with topologically_order_subpaths() before trying to run DP on it.
         void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
-                   size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out, const bool allow_negative_scores = false);
+                   size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, size_t band_padding, MultipathAlignment& multipath_aln_out, const bool allow_negative_scores = false);
         
         /// Do intervening and tail alignments between the anchoring paths and
         /// store the result in a MultipathAlignment. Reachability edges must
@@ -185,7 +185,7 @@ namespace vg {
         /// order, even if this MultipathAlignmentGraph is. You MUST sort it
         /// with topologically_order_subpaths() before trying to run DP on it.
         void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
-                   size_t max_alt_alns, bool dynamic_alt_alns,
+                   size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
                    function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
                    MultipathAlignment& multipath_aln_out, const bool allow_negative_scores = false);
         
@@ -250,7 +250,7 @@ namespace vg {
         /// of paths that must be in the extending graph in order to do an alignment
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
         align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
-                    size_t max_alt_alns, bool dynamic_alt_alns, size_t min_paths,
+                    size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, size_t min_paths,
                     unordered_set<size_t>* sources = nullptr);
     };
 }
