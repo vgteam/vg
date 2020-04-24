@@ -226,9 +226,16 @@ class SnarlSeedClusterer {
             //Indexes of seeds that occur on a top level chain, separated into components
             vector<vector<pair<size_t, size_t>>> top_level_seed_clusters;
 
-            //Set this to the cluster heads not on a top-level chain after we've finished clustering
-            //This gets clustered with top-level_seed_clusters at the very end with cluster_top_level 
-            vector<hash_set<pair<size_t, size_t>>> top_level_clusters;
+            //For each component, maps each snarl (as the rank of the snarl in the chain) to
+            //a list of nodes it contains as <node id, node length>, and the minimum length of the snarl
+            //and lengths of the start and end nodes of the snarl (relative to the orientation in the chain
+            //TODO: this is a mess
+            //Only for top-level simple snarls, instead of snarl_to_nodes
+            vector<hash_map<size_t, vector<tuple<id_t, int64_t, int64_t, int64_t, int64_t>>>> simple_snarl_to_nodes_by_component;
+
+
+
+            /////////////////////////////////////////////////////////
 
             //Constructor takes in a pointer to the seeds, the distance limits, and 
             //the total number of seeds in all_seeds
@@ -261,8 +268,7 @@ class SnarlSeedClusterer {
         //in the tree state as each level is processed
         void get_nodes( TreeState& tree_state,
                         vector<hash_map<size_t, 
-                                  vector<pair<NetgraphNode, NodeClusters>>>>&
-                                                       snarl_to_nodes_by_level) const;
+                                  vector<pair<NetgraphNode, NodeClusters>>>>& snarl_to_nodes_by_level) const;
 
         //Cluster all the snarls at the current level and update the tree_state
         //to add each of the snarls to the parent level
@@ -288,6 +294,12 @@ class SnarlSeedClusterer {
 
         //Given a vector of only top level seeds, cluster them
         void cluster_only_top_level_seed_clusters(TreeState& tree_state, vector<pair<size_t, size_t>>& seed_clusters) const;
+
+        //For one simple snarl (a bubble where all non-boundary nodes only connect to the boundary nodes) 
+        //cluster its seeds and return the cluster heads
+        //Nodes if taken from tree_state.simple_snarl_to_nodes_by_component and each element in it is
+        //the node id of the node
+        hash_set<pair<size_t, size_t>> cluster_simple_snarl(TreeState& tree_state, vector<tuple<id_t, int64_t, int64_t, int64_t, int64_t>> nodes, int64_t loop_left, int64_t loop_right, int64_t snarl_length) const;
 
 };
 }
