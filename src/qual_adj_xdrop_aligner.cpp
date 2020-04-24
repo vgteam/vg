@@ -98,7 +98,7 @@ dz_query_s* QualAdjXdropAligner::pack_query_forward(const char* seq, const uint8
 }
 
 dz_query_s* QualAdjXdropAligner::pack_query_reverse(const char* seq, const uint8_t* qual, size_t len) {
-    return dz_qual_adj_pack_query_forward(dz, seq, qual, len);
+    return dz_qual_adj_pack_query_reverse(dz, seq, qual, len);
 }
 
 const dz_forefront_s* QualAdjXdropAligner::scan(const dz_query_s* query, const dz_forefront_s** forefronts,

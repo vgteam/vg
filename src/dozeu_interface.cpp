@@ -716,7 +716,7 @@ void DozeuInterface::align_downward(Alignment &alignment, const OrderedGraph& gr
     if (!alignment.quality().empty()) {
         pack_qual = (const uint8_t*) (left_to_right ? query_qual.c_str() + head_positions.front().query_offset : query_qual.c_str());
     }
-
+    
 	// pack query (downward)
 	const dz_query_s* packed_query_seq_dn = (left_to_right
 		? pack_query_forward(pack_seq, pack_qual, qlen - head_positions.front().query_offset)

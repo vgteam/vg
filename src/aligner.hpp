@@ -365,7 +365,6 @@ namespace vg {
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns) const;
                                 
-        // TODO: xdrop isn't actually possible with the quality adjusted aligner (yet).
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                          bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const;
         

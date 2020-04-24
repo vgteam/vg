@@ -1720,9 +1720,11 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
 void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                                  bool reverse_complemented, uint16_t max_gap_length) const
 {
-    // TODO: implement?
-    cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
-    exit(1);
+    // QualAdjXdropAligner manages its own stack, so it can never be threadsafe without being recreated
+    // for every alignment, which meshes poorly with its stack implementation. We achieve
+    // thread-safety by having one per thread, which makes this method const-ish.
+    QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
+    xdrop.align(alignment, g, mems, reverse_complemented, max_gap_length);
 }
 
 int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {
