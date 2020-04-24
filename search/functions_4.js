@@ -64,6 +64,7 @@ var searchData=
   ['dna3bit',['dna3bit',['../namespacexg.html#a0b632a6673e7464eced03fe8bb491f97',1,'xg']]],
   ['dna_5fas_5fint',['dna_as_int',['../namespacebdsg.html#af499b20a845cac81f2e4a09ad60a0af1',1,'bdsg']]],
   ['do_5fedges',['do_edges',['../classxg_1_1XG.html#a20be59d1550f08a7a92430815234e76a',1,'xg::XG']]],
+  ['do_5fpoa',['do_poa',['../classvg_1_1DozeuInterface.html#a16dfe0179c289f8138d73c09896da777',1,'vg::DozeuInterface']]],
   ['dpscorecomparator',['DPScoreComparator',['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html#aac5cf15234c5137ca426604d910340c8',1,'vg::MEMClusterer::DPScoreComparator::DPScoreComparator()=delete'],['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html#a1c6be54ddf88de294dd910d8f39427aa',1,'vg::MEMClusterer::DPScoreComparator::DPScoreComparator(const vector&lt; HitNode &gt; &amp;nodes)']]],
   ['draw',['draw',['../classvg_1_1Viz.html#aed21697f1ddd4fb1b9c5ea2fcaa831b3',1,'vg::Viz']]],
   ['draw_5fgraph',['draw_graph',['../classvg_1_1Viz.html#ad8b787e3208a261c77e12d8cd70e0d08',1,'vg::Viz']]],

@@ -18,6 +18,8 @@ var searchData=
   ['distance_5fto_5ftail_2ecpp',['distance_to_tail.cpp',['../distance__to__tail_8cpp.html',1,'']]],
   ['distance_5fto_5ftail_2ehpp',['distance_to_tail.hpp',['../distance__to__tail_8hpp.html',1,'']]],
   ['dotplot_5fmain_2ecpp',['dotplot_main.cpp',['../dotplot__main_8cpp.html',1,'']]],
+  ['dozeu_5finterface_2ecpp',['dozeu_interface.cpp',['../dozeu__interface_8cpp.html',1,'']]],
+  ['dozeu_5finterface_2ehpp',['dozeu_interface.hpp',['../dozeu__interface_8hpp.html',1,'']]],
   ['driver_2ecpp',['driver.cpp',['../driver_8cpp.html',1,'']]],
   ['driver_2ehpp',['driver.hpp',['../driver_8hpp.html',1,'']]],
   ['dynamic_5ftypes_2ehpp',['dynamic_types.hpp',['../dynamic__types_8hpp.html',1,'']]]

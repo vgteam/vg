@@ -1,6 +1,8 @@
 var searchData=
 [
   ['pack',['pack',['../structbdsg_1_1ODGI_1_1edge__helper.html#aa2fbf045509b8bf188796d088bdca5da',1,'bdsg::ODGI::edge_helper::pack()'],['../structhandlegraph_1_1number__bool__packing.html#af5082dc39a2f308585402bd19de0caa8',1,'handlegraph::number_bool_packing::pack()']]],
+  ['pack_5fquery_5fforward',['pack_query_forward',['../classvg_1_1DozeuInterface.html#ada9c0170f25a095e24766159434c3dcd',1,'vg::DozeuInterface::pack_query_forward()'],['../classvg_1_1XdropAligner.html#a783f26a4374248d01e5d2389db4c5ac2',1,'vg::XdropAligner::pack_query_forward()'],['../classvg_1_1QualAdjXdropAligner.html#a2445f82ad11c5e232918d9145a5852cb',1,'vg::QualAdjXdropAligner::pack_query_forward()']]],
+  ['pack_5fquery_5freverse',['pack_query_reverse',['../classvg_1_1DozeuInterface.html#aee2b4897a8f4a1aa3ade2fb35fee8683',1,'vg::DozeuInterface::pack_query_reverse()'],['../classvg_1_1XdropAligner.html#a4ef13d164b8223bb1c841d5c043f437d',1,'vg::XdropAligner::pack_query_reverse()'],['../classvg_1_1QualAdjXdropAligner.html#a5e97d6769f3421a7d783e7067b8ac69c',1,'vg::QualAdjXdropAligner::pack_query_reverse()']]],
   ['pack_5fstep',['pack_step',['../classbdsg_1_1node__t.html#a46b489be5d217e1dbc312c03203a97e2',1,'bdsg::node_t']]],
   ['packed_5fdepth_5fof_5fbin',['packed_depth_of_bin',['../namespacevg_1_1algorithms.html#a62ebbcbfe1250940eb8ebf0a2dcbc19a',1,'vg::algorithms']]],
   ['packed_5fdepths',['packed_depths',['../namespacevg_1_1algorithms.html#abd431ebd9786d796f708a7046e643e2e',1,'vg::algorithms']]],
@@ -213,7 +215,7 @@ var searchData=
   ['pseudo_5flength',['pseudo_length',['../classvg_1_1MultipathMapper.html#a65a84033d5c54ddfb4a07acc5e1c9089',1,'vg::MultipathMapper']]],
   ['pseudo_5frandom_5fsequence',['pseudo_random_sequence',['../namespacevg.html#a1924855da445b625609837c0920af7b2',1,'vg']]],
   ['push_5fback',['push_back',['../structhaplo_1_1gbwt__thread__t.html#a726f2772b4725564569e4889f89db7c6',1,'haplo::gbwt_thread_t::push_back()'],['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#ade3cdc2fdb2dc88b735bee5be2c04cee',1,'haplo::linear_haplo_structure::SNVvector::push_back()'],['../classbdsg_1_1HashGraph_1_1path__t.html#a5f4ed31354dd112080632e2ab287d2bc',1,'bdsg::HashGraph::path_t::push_back()']]],
-  ['push_5fedit',['push_edit',['../classvg_1_1XdropAligner.html#a1db5e65dc39cde38d86f3e8b2e0fb0df',1,'vg::XdropAligner']]],
+  ['push_5fedit',['push_edit',['../classvg_1_1DozeuInterface.html#acc84e0c73002c23f8249ea17efff6848',1,'vg::DozeuInterface']]],
   ['push_5ffront',['push_front',['../classbdsg_1_1HashGraph_1_1path__t.html#aa69f7434a2220471418d9cffccd25dd2',1,'bdsg::HashGraph::path_t']]],
   ['put_5falignment',['put_alignment',['../classvg_1_1Index.html#a03cb689688df49b9ba0bf61344de618a',1,'vg::Index']]],
   ['put_5fbase',['put_base',['../classvg_1_1Index.html#a9dba9da06b8c396b93f61dd3a7194111',1,'vg::Index']]],

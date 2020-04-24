@@ -122,7 +122,7 @@ var searchData=
   ['total_5fseq_5flength',['total_seq_length',['../classvg_1_1BaseMapper.html#a45439a16e3d38573e5cc59cb95462878',1,'vg::BaseMapper::total_seq_length()'],['../classvg_1_1Sampler.html#a1e14636749c41aa2d525177bf1a68cf5',1,'vg::Sampler::total_seq_length()'],['../classvg_1_1NGSSimulator.html#ac83d417596d2d157ddc5903d41be1fef',1,'vg::NGSSimulator::total_seq_length()']]],
   ['total_5fsupports',['total_supports',['../structvg_1_1BREAKPOINT.html#afc10d66ae6dad31e2086963bc6e34a06',1,'vg::BREAKPOINT']]],
   ['touppercase',['toUppercase',['../namespacevg.html#a00a949105ae94b18ca72452a442b8ddb',1,'vg::toUppercase()'],['../namespacebdsg.html#a75097b0785b927a1cbefcb651158436b',1,'bdsg::toUppercase()']]],
-  ['trace',['trace',['../classvg_1_1SnarlState.html#a6b13fa6a070139c5d123983265d440bc',1,'vg::SnarlState']]],
+  ['trace',['trace',['../classvg_1_1DozeuInterface.html#a82634289dc80707e1ba8bb1a94503027',1,'vg::DozeuInterface::trace()'],['../classvg_1_1XdropAligner.html#adb3c7fa9b6b7c272ab687e0693a1dc47',1,'vg::XdropAligner::trace()'],['../classvg_1_1QualAdjXdropAligner.html#a8a382e7378bfeb43954a9436cf9d3b09',1,'vg::QualAdjXdropAligner::trace()'],['../classvg_1_1SnarlState.html#a6b13fa6a070139c5d123983265d440bc',1,'vg::SnarlState::trace()']]],
   ['trace_5fhaplotype',['trace_haplotype',['../classvg_1_1GenomeState.html#a83041b957a991146a947e539bf741049',1,'vg::GenomeState']]],
   ['trace_5fhaplotypes_5fand_5fpaths',['trace_haplotypes_and_paths',['../namespacevg.html#a2d9774c4df98285526a427ba54e970ba',1,'vg']]],
   ['trace_5fmain_2ecpp',['trace_main.cpp',['../trace__main_8cpp.html',1,'']]],

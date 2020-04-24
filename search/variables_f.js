@@ -13,7 +13,7 @@ var searchData=
   ['oneof_5flocation',['oneof_location',['../structvg_1_1LocationSupport.html#a9a000a5b773e07f7cc30614d77c927a0',1,'vg::LocationSupport']]],
   ['option_5foffsets',['option_offsets',['../classvg_1_1Configurable.html#a6c5fb72d68761ab4b157c817259164a5',1,'vg::Configurable']]],
   ['options_5fby_5fcode',['options_by_code',['../classvg_1_1ConfigurableParser.html#a8bdfad847167513663ef67839a574e92',1,'vg::ConfigurableParser']]],
-  ['order',['order',['../structvg_1_1XdropAligner_1_1OrderedGraph.html#a36b6f2c7476970b58f4b1a8f461eba79',1,'vg::XdropAligner::OrderedGraph']]],
+  ['order',['order',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html#ae776df11d1881a7ac95ca8775b6f53d6',1,'vg::DozeuInterface::OrderedGraph']]],
   ['order_5flength_5frepeat_5fhit_5fmax',['order_length_repeat_hit_max',['../classvg_1_1MultipathMapper.html#ae87f55f358023f5c881494ccc4ed884f',1,'vg::MultipathMapper']]],
   ['origin',['origin',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a11781df7cf275f7593be31be33c3478b',1,'vg::MinimizerMapper::Minimizer']]],
   ['os',['OS',['../classvg_1_1Version.html#a60cb5fa1efa9969bcdfa529484ea4280',1,'vg::Version']]],

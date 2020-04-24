@@ -70,14 +70,7 @@ $(function() {
 <div class="title">xdrop_aligner.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;cstdio&gt;</code><br />
-<code>#include &lt;assert.h&gt;</code><br />
-<code>#include &lt;utility&gt;</code><br />
-<code>#include &quot;<a class="el" href="mem_8hpp.html">mem.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="xdrop__aligner_8hpp.html">xdrop_aligner.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="reverse__graph_8hpp.html">reverse_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="extra__node__graph_8hpp.html">extra_node_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="topological__sort_8hpp.html">algorithms/topological_sort.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;<a class="el" href="dozeu__interface_8hpp.html">dozeu_interface.hpp</a>&quot;</code><br />
 <code>#include &lt;dozeu/dozeu.h&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
@@ -86,176 +79,17 @@ Macros</h2></td></tr>
 <tr class="separator:a236858d6cb48a098159fc3d416f0499b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af0acb761758e601c8c2111de1179c3cd"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="xdrop__aligner_8cpp.html#af0acb761758e601c8c2111de1179c3cd">DZ_CIGAR_OP</a>&#160;&#160;&#160;0x04030201</td></tr>
 <tr class="separator:af0acb761758e601c8c2111de1179c3cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab7df7c17c09365f268d8b40f1b74f883"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="xdrop__aligner_8cpp.html#ab7df7c17c09365f268d8b40f1b74f883">_add_edit</a>(_from_len,  _to_len,  _subseq)</td></tr>
-<tr class="separator:ab7df7c17c09365f268d8b40f1b74f883"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5787add53d7bbfdc10c9720454e98918"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="xdrop__aligner_8cpp.html#a5787add53d7bbfdc10c9720454e98918">_push_mapping</a>(_id)</td></tr>
-<tr class="separator:a5787add53d7bbfdc10c9720454e98918"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac058be264b99f54156cf44838308078c"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="xdrop__aligner_8cpp.html#ac058be264b99f54156cf44838308078c">_push_op</a>(_m,  _op,  _len)</td></tr>
-<tr class="separator:ac058be264b99f54156cf44838308078c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9eb966b9747eb954eddfdfc15587480d"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="xdrop__aligner_8cpp.html#a9eb966b9747eb954eddfdfc15587480d">_append_op</a>(_m,  _op,  _init)</td></tr>
-<tr class="separator:a9eb966b9747eb954eddfdfc15587480d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3592941015e5430b738db9e882e0305d"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="xdrop__aligner_8cpp.html#a3592941015e5430b738db9e882e0305d">_flush_op</a>(_m,  _next_op)</td></tr>
-<tr class="separator:a3592941015e5430b738db9e882e0305d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
 Enumerations</h2></td></tr>
-<tr class="memitem:a06fc87d81c62e9abb8790b6e5713c55b"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom">{ <a class="el" href="xdrop__aligner_8cpp.html#a06fc87d81c62e9abb8790b6e5713c55ba9f6e5ca49fdffa107270afa3f5e16cda">MISMATCH</a> = 1, 
-<a class="el" href="xdrop__aligner_8cpp.html#a06fc87d81c62e9abb8790b6e5713c55ba1155ee5305ebe5bb9407faa9d395ae93">MATCH</a> = 2, 
-<a class="el" href="xdrop__aligner_8cpp.html#a06fc87d81c62e9abb8790b6e5713c55ba958fa7aa9ac4b5cd6e56237041b90584">INS</a> = 3, 
-<a class="el" href="xdrop__aligner_8cpp.html#a06fc87d81c62e9abb8790b6e5713c55ba11563127ec3be864b514a1784c5d37a6">DEL</a> = 4
+<tr class="memitem:a99fb83031ce9923c84392b4e92f956b5"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom">{ <a class="el" href="xdrop__aligner_8cpp.html#a99fb83031ce9923c84392b4e92f956b5a9f6e5ca49fdffa107270afa3f5e16cda">MISMATCH</a> = 1, 
+<a class="el" href="xdrop__aligner_8cpp.html#a99fb83031ce9923c84392b4e92f956b5a1155ee5305ebe5bb9407faa9d395ae93">MATCH</a> = 2, 
+<a class="el" href="xdrop__aligner_8cpp.html#a99fb83031ce9923c84392b4e92f956b5a958fa7aa9ac4b5cd6e56237041b90584">INS</a> = 3, 
+<a class="el" href="xdrop__aligner_8cpp.html#a99fb83031ce9923c84392b4e92f956b5a11563127ec3be864b514a1784c5d37a6">DEL</a> = 4
  }</td></tr>
-<tr class="separator:a06fc87d81c62e9abb8790b6e5713c55b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="separator:a99fb83031ce9923c84392b4e92f956b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Macro Definition Documentation</h2>
-<a id="ab7df7c17c09365f268d8b40f1b74f883"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab7df7c17c09365f268d8b40f1b74f883">&#9670;&nbsp;</a></span>_add_edit</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define _add_edit</td>
-          <td>(</td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">_from_len, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">_to_len, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">_subseq&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">{ \</div><div class="line">        Edit *e = mapping-&gt;add_edit(); \</div><div class="line">        e-&gt;set_from_length((_from_len)); \</div><div class="line">        e-&gt;set_to_length((_to_len)); \</div><div class="line">        <span class="comment">/* expect a branch dependent on a compile-time NULL will be eliminated */</span> \</div><div class="line">        if((_subseq) != <span class="keyword">nullptr</span>) { e-&gt;set_sequence((<span class="keywordtype">char</span> <span class="keyword">const</span> *)(_subseq), (<span class="keywordtype">size_t</span>)(_to_len)); } \</div><div class="line">    }</div></div><!-- fragment -->
-</div>
-</div>
-<a id="a9eb966b9747eb954eddfdfc15587480d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9eb966b9747eb954eddfdfc15587480d">&#9670;&nbsp;</a></span>_append_op</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define _append_op</td>
-          <td>(</td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">_m, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">_op, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">_init&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">{ \</div><div class="line">        if((state &amp; 0xff) == (_op)) { state += 0x100; } \</div><div class="line">        else { <a class="code" href="xdrop__aligner_8cpp.html#ac058be264b99f54156cf44838308078c">_push_op</a>(_m, state &amp; 0xff, state&gt;&gt;8); state = (_op) | ((_init)&lt;&lt;8); } \</div><div class="line">    }</div><div class="ttc" id="xdrop__aligner_8cpp_html_ac058be264b99f54156cf44838308078c"><div class="ttname"><a href="xdrop__aligner_8cpp.html#ac058be264b99f54156cf44838308078c">_push_op</a></div><div class="ttdeci">#define _push_op(_m, _op, _len)</div></div>
-</div><!-- fragment -->
-</div>
-</div>
-<a id="a3592941015e5430b738db9e882e0305d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3592941015e5430b738db9e882e0305d">&#9670;&nbsp;</a></span>_flush_op</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define _flush_op</td>
-          <td>(</td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">_m, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">_next_op&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">{ \</div><div class="line">        _push_op(_m, state &amp; 0xff, state&gt;&gt;8); state = (_next_op); \</div><div class="line">    }</div></div><!-- fragment -->
-</div>
-</div>
-<a id="a5787add53d7bbfdc10c9720454e98918"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5787add53d7bbfdc10c9720454e98918">&#9670;&nbsp;</a></span>_push_mapping</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define _push_mapping</td>
-          <td>(</td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">_id</td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">({ \</div><div class="line">        handle_t n = graph.order[(_id)]; \</div><div class="line">        Mapping *mapping = path-&gt;add_mapping(); \</div><div class="line">        mapping-&gt;set_rank(path-&gt;mapping_size()); \</div><div class="line">        Position *position = mapping-&gt;mutable_position(); \</div><div class="line">        position-&gt;set_node_id(graph.graph.get_id(n)); \</div><div class="line">        position-&gt;set_is_reverse(graph.graph.get_is_reverse(n)); \</div><div class="line">        position-&gt;set_offset(ref_offset); ref_offset = 0; \</div><div class="line">        mapping; \</div><div class="line">    })</div></div><!-- fragment -->
-</div>
-</div>
-<a id="ac058be264b99f54156cf44838308078c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac058be264b99f54156cf44838308078c">&#9670;&nbsp;</a></span>_push_op</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">#define _push_op</td>
-          <td>(</td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">_m, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">_op, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">&#160;</td>
-          <td class="paramname">_len&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">{ \</div><div class="line">        query_offset += push_edit(_m, (_op), &amp;query[query_offset], (_len)); \</div><div class="line">    }</div></div><!-- fragment -->
-</div>
-</div>
 <a id="af0acb761758e601c8c2111de1179c3cd"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af0acb761758e601c8c2111de1179c3cd">&#9670;&nbsp;</a></span>DZ_CIGAR_OP</h2>
 
@@ -285,8 +119,8 @@ Enumerations</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Enumeration Type Documentation</h2>
-<a id="a06fc87d81c62e9abb8790b6e5713c55b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a06fc87d81c62e9abb8790b6e5713c55b">&#9670;&nbsp;</a></span>anonymous enum</h2>
+<a id="a99fb83031ce9923c84392b4e92f956b5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a99fb83031ce9923c84392b4e92f956b5">&#9670;&nbsp;</a></span>anonymous enum</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -297,10 +131,10 @@ Enumerations</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a06fc87d81c62e9abb8790b6e5713c55ba9f6e5ca49fdffa107270afa3f5e16cda"></a>MISMATCH&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a06fc87d81c62e9abb8790b6e5713c55ba1155ee5305ebe5bb9407faa9d395ae93"></a>MATCH&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a06fc87d81c62e9abb8790b6e5713c55ba958fa7aa9ac4b5cd6e56237041b90584"></a>INS&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a06fc87d81c62e9abb8790b6e5713c55ba11563127ec3be864b514a1784c5d37a6"></a>DEL&#160;</td><td class="fielddoc"></td></tr>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a99fb83031ce9923c84392b4e92f956b5a9f6e5ca49fdffa107270afa3f5e16cda"></a>MISMATCH&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a99fb83031ce9923c84392b4e92f956b5a1155ee5305ebe5bb9407faa9d395ae93"></a>MATCH&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a99fb83031ce9923c84392b4e92f956b5a958fa7aa9ac4b5cd6e56237041b90584"></a>INS&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a99fb83031ce9923c84392b4e92f956b5a11563127ec3be864b514a1784c5d37a6"></a>DEL&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>

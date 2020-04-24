@@ -26,7 +26,7 @@ var searchData=
   ['indel_5ferror_5fprop',['indel_error_prop',['../classvg_1_1NGSSimulator.html#ae16494345e539020ebd09b0998500559',1,'vg::NGSSimulator']]],
   ['indel_5fpoly_5frate',['indel_poly_rate',['../classvg_1_1NGSSimulator.html#af84310145f8991c92d48684a0664ba8e',1,'vg::NGSSimulator']]],
   ['index',['index',['../structhaplo_1_1linear__haplo__structure.html#a79e51544898895192d319f95e95cf2f1',1,'haplo::linear_haplo_structure::index()'],['../classhaplo_1_1GBWTScoreProvider.html#ae24f0ba2be7fdc64cb0d0a33123e41ad',1,'haplo::GBWTScoreProvider::index()'],['../classhaplo_1_1LinearScoreProvider.html#a1ceb289752fb8e83c13e52e82bea393b',1,'haplo::LinearScoreProvider::index()'],['../classvg_1_1IndexedVG.html#a4f618ecb46d596aa053450a4de13e990',1,'vg::IndexedVG::index()']]],
-  ['index_5fof',['index_of',['../structvg_1_1XdropAligner_1_1OrderedGraph.html#a176984bff4ac788cbf9fab2fc2559537',1,'vg::XdropAligner::OrderedGraph']]],
+  ['index_5fof',['index_of',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html#a622e1fefb7e7aa8977623b183ea9b457',1,'vg::DozeuInterface::OrderedGraph']]],
   ['index_5fpaths',['index_paths',['../classvg_1_1HaplotypeIndexer.html#ad9505a82880c8d30cd41bc83c4a9d76b',1,'vg::HaplotypeIndexer']]],
   ['indexes',['indexes',['../classvg_1_1GraphSynchronizer.html#a1127fed39b1d4775bf03ada4f87b23b4',1,'vg::GraphSynchronizer']]],
   ['inner_5fvalue',['inner_value',['../structhaplo_1_1haplo__DP__rectangle.html#a68817623682eb451f4a5a42a8ae8ef8a',1,'haplo::haplo_DP_rectangle']]],

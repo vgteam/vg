@@ -31,7 +31,7 @@ var searchData=
   ['reestimation_5ffrequency',['reestimation_frequency',['../classvg_1_1FragmentLengthDistribution.html#a648954fbcb1fd0295fb22a37d79ed3e7',1,'vg::FragmentLengthDistribution']]],
   ['ref_5fbase',['ref_base',['../structvg_1_1BasePileup.html#a8d68d6e5d3ce5d2a9a448f90ed6dfc09',1,'vg::BasePileup']]],
   ['ref_5fnames',['ref_names',['../classvg_1_1SRPE.html#a1b718357b963bf22f959f81ea3c1c6b5',1,'vg::SRPE']]],
-  ['ref_5foffset',['ref_offset',['../structvg_1_1XdropAligner_1_1graph__pos__s.html#a58967695f761ddd71de4cf15a7aa83f3',1,'vg::XdropAligner::graph_pos_s']]],
+  ['ref_5foffset',['ref_offset',['../structvg_1_1DozeuInterface_1_1graph__pos__s.html#a0d0812a9f6be0ad3610fb860fb1bc2d2',1,'vg::DozeuInterface::graph_pos_s']]],
   ['ref_5foffsets',['ref_offsets',['../classvg_1_1LegacyCaller.html#a9aa5ae8255c13d5c19a4cae14f998a8e',1,'vg::LegacyCaller::ref_offsets()'],['../classvg_1_1FlowCaller.html#a454f9cba510f7ebf9e8929c53092583a',1,'vg::FlowCaller::ref_offsets()']]],
   ['ref_5fpath',['ref_path',['../structvg_1_1FlowSort_1_1Growth.html#a34ba660c358c1ec59cd7c70e62780a8c',1,'vg::FlowSort::Growth']]],
   ['ref_5fpath_5fhandle',['ref_path_handle',['../structhaplo_1_1linear__haplo__structure.html#a57eb7d1ebc0bc29e9ba3d1c3955650e9',1,'haplo::linear_haplo_structure']]],

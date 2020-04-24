@@ -14,7 +14,7 @@ var searchData=
   ['gffreader',['GFFReader',['../classvg_1_1GFFReader.html',1,'vg']]],
   ['gffrecord',['GFFRecord',['../structvg_1_1GFFRecord.html',1,'vg']]],
   ['graph',['Graph',['../structvg_1_1Graph.html',1,'vg']]],
-  ['graph_5fpos_5fs',['graph_pos_s',['../structvg_1_1XdropAligner_1_1graph__pos__s.html',1,'vg::XdropAligner']]],
+  ['graph_5fpos_5fs',['graph_pos_s',['../structvg_1_1DozeuInterface_1_1graph__pos__s.html',1,'vg::DozeuInterface']]],
   ['graphcaller',['GraphCaller',['../classvg_1_1GraphCaller.html',1,'vg']]],
   ['graphsynchronizer',['GraphSynchronizer',['../classvg_1_1GraphSynchronizer.html',1,'vg']]],
   ['greedymindistanceclusterer',['GreedyMinDistanceClusterer',['../classvg_1_1GreedyMinDistanceClusterer.html',1,'vg']]],

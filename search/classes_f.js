@@ -9,7 +9,7 @@ var searchData=
   ['packer',['Packer',['../classvg_1_1Packer.html',1,'vg']]],
   ['packers',['Packers',['../classvg_1_1Packers.html',1,'vg']]],
   ['pagedvector',['PagedVector',['../classbdsg_1_1PagedVector.html',1,'bdsg']]],
-  ['pair_5fhash_5fmap',['pair_hash_map',['../classbdsg_1_1pair__hash__map.html',1,'bdsg::pair_hash_map&lt; K, V &gt;'],['../classvg_1_1pair__hash__map.html',1,'vg::pair_hash_map&lt; K, V &gt;']]],
+  ['pair_5fhash_5fmap',['pair_hash_map',['../classvg_1_1pair__hash__map.html',1,'vg::pair_hash_map&lt; K, V &gt;'],['../classbdsg_1_1pair__hash__map.html',1,'bdsg::pair_hash_map&lt; K, V &gt;']]],
   ['pair_5fhash_5fmap_3c_20pair_3c_20vg_3a_3anodeside_2c_20vg_3a_3anodeside_20_3e_2c_20vector_3c_20vg_3a_3aalignment_20_2a_3e_20_3e',['pair_hash_map&lt; pair&lt; vg::NodeSide, vg::NodeSide &gt;, vector&lt; vg::Alignment *&gt; &gt;',['../classvg_1_1pair__hash__map.html',1,'vg']]],
   ['pair_5fhash_5fmap_3c_20pair_3c_20vg_3a_3anodeside_2c_20vg_3a_3anodeside_20_3e_2c_20vg_3a_3aedge_20_2a_3e',['pair_hash_map&lt; pair&lt; vg::NodeSide, vg::NodeSide &gt;, vg::Edge *&gt;',['../classvg_1_1pair__hash__map.html',1,'vg']]],
   ['pair_5fhash_5fmap_3c_20std_3a_3apair_3c_20gbwt_3a_3anode_5ftype_2c_20gbwt_3a_3anode_5ftype_20_3e_2c_20gbwt_3a_3anode_5ftype_20_3e',['pair_hash_map&lt; std::pair&lt; gbwt::node_type, gbwt::node_type &gt;, gbwt::node_type &gt;',['../classvg_1_1pair__hash__map.html',1,'vg']]],
