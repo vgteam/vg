@@ -2132,6 +2132,7 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
     //Borrowed heavily from mpmap
     bdsg::HashGraph align_graph;
     unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&sub_graph, &align_graph);
+    // Checking acyclicity is much faster in HashGraph than in GBWTGraph.
     if (!algorithms::is_directed_acyclic(&align_graph)) {
 
         bdsg::HashGraph dagified;
