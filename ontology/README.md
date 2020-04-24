@@ -53,7 +53,7 @@ me:example:some_gene rdfs:seeAlso ENSEMBL:ESG00000XXXX . #and then pick up the a
 At this moment VG RDF wants a fully embedded variation graph. e.g. all positions in vg json have a single edit which covers a whole node. This is to enable easy SPARQL queries where substring operations are rarely used.
 
 
-## Annotations on pantograph
+## Annotations on Pantograph
 
 On top of VG RDF, we can describe the same path information on Pantograph format as well.
 
@@ -89,5 +89,5 @@ On top of VG RDF, we can describe the same path information on Pantograph format
    vg:linkPaths <path1> <path2> . # Participants of the link
 <path1/region/6-100> a faldo:Region ;
    faldo:begin <path1/position/6>  ;
-   faldo:end <path1/position/100>  ;
+   faldo:end <path1/position/100>  .
 ```
