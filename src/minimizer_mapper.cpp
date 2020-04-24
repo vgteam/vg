@@ -2132,7 +2132,7 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
     //Borrowed heavily from mpmap
     bdsg::HashGraph align_graph;
     unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&sub_graph, &align_graph);
-    if (!algorithms::is_directed_acyclic(&sub_graph)) {
+    if (!algorithms::is_directed_acyclic(&align_graph)) {
 
         bdsg::HashGraph dagified;
         unordered_map<id_t, id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, rescued_alignment.sequence().size());
