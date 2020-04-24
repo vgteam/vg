@@ -82,6 +82,9 @@ public:
     ///
     /// Graph may not be modified during iteration.
     void for_each_simple_cycle(const function<void(const function<void(const function<void(handle_t)>&)>&)>& emit_cycle) const;
+    
+    /// Return the path length (total edge length in bp) and edges for the longst path in each tree in a forest.
+    vector<pair<size_t, vector<handle_t>> longest_paths_in_forest() const;
 };
 
 size_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_rank(handle_t into) const {
@@ -232,7 +235,7 @@ void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_simple_cycle(const fu
                     // Queue up edges
                     for_each_member(frame_head, [&](handle_t member) {
                         // Follow edge by flipping. But queue up the edge
-                        // foillowed instead of the node reached (head), so we
+                        // followed instead of the node reached (head), so we
                         // can emit the cycle later in terms of edges.
                         frame.todo.push_back(graph->flip(member));
                     });
@@ -284,6 +287,130 @@ void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_simple_cycle(const fu
             }
         }
     });
+}
+
+vector<pair<size_t, vector<handle_t>> IntegratedSnarlFinder::MergedAdjacencyGraph::longest_paths_in_forest() const {
+    
+    // TODO: somehow unify DFS logic with cycle-finding DFS in a way that still allows us to inspect our stack.
+    
+    // When we find a longest path, we put its length and value in here.
+    // We describe it as edges followed.
+    vector<pair<size_t, vector<handle_t>> to_return;
+    
+    // We only need the tree edges, so we only need visited flags on the heads representing nodes.
+    unordered_set<handle_t> visited;
+    
+    // We need a stack.
+    // Stack is actually in terms of inward edges followed.
+    struct DFSFrame {
+        handle_t here;
+        // What edges still need to be followed
+        vector<handle_t> todo;
+        // When children finish they put entries here with path length and leaf-to-root edge path
+        vector<pair<size_t, vector<handle_t>> child_results;
+    };
+    
+    vector<DFSFrame> stack;
+    
+    for_each_head([&](handle_t head) {
+        // For every node in the graph
+        
+        if (!visited.count(head)) {
+            // If it hasn't been searched yet, start a search
+            stack.emplace_back();
+            stack.back().here = head;
+            
+            while (!stack.empty()) {
+                // Until the DFS is done
+                auto& frame = stack.back();
+                // Find the node that following this edge got us to.
+                auto frame_head = find(frame.here);
+                
+                if (!visited.count(frame_head)) {
+                    // First visit to here.
+                    
+                    // Mark visited
+                    visited.insert(frame_head);
+                    
+                    // Queue up edges
+                    for_each_member(frame_head, [&](handle_t member) {
+                        // Follow edge by flipping. But queue up the edge
+                        // followed instead of the node reached (head), so we
+                        // can emit the cycle later in terms of edges.
+                        frame.todo.push_back(graph->flip(member));
+                    });
+                    
+                    // Allocate locations for child returns
+                    frame.child_results.resrve(frame.todo.size());
+                }
+                
+                if (!frame.todo.empty()) {
+                    // Now do an edge
+                    handle_t edge_into = frame.todo.back();
+                    handle_t connected_head = find(edge_into);
+                    frame.todo.pop_back();
+                    
+                    if (!visited.count(connected_head)) {
+                        // Forward edge. Recurse.
+                        stack.emplace_back();
+                        stack.back().here = edge_into;
+                    }
+                } else {
+                    // No children left.
+                    
+                    if (stack.size() > 1) {
+                        // We aren't the root.
+                        
+                        // Find our max subtree length result
+                        size_t best_child = numeric_limits<size_t>::max();
+                        for (size_t i = 0; i < frame.child_results.size(); i++) {
+                            // Look at results from all children
+                            if (best_child == numeric_limits<size_t>::max() || frame.child_results[best_child].first < frame.child_results[i].first) {
+                                // Select the one with the biggest total length
+                                best_child = i;
+                            }
+                        }
+                    
+                        // Record the distance along us into our parent.
+                        auto& parent_frame = stack[stack.size() - 2];
+                        parent_frame.emplace_back(0, vector<handle_t>());
+                        auto& our_result = parent_frame.back();
+                        
+                        if (best_child != numeric_limits<size_t>::max()) {
+                            // We have a child result to forward
+                            our_result = std::move(frame.child_results[best_child]);
+                        }
+                        
+                        // Count our length
+                        our_result.first += graph->get_length(frame.here);
+                        
+                        // And add us to our path, going up
+                        our_result.second.push_back(graph->flip(frame.here));
+                    } else {
+                        // When we finally get to the root, we do it a bit differently.
+                        
+                        // TODO: implement!
+                        
+                        // Find the best and second best 
+                        
+                        // Pair them up and combine them
+                        
+                        // Save it to return (or just yield it?)
+                    }
+                
+                    // Clean up
+                    stack.pop_back();
+                }
+            }
+                
+                
+            }
+            
+        }
+        
+    });
+    
+    
 }
 
     
@@ -395,19 +522,16 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
         }
     });
     
-    // We remember the longest one
-    
-    // And we condense them out in the bridge graph
-    
-    // TODO: Then we need to actually condense simple cycles in order to make
-    // the bridge forest.
-    //
-    // TODO: We should find the lengths of the simple cycles in bases at the
-    // same time.
-    //
-    // TODO: We also want to find the longest simple cycle for each connected
-    // component of the bridge forest.
-    
+    // Now we find the longest path in each tree in the bridge forest, with its length in bases.
+    vector<pair<size_t, vector<handle_t>> longest_paths;
+  
+    {
+        // Pick an unvisited node to arbitrarily root
+        
+        //
+    }
+  
+   
     // TODO: Then find the lengths of the bridge edge spanning trees. We want
     // to be able to know the lengths no matter where we root, so I guess for
     // each node we need to store the longest length in each direction.
