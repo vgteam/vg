@@ -3105,6 +3105,7 @@ namespace vg {
             multi_aln_graph.prune_to_high_scoring_paths(alignment, aligner,
                                                         max_suboptimal_path_score_ratio, topological_order);
         }
+        
         if (snarl_manager) {
             // We want to do snarl cutting
             

@@ -3720,7 +3720,14 @@ namespace vg {
                         
                         // align against the graph
                         auto& alt_alignments = right_alignments[j];
-                        aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                        if (num_alt_alns == 1) {
+                            // we can speed things up by using the dozeu pinned alignment
+                            alt_alignments.emplace_back(move(right_tail_sequence));
+                            aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, target_length);
+                        }
+                        else {
+                            aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                        }
                         
                         // Translate back into non-extracted graph.
                         // Make sure to account for having removed the left end of the cut node relative to end_pos
@@ -3814,7 +3821,14 @@ namespace vg {
                         
                         // align against the graph
                         auto& alt_alignments = left_alignments[j];
-                        aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                        if (num_alt_alns == 1) {
+                            // we can speed things up by using the dozeu pinned alignment
+                            alt_alignments.emplace_back(move(left_tail_sequence));
+                            aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, target_length);
+                        }
+                        else {
+                            aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                        }
                         
                         // Translate back into non-extracted graph.
                         // Make sure to account for having removed the right end of the cut node relative to begin_pos

@@ -16,13 +16,13 @@ DozeuPinningOverlay::DozeuPinningOverlay(const HandleGraph* graph, bool preserve
         
     // find the numeric range of handles in the underlying graph (needed for later bookkeeping)
     // and all nodes with no sequence
-    uint64_t max_handle = std::numeric_limits<uint64_t>::min();
+    uint64_t min_handle = std::numeric_limits<uint64_t>::max();
     graph->for_each_handle([&](const handle_t& handle) {
-        for (handle_t h : {handle, graph->flip(handle)}) {
-            uint64_t integer_handle = handlegraph::as_integer(h);
-            min_handle = min(integer_handle, min_handle);
-            max_handle = max(integer_handle, max_handle);
-        }
+        
+        min_handle = min<uint64_t>(handlegraph::as_integer(handle), min_handle);
+        min_handle = min<uint64_t>(handlegraph::as_integer(graph->flip(handle)), min_handle);
+        max_handle = max<uint64_t>(handlegraph::as_integer(handle), max_handle);
+        max_handle = max<uint64_t>(handlegraph::as_integer(graph->flip(handle)), max_handle);
         
         if (graph->get_length(handle) == 0) {
             empty_nodes.insert(handle);
@@ -52,6 +52,7 @@ DozeuPinningOverlay::DozeuPinningOverlay(const HandleGraph* graph, bool preserve
             });
         }
     }
+    num_null_nodes = empty_nodes.size();
 }
 
 bool DozeuPinningOverlay::performed_duplications() const {
@@ -192,7 +193,7 @@ id_t DozeuPinningOverlay::max_node_id() const {
 }
 
 bool DozeuPinningOverlay::is_a_duplicate_handle(const handle_t& handle) const {
-    return min_handle + handle_val_range <= (uint64_t) handlegraph::as_integer(handle);
+    return max_handle < (uint64_t) handlegraph::as_integer(handle);
 }
 
 bool DozeuPinningOverlay::is_a_duplicate_id(const id_t& node_id) const {
@@ -205,7 +206,7 @@ handle_t DozeuPinningOverlay::get_underlying_handle(const handle_t& handle) cons
         return handle;
     }
     else {
-        return handlegraph::as_handle(((uint64_t(handlegraph::as_integer(handle)) - min_handle) % handle_val_range) + min_handle);
+        return handlegraph::as_handle(uint64_t(handlegraph::as_integer(handle)) - handle_val_range);
     }
 }
 

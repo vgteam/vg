@@ -114,7 +114,7 @@ private:
     size_t num_null_nodes = 0;
     
     /// The minimum numeric value of a handle
-    uint64_t min_handle = numeric_limits<uint64_t>::max();
+    uint64_t max_handle = numeric_limits<uint64_t>::min();
     
     /// The length of the interval between the max and min numeric values of handles
     uint64_t handle_val_range = 0;

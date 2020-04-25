@@ -48,12 +48,12 @@ namespace unittest {
                 }
             }
             else if (overlay.get_sequence(h) == graph.get_sequence(h2)) {
-                REQUIRE(overlay.get_id(h) == graph.get_id(h2));
+                REQUIRE(overlay.get_id(h) == 2);
                 found3 = true;
                 o3 = h;
             }
             else if (overlay.get_sequence(h) == graph.get_sequence(h4)) {
-                REQUIRE(overlay.get_id(h) == graph.get_id(h4));
+                REQUIRE(overlay.get_id(h) == 4);
                 found4 = true;
                 o4 = h;
             }
