@@ -3117,7 +3117,7 @@ namespace vg {
 
                 // Make fake anchor paths to cut the snarls out of in the tails
                 multi_aln_graph.synthesize_tail_anchors(alignment, *align_dag, aligner, min_tail_anchor_length, num_alt_alns,
-                                                        false, max_alignment_gap);
+                                                        false, max_alignment_gap, pessimistic_tail_gap_multiplier);
                 
             }
        
@@ -3152,7 +3152,7 @@ namespace vg {
         
         // do the connecting alignments and fill out the MultipathAlignment object
         multi_aln_graph.align(alignment, *align_dag, aligner, true, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
-                              choose_band_padding, multipath_aln_out);
+                              pessimistic_tail_gap_multiplier, choose_band_padding, multipath_aln_out);
         
         // Note that we do NOT topologically order the MultipathAlignment. The
         // caller has to do that, after it is finished breaking it up into
@@ -3201,7 +3201,7 @@ namespace vg {
         
         // do the connecting alignments and fill out the MultipathAlignment object
         multi_aln_graph.align(alignment, subgraph, aligner, false, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
-                              choose_band_padding, multipath_aln_out);
+                              pessimistic_tail_gap_multiplier, choose_band_padding, multipath_aln_out);
         
         for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
             translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);

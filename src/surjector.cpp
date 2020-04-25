@@ -728,7 +728,7 @@ using namespace std;
         // align the intervening segments and store the result in a multipath alignment
         MultipathAlignment mp_aln;
         mp_aln_graph.align(source, split_path_graph, get_aligner(), false, 1, false, numeric_limits<int64_t>::max(),
-                           1, mp_aln, allow_negative_scores);
+                           false, 1, mp_aln, allow_negative_scores);
         topologically_order_subpaths(mp_aln);
         
         for (size_t i = 0; i < mp_aln.subpath_size(); i++) {

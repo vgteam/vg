@@ -152,7 +152,8 @@ namespace vg {
         /// when the MultipathAlignmentGraph was constructed! TODO: Shouldn't
         /// the class hold a reference to the Alignment then?
         void synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
-                                     size_t min_anchor_size, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap);
+                                     size_t min_anchor_size, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
+                                     double pessimistic_tail_gap_multiplier);
         
         /// Add edges between reachable nodes and split nodes at overlaps
         void add_reachability_edges(const HandleGraph& vg,
@@ -170,7 +171,8 @@ namespace vg {
         /// order, even if this MultipathAlignmentGraph is. You MUST sort it
         /// with topologically_order_subpaths() before trying to run DP on it.
         void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
-                   size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, size_t band_padding, MultipathAlignment& multipath_aln_out, const bool allow_negative_scores = false);
+                   size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t band_padding,
+                   MultipathAlignment& multipath_aln_out, bool allow_negative_scores = false);
         
         /// Do intervening and tail alignments between the anchoring paths and
         /// store the result in a MultipathAlignment. Reachability edges must
@@ -185,9 +187,9 @@ namespace vg {
         /// order, even if this MultipathAlignmentGraph is. You MUST sort it
         /// with topologically_order_subpaths() before trying to run DP on it.
         void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
-                   size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
+                   size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
                    function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
-                   MultipathAlignment& multipath_aln_out, const bool allow_negative_scores = false);
+                   MultipathAlignment& multipath_aln_out, bool allow_negative_scores = false);
         
         /// Converts a MultipathAlignmentGraph to a GraphViz Dot representation, output to the given ostream.
         /// If given the Alignment query we are working on, can produce information about subpath iterators.
@@ -239,6 +241,10 @@ namespace vg {
         /// ordering of their target nodes
         void reorder_adjacency_lists(const vector<size_t>& order);
         
+        /// Return the pessimistic gap length corresponding to a certain tail length and multiplier (proportional to
+        /// the square root of the tail length)
+        int64_t pessimistic_tail_gap(int64_t tail_length, double multiplier);
+        
         /// Generate alignments of the tails of the query sequence, beyond the
         /// sources and sinks. The Alignment passed *must* be the one that owns
         /// the sequence we are working on. Returns a map from tail
@@ -250,8 +256,15 @@ namespace vg {
         /// of paths that must be in the extending graph in order to do an alignment
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
         align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
-                    size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, size_t min_paths,
-                    unordered_set<size_t>* sources = nullptr);
+                    size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
+                    size_t min_paths, unordered_set<size_t>* sources = nullptr);
+        
+        
+        /// Memo for the transcendental pessimistic tail gap function (thread local to maintain thread-safety)
+        static thread_local unordered_map<double, vector<int64_t>> pessimistic_tail_gap_memo;
+        
+        /// The largest size we will memoize up to
+        static const size_t tail_gap_memo_max_size;
     };
 }
 

@@ -240,6 +240,7 @@ int main_mpmap(int argc, char** argv) {
     bool dynamic_max_alt_alns = true;
     bool simplify_topologies = true;
     int max_alignment_gap = 5000;
+    double pessimistic_tail_gap_multiplier = 0.0; // i.e. none
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
     int gap_open_score_arg = std::numeric_limits<int>::min();
@@ -316,8 +317,9 @@ int main_mpmap(int argc, char** argv) {
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, OPT_PRUNE_EXP},
             {"long-read-scoring", no_argument, 0, 'E'},
-            {"read-length", no_argument, 0, 'l'},
-            {"nt-type", no_argument, 0, 'n'},
+            {"read-length", required_argument, 0, 'l'},
+            {"nt-type", required_argument, 0, 'n'},
+            {"error-rate", required_argument, 0, 'e'},
             {"match", required_argument, 0, 'q'},
             {"mismatch", required_argument, 0, 'z'},
             {"score-matrix", required_argument, 0, 'w'},
@@ -332,7 +334,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:ieSs:vX:u:a:b:I:D:BP:Q:UpM:r:W:K:Fc:C:R:En:l:q:z:w:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:ieSs:vX:u:a:b:I:D:BP:Q:UpM:r:W:K:Fc:C:R:En:l:e:q:z:w:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -711,13 +713,16 @@ int main_mpmap(int argc, char** argv) {
     else if (error_rate == "High" || error_rate == "HIGH") {
         error_rate = "high";
     }
-    
+        
     // set baseline parameters according to presets
     
     if (error_rate == "high") {
         // alignment scores that don't penalize gaps or mismatches as much
         mismatch_score = 1;
         gap_open_score = 1;
+        // do less DP on tails (having a presumption that long tails with no seeds
+        // will probably be soft-clipped)
+        pessimistic_tail_gap_multiplier = 3.0;
     }
     
     if (read_length == "long") {
@@ -1397,6 +1402,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.reversing_walk_length = reversing_walk_length;
     multipath_mapper.max_alt_mappings = max_num_mappings;
     multipath_mapper.max_alignment_gap = max_alignment_gap;
+    multipath_mapper.pessimistic_tail_gap_multiplier = pessimistic_tail_gap_multiplier;
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
@@ -1430,7 +1436,7 @@ int main_mpmap(int argc, char** argv) {
     
     // Establish a watchdog to find reads that take too long to map.
     // If we see any, we will issue a warning.
-    unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::minutes(20)));
+    unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::minutes(read_length == "long" ? 40 : 5)));
     
     // are we doing paired ends?
     if (interleaved_input || !fastq_name_2.empty()) {
