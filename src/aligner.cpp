@@ -1152,16 +1152,16 @@ void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_
         XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
         
         // wrap the graph so that empty pinning points are handled correctly
-        DozeuGraphWrapper wrapper(&g, !pin_left);
+        DozeuPinningOverlay overlay(&g, !pin_left);
         
         // do the alignment
-        xdrop.align_pinned(alignment, wrapper, pin_left, xdrop_max_gap_length);
+        xdrop.align_pinned(alignment, overlay, pin_left, xdrop_max_gap_length);
         
-        if (wrapper.performed_duplications()) {
-            // the overlay wrapper is not a strict subset of the underlying graph, so we may
+        if (overlay.performed_duplications()) {
+            // the overlay is not a strict subset of the underlying graph, so we may
             // need to translate some node IDs
             translate_oriented_node_ids(*alignment.mutable_path(), [&](id_t node_id) {
-                handle_t under = wrapper.get_underlying_handle(wrapper.get_handle(node_id));
+                handle_t under = overlay.get_underlying_handle(overlay.get_handle(node_id));
                 return make_pair(g.get_id(under), g.get_is_reverse(under));
             });
         }
@@ -1694,15 +1694,15 @@ void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bo
         QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
         
         // wrap the graph so that empty pinning points are handled correctly
-        DozeuGraphWrapper wrapper(&g, !pin_left);
+        DozeuPinningOverlay overlay(&g, !pin_left);
         
-        xdrop.align_pinned(alignment, g, pin_left, xdrop_max_gap_length);
+        xdrop.align_pinned(alignment, overlay, pin_left, xdrop_max_gap_length);
         
-        if (wrapper.performed_duplications()) {
-            // the overlay wrapper is not a strict subset of the underlying graph, so we may
+        if (overlay.performed_duplications()) {
+            // the overlay is not a strict subset of the underlying graph, so we may
             // need to translate some node IDs
             translate_oriented_node_ids(*alignment.mutable_path(), [&](id_t node_id) {
-                handle_t under = wrapper.get_underlying_handle(wrapper.get_handle(node_id));
+                handle_t under = overlay.get_underlying_handle(overlay.get_handle(node_id));
                 return make_pair(g.get_id(under), g.get_is_reverse(under));
             });
         }

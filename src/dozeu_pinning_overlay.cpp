@@ -1,20 +1,21 @@
 /**
- * \file dozeu_graph_wrapper.cpp: contains the implementation of DozeuGraphWrapper
+ * \file dozeu_pinning_overlay.cpp: contains the implementation of DozeuPinningOverlay
  */
 
 
-#include "dozeu_graph_wrapper.hpp"
+#include "dozeu_pinning_overlay.hpp"
 
 
 namespace vg {
 
 using namespace std;
 
-DozeuGraphWrapper::DozeuGraphWrapper(const HandleGraph* graph, bool preserve_sinks) : graph(graph), preserve_sinks(preserve_sinks) {
+DozeuPinningOverlay::DozeuPinningOverlay(const HandleGraph* graph, bool preserve_sinks) : graph(graph), preserve_sinks(preserve_sinks) {
     
     unordered_set<handle_t> empty_nodes;
         
     // find the numeric range of handles in the underlying graph (needed for later bookkeeping)
+    // and all nodes with no sequence
     uint64_t max_handle = std::numeric_limits<uint64_t>::min();
     graph->for_each_handle([&](const handle_t& handle) {
         for (handle_t h : {handle, graph->flip(handle)}) {
@@ -22,18 +23,20 @@ DozeuGraphWrapper::DozeuGraphWrapper(const HandleGraph* graph, bool preserve_sin
             min_handle = min(integer_handle, min_handle);
             max_handle = max(integer_handle, max_handle);
         }
+        
         if (graph->get_length(handle) == 0) {
             empty_nodes.insert(handle);
         }
     });
+    // keep track of these values
     num_null_nodes = empty_nodes.size();
     handle_val_range = max_handle - min_handle + 1;
         
     for (const handle_t& empty : empty_nodes) {
         
         // is this empty node a source/sink (depending on what we're preserving)?
-        bool should_preserve = !graph->follow_edges(empty, !preserve_sinks, [&](const handle_t& next) { return false; });
-        
+        bool should_preserve = graph->follow_edges(empty, !preserve_sinks, [&](const handle_t& next) { return false; });
+                
         if (should_preserve) {
             // check the neighbors of the empty source/sink
             graph->follow_edges(empty, preserve_sinks, [&](const handle_t& next) {
@@ -51,11 +54,11 @@ DozeuGraphWrapper::DozeuGraphWrapper(const HandleGraph* graph, bool preserve_sin
     }
 }
 
-bool DozeuGraphWrapper::performed_duplications() const {
+bool DozeuPinningOverlay::performed_duplications() const {
     return !duplicated_handles.empty();
 }
 
-bool DozeuGraphWrapper::has_node(id_t node_id) const {
+bool DozeuPinningOverlay::has_node(id_t node_id) const {
     if (is_a_duplicate_id(node_id)) {
         id_t under_id = get_underlying_id(node_id);
         if (graph->has_node(under_id)) {
@@ -72,7 +75,7 @@ bool DozeuGraphWrapper::has_node(id_t node_id) const {
     return false;
 }
 
-handle_t DozeuGraphWrapper::get_handle(const id_t& node_id, bool is_reverse) const {
+handle_t DozeuPinningOverlay::get_handle(const id_t& node_id, bool is_reverse) const {
     if (is_a_duplicate_id(node_id)) {
         return get_duplicate_handle(graph->get_handle(get_underlying_id(node_id), is_reverse));
     }
@@ -81,7 +84,7 @@ handle_t DozeuGraphWrapper::get_handle(const id_t& node_id, bool is_reverse) con
     }
 }
 
-id_t DozeuGraphWrapper::get_id(const handle_t& handle) const {
+id_t DozeuPinningOverlay::get_id(const handle_t& handle) const {
     if (is_a_duplicate_handle(handle)) {
         return graph->get_id(get_underlying_handle(handle)) + (graph->max_node_id() - graph->min_node_id() + 1);
     }
@@ -90,7 +93,7 @@ id_t DozeuGraphWrapper::get_id(const handle_t& handle) const {
     }
 }
 
-bool DozeuGraphWrapper::get_is_reverse(const handle_t& handle) const {
+bool DozeuPinningOverlay::get_is_reverse(const handle_t& handle) const {
     if (is_a_duplicate_handle(handle)) {
         return graph->get_is_reverse(get_underlying_handle(handle));
     }
@@ -99,7 +102,7 @@ bool DozeuGraphWrapper::get_is_reverse(const handle_t& handle) const {
     }
 }
 
-handle_t DozeuGraphWrapper::flip(const handle_t& handle) const {
+handle_t DozeuPinningOverlay::flip(const handle_t& handle) const {
     if (is_a_duplicate_handle(handle)) {
         return get_duplicate_handle(graph->flip(get_underlying_handle(handle)));
     }
@@ -108,7 +111,7 @@ handle_t DozeuGraphWrapper::flip(const handle_t& handle) const {
     }
 }
 
-size_t DozeuGraphWrapper::get_length(const handle_t& handle) const {
+size_t DozeuPinningOverlay::get_length(const handle_t& handle) const {
     if (is_a_duplicate_handle(handle)) {
         return graph->get_length(get_underlying_handle(handle));
     }
@@ -117,7 +120,7 @@ size_t DozeuGraphWrapper::get_length(const handle_t& handle) const {
     }
 }
 
-string DozeuGraphWrapper::get_sequence(const handle_t& handle) const {
+string DozeuPinningOverlay::get_sequence(const handle_t& handle) const {
     if (is_a_duplicate_handle(handle)) {
         return graph->get_sequence(get_underlying_handle(handle));
     }
@@ -126,9 +129,8 @@ string DozeuGraphWrapper::get_sequence(const handle_t& handle) const {
     }
 }
 
-bool DozeuGraphWrapper::follow_edges_impl(const handle_t& handle, bool go_left,
+bool DozeuPinningOverlay::follow_edges_impl(const handle_t& handle, bool go_left,
                                          const function<bool(const handle_t&)>& iteratee) const {
-    
     handle_t to_iterate = handle;
     if (is_a_duplicate_handle(handle)) {
         // this is a duplicate that we made to preserve sources/sinks
@@ -144,7 +146,7 @@ bool DozeuGraphWrapper::follow_edges_impl(const handle_t& handle, bool go_left,
         if (graph->get_length(next) > 0) {
             // the node is non-empty, so it hasn't been removed
             keep_going = iteratee(next);
-            if (keep_going && duplicated_handles.count(next)) {
+            if (keep_going && duplicated_handles.count(graph->forward(next))) {
                 // the node has a duplicate
                 if (preserve_sinks != (go_left != graph->get_is_reverse(next))) {
                     // we arrived at this node over an edge that the duplicate also shares
@@ -156,7 +158,7 @@ bool DozeuGraphWrapper::follow_edges_impl(const handle_t& handle, bool go_left,
     });
 }
 
-bool DozeuGraphWrapper::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
+bool DozeuPinningOverlay::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     // iterate over the original non empty nodes
     bool keep_going = graph->for_each_handle([&](const handle_t& handle) {
         if (graph->get_length(handle) > 0) {
@@ -173,15 +175,15 @@ bool DozeuGraphWrapper::for_each_handle_impl(const function<bool(const handle_t&
     return keep_going;
 }
 
-size_t DozeuGraphWrapper::get_node_count() const {
+size_t DozeuPinningOverlay::get_node_count() const {
     return graph->get_node_count() - num_null_nodes + duplicated_handles.size();
 }
 
-id_t DozeuGraphWrapper::min_node_id() const {
+id_t DozeuPinningOverlay::min_node_id() const {
     return graph->min_node_id();
 }
 
-id_t DozeuGraphWrapper::max_node_id() const {
+id_t DozeuPinningOverlay::max_node_id() const {
     id_t max_id = graph->max_node_id();
     for (const handle_t& handle : duplicated_handles) {
         max_id = max(max_id, get_id(get_duplicate_handle(handle)));
@@ -189,16 +191,16 @@ id_t DozeuGraphWrapper::max_node_id() const {
     return max_id;
 }
 
-bool DozeuGraphWrapper::is_a_duplicate_handle(const handle_t& handle) const {
+bool DozeuPinningOverlay::is_a_duplicate_handle(const handle_t& handle) const {
     return min_handle + handle_val_range <= (uint64_t) handlegraph::as_integer(handle);
 }
 
-bool DozeuGraphWrapper::is_a_duplicate_id(const id_t& node_id) const {
+bool DozeuPinningOverlay::is_a_duplicate_id(const id_t& node_id) const {
     return node_id > graph->max_node_id();
 }
 
 
-handle_t DozeuGraphWrapper::get_underlying_handle(const handle_t& handle) const {
+handle_t DozeuPinningOverlay::get_underlying_handle(const handle_t& handle) const {
     if (!is_a_duplicate_handle(handle)) {
         return handle;
     }
@@ -207,12 +209,12 @@ handle_t DozeuGraphWrapper::get_underlying_handle(const handle_t& handle) const 
     }
 }
 
-id_t DozeuGraphWrapper::get_underlying_id(const id_t& node_id) const {
+id_t DozeuPinningOverlay::get_underlying_id(const id_t& node_id) const {
     return ((node_id - graph->min_node_id()) % (graph->max_node_id() - graph->min_node_id() + 1)) + graph->min_node_id();
 }
  
 
-handle_t DozeuGraphWrapper::get_duplicate_handle(const handle_t& handle) const {
+handle_t DozeuPinningOverlay::get_duplicate_handle(const handle_t& handle) const {
     return handlegraph::as_handle(uint64_t(handlegraph::as_integer(handle)) + handle_val_range);
 }
 

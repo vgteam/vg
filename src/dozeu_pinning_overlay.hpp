@@ -1,8 +1,8 @@
-#ifndef VG_DOZEU_GRAPH_WRAPPER_HPP_INCLUDED
-#define VG_DOZEU_GRAPH_WRAPPER_HPP_INCLUDED
+#ifndef VG_DOZEU_PINNING_OVERLAY_HPP_INCLUDED
+#define VG_DOZEU_PINNING_OVERLAY_HPP_INCLUDED
 
 /** \file
- * dozeu_graph_wrapper.hpp: defines a handle graph implementation that handles nodes
+ * dozeu_pinning_overlay.hpp: defines a handle graph implementation that handles nodes
  * with no sequence in a way that plays well with dozeu pinned alignment
  */
 
@@ -20,17 +20,18 @@ using namespace std;
  * that consists entirely of null nodes. Assumes graph is single-
  * stranded.
  */
-class DozeuGraphWrapper : public ExpandingOverlayGraph {
+class DozeuPinningOverlay : public ExpandingOverlayGraph {
 public:
     
-    /// Initialize with the graph we want to mask null nodes in
-    DozeuGraphWrapper(const HandleGraph* graph, bool preserve_sinks);
+    /// Initialize with the graph we want to do pinned alignment to. Boolean flag indicates
+    /// whether sources or sinks should be preserved (for pinning right or left respectively).
+    DozeuPinningOverlay(const HandleGraph* graph, bool preserve_sinks);
     
     /// Default constructor -- not actually functional
-    DozeuGraphWrapper() = default;
+    DozeuPinningOverlay() = default;
     
     /// Default destructor
-    ~DozeuGraphWrapper() = default;
+    ~DozeuPinningOverlay() = default;
     
     /// Returns true if any node has been duplicated in the overlay, in which case it may
     /// be necessary to translate between the IDs of this overlay and the underlying graph.
@@ -122,4 +123,4 @@ private:
 };
 }
 
-#endif
+#endif // VG_DOZEU_PINNING_OVERLAY_HPP_INCLUDED
