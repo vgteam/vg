@@ -210,7 +210,7 @@ handle_t DozeuPinningOverlay::get_underlying_handle(const handle_t& handle) cons
 }
 
 id_t DozeuPinningOverlay::get_underlying_id(const id_t& node_id) const {
-    return ((node_id - graph->min_node_id()) % (graph->max_node_id() - graph->min_node_id() + 1)) + graph->min_node_id();
+    return node_id - (graph->max_node_id() - graph->min_node_id() + 1);
 }
  
 
