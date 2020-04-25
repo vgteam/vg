@@ -10,6 +10,8 @@
 
 #include "algorithms/dijkstra.hpp"
 
+#include <bdsg/overlays/strand_split_overlay.hpp>
+
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -2118,7 +2120,6 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 //-----------------------------------------------------------------------------
 
 void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
-    
 
     //Get the subgraph of all nodes within a reasonable range from aligned_read
     SubHandleGraph sub_graph(&gbwt_graph);
@@ -2127,29 +2128,37 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
     int64_t max_distance = fragment_length_distr.mean() + 4*fragment_length_distr.stdev();
     distance_index.subgraphInRange(aligned_read.path(), &gbwt_graph, min_distance, max_distance, sub_graph, rescue_forward); 
 
+    // Create an overlay where each strand is a separate node.
+    StrandSplitGraph split_graph(&sub_graph);
 
-    //Convert subgraph to directed, acyclic graph
-    //Borrowed heavily from mpmap
-    bdsg::HashGraph align_graph;
-    unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&sub_graph, &align_graph);
-    // Checking acyclicity is much faster in HashGraph than in GBWTGraph.
-    if (!algorithms::is_directed_acyclic(&align_graph)) {
-
-        bdsg::HashGraph dagified;
-        unordered_map<id_t, id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, rescued_alignment.sequence().size());
-        align_graph = move(dagified);
-        node_trans = overlay_node_translations(dagify_trans, node_trans);
+    // Dagify the subgraph if necessary.
+    // FIXME We already know the topological order after this, so we should reuse it for building the GSSW graph.
+    HandleGraph* align_graph = &split_graph;
+    bdsg::HashGraph dagified;
+    std::unordered_map<id_t, id_t> dagify_trans;
+    bool is_dagified = false;
+    if (!algorithms::is_directed_acyclic(&sub_graph)) {
+        dagify_trans = algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
+        align_graph = &dagified;
+        is_dagified = true;
     }
 
     //Align to the subgraph
     rescued_alignment.clear_path();
-    get_regular_aligner()->align(rescued_alignment, align_graph, true);
+    get_regular_aligner()->align(rescued_alignment, *align_graph, true);
 
-    translate_oriented_node_ids(*rescued_alignment.mutable_path(), node_trans);
+    // Map the alignment back to the original graph.
+    Path& path = *(rescued_alignment.mutable_path());
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        Position& pos = *(path.mutable_mapping(i)->mutable_position());
+        id_t id = (is_dagified ? dagify_trans[pos.node_id()] : pos.node_id());
+        handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(id));
+        pos.set_node_id(sub_graph.get_id(handle));
+        pos.set_is_reverse(sub_graph.get_is_reverse(handle));
+    }
 
     //TODO: mpmap also checks the score here
     return;
-
 }
 
 void MinimizerMapper::attempt_rescue_haplotypes(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward) {
