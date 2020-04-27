@@ -1795,6 +1795,7 @@ pair<int64_t, int64_t> MinimumDistanceIndex::SnarlIndex::distToEnds(size_t rank,
     return make_pair(dist_start, dist_end);
 }
 
+
 void MinimumDistanceIndex::SnarlIndex::printSelf() {
     //Print the nodes contained in SnarlDistance
     cerr << endl;
@@ -2532,7 +2533,7 @@ void MinimumDistanceIndex::subgraphInRange(const Path& path, const HandleGraph* 
     return;
 }
 
-pair<size_t, size_t> MinimumDistanceIndex::offset_in_root_chain (pos_t pos) {
+tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t> MinimumDistanceIndex::get_minimizer_distances (pos_t pos) {
     if (node_to_component.size() == 0) {
         throw runtime_error("error: distance index is out-of-date");
     }
@@ -2543,29 +2544,41 @@ pair<size_t, size_t> MinimumDistanceIndex::offset_in_root_chain (pos_t pos) {
     bool is_boundary_node = snarl_rank == 0 || snarl_rank == 1 || 
                             snarl_rank == snarl_index.num_nodes*2-1 || snarl_rank == snarl_index.num_nodes*2-2;
     size_t component = node_to_component[id - min_node_id]; 
-    if (component == 0 || !is_boundary_node || !snarl_index.depth == 0 || !snarl_index.in_chain) {
-        return make_pair(MIPayload::NO_VALUE, MIPayload::NO_VALUE);
-    }
-    int64_t node_offset = get_offset(pos);
-    bool node_is_rev_in_snarl = snarl_rank% 2;
-    node_is_rev_in_snarl = is_rev(pos) ? !node_is_rev_in_snarl : node_is_rev_in_snarl;
-    bool node_is_rev_in_chain = node_is_rev_in_snarl ? !snarl_index.rev_in_parent : snarl_index.rev_in_parent;
-    if (node_is_rev_in_chain){
-        node_offset = snarl_index.nodeLength(snarl_rank) - node_offset;
-    } else {
-        node_offset += 1;
-    }
+
+
+    if (component != 0 && snarl_index.depth == 0 && snarl_index.in_chain && is_boundary_node) {
+        //If this node is a boundary node of a top-level chain
+        int64_t node_offset = get_offset(pos);
+        bool node_is_rev_in_snarl = snarl_rank% 2;
+        node_is_rev_in_snarl = is_rev(pos) ? !node_is_rev_in_snarl : node_is_rev_in_snarl;
+        bool node_is_rev_in_chain = node_is_rev_in_snarl ? !snarl_index.rev_in_parent : snarl_index.rev_in_parent;
+        if (node_is_rev_in_chain){
+            node_offset = snarl_index.nodeLength(snarl_rank) - node_offset;
+        } else {
+            node_offset += 1;
+        }
   
-    size_t offset;
-    if (snarl_index.in_chain) {
         size_t length = component_to_chain_length[component-1];
         size_t chain_rank = getChainRank(id); 
-        offset = chain_rank == 0 ? 0 : chain_indexes[component_to_chain_index[component-1]].prefix_sum[chain_rank] - 1;
+        size_t offset = chain_rank == 0 ? 0 : chain_indexes[component_to_chain_index[component-1]].prefix_sum[chain_rank] - 1;
+
+        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t>(true, component, offset + node_offset,
+            false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE);
+
+    } else if (component != 0 && snarl_index.depth == 0 && snarl_index.in_chain && snarl_index.is_simple_snarl) {
+
+        size_t chain_rank = getChainRank(snarl_index.id_in_parent);
+        size_t start_len = snarl_index.rev_in_parent ? snarl_index.nodeLength(snarl_index.num_nodes*2-1) : snarl_index.nodeLength(0);
+        size_t end_len = snarl_index.rev_in_parent ? snarl_index.nodeLength(0) : snarl_index.nodeLength(snarl_index.num_nodes*2-1);
+        size_t node_len = snarl_index.nodeLength(snarl_rank);
+        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
+                true, chain_rank, start_len, end_len, node_len);
+
     } else {
-        offset = snarl_rank == 0 || snarl_rank == 1 ? 0 : 
-                 snarl_index.snarlLength()-snarl_index.nodeLength(snarl_index.num_nodes*2-1);
+        //If this is a nested position
+        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
+                false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE);
     }
-    return make_pair(component, offset + node_offset);
 }
 
 int64_t MinimumDistanceIndex::top_level_chain_length(id_t node_id) {

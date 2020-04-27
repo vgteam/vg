@@ -1006,57 +1006,67 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
             //Connected components should be have unique identifiers
 
-            REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).first != std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(2 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(3 , false, 0)).first == 
-                     di.offset_in_root_chain(make_pos_t(1, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(4 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(5 , false, 0)).first == 
-                     di.offset_in_root_chain(make_pos_t(1, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(6 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(7 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(8 , false, 0)).first == 
-                     di.offset_in_root_chain(make_pos_t(1, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).first != 
-                     di.offset_in_root_chain(make_pos_t(1, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).first != std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).first != 
-                     di.offset_in_root_chain(make_pos_t(1, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(10, false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(11, false, 0)).first == 
-                     di.offset_in_root_chain(make_pos_t(9, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(12, false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(13, false, 0)).first == 
-                     di.offset_in_root_chain(make_pos_t(9, false, 0)).first);
+            REQUIRE (std::get<0>(di.get_minimizer_distances(make_pos_t(1 , false, 0))) );
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(2 , false, 0))));
+            REQUIRE (std::get<1>(di.get_minimizer_distances(make_pos_t(3 , false, 0))) == 
+                     std::get<1>(di.get_minimizer_distances(make_pos_t(1, false, 0))) );
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(4 , false, 0))));
+            REQUIRE (std::get<1>(di.get_minimizer_distances(make_pos_t(5 , false, 0))) == 
+                     std::get<1>(di.get_minimizer_distances(make_pos_t(1, false, 0)) ));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(6 , false, 0))));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(7 , false, 0))));
+            REQUIRE (std::get<1>(di.get_minimizer_distances(make_pos_t(8 , false, 0))) == 
+                     std::get<1>(di.get_minimizer_distances(make_pos_t(1, false, 0)) ));
+            REQUIRE (std::get<0>(di.get_minimizer_distances(make_pos_t(9 , false, 0))));
+            REQUIRE (std::get<1>(di.get_minimizer_distances(make_pos_t(9 , false, 0))) != 
+                     std::get<1>(di.get_minimizer_distances(make_pos_t(1, false, 0)) ));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(10, false, 0))));
+            REQUIRE (std::get<1>(di.get_minimizer_distances(make_pos_t(11, false, 0))) == 
+                     std::get<1>(di.get_minimizer_distances(make_pos_t(9, false, 0)) ));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(12, false, 0))));
+            REQUIRE (std::get<1>(di.get_minimizer_distances(make_pos_t(13, false, 0))) == 
+                     std::get<1>(di.get_minimizer_distances(make_pos_t(9, false, 0)) ));
 
-            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).first != 
-                     di.offset_in_root_chain(make_pos_t(9, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).first != 
-                     di.offset_in_root_chain(make_pos_t(1, false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(15, false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(16, false, 0)).first == 
-                     di.offset_in_root_chain(make_pos_t(14, false, 0)).first);
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(14, false, 0))));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(15, false, 0))));
             //Offsets should be correct
-            REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).second == 1);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(2 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(3 , false, 0)).second == 4);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(4 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(5 , false, 0)).second == 5);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(6 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(7 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(8 , false, 0)).second == 9);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).second == 1);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(10, false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(11, false, 0)).second == 2);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(12, false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(13, false, 0)).second == 6);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(15, false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(16, false, 0)).second == std::numeric_limits<size_t>::max());
+            REQUIRE (std::get<2>(di.get_minimizer_distances(make_pos_t(1 , false, 0))) == 1);
+            REQUIRE (std::get<2>(di.get_minimizer_distances(make_pos_t(3 , false, 0))) == 4);
+            REQUIRE (std::get<2>(di.get_minimizer_distances(make_pos_t(5 , false, 0))) == 5);
+            REQUIRE (std::get<2>(di.get_minimizer_distances(make_pos_t(8 , false, 0))) == 9);
+            REQUIRE (std::get<2>(di.get_minimizer_distances(make_pos_t(9 , false, 0))) == 1);
+            REQUIRE (std::get<2>(di.get_minimizer_distances(make_pos_t(11, false, 0))) == 2);
+            REQUIRE (std::get<2>(di.get_minimizer_distances(make_pos_t(13, false, 0))) == 6);
 
 
+            //Top-level bubble assignments should be correct
+            REQUIRE (std::get<3>(di.get_minimizer_distances(make_pos_t(2 , false, 0))) );
+            REQUIRE (std::get<3>(di.get_minimizer_distances(make_pos_t(4 , false, 0))) );
+            REQUIRE (std::get<3>(di.get_minimizer_distances(make_pos_t(6 , false, 0))) );
+            REQUIRE (std::get<3>(di.get_minimizer_distances(make_pos_t(7 , false, 0))) );
 
+            //ranks of top-level bubbles
+            REQUIRE (std::get<4>(di.get_minimizer_distances(make_pos_t(2 , false, 0)))== 0 );
+            REQUIRE (std::get<4>(di.get_minimizer_distances(make_pos_t(4 , false, 0)))== 1 );
+            REQUIRE (std::get<4>(di.get_minimizer_distances(make_pos_t(6 , false, 0)))== 2 );
+            REQUIRE (std::get<4>(di.get_minimizer_distances(make_pos_t(7 , false, 0)))== 2 );
+
+            //start node length
+            REQUIRE ((std::get<5>(di.get_minimizer_distances(make_pos_t(2 , false, 0)))== 3 || std::get<5>(di.get_minimizer_distances(make_pos_t(2 , false, 0)))== 1));
+            REQUIRE ((std::get<5>(di.get_minimizer_distances(make_pos_t(4 , false, 0)))== 1 ||std::get<5>(di.get_minimizer_distances(make_pos_t(4 , false, 0)))== 3) );
+            REQUIRE ((std::get<5>(di.get_minimizer_distances(make_pos_t(6 , false, 0)))== 3 || std::get<5>(di.get_minimizer_distances(make_pos_t(6 , false, 0)))== 4));
+            REQUIRE ((std::get<5>(di.get_minimizer_distances(make_pos_t(7 , false, 0)))== 3 || std::get<5>(di.get_minimizer_distances(make_pos_t(7 , false, 0)))== 4));
+            //end node length
+            REQUIRE ((std::get<6>(di.get_minimizer_distances(make_pos_t(2 , false, 0)))== 3 || std::get<6>(di.get_minimizer_distances(make_pos_t(2 , false, 0)))== 1));
+            REQUIRE ((std::get<6>(di.get_minimizer_distances(make_pos_t(4 , false, 0)))== 1 ||std::get<6>(di.get_minimizer_distances(make_pos_t(4 , false, 0)))== 3) );
+            REQUIRE ((std::get<6>(di.get_minimizer_distances(make_pos_t(6 , false, 0)))== 3 || std::get<6>(di.get_minimizer_distances(make_pos_t(6 , false, 0)))== 4));
+            REQUIRE ((std::get<6>(di.get_minimizer_distances(make_pos_t(7 , false, 0)))== 3 || std::get<6>(di.get_minimizer_distances(make_pos_t(7 , false, 0)))== 4));
+
+            //Node lengths
+            REQUIRE (std::get<7>(di.get_minimizer_distances(make_pos_t(2 , false, 0)))== 1 );
+            REQUIRE (std::get<7>(di.get_minimizer_distances(make_pos_t(4 , false, 0)))== 4 );
+            REQUIRE (std::get<7>(di.get_minimizer_distances(make_pos_t(6 , false, 0)))== 1 );
+            REQUIRE (std::get<7>(di.get_minimizer_distances(make_pos_t(7 , false, 0)))== 1 );
         }
  
     }
@@ -1127,51 +1137,32 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
             //Connected components should be have unique identifiers
 
-            REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(2 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(3 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(4 , true, 3)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(5 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(6 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(7 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(8 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(10 , false, 0)).first == 
-                     di.offset_in_root_chain(make_pos_t(1 , false, 0)).first);
-
-
-            REQUIRE (di.offset_in_root_chain(make_pos_t(11 , false, 0)).first != std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(12 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(13, false, 0)).first == 
-                     di.offset_in_root_chain(make_pos_t(11 , false, 0)).first);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(14 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(15 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(16 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(17 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(18 , false, 0)).first == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(19, false, 0)).first == 
-                     di.offset_in_root_chain(make_pos_t(11 , false, 0)).first);
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(1 , false, 0)) ));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(2 , false, 0)) ));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(3 , false, 0)) ));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(4 , true, 3))  ));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(5 , false, 0)) ));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(6 , false, 0)) ));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(7 , false, 0)) ));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(8 , false, 0)) ));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(9 , false, 0)) ));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(10 , false, 0))));
+            REQUIRE (std::get<0>(di.get_minimizer_distances(make_pos_t(11 , false, 0))));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(12 , false, 0))));
+            REQUIRE (std::get<1>(di.get_minimizer_distances(make_pos_t(13, false, 0)) ) == 
+                     std::get<1>(di.get_minimizer_distances(make_pos_t(11 , false, 0))));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(14 , false, 0))));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(15 , false, 0))));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(16 , false, 0))));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(17 , false, 0))));
+            REQUIRE (!std::get<0>(di.get_minimizer_distances(make_pos_t(18 , false, 0))));
+            REQUIRE (std::get<1>(di.get_minimizer_distances(make_pos_t(19, false, 0)) ) == 
+                     std::get<1>(di.get_minimizer_distances(make_pos_t(11 , false, 0))));
 
             //Offsets should be correct
-            REQUIRE (di.offset_in_root_chain(make_pos_t(1 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(2 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(3 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(4 , true, 3)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(5 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(6 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(7 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(8 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(9 , false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(10, true, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(11, true, 3)).second == 1);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(12, false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(13, false, 0)).second == 5);
-            REQUIRE (di.offset_in_root_chain(make_pos_t(14, false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(15, false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(16, false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(17, false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(18, false, 0)).second == std::numeric_limits<size_t>::max());
-            REQUIRE (di.offset_in_root_chain(make_pos_t(19, false, 0)).second == 9);
+            REQUIRE (std::get<2>(di.get_minimizer_distances(make_pos_t(11, true, 3)) ) == 1);
+            REQUIRE (std::get<2>(di.get_minimizer_distances(make_pos_t(13, false, 0))) == 5);
+            REQUIRE (std::get<2>(di.get_minimizer_distances(make_pos_t(19, false, 0))) == 9);
 
 
 
@@ -1273,19 +1264,18 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
                                                    make_pos_t(nodeID2, !is_rev(pos2), node2->sequence().size() - offset2 - 1) ); 
                     dist4 = dist3 == -1 ? dist4 : (dist4 == -1 ? dist3 : min(dist3, dist4));
 
-                    pair<size_t, size_t> root_offset1 = di.offset_in_root_chain (pos1);
-                    pair<size_t, size_t> root_offset2 = di.offset_in_root_chain (pos2);
-                    if (root_offset1.first != std::numeric_limits<size_t>::max() && 
-                        root_offset2.first != std::numeric_limits<size_t>::max() &&
-                        root_offset1.first == root_offset2.first &&
+                    auto root_offset1 = di.get_minimizer_distances (pos1);
+                    auto root_offset2 = di.get_minimizer_distances (pos2);
+                    if (std::get<0>(root_offset1) && std::get<0>(root_offset2) &&
+                        std::get<1>(root_offset1) == std::get<1>(root_offset2) &&
                         dist4 != -1) {
                         graph.serialize_to_file("testGraph");
                         //If these positions are both on the same root chain, then the minimum (unoriented) distance between them
                         //should be the difference between the offsets we store
-                        if (root_offset1.second < root_offset2.second) {
-                            REQUIRE(root_offset2.second - root_offset1.second == dist4);
+                        if (std::get<2>(root_offset1) < std::get<2>(root_offset2)) {
+                            REQUIRE(std::get<2>(root_offset2) - std::get<2>(root_offset1) == dist4);
                         } else {
-                            REQUIRE(root_offset1.second - root_offset2.second == dist4);
+                            REQUIRE(std::get<2>(root_offset1) - std::get<2>(root_offset2) == dist4);
                         }
 
                         

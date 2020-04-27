@@ -2293,11 +2293,14 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     hit = reverse_base_pos(hit, node_length);
                 }
                 // Extract component id and offset in the root chain, if we have them for this seed.
-                std::pair<size_t, size_t> chain_info(MIPayload::NO_VALUE, MIPayload::NO_VALUE);
+                // TODO: Get all the seed values here
+                tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t> chain_info
+                    (false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE );
                 if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
                     chain_info = MIPayload::decode(minimizer.occs[j].payload);
                 }
-                seeds.push_back({ hit, i, chain_info.first, chain_info.second });
+                seeds.push_back({ hit, i, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
+                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info) });
             }
             
             if (!(took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {

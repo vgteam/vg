@@ -278,11 +278,11 @@ cerr << "Nested positions: " << endl << "\t";
             for (size_t i = 0; i < seeds->size(); i++) {
                 pos_t pos = seeds->at(i).pos;
                 id_t id = get_id(pos);
-                size_t component = seeds->at(i).component;
+                
 
                 //Assign the seed to a node
-                if (component == MIPayload::NO_VALUE) {
-                    //If this seed is not on a top-level chain
+                if (!seeds->at(i).is_top_level_node && !seeds->at(i).is_top_level_snarl) {
+                    //If this seed is not on a top-level chain or top-level simple bubble
                     //A seed can still be added here if it is on a top-level chain
                     tree_state.node_to_seeds[read_num].emplace_back(id, i);
 #ifdef DEBUG_CLUSTER
@@ -297,10 +297,10 @@ cerr << "Nested positions: " << endl << "\t";
                         snarl_to_nodes_by_level[depth][snarl_i].emplace_back(
                                  NetgraphNode(id, NODE), NodeClusters(tree_state.all_seeds->size()));
                     } 
-                } else {
+                } else if (seeds->at(i).is_top_level_node) {
                     //If this is a top-level seed, defer clustering until we reach the top-level
                     //TODO: Add top-level simple snarl seeds here- should be map from rank in chain to vector of node ids
-
+                    size_t component = seeds->at(i).component;
                     if (tree_state.component_to_index.count(component) == 0) {
                         tree_state.component_to_index.emplace(component, tree_state.top_level_seed_clusters.size());
                         tree_state.top_level_seed_clusters.emplace_back();
@@ -308,6 +308,22 @@ cerr << "Nested positions: " << endl << "\t";
                     }
                     tree_state.top_level_seed_clusters[tree_state.component_to_index.at(component)].emplace_back(read_num, i);
 
+                } else if (seeds->at(i).is_top_level_snarl) {
+
+                    tree_state.node_to_seeds[read_num].emplace_back(id, i);
+
+                    size_t component = dist_index.get_connected_component(id);
+                    if (tree_state.component_to_index.count(component) == 0) {
+                        tree_state.component_to_index.emplace(component, tree_state.top_level_seed_clusters.size());
+                        tree_state.top_level_seed_clusters.emplace_back();
+                        tree_state.simple_snarl_to_nodes_by_component.emplace_back();
+                    }
+                    hash_map<size_t, vector<tuple<id_t, int64_t, int64_t, int64_t>>>& simple_snarl_to_nodes = 
+                        tree_state.simple_snarl_to_nodes_by_component[tree_state.component_to_index.at(component)];
+                    if (seen_nodes.count(id) < 1) {
+                        seen_nodes.insert(id);
+                        simple_snarl_to_nodes[seeds->at(i).snarl_rank].emplace_back(id, seeds->at(i).node_length, seeds->at(i).start_length, seeds->at(i).end_length);
+                    }
                 }
             }
             std::sort(tree_state.node_to_seeds[read_num].begin(), tree_state.node_to_seeds[read_num].end());
@@ -1960,6 +1976,7 @@ cerr <<  "\t\t cluster" << read_num << " " << std::get<0>(prev_snarl_cluster_by_
                                 int64_t loop_left, int64_t loop_right, int64_t snarl_length) const {
         //Cluster a top-level simple snarl and save the distances to the ends of the node in tree_state.read_cluster_dists 
         //Returns a vector of cluster heads (<read_num, seed num>)
+cerr << "cluster simple snarl" << endl;
 
 
  

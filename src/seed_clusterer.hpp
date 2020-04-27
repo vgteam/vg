@@ -25,6 +25,7 @@ class SnarlSeedClusterer {
 
             //For nodes on top-level simple bubbles
             bool is_top_level_snarl;
+            size_t snarl_rank; //Rank of the snarl in the chain
             size_t node_length; //Length of the node the position is on
             size_t start_length; //Length of the snarl start node (relative to a fd traversal of the chain)
             size_t end_length; //Length of the snarl end node
@@ -237,8 +238,9 @@ class SnarlSeedClusterer {
             vector<vector<pair<size_t, size_t>>> top_level_seed_clusters;
 
             //For each component, maps each snarl (as the rank of the snarl in the chain) to
-            //a list of nodes it contains as <node id, node length>, and the minimum length of the snarl
-            //and lengths of the start and end nodes of the snarl (relative to the orientation in the chain
+            //a list of nodes it contains as <node id, node length, start length, end length>
+            //where start length and end length are the lengths of the start and end nodes of
+            //the snarl (relative to the orientation in the chain
             //TODO: this is a mess
             //Only for top-level simple snarls, instead of snarl_to_nodes
             vector<hash_map<size_t, vector<tuple<id_t, int64_t, int64_t, int64_t>>>> simple_snarl_to_nodes_by_component;
