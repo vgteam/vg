@@ -3550,13 +3550,14 @@ namespace vg {
         // Actually align the tails
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns,
                                            max_gap, pessimistic_tail_gap_multiplier, 0, &sources);
-        
+                
         // Handle the right tails
         for (auto& kv : tail_alignments[true]) {
             // For each sink subpath number
             const size_t& j = kv.first;
             // And the tail alignments from it
             vector<Alignment>& alt_alignments = kv.second;
+            
             // remove alignments with the same path
             deduplicate_alt_alns(alt_alignments);
         
@@ -3577,6 +3578,7 @@ namespace vg {
                 tail_subpath->set_score(tail_alignment.score());
                 
                 Mapping* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
+
                 if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
                     first_mapping->mutable_position()->set_offset(offset(end_pos));
                 }
@@ -3596,7 +3598,7 @@ namespace vg {
 #endif
             }
         }
-        
+                
         // Now handle the left tails.
         // We need to handle all sources, whether or not they got alignments
         for (auto& j : sources) {
@@ -3608,7 +3610,7 @@ namespace vg {
                 vector<Alignment>& alt_alignments = tail_alignments[false][j];
                 // remove alignments with the same path
                 deduplicate_alt_alns(alt_alignments);
-                
+                                
                 const Mapping& first_mapping = path_node.path.mapping(0);
                 for (Alignment& tail_alignment : alt_alignments) {
                     Subpath* tail_subpath = multipath_aln_out.add_subpath();
@@ -3641,7 +3643,7 @@ namespace vg {
         }
     }
     
-    // just to control the memory usage to a small value (8KB per thread)
+    // just to control the memory usage to a small value
     const size_t MultipathAlignmentGraph::tail_gap_memo_max_size = 1000;
 
     // make the memo live in this .o file
@@ -3694,13 +3696,15 @@ namespace vg {
                     cerr << endl;
 #endif
                     
-                    int64_t target_length = ((alignment.sequence().end() - path_node.end) +
-                                             min(aligner->longest_detectable_gap(alignment, path_node.end), max_gap));
-                    
+                    // figure out how long we need to try to align out to
+                    int64_t tail_length = alignment.sequence().end() - path_node.end;
+                    int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.end), max_gap);
                     if (pessimistic_tail_gap_multiplier) {
-                        target_length = min(target_length, pessimistic_tail_gap(alignment.sequence().end() - path_node.end,
-                                                                                pessimistic_tail_gap_multiplier));
+                        gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
                     }
+                    int64_t target_length = tail_length + gap;
+                    
+                    
                     
                     pos_t end_pos = final_position(path_node.path);
                     
@@ -3803,13 +3807,13 @@ namespace vg {
                 PathNode& path_node = path_nodes.at(j);
                 if (path_node.begin != alignment.sequence().begin()) {
                     
-                    int64_t target_length = ((path_node.begin - alignment.sequence().begin()) +
-                                             min(aligner->longest_detectable_gap(alignment, path_node.begin), max_gap));
-                    
+                    // figure out how far we need to try to align out to
+                    int64_t tail_length = path_node.begin - alignment.sequence().begin();
+                    int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.end), max_gap);
                     if (pessimistic_tail_gap_multiplier) {
-                        target_length = min(target_length, pessimistic_tail_gap(path_node.begin - alignment.sequence().begin(),
-                                                                                pessimistic_tail_gap_multiplier));
+                        gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
                     }
+                    int64_t target_length = tail_length + gap;
                     
                     pos_t begin_pos = initial_position(path_node.path);
                     

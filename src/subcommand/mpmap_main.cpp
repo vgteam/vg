@@ -792,6 +792,7 @@ int main_mpmap(int argc, char** argv) {
             cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
         }
         
+        dynamic_max_alt_alns = false;
         num_alt_alns = 1;
     }
     
@@ -1843,7 +1844,7 @@ int main_mpmap(int argc, char** argv) {
     // FASTQ input
     if (!fastq_name_1.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << "." << endl;
+            cerr << "[vg mpmap] Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << endl;
         }
         
         if (interleaved_input) {
@@ -1863,11 +1864,11 @@ int main_mpmap(int argc, char** argv) {
     if (!gam_file_name.empty()) {
         function<void(istream&)> execute = [&](istream& gam_in) {
             if (!gam_in) {
-                cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << "." << endl;
+                cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << endl;
                 exit(1);
             }
             if (!suppress_progress) {
-                cerr << "[vg mpmap] Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << "." << endl;
+                cerr << "[vg mpmap] Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << endl;
             }
             
             if (interleaved_input) {
