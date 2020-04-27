@@ -75,20 +75,20 @@ public:
     /// single-item components.
     void for_each_membership(const function<void(handle_t, handle_t)>& iteratee) const;
     
-    /// Return a vector of, for each connected component, the length in bases
-    /// and the path edges of the longest simple cycle in it, if any.
-    vector<pair<size_t, vector<handle_t>>> longest_cycles_in_connected_components() const;
-    
-    /// Return a vector of, for each connected component, the length in bases
-    /// and the path edges of the longest simple cycle in it, if any.
+    /// In a graph where all 3-edge-connected components have had their nodes
+    /// merged, find all the cycles. Cycles are guaranteed to overlap at at
+    /// most one node, so no special handling of overlapping regions is done.
     ///
-    /// Call the given callback on at least a spanning tree of components
-    /// connected by simple cycle co-membership. Doesn't call it for
-    /// self-loops.
-    vector<pair<size_t, vector<handle_t>>> longest_cycles_in_connected_components(const function<void(handle_t, handle_t)>& move_in_same_circles) const;
+    /// Returns a list of cycle edge length (in bp) and an edge on each cycle
+    /// (for the longest cycle in each connected component), and a map from
+    /// each edge on the cycle to the next edge, going around each cycle in one
+    /// direction (for all cycles).
+    ///
+    /// Ignores self loops.
+    pair<vector<size_t, handle_t>, unordered_map<handle_t, handle_t>> cycles_in_cactus() const;
     
     /// Return the path length (total edge length in bp) and edges for the
-    /// longst path in each tree in a forest. Ignores self loops on tree nodes.
+    /// longest path in each tree in a forest. Ignores self loops on tree nodes.
     ///
     /// Also return the map from the head of each component to the edge into
     /// the child that is first along the longest path to a leaf. For
@@ -99,7 +99,7 @@ public:
     /// Needs access to the longest simple cycles that were merged out, if any.
     /// If a path in the forest doesn't beat the length of the cycle that lives
     /// in its tree, it is omitted.
-    pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> longest_paths_in_forest(const vector<pair<size_t, vector<handle_t>>>& longest_simple_cycles) const;
+    pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> longest_paths_in_forest(const vector<pair<size_t, handle_t>>& longest_simple_cycles) const;
 };
 
 size_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_rank(handle_t into) const {
@@ -208,20 +208,22 @@ void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_membership(const func
     }
 }
 
-vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGraph::longest_cycles_in_connected_components() const {
-    // Call with a no-op merge function
-    return longest_cycles_in_connected_components([&](handle_t a, handle_t b) {});
-}
-
-vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGraph::longest_cycles_in_connected_components(const function<void(handle_t, handle_t)>& move_in_same_circles) const {
+pair<vector<size_t, handle_t>, unordered_map<handle_t, handle_t>> IntegratedSnarlFinder::MergedAdjacencyGraph::cycles_in_cactus() const {
     // Do a DFS over all connected components of the graph
     
     // We will fill this in
-    vector<pair<size_t, vector<handle_t>>> to_return;
+    pair<vector<size_t, handle_t>, unordered_map<handle_t, handle_t>> to_return;
+    auto& longest_cycles = to_return.first;
+    auto& next_edge = to_return.second;
     
-    // To let us measure cycles without walking them, we need to remember stack
-    // frame index as our visit marker. No record = not visited, record =
-    // visited.
+    // When we see a back edge that isn't a self loop, we jump up the stack and
+    // walk down it, writing the cycle relationships. We know the cycles can't
+    // overlap (due to merged 3 edge connected components) so we also know we
+    // won't ever re-walk the same part of the stack, so this is efficient.
+    
+    // To let us actually find the cycle paths when we see back edges, we need
+    // to remember stack frame index as our visit marker. No record = not
+    // visited, record = visited.
     //
     // If you see something visited already, it must still be on the stack.
     // Otherwise it would have already visited you when it was on the stack.
@@ -234,22 +236,6 @@ vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGra
     struct DFSFrame {
         handle_t here;
         vector<handle_t> todo;
-        // Track the path length in bp from the root so we can easily measure
-        // cycles via difference.
-        size_t path_length_bp = 0;
-        // When emitting simple cycle co-membership, we can just say each node
-        // is connected to the node above it in the stack to articulate a
-        // cycle. But then if we find another cycle-closing edge, we don't want
-        // to repeat ourselves for portions of the stack we already merged.
-        //
-        // So we have a field to point to the earliest (most towards the root)
-        // merged ancestor. The node this stack frame is visiting is already
-        // part of the same cycle-membership component this points to. When
-        // merging up a cycle, we can follow this to skip over stuff on the
-        // stack already merged into smaller, overlapping cycles. When popping
-        // off the stack, we update this for the parent node, if we are merged
-        // into it already.
-        size_t earliest_merged_ancestor;
     };
     
     vector<DFSFrame> stack;
@@ -262,9 +248,9 @@ vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGra
             stack.emplace_back();
             stack.back().here = component_root;
             
-            // We'll put the result here, or get rid of it if we find no cycle.
-            to_return.emplace_back();
-            auto& longest_cycle = to_return.back();
+            // We'll put the longest cycle start edge result here, or get rid of it if we find no cycle.
+            longest_cycles.emplace_back();
+            auto& longest_cycle = longest_cycles.back();
             
             while (!stack.empty()) {
                 // Until the DFS is done
@@ -279,11 +265,6 @@ vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGra
                     frame_it = visited_frame.emplace_hint(frame_it, frame_head, stack.size() - 1);
                     // Say it isn't yet merged with any ancestors
                     frame.earliest_merged_ancestor = stack.size() - 1;
-                    
-                    if (stack.size() > 1) {
-                        // Record path length, including the edge we took
-                        frame.path_length_bp = stack[stack.size() - 2].path_length_bp + graph->get_length(frame.here);
-                    }
                     
                     // Queue up edges
                     for_each_member(frame_head, [&](handle_t member) {
@@ -309,100 +290,59 @@ vector<pair<size_t, vector<handle_t>>> IntegratedSnarlFinder::MergedAdjacencyGra
                         stack.back().here = edge_into;
                     } else {
                         // Back edge
-                        if (frame_it->second >= connected_it->second) {
-                            // We have an edge to something that was visited at
-                            // our stack level or earlier; it is still on the
-                            // stack.
+                        if (frame_it->second > connected_it->second) {
+                            // We have an edge to something that was visited above
+                            // our stack level. It can't be a self loop, and it
+                            // must close a unique cycle.
                         
-                            // We only care about the back edges looking up, or
-                            // being self loops. Only do them one way to avoid
-                            // emitting cycles twice.
-                            
                             // Get the stack frame we connected to (which may
                             // be the same as our frame, for self loops)
                             auto& connected_frame = stack[connected_it->second];
                             
-                            // Measure the cycle: length down the path in the
-                            // tree, plus length of the back edge.
-                            size_t cycle_length = frame.path_length_bp - connected_frame.path_length_bp + graph->get_length(edge_into);
-                            
-                            if (cycle_length > longest_cycle.first || longest_cycle.second.empty()) {
-                                // This is a new longest cycle.
-                                // Record its length in bases.
-                                longest_cycle.first = cycle_length;
-                                // Allocate space for all its edges: the ones
-                                // on the tree path between connected and here,
-                                // plus one to close.
-                                longest_cycle.second.resize(frame_it->second - connected_it->second + 1);
-                                for (size_t i = 0; i + 1 < longest_cycle.second.size(); i++) {
-                                    // Visit every frame on the cycle except the one we connect back to
-                                    auto& frame_on_cycle = stack[connected_it->second + 1 + i];
-                                
-                                    // Copy all the edges after connected into
-                                    // all but the last slot in the cycle
-                                    longest_cycle.second[i] = frame_on_cycle.here;
-                                }
-                                // And at the end put the edge to close the
-                                // cycle
-                                longest_cycle.second.back() = edge_into;
+                            // Walk and measure the cycle
+                            size_t cycle_length_bp = graph->get_length(edge_into);
+                            handle_t prev_edge = edge_into;
+                            for (size_t i = connected_it->second; i < stack.size(); i++) {
+                                // For each edge along the cycle...
+                                // Measure it
+                                cycle_length_bp += graph->get_length(stack[i].here);
+                                // Record the cycle membership
+                                next_edge[prev_edge] = stack[i].here;
+                                // Advance
+                                prev_edge = stack[i].here;
                             }
+                            // Close the cycle
+                            next_edge[prev_edge] = edge_into;
                             
-                            
-                            // Whether we have a new longest cycle or not, we
-                            // need to roll up portions of the cycle that
-                            // aren't already rolled up into themselves.
-                            //
-                            // Use the earliest merged ancestor field as a
-                            // cursor to walk up the stack.
-                            while (frame.earliest_merged_ancestor > connected_it->second) {
-                                // Until we hit the top of the cycle
-                                
-                                // Grab the stack frame here, which isn't yet merged.
-                                // Can't underlfow because of the > check.
-                                auto& frame_to_merge = stack[frame.earliest_merged_ancestor - 1];
-                                
-                                // Merge it
-                                move_in_same_circles(frame_head, find(frame_to_merge.here));
-                                
-                                // Steal its earliest merged ancestor as ours.
-                                // Anybody coming up the stack after us will
-                                // follow this link. When we come off the stack
-                                // we will propagate it up to our parent.
-                                frame.earliest_merged_ancestor = frame_to_merge.earliest_merged_ancestor;
+                            if (cycle_length_bp > longest_cycle.first) {
+                                // New longest cycle (or maybe only longest cycle).
+                                // TODO: Assumes no cycles are 0-length
+                                longest_cycle.first = cycle_length_bp;
+                                longest_cycle.second = edge_into;
                             }
                         }
                     }
                 } else {
                     // Now we're done with this stack frame.
                     
-                    if (stack.size() > 1) {
-                        auto& parent = stack[stack.size() - 2];
-                        
-                        // Propagate up earliest merged ancestor information.
-                        // If our earliest merged ancestor is before our
-                        // parent's, then we know our parent is merged up that
-                        // far too.
-                        parent.earliest_merged_ancestor = std::min(parent.earliest_merged_ancestor, frame.earliest_merged_ancestor);
-                    }
-                    
                     // Clean up
                     stack.pop_back();
                 }
             }
             
-            if (to_return.back().second.empty()) {
-                // There's no cycle in this connected component.
-                to_return.pop_back();
+            if (longest_cycle.first == 0) {
+                // No (non-empty) nontrivial cycle found in this connected component.
+                // Remove its spot.
+                longest_cycles.pop_back();
             }
         }
     });
-    
-    // Hand back all the longest cycles in connected components
+   
     return to_return;
 }
 
 pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> IntegratedSnarlFinder::MergedAdjacencyGraph::longest_paths_in_forest(
-    const vector<pair<size_t, vector<handle_t>>>& longest_simple_cycles) const {
+    const vector<pair<size_t, handle_t>>& longest_simple_cycles) const {
     
     // TODO: somehow unify DFS logic with cycle-finding DFS in a way that still
     // allows us to inspect our stack in each case?
@@ -752,9 +692,11 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
     };
     
     for (auto it = longest_simple_cycles.begin(); it != longest_simple_cycles.end(); ++it) {
-        // Try it from the head of the component every input simple cycle got merged into.
-        assert(!it->second.empty());
-        try_root(find(it->second.front()), it->first);
+        // Try it from the head of the component that each longest input simple
+        // cycle got merged into. If we end up using that longest cycle to root
+        // this component, we will have everything pointing the right way
+        // already.
+        try_root(find(it->second), it->first);
     }
     
     // And then try it on every head in general to mop up anything without a simple cycle in it
@@ -841,21 +783,77 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
     // Then we need to copy the base Cactus graph so we can make the bridge forest
     MergedAdjacencyGraph forest(cactus);
     
-    // We remember the longest cycle in each component, and its length.
-    // We also get a callback whenever heads are seen with their nodes in the
-    // same cycle(s), so we can condense them out. 
-    vector<pair<size_t, vector<handle_t>>> longest_cycles = cactus.longest_cycles_in_connected_components([&](handle_t a, handle_t b) {
-        // When things appear in the same cycle(s), merge them in the bridge forest
-        forest.merge(a, b);
-    });
+    // Get cycle information: longest cycle in each connected component, and next edge along cycle for each edge (in one orientation)
+    pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> cycles = cactus.cycles_in_cactus();
+    auto& longest_cycles = cycles.first;
+    auto& next_along_cycle = cycles.second;
     
-    // Now we find the longest path in each tree in the bridge forest, with its length in bases.
-    vector<pair<size_t, vector<handle_t>>> longest_paths;
+    for (auto& kv : next_along_cycle) {
+        // Merge along all cycles in the bridge forest
+        forest.merge(kv.first, kv.second);
+    }
+    
+    // Now we find the longest path in each tree in the bridge forest, with its
+    // length in bases.
+    //
+    // We also find, for each bridge edge component head, the edge towards the
+    // deepest bridge edge tree leaf, which lets us figure out how to root
+    // dangly bits into chains.
+    //
+    // Make sure to root at the nodes corresponding to the collapsed longest
+    // cycles, if the leaf-leaf paths don't win their components.
+    pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> forest_paths = forest.longest_paths_in_forest(longest_cycles);
+    auto& longest_paths = forest_paths.first;
+    auto& towards_deepest_leaf = forest_paths.second;
+    
+    // Make sure we are looking at all the cycles and leaf-leaf paths in order.
+    // We need basically priority queue between them. But we don't need insert so we jsut sort.
+    std::sort(longest_cycles.begin(); longest_cycles.end());
+    std::sort(longest_paths.begin(), longest_paths.end());
   
-   
-    // TODO: Then find the lengths of the bridge edge spanning trees. We want
-    // to be able to know the lengths no matter where we root, so I guess for
-    // each node we need to store the longest length in each direction.
+    // Now, keep a set of all the edges that have found a place in the decomposition.
+    unordered_set<handle_t> visited;
+    
+    while(visited.size() < graph->get_edge_size()) {
+        // While we haven't touched everything
+        
+        // We have a stack
+        
+        // To handle a bridge edge in the current snarl:
+            
+            // Follow its path to the deepest bridge graph leaf
+            
+            // Along that path, merge inner ednpoints of successive bridge edges and pinch apart any cycles that shortens
+            
+            // When you get to the end, merge the far end of the last bridge edge into the current snarl
+            
+            // Write a cycle in the current snarl following all the bridge edges (and keep any cycles we got from the bridge graph tip node)
+        
+        // To handle a cycle in the current snarl:
+        
+            // Make a chain in the current snarl
+        
+            // For each pair of successive edges, recurse on that as a snarl in the chain
+        
+        if (longest_cycles.empty() || (!longest_paths.empty() && longest_cycles.back().first < longest_paths.back().first) {
+            assert(!longest_paths.empty);
+            
+            // We will root on a tip-tip path for its component, if not already covered.
+            
+            // Rewrite the deepest bridge graph leaf path map to point from one end of the tip-tip path to the other
+                // TODO: bump this down into the bridge path finding function
+            
+            // Stack up a root/null snarl containing this bridge edge.
+            
+            longest_paths.pop_back();
+        } else {
+            // We will root on a cycle for its component, if not already covered.
+            
+            // Stack up a root/null snarl containing this cycle
+            
+            longest_cycles.pop_back();
+        }
+    }
     
     // TODO: For each bridge forest tree, find the longest bridge edge path and
     // the longest simple cycle, and root with whichever is longer.
