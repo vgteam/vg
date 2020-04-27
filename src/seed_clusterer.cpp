@@ -1138,8 +1138,9 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
 
                 size_t start_rank = snarl_to_node.first;
                 id_t node_id; int64_t node_len; //Don't really need these
-                int64_t snarl_length; int64_t start_length ; int64_t end_length;
-                std::tie(node_id, node_len, snarl_length, start_length, end_length) = snarl_to_node.second[0];
+                int64_t start_length ; int64_t end_length;
+                std::tie(node_id, node_len, start_length, end_length) = snarl_to_node.second[0];
+                int64_t snarl_length = chain_index.prefix_sum[start_rank + 1] - chain_index.prefix_sum[start_rank] + end_length; 
 
                 //Loop distances from and to the ends of the nodes in the snarl
                 int64_t loop_left = chain_index.loop_rev[start_rank] == 0 ? -1 : chain_index.loop_rev[start_rank] - 1 + start_length;
@@ -1954,10 +1955,11 @@ cerr <<  "\t\t cluster" << read_num << " " << std::get<0>(prev_snarl_cluster_by_
         }
     };
 
-    hash_set<pair<size_t, size_t>> SnarlSeedClusterer::cluster_simple_snarl(TreeState& tree_state, vector<tuple<id_t, int64_t, int64_t, int64_t, int64_t>> nodes, 
+
+    hash_set<pair<size_t, size_t>> SnarlSeedClusterer::cluster_simple_snarl(TreeState& tree_state, vector<tuple<id_t, int64_t, int64_t, int64_t>> nodes, 
                                 int64_t loop_left, int64_t loop_right, int64_t snarl_length) const {
         //Cluster a top-level simple snarl and save the distances to the ends of the node in tree_state.read_cluster_dists 
-        //Returns a vector of cluster heads (<read_num, seed>)
+        //Returns a vector of cluster heads (<read_num, seed num>)
 
 
  
@@ -1968,7 +1970,7 @@ cerr <<  "\t\t cluster" << read_num << " " << std::get<0>(prev_snarl_cluster_by_
         vector<int64_t> best_right (tree_state.all_seeds->size(), -1);
 
 
-        for (tuple<id_t, int64_t, int64_t, int64_t, int64_t> node : nodes) {
+        for (tuple<id_t, int64_t, int64_t, int64_t> node : nodes) {
             id_t node_id = std::get<0>(node);
             int64_t node_len = std::get<1>(node);
 
@@ -1998,7 +2000,6 @@ cerr <<  "\t\t cluster" << read_num << " " << std::get<0>(prev_snarl_cluster_by_
         vector<size_t> combined_read_left (tree_state.all_seeds->size(), -1);
         vector<size_t> combined_read_right (tree_state.all_seeds->size(), -1);
 
-        //TODO: Combine clusters and make sure we keep the right one
         for (pair<size_t, size_t>& cluster_head: all_cluster_heads) {
             result.emplace(cluster_head);
 

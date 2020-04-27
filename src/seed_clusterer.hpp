@@ -17,8 +17,18 @@ class SnarlSeedClusterer {
         struct Seed {
             pos_t  pos;
             size_t source; // Source minimizer.
+
+            //For nodes on boundary nodes of top-level chain
+            bool is_top_level_node;
             size_t component; // Component id in the distance index.
             size_t offset; // Offset in the root chain.
+
+            //For nodes on top-level simple bubbles
+            bool is_top_level_snarl;
+            size_t node_length; //Length of the node the position is on
+            size_t start_length; //Length of the snarl start node (relative to a fd traversal of the chain)
+            size_t end_length; //Length of the snarl end node
+
         };
 
         /// Cluster information used in Giraffe.
@@ -231,7 +241,7 @@ class SnarlSeedClusterer {
             //and lengths of the start and end nodes of the snarl (relative to the orientation in the chain
             //TODO: this is a mess
             //Only for top-level simple snarls, instead of snarl_to_nodes
-            vector<hash_map<size_t, vector<tuple<id_t, int64_t, int64_t, int64_t, int64_t>>>> simple_snarl_to_nodes_by_component;
+            vector<hash_map<size_t, vector<tuple<id_t, int64_t, int64_t, int64_t>>>> simple_snarl_to_nodes_by_component;
 
 
 
@@ -299,7 +309,7 @@ class SnarlSeedClusterer {
         //cluster its seeds and return the cluster heads
         //Nodes if taken from tree_state.simple_snarl_to_nodes_by_component and each element in it is
         //the node id of the node
-        hash_set<pair<size_t, size_t>> cluster_simple_snarl(TreeState& tree_state, vector<tuple<id_t, int64_t, int64_t, int64_t, int64_t>> nodes, int64_t loop_left, int64_t loop_right, int64_t snarl_length) const;
+        hash_set<pair<size_t, size_t>> cluster_simple_snarl(TreeState& tree_state, vector<tuple<id_t, int64_t, int64_t, int64_t>> nodes, int64_t loop_left, int64_t loop_right, int64_t snarl_length) const;
 
 };
 }
