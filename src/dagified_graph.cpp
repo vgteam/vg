@@ -138,8 +138,7 @@ using namespace std;
                     }
                 }
                 
-                // now find the minimum distance to nodes in the next copy of the SCC (which
-                // may not yet be created in the graph)
+                // now find the minimum distance to nodes in the next copy of the SCC
                 min_relaxed_dist = numeric_limits<int64_t>::max();
                 for (const pair<size_t, size_t>& bwd_edge : backward_edges) {
                     // skip infinity to avoid overflow

@@ -1182,6 +1182,14 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
+    if (!suppress_progress) {
+        cerr << "[vg mpmap] Executing command:";
+        for (size_t i = 0; i < argc; ++i) {
+            cerr << " " << argv[i];
+        }
+        cerr << endl;
+    }
+    
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
@@ -1190,7 +1198,7 @@ int main_mpmap(int argc, char** argv) {
     
     // Load required indexes
     if (!suppress_progress) {
-        cerr << "[vg mpmap] Loading graph from " << graph_name << "." << endl;
+        cerr << "[vg mpmap] Loading graph from " << graph_name << endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_stream);
     
@@ -1249,9 +1257,6 @@ int main_mpmap(int argc, char** argv) {
             // so many, but I want to dissuade people from using HashGraph and VG for mapping regardless
             cerr << "XG format is recommended for most mapping tasks. ";
         }
-        else {
-            cerr << "This graph implementation will probably work fine for the current mapping parameters. ";
-        }
         
         cerr << "See `vg convert` if you want to change graph formats." << endl;
     }
@@ -1264,14 +1269,14 @@ int main_mpmap(int argc, char** argv) {
     PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
     
     if (!suppress_progress) {
-        cerr << "[vg mpmap] Loading GCSA2 from " << gcsa_name << "." << endl;
+        cerr << "[vg mpmap] Loading GCSA2 from " << gcsa_name << endl;
     }
     unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     unique_ptr<gcsa::LCPArray> lcp_array;
     if (!use_stripped_match_alg) {
         // The stripped algorithm doesn't use the LCP, but we aren't doing it
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Loading LCP from " << lcp_name << "." << endl;
+            cerr << "[vg mpmap] Loading LCP from " << lcp_name << endl;
         }
         lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     }
@@ -1283,7 +1288,7 @@ int main_mpmap(int argc, char** argv) {
     haplo::ScoreProvider* haplo_score_provider = nullptr;
     if (!gbwt_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Loading GBWT from " << gbwt_name << "." << endl;
+            cerr << "[vg mpmap] Loading GBWT from " << gbwt_name << endl;
         }
         // Load the GBWT from its container
         gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
@@ -1299,7 +1304,7 @@ int main_mpmap(int argc, char** argv) {
     }
     else if (!sublinearLS_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Loading LS index from " << sublinearLS_name << "." << endl;
+            cerr << "[vg mpmap] Loading LS index from " << sublinearLS_name << endl;
         }
         
         // TODO: we only support a single ref contig, and we use these
@@ -1313,7 +1318,7 @@ int main_mpmap(int argc, char** argv) {
     unique_ptr<SnarlManager> snarl_manager;
     if (!snarls_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Loading snarls from " << snarls_name << "." << endl;
+            cerr << "[vg mpmap] Loading snarls from " << snarls_name << endl;
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
     }
@@ -1321,7 +1326,7 @@ int main_mpmap(int argc, char** argv) {
     unique_ptr<MinimumDistanceIndex> distance_index;
     if (!distance_index_name.empty() && !no_clustering) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Loading distance index from " << distance_index_name << "." << endl;
+            cerr << "[vg mpmap] Loading distance index from " << distance_index_name << endl;
         }
         
         // Load the index
@@ -1925,6 +1930,17 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     cout.flush();
+    
+    if (!suppress_progress) {
+        cerr << "[vg mpmap] Mapping finished. Mapped " << num_reads_mapped;
+        if (fastq_name_2.empty() && !interleaved_input) {
+            cerr << " reads.";
+        }
+        else {
+            cerr << " read pairs.";
+        }
+        cerr << endl;
+    }
     
 #ifdef record_read_run_times
     read_time_file.close();
