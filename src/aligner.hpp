@@ -21,6 +21,7 @@
 #include "handle.hpp"
 #include "reverse_graph.hpp"
 #include "null_masking_graph.hpp"
+#include "dozeu_pinning_overlay.hpp"
 #include "algorithms/distance_to_tail.hpp"
 
 // #define BENCH

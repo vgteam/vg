@@ -1395,13 +1395,14 @@ namespace vg {
     }
    
     void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
-                                                          size_t min_anchor_length, size_t max_alt_alns, bool dynamic_alt_alns) {
+                                                          size_t min_anchor_length, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
+                                                          double pessimistic_tail_gap_multiplier) {
     
         
         // Align the tails, not collecting a set of source subpaths.
         // TODO: factor of 1/2 is arbitray, but i do think it should be fewer than the max
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max<size_t>(1, max_alt_alns / 2),
-                                           dynamic_alt_alns, max_alt_alns, nullptr);
+                                           dynamic_alt_alns, max_gap, pessimistic_tail_gap_multiplier, max_alt_alns, nullptr);
         
         
         for (bool handling_right_tail : {false, true}) {
@@ -3247,19 +3248,22 @@ namespace vg {
 #endif
     }
     
-    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
-                                        size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out, const bool allow_negative_scores) {
+    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
+                                        bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
+                                        double pessimistic_tail_gap_multiplier, size_t band_padding, MultipathAlignment& multipath_aln_out,
+                                        bool allow_negative_scores) {
         
         // don't dynamically choose band padding, shim constant value into a function type
         function<size_t(const Alignment&,const HandleGraph&)> constant_padding = [&](const Alignment& seq, const HandleGraph& graph) {
             return band_padding;
         };
-        align(alignment, align_graph, aligner, score_anchors_as_matches, max_alt_alns, dynamic_alt_alns, constant_padding, multipath_aln_out, allow_negative_scores);
+        align(alignment, align_graph, aligner, score_anchors_as_matches, max_alt_alns, dynamic_alt_alns,
+              max_gap, pessimistic_tail_gap_multiplier, constant_padding, multipath_aln_out, allow_negative_scores);
     }
     
-    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
-                                        size_t max_alt_alns, bool dynamic_alt_alns,
-                                        function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
+    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
+                                        bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
+                                        double pessimistic_tail_gap_multiplier, function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
                                         MultipathAlignment& multipath_aln_out, const bool allow_negative_scores) {
         
         // Can only align if edges are present.
@@ -3379,10 +3383,12 @@ namespace vg {
 
                 // if negative score is allowed set maximum distance to the length between path nodes
                 // otherwise set it to the maximum gap length possible while retaining a positive score 
-                size_t max_dist = allow_negative_scores ? edge.second : intervening_length + std::min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin));
+                size_t max_dist = allow_negative_scores ?
+                    edge.second :
+                    intervening_length + min(min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin)), max_gap);
                 
 #ifdef debug_multipath_alignment
-                cerr << "read dist: " << intervening_length << ", source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << endl;
+                cerr << "read dist: " << intervening_length << ", source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << ", max allowed gap " << max_gap << endl;
 #endif
                 
                 // extract the graph between the matches
@@ -3542,14 +3548,16 @@ namespace vg {
         unordered_set<size_t> sources;
         
         // Actually align the tails
-        auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns, 0, &sources);
-        
+        auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns,
+                                           max_gap, pessimistic_tail_gap_multiplier, 0, &sources);
+                
         // Handle the right tails
         for (auto& kv : tail_alignments[true]) {
             // For each sink subpath number
             const size_t& j = kv.first;
             // And the tail alignments from it
             vector<Alignment>& alt_alignments = kv.second;
+            
             // remove alignments with the same path
             deduplicate_alt_alns(alt_alignments);
         
@@ -3570,6 +3578,7 @@ namespace vg {
                 tail_subpath->set_score(tail_alignment.score());
                 
                 Mapping* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
+
                 if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
                     first_mapping->mutable_position()->set_offset(offset(end_pos));
                 }
@@ -3589,7 +3598,7 @@ namespace vg {
 #endif
             }
         }
-        
+                
         // Now handle the left tails.
         // We need to handle all sources, whether or not they got alignments
         for (auto& j : sources) {
@@ -3601,7 +3610,7 @@ namespace vg {
                 vector<Alignment>& alt_alignments = tail_alignments[false][j];
                 // remove alignments with the same path
                 deduplicate_alt_alns(alt_alignments);
-                
+                                
                 const Mapping& first_mapping = path_node.path.mapping(0);
                 for (Alignment& tail_alignment : alt_alignments) {
                     Subpath* tail_subpath = multipath_aln_out.add_subpath();
@@ -3634,11 +3643,31 @@ namespace vg {
         }
     }
     
+    // just to control the memory usage to a small value
+    const size_t MultipathAlignmentGraph::tail_gap_memo_max_size = 1000;
+
+    // make the memo live in this .o file
+    thread_local unordered_map<double, vector<int64_t>> MultipathAlignmentGraph::pessimistic_tail_gap_memo;
+
+    int64_t MultipathAlignmentGraph::pessimistic_tail_gap(int64_t tail_length, double multiplier) {
+        int64_t gap_length;
+        if (tail_length >= tail_gap_memo_max_size) {
+            gap_length = multiplier * sqrt(tail_length);
+        }
+        else {
+            vector<int64_t>& memo = pessimistic_tail_gap_memo[multiplier];
+            while (memo.size() >= tail_length) {
+                memo.emplace_back(multiplier * sqrt(tail_length));
+            }
+            gap_length = memo[tail_length];
+        }
+        return gap_length;
+    }
+    
     unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
-    MultipathAlignmentGraph::align_tails(const Alignment& alignment, const HandleGraph& align_graph,
-                                         const GSSWAligner* aligner, size_t max_alt_alns,
-                                         bool dynamic_alt_alns, size_t min_paths,
-                                         unordered_set<size_t>* sources) {
+    MultipathAlignmentGraph::align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
+                                         size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
+                                         size_t min_paths, unordered_set<size_t>* sources) {
         
 #ifdef debug_multipath_alignment
         cerr << "doing tail alignments to:" << endl;
@@ -3667,8 +3696,16 @@ namespace vg {
                     cerr << endl;
 #endif
                     
-                    int64_t target_length = ((alignment.sequence().end() - path_node.end) +
-                                             aligner->longest_detectable_gap(alignment, path_node.end));
+                    // figure out how long we need to try to align out to
+                    int64_t tail_length = alignment.sequence().end() - path_node.end;
+                    int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.end), max_gap);
+                    if (pessimistic_tail_gap_multiplier) {
+                        gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
+                    }
+                    int64_t target_length = tail_length + gap;
+                    
+                    
+                    
                     pos_t end_pos = final_position(path_node.path);
                     
                     bdsg::HashGraph tail_graph;
@@ -3717,7 +3754,14 @@ namespace vg {
                         
                         // align against the graph
                         auto& alt_alignments = right_alignments[j];
-                        aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                        if (num_alt_alns == 1) {
+                            // we can speed things up by using the dozeu pinned alignment
+                            alt_alignments.emplace_back(move(right_tail_sequence));
+                            aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, target_length);
+                        }
+                        else {
+                            aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                        }
                         
                         // Translate back into non-extracted graph.
                         // Make sure to account for having removed the left end of the cut node relative to end_pos
@@ -3763,8 +3807,14 @@ namespace vg {
                 PathNode& path_node = path_nodes.at(j);
                 if (path_node.begin != alignment.sequence().begin()) {
                     
-                    int64_t target_length = (path_node.begin - alignment.sequence().begin()) +
-                    aligner->longest_detectable_gap(alignment, path_node.begin);
+                    // figure out how far we need to try to align out to
+                    int64_t tail_length = path_node.begin - alignment.sequence().begin();
+                    int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.end), max_gap);
+                    if (pessimistic_tail_gap_multiplier) {
+                        gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
+                    }
+                    int64_t target_length = tail_length + gap;
+                    
                     pos_t begin_pos = initial_position(path_node.path);
                     
                     
@@ -3811,7 +3861,14 @@ namespace vg {
                         
                         // align against the graph
                         auto& alt_alignments = left_alignments[j];
-                        aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                        if (num_alt_alns == 1) {
+                            // we can speed things up by using the dozeu pinned alignment
+                            alt_alignments.emplace_back(move(left_tail_sequence));
+                            aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, target_length);
+                        }
+                        else {
+                            aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                        }
                         
                         // Translate back into non-extracted graph.
                         // Make sure to account for having removed the right end of the cut node relative to begin_pos

@@ -39,65 +39,6 @@ enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 
 using namespace vg;
 
-//DozeuInterface::DozeuInterface(const DozeuInterface& other)
-//{
-//    *this = other;
-//}
-//
-//DozeuInterface& DozeuInterface::operator=(const DozeuInterface& other)
-//{
-//	if (this != &other) {
-//
-//        if (dz) {
-//            dz_destroy(dz);
-//        }
-//        dz = dz_init(other.dz->matrix,
-//                     *((const uint16_t*) &other.dz->giv),
-//                     *((const uint16_t*) &other.dz->gev),
-//                     other.dz->bonus);
-//    }
-//
-//	return *this;
-//}
-//
-//DozeuInterface::DozeuInterface(DozeuInterface&& other)
-//{
-//    *this = other;
-//}
-//
-//DozeuInterface& DozeuInterface::operator=(DozeuInterface&& other)
-//{
-//	if (this != &other) {
-//        dz = other.dz;
-//        other.dz = nullptr;
-//    }
-//
-//	return *this;
-//}
-//
-//DozeuInterface::DozeuInterface() : dz(nullptr)
-//{
-//    // nothing to do
-//}
-//
-//DozeuInterface::DozeuInterface(const int8_t* _score_matrix, int8_t _gap_open, int8_t _gap_extension,
-//                           int32_t _full_length_bonus)
-//{
-//    // xdrop aligner uses the parameterization where both gap open and gap extend are paid when opening
-//    // a gap
-//    assert(_gap_open - _gap_extension >= 0);
-//    assert(_gap_extension > 0);
-//    assert(_full_length_bonus >= 0);
-//    dz = dz_init(_score_matrix, _gap_open - _gap_extension, _gap_extension, _full_length_bonus);
-//}
-//
-//DozeuInterface::~DozeuInterface(void)
-//{
-//    dz_destroy(dz);
-//    dz = nullptr;
-//	// fprintf(stderr, "xdrop: time(%lu), count(%lu)\n", bench_get(bench) / 1000, bench_get_count(bench));
-//}
-
 DozeuInterface::OrderedGraph::OrderedGraph(const HandleGraph& graph, const vector<handle_t>& order) : graph(graph), order(order) {
     for (size_t i = 0; i < order.size(); ++i) {
         index_of[order[i]] = i;

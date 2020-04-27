@@ -1150,7 +1150,49 @@ void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_
         // for every alignment, which meshes poorly with its stack implementation. We achieve
         // thread-safety by having one per thread, which makes this method const-ish.
         XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
-        xdrop.align_pinned(alignment, g, pin_left, xdrop_max_gap_length);
+        
+        // wrap the graph so that empty pinning points are handled correctly
+        DozeuPinningOverlay overlay(&g, !pin_left);
+        
+        if (overlay.get_node_count() == 0 && g.get_node_count() > 0) {
+            // the only nodes in the graph are empty nodes for pinning, which got masked.
+            // we can still infer a pinned alignment based purely on the pinning point but
+            // dozeu won't handle this correctly
+            g.for_each_handle([&](const handle_t& handle) {
+                bool can_pin = g.follow_edges(handle, pin_left, [&](const handle_t& next) {return false;});
+                if (can_pin) {
+                    // manually make the softclip
+                    Mapping* mapping = alignment.mutable_path()->add_mapping();
+                    Position* pos = mapping->mutable_position();
+                    pos->set_node_id(g.get_id(handle));
+                    pos->set_is_reverse(false);
+                    pos->set_offset(pin_left ? 0 : g.get_length(handle));
+                    
+                    mapping->set_rank(1);
+                    
+                    Edit* edit = mapping->add_edit();
+                    edit->set_from_length(0);
+                    edit->set_to_length(alignment.sequence().size());
+                    edit->set_sequence(alignment.sequence());
+                    alignment.set_score(0);
+                    return false;
+                }
+                return true;
+            });
+        }
+        else {
+            // do the alignment
+            xdrop.align_pinned(alignment, overlay, pin_left, xdrop_max_gap_length);
+            
+            if (overlay.performed_duplications()) {
+                // the overlay is not a strict subset of the underlying graph, so we may
+                // need to translate some node IDs
+                translate_oriented_node_ids(*alignment.mutable_path(), [&](id_t node_id) {
+                    handle_t under = overlay.get_underlying_handle(overlay.get_handle(node_id));
+                    return make_pair(g.get_id(under), g.get_is_reverse(under));
+                });
+            }
+        }
     }
     else {
         align_internal(alignment, nullptr, g, true, pin_left, 1, true);
@@ -1678,7 +1720,49 @@ void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bo
         // for every alignment, which meshes poorly with its stack implementation. We achieve
         // thread-safety by having one per thread, which makes this method const-ish.
         QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
-        xdrop.align_pinned(alignment, g, pin_left, xdrop_max_gap_length);
+        
+        // wrap the graph so that empty pinning points are handled correctly
+        DozeuPinningOverlay overlay(&g, !pin_left);
+        if (overlay.get_node_count() == 0 && g.get_node_count() > 0) {
+            // the only nodes in the graph are empty nodes for pinning, which got masked.
+            // we can still infer a pinned alignment based purely on the pinning point but
+            // dozeu won't handle this correctly
+            g.for_each_handle([&](const handle_t& handle) {
+                bool can_pin = g.follow_edges(handle, pin_left, [&](const handle_t& next) {return false;});
+                if (can_pin) {
+                    // manually make the softclip
+                    Mapping* mapping = alignment.mutable_path()->add_mapping();
+                    Position* pos = mapping->mutable_position();
+                    pos->set_node_id(g.get_id(handle));
+                    pos->set_is_reverse(false);
+                    pos->set_offset(pin_left ? 0 : g.get_length(handle));
+                    
+                    mapping->set_rank(1);
+                    
+                    Edit* edit = mapping->add_edit();
+                    edit->set_from_length(0);
+                    edit->set_to_length(alignment.sequence().size());
+                    edit->set_sequence(alignment.sequence());
+                    alignment.set_score(0);
+                    return false;
+                }
+                return true;
+            });
+        }
+        else {
+            //
+            
+            xdrop.align_pinned(alignment, overlay, pin_left, xdrop_max_gap_length);
+            
+            if (overlay.performed_duplications()) {
+                // the overlay is not a strict subset of the underlying graph, so we may
+                // need to translate some node IDs
+                translate_oriented_node_ids(*alignment.mutable_path(), [&](id_t node_id) {
+                    handle_t under = overlay.get_underlying_handle(overlay.get_handle(node_id));
+                    return make_pair(g.get_id(under), g.get_is_reverse(under));
+                });
+            }
+        }
     }
     else {
         align_internal(alignment, nullptr, g, true, pin_left, 1, true);
