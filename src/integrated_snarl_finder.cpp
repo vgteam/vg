@@ -85,7 +85,7 @@ public:
     /// direction (for all cycles).
     ///
     /// Ignores self loops.
-    pair<vector<size_t, handle_t>, unordered_map<handle_t, handle_t>> cycles_in_cactus() const;
+    pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> cycles_in_cactus() const;
     
     /// Return the path length (total edge length in bp) and edges for the
     /// longest path in each tree in a forest. Ignores self loops on tree nodes.
@@ -208,11 +208,11 @@ void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_membership(const func
     }
 }
 
-pair<vector<size_t, handle_t>, unordered_map<handle_t, handle_t>> IntegratedSnarlFinder::MergedAdjacencyGraph::cycles_in_cactus() const {
+pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> IntegratedSnarlFinder::MergedAdjacencyGraph::cycles_in_cactus() const {
     // Do a DFS over all connected components of the graph
     
     // We will fill this in
-    pair<vector<size_t, handle_t>, unordered_map<handle_t, handle_t>> to_return;
+    pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> to_return;
     auto& longest_cycles = to_return.first;
     auto& next_edge = to_return.second;
     
@@ -263,8 +263,6 @@ pair<vector<size_t, handle_t>, unordered_map<handle_t, handle_t>> IntegratedSnar
                     
                     // Mark visited at this stack level
                     frame_it = visited_frame.emplace_hint(frame_it, frame_head, stack.size() - 1);
-                    // Say it isn't yet merged with any ancestors
-                    frame.earliest_merged_ancestor = stack.size() - 1;
                     
                     // Queue up edges
                     for_each_member(frame_head, [&](handle_t member) {
@@ -808,13 +806,13 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
     
     // Make sure we are looking at all the cycles and leaf-leaf paths in order.
     // We need basically priority queue between them. But we don't need insert so we jsut sort.
-    std::sort(longest_cycles.begin(); longest_cycles.end());
+    std::sort(longest_cycles.begin(), longest_cycles.end());
     std::sort(longest_paths.begin(), longest_paths.end());
   
     // Now, keep a set of all the edges that have found a place in the decomposition.
     unordered_set<handle_t> visited;
     
-    while(visited.size() < graph->get_edge_size()) {
+    while(visited.size() < graph->get_edge_count()) {
         // While we haven't touched everything
         
         // We have a stack
@@ -835,8 +833,8 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
         
             // For each pair of successive edges, recurse on that as a snarl in the chain
         
-        if (longest_cycles.empty() || (!longest_paths.empty() && longest_cycles.back().first < longest_paths.back().first) {
-            assert(!longest_paths.empty);
+        if (longest_cycles.empty() || (!longest_paths.empty() && longest_cycles.back().first < longest_paths.back().first)) {
+            assert(!longest_paths.empty());
             
             // We will root on a tip-tip path for its component, if not already covered.
             
