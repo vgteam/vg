@@ -172,14 +172,14 @@ public:
 protected:
 
     /**
-     * We define our own type for minimizers, to use during mapping and to apss around between our internal functions.
+     * We define our own type for minimizers, to use during mapping and to pass around between our internal functions.
      */
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
         size_t agglomeration_length; // What is the regioin of consecutive windows this minimizer instance is minimal in?
         size_t hits; // How many hits does the minimizer have?
-        const typename gbwtgraph::DefaultMinimizerIndex::code_type* occs;
+        const gbwtgraph::hit_type* occs;
         size_t origin; // This minimizer came from minimizer_indexes[origin].
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
 
@@ -189,11 +189,16 @@ protected:
         }
     };
 
+    /// The information we store for each seed.
+    typedef SnarlSeedClusterer::Seed Seed;
+
+    /// The information we store for each cluster.
+    typedef SnarlSeedClusterer::Cluster Cluster;
+
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes;
     MinimumDistanceIndex& distance_index;
-
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     
@@ -229,20 +234,17 @@ protected:
     std::vector<Minimizer> find_minimizers(const std::string& sequence, Funnel& funnel) const;
 
     /**
-     * Find seeds for all minimizers passing the filters. Return the seeds, the
-     * corresponding source minimizers, and a bit vector over all minimizers
-     * flagging the ones that were located.
+     * Find seeds for all minimizers passing the filters.
      */
-    std::tuple<std::vector<pos_t>, std::vector<size_t>, std::vector<bool>> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    std::vector<Seed> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
 
     /**
-     * Return cluster score and read coverage, and a vector of flags for the
+     * Determine cluster score, read coverage, and a vector of flags for the
      * minimizers present in the cluster. Score is the sum of the scores of
      * distinct minimizers in the cluster, while read coverage is the fraction
      * of the read covered by seeds in the cluster.
-     * TODO JS: Score all clusters at once; calculate fragment scores afterwards.
      */
-    std::tuple<double, double, sdsl::bit_vector> score_cluster(const std::vector<size_t>& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<size_t>& seed_to_source, size_t seq_length, Funnel& funnel) const;
+    void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
 
    /**
     * Score the set of extensions for each cluster using score_extension_group().
@@ -447,28 +449,28 @@ protected:
      * items that would fail the score threshold.
      */
     template<typename Item, typename Score = double>
-    void process_until_threshold(const vector<Item>& items, const function<Score(size_t)>& get_score,
+    void process_until_threshold_a(const vector<Item>& items, const function<Score(size_t)>& get_score,
         double threshold, size_t min_count, size_t max_count,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
      
     /**
-     * Same as the other process_until_threshold overload, except using a vector to supply scores.
+     * Same as the other process_until_threshold functions, except using a vector to supply scores.
      */
     template<typename Item, typename Score = double>
-    void process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
+    void process_until_threshold_b(const vector<Item>& items, const vector<Score>& scores,
         double threshold, size_t min_count, size_t max_count,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
      
     /**
-     * Same as the other process_until_threshold overload, except user supplies 
+     * Same as the other process_until_threshold functions, except user supplies 
      * comparator to sort the items (must still be sorted by score).
      */
     template<typename Item, typename Score = double>
-    void process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
+    void process_until_threshold_c(const vector<Item>& items, const function<Score(size_t)>& get_score,
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
         const function<bool(size_t)>& process_item,
@@ -477,70 +479,19 @@ protected:
 };
 
 template<typename Item, typename Score>
-void MinimizerMapper::process_until_threshold(const vector<Item>& items, const function<Score(size_t)>& get_score,
+void MinimizerMapper::process_until_threshold_a(const vector<Item>& items, const function<Score(size_t)>& get_score,
     double threshold, size_t min_count, size_t max_count,
     const function<bool(size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
     const function<void(size_t)>& discard_item_by_score) const {
 
-    // Sort item indexes by item score
-    vector<size_t> indexes_in_order;
-    indexes_in_order.reserve(items.size());
-    for (size_t i = 0; i < items.size(); i++) {
-        indexes_in_order.push_back(i);
-    }
-    
-    // Put the highest scores first
-    std::sort(indexes_in_order.begin(), indexes_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
-        // Return true if a must come before b, and false otherwise
-        return get_score(a) > get_score(b);
-    });
-
-    // Retain items only if their score is at least as good as this
-    double cutoff = items.size() == 0 ? 0 : get_score(indexes_in_order[0]) - threshold;
-    
-    // Count up non-skipped items for min_count and max_count
-    size_t unskipped = 0;
-    
-    // Go through the items in descending score order.
-    for (size_t i = 0; i < indexes_in_order.size(); i++) {
-        // Find the item we are talking about
-        size_t& item_num = indexes_in_order[i];
-        
-        if (threshold != 0 && get_score(item_num) <= cutoff) {
-            // Item would fail the score threshold
-            
-            if (unskipped < min_count) {
-                // But we need it to make up the minimum number.
-                
-                // Go do it.
-                // If it is not skipped by the user, add it to the total number
-                // of unskipped items, for min/max number accounting.
-                unskipped += (size_t) process_item(item_num);
-            } else {
-                // We will reject it for score
-                discard_item_by_score(item_num);
-            }
-        } else {
-            // The item has a good enough score
-            
-            if (unskipped < max_count) {
-                // We have room for it, so accept it.
-                
-                // Go do it.
-                // If it is not skipped by the user, add it to the total number
-                // of unskipped items, for min/max number accounting.
-                unskipped += (size_t) process_item(item_num);
-            } else {
-                // We are out of room! Reject for count.
-                discard_item_by_count(item_num);
-            }
-        }
-    }
+    process_until_threshold_c<Item, Score>(items, get_score, [&](size_t a, size_t b) -> bool {
+        return (get_score(a) > get_score(b));
+    },threshold, min_count, max_count, process_item, discard_item_by_count, discard_item_by_score);
 }
 
 template<typename Item, typename Score>
-void MinimizerMapper::process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
+void MinimizerMapper::process_until_threshold_b(const vector<Item>& items, const vector<Score>& scores,
     double threshold, size_t min_count, size_t max_count,
     const function<bool(size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
@@ -548,13 +499,15 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const v
     
     assert(scores.size() == items.size());
     
-    process_until_threshold<Item, Score>(items, [&](size_t i) -> Score {
-        return scores.at(i);
-    }, threshold, min_count, max_count, process_item, discard_item_by_count, discard_item_by_score);
-    
+    process_until_threshold_c<Item, Score>(items, [&](size_t i) -> Score {
+        return scores[i];
+    }, [&](size_t a, size_t b) -> bool {
+        return (scores[a] > scores[b]);
+    },threshold, min_count, max_count, process_item, discard_item_by_count, discard_item_by_score);
 }
+
 template<typename Item, typename Score>
-void MinimizerMapper::process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
+void MinimizerMapper::process_until_threshold_c(const vector<Item>& items, const function<Score(size_t)>& get_score,
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
         const function<bool(size_t)>& process_item,
@@ -572,7 +525,7 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const v
     std::sort(indexes_in_order.begin(), indexes_in_order.end(), comparator);
 
     // Retain items only if their score is at least as good as this
-    double cutoff = items.size() == 0 ? 0 : scores[indexes_in_order[0]] - threshold;
+    double cutoff = items.size() == 0 ? 0 : get_score(indexes_in_order[0]) - threshold;
     
     // Count up non-skipped items for min_count and max_count
     size_t unskipped = 0;
@@ -582,7 +535,7 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const v
         // Find the item we are talking about
         size_t& item_num = indexes_in_order[i];
         
-        if (threshold != 0 && scores[item_num] <= cutoff) {
+        if (threshold != 0 && get_score(item_num) <= cutoff) {
             // Item would fail the score threshold
             
             if (unskipped < min_count) {

@@ -233,6 +233,20 @@ string nonATGCNtoN(const string& s) {
     return n;
 }
 
+string allAmbiguousToN(const string& s) {
+    auto n = s;
+    for (string::iterator c = n.begin(); c != n.end(); ++c) {
+        char b = *c;
+        if (b == 'M' || b == 'R' || b == 'W' || b == 'S' || b == 'Y' ||
+            b == 'K' || b == 'V' || b == 'H' || b == 'D' || b == 'B') {
+            // Replace known IUPAC ambiguity codes with N.
+            // Leave weird things like '-' or '*' which should be errors.
+            *c = 'N';
+        }
+    }
+    return n;
+}
+
 string toUppercase(const string& s) {
     auto n = s;
     for (string::iterator c = n.begin(); c != n.end(); ++c) {

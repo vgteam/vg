@@ -49,6 +49,30 @@ void help_paths(char** argv) {
          << "    -a, --variant-paths      select the variant paths added by 'vg construct -a'" << endl;
 }
 
+/// Chunk a path and emit it in Graph messages.
+/// Paht must have ranks set.
+void chunk_to_emitter(const Path& path, vg::io::ProtobufEmitter<Graph>& graph_emitter) {
+    size_t chunk_size = 10000;
+                    
+    for (size_t start = 0; start < path.mapping_size(); start += chunk_size) {
+        // Make sure to chunk.
+        // TODO: Can we avoild a copy here somehow?
+        Path chunk;
+        chunk.set_name(path.name());
+        chunk.set_is_circular(path.is_circular());
+        
+        for (size_t i = 0; i < chunk_size && start + i < path.mapping_size(); i++) {
+            // Copy over this batch of mappings
+            *chunk.add_mapping() = path.mapping(start + i);
+        }
+        
+        // Emit a graph chunk containing htis part of the path
+        Graph g;
+        *(g.add_path()) = std::move(chunk);
+        graph_emitter.write(std::move(g));
+    }
+}
+
 int main_paths(int argc, char** argv) {
 
     if (argc == 2) {
@@ -350,30 +374,13 @@ int main_paths(int argc, char** argv) {
             }
             
             // Otherwise we need the actual thread data
-            gbwt::vector_type sequence = gbwt_index->extract(gbwt::Path::encode(id, false));
-            Path path;
-            path.set_name(name);
-            size_t rank = 1;
-            for (auto node : sequence) {
-                // Put each node in the constructed path
-                Mapping* m = path.add_mapping();
-                Position* p = m->mutable_position();
-                p->set_node_id(gbwt::Node::id(node));
-                p->set_is_reverse(gbwt::Node::is_reverse(node));
-                Edit* e = m->add_edit();
-                size_t len = graph->get_length(graph->get_handle(p->node_id()));
-                e->set_to_length(len);
-                e->set_from_length(len);
-                m->set_rank(rank++);
-            }
+            Path path = extract_gbwt_path(*graph, *gbwt_index, id);
             if (extract_as_gam) {
-                // Write as an Alignment
+                // Write as an Alignment. Must contain the whole path.
                 gam_emitter->write(alignment_from_path(*graph, path));
             } else if (extract_as_vg) {
                 // Write as a Path in a VG
-                Graph g;
-                *(g.add_path()) = path;
-                graph_emitter->write(std::move(g));
+                chunk_to_emitter(path, *graph_emitter);
             } else if (extract_as_fasta) {
                 write_fasta_sequence(name, path_sequence(*graph, path), cout);
             }
@@ -434,9 +441,7 @@ int main_paths(int argc, char** argv) {
                         if (extract_as_gam) {
                             gam_emitter->write(alignment_from_path(*graph, path));
                         } else if (extract_as_vg) {
-                            Graph g;
-                            *(g.add_path()) = path;
-                            graph_emitter->write(std::move(g));
+                            chunk_to_emitter(path, *graph_emitter); 
                         } else if (extract_as_fasta) {
                             write_fasta_sequence(path_name, path_sequence(*graph, path), cout);
                         }

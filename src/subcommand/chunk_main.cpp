@@ -22,7 +22,7 @@
 #include "../haplotype_extracter.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 #include "../algorithms/weakly_connected_components.hpp"
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 #include "../io/save_handle_graph.hpp"
 #include "../algorithms/copy_graph.hpp"
 

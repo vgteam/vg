@@ -107,6 +107,7 @@ namespace vg {
         bool suppress_tail_anchors = false;
         size_t min_tail_anchor_length = 3;
         double band_padding_multiplier = 1.0;
+        double pessimistic_tail_gap_multiplier = 0.0;
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
@@ -119,7 +120,7 @@ namespace vg {
         size_t stripped_match_alg_max_length = 0;
         size_t stripped_match_alg_target_count = 5;
         size_t max_p_value_memo_size = 500;
-        size_t band_padding_memo_size = 500;
+        size_t band_padding_memo_size = 2000;
         bool use_weibull_calibration = false;
         double max_exponential_rate_intercept = 0.7612;
         double max_exponential_rate_slope = 0.0001496;
@@ -169,10 +170,12 @@ namespace vg {
         bool use_min_dist_clusterer = false;
         bool greedy_min_dist = false;
         bool component_min_dist = false;
+        bool no_clustering = false;
         // length of reversing walks during graph extraction
         size_t reversing_walk_length = 0;
         bool suppress_p_value_memoization = false;
         size_t fragment_length_warning_factor = 0;
+        size_t max_alignment_gap = 5000;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;

@@ -26,6 +26,7 @@ void GraphCaller::call_top_level_snarls(int ploidy, bool recurse_on_fail) {
 #ifdef debug
         cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
 #endif
+
         bool was_called = call_snarl(*snarl, ploidy);
         if (!was_called && recurse_on_fail) {
             const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
@@ -965,11 +966,15 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
 
     string& ref_path_name = common_names.front();
 
-    // find the max flow traversals, along with their flows (todo: use them?)
-    pair<vector<SnarlTraversal>, vector<double>> weighted_travs = traversal_finder->find_weighted_traversals(snarl, greedy_avg_flow);
-
     // find the reference traversal and coordinates using the path position graph interface
     tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+    bool flipped = false;
+    if (get<2>(ref_interval) == true) {
+        // calling code assumes snarl forward on reference
+        snarl_manager.flip(&snarl);
+        flipped = true;
+        ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+    }
 
     step_handle_t cur_step = get<3>(ref_interval);
     step_handle_t last_step = get<4>(ref_interval);
@@ -1002,7 +1007,10 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
         // todo: we can compute flow at the same time
     }
     assert(ref_trav.visit(0) == snarl.start() && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
-    
+
+    // find the max flow traversals, along with their flows (todo: use them?)
+    pair<vector<SnarlTraversal>, vector<double>> weighted_travs = traversal_finder->find_weighted_traversals(snarl, greedy_avg_flow);
+
     // find the reference traversal in the list of results from the traversal finder
     int ref_trav_idx = -1;
     for (int i = 0; i < weighted_travs.first.size() && ref_trav_idx < 0; ++i) {
@@ -1031,6 +1039,10 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
     emit_variant(graph, snarl_caller, snarl, weighted_travs.first, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
                  ref_offsets[ref_path_name]);
 
+    if (flipped) {
+        // leave our snarl how we found it
+        snarl_manager.flip(&snarl);
+    }
     return trav_genotype.size() == ploidy;
 }
 
