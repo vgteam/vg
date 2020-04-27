@@ -135,6 +135,8 @@ var searchData=
   ['inverse',['inverse',['../classvg_1_1Filter.html#a05e7274611008cdd5b89d1fa81605882',1,'vg::Filter']]],
   ['inverse_5fchar_5fassignment',['inverse_char_assignment',['../classbdsg_1_1PackedGraph.html#aff0351002c89d050c36827fc18bcc6da',1,'bdsg::PackedGraph']]],
   ['inversion_5ffilter',['inversion_filter',['../classvg_1_1Filter.html#a5503147c786a4d9bfb18fc081630b5f6',1,'vg::Filter']]],
+  ['is_5fa_5fduplicate_5fhandle',['is_a_duplicate_handle',['../classvg_1_1DozeuPinningOverlay.html#a3089cf35214f919d15030e029df3f6eb',1,'vg::DozeuPinningOverlay']]],
+  ['is_5fa_5fduplicate_5fid',['is_a_duplicate_id',['../classvg_1_1DozeuPinningOverlay.html#ab549aa4693c8425cd1df8d04a04a178f',1,'vg::DozeuPinningOverlay']]],
   ['is_5facyclic',['is_acyclic',['../classvg_1_1VG.html#a71388f637b255bf16a940e735a12aacd',1,'vg::VG::is_acyclic()'],['../namespacevg_1_1algorithms.html#af1a2315d538d7055bf8778255e93c4da',1,'vg::algorithms::is_acyclic()']]],
   ['is_5facyclic_2ecpp',['is_acyclic.cpp',['../is__acyclic_8cpp.html',1,'']]],
   ['is_5facyclic_2ehpp',['is_acyclic.hpp',['../is__acyclic_8hpp.html',1,'']]],

@@ -67,6 +67,7 @@ $(function() {
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="classvg_1_1MEMClusterer-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -119,6 +120,12 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a33c57c2613769a60e3d54b10c41f4aa8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68482212691d8c1d4ead37f8d8d9d54c"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a68482212691d8c1d4ead37f8d8d9d54c">pair_clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment_1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment_2, const vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> *&gt; &amp;left_clusters, const vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> *&gt; &amp;right_clusters, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;left_alt_cluster_anchors, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;right_alt_cluster_anchors, int64_t optimal_separation, int64_t max_deviation)=0</td></tr>
 <tr class="separator:a68482212691d8c1d4ead37f8d8d9d54c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
+Public Attributes</h2></td></tr>
+<tr class="memitem:a9b8459888ec7b51e739c3be04825b4fd"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a9b8459888ec7b51e739c3be04825b4fd">max_gap</a> = numeric_limits&lt;int64_t&gt;::max()</td></tr>
+<tr class="memdesc:a9b8459888ec7b51e739c3be04825b4fd"><td class="mdescLeft">&#160;</td><td class="mdescRight">The largest discrepency we will allow between the read-implied distances and the estimated gap distance.  <a href="#a9b8459888ec7b51e739c3be04825b4fd">More...</a><br /></td></tr>
+<tr class="separator:a9b8459888ec7b51e739c3be04825b4fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
@@ -488,6 +495,23 @@ Protected Member Functions</h2></td></tr>
 <p>Clusters are assumed to be located at the position of the first MEM hit they contain. Optionally, additional MEMs may be identied as possible anchors for the cluster. Additional anchors are provided as pairs of (cluster index, MEM index within cluster). Only one result will be returned per pair of clusters regardless of how many alternate anchors are given. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1MinDistanceClusterer.html#a6f355a5f216d667a21855bc6b3d8b487">vg::MinDistanceClusterer</a>, <a class="el" href="classvg_1_1TVSClusterer.html#af07f8aa48eed316f77f9dec991fbe043">vg::TVSClusterer</a>, <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#aaac0ae293bf575e99a9d0295bc95fa27">vg::OrientedDistanceClusterer</a>, and <a class="el" href="classvg_1_1NullClusterer.html#a10c16589be4189af97f1c64342cd76b4">vg::NullClusterer</a>.</p>
+
+</div>
+</div>
+<h2 class="groupheader">Member Data Documentation</h2>
+<a id="a9b8459888ec7b51e739c3be04825b4fd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9b8459888ec7b51e739c3be04825b4fd">&#9670;&nbsp;</a></span>max_gap</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::MEMClusterer::max_gap = numeric_limits&lt;int64_t&gt;::max()</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>The largest discrepency we will allow between the read-implied distances and the estimated gap distance. </p>
 
 </div>
 </div>

@@ -9,5 +9,6 @@ var searchData=
   ['discrete_5fdistribution',['discrete_distribution',['../classvg_1_1discrete__distribution.html',1,'vg']]],
   ['distanceheuristic',['DistanceHeuristic',['../classvg_1_1DistanceHeuristic.html',1,'vg']]],
   ['dozeuinterface',['DozeuInterface',['../classvg_1_1DozeuInterface.html',1,'vg']]],
+  ['dozeupinningoverlay',['DozeuPinningOverlay',['../classvg_1_1DozeuPinningOverlay.html',1,'vg']]],
   ['dpscorecomparator',['DPScoreComparator',['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html',1,'vg::MEMClusterer']]]
 ];

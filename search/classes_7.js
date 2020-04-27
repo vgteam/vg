@@ -19,7 +19,7 @@ var searchData=
   ['hash_3c_20vg_3a_3anodeside_20_3e',['hash&lt; vg::NodeSide &gt;',['../structstd_1_1hash_3_01vg_1_1NodeSide_01_4.html',1,'std']]],
   ['hash_3c_20vg_3a_3anodetraversal_20_3e',['hash&lt; vg::NodeTraversal &gt;',['../structstd_1_1hash_3_01vg_1_1NodeTraversal_01_4.html',1,'std']]],
   ['hash_5fambiguous_5fallele_5fset',['hash_ambiguous_allele_set',['../structvg_1_1Genotyper_1_1hash__ambiguous__allele__set.html',1,'vg::Genotyper']]],
-  ['hash_5fmap',['hash_map',['../classbdsg_1_1hash__map.html',1,'bdsg::hash_map&lt; K, V &gt;'],['../classvg_1_1hash__map.html',1,'vg::hash_map&lt; K, V &gt;']]],
+  ['hash_5fmap',['hash_map',['../classvg_1_1hash__map.html',1,'vg::hash_map&lt; K, V &gt;'],['../classbdsg_1_1hash__map.html',1,'bdsg::hash_map&lt; K, V &gt;']]],
   ['hash_5fmap_3c_20char_2c_20uint64_5ft_20_3e',['hash_map&lt; char, uint64_t &gt;',['../classbdsg_1_1hash__map.html',1,'bdsg']]],
   ['hash_5fmap_3c_20const_20vg_3a_3amapping_5ft_20_2a_2c_20pair_3c_20list_3c_20vg_3a_3amapping_5ft_20_3e_3a_3aiterator_2c_20int64_5ft_20_3e_20_3e',['hash_map&lt; const vg::mapping_t *, pair&lt; list&lt; vg::mapping_t &gt;::iterator, int64_t &gt; &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
   ['hash_5fmap_3c_20id_5ft_2c_20map_3c_20int64_5ft_2c_20set_3c_20vg_3a_3amapping_5ft_20_2a_3e_20_3e_20_3e',['hash_map&lt; id_t, map&lt; int64_t, set&lt; vg::mapping_t *&gt; &gt; &gt;',['../classvg_1_1hash__map.html',1,'vg']]],

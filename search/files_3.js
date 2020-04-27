@@ -20,6 +20,8 @@ var searchData=
   ['dotplot_5fmain_2ecpp',['dotplot_main.cpp',['../dotplot__main_8cpp.html',1,'']]],
   ['dozeu_5finterface_2ecpp',['dozeu_interface.cpp',['../dozeu__interface_8cpp.html',1,'']]],
   ['dozeu_5finterface_2ehpp',['dozeu_interface.hpp',['../dozeu__interface_8hpp.html',1,'']]],
+  ['dozeu_5fpinning_5foverlay_2ecpp',['dozeu_pinning_overlay.cpp',['../dozeu__pinning__overlay_8cpp.html',1,'']]],
+  ['dozeu_5fpinning_5foverlay_2ehpp',['dozeu_pinning_overlay.hpp',['../dozeu__pinning__overlay_8hpp.html',1,'']]],
   ['driver_2ecpp',['driver.cpp',['../driver_8cpp.html',1,'']]],
   ['driver_2ehpp',['driver.hpp',['../driver_8hpp.html',1,'']]],
   ['dynamic_5ftypes_2ehpp',['dynamic_types.hpp',['../dynamic__types_8hpp.html',1,'']]]

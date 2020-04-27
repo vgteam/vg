@@ -267,5 +267,5 @@ var searchData=
   ['swap_5fnodes',['swap_nodes',['../classvg_1_1VG.html#aa402d1cf817f83ca44f72f6112b6a2e3',1,'vg::VG']]],
   ['swap_5fremove',['swap_remove',['../swap__remove_8hpp.html#a403d9325a22306c4dfefd9202bd3bd00',1,'swap_remove.hpp']]],
   ['sync_5fpaths',['sync_paths',['../classvg_1_1VG.html#a124188a9e0cd68c87c2bc009ea7bd799',1,'vg::VG']]],
-  ['synthesize_5ftail_5fanchors',['synthesize_tail_anchors',['../classvg_1_1MultipathAlignmentGraph.html#a8ca4ca727f888dfde453616c292d2a77',1,'vg::MultipathAlignmentGraph']]]
+  ['synthesize_5ftail_5fanchors',['synthesize_tail_anchors',['../classvg_1_1MultipathAlignmentGraph.html#a3c34e5d02c2b81614ccd602351b81ed9',1,'vg::MultipathAlignmentGraph']]]
 ];

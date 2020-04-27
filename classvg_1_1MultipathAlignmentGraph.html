@@ -69,6 +69,7 @@ $(function() {
 <a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="#pri-static-methods">Static Private Member Functions</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
+<a href="#pri-static-attribs">Static Private Attributes</a> &#124;
 <a href="classvg_1_1MultipathAlignmentGraph-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::MultipathAlignmentGraph Class Reference</div>  </div>
@@ -117,15 +118,15 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac3199fb5e097873e2635e3fb34a8eafe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6f112f435d0099a503bc4fa6a8dd3a65"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a6f112f435d0099a503bc4fa6a8dd3a65">resect_snarls_from_paths</a> (<a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;project, int64_t max_snarl_cut_size=5)</td></tr>
 <tr class="separator:a6f112f435d0099a503bc4fa6a8dd3a65"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8ca4ca727f888dfde453616c292d2a77"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a8ca4ca727f888dfde453616c292d2a77">synthesize_tail_anchors</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t min_anchor_size, size_t max_alt_alns, bool dynamic_alt_alns)</td></tr>
-<tr class="separator:a8ca4ca727f888dfde453616c292d2a77"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3c34e5d02c2b81614ccd602351b81ed9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a3c34e5d02c2b81614ccd602351b81ed9">synthesize_tail_anchors</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t min_anchor_size, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier)</td></tr>
+<tr class="separator:a3c34e5d02c2b81614ccd602351b81ed9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1268ebdd6f7aa63390375351aeb2869c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a1268ebdd6f7aa63390375351aeb2869c">add_reachability_edges</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;vg, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;project, const unordered_multimap&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;injection_trans)</td></tr>
 <tr class="memdesc:a1268ebdd6f7aa63390375351aeb2869c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add edges between reachable nodes and split nodes at overlaps.  <a href="#a1268ebdd6f7aa63390375351aeb2869c">More...</a><br /></td></tr>
 <tr class="separator:a1268ebdd6f7aa63390375351aeb2869c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad0b4b06282da8d80291ff115a2ee9b19"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ad0b4b06282da8d80291ff115a2ee9b19">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out, const bool allow_negative_scores=false)</td></tr>
-<tr class="separator:ad0b4b06282da8d80291ff115a2ee9b19"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a502af6b8e769c0382c2fba1f485ccd9d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a502af6b8e769c0382c2fba1f485ccd9d">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; band_padding_function, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out, const bool allow_negative_scores=false)</td></tr>
-<tr class="separator:a502af6b8e769c0382c2fba1f485ccd9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a14bd445a8633f19edba424b51d2c38da"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a14bd445a8633f19edba424b51d2c38da">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t band_padding, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out, bool allow_negative_scores=false)</td></tr>
+<tr class="separator:a14bd445a8633f19edba424b51d2c38da"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa812dafc9cfce490ae11d7aac85b7676"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aa812dafc9cfce490ae11d7aac85b7676">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; band_padding_function, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out, bool allow_negative_scores=false)</td></tr>
+<tr class="separator:aa812dafc9cfce490ae11d7aac85b7676"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a90ff13eb09622a6f5fa9238f6ec4950b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a90ff13eb09622a6f5fa9238f6ec4950b">to_dot</a> (ostream &amp;out, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> *alignment=nullptr) const</td></tr>
 <tr class="separator:a90ff13eb09622a6f5fa9238f6ec4950b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4fc215d24f20c5ddc3916024c7ab62b"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af4fc215d24f20c5ddc3916024c7ab62b">get_connected_components</a> () const</td></tr>
@@ -159,8 +160,10 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:aa9837be5f0b807534244afe266208448"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adba05a33bf075eb3eb7260e229245f06"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#adba05a33bf075eb3eb7260e229245f06">reorder_adjacency_lists</a> (const vector&lt; size_t &gt; &amp;order)</td></tr>
 <tr class="separator:adba05a33bf075eb3eb7260e229245f06"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a10b2f3e5c9358da574eb093249d9b2e3"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; bool, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a10b2f3e5c9358da574eb093249d9b2e3">align_tails</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t max_alt_alns, bool dynamic_alt_alns, size_t min_paths, unordered_set&lt; size_t &gt; *sources=nullptr)</td></tr>
-<tr class="separator:a10b2f3e5c9358da574eb093249d9b2e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4c591d080bc48994fcdb2c9dc08d34a1"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a4c591d080bc48994fcdb2c9dc08d34a1">pessimistic_tail_gap</a> (int64_t tail_length, double multiplier)</td></tr>
+<tr class="separator:a4c591d080bc48994fcdb2c9dc08d34a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aba2fbcf9b7fb1368cdb033d3ecc69bf0"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; bool, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aba2fbcf9b7fb1368cdb033d3ecc69bf0">align_tails</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t min_paths, unordered_set&lt; size_t &gt; *sources=nullptr)</td></tr>
+<tr class="separator:aba2fbcf9b7fb1368cdb033d3ecc69bf0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-methods"></a>
 Static Private Member Functions</h2></td></tr>
@@ -174,6 +177,15 @@ Private Attributes</h2></td></tr>
 <tr class="separator:a76f9356cd0afea7dea3003caea2526eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a77a113d4c5b6b5ca1d7748c1b812e8d3"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a77a113d4c5b6b5ca1d7748c1b812e8d3">has_reachability_edges</a> = false</td></tr>
 <tr class="separator:a77a113d4c5b6b5ca1d7748c1b812e8d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-attribs"></a>
+Static Private Attributes</h2></td></tr>
+<tr class="memitem:af46ba9972db437bf66f787a9bbe6c3cd"><td class="memItemLeft" align="right" valign="top">static thread_local unordered_map&lt; double, vector&lt; int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af46ba9972db437bf66f787a9bbe6c3cd">pessimistic_tail_gap_memo</a></td></tr>
+<tr class="memdesc:af46ba9972db437bf66f787a9bbe6c3cd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Memo for the transcendental pessimistic tail gap function (thread local to maintain thread-safety)  <a href="#af46ba9972db437bf66f787a9bbe6c3cd">More...</a><br /></td></tr>
+<tr class="separator:af46ba9972db437bf66f787a9bbe6c3cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a12e62ccfd7e7adb135d169f7e2671509"><td class="memItemLeft" align="right" valign="top">static const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a12e62ccfd7e7adb135d169f7e2671509">tail_gap_memo_max_size</a> = 1000</td></tr>
+<tr class="memdesc:a12e62ccfd7e7adb135d169f7e2671509"><td class="mdescLeft">&#160;</td><td class="mdescRight">The largest size we will memoize up to.  <a href="#a12e62ccfd7e7adb135d169f7e2671509">More...</a><br /></td></tr>
+<tr class="separator:a12e62ccfd7e7adb135d169f7e2671509"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a7ac12dede78690f1783d542691691bc9"></a>
@@ -681,8 +693,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ad0b4b06282da8d80291ff115a2ee9b19"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad0b4b06282da8d80291ff115a2ee9b19">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
+<a id="a14bd445a8633f19edba424b51d2c38da"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a14bd445a8633f19edba424b51d2c38da">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -722,6 +734,18 @@ Private Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype">bool&#160;</td>
           <td class="paramname"><em>dynamic_alt_alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_gap</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>pessimistic_tail_gap_multiplier</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -738,7 +762,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const bool&#160;</td>
+          <td class="paramtype">bool&#160;</td>
           <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
@@ -753,8 +777,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a502af6b8e769c0382c2fba1f485ccd9d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a502af6b8e769c0382c2fba1f485ccd9d">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
+<a id="aa812dafc9cfce490ae11d7aac85b7676"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa812dafc9cfce490ae11d7aac85b7676">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -798,6 +822,18 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_gap</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>pessimistic_tail_gap_multiplier</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td>
           <td class="paramname"><em>band_padding_function</em>, </td>
         </tr>
@@ -810,7 +846,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const bool&#160;</td>
+          <td class="paramtype">bool&#160;</td>
           <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
@@ -825,8 +861,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a10b2f3e5c9358da574eb093249d9b2e3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a10b2f3e5c9358da574eb093249d9b2e3">&#9670;&nbsp;</a></span>align_tails()</h2>
+<a id="aba2fbcf9b7fb1368cdb033d3ecc69bf0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aba2fbcf9b7fb1368cdb033d3ecc69bf0">&#9670;&nbsp;</a></span>align_tails()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -863,6 +899,18 @@ Private Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype">bool&#160;</td>
           <td class="paramname"><em>dynamic_alt_alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_gap</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>pessimistic_tail_gap_multiplier</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1210,6 +1258,43 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a4c591d080bc48994fcdb2c9dc08d34a1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4c591d080bc48994fcdb2c9dc08d34a1">&#9670;&nbsp;</a></span>pessimistic_tail_gap()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::MultipathAlignmentGraph::pessimistic_tail_gap </td>
+          <td>(</td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>tail_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>multiplier</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return the pessimistic gap length corresponding to a certain tail length and multiplier (proportional to the square root of the tail length) </p>
+
+</div>
+</div>
 <a id="ae608d17e883c30c5dd8a4c38047d1e00"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae608d17e883c30c5dd8a4c38047d1e00">&#9670;&nbsp;</a></span>prune_to_high_scoring_paths()</h2>
 
@@ -1332,8 +1417,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a8ca4ca727f888dfde453616c292d2a77"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8ca4ca727f888dfde453616c292d2a77">&#9670;&nbsp;</a></span>synthesize_tail_anchors()</h2>
+<a id="a3c34e5d02c2b81614ccd602351b81ed9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3c34e5d02c2b81614ccd602351b81ed9">&#9670;&nbsp;</a></span>synthesize_tail_anchors()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1372,7 +1457,19 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>dynamic_alt_alns</em>&#160;</td>
+          <td class="paramname"><em>dynamic_alt_alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_gap</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>pessimistic_tail_gap_multiplier</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1591,6 +1688,54 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Nodes representing walked MEMs in the graph. </p>
+
+</div>
+</div>
+<a id="af46ba9972db437bf66f787a9bbe6c3cd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af46ba9972db437bf66f787a9bbe6c3cd">&#9670;&nbsp;</a></span>pessimistic_tail_gap_memo</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">thread_local unordered_map&lt; double, vector&lt; int64_t &gt; &gt; vg::MultipathAlignmentGraph::pessimistic_tail_gap_memo</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Memo for the transcendental pessimistic tail gap function (thread local to maintain thread-safety) </p>
+
+</div>
+</div>
+<a id="a12e62ccfd7e7adb135d169f7e2671509"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a12e62ccfd7e7adb135d169f7e2671509">&#9670;&nbsp;</a></span>tail_gap_memo_max_size</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const size_t vg::MultipathAlignmentGraph::tail_gap_memo_max_size = 1000</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>The largest size we will memoize up to. </p>
 
 </div>
 </div>

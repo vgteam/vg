@@ -72,6 +72,8 @@ var searchData=
   ['into_5fwhich_5fsnarl',['into_which_snarl',['../classvg_1_1SnarlManager.html#ac08074e3073ecd2ef72a57116b459577',1,'vg::SnarlManager::into_which_snarl(int64_t id, bool reverse) const'],['../classvg_1_1SnarlManager.html#a852f930d4e68e9bbd664ebe5a73a4669',1,'vg::SnarlManager::into_which_snarl(const Visit &amp;visit) const']]],
   ['introduce',['introduce',['../classvg_1_1Funnel.html#adfe8a13519ae236c400f3ad68980e16c',1,'vg::Funnel']]],
   ['inversion_5ffilter',['inversion_filter',['../classvg_1_1Filter.html#a5503147c786a4d9bfb18fc081630b5f6',1,'vg::Filter']]],
+  ['is_5fa_5fduplicate_5fhandle',['is_a_duplicate_handle',['../classvg_1_1DozeuPinningOverlay.html#a3089cf35214f919d15030e029df3f6eb',1,'vg::DozeuPinningOverlay']]],
+  ['is_5fa_5fduplicate_5fid',['is_a_duplicate_id',['../classvg_1_1DozeuPinningOverlay.html#ab549aa4693c8425cd1df8d04a04a178f',1,'vg::DozeuPinningOverlay']]],
   ['is_5facyclic',['is_acyclic',['../classvg_1_1VG.html#a71388f637b255bf16a940e735a12aacd',1,'vg::VG::is_acyclic()'],['../namespacevg_1_1algorithms.html#af1a2315d538d7055bf8778255e93c4da',1,'vg::algorithms::is_acyclic()']]],
   ['is_5fall_5fn',['is_all_n',['../namespacevg.html#abe6f7955b97d8537da2133a47f37f462',1,'vg::is_all_n()'],['../namespacebdsg.html#a9e33429260cd479ef89e2507637666e0',1,'bdsg::is_all_n()']]],
   ['is_5fancestor_5fnext',['is_ancestor_next',['../classvg_1_1VG.html#a7903acd7a977a85fdd78d306f2063252',1,'vg::VG::is_ancestor_next(nid_t node_id, nid_t candidate_id)'],['../classvg_1_1VG.html#ab919097a72a96dada04310b2aaf019f8',1,'vg::VG::is_ancestor_next(nid_t node_id, nid_t candidate_id, set&lt; nid_t &gt; &amp;seen, size_t steps=64)']]],

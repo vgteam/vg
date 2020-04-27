@@ -73,7 +73,7 @@ var searchData=
   ['num_5fmapping_5fattempts',['num_mapping_attempts',['../classvg_1_1MultipathMapper.html#acd259da737785206d02cc2807ab831fa',1,'vg::MultipathMapper']]],
   ['num_5fnodes',['num_nodes',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a67b47372b239072516057f08e39c6f38',1,'vg::MinimumDistanceIndex::SnarlIndex']]],
   ['num_5fnodes_5fdynamic',['num_nodes_dynamic',['../classvg_1_1Packer.html#a9f406ddaf008b85d23ea1262ab95ad68',1,'vg::Packer']]],
-  ['num_5fnull_5fnodes',['num_null_nodes',['../classvg_1_1NullMaskingGraph.html#a789adb0e97e25f480f18c7158aec51ac',1,'vg::NullMaskingGraph']]],
+  ['num_5fnull_5fnodes',['num_null_nodes',['../classvg_1_1DozeuPinningOverlay.html#aad4a7969c5c7263cfd5072169b60f6fa',1,'vg::DozeuPinningOverlay::num_null_nodes()'],['../classvg_1_1NullMaskingGraph.html#a789adb0e97e25f480f18c7158aec51ac',1,'vg::NullMaskingGraph::num_null_nodes()']]],
   ['num_5fpairs',['num_pairs',['../classvg_1_1ShuffledPairs.html#abf8913c70ff6595d8b288bdab3c88981',1,'vg::ShuffledPairs']]],
   ['num_5freads',['num_reads',['../structvg_1_1EdgePileup.html#aa95aa0337a5bc6229762abaa56dcdbff',1,'vg::EdgePileup']]],
   ['num_5fthreads',['num_threads',['../classvg_1_1Transcriptome.html#ac2261cd2e4236c02dbfded216253c923',1,'vg::Transcriptome']]],

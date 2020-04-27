@@ -24,6 +24,7 @@ var searchData=
   ['_7edeletehaplotypecommand',['~DeleteHaplotypeCommand',['../structvg_1_1DeleteHaplotypeCommand.html#a2049b0eb4e4cf76d42b26fb9b0ecb659',1,'vg::DeleteHaplotypeCommand']]],
   ['_7edistanceheuristic',['~DistanceHeuristic',['../classvg_1_1DistanceHeuristic.html#abca20b0fc239abad09fabb6d6bad0b50',1,'vg::DistanceHeuristic']]],
   ['_7edozeuinterface',['~DozeuInterface',['../classvg_1_1DozeuInterface.html#a0ac4d30c781e2a2278986ecbb84a34a6',1,'vg::DozeuInterface']]],
+  ['_7edozeupinningoverlay',['~DozeuPinningOverlay',['../classvg_1_1DozeuPinningOverlay.html#a6fe397bf132beeabd0ed7f830b1f9994',1,'vg::DozeuPinningOverlay']]],
   ['_7edpscorecomparator',['~DPScoreComparator',['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html#a02c3e3552497f6425a1f3d14682c1d06',1,'vg::MEMClusterer::DPScoreComparator']]],
   ['_7eexhaustivetraversalfinder',['~ExhaustiveTraversalFinder',['../classvg_1_1ExhaustiveTraversalFinder.html#a7586c1b256f63d9e4295a9f1011b921a',1,'vg::ExhaustiveTraversalFinder']]],
   ['_7eexpandingoverlaygraph',['~ExpandingOverlayGraph',['../classhandlegraph_1_1ExpandingOverlayGraph.html#a9d7cac3cf3b289fe1980d0575e70be72',1,'handlegraph::ExpandingOverlayGraph']]],
