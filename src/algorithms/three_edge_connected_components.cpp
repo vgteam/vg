@@ -2,9 +2,9 @@
 
 // Grab the Tsin's Algorithm header out of pinchesAndCacti, which installs it into sonLib's include directory
 extern "C" {
-#include "sonLibList.h"
-#include "sonLibTuples.h"
-#include "3_Absorb3edge2x.h"
+#include "sonLib/sonLibList.h"
+#include "sonLib/sonLibTuples.h"
+#include "sonLib/3_Absorb3edge2x.h"
 }
 
 #include <structures/union_find.hpp>
