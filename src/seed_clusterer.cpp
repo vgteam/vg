@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
     SnarlSeedClusterer::SnarlSeedClusterer( MinimumDistanceIndex& dist_index) :
@@ -191,6 +191,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
             cerr << endl;
         }
 
+/*
         //CHeck read clusters
         //TODO: This would be useful as part of the distance index
         auto get_len = [&] (id_t id) {
@@ -256,7 +257,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
         }
 
 
-
+*/
 
 #endif
         return make_tuple(std::move(tree_state.read_union_find), std::move(tree_state.fragment_union_find));
@@ -299,7 +300,6 @@ cerr << "Nested positions: " << endl << "\t";
                     } 
                 } else if (seeds->at(i).is_top_level_node) {
                     //If this is a top-level seed, defer clustering until we reach the top-level
-                    //TODO: Add top-level simple snarl seeds here- should be map from rank in chain to vector of node ids
                     size_t component = seeds->at(i).component;
                     if (tree_state.component_to_index.count(component) == 0) {
                         tree_state.component_to_index.emplace(component, tree_state.top_level_seed_clusters.size());
@@ -309,6 +309,10 @@ cerr << "Nested positions: " << endl << "\t";
                     tree_state.top_level_seed_clusters[tree_state.component_to_index.at(component)].emplace_back(read_num, i);
 
                 } else if (seeds->at(i).is_top_level_snarl) {
+                    //This is a top-level simple snarl
+#ifdef DEBUG_CLUSTER
+                    cerr << "(bubble)" << read_num << ":" << pos << ", ";
+#endif
 
                     tree_state.node_to_seeds[read_num].emplace_back(id, i);
 
@@ -318,11 +322,12 @@ cerr << "Nested positions: " << endl << "\t";
                         tree_state.top_level_seed_clusters.emplace_back();
                         tree_state.simple_snarl_to_nodes_by_component.emplace_back();
                     }
-                    hash_map<size_t, vector<tuple<id_t, int64_t, int64_t, int64_t>>>& simple_snarl_to_nodes = 
+                    hash_map<size_t, vector<tuple<id_t, bool, int64_t, int64_t, int64_t>>>& simple_snarl_to_nodes = 
                         tree_state.simple_snarl_to_nodes_by_component[tree_state.component_to_index.at(component)];
                     if (seen_nodes.count(id) < 1) {
                         seen_nodes.insert(id);
-                        simple_snarl_to_nodes[seeds->at(i).snarl_rank].emplace_back(id, seeds->at(i).node_length, seeds->at(i).start_length, seeds->at(i).end_length);
+                        simple_snarl_to_nodes[seeds->at(i).snarl_rank].emplace_back(
+                            id, seeds->at(i).rev_in_chain, seeds->at(i).start_length, seeds->at(i).end_length, seeds->at(i).node_length);
                     }
                 }
             }
@@ -468,9 +473,22 @@ cerr << "Nested positions: " << endl << "\t";
             }
         }
         if (depth == 0) {
+            //If this is the top-level, go through components for which there were no nested seeds
+            // and cluster the top-level seeds and snarls
             for (size_t component_num = 0 ; component_num < seen_components.size() ; component_num++) {
                 if (!seen_components[component_num]) {
-                    cluster_only_top_level_seed_clusters(tree_state, tree_state.top_level_seed_clusters[component_num]);
+                    if (tree_state.simple_snarl_to_nodes_by_component[component_num].empty()) {
+                        //If there are no top-level simple bubbles in this component, cluster only top level seeds
+                        cluster_only_top_level_seed_clusters(tree_state, tree_state.top_level_seed_clusters[component_num]);
+                    } else {
+                        //Cluster both top-level bubbles and chain nodes
+#ifdef DEBUG_CLUSTER
+                        cerr << "Clustering top-level bubbles and nodes " << endl;
+#endif
+                        id_t node_id = std::get<0>(tree_state.simple_snarl_to_nodes_by_component[component_num].begin()->second.front());
+                        size_t chain_i = dist_index.getChainAssignment(dist_index.snarl_indexes[dist_index.getPrimaryAssignment(node_id)].id_in_parent);
+                        cluster_one_chain(tree_state, chain_i, depth);
+                    }
                 }
             }
         }
@@ -1091,7 +1109,7 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
 
 
     SnarlSeedClusterer::NodeClusters SnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chain_i, size_t depth) const {
-
+        //TODO: Fix getting offsets of snarl clusters on the chain
         //Get the index of the chain we're on
         MinimumDistanceIndex::ChainIndex& chain_index = dist_index.chain_indexes[chain_i];
 
@@ -1153,9 +1171,9 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                     tree_state.simple_snarl_to_nodes_by_component[tree_state.component_to_index[connected_component_num]] ){
 
                 size_t start_rank = snarl_to_node.first;
-                id_t node_id; int64_t node_len; //Don't really need these
+                bool rev_in_chain; id_t node_id; int64_t node_len; //Don't really need these
                 int64_t start_length ; int64_t end_length;
-                std::tie(node_id, node_len, start_length, end_length) = snarl_to_node.second[0];
+                std::tie(node_id, rev_in_chain, start_length, end_length, node_len) = snarl_to_node.second[0];
                 int64_t snarl_length = chain_index.prefix_sum[start_rank + 1] - chain_index.prefix_sum[start_rank] + end_length; 
 
                 //Loop distances from and to the ends of the nodes in the snarl
@@ -1165,21 +1183,25 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                 //Cluster this snarl
                 hash_set<pair<size_t, size_t>> simple_snarl_clusters = cluster_simple_snarl(tree_state, snarl_to_node.second, loop_left, loop_right, snarl_length); 
 
-                //The offset of this snarl in the chain. This is possibly not the actual offset but it will put it in the right place
-                int64_t offset = chain_index.prefix_sum[start_rank + 1] - 2;
+                //The offset of this snarl in the chain for placement in cluster_head_indices
+                int64_t offset = start_rank == 0 ? start_length : chain_index.prefix_sum[start_rank] + start_length - 1;
 
                 int64_t add_dist_left_left = start_rank == 0 ? start_length : chain_index.prefix_sum[start_rank] - 1 + start_length;
     
-                int64_t add_dist_right_right = chain_index.prefix_sum[chain_index.prefix_sum.size()-1] - chain_index.prefix_sum[start_rank+1];
+                int64_t add_dist_right_right = chain_length+1 -chain_index.prefix_sum[start_rank+1];//TODO Changed this chain_index.prefix_sum[chain_index.prefix_sum.size()-1] - chain_index.prefix_sum[start_rank+1];
     
                 for (const pair<size_t, size_t>& cluster_head : simple_snarl_clusters) {
                     //Add this new snarl cluster to list. It will be treated as any other snarl cluster
                     insert_in_order(cluster_head_indices, make_tuple( offset, cluster_head.first, cluster_head.second));
 
                     pair<int64_t, int64_t> old_dists = tree_state.read_cluster_dists[cluster_head.first][cluster_head.second];
+
     
-                    tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first  = old_dists.first == -1 ? -1 : old_dists.first +  add_dist_left_left; 
-                    tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second = old_dists.second == -1 ? -1 : old_dists.second + add_dist_right_right; 
+                    //Update distances to reach the ends of the chain
+                    tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first  = 
+                        old_dists.first == -1 ? -1 : (rev_in_chain ? old_dists.second : old_dists.first) +  add_dist_left_left; 
+                    tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second 
+                        = old_dists.second == -1 ? -1 : (rev_in_chain ? old_dists.first : old_dists.second) + add_dist_right_right; 
 
                 }
             }
@@ -1972,11 +1994,13 @@ cerr <<  "\t\t cluster" << read_num << " " << std::get<0>(prev_snarl_cluster_by_
     };
 
 
-    hash_set<pair<size_t, size_t>> SnarlSeedClusterer::cluster_simple_snarl(TreeState& tree_state, vector<tuple<id_t, int64_t, int64_t, int64_t>> nodes, 
+    hash_set<pair<size_t, size_t>> SnarlSeedClusterer::cluster_simple_snarl(TreeState& tree_state, vector<tuple<id_t, bool, int64_t, int64_t, int64_t>> nodes, 
                                 int64_t loop_left, int64_t loop_right, int64_t snarl_length) const {
         //Cluster a top-level simple snarl and save the distances to the ends of the node in tree_state.read_cluster_dists 
         //Returns a vector of cluster heads (<read_num, seed num>)
-cerr << "cluster simple snarl" << endl;
+#ifdef DEBUG_CLUSTER
+        cerr << "cluster simple snarl" << endl;
+#endif
 
 
  
@@ -1987,9 +2011,9 @@ cerr << "cluster simple snarl" << endl;
         vector<int64_t> best_right (tree_state.all_seeds->size(), -1);
 
 
-        for (tuple<id_t, int64_t, int64_t, int64_t> node : nodes) {
+        for (tuple<id_t, bool, int64_t, int64_t, int64_t> node : nodes) {
             id_t node_id = std::get<0>(node);
-            int64_t node_len = std::get<1>(node);
+            int64_t node_len = std::get<4>(node);
 
             //Cluster this node
             SnarlSeedClusterer::NodeClusters clusters =  cluster_one_node(tree_state, node_id, node_len);
@@ -2018,6 +2042,12 @@ cerr << "cluster simple snarl" << endl;
         vector<size_t> combined_read_right (tree_state.all_seeds->size(), -1);
 
         for (pair<size_t, size_t>& cluster_head: all_cluster_heads) {
+#ifdef DEBUG_CLUSTER
+            cerr << "\tfound intermediate cluster head " << tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).pos 
+                << ": dist left: " << tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first 
+                << ", dist right: " << tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second << endl;
+#endif
+
             result.emplace(cluster_head);
 
             int64_t dist_left = tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first;
@@ -2027,7 +2057,7 @@ cerr << "cluster simple snarl" << endl;
 
                 //Combine fragment 
                 if (tree_state.fragment_distance_limit != 0 && dist_left != -1 && fragment_best_left != -1 &&
-                        dist_left + loop_left + fragment_best_left <= tree_state.fragment_distance_limit) {
+                        dist_left + loop_left + fragment_best_left - 1 <= tree_state.fragment_distance_limit) {
                     if (combined_fragment_left == -1) {
                         combined_fragment_left = tree_state.read_index_offsets[cluster_head.first] + cluster_head.second; 
                     } else {
@@ -2038,7 +2068,7 @@ cerr << "cluster simple snarl" << endl;
 
                 //Combine read
                 if (dist_left != -1 && best_left[cluster_head.first] != -1 &&
-                        dist_left + loop_left + best_left[cluster_head.first] <= tree_state.read_distance_limit) {
+                        dist_left + loop_left + best_left[cluster_head.first] - 1 <= tree_state.read_distance_limit) {
                     if (combined_read_left[cluster_head.first] == -1) {
                         combined_read_left[cluster_head.first] = cluster_head.second;
                     } else {
@@ -2067,7 +2097,7 @@ cerr << "cluster simple snarl" << endl;
 
                 //Combine fragment
                 if (tree_state.fragment_distance_limit != 0 && dist_right != -1 && fragment_best_right != -1 &&
-                        dist_right + loop_right + fragment_best_right <= tree_state.fragment_distance_limit) {
+                        dist_right + loop_right + fragment_best_right - 1 <= tree_state.fragment_distance_limit) {
                     if (combined_fragment_right == -1) {
                         combined_fragment_right = tree_state.read_index_offsets[cluster_head.first] + cluster_head.second;
                     } else {
@@ -2078,7 +2108,7 @@ cerr << "cluster simple snarl" << endl;
 
                 //Combine read
                 if (dist_right != -1 && best_right[cluster_head.first] != -1 &&
-                    dist_right  + loop_right + best_right[cluster_head.first] <= tree_state.read_distance_limit) {
+                    dist_right  + loop_right + best_right[cluster_head.first] - 1 <= tree_state.read_distance_limit) {
                     if (combined_read_right[cluster_head.first] == -1) {
                         combined_read_right[cluster_head.first] = cluster_head.second;
                     } else {
@@ -2086,6 +2116,7 @@ cerr << "cluster simple snarl" << endl;
                                 tree_state.read_cluster_dists[cluster_head.first][combined_read_right[cluster_head.first]].first);
                         int64_t best_right = min_not_minus_one(dist_right, 
                                 tree_state.read_cluster_dists[cluster_head.first][combined_read_right[cluster_head.first]].second);
+                        tree_state.read_union_find[cluster_head.first].union_groups(cluster_head.second, combined_read_right[cluster_head.first]);
                         if (tree_state.read_union_find[cluster_head.first].find_group(cluster_head.second) == cluster_head.second) {
                             result.erase(make_pair(cluster_head.first, combined_read_right[cluster_head.first]));
                             combined_read_right[cluster_head.first] = cluster_head.second;
@@ -2100,6 +2131,14 @@ cerr << "cluster simple snarl" << endl;
                 }
             }
         }
+#ifdef DEBUG_CLUSTER
+        cerr << "Found clusters on simple snarl: " << endl;
+        for ( pair<size_t, size_t> cluster_head : result) {
+            cerr << "\t" << tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).pos 
+                << ": dist left: " << tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first 
+                << ", dist right: " << tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second << endl;
+        }
+#endif
 
         return result;
 

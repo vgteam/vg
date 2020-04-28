@@ -26,9 +26,10 @@ class SnarlSeedClusterer {
             //For nodes on top-level simple bubbles
             bool is_top_level_snarl;
             size_t snarl_rank; //Rank of the snarl in the chain
-            size_t node_length; //Length of the node the position is on
             size_t start_length; //Length of the snarl start node (relative to a fd traversal of the chain)
             size_t end_length; //Length of the snarl end node
+            size_t node_length; //Length of the node the position is on
+            bool rev_in_chain; //True if this node is traversed backward in the chain
 
         };
 
@@ -238,12 +239,12 @@ class SnarlSeedClusterer {
             vector<vector<pair<size_t, size_t>>> top_level_seed_clusters;
 
             //For each component, maps each snarl (as the rank of the snarl in the chain) to
-            //a list of nodes it contains as <node id, node length, start length, end length>
+            //a list of nodes it contains as <node id, is rev in chain, node length, start length, end length>
             //where start length and end length are the lengths of the start and end nodes of
             //the snarl (relative to the orientation in the chain
             //TODO: this is a mess
             //Only for top-level simple snarls, instead of snarl_to_nodes
-            vector<hash_map<size_t, vector<tuple<id_t, int64_t, int64_t, int64_t>>>> simple_snarl_to_nodes_by_component;
+            vector<hash_map<size_t, vector<tuple<id_t, bool, int64_t, int64_t, int64_t>>>> simple_snarl_to_nodes_by_component;
 
 
 
@@ -311,7 +312,7 @@ class SnarlSeedClusterer {
         //cluster its seeds and return the cluster heads
         //Nodes if taken from tree_state.simple_snarl_to_nodes_by_component and each element in it is
         //the node id of the node
-        hash_set<pair<size_t, size_t>> cluster_simple_snarl(TreeState& tree_state, vector<tuple<id_t, int64_t, int64_t, int64_t>> nodes, int64_t loop_left, int64_t loop_right, int64_t snarl_length) const;
+        hash_set<pair<size_t, size_t>> cluster_simple_snarl(TreeState& tree_state, vector<tuple<id_t, bool, int64_t, int64_t, int64_t>> nodes, int64_t loop_left, int64_t loop_right, int64_t snarl_length) const;
 
 };
 }

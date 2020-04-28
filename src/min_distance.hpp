@@ -76,12 +76,13 @@ class MinimumDistanceIndex {
     //The second bool will be false and the remaining size_t's will be 0
     //
     //If the position is on a child node of a top-level simple bubble (bubble has no children and nodes connect only to boundaries)
-    //return false, 0, 0, true, and the rank of the bubble in its chain, the length of the node, the length of the start
-    //node of the snarl, and the length of the end node (relative to a fd traversal of the chain)
+    //return false, 0, 0, true, and the rank of the bubble in its chain, the length of the start
+    //node of the snarl, the length of the end node (relative to a fd traversal of the chain), and
+    //the length of the node
     //
     //If the position is not on a root node (that is, a boundary node of a snarl in a root chain), returns
     //false and MIPayload::NO_VALUE for all values
-    tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t>  get_minimizer_distances (pos_t pos);
+    tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>  get_minimizer_distances (pos_t pos);
 
     //What is the length of the top level chain that this node belongs to?
     int64_t top_level_chain_length(id_t node_id);
@@ -123,10 +124,10 @@ class MinimumDistanceIndex {
             SnarlIndex();
 
             //Load data from serialization
-            void load(istream& in);
+            void load(istream& in, bool include_component);
 
             ///Serialize the snarl
-            void serialize(ostream& out) const;
+            void serialize(ostream& out, bool include_component) const;
             
             ///Distance between start and end, not including the lengths of
             ///the two nodes
@@ -164,9 +165,6 @@ class MinimumDistanceIndex {
             ///add the distance from start to end to the index
             void insertDistance(size_t start, size_t end, int64_t dist);
 
-            ///True if all children are nodes (not snarls or chains) and for every child node,
-            //there are only edges to the boundary nodes
-            bool isSimpleSnarl () const;
 
             void printSelf();
 
@@ -208,6 +206,10 @@ class MinimumDistanceIndex {
             ///Since the start and end node are the same, the last ranking
             ///node is no longer the end node if this is true
             bool is_unary_snarl;
+
+            ///True if all children are nodes (not snarls or chains) and for every child node,
+            //there are only edges to the boundary nodes
+            bool is_simple_snarl;
 
 
             ///The maximum width of the snarl - the maximum of all minimum distance paths from each node to 
@@ -401,8 +403,10 @@ class MinimumDistanceIndex {
 
 
     //Header for the serialized file
-    string file_header = "distance index version 2.1";
-    bool include_component; //TODO: This is true for version 2.1 so it includes node_to_component, etc. 
+    string file_header = "distance index version 2.2";
+    //TODO: version 2 (no .anything) doesn't include component but we'll still accept it
+    //version 2.1 doesn't include snarl index.is_simple_snarl and will break if we try to load it 
+    bool include_component; //TODO: This is true for version 2.2 so it includes node_to_component, etc. 
 
     ////// Private helper functions
  
@@ -498,13 +502,13 @@ class MinimumDistanceIndex {
 /*
 Simple bubble: 
     
- 9 bit  |        24           |    10     |     10   |    10     |    1
-  ---   | snarl rank in chain | start len | end len  | node len  |  is_node
+ 8 bit  |     1    |        24           |    10     |     10   |    10     |    1
+  ---   |  is rev  | snarl rank in chain | start len | end len  | node len  |  is_node
    
 Top level chain 
      
-  31 bit  |    32    |     1
-component |  offset  |  is_node
+    31 bit   |    32    |     1
+component id |  offset  |  is_node
 
 
 is_node is true if it is a top-level chain node, false if it is a simple bubble
@@ -520,6 +524,7 @@ struct MIPayload {
     constexpr static size_t END_LEN_OFFSET = 11;
     constexpr static size_t START_LEN_OFFSET = 21;
     constexpr static size_t RANK_OFFSET = 31;
+    constexpr static size_t REV_OFFSET = 55;
 
     
     constexpr static size_t LENGTH_WIDTH = 10;
@@ -530,13 +535,14 @@ struct MIPayload {
 
     
     constexpr static size_t ID_OFFSET = 33;
-    constexpr static size_t OFFSET_WIDTH = 31;
+    constexpr static size_t ID_WIDTH = 31;
+    constexpr static size_t OFFSET_WIDTH = 32;
     constexpr static code_type OFFSET_MASK = (static_cast<code_type>(1) << OFFSET_WIDTH) - 1;
 
-    static code_type encode(std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t> chain_pos) {
+    static code_type encode(std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_pos) {
         bool is_top_level_node; size_t component; size_t offset; //Values for a top level chain
-        bool is_top_level_snarl; size_t snarl_rank; size_t node_length; size_t start_length; size_t end_length; //values for a bubble
-        std::tie(is_top_level_node, component, offset, is_top_level_snarl, snarl_rank, node_length, start_length, end_length) = chain_pos;
+        bool is_top_level_snarl; size_t snarl_rank; size_t node_length; size_t start_length; size_t end_length; bool is_rev;//values for a bubble
+        std::tie(is_top_level_node, component, offset, is_top_level_snarl, snarl_rank, start_length, end_length, node_length, is_rev) = chain_pos;
 
         if (!is_top_level_node && ! is_top_level_snarl) {
 
@@ -551,7 +557,7 @@ struct MIPayload {
                 return NO_CODE;
             }
 
-            return (component << ID_OFFSET) | (offset << 1) | static_cast<code_type>(1);
+            return (component << ID_OFFSET) | (offset << 1) | static_cast<code_type>(true);
 
         } else {
             //Top level simple bubble
@@ -564,25 +570,26 @@ struct MIPayload {
                 return NO_CODE;
             }
 
-            return (snarl_rank << RANK_OFFSET) | (start_length << START_LEN_OFFSET) | (end_length << END_LEN_OFFSET) | (node_length << NODE_LEN_OFFSET) ;
+            return (static_cast<code_type>(is_rev) << REV_OFFSET) | (snarl_rank << RANK_OFFSET) | (start_length << START_LEN_OFFSET) | (end_length << END_LEN_OFFSET) | (node_length << NODE_LEN_OFFSET) ;
         }
     }
 
-    static std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t> decode(code_type code) {
+    static std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> decode(code_type code) {
         if (code == NO_CODE) {
-            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t>(false, NO_VALUE, NO_VALUE, false, NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE);
+            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, NO_VALUE, NO_VALUE, false, NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
         } else if (code & (static_cast<code_type>(1)) == (static_cast<code_type>(1))) {
             //This is a top-level chain
-            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t>
-                    (true, code >> ID_OFFSET, code >> 1 & OFFSET_MASK, false, NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE);
+            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>
+                    (true, code >> ID_OFFSET, code >> 1 & OFFSET_MASK, false, NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
         } else {
             //This is a top-level bubble
-            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t>
+            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>
                     (false, NO_VALUE, NO_VALUE, true,
                       code >> RANK_OFFSET & RANK_MASK, 
                       code >> START_LEN_OFFSET & LENGTH_MASK, 
                       code >> END_LEN_OFFSET & LENGTH_MASK, 
-                      code >> NODE_LEN_OFFSET & LENGTH_MASK);
+                      code >> NODE_LEN_OFFSET & LENGTH_MASK,
+                      code >> REV_OFFSET & static_cast<code_type>(1));
         }
     }
 };

@@ -259,7 +259,7 @@ void MinimumDistanceIndex::load(istream& in){
             char_index ++;
         }
         if (in.peek() == '.') {
-            if ((char) in.get() != '.' || (char)in.get() != '1') {
+            if ((char) in.get() != '.' || (char)in.get() != '2') {
                 throw runtime_error ("Distance index file is outdated");
             }
             include_component = true;
@@ -278,7 +278,7 @@ void MinimumDistanceIndex::load(istream& in){
     snarl_indexes.reserve(num_snarls);
     for (size_t i = 0 ; i < num_snarls ; i++) {
         snarl_indexes.emplace_back(); 
-        snarl_indexes.back().load(in);
+        snarl_indexes.back().load(in, include_component);
     }
     primary_snarl_assignments.load(in); 
     primary_snarl_ranks.load(in);
@@ -334,7 +334,7 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
     sdsl::write_member(snarl_indexes.size(), out);
     
     for (auto& snarl_index: snarl_indexes) {
-        snarl_index.serialize(out);
+        snarl_index.serialize(out, include_component);
     }
     primary_snarl_assignments.serialize(out);
     primary_snarl_ranks.serialize(out);
@@ -810,6 +810,14 @@ void MinimumDistanceIndex::populateSnarlIndex(const HandleGraph* graph, const Sn
             handle_t curr_handle = ng.get_handle(curr_id.first, curr_id.second);
             int64_t curr_dist = next.second;
 
+            if (start_id.first != snarl_start_id && start_id.first != snarl_end_id &&
+                curr_id.first != snarl_start_id && curr_id.first != snarl_end_id &&
+                curr_id != start_id) {
+                //If we started from an interior node and ended at another interior node
+                snarl_indexes[snarl_assignment].is_simple_snarl = false;
+            }
+
+
             if ( seen_nodes.count(curr_id) == 0) {
                 //If node has not already been found:
 
@@ -840,6 +848,8 @@ void MinimumDistanceIndex::populateSnarlIndex(const HandleGraph* graph, const Sn
 
                 if (curr_id.first != snarl_start_id && curr_id.first != snarl_end_id && curr_snarl != NULL) {
                     //If current node is a child snarl/chain
+
+                    snarl_indexes[snarl_assignment].is_simple_snarl = false;
 
 
                     if (snarl_manager->in_nontrivial_chain(curr_snarl)) {
@@ -1038,6 +1048,11 @@ void MinimumDistanceIndex::populateSnarlIndex(const HandleGraph* graph, const Sn
             }
             first_loop = false;
         }//End while loop
+        if ( snarl_indexes[snarl_assignment].snarlDistance(0, start_node_rank) != -1 && 
+            snarl_indexes[snarl_assignment].snarlDistance(snarl_indexes[snarl_assignment].num_nodes * 2 - 1, start_node_rank) != -1) {
+            //If there is an edge to both start and end
+            snarl_indexes[snarl_assignment].is_simple_snarl = false;
+        }
     }//End for loop over starting node/directions in a snarl
 
 
@@ -1649,12 +1664,13 @@ MinimumDistanceIndex::SnarlIndex::SnarlIndex(
     /*Constructor for SnarlIndex object that stores distances between
         nodes in a snarl */
     size_t size = num_nodes * 2;
+    is_simple_snarl = true;
     util::assign(distances, int_vector<>((((size+1)*size)/2) + (size/2), 0));
 }
 
 MinimumDistanceIndex::SnarlIndex::SnarlIndex()  {
 }
-void MinimumDistanceIndex::SnarlIndex::load(istream& in){
+void MinimumDistanceIndex::SnarlIndex::load(istream& in, bool include_component){
     /*Load contents of SnarlIndex from serialization */
     
     distances.load(in);
@@ -1667,10 +1683,13 @@ void MinimumDistanceIndex::SnarlIndex::load(istream& in){
     sdsl::read_member(num_nodes, in);
     sdsl::read_member(depth, in);
     sdsl::read_member(is_unary_snarl, in);
+    if (include_component) {
+        sdsl::read_member(is_simple_snarl, in);
+    }
     sdsl::read_member(max_width, in);
 }
 
-void MinimumDistanceIndex::SnarlIndex::serialize(ostream& out) const {
+void MinimumDistanceIndex::SnarlIndex::serialize(ostream& out, bool include_component) const {
     /* Serialize object to out stream
       Vector contains a header of four ints: #nodes, start node, end node, parent
                   a vector representing visitToIndex [node1, node2, ...] where
@@ -1687,6 +1706,9 @@ void MinimumDistanceIndex::SnarlIndex::serialize(ostream& out) const {
     sdsl::write_member(num_nodes, out);
     sdsl::write_member(depth, out);
     sdsl::write_member(is_unary_snarl, out);
+    if (include_component) {
+        sdsl::write_member(is_simple_snarl, out);
+    }
     sdsl::write_member(max_width, out);
 
 }
@@ -2533,7 +2555,7 @@ void MinimumDistanceIndex::subgraphInRange(const Path& path, const HandleGraph* 
     return;
 }
 
-tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t> MinimumDistanceIndex::get_minimizer_distances (pos_t pos) {
+tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> MinimumDistanceIndex::get_minimizer_distances (pos_t pos) {
     if (node_to_component.size() == 0) {
         throw runtime_error("error: distance index is out-of-date");
     }
@@ -2562,22 +2584,25 @@ tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t> MinimumDistanc
         size_t chain_rank = getChainRank(id); 
         size_t offset = chain_rank == 0 ? 0 : chain_indexes[component_to_chain_index[component-1]].prefix_sum[chain_rank] - 1;
 
-        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t>(true, component, offset + node_offset,
-            false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE);
+        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(true, component, offset + node_offset,
+            false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
 
     } else if (component != 0 && snarl_index.depth == 0 && snarl_index.in_chain && snarl_index.is_simple_snarl) {
+        //This node is on a top-level simple snarl
 
         size_t chain_rank = getChainRank(snarl_index.id_in_parent);
         size_t start_len = snarl_index.rev_in_parent ? snarl_index.nodeLength(snarl_index.num_nodes*2-1) : snarl_index.nodeLength(0);
         size_t end_len = snarl_index.rev_in_parent ? snarl_index.nodeLength(0) : snarl_index.nodeLength(snarl_index.num_nodes*2-1);
         size_t node_len = snarl_index.nodeLength(snarl_rank);
-        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
-                true, chain_rank, start_len, end_len, node_len);
+        bool rev_in_snarl = snarl_index.snarlDistance(0, snarl_rank) == -1;
+        bool is_rev = rev_in_snarl ? !snarl_index.rev_in_parent : snarl_index.rev_in_parent;
+        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
+                true, chain_rank, start_len, end_len, node_len, is_rev);
 
     } else {
         //If this is a nested position
-        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
-                false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE);
+        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
+                false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
     }
 }
 

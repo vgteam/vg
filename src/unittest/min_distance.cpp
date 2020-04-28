@@ -1164,6 +1164,31 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             REQUIRE (std::get<2>(di.get_minimizer_distances(make_pos_t(13, false, 0))) == 5);
             REQUIRE (std::get<2>(di.get_minimizer_distances(make_pos_t(19, false, 0))) == 9);
 
+            //Check simple snarl assignments
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(1 , false, 0)) ));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(2 , false, 0)) ));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(3 , false, 0)) ));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(4 , true, 3))  ));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(5 , false, 0)) ));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(6 , false, 0)) ));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(7 , false, 0)) ));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(8 , false, 0)) ));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(9 , false, 0)) ));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(10 , false, 0))));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(11 , false, 0))));
+            REQUIRE (std::get<3>(di.get_minimizer_distances(make_pos_t(12 , false, 0))));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(13 , false, 0))));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(14 , false, 0))));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(15 , false, 0))));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(16 , false, 0))));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(17 , false, 0))));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(18 , false, 0))));
+            REQUIRE (!std::get<3>(di.get_minimizer_distances(make_pos_t(19 , false, 0))));
+
+            REQUIRE (std::get<4>(di.get_minimizer_distances(make_pos_t(12 , false, 0))) == 0);
+            REQUIRE (std::get<5>(di.get_minimizer_distances(make_pos_t(12 , false, 0))) == 4);
+            REQUIRE (std::get<6>(di.get_minimizer_distances(make_pos_t(12 , false, 0))) == 4);
+            REQUIRE (std::get<7>(di.get_minimizer_distances(make_pos_t(12 , false, 0))) == 1);
 
 
         }
@@ -1236,10 +1261,12 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
                 off_t offset1 = uniform_int_distribution<int>(0,node1->sequence().size() - 1)(generator);
                 off_t offset2 = uniform_int_distribution<int>(0,node2->sequence().size() - 1)(generator);
 
-                pos_t pos1 = make_pos_t(nodeID1, 
-                  uniform_int_distribution<int>(0,1)(generator) == 0, offset1 );
-                pos_t pos2 = make_pos_t(nodeID2, 
-                  uniform_int_distribution<int>(0,1)(generator) == 0, offset2 );
+                pos_t pos1 = make_pos_t(nodeID1, uniform_int_distribution<int>(0,1)(generator) == 0, offset1 );
+                pos_t pos2 = make_pos_t(nodeID2, uniform_int_distribution<int>(0,1)(generator) == 0, offset2 );
+                auto chain_info = di.get_minimizer_distances(pos1);
+                auto encoded_chain_info = MIPayload::decode(MIPayload::encode(di.get_minimizer_distances(pos1)));
+                assert (chain_info == encoded_chain_info);
+
  
                 if (!(nodeID1 != snarl1->start().node_id() && 
                     (snarl_manager.into_which_snarl(nodeID1, false) != NULL ||
