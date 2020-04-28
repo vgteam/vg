@@ -51,6 +51,29 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
         });
     };
     
+    SECTION("A cycle with an overlapping cycle has the overlapping cycle merged out") {
+        adjacencies = {{1, 2}, {0, 2, 2}, {0, 1, 1}};
+        components = structures::UnionFind(adjacencies.size(), true);
+        
+        SECTION("Works with Cactus") {
+            algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);
+            
+            REQUIRE(components.all_groups().size() == 2);
+            REQUIRE(components.group_size(0) == 1);
+            REQUIRE(components.group_size(1) == 2);
+            REQUIRE(components.group_size(2) == 2);
+        }
+        
+        SECTION("Works with Tsin 2014") {
+            algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
+            
+            REQUIRE(components.all_groups().size() == 2);
+            REQUIRE(components.group_size(0) == 1);
+            REQUIRE(components.group_size(1) == 2);
+            REQUIRE(components.group_size(2) == 2);
+        }
+    }
+    
     SECTION("An empty graph") {
         SECTION("Works with Cactus") {
             algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);

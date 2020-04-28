@@ -19,6 +19,8 @@ extern "C" {
 namespace vg {
 namespace algorithms {
 
+#define debug
+
 using namespace std;
 
 void three_edge_connected_component_merges_dense(size_t node_count, size_t first_root, 

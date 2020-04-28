@@ -11,8 +11,11 @@
 #include <structures/union_find.hpp>
 
 #include <array>
+#include <iostream>
 
 namespace vg {
+
+#define debug
 
 using namespace std;
 
@@ -68,6 +71,11 @@ public:
     /// For each item other than the head in the component headed by the given
     /// handle, calls the iteratee with the that other item. Does not call the
     /// iteratee for single-item components.
+    void for_each_other_member(handle_t head, const function<void(handle_t)>& iteratee) const;
+    
+    /// For each item, including the head, in the component headed by the given
+    /// handle, calls the iteratee with the that other item. Does not call the
+    /// iteratee for single-item components.
     void for_each_member(handle_t head, const function<void(handle_t)>& iteratee) const;
     
     /// For each item other than the head in each component, calls the iteratee
@@ -100,7 +108,30 @@ public:
     /// If a path in the forest doesn't beat the length of the cycle that lives
     /// in its tree, it is omitted.
     pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> longest_paths_in_forest(const vector<pair<size_t, handle_t>>& longest_simple_cycles) const;
+    
+    /// Describe the graph in dot format to the given stream;
+    void to_dot(ostream& out) const;
 };
+
+void IntegratedSnarlFinder::MergedAdjacencyGraph::to_dot(ostream& out) const {
+    out << "digraph G {" << endl;
+    for_each_head([&](handle_t head) {
+        // Have a node for every head
+        out << "\tn" << graph->get_id(head) << (graph->get_is_reverse(head) ? "r" : "f") << "[shape=\"point\"];" << endl;
+        for_each_member(head, [&](handle_t edge) {
+            // For everything reading into here
+            if (graph->get_is_reverse(edge)) {
+                // If it is coming here backward (we are its start)
+                handle_t flipped_head = find(graph->flip(edge));
+                // Only draw edges in one direction. Label them with their nodes.
+                out << "\tn" << graph->get_id(head) << (graph->get_is_reverse(head) ? "r" : "f")
+                    << " -> n" << graph->get_id(flipped_head) << (graph->get_is_reverse(flipped_head) ? "r" : "f") 
+                    << " [label=" << graph->get_id(edge) << "];" << endl;
+            }
+        });
+    });
+    out << "}" << endl;
+}
 
 size_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_rank(handle_t into) const {
     // We need to 0-base the backing rank, space it out, and make the low bit orientation
@@ -181,7 +212,7 @@ void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_head(const function<v
     }
 }
 
-void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_member(handle_t head, const function<void(handle_t)>& iteratee) const {
+void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_other_member(handle_t head, const function<void(handle_t)>& iteratee) const {
     size_t head_rank = uf_rank(head);
     // Find the group the head is in
     vector<size_t> group = union_find.group(head_rank);
@@ -192,6 +223,17 @@ void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_member(handle_t head,
             // This function will happen to work for non-head inputs, leaving out that input, but we don't guarantee it!
             iteratee(uf_handle(member_rank));
         }
+    }
+}
+
+void IntegratedSnarlFinder::MergedAdjacencyGraph::for_each_member(handle_t head, const function<void(handle_t)>& iteratee) const {
+    size_t head_rank = uf_rank(head);
+    // Find the group the head is in
+    vector<size_t> group = union_find.group(head_rank);
+    for (auto& member_rank : group) {
+        // And go through all the members, including the head.
+        // This function will happen to work for non-head inputs, leaving out that input, but we don't guarantee it!
+        iteratee(uf_handle(member_rank));
     }
 }
 
@@ -244,6 +286,11 @@ pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> Integrat
         // For every node in the graph
         
         if (!visited_frame.count(component_root)) {
+        
+#ifdef debug
+            cerr << "Root simple cycle search at " << graph->get_id(component_root) << (graph->get_is_reverse(component_root) ? "-" : "+") << endl; 
+#endif
+        
             // If it hasn't been searched yet, start a search of its connected component.
             stack.emplace_back();
             stack.back().here = component_root;
@@ -257,19 +304,40 @@ pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> Integrat
                 auto& frame = stack.back();
                 // Find the node that following this edge got us to.
                 auto frame_head = find(frame.here);
+                
+#ifdef debug
+                cerr << "At stack frame " << stack.size() - 1 << " for edge " << graph->get_id(frame.here) << (graph->get_is_reverse(frame.here) ? "-" : "+") 
+                    << " on component " << graph->get_id(frame_head) << (graph->get_is_reverse(frame_head) ? "-" : "+") << endl; 
+#endif
+                
                 auto frame_it = visited_frame.find(frame_head);
                 if (frame_it == visited_frame.end()) {
                     // First visit to here.
+                    
+#ifdef debug
+                    cerr << "\tFirst visit" << endl; 
+#endif
                     
                     // Mark visited at this stack level
                     frame_it = visited_frame.emplace_hint(frame_it, frame_head, stack.size() - 1);
                     
                     // Queue up edges
                     for_each_member(frame_head, [&](handle_t member) {
-                        // Follow edge by flipping. But queue up the edge
-                        // followed instead of the node reached (head), so we
-                        // can emit the cycle later in terms of edges.
-                        frame.todo.push_back(graph->flip(member));
+                        if (member != frame.here || stack.size() == 1) {
+                            // If it's not just turning around and looking up
+                            // the edge we took to get here, or if we're the
+                            // top stack frame and we didn't come from anywhere
+                            // anyway
+                        
+                            // Follow edge by flipping. But queue up the edge
+                            // followed instead of the node reached (head), so we
+                            // can emit the cycle later in terms of edges.
+                            frame.todo.push_back(graph->flip(member));
+                        
+#ifdef debug
+                            cerr << "\t\tNeed to follow " << graph->get_id(frame.todo.back()) << (graph->get_is_reverse(frame.todo.back()) ? "-" : "+") << endl; 
+#endif
+                        }
                     });
                 }
                 
@@ -279,9 +347,19 @@ pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> Integrat
                     handle_t connected_head = find(edge_into);
                     frame.todo.pop_back();
                     
+#ifdef debug
+                    cerr << "\tFollow " << graph->get_id(edge_into) << (graph->get_is_reverse(edge_into) ? "-" : "+")
+                        << " to component " << graph->get_id(connected_head) << (graph->get_is_reverse(connected_head) ? "-" : "+") << endl; 
+#endif
+                    
                     auto connected_it = visited_frame.find(connected_head);
                     
                     if (connected_it == visited_frame.end()) {
+                    
+#ifdef debug
+                        cerr << "\t\tNot yet visited. Recurse!" << endl; 
+#endif
+                    
                         // Forward edge. Recurse.
                         // TODO: this immediately does a lookup in the hash table again.
                         stack.emplace_back();
@@ -292,16 +370,27 @@ pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> Integrat
                             // We have an edge to something that was visited above
                             // our stack level. It can't be a self loop, and it
                             // must close a unique cycle.
-                        
-                            // Get the stack frame we connected to (which may
-                            // be the same as our frame, for self loops)
-                            auto& connected_frame = stack[connected_it->second];
                             
-                            // Walk and measure the cycle
+#ifdef debug
+                            cerr << "\tBack edge up stack to frame " << connected_it->second << endl; 
+#endif
+                        
+#ifdef debug
+                            cerr << "\t\tFound cycle:" << endl; 
+#endif
+                            
+                            // Walk and measure the cycle. But don't count the
+                            // frame we arrived at because its incoming edge
+                            // isn't actually on the cycle.
                             size_t cycle_length_bp = graph->get_length(edge_into);
                             handle_t prev_edge = edge_into;
-                            for (size_t i = connected_it->second; i < stack.size(); i++) {
+                            for (size_t i = connected_it->second + 1; i < stack.size(); i++) {
                                 // For each edge along the cycle...
+                                
+#ifdef debug
+                                cerr << "\t\t\t" << graph->get_id(stack[i].here) << (graph->get_is_reverse(stack[i].here) ? "-" : "+") << endl; 
+#endif
+                                
                                 // Measure it
                                 cycle_length_bp += graph->get_length(stack[i].here);
                                 // Record the cycle membership
@@ -312,8 +401,21 @@ pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> Integrat
                             // Close the cycle
                             next_edge[prev_edge] = edge_into;
                             
+#ifdef debug
+                            cerr << "\t\t\t" << graph->get_id(edge_into) << (graph->get_is_reverse(edge_into) ? "-" : "+") << endl; 
+#endif
+                            
+#ifdef debug
+                            cerr << "\t\tCycle length: " << cycle_length_bp << " bp" << endl; 
+#endif
+                            
                             if (cycle_length_bp > longest_cycle.first) {
                                 // New longest cycle (or maybe only longest cycle).
+                                
+#ifdef debug
+                                cerr << "\t\t\tNew longest cycle!" << endl; 
+#endif
+                                
                                 // TODO: Assumes no cycles are 0-length
                                 longest_cycle.first = cycle_length_bp;
                                 longest_cycle.second = edge_into;
@@ -335,6 +437,14 @@ pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> Integrat
             }
         }
     });
+   
+#ifdef debug
+    cerr << "Cycle links:" << endl;
+    for (auto& kv : next_edge) {
+        cerr << "\t" << graph->get_id(kv.first) << (graph->get_is_reverse(kv.first) ? "-" : "+")
+            << " -> " << graph->get_id(kv.second) << (graph->get_is_reverse(kv.second) ? "-" : "+") << endl;
+    }
+#endif
    
     return to_return;
 }
@@ -728,47 +838,50 @@ IntegratedSnarlFinder::IntegratedSnarlFinder(const PathHandleGraph& graph) : gra
 void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void(handle_t, handle_t)>& iteratee) const {
     // Do the actual snarl finding work and then feed the iteratee our snarls.
     
+#ifdef debug
+    cerr << "Finding snarls." << endl;
+#endif
+    
     // We need a union-find over the adjacency components of the graph, in which we will build the cactus graph.
     MergedAdjacencyGraph cactus(graph);
     
+#ifdef debug
+    cerr << "Base adjacency components:" << endl;
+    cactus.to_dot(cerr);
+#endif
+    
     // It magically gets the adjacency components itself.
+    
+#ifdef debug
+    cerr << "Finding 3 edge connected components..." << endl;
+#endif
     
     // Now we need to do the 3 edge connected component merging, using Tsin's algorithm.
     // We don't really have a good dense rank space on the adjacency components, so we use the general version.
     // TODO: Somehow have a nice dense rank space?
     // We represent each adjacency component (node) by its heading handle.
+#ifdef debug
+    size_t tecc_id = 0;
+#endif
     algorithms::three_edge_connected_component_merges<handle_t>([&](const function<void(handle_t)>& emit_node) {
         // Feed all the handles that head adjacency components into the algorithm
-        cactus.for_each_head(emit_node);
+        cactus.for_each_head([&](handle_t head) {
+#ifdef debug
+            cerr << "Three edge component node " << tecc_id << " is head " << graph->get_id(head) << (graph->get_is_reverse(head) ? "-" : "+") << endl;
+            tecc_id++;
+#endif
+            emit_node(head);
+        });
     }, [&](handle_t node, const function<void(handle_t)>& emit_edge) {
-        // When asked for edges
-        
-        // Track what we have announced
-        unordered_set<handle_t> seen_connected_heads;
-        
-        // We know the handle we got is a head.
-        
-        // Try and follow it as an edge and get the headed component
-        handle_t connected_head = cactus.find(graph->flip(node));
-        
-        // Announce that. No adjacency component ever has no edges.
-        seen_connected_heads.insert(connected_head);
-        emit_edge(connected_head);
-        
+        // When asked for edges, don't deduplicate or filter. We want all multi-edges.
         cactus.for_each_member(node, [&](handle_t other_member) {
-            // For each other handle in the adjacency component that this handle is heading
+            // For each handle in the adjacency component that this handle is heading (including the head)
             
             // Follow as an edge again, by flipping
             handle_t member_connected_head = cactus.find(graph->flip(node));
             
-            // See if we announced the component we reached already
-            auto found = seen_connected_heads.find(member_connected_head);
-            if (found == seen_connected_heads.end()) {
-                // If we haven't seen it, insert it as seen with a hint
-                seen_connected_heads.insert(found, member_connected_head);
-                // And announce it
-                emit_edge(member_connected_head);
-            }
+            // Announce it. Multi-edges are OK.
+            emit_edge(member_connected_head);
         });
     }, [&](handle_t a, handle_t b) {
         // Now we got a merge to create the 3 edge connected components.
@@ -778,8 +891,21 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
     
     // Now our 3-edge-connected components have been condensed, and we have a proper Cactus graph.
     
+#ifdef debug
+    cerr << "After 3ecc merging:" << endl;
+    cactus.to_dot(cerr);
+#endif
+    
+#ifdef debug
+    cerr << "Creating bridge forest..." << endl;
+#endif
+    
     // Then we need to copy the base Cactus graph so we can make the bridge forest
     MergedAdjacencyGraph forest(cactus);
+    
+#ifdef debug
+    cerr << "Finding simple cycles..." << endl;
+#endif
     
     // Get cycle information: longest cycle in each connected component, and next edge along cycle for each edge (in one orientation)
     pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> cycles = cactus.cycles_in_cactus();
@@ -790,6 +916,15 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
         // Merge along all cycles in the bridge forest
         forest.merge(kv.first, kv.second);
     }
+    
+#ifdef debug
+    cerr << "Bridge forest:" << endl;
+    forest.to_dot(cerr);
+#endif
+    
+#ifdef debug
+    cerr << "Finding bridge edge paths..." << endl;
+#endif
     
     // Now we find the longest path in each tree in the bridge forest, with its
     // length in bases.
@@ -804,6 +939,10 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
     auto& longest_paths = forest_paths.first;
     auto& towards_deepest_leaf = forest_paths.second;
     
+#ifdef debug
+    cerr << "Sorting candidate roots..." << endl;
+#endif
+    
     // Make sure we are looking at all the cycles and leaf-leaf paths in order.
     // We need basically priority queue between them. But we don't need insert so we jsut sort.
     std::sort(longest_cycles.begin(), longest_cycles.end());
@@ -812,8 +951,22 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
     // Now, keep a set of all the edges that have found a place in the decomposition.
     unordered_set<handle_t> visited;
     
+#ifdef debug
+    cerr << "Traversing cactus graph..." << endl;
+#endif
+    
     while(visited.size() < graph->get_edge_count()) {
         // While we haven't touched everything
+        
+#ifdef debug
+        if (!longest_cycles.empty()) {
+            cerr << "Longest cycle: " << longest_cycles.back().first << " bp" << endl;
+        }
+        
+        if (!longest_paths.empty()) {
+            cerr << "Longest path: " << longest_paths.back().first << " bp" << endl;
+        }
+#endif
         
         // We have a stack
         struct SnarlChainFrame {
@@ -851,6 +1004,10 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
             if (!visited.count(longest_paths.back().second.front())) {
                 // This connected component isn't already covered.
                 
+#ifdef debug
+                cerr << "Rooting component at tip-tip path for " << graph->get_id(longest_paths.back().second.front()) << endl;
+#endif
+                
                 for (size_t i = 1; i < longest_paths.back().second.size(); i++) {
                     // Rewrite the deepest bridge graph leaf path map to point from one end of the tip-tip path to the other
                     // TODO: bump this down into the bridge path finding function
@@ -869,6 +1026,10 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
             
             if (!visited.count(longest_cycles.back().second)) {
                 // This connected component hasn't been done yet.
+                
+#ifdef debug
+                cerr << "Rooting component at cycle for " << graph->get_id(longest_cycles.back().second) << endl;
+#endif
             
                 // We have an edge on the longest cycle. But it may be reading into and out of nodes that also contains other cycles, bridge edges, and so on.
                 // If we declare this longest cycle to be a chain, we need to make sure that both those nodes become snarls in a chain.
@@ -893,9 +1054,24 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
         
             auto& frame = stack.back();
             
+#ifdef debug
+            cerr << "At stack frame " << stack.size() - 1 << " for ";
+            if (frame.parent == numeric_limits<size_t>::max()) {
+                cerr << "root";
+            } else {
+                cerr << (frame.is_snarl ? "snarl" : "chain") << " " << graph->get_id(frame.bounds.first) << (graph->get_is_reverse(frame.bounds.first) ? "-" : "+")
+                    << " to " << graph->get_id(frame.bounds.second) << (graph->get_is_reverse(frame.bounds.second) ? "-" : "+");
+            }
+            cerr << endl;
+#endif
+            
             if (frame.parent != numeric_limits<size_t>::max() && !frame.saw_children) {
                 // We need to queue up the children; this is the first time we are doing this frame.
                 frame.saw_children = true;
+                
+#ifdef debug
+                cerr << "\tLooking for children..." << endl;
+#endif
                 
                 if (frame.is_snarl) {
                     
@@ -903,18 +1079,36 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                     visited.insert(frame.bounds.first);
                     visited.insert(frame.bounds.second);
                     // TODO: register as part of snarl in index
-                
+                    
+                    // Make sure this isn't trying to be a unary snarl
+                    assert(frame.bounds.first != frame.bounds.second);
+                    
                     // For a snarl, we need to find all the bridge edges and all the incoming cycle edges
                     cactus.for_each_member(cactus.find(frame.bounds.first), [&](handle_t inbound) {
                         if (forest.find(graph->flip(inbound)) != forest.find(inbound)) {
                             // This is a bridge edge. The other side is a different component in the bridge graph.
+                            
+#ifdef debug
+                            cerr << "\t\tLook at bridge edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
+#endif
+                            
                             frame.todo.push_back(inbound);
                         } else if (next_along_cycle.count(inbound)) {
                             // This edge is the incoming edge for a cycle. Queue it up.
+                            
+#ifdef debug
+                            cerr << "\t\tLook at cycle edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
+#endif
+                            
                             frame.todo.push_back(inbound);
                         } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound)) {
                             // Count all self edges as elided, trivial chains.
                             // TODO: register as part of snarl in index
+                            
+#ifdef debug
+                            cerr << "\t\tContain edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
+#endif
+                            
                             visited.insert(inbound);
                         }
                     });
@@ -922,7 +1116,17 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                     // For a chain, we need to queue up all the edges reading into child snarls, paired with the edges reading out of them.
                     // We know we're a cycle that can be followed.
                     handle_t here = frame.bounds.first;
+                    unordered_set<handle_t> seen;
                     do {
+                    
+#ifdef debug
+                        cerr << "\t\tLook at cycle edge " << graph->get_id(here) << (graph->get_is_reverse(here) ? "-" : "+") << endl;
+#endif
+                    
+                        // We shouldn't loop around unless we hit the end of the chain.
+                        assert(!seen.count(here));
+                        seen.insert(here);
+                    
                         // Queue up
                         frame.todo.push_back(here);
                         here = next_along_cycle.at(here);
@@ -947,8 +1151,21 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                     if (next_along_cycle_it != next_along_cycle.end()) {
                         // To handle a cycle in the current snarl
                         
+#ifdef debug
+                        cerr << "\tHandle cycle edge " << graph->get_id(task) << (graph->get_is_reverse(task) ? "-" : "+") << endl;
+#endif
+                        
                         // We have the incoming edge, so find the outgoing edge along the same cycle
                         handle_t outgoing = next_along_cycle_it->second;
+                        
+#ifdef debug
+                        cerr << "\t\tEnds chain starting at " << graph->get_id(outgoing) << (graph->get_is_reverse(outgoing) ? "-" : "+") << endl;
+#endif
+
+#ifdef debug
+                        cerr << "\t\t\tRecurse on chain " << graph->get_id(outgoing) << (graph->get_is_reverse(outgoing) ? "-" : "+") << " to "
+                            << graph->get_id(task) << (graph->get_is_reverse(task) ? "-" : "+") << endl;
+#endif 
                         
                         // Recurse on the chain bounded by those edges, as a child
                         stack.emplace_back();
@@ -959,8 +1176,15 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                     } else {
                         // To handle a bridge edge in the current snarl:
                         
+#ifdef debug
+                        cerr << "\tHandle bridge edge " << graph->get_id(task) << (graph->get_is_reverse(task) ? "-" : "+") << endl;
+#endif
+                        
                         // Flip it to look out
                         handle_t edge = graph->flip(task);
+#ifdef debug
+                        cerr << "\t\tWalk edge " << graph->get_id(edge) << (graph->get_is_reverse(edge) ? "-" : "+") << endl;
+#endif
                         handle_t head = forest.find(edge);
                         auto deepest_it = towards_deepest_leaf.find(head);
                         while (deepest_it != towards_deepest_leaf.end()) {
@@ -968,7 +1192,15 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                             // deepest bridge graph leaf head (which has no
                             // deeper child)
                             
-                            if (head != forest.find(graph->flip(deepest_it->second))) {
+                            // See what our next edge comes out of
+                            handle_t next_back_head = forest.find(graph->flip(deepest_it->second));
+                            
+#ifdef debug
+                            cerr << "\t\t\tHead: " << graph->get_id(head) << (graph->get_is_reverse(head) ? "-" : "+") << endl;
+                            cerr << "\t\t\tNext edge back head: " << graph->get_id(next_back_head) << (graph->get_is_reverse(next_back_head) ? "-" : "+") << endl;
+#endif
+                            
+                            if (head != next_back_head) {
                                 // We skipped over a cycle in the bridge tree.
                                 // That cycle needs to be cut into two pieces
                                 // that can be alternatives in the snarl. There
@@ -976,6 +1208,10 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                                 // touching both cactus graph components, but
                                 // there can be any number of cycles
                                 // intersecting only one of the two components.
+                                
+#ifdef debug
+                                cerr << "\t\t\tFind skipped cycle..." << endl;
+#endif
                                 
                                 // We need to find the shared cycle.
                                 // TODO: If we knew what cycle everything was in, that would be good.
@@ -1012,10 +1248,24 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                                     }
                                 });
                                 
+                                // Make sure we got something.
+                                assert(through_here != next_along_cycle.end());
+                                assert(through_other != next_along_cycle.end());
+                                
                                 // Now we have the mappings that connect across the two components.
+                                
+#ifdef debug
+                                cerr << "\t\t\tExchange successors of " << graph->get_id(through_here->first) << (graph->get_is_reverse(through_here->first) ? "-" : "+")
+                                    << " and " << graph->get_id(through_other->first) << (graph->get_is_reverse(through_other->first) ? "-" : "+") << endl;
+#endif
                                 
                                 // Exchange their destinations to pinch the cycle in two.
                                 std::swap(through_here->second, through_other->second);
+                                
+#ifdef debug
+                                cerr << "\t\t\tPinch cycle between " << graph->get_id(here_cactus_head) << (graph->get_is_reverse(here_cactus_head) ? "-" : "+")
+                                    << " and " << graph->get_id(other_cactus_head) << (graph->get_is_reverse(other_cactus_head) ? "-" : "+") << endl;
+#endif
                                 
                                 // Merge the two components where the bridge edges attach, to close the two new cycles.
                                 cactus.merge(here_cactus_head, other_cactus_head);
@@ -1026,6 +1276,9 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                             
                             // Advance along the bridge tree path.
                             edge = deepest_it->second;
+#ifdef debug
+                            cerr << "\t\tWalk edge " << graph->get_id(edge) << (graph->get_is_reverse(edge) ? "-" : "+") << endl;
+#endif
                             head = forest.find(edge);
                             deepest_it = towards_deepest_leaf.find(head);
                         }
@@ -1048,14 +1301,29 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                         cactus.for_each_member(cactus.find(head), [&](handle_t inbound) {
                             // TODO: deduplicate with snarl setup
                             if (next_along_cycle.count(inbound)) {
+                            
+#ifdef debug
+                                cerr << "\t\tInherit cycle edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
+#endif
+                            
                                 // This edge is the incoming edge for a cycle. Queue it up.
                                 frame.todo.push_back(inbound);
                             } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound)) {
+                            
+#ifdef debug
+                                cerr << "\t\tInherit contained edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
+#endif
+                            
                                 // Count all self edges as elided, trivial chains.
                                 // TODO: register as part of snarl in index
                                 visited.insert(inbound);
                             }   
                         });
+                        
+#ifdef debug
+                        cerr << "\t\tClose cycle between " << graph->get_id(edge) << (graph->get_is_reverse(edge) ? "-" : "+")
+                            << " and " << graph->get_id(task) << (graph->get_is_reverse(task) ? "-" : "+") << endl;
+#endif
                         
                         // Then do the actual merge.
                         cactus.merge(edge, task);
@@ -1066,10 +1334,20 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                     }
                 } else {
                 
+#ifdef debug
+                    cerr << "\tHandle cycle edge " << graph->get_id(task) << (graph->get_is_reverse(task) ? "-" : "+") << endl;
+#endif
+                
                     // We're a chain, and WLOG a chain that represents a cycle.
                     // We have an edge.
                     // We need to find the other edge that defines the snarl, and recurse into the snarl.
                     handle_t out_edge = next_along_cycle.at(task);
+                    
+#ifdef debug
+                    cerr << "\t\tRecurse on snarl " << graph->get_id(task) << (graph->get_is_reverse(task) ? "-" : "+") << " to "
+                        << graph->get_id(out_edge) << (graph->get_is_reverse(out_edge) ? "-" : "+")<< endl;
+#endif
+                    
                     stack.emplace_back();
                     stack.back().is_snarl = true;
                     stack.back().parent = stack.size() - 2;
@@ -1082,10 +1360,19 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                 if (frame.is_snarl && frame.parent != numeric_limits<size_t>::max()) {
                     // If this is a snarl frame with bounds, emit it now that we have emitted all its children.
                     
+#ifdef debug
+                    cerr << "\tEmit snarl " << graph->get_id(frame.bounds.first) << (graph->get_is_reverse(frame.bounds.first) ? "-" : "+") << " to "
+                        << graph->get_id(frame.bounds.second) << (graph->get_is_reverse(frame.bounds.second) ? "-" : "+") << endl;
+#endif
+                    
                     iteratee(frame.bounds.first, frame.bounds.second);
                     
                     // TODO: Compose through-connectivity info as we go up.
                 }
+                
+#ifdef debug
+                cerr << "\tReturn to parent frame" << endl;
+#endif
                 
                 stack.pop_back();
             }
