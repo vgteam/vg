@@ -52,12 +52,15 @@ public:
     IntegratedSnarlFinder(const PathHandleGraph& graph);
     
     /**
-     * Visit all snarls, including trivial snarls, in arbitrary order.
+     * Visit all snarls, including trivial snarls.
      *
-     * Calls the iteratee with the inward-facing start handle and the
-     * outward-facing end handle in the backing graph.
+     * Visits children before their parents.
+     *
+     * Calls the iteratee with the parent's boundaries if any, and the snarl's boundaries.
+     *
+     * Start handles are inward facing and end handles are outward facing.
      */
-    void for_each_snarl_including_trivial(const function<void(handle_t, handle_t)>& iteratee) const;
+    void for_each_snarl_including_trivial_postorder_with_parent(const function<void(const pair<handle_t, handle_t>*, const pair<handle_t, handle_t>&)>& iteratee) const;
         
     /**
      * Find all the snarls, and put them into a SnarlManager. Make sure to

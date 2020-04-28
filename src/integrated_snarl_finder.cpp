@@ -942,7 +942,7 @@ IntegratedSnarlFinder::IntegratedSnarlFinder(const PathHandleGraph& graph) : gra
     // Nothing to do!
 }
 
-void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void(handle_t, handle_t)>& iteratee) const {
+void IntegratedSnarlFinder::for_each_snarl_including_trivial_postorder_with_parent(const function<void(const pair<handle_t, handle_t>*, const pair<handle_t, handle_t>&)>& iteratee) const {
     // Do the actual snarl finding work and then feed the iteratee our snarls.
     
 #ifdef debug
@@ -1516,7 +1516,25 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                         << graph->get_id(frame.bounds.second) << (graph->get_is_reverse(frame.bounds.second) ? "-" : "+") << endl;
 #endif
                     
-                    iteratee(frame.bounds.first, frame.bounds.second);
+                    // Find the bounds of the parent snarl.
+                    // TODO: this is a bunch of ugly stack walking.
+                    const pair<handle_t, handle_t>* parent_bounds = nullptr;
+                    auto& parent_frame = stack[frame.parent];
+                    // Our parent frame is a chain.
+                    if (parent_frame.parent != numeric_limits<size_t>::max()) {
+                        // But we have a grandparent
+                        auto& grandparent_frame = stack[parent_frame.parent];
+                        if (grandparent_frame.parent != numeric_limits<size_t>::max()) {
+                            // And that grandparent frame has bounds (becuase it has a parent and isn't the root)
+                            assert(grandparent_frame.is_snarl);
+                            // Point to its bounds.
+                            parent_bounds = &grandparent_frame.bounds;
+                        }
+                    }
+                    
+                    // Tell the iteratee about us and out parent.
+                    // TODO: pick a better internal format somehow. Do a pre-order traversal and notify when we come out, or something?
+                    iteratee(parent_bounds, frame.bounds);
                     
                     // TODO: Compose through-connectivity info as we go up.
                 }
@@ -1538,21 +1556,34 @@ SnarlManager IntegratedSnarlFinder::find_snarls() {
     // Start with an empty SnarlManager
     SnarlManager snarl_manager;
     
-    for_each_snarl_including_trivial([&](handle_t start_inward, handle_t end_outward) {
+    for_each_snarl_including_trivial_postorder_with_parent([&](const pair<handle_t, handle_t>* parent_bounds, const pair<handle_t, handle_t>& bounds) {
         // For every snarl, including the trivial ones
         
         // Make a Protobuf version of it
         vg::Snarl proto_snarl;
         
         // Convert boundary handles to Visits
-        proto_snarl.mutable_start()->set_node_id(graph->get_id(start_inward));
-        proto_snarl.mutable_start()->set_backward(graph->get_is_reverse(start_inward));
-        proto_snarl.mutable_end()->set_node_id(graph->get_id(end_outward));
-        proto_snarl.mutable_end()->set_backward(graph->get_is_reverse(end_outward));
+        proto_snarl.mutable_start()->set_node_id(graph->get_id(bounds.first));
+        proto_snarl.mutable_start()->set_backward(graph->get_is_reverse(bounds.first));
+        proto_snarl.mutable_end()->set_node_id(graph->get_id(bounds.second));
+        proto_snarl.mutable_end()->set_backward(graph->get_is_reverse(bounds.second));
         
-        // TODO: Determine snarl metadata somehow. Do a postorder traversal? Or make the manager somehow do it?
+        if (parent_bounds != nullptr) {
+            Snarl* parent_snarl = proto_snarl.mutable_parent();
+            
+            // Convert boundary handles to Visits again.
+            // TODO: function?
+            parent_snarl->mutable_start()->set_node_id(graph->get_id(parent_bounds->first));
+            parent_snarl->mutable_start()->set_backward(graph->get_is_reverse(parent_bounds->first));
+            parent_snarl->mutable_end()->set_node_id(graph->get_id(parent_bounds->second));
+            parent_snarl->mutable_end()->set_backward(graph->get_is_reverse(parent_bounds->second));
+            
+        }
+        
+        // TODO: Determine snarl metadata (connectivity, type) somehow.
     
-        // Add the Protobuf version of the snarl to the SNarl Manager
+        // Add the Protobuf version of the snarl to the Snarl Manager.
+        // TODO: is it happy getting children before parents?
         snarl_manager.add_snarl(proto_snarl);
     });
     
