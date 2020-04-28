@@ -17,10 +17,11 @@
 #include "utility.hpp"
 #include "statistics.hpp"
 #include "banded_global_aligner.hpp"
-#include "xdrop_aligner.hpp"
+#include "dozeu_interface.hpp"
 #include "handle.hpp"
 #include "reverse_graph.hpp"
 #include "null_masking_graph.hpp"
+#include "dozeu_pinning_overlay.hpp"
 #include "algorithms/distance_to_tail.hpp"
 
 // #define BENCH
@@ -365,7 +366,6 @@ namespace vg {
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns) const;
                                 
-        // TODO: xdrop isn't actually possible with the quality adjusted aligner (yet).
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                          bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const;
         
@@ -386,6 +386,8 @@ namespace vg {
                             bool traceback_aln) const;
         
 
+        // members
+        vector<QualAdjXdropAligner> xdrops;
     };
     
     

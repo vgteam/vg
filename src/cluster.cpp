@@ -1215,6 +1215,24 @@ vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignmen
                               min_median_mem_coverage_for_split, suboptimal_edge_pruning_factor);
     
 }
+
+MEMClusterer::HitGraph NullClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
+                                                     const GSSWAligner* aligner, size_t min_mem_length) {
+    // intialize the hit nodes, but do not add any edges, and ignore the min mem length
+    return HitGraph(mems, alignment, aligner, 1);
+}
+
+vector<pair<pair<size_t, size_t>, int64_t>>  NullClusterer::pair_clusters(const Alignment& alignment_1,
+                                                                          const Alignment& alignment_2,
+                                                                          const vector<cluster_t*>& left_clusters,
+                                                                          const vector<cluster_t*>& right_clusters,
+                                                                          const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                                          const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
+                                                                          int64_t optimal_separation,
+                                                                          int64_t max_deviation) {
+    // do not cluster pairs.
+    return vector<pair<pair<size_t, size_t>, int64_t>>();
+}
     
 PathOrientedDistanceMeasurer::PathOrientedDistanceMeasurer(const PathPositionHandleGraph* graph,
                                                            const PathComponentIndex* path_component_index) :
@@ -1669,9 +1687,8 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
     
     int64_t gap_open_score = aligner->gap_open;
     int64_t gap_extension_score = aligner->gap_extension;
-    int64_t max_gap = aligner->longest_detectable_gap(alignment);
     
-    int64_t forward_gap_length = max_gap + max_expected_dist_approx_error;
+    int64_t forward_gap_length = min<int64_t>(aligner->longest_detectable_gap(alignment), max_gap) + max_expected_dist_approx_error;
     for (const unordered_map<size_t, int64_t>& relative_pos : strand_relative_position) {
         
         // sort the nodes by relative position
@@ -2848,7 +2865,12 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     return tv_phase2(pos_1, pos_2, target_value, tolerance, node_to_target_shorter, node_to_target_longer, best_long, next_best, node_to_path);
 }
  
-vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance,  hash_map<pair<id_t, bool>, int64_t> node_to_target_shorter, hash_map<pair<id_t, bool>, int64_t>node_to_target_longer,  pair<int64_t, pair<pair<id_t, bool>, int64_t>> best_long,  pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best, hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>> node_to_path) {
+vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance,
+                                              hash_map<pair<id_t, bool>, int64_t>& node_to_target_shorter,
+                                              hash_map<pair<id_t, bool>, int64_t>& node_to_target_longer,
+                                              pair<int64_t, pair<pair<id_t, bool>, int64_t>>& best_long,
+                                              pair<int64_t, pair<pair<id_t, bool>, int64_t>>& next_best,
+                                              hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>>& node_to_path) {
 //TODO: Any path that has been found is probably still pretty good, could return it here 
 
     DistanceHeuristic& min_distance = *lower_bound_heuristic;
@@ -3112,8 +3134,9 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
             int64_t read_separation = hit_node_2.mem->begin - hit_node_1.mem->begin;
             
             // how long of an insert/deletion could we detect based on the scoring parameters?
-            size_t longest_gap = min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
-                                     aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin));
+            size_t longest_gap = min<int64_t>(min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
+                                                  aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin)),
+                                              max_gap);
             
 #ifdef debug_mem_clusterer
             cerr << "estimating distance between " << i << " (pos " << hit_node_1.start_pos << ") and " << j << " (pos " << hit_node_2.start_pos << ") with target " << read_separation << " and tolerance " << longest_gap << endl;
@@ -3370,8 +3393,9 @@ MEMClusterer::HitGraph MinDistanceClusterer::make_hit_graph(const Alignment& ali
             int64_t read_separation = hit_node_2.mem->begin - hit_node_1.mem->begin;
             
             // how long of an insert/deletion could we detect based on the scoring parameters?
-            size_t longest_gap = min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
-                                     aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin));
+            size_t longest_gap = min<int64_t>(min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
+                                                  aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin)),
+                                              max_gap);
             
             // is it possible that an alignment containing both could be detected with local alignment?
             if (abs(read_separation - min_dist) > longest_gap) {
@@ -3504,8 +3528,9 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
                 // we were able to measure a distance
                 
                 // how long of an insert/deletion could we detect based on the scoring parameters?
-                int64_t longest_gap = min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
-                                          aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin));
+                int64_t longest_gap = min<int64_t>(min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
+                                                       aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin)),
+                                                   max_gap);
                 
                 // the distance from the end of the first hit to the beginning of the next
                 int64_t graph_dist = min_dist - (hit_node_1.mem->end - hit_node_1.mem->begin);
@@ -3566,18 +3591,22 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
     
     // shim the hit graph nodes into the seed clusterer algorithm interface
-    vector<pos_t> positions(hit_graph.nodes.size());
+    vector<SnarlSeedClusterer::Seed> positions(hit_graph.nodes.size());
     for (size_t i = 0; i < hit_graph.nodes.size(); ++i)  {
-        positions[i] = hit_graph.nodes[i].start_pos;
+        positions[i].pos = hit_graph.nodes[i].start_pos;
     }
-    
+ 
+    typedef SnarlSeedClusterer::Cluster Cluster;
     SnarlSeedClusterer seed_clusterer(*distance_index);
-    vector<vector<size_t>> distance_components = seed_clusterer.cluster_seeds(positions, max_graph_separation);
+    // TODO: magic number, want enough space for the max gap and the inter-seed distance but how to do this in
+    // a principled way?
+    std::vector<Cluster> distance_components = seed_clusterer.cluster_seeds(positions, 2 * max_gap);
     
     // these components are returned by the structures::UnionFind::all_groups() method, which
     // always returns them in sorted order, so we can assume that they are still lexicographically
     // ordered internally
-    for (vector<size_t>& component : distance_components) {
+    for (Cluster& cluster : distance_components) {
+        std::vector<size_t>& component = cluster.seeds;
 #ifdef debug_mem_clusterer
         cerr << "looking edges in distance component containing:" << endl;
         for (size_t i : component) {
@@ -3608,7 +3637,7 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
             int64_t connections_made = 0;
             
             for (size_t j = j_begin;
-                 j < component.size() && hit_graph.nodes[component[j]].mem->begin - from <= max_read_separation; ++j) {
+                 j < component.size() && hit_graph.nodes[component[j]].mem->begin - from <= max_gap; ++j) {
                 
                 HitNode& hit_node_2 = hit_graph.nodes[component[j]];
                 
@@ -3617,8 +3646,9 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
                 int64_t min_dist = distance_index->minDistance(hit_node_1.start_pos, hit_node_2.start_pos);
                 if (min_dist >= 0) {
                     // how long of an insert/deletion could we detect based on the scoring parameters?
-                    int64_t longest_gap = min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
-                                              aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin));
+                    int64_t longest_gap = min<int64_t>(min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
+                                                           aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin)),
+                                                       max_gap);
                     
                     // the distance from the end of the first hit to the beginning of the next
                     int64_t graph_dist = min_dist - (hit_node_1.mem->end - hit_node_1.mem->begin);
@@ -3631,7 +3661,7 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
                         // there's a path within in the limit
                         
 #ifdef debug_mem_clusterer
-                        cerr << "adding hit edge " << components[i] << " -> " << components[j] << ", read dist " << read_dist << ", graph dist " << graph_dist << endl;
+                        cerr << "adding hit edge " << component[i] << " -> " << component[j] << ", read dist " << read_dist << ", graph dist " << graph_dist << endl;
 #endif
                         
                         // add the corresponding edge

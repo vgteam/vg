@@ -1,9 +1,9 @@
-#ifndef VG_NULL_MASKING_GRAPH_HPP_INCLUDED
-#define VG_NULL_MASKING_GRAPH_HPP_INCLUDED
+#ifndef VG_DOZEU_PINNING_OVERLAY_HPP_INCLUDED
+#define VG_DOZEU_PINNING_OVERLAY_HPP_INCLUDED
 
 /** \file
- * null_masking_graph.hpp: defines a handle graph implementation that hides nodes
- * that have no sequence in another graph
+ * dozeu_pinning_overlay.hpp: defines a handle graph implementation that handles nodes
+ * with no sequence in a way that plays well with dozeu pinned alignment
  */
 
 #include "handle.hpp"
@@ -12,21 +12,30 @@ namespace vg {
 
 using namespace std;
 
-/**
- * A HandleGraph implementation that wraps some other handle graph and hides any
- * nodes that have no sequence associated with them.
+/*
+ * An overlay that 1) masks source/sink nodes that have no sequence
+ * associated with them and 2) duplicates any nodes necessary to
+ * ensure that their neighbors are still sourc/sink nodes. This
+ * transformation is invalid on graphs that have source-to-sink path
+ * that consists entirely of null nodes. Assumes graph is single-
+ * stranded.
  */
-class NullMaskingGraph : public ExpandingOverlayGraph {
+class DozeuPinningOverlay : public ExpandingOverlayGraph {
 public:
     
-    /// Initialize with the graph we want to mask null nodes in
-    NullMaskingGraph(const HandleGraph* graph);
+    /// Initialize with the graph we want to do pinned alignment to. Boolean flag indicates
+    /// whether sources or sinks should be preserved (for pinning right or left respectively).
+    DozeuPinningOverlay(const HandleGraph* graph, bool preserve_sinks);
     
     /// Default constructor -- not actually functional
-    NullMaskingGraph() = default;
+    DozeuPinningOverlay() = default;
     
     /// Default destructor
-    ~NullMaskingGraph() = default;
+    ~DozeuPinningOverlay() = default;
+    
+    /// Returns true if any node has been duplicated in the overlay, in which case it may
+    /// be necessary to translate between the IDs of this overlay and the underlying graph.
+    bool performed_duplications() const;
     
     //////////////////////////
     /// HandleGraph interface
@@ -86,12 +95,32 @@ public:
     handle_t get_underlying_handle(const handle_t& handle) const;
     
 private:
+    
+    bool is_a_duplicate_handle(const handle_t& handle) const;
+    
+    bool is_a_duplicate_id(const id_t& node_id) const;
+    
+    id_t get_underlying_id(const id_t& node_id) const;
+    
+    handle_t get_duplicate_handle(const handle_t& handle) const;
+    
     /// The graph we're masking empty nodes in
     const HandleGraph* graph = nullptr;
     
+    /// Are we duplicating to preserve sources or sinks?
+    bool preserve_sinks;
+    
     /// The total number of null nodes
     size_t num_null_nodes = 0;
+    
+    /// The minimum numeric value of a handle
+    uint64_t max_handle = numeric_limits<uint64_t>::min();
+    
+    /// The length of the interval between the max and min numeric values of handles
+    uint64_t handle_val_range = 0;
+    
+    unordered_set<handle_t> duplicated_handles;
 };
 }
 
-#endif
+#endif // VG_DOZEU_PINNING_OVERLAY_HPP_INCLUDED

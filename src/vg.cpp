@@ -11,7 +11,7 @@
 #include "augment.hpp"
 #include "prune.hpp"
 #include <raptor2/raptor2.h>
-#include <stPinchGraphs.h>
+#include <sonLib/stPinchGraphs.h>
 
 #include <handlegraph/util.hpp>
 

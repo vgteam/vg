@@ -204,6 +204,9 @@ public:
                                                                       int64_t optimal_separation,
                                                                       int64_t max_deviation) = 0;
     
+    /// The largest discrepency we will allow between the read-implied distances and the estimated  gap distance
+    int64_t max_gap = numeric_limits<int64_t>::max();
+    
 protected:
     
     class HitNode;
@@ -328,6 +331,32 @@ public:
     inline bool operator()(const size_t i, const size_t j) {
         return nodes[i].dp_score < nodes[j].dp_score;
     }
+};
+        
+/*
+ * A clustering implementation that actually doesn't do any clustering
+ */
+class NullClusterer : public MEMClusterer {
+public:
+    NullClusterer() = default;
+    virtual ~NullClusterer() = default;
+
+    /// Concrete implementation of virtual method from MEMClusterer
+    vector<pair<pair<size_t, size_t>, int64_t>> pair_clusters(const Alignment& alignment_1,
+                                                              const Alignment& alignment_2,
+                                                              const vector<cluster_t*>& left_clusters,
+                                                              const vector<cluster_t*>& right_clusters,
+                                                              const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                              const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
+                                                              int64_t optimal_separation,
+                                                              int64_t max_deviation);
+
+protected:
+
+    /// Concrete implementation of virtual method from MEMClusterer
+    /// Note: ignores the min_mem_length parameter
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
+                            size_t min_mem_length);
 };
     
     
@@ -602,7 +631,15 @@ public:
     
 protected:
     
-    vector<handle_t> tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance, hash_map<pair<id_t, bool>,int64_t> node_to_target_shorter, hash_map<pair<id_t, bool>, int64_t> node_to_target_longer, pair<int64_t, pair<pair<id_t, bool>,int64_t>> best_lng, pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best, hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>> node_to_path);
+    vector<handle_t> tv_phase2(const pos_t& pos_1,
+                               const pos_t& pos_2,
+                               int64_t target_value,
+                               int64_t tolerance,
+                               hash_map<pair<id_t, bool>,int64_t>& node_to_target_shorter,
+                               hash_map<pair<id_t, bool>, int64_t>& node_to_target_longer,
+                               pair<int64_t, pair<pair<id_t, bool>,int64_t>>& best_lng,
+                               pair<int64_t, pair<pair<id_t, bool>, int64_t>>& next_best,
+                               hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>>& node_to_path);
     
     const HandleGraph& handle_graph;
     unique_ptr<DistanceHeuristic> upper_bound_heuristic;
@@ -658,7 +695,7 @@ protected:
     
     /// Concrete implementation of virtual method from MEMClusterer
     virtual HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
-                            size_t min_mem_length);
+                                    size_t min_mem_length);
     
     const HandleGraph* handle_graph;
     MinimumDistanceIndex* distance_index;
@@ -713,12 +750,6 @@ protected:
     
     /// Minimum distance between two seeds on the read
     const int64_t min_read_separation = -10;
-    
-    /// Maximum distance between two seeds on the read
-    const int64_t max_read_separation = 2500;
-    
-    /// The maximum distance we will look during component finding
-    const int64_t max_graph_separation = 5000;
     
     /// The number of connections from one hit in a component to another that we will consider (0 for no maximum)
     const int64_t early_stop_number = 2;

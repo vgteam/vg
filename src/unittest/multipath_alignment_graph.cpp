@@ -89,13 +89,13 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         SECTION("Tries multiple traversals of snarls in tails") {
         
             // Generate 2 fake tail anchors
-            mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false);
+            mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false, 100, 0.0);
             
             // Cut new anchors on snarls
             mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
             
             // Make it align, with alignments per gap/tail
-            mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, 5, out);
             
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?
@@ -133,7 +133,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         SECTION("Handles tails when anchors for them are not generated") {
         
             // Make it align, with alignments per gap/tail
-            mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, 5, out);
             
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?
@@ -185,14 +185,14 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         SECTION("Tries multiple traversals of snarls in tails") {
         
             // Generate 2 fake tail anchors
-            mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false);
+            mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false, 100, 0.0);
             
             // Cut new anchors on snarls
             mpg.resect_snarls_from_paths(&snarl_manager,
                                          MultipathAlignmentGraph::create_projector(identity), 5);
             
             // Make it align, with alignments per gap/tail
-            mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, 5, out);
             
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?
@@ -230,7 +230,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         
         SECTION("Handles tails when anchors for them are not generated") {
             // Make it align, with alignments per gap/tail
-            mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, 5, out);
             
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?
@@ -280,14 +280,14 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         SECTION("Tries multiple traversals of snarls in tails") {
         
             // Generate 2 fake tail anchors
-            mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false);
+            mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false, 100, 0.0);
             
             // Cut new anchors on snarls
             mpg.resect_snarls_from_paths(&snarl_manager,
                                          MultipathAlignmentGraph::create_projector(identity), 5);
             
             // Make it align, with alignments per gap/tail
-            mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, 5, out);
             
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?
@@ -324,7 +324,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         
         SECTION("Handles tails when anchors for them are not generated") {
             // Make it align, with alignments per gap/tail
-            mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+            mpg.align(query, vg, &aligner, true, 2, false, 100, 0.0, 5, out);
             
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?
