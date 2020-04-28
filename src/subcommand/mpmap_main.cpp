@@ -102,7 +102,7 @@ void help_mpmap(char** argv) {
     << "  -z, --mismatch INT            use this mismatch penalty [4 low error, 1 high error]" << endl
     << "  -o, --gap-open INT            use this gap open penalty [6 low error, 1 high error]" << endl
     << "  -y, --gap-extend INT          use this gap extension penalty [1]" << endl
-    << "  -L, --full-l-bonus INT        add this score to alignments that align each end of the read [(-z)+1 short, 0 long]" << endl
+    << "  -L, --full-l-bonus INT        add this score to alignments that align each end of the read [mismatch+1 short, 0 long]" << endl
     << "  -w, --score-matrix FILE       read a 4x4 integer substitution scoring matrix from a file (in the order ACGT)" << endl
     << "  -m, --remove-bonuses          remove full length alignment bonuses in reported scores" << endl;
     //<< "computational parameters:" << endl
@@ -256,7 +256,7 @@ int main_mpmap(int argc, char** argv) {
     // logging and warning
     bool suppress_progress = false;
     int fragment_length_warning_factor = 50;
-    uint64_t progress_frequency = 500000;
+    uint64_t progress_frequency = 100000;
     uint64_t num_reads_mapped = 0;
     
     int c;
@@ -334,7 +334,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:ieSs:vX:u:a:b:I:D:BP:Q:UpM:r:W:K:Fc:C:R:En:l:e:q:z:w:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iSs:vX:u:a:b:I:D:BP:Q:UpM:r:W:K:Fc:C:R:En:l:e:q:z:w:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -777,25 +777,30 @@ int main_mpmap(int argc, char** argv) {
         simplify_topologies = false;
     }
     
-    if (single_path_alignment_mode && population_max_paths == 0) {
-        // adjust parameters that produce irrelevant extra work or bad behavior single path mode
-//        if (!snarls_name.empty()) {
-//            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
-//            // TODO: Not true!
-//        }
-//
-//        if (snarl_cut_size != default_snarl_cut_size) {
-//            cerr << "warning:[vg mpmap] Snarl cut limit (-X) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
-//        }
+    if (single_path_alignment_mode &&
+        (population_max_paths == 0 || (sublinearLS_name.empty() && gbwt_name.empty()))) {
+        // adjust parameters that produce irrelevant extra work single path mode
+        if (!snarls_name.empty()) {
+            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
+        }
+        
+        if (snarl_cut_size != default_snarl_cut_size) {
+            cerr << "warning:[vg mpmap] Snarl cut limit (-X) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
+        }
         
         if (num_alt_alns != default_num_alt_alns) {
             cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
         }
         
+        // don't cut inside snarls or load the snarl manager
+        snarl_cut_size = 0;
+        snarls_name = "";
+        
+        // only get 1 traceback for an inter-MEM or tail alignment
         dynamic_max_alt_alns = false;
         num_alt_alns = 1;
     }
-    
+        
     // set the overrides to preset-controlled parameters
     if (hit_max_arg != numeric_limits<int>::min()) {
         hit_max = hit_max_arg;
@@ -830,8 +835,7 @@ int main_mpmap(int argc, char** argv) {
     if (full_length_bonus_arg != std::numeric_limits<int>::min()) {
         full_length_bonus = full_length_bonus_arg;
     }
-    if (full_length_bonus_arg == std::numeric_limits<int>::min()
-        && read_length != "long") {
+    else if (read_length != "long") {
         // TODO: not so elegant
         // the full length bonus should override a mismatch unless we're in long read mode
         full_length_bonus = min<int>(mismatch_score + 1, std::numeric_limits<int8_t>::max());

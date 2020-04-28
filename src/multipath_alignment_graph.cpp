@@ -153,7 +153,9 @@ namespace vg {
         create_path_chunk_nodes(graph, path_holder, alignment, project, injection_trans);
         
         // cut the snarls out of the aligned path so we can realign through them
-        resect_snarls_from_paths(&snarl_manager, project, max_snarl_cut_size);
+        if (max_snarl_cut_size) {
+            resect_snarls_from_paths(&snarl_manager, project, max_snarl_cut_size);
+        }
         
         // the snarls algorithm adds edges where necessary
         has_reachability_edges = true;
@@ -778,7 +780,7 @@ namespace vg {
             PathNode& match_node = path_nodes.at(i);
             
 #ifdef debug_multipath_alignment
-            cerr << "## checking if MEM " << i << " can be an extension: " << endl;
+            cerr << "checking if MEM " << i << " can be an extension: " << endl;
             cerr << "\t";
             for (auto iter = match_node.begin; iter != match_node.end; iter++) {
                 cerr << *iter;
@@ -1195,7 +1197,7 @@ namespace vg {
                         // as we enter this node, we are leaving the snarl we were in
                         
                         // since we're going up a level, we need to check whether we need to cut out the segment we've traversed
-                        if (prefix_length - curr_level->first <= max_snarl_cut_size || !max_snarl_cut_size) {
+                        if (prefix_length - curr_level->first <= max_snarl_cut_size) {
                             cut_segments.emplace_back(curr_level->second, j);
                         }
                         
@@ -1235,7 +1237,7 @@ namespace vg {
             // check the final segment for a cut unless we're at the highest level in the match
             auto last = level_segment_begin.end();
             last--;
-            if ((prefix_length - curr_level->first <= max_snarl_cut_size || !max_snarl_cut_size) && curr_level != last) {
+            if ((prefix_length - curr_level->first <= max_snarl_cut_size) && curr_level != last) {
                 cut_segments.emplace_back(curr_level->second, path->mapping_size());
             }
             
@@ -3656,8 +3658,8 @@ namespace vg {
         }
         else {
             vector<int64_t>& memo = pessimistic_tail_gap_memo[multiplier];
-            while (memo.size() >= tail_length) {
-                memo.emplace_back(multiplier * sqrt(tail_length));
+            while (memo.size() <= tail_length) {
+                memo.emplace_back(multiplier * sqrt(memo.size()));
             }
             gap_length = memo[tail_length];
         }
