@@ -816,50 +816,275 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
         // While we haven't touched everything
         
         // We have a stack
-        
-        // To handle a bridge edge in the current snarl:
+        struct SnarlChainFrame {
+            // Set to true if this is a snarl being generated, and false if it is a chain.
+            bool is_snarl = true;
             
-            // Follow its path to the deepest bridge graph leaf
+            // Set to true if the children have already been enumerated.
+            // If we get back to a frame, and this is true, and todo is empty, we are done with the frame.
+            bool saw_children = false;
             
-            // Along that path, merge inner ednpoints of successive bridge edges and pinch apart any cycles that shortens
+            // Parent snarl or chain on the stack. If
+            // numeric_limits<size_t>::max(), we have no parent and no bounds.
+            // TODO: If we're using the todo list, get rid of this (only top entry has no bounds and no parent)
+            size_t parent = numeric_limits<size_t>::max();
             
-            // When you get to the end, merge the far end of the last bridge edge into the current snarl
+            // Into and out-of edges of this snarl or chain, within its parent.
+            pair<handle_t, handle_t> bounds;
             
-            // Write a cycle in the current snarl following all the bridge edges (and keep any cycles we got from the bridge graph tip node)
-        
-        // To handle a cycle in the current snarl:
-        
-            // Make a chain in the current snarl
-        
-            // For each pair of successive edges, recurse on that as a snarl in the chain
+            // Edges denoting children to process.
+            // If we are a snarl, an entry may be a bridge edge reading into us.
+            // If so, we will transform it into a cycle.
+            // If we are a snarl, an entry may be a cycle edge reading into us (with the next edge around the cycle reading out).
+            // If so, we will recurse on the chain.
+            // If we are a chain, an entry may be an edge reading into a child snarl.
+            // If so, we will find the other side of the snarl and recurse on the snarl.
+            vector<handle_t> todo;
+        };
+        vector<SnarlChainFrame> stack;
         
         if (longest_cycles.empty() || (!longest_paths.empty() && longest_cycles.back().first < longest_paths.back().first)) {
             assert(!longest_paths.empty());
             
-            // We will root on a tip-tip path for its component, if not already covered.
+            // We will root on a tip-tip path for its connected component, if not already covered.
             
-            // Rewrite the deepest bridge graph leaf path map to point from one end of the tip-tip path to the other
-                // TODO: bump this down into the bridge path finding function
-            
-            // Stack up a root/null snarl containing this bridge edge.
+            if (!visited.count(longest_paths.back().second.front())) {
+                // This connected component isn't already covered.
+                
+                for (size_t i = 1; i < longest_paths.back().second.size(); i++) {
+                    // Rewrite the deepest bridge graph leaf path map to point from one end of the tip-tip path to the other
+                    // TODO: bump this down into the bridge path finding function
+                    towards_deepest_leaf[forest.find(longest_paths.back().second[i - 1])] = longest_paths.back().second[i];
+                }
+                    
+                // Stack up a root/null snarl containing this bridge edge.
+                stack.emplace_back();
+                stack.back().is_snarl = true;
+                stack.back().todo.push_back(longest_paths.back().second.front());
+            }
             
             longest_paths.pop_back();
         } else {
             // We will root on a cycle for its component, if not already covered.
             
-            // Stack up a root/null snarl containing this cycle
+            if (!visited.count(longest_cycles.back().second)) {
+                // This connected component hasn't been done yet.
+            
+                // We have an edge on the longest cycle. But it may be reading into and out of nodes that also contains other cycles, bridge edges, and so on.
+                // If we declare this longest cycle to be a chain, we need to make sure that both those nodes become snarls in a chain.
+                // So we introduce a chain that starts and ends with this edge.
+                // We can't quite articulate that as a todo list entry, so we forge two stack frames.
+            
+                // Stack up a root/null snarl containing this cycle as a chain.
+                stack.emplace_back();
+                stack.back().is_snarl = true;
+                
+                // Stack up a frame for doing the chain, with the cycle-closing edge as both ends.
+                stack.emplace_back();
+                stack.back().is_snarl = false;
+                stack.back().parent = stack.size() - 2;
+                stack.back().bounds = make_pair(longest_cycles.back().second, longest_cycles.back().second);
+            }
             
             longest_cycles.pop_back();
         }
+        
+        while (!stack.empty()) {
+        
+            auto& frame = stack.back();
+            
+            if (frame.parent != numeric_limits<size_t>::max() && !frame.saw_children) {
+                // We need to queue up the children; this is the first time we are doing this frame.
+                frame.saw_children = true;
+                
+                if (frame.is_snarl) {
+                    
+                    // Visit the start and end of the snarl, for decomposition purposes.
+                    visited.insert(frame.bounds.first);
+                    visited.insert(frame.bounds.second);
+                    // TODO: register as part of snarl in index
+                
+                    // For a snarl, we need to find all the bridge edges and all the incoming cycle edges
+                    cactus.for_each_member(cactus.find(frame.bounds.first), [&](handle_t inbound) {
+                        if (forest.find(graph->flip(inbound)) != forest.find(inbound)) {
+                            // This is a bridge edge. The other side is a different component in the bridge graph.
+                            frame.todo.push_back(inbound);
+                        } else if (next_along_cycle.count(inbound)) {
+                            // This edge is the incoming edge for a cycle. Queue it up.
+                            frame.todo.push_back(inbound);
+                        } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound)) {
+                            // Count all self edges as elided, trivial chains.
+                            // TODO: register as part of snarl in index
+                            visited.insert(inbound);
+                        }
+                    });
+                } else {
+                    // For a chain, we need to queue up all the edges reading into child snarls, paired with the edges reading out of them.
+                    // We know we're a cycle that can be followed.
+                    handle_t here = frame.bounds.first;
+                    do {
+                        // Queue up
+                        frame.todo.push_back(here);
+                        here = next_along_cycle.at(here);
+                        // TODO: when processing entries, we're going to look them up in next_along_cycle again.
+                        // Can we dispense with the todo list and create stack frames directly?
+                        
+                        // Keep going until we come to the end.
+                        // We do this as a do-while because the start may be the end but we still want to go around the cycle.
+                    } while (here != frame.bounds.second);
+                }
+                
+            }
+            
+            if (!frame.todo.empty()) {
+                // Until we run out of edges to work on
+                handle_t task = frame.todo.back();
+                frame.todo.pop_back();
+                
+                if (frame.is_snarl) {
+                    // May have a bridge edge or a cycle edge, both inbound.
+                    auto next_along_cycle_it = next_along_cycle.find(task);
+                    if (next_along_cycle_it != next_along_cycle.end()) {
+                        // To handle a cycle in the current snarl
+                        
+                        // We have the incoming edge, so find the outgoing edge along the same cycle
+                        handle_t outgoing = next_along_cycle_it->second;
+                        
+                        // Recurse on the chain bounded by those edges, as a child
+                        stack.emplace_back();
+                        stack.back().is_snarl = false;
+                        stack.back().parent = stack.size() - 2;
+                        stack.back().bounds = make_pair(outgoing, task);
+                        
+                    } else {
+                        // To handle a bridge edge in the current snarl:
+                        
+                        // Flip it to look out
+                        handle_t edge = graph->flip(task);
+                        handle_t head = forest.find(edge);
+                        auto deepest_it = towards_deepest_leaf.find(head);
+                        while (deepest_it != towards_deepest_leaf.end()) {
+                            // Follow its path down bridge graph heads, to the
+                            // deepest bridge graph leaf head (which has no
+                            // deeper child)
+                            
+                            if (head != forest.find(graph->flip(deepest_it->second))) {
+                                // We skipped over a cycle in the bridge tree.
+                                // That cycle needs to be cut into two pieces
+                                // that can be alternatives in the snarl. There
+                                // can only be one such nontrivial cycle
+                                // touching both cactus graph components, but
+                                // there can be any number of cycles
+                                // intersecting only one of the two components.
+                                
+                                // We need to find the shared cycle.
+                                // TODO: If we knew what cycle everything was in, that would be good.
+                                // Without that we just have to walk all the cycles until we find one that gets to the other component.
+                                
+                                auto here_cactus_head = cactus.find(head);
+                                auto other_cactus_head = cactus.find(graph->flip(deepest_it->second));
+                                
+                                auto through_here = next_along_cycle.end();
+                                auto through_other = next_along_cycle.end();
+                                
+                                cactus.for_each_member(here_cactus_head, [&](handle_t inbound) {
+                                    auto through_here_candidate = next_along_cycle.find(inbound);
+                                    for (auto it = through_here_candidate; it != next_along_cycle.end() && it->second != inbound; it = next_along_cycle.find(it->second)) {
+                                        // Until we get all the way around the cycle, if there is one
+                                        
+                                        if (cactus.find(it->first) == other_cactus_head) {
+                                            // This entry int he cycle map goes through the other component.
+                                            // We found the connecting cycle!
+                                            
+                                            // Make sure there is only one.
+                                            assert(through_here == next_along_cycle.end());
+                                            assert(through_other == next_along_cycle.end());
+                                            
+                                            // Save this one
+                                            through_here = through_here_candidate;
+                                            through_other = it;
+                                            
+                                            // No need to look at the rest of this cycle.
+                                            break;
+                                            
+                                            // TODO: stop loop over other cycles early
+                                        }
+                                    }
+                                });
+                                
+                                // Now we have the mappings that connect across the two components.
+                                
+                                // Exchange their destinations to pinch the cycle in two.
+                                std::swap(through_here->second, through_other->second);
+                                
+                                // Merge the two components where the bridge edges attach, to close the two new cycles.
+                                cactus.merge(here_cactus_head, other_cactus_head);
+                            }
+                            
+                            // Record the new cycle we are making from this bridge path
+                            next_along_cycle[edge] = deepest_it->second;
+                            
+                            // Advance along the bridge tree path.
+                            edge = deepest_it->second;
+                            head = forest.find(edge);
+                            deepest_it = towards_deepest_leaf.find(head);
+                        }
+                        
+                        // When you get to the end
+                        
+                        // Close the cycle we are making out of the bridge
+                        // forest path.
+                        // The last edge crossed currently reads into the end
+                        // component, but will read into us after the merge.
+                        // The cycle comes in through there and leaves backward
+                        // through the inbound bridge edge we started with.
+                        next_along_cycle[edge] = graph->flip(task);
+                        
+                        // Merge the far end of the last bridge edge (which may have cycles on it) into the current snarl
+                        
+                        // First find all the new cycles this brings along.
+                        // It can't bring any bridge edges.
+                        // This will detect the cycle we just created.
+                        cactus.for_each_member(cactus.find(head), [&](handle_t inbound) {
+                            // TODO: deduplicate with snarl setup
+                            if (next_along_cycle.count(inbound)) {
+                                // This edge is the incoming edge for a cycle. Queue it up.
+                                frame.todo.push_back(inbound);
+                            } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound)) {
+                                // Count all self edges as elided, trivial chains.
+                                // TODO: register as part of snarl in index
+                                visited.insert(inbound);
+                            }   
+                        });
+                        
+                        // Then do the actual merge.
+                        cactus.merge(edge, task);
+                    
+                        // Now we've queued up the cycle we just made out of
+                        // the bridge edges, along with any cycles we picked up
+                        // from the end of the bridge tree path.
+                    }
+                } else {
+                
+                    // TODO: we're a chain, and WLOG a chain that represents a cycle.
+                    // We have an edge.
+                    // We need to find the other edge that defines the snarl, and recurse into the snarl.
+                    
+                }
+            
+            } else {
+                // Now we have finished a frame!
+                
+                // TODO: if this is a snarl frame, emit it now that we have emitted all its children.
+                // TODO: Compose through-connectivity info as we go up.
+                
+                stack.pop_back();
+            }
+            
+            
+        }
     }
     
-    // TODO: For each bridge forest tree, find the longest bridge edge path and
-    // the longest simple cycle, and root with whichever is longer.
-    
-    // TODO: Recursively root things down the bridge edge trees off what we've
-    // already rooted.
-    
-    // TODO: When we encounter a snarl, feed it to the iteratee. 
 }
 
 SnarlManager IntegratedSnarlFinder::find_snarls() {
