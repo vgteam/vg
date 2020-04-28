@@ -954,8 +954,10 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
 #ifdef debug
     cerr << "Traversing cactus graph..." << endl;
 #endif
-    
-    while(visited.size() < graph->get_edge_count()) {
+
+    // How many handle graph nodes need to be decomposed?
+    size_t to_decompose = graph->get_node_count();
+    while(visited.size() < to_decompose) {
         // While we haven't touched everything
         
 #ifdef debug
@@ -1076,8 +1078,8 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                 if (frame.is_snarl) {
                     
                     // Visit the start and end of the snarl, for decomposition purposes.
-                    visited.insert(frame.bounds.first);
-                    visited.insert(frame.bounds.second);
+                    visited.insert(graph->forward(frame.bounds.first));
+                    visited.insert(graph->forward(frame.bounds.second));
                     // TODO: register as part of snarl in index
                     
                     // Make sure this isn't trying to be a unary snarl
@@ -1085,7 +1087,13 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                     
                     // For a snarl, we need to find all the bridge edges and all the incoming cycle edges
                     cactus.for_each_member(cactus.find(frame.bounds.first), [&](handle_t inbound) {
-                        if (forest.find(graph->flip(inbound)) != forest.find(inbound)) {
+                        
+                        if (inbound == frame.bounds.first || graph->flip(inbound) == frame.bounds.second) {
+                            // This is our boundary; don't follow it as contents.
+#ifdef debug
+                            cerr << "\t\tStay inside snarl-bounding edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
+#endif
+                        } else if (forest.find(graph->flip(inbound)) != forest.find(inbound)) {
                             // This is a bridge edge. The other side is a different component in the bridge graph.
                             
 #ifdef debug
@@ -1109,7 +1117,7 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                             cerr << "\t\tContain edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
 #endif
                             
-                            visited.insert(inbound);
+                            visited.insert(graph->forward(inbound));
                         }
                     });
                 } else {
@@ -1285,13 +1293,31 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                         
                         // When you get to the end
                         
-                        // Close the cycle we are making out of the bridge
-                        // forest path.
-                        // The last edge crossed currently reads into the end
-                        // component, but will read into us after the merge.
-                        // The cycle comes in through there and leaves backward
-                        // through the inbound bridge edge we started with.
-                        next_along_cycle[edge] = graph->flip(task);
+                        if (edge == graph->flip(task)) {
+                            // It turns out there's only one edge here.
+                            // It is going to become a contained self-loop, instead of a real cycle
+                            
+                            // TODO: register as part of snarl in index
+                            visited.insert(graph->forward(edge));
+                            
+#ifdef debug
+                            cerr << "\t\tContain new self-loop " << graph->get_id(edge) << (graph->get_is_reverse(edge) ? "-" : "+") << endl;
+#endif
+                        } else {
+                            // Close the cycle we are making out of the bridge
+                            // forest path.
+                            // The last edge crossed currently reads into the end
+                            // component, but will read into us after the merge.
+                            // The cycle comes in through there and leaves backward
+                            // through the inbound bridge edge we started with.
+                            next_along_cycle[edge] = graph->flip(task);
+                            
+#ifdef debug
+                            cerr << "\t\tClose cycle between " << graph->get_id(edge) << (graph->get_is_reverse(edge) ? "-" : "+")
+                                << " and " << graph->get_id(task) << (graph->get_is_reverse(task) ? "-" : "+") << endl;
+#endif
+                            
+                        }
                         
                         // Merge the far end of the last bridge edge (which may have cycles on it) into the current snarl
                         
@@ -1316,14 +1342,9 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                             
                                 // Count all self edges as elided, trivial chains.
                                 // TODO: register as part of snarl in index
-                                visited.insert(inbound);
+                                visited.insert(graph->forward(inbound));
                             }   
                         });
-                        
-#ifdef debug
-                        cerr << "\t\tClose cycle between " << graph->get_id(edge) << (graph->get_is_reverse(edge) ? "-" : "+")
-                            << " and " << graph->get_id(task) << (graph->get_is_reverse(task) ? "-" : "+") << endl;
-#endif
                         
                         // Then do the actual merge.
                         cactus.merge(edge, task);
