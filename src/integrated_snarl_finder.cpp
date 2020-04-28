@@ -1066,17 +1066,26 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
                     }
                 } else {
                 
-                    // TODO: we're a chain, and WLOG a chain that represents a cycle.
+                    // We're a chain, and WLOG a chain that represents a cycle.
                     // We have an edge.
                     // We need to find the other edge that defines the snarl, and recurse into the snarl.
-                    
+                    handle_t out_edge = next_along_cycle.at(task);
+                    stack.emplace_back();
+                    stack.back().is_snarl = true;
+                    stack.back().parent = stack.size() - 2;
+                    stack.back().bounds = make_pair(task, out_edge);
                 }
             
             } else {
-                // Now we have finished a frame!
+                // Now we have finished a stack frame!
                 
-                // TODO: if this is a snarl frame, emit it now that we have emitted all its children.
-                // TODO: Compose through-connectivity info as we go up.
+                if (frame.is_snarl && frame.parent != numeric_limits<size_t>::max()) {
+                    // If this is a snarl frame with bounds, emit it now that we have emitted all its children.
+                    
+                    iteratee(frame.bounds.first, frame.bounds.second);
+                    
+                    // TODO: Compose through-connectivity info as we go up.
+                }
                 
                 stack.pop_back();
             }
