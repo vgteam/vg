@@ -1728,7 +1728,9 @@ int main_mpmap(int argc, char** argv) {
             alignment_2.clear_path();
             reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id)); });
         }
-                
+        
+        size_t num_buffered = ambiguous_pair_buffer.size();
+        
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
         multipath_mapper.multipath_map_paired(alignment_1, alignment_2, mp_aln_pairs, ambiguous_pair_buffer);
         
@@ -1750,7 +1752,8 @@ int main_mpmap(int argc, char** argv) {
             watchdog->check_out(thread_num);
         }
         
-        if (!suppress_progress) {
+        if (!suppress_progress && num_buffered == ambiguous_pair_buffer.size()) {
+            // the read didn't get buffered during the frag length estimation phase
             uint64_t n;
 #pragma omp atomic capture
             n = ++num_reads_mapped;
@@ -1831,6 +1834,18 @@ int main_mpmap(int argc, char** argv) {
         
         if (watchdog) {
             watchdog->check_out(thread_num);
+        }
+        
+        if (!suppress_progress) {
+            uint64_t n;
+#pragma omp atomic capture
+            n = ++num_reads_mapped;
+            if (n % progress_frequency == 0) {
+#pragma omp critical
+                {
+                    cerr << "[vg mpmap] Mapped " << n << " read pairs" << endl;
+                }
+            }
         }
         
 #ifdef record_read_run_times
