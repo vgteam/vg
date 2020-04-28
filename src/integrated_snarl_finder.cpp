@@ -528,15 +528,28 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
             stack.emplace_back();
             stack.back().here = traversal_root;
             
+#ifdef debug
+            cerr << "Root bridge tree traversal at " << graph->get_id(traversal_root) << (graph->get_is_reverse(traversal_root) ? "-" : "+") << endl;
+#endif
+            
             while (!stack.empty()) {
                 // Until the DFS is done
                 auto& frame = stack.back();
                 // Find the node that following this edge got us to.
                 auto frame_head = find(frame.here);
                 
+#ifdef debug
+                cerr << "At stack frame " << stack.size() - 1 << " for edge " << graph->get_id(frame.here) << (graph->get_is_reverse(frame.here) ? "-" : "+") 
+                    << " into component with head " << graph->get_id(frame_head) << (graph->get_is_reverse(frame_head) ? "-" : "+") << endl;
+#endif
+                
                 auto frame_it = records.find(frame_head);
                 if (frame_it == records.end()) {
                     // First visit to here.
+                    
+#ifdef debug
+                cerr << "\tFirst visit. Find edges." << endl;
+#endif
                     
                     // Mark visited
                     frame_it = records.emplace_hint(frame_it, frame_head, DFSRecord());
@@ -554,6 +567,10 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                         if (find(flipped) != frame_head) {
                             // Only accept non-self-loops.
                         
+#ifdef debug
+                            cerr << "\t\tNeed to follow " << graph->get_id(flipped) << (graph->get_is_reverse(flipped) ? "-" : "+") << endl;
+#endif
+                        
                             // Queue up the edge followed instead of the node
                             // reached (head), so we can emit the cycle later
                             // in terms of edges.
@@ -570,13 +587,26 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                     handle_t connected_head = find(edge_into);
                     frame.todo.pop_back();
                     
+#ifdef debug
+                    cerr << "\tFollowing " << graph->get_id(edge_into) << (graph->get_is_reverse(edge_into) ? "-" : "+") << endl;
+#endif
+                    
                     if (!records.count(connected_head)) {
                         // Forward edge. Recurse.
+                        
+#ifdef debug
+                        cerr << "\t\tReaches unvisited " << graph->get_id(connected_head) << (graph->get_is_reverse(connected_head) ? "-" : "+") << "; Recurse!" << endl;
+#endif
+                        
                         stack.emplace_back();
                         stack.back().here = edge_into;
                     }
                 } else {
                     // No children left.
+                    
+#ifdef debug
+                    cerr << "\tDone with all children." << endl;
+#endif
                     
                     // Did any of our children decalre themselves deepest?
                     // Or do we have no children.
@@ -591,27 +621,67 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                         // The length of the path to a leaf will involve the edge from the parent to here.
                         record.leaf_path_length = graph->get_length(frame.here);
                         
+#ifdef debug
+                        cerr << "\t\tLength of path to deepest leaf is " << record.leaf_path_length << " bp" << endl;
+#endif
+                        
                         if (deepest_child_edge_it != deepest_child_edge.end()) {
                             // And if we have a child to go on with, we add the length of that path
                             record.leaf_path_length += records[find(deepest_child_edge_it->second)].leaf_path_length;
+                            
+#ifdef debug
+                                cerr << "\t\t\tPlus length from here to leaf via "
+                                    << graph->get_id(deepest_child_edge_it->second) << (graph->get_is_reverse(deepest_child_edge_it->second) ? "-" : "+")
+                                    << " for " << record.leaf_path_length << " bp total" << endl;
+#endif
+                            
                         }
                         
                         // Fill in deepest_child_edge for the parent if not filled in already, or if we beat what's there.
                         // Also maintain parent's second_deepest_child_edge.
                         auto parent_deepest_child_it = deepest_child_edge.find(parent_head);
                         if (parent_deepest_child_it == deepest_child_edge.end()) {
+                        
+#ifdef debug
+                            cerr << "\t\tWe are our parent's deepest child by default!" << endl;
+#endif
+                        
                             // Emplace in the map where we didn't find anything.
                             deepest_child_edge.emplace_hint(parent_deepest_child_it, parent_head, frame.here);
                         } else if(records[find(parent_deepest_child_it->second)].leaf_path_length < record.leaf_path_length) {
                             // We are longer than what's there now
                             
+#ifdef debug
+                            cerr << "\t\tWe are our parent's new deepest child!" << endl;
+#endif
+                            
                             // Demote what's there to second-best
                             parent_record.second_deepest_child_edge = parent_deepest_child_it->second;
                             parent_record.has_second_deepest_child = true;
                             
+#ifdef debug
+                            cerr << "\t\t\tWe demote "
+                                << graph->get_id(parent_record.second_deepest_child_edge) << (graph->get_is_reverse(parent_record.second_deepest_child_edge) ? "-" : "+")
+                                << " to second-deepest child" << endl;
+#endif
+                            
                             // Replace the value we found
                             parent_deepest_child_it->second = frame.here;
-                        } else if (parent_record.has_second_deepest_child && records[find(parent_record.second_deepest_child_edge)].leaf_path_length < record.leaf_path_length) {
+                        } else if (!parent_record.has_second_deepest_child) {
+                            
+#ifdef debug
+                            cerr << "\t\tWe are our parent's second deepest child by default!" << endl;
+#endif
+                            
+                            // There's no second-deepest recorded so we must be it.
+                            parent_record.second_deepest_child_edge = frame.here;
+                            parent_record.has_second_deepest_child = true;
+                        } else if (records[find(parent_record.second_deepest_child_edge)].leaf_path_length < record.leaf_path_length) {
+                            
+#ifdef debug
+                            cerr << "\t\tWe are our parent's new second deepest child!" << endl;
+#endif
+                            
                             // We are a new second deepest child.
                             parent_record.second_deepest_child_edge = frame.here;
                         }
@@ -626,7 +696,16 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                         size_t longest_here_path_length = records[find(deepest_child_edge_it->second)].leaf_path_length;
                         longest_here_path_length += records[find(record.second_deepest_child_edge)].leaf_path_length;
                         
+#ifdef debug
+                        cerr << "\t\tPaths converge here with total length " << longest_here_path_length << " bp" << endl;
+#endif
+                        
                         if (record.longest_subtree_path_root == frame_head || longest_here_path_length > record.longest_subtree_path_length) {
+                            
+#ifdef debug
+                            cerr << "\t\t\tNew longest path in subtree!" << endl;
+#endif
+                            
                             // If there's no path from a child, or this path is
                             // longer, set record.longest_subtree_path_root
                             // (back) to frame_head to record that.
@@ -650,6 +729,10 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                         if (parent_record.longest_subtree_path_root == parent_head ||
                             parent_record.longest_subtree_path_length < record.longest_subtree_path_length) {
                             
+#ifdef debug
+                            cerr << "\t\tLongest path in our subtree is the new longest path in our parent's subtree." << endl;
+#endif
+                            
                             // No child has contributed their leaf-leaf path so far, or ours is better.
                             parent_record.longest_subtree_path_root = frame_head;
                             parent_record.longest_subtree_path_length = record.longest_subtree_path_length;
@@ -659,8 +742,16 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                     if (stack.size() == 1) {
                         // When we get back to the root
                         
+#ifdef debug
+                        cerr << "\t\tWe were the root of the traversal." << endl;
+#endif
+                        
                         if (record.longest_subtree_path_length >= root_cycle_length) {
                             // Either we didn't root at a cycle, or we found a longer leaf-leaf path that should be the decomposition root instead.
+                            
+#ifdef debug
+                            cerr << "\t\t\tTree has a longer leaf-leaf path than any cycle at root." << endl;
+#endif
                             
                             // We need to record the longest tree path.
                             longest_tree_paths.emplace_back();
@@ -711,6 +802,10 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                                 convergence_to_old_root.push_back(cursor_record.parent_edge);
                                 cursor = find(cursor_record.parent_edge);
                             }
+                            
+#ifdef debug
+                            cerr << "\t\t\t\tRewrite along " << convergence_to_old_root.size() << " edges..." << endl;
+#endif
                             
                             while (!convergence_to_old_root.empty()) {
                                 // Then go down that stack
@@ -777,7 +872,11 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                                     
                                     // Replace the value we found
                                     parent_deepest_child_it->second = parent_child_edge;
-                                } else if (parent_record.has_second_deepest_child && records[find(parent_record.second_deepest_child_edge)].leaf_path_length < child_record.leaf_path_length) {
+                                } else if (!parent_record.has_second_deepest_child) {
+                                    // There's no second-deepest recorded so we must be it.
+                                    parent_record.second_deepest_child_edge = parent_child_edge;
+                                    parent_record.has_second_deepest_child = true;
+                                } else if (records[find(parent_record.second_deepest_child_edge)].leaf_path_length < child_record.leaf_path_length) {
                                     // We are a new second deepest child.
                                     parent_record.second_deepest_child_edge = parent_child_edge;
                                 }
@@ -816,6 +915,14 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
     // edges survive and let us root snarls having only their incoming ends.
     // And we have all the longest tree paths that beat their components
     // rooting cycles, if any.
+    
+#ifdef debug
+    cerr << "Edges to deepest children in bridge forest:" << endl;
+    for (auto& kv : deepest_child_edge) {
+        cerr << "\t" << graph->get_id(kv.first) << (graph->get_is_reverse(kv.first) ? "-" : "+")
+            << " -> " << graph->get_id(kv.second) << (graph->get_is_reverse(kv.second) ? "-" : "+") << endl;
+    }
+#endif
     
     return to_return;
 }
@@ -1006,20 +1113,35 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
             if (!visited.count(longest_paths.back().second.front())) {
                 // This connected component isn't already covered.
                 
+                handle_t first_edge = longest_paths.back().second.front();
+               
 #ifdef debug
-                cerr << "Rooting component at tip-tip path for " << graph->get_id(longest_paths.back().second.front()) << endl;
+                cerr << "Rooting component at tip-tip path starting with " << graph->get_id(first_edge) << (graph->get_is_reverse(first_edge) ? "-" : "+") << endl;
 #endif
                 
                 for (size_t i = 1; i < longest_paths.back().second.size(); i++) {
                     // Rewrite the deepest bridge graph leaf path map to point from one end of the tip-tip path to the other
                     // TODO: bump this down into the bridge path finding function
-                    towards_deepest_leaf[forest.find(longest_paths.back().second[i - 1])] = longest_paths.back().second[i];
+                    
+                    handle_t prev_path_edge = longest_paths.back().second[i - 1];
+                    handle_t prev_head = forest.find(prev_path_edge);
+                    handle_t next_path_edge = longest_paths.back().second[i];
+                    
+                    towards_deepest_leaf[prev_head] = next_path_edge;
+                    
+#ifdef debug
+                    cerr << "\tEnforce leaf path goes " << graph->get_id(prev_path_edge) << (graph->get_is_reverse(prev_path_edge) ? "-" : "+")
+                        << " with head " << graph->get_id(prev_head) << (graph->get_is_reverse(prev_head) ? "-" : "+")
+                        << " to next edge " << graph->get_id(next_path_edge) << (graph->get_is_reverse(next_path_edge) ? "-" : "+") << endl;
+#endif
+                    
                 }
                     
                 // Stack up a root/null snarl containing this bridge edge.
+                // Remember to queue it facing inward, toward the new new root at the start of the path.
                 stack.emplace_back();
                 stack.back().is_snarl = true;
-                stack.back().todo.push_back(longest_paths.back().second.front());
+                stack.back().todo.push_back(graph->flip(first_edge));
             }
             
             longest_paths.pop_back();
@@ -1173,7 +1295,15 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial(const function<void
 #ifdef debug
                         cerr << "\t\t\tRecurse on chain " << graph->get_id(outgoing) << (graph->get_is_reverse(outgoing) ? "-" : "+") << " to "
                             << graph->get_id(task) << (graph->get_is_reverse(task) ? "-" : "+") << endl;
-#endif 
+#endif
+                       
+                        if (frame.parent != numeric_limits<size_t>::max()) {
+                            // We have boundaries. Make sure we don't try and
+                            // do a chain that starts or ends with our
+                            // boundaries. That's impossible.
+                            assert(frame.bounds.first != outgoing);
+                            assert(frame.bounds.second != task);
+                        }
                         
                         // Recurse on the chain bounded by those edges, as a child
                         stack.emplace_back();
