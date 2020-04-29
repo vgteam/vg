@@ -165,7 +165,7 @@ var searchData=
   ['traversal',['traversal',['../classvg_1_1mapping__t.html#a9ef6e5278c0ac9ce077ea2c8e0902674',1,'vg::mapping_t']]],
   ['traversal_5falg',['traversal_alg',['../classvg_1_1Genotyper.html#a5b040c1636f479b52dbdb641e82f74dd',1,'vg::Genotyper']]],
   ['traversal_5fentry_5fto_5fstring',['traversal_entry_to_string',['../classvg_1_1Index.html#a7854f4dc7725be6ab73e04f9a95365ff',1,'vg::Index']]],
-  ['traversal_5ffinder',['traversal_finder',['../classvg_1_1VCFGenotyper.html#afa0dd907b77ec7bd5d33f972c06ab131',1,'vg::VCFGenotyper::traversal_finder()'],['../classvg_1_1LegacyCaller.html#ada2c8e9befb0cbe8043779758468664a',1,'vg::LegacyCaller::traversal_finder()'],['../classvg_1_1FlowCaller.html#a7a75ae830ca6ba1df4eb3fd69aaed84f',1,'vg::FlowCaller::traversal_finder()'],['../classvg_1_1SmallSnarlSimplifier.html#aaf858ca21b486fe45acbf92a4cbea5ba',1,'vg::SmallSnarlSimplifier::traversal_finder()']]],
+  ['traversal_5ffinder',['traversal_finder',['../classvg_1_1VCFGenotyper.html#afa0dd907b77ec7bd5d33f972c06ab131',1,'vg::VCFGenotyper::traversal_finder()'],['../classvg_1_1LegacyCaller.html#ada2c8e9befb0cbe8043779758468664a',1,'vg::LegacyCaller::traversal_finder()'],['../classvg_1_1FlowCaller.html#ad55a5eccba503ff1543b553ce5cd813f',1,'vg::FlowCaller::traversal_finder()'],['../classvg_1_1SmallSnarlSimplifier.html#aaf858ca21b486fe45acbf92a4cbea5ba',1,'vg::SmallSnarlSimplifier::traversal_finder()']]],
   ['traversal_5ffinder_2ecpp',['traversal_finder.cpp',['../traversal__finder_8cpp.html',1,'']]],
   ['traversal_5ffinder_2ehpp',['traversal_finder.hpp',['../traversal__finder_8hpp.html',1,'']]],
   ['traversal_5fsupport_2ecpp',['traversal_support.cpp',['../traversal__support_8cpp.html',1,'']]],
