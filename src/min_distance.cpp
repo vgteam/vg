@@ -4,6 +4,12 @@
 
 #include "min_distance.hpp"
 
+#include "algorithms/dagify.hpp"
+#include "algorithms/is_acyclic.hpp"
+#include "algorithms/is_single_stranded.hpp"
+#include "algorithms/split_strands.hpp"
+#include "algorithms/topological_sort.hpp"
+
 using namespace std;
 namespace vg {
 
@@ -2138,7 +2144,7 @@ void MinimumDistanceIndex::printSnarlStats() {
 }
 
 void MinimumDistanceIndex::addNodesInRange(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
-                                      SubHandleGraph& sub_graph, vector<tuple<handle_t, int64_t>>& start_nodes, 
+                                      std::unordered_set<id_t>& sub_graph, vector<tuple<handle_t, int64_t>>& start_nodes, 
                                       hash_set<pair<id_t, bool>>& seen_nodes) {
     //Starting from a given handle in the super_graph, traverse the graph and add all nodes within the distance range to sub_graph
     
@@ -2175,7 +2181,7 @@ void MinimumDistanceIndex::addNodesInRange(const HandleGraph* super_graph, int64
                 cerr << "\tadding node " << super_graph->get_id(curr_handle) << " " << super_graph->get_is_reverse(curr_handle) << " with distance "
                      << curr_distance << " and node length " << node_len << endl;
 #endif
-                sub_graph.add_handle(curr_handle);
+                sub_graph.insert(super_graph->get_id(curr_handle));
                
             }
 #ifdef debugSubgraph
@@ -2204,7 +2210,7 @@ void MinimumDistanceIndex::addNodesInRange(const HandleGraph* super_graph, int64
 }
 
 void MinimumDistanceIndex::subgraphInRange(const Path& path, const HandleGraph* super_graph, int64_t min_distance, 
-                                           int64_t max_distance, SubHandleGraph& sub_graph, bool look_forward){
+                                           int64_t max_distance, std::unordered_set<id_t>& sub_graph, bool look_forward){
 
     //Get the subgraph of all nodes for which the minimum distance to any position in the node is within the distance range
     //Algorithm proceeds in two phases: First, traverse up the snarl tree and get the distance to the ends of each snarl

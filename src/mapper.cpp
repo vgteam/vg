@@ -3,6 +3,10 @@
 #include "haplotypes.hpp"
 #include "annotation.hpp"
 
+#include "algorithms/dagify.hpp"
+#include "algorithms/is_acyclic.hpp"
+#include "algorithms/split_strands.hpp"
+
 //#define debug_mapper
 //#define debug_strip_match
 

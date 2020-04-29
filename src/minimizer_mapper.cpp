@@ -4,11 +4,15 @@
  */
 
 #include "minimizer_mapper.hpp"
+
 #include "annotation.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
+#include "split_strand_graph.hpp"
 
+#include "algorithms/dagify.hpp"
 #include "algorithms/dijkstra.hpp"
+#include "algorithms/is_acyclic.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 
@@ -2121,12 +2125,19 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 
 void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
 
-    //Get the subgraph of all nodes within a reasonable range from aligned_read
-    SubHandleGraph sub_graph(&gbwt_graph);
+    // Find all nodes within a reasonable range from aligned_read.
+    std::unordered_set<id_t> rescue_nodes;
     //TODO: How big should the rescue subgraph be?
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4*fragment_length_distr.stdev());
     int64_t max_distance = fragment_length_distr.mean() + 4*fragment_length_distr.stdev();
-    distance_index.subgraphInRange(aligned_read.path(), &gbwt_graph, min_distance, max_distance, sub_graph, rescue_forward); 
+    distance_index.subgraphInRange(aligned_read.path(), &gbwt_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
+
+    // Build a subgraph overlay.
+    // FIXME: Temporary
+    SubHandleGraph sub_graph(&gbwt_graph);
+    for (id_t id : rescue_nodes)  {
+        sub_graph.add_handle(gbwt_graph.get_handle(id));
+    }
 
     // Create an overlay where each strand is a separate node.
     StrandSplitGraph split_graph(&sub_graph);
@@ -2163,12 +2174,19 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
 
 void MinimizerMapper::attempt_rescue_haplotypes(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward) {
 
-    // Get the subgraph of all nodes within a reasonable range from aligned_read.
-    SubHandleGraph sub_graph(&(this->gbwt_graph));
+    // Find all nodes within a reasonable range from aligned_read.
+    std::unordered_set<id_t> rescue_nodes;
     // TODO: How big should the rescue subgraph be?
     int64_t min_distance = std::max(0.0, this->fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * this->fragment_length_distr.stdev());
     int64_t max_distance = this->fragment_length_distr.mean() + 4 * this->fragment_length_distr.stdev();
-    this->distance_index.subgraphInRange(aligned_read.path(), &(this->gbwt_graph), min_distance, max_distance, sub_graph, rescue_forward); 
+    this->distance_index.subgraphInRange(aligned_read.path(), &(this->gbwt_graph), min_distance, max_distance, rescue_nodes, rescue_forward);
+
+    // Build a subgraph overlay.
+    // TODO: We could skip this and use the set of nodes in unfold_haplotypes().
+    SubHandleGraph sub_graph(&(this->gbwt_graph));
+    for (id_t id : rescue_nodes)  {
+        sub_graph.add_handle(gbwt_graph.get_handle(id));
+    }
 
     // Find and unfold the local haplotypes in the subgraph.
     std::vector<std::vector<handle_t>> haplotype_paths;

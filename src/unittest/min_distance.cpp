@@ -1623,7 +1623,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
         SECTION("Subgraph extraction") {
 
-            SubHandleGraph sub_graph(&graph);
+            std::unordered_set<id_t> sub_graph;
             handle_t handle = graph.get_handle(2, false);
             path_handle_t path_handle = graph.create_path_handle("path");
             graph.append_step(path_handle, handle);
@@ -1632,16 +1632,16 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
             dist_index.subgraphInRange(path, &graph, 5, 7, sub_graph, true); 
 
-            REQUIRE(!sub_graph.has_node(3));
-            REQUIRE(sub_graph.has_node(4));
-            REQUIRE(sub_graph.has_node(5));
-            REQUIRE(!sub_graph.has_node(6));
-            REQUIRE(!sub_graph.has_node(7));
-            REQUIRE(sub_graph.has_node(8));
+            REQUIRE(!sub_graph.count(3));
+            REQUIRE(sub_graph.count(4));
+            REQUIRE(sub_graph.count(5));
+            REQUIRE(!sub_graph.count(6));
+            REQUIRE(!sub_graph.count(7));
+            REQUIRE(sub_graph.count(8));
         } 
         SECTION("Subgraph extraction same node") {
 
-            SubHandleGraph sub_graph(&graph);
+            std::unordered_set<id_t> sub_graph;
             handle_t handle = graph.get_handle(3, false);
             path_handle_t path_handle = graph.create_path_handle("path");
             graph.append_step(path_handle, handle);
@@ -1650,12 +1650,12 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
             dist_index.subgraphInRange(path, &graph, 4, 7, sub_graph, true); 
 
-            REQUIRE(!sub_graph.has_node(3));
-            REQUIRE(sub_graph.has_node(4));
-            REQUIRE(sub_graph.has_node(5));
-            REQUIRE(!sub_graph.has_node(6));
-            REQUIRE(sub_graph.has_node(7));
-            REQUIRE(sub_graph.has_node(8));
+            REQUIRE(!sub_graph.count(3));
+            REQUIRE(sub_graph.count(4));
+            REQUIRE(sub_graph.count(5));
+            REQUIRE(!sub_graph.count(6));
+            REQUIRE(sub_graph.count(7));
+            REQUIRE(sub_graph.count(8));
         } 
     } //end test case
     TEST_CASE("Chain subgraph", "[min_dist][min_subgraph]") {
@@ -1686,7 +1686,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
         SECTION("Subgraph extraction") {
 
-            SubHandleGraph sub_graph(&graph);
+            std::unordered_set<id_t> sub_graph;
             handle_t handle = graph.get_handle(2, false);
             path_handle_t path_handle = graph.create_path_handle("path");
             graph.append_step(path_handle, handle);
@@ -1695,15 +1695,15 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
             dist_index.subgraphInRange(path, &graph, 4, 7, sub_graph, true); 
 
-            REQUIRE(!sub_graph.has_node(3));
-            REQUIRE(sub_graph.has_node(4));
-            REQUIRE(sub_graph.has_node(5));
-            REQUIRE(sub_graph.has_node(6));
-            REQUIRE(sub_graph.has_node(7));
-            REQUIRE(sub_graph.has_node(8));
+            REQUIRE(!sub_graph.count(3));
+            REQUIRE(sub_graph.count(4));
+            REQUIRE(sub_graph.count(5));
+            REQUIRE(sub_graph.count(6));
+            REQUIRE(sub_graph.count(7));
+            REQUIRE(sub_graph.count(8));
         }
         SECTION ("Another subgraph") {
-            SubHandleGraph sub_graph(&graph);
+            std::unordered_set<id_t> sub_graph;
             handle_t handle = graph.get_handle(2, false);
             path_handle_t path_handle = graph.create_path_handle("path");
             graph.append_step(path_handle, handle);
@@ -1712,16 +1712,16 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
             dist_index.subgraphInRange(path, &graph, 10, 10, sub_graph, true); 
 
-            REQUIRE(!sub_graph.has_node(3));
-            REQUIRE(!sub_graph.has_node(4));
-            REQUIRE(!sub_graph.has_node(5));
-            REQUIRE(!sub_graph.has_node(6));
-            REQUIRE(!sub_graph.has_node(7));
-            REQUIRE(sub_graph.has_node(8));
-            REQUIRE(!sub_graph.has_node(3));
+            REQUIRE(!sub_graph.count(3));
+            REQUIRE(!sub_graph.count(4));
+            REQUIRE(!sub_graph.count(5));
+            REQUIRE(!sub_graph.count(6));
+            REQUIRE(!sub_graph.count(7));
+            REQUIRE(sub_graph.count(8));
+            REQUIRE(!sub_graph.count(3));
         }
         SECTION ("Skip snarl") {
-            SubHandleGraph sub_graph(&graph);
+            std::unordered_set<id_t> sub_graph;
             handle_t handle = graph.get_handle(2, false);
             path_handle_t path_handle = graph.create_path_handle("path");
             graph.append_step(path_handle, handle);
@@ -1730,13 +1730,13 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
             dist_index.subgraphInRange(path, &graph, 6, 6, sub_graph, true); 
 
-            REQUIRE(!sub_graph.has_node(3));
-            REQUIRE(!sub_graph.has_node(4));
-            REQUIRE(!sub_graph.has_node(5));
-            REQUIRE(sub_graph.has_node(6));
-            REQUIRE(sub_graph.has_node(7));
-            REQUIRE(!sub_graph.has_node(8));
-            REQUIRE(!sub_graph.has_node(3));
+            REQUIRE(!sub_graph.count(3));
+            REQUIRE(!sub_graph.count(4));
+            REQUIRE(!sub_graph.count(5));
+            REQUIRE(sub_graph.count(6));
+            REQUIRE(sub_graph.count(7));
+            REQUIRE(!sub_graph.count(8));
+            REQUIRE(!sub_graph.count(3));
         }
 
     }//end test case
@@ -1781,7 +1781,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         SECTION("Skip right in chain") {
 
             MinimumDistanceIndex di (&graph, &snarl_manager);
-            SubHandleGraph sub_graph(&graph);
+            std::unordered_set<id_t> sub_graph;
             handle_t handle = graph.get_handle(1, false);
             path_handle_t path_handle = graph.create_path_handle("path");
             graph.append_step(path_handle, handle);
@@ -1790,19 +1790,19 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
             dist_index.subgraphInRange(path, &graph, 9, 9, sub_graph, true); 
 
-            REQUIRE(!sub_graph.has_node(3));
-            REQUIRE(!sub_graph.has_node(8));
-            REQUIRE(!sub_graph.has_node(9));
-            REQUIRE(!sub_graph.has_node(10));
-            REQUIRE(sub_graph.has_node(11));
-            REQUIRE(sub_graph.has_node(12));
+            REQUIRE(!sub_graph.count(3));
+            REQUIRE(!sub_graph.count(8));
+            REQUIRE(!sub_graph.count(9));
+            REQUIRE(!sub_graph.count(10));
+            REQUIRE(sub_graph.count(11));
+            REQUIRE(sub_graph.count(12));
 
         }
 
         SECTION("Skip right in root chain") {
 
             MinimumDistanceIndex di (&graph, &snarl_manager);
-            SubHandleGraph sub_graph(&graph);
+            std::unordered_set<id_t> sub_graph;
             handle_t handle = graph.get_handle(2, false);
             path_handle_t path_handle = graph.create_path_handle("path");
             graph.append_step(path_handle, handle);
@@ -1811,18 +1811,18 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
             dist_index.subgraphInRange(path, &graph, 12, 14, sub_graph, true); 
 
-            REQUIRE(!sub_graph.has_node(3));
-            REQUIRE(!sub_graph.has_node(8));
-            REQUIRE(!sub_graph.has_node(9));
-            REQUIRE(!sub_graph.has_node(10));
-            REQUIRE(sub_graph.has_node(11));
-            REQUIRE(sub_graph.has_node(12));
+            REQUIRE(!sub_graph.count(3));
+            REQUIRE(!sub_graph.count(8));
+            REQUIRE(!sub_graph.count(9));
+            REQUIRE(!sub_graph.count(10));
+            REQUIRE(sub_graph.count(11));
+            REQUIRE(sub_graph.count(12));
 
         }
         SECTION("Skip left in root chain") {
 
             MinimumDistanceIndex di (&graph, &snarl_manager);
-            SubHandleGraph sub_graph(&graph);
+            std::unordered_set<id_t> sub_graph;
             handle_t handle = graph.get_handle(11, true);
             path_handle_t path_handle = graph.create_path_handle("path");
             graph.append_step(path_handle, handle);
@@ -1831,19 +1831,19 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
             dist_index.subgraphInRange(path, &graph, 8, 11, sub_graph, true); 
 
-            REQUIRE(sub_graph.has_node(1));
-            REQUIRE(!sub_graph.has_node(2));
-            REQUIRE(sub_graph.has_node(3));
-            REQUIRE(sub_graph.has_node(4));
-            REQUIRE(sub_graph.has_node(5));
-            REQUIRE(sub_graph.has_node(6));
-            REQUIRE(!sub_graph.has_node(7));
+            REQUIRE(sub_graph.count(1));
+            REQUIRE(!sub_graph.count(2));
+            REQUIRE(sub_graph.count(3));
+            REQUIRE(sub_graph.count(4));
+            REQUIRE(sub_graph.count(5));
+            REQUIRE(sub_graph.count(6));
+            REQUIRE(!sub_graph.count(7));
 
         }
         SECTION("Take loop") {
 
             MinimumDistanceIndex di (&graph, &snarl_manager);
-            SubHandleGraph sub_graph(&graph);
+            std::unordered_set<id_t> sub_graph;
             handle_t handle = graph.get_handle(8, true);
             path_handle_t path_handle = graph.create_path_handle("path");
             graph.append_step(path_handle, handle);
@@ -1852,21 +1852,21 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
             dist_index.subgraphInRange(path, &graph, 12, 13, sub_graph, true); 
 
-            REQUIRE(!sub_graph.has_node(1));
-            REQUIRE(!sub_graph.has_node(2));
-            REQUIRE(!sub_graph.has_node(3));
-            REQUIRE(sub_graph.has_node(4));
-            REQUIRE(!sub_graph.has_node(5));
-            REQUIRE(sub_graph.has_node(6));
-            REQUIRE(sub_graph.has_node(7));
-            REQUIRE(sub_graph.has_node(8));
-            REQUIRE(!sub_graph.has_node(9));
+            REQUIRE(!sub_graph.count(1));
+            REQUIRE(!sub_graph.count(2));
+            REQUIRE(!sub_graph.count(3));
+            REQUIRE(sub_graph.count(4));
+            REQUIRE(!sub_graph.count(5));
+            REQUIRE(sub_graph.count(6));
+            REQUIRE(sub_graph.count(7));
+            REQUIRE(sub_graph.count(8));
+            REQUIRE(!sub_graph.count(9));
 
         }
         SECTION("Take loop again") {
 
             MinimumDistanceIndex di (&graph, &snarl_manager);
-            SubHandleGraph sub_graph(&graph);
+            std::unordered_set<id_t> sub_graph;
             handle_t handle = graph.get_handle(8, true);
             path_handle_t path_handle = graph.create_path_handle("path");
             graph.append_step(path_handle, handle);
@@ -1875,18 +1875,18 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
             dist_index.subgraphInRange(path, &graph, 16, 17, sub_graph, true); 
 
-            REQUIRE(!sub_graph.has_node(1));
-            REQUIRE(!sub_graph.has_node(2));
-            REQUIRE(!sub_graph.has_node(3));
-            REQUIRE(!sub_graph.has_node(4));
-            REQUIRE(!sub_graph.has_node(5));
-            REQUIRE(!sub_graph.has_node(6));
-            REQUIRE(!sub_graph.has_node(7));
-            REQUIRE(sub_graph.has_node(8));
-            REQUIRE(sub_graph.has_node(9));
-            REQUIRE(sub_graph.has_node(10));
-            REQUIRE(!sub_graph.has_node(11));
-            REQUIRE(!sub_graph.has_node(12));
+            REQUIRE(!sub_graph.count(1));
+            REQUIRE(!sub_graph.count(2));
+            REQUIRE(!sub_graph.count(3));
+            REQUIRE(!sub_graph.count(4));
+            REQUIRE(!sub_graph.count(5));
+            REQUIRE(!sub_graph.count(6));
+            REQUIRE(!sub_graph.count(7));
+            REQUIRE(sub_graph.count(8));
+            REQUIRE(sub_graph.count(9));
+            REQUIRE(sub_graph.count(10));
+            REQUIRE(!sub_graph.count(11));
+            REQUIRE(!sub_graph.count(12));
 
         }
     }//end test case
@@ -1909,10 +1909,10 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 //        vg.append_step(path_handle, handle);
 //        Path path = path_from_path_handle(vg, path_handle);
 //
-//        SubHandleGraph sub_graph(&vg);
+//        std::unordered_set<id_t> sub_graph;
 //        di.subgraphInRange(path, &vg, min, max, sub_graph, false); 
 //
-//        REQUIRE(sub_graph.has_node(27));
+//        REQUIRE(sub_graph.count(27));
 
         for (int i = 0; i < 0; i++) {
             //1000 different graphs
@@ -1950,7 +1950,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
                 Path path = path_from_path_handle(graph, path_handle);
                 pos_t pos1 = make_pos_t(nodeID1, false, 0 );
 
-                SubHandleGraph sub_graph(&graph);
+                std::unordered_set<id_t> sub_graph;
                 size_t node_len = graph.get_length(handle);
                 dist_index.subgraphInRange(path, &graph, min+1, max+1, sub_graph, true); 
 
@@ -1970,7 +1970,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
                     bool start_backward = dist_start_bk != -1 && (dist_start_bk >= min && dist_start_bk <= max);
                     bool end_backward = dist_end_bk != -1 && (dist_end_bk >= min && dist_end_bk <= max);
                     bool in_backward = dist_start_bk != -1 && dist_end_bk == -1 || (dist_start_bk <= min && dist_end_bk >= max);
-                    if (sub_graph.has_node(node_id)) {
+                    if (sub_graph.count(node_id)) {
                         //If this node is in the subgraph, then the node must be within the range
 
                         if (!(start_forward || end_forward || in_forward || start_backward || end_backward || in_backward)) {
