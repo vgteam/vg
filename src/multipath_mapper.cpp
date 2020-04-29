@@ -3127,7 +3127,9 @@ namespace vg {
 #endif
         
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
-            multi_aln_graph.resect_snarls_from_paths(snarl_manager, translator, max_snarl_cut_size);
+            if (max_snarl_cut_size) {
+                multi_aln_graph.resect_snarls_from_paths(snarl_manager, translator, max_snarl_cut_size);
+            }
         }
 
 

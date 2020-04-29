@@ -203,13 +203,13 @@ size_t DozeuInterface::do_poa(const OrderedGraph& graph, const dz_query_s* packe
     
     // initialze an alignment
     dz_alignment_init_s aln_init = dz_align_init(dz, max_gap_length);
-    
+
     // seed an alignment at each of the seed positions
     for (const graph_pos_s& seed_pos : seed_positions) {
         
         // get root node
         auto root_seq = graph.graph.get_sequence(graph.order[seed_pos.node_index]);
-        
+         
         // load position and length
         int64_t rlen = (right_to_left ? 0 : root_seq.size()) - seed_pos.ref_offset;
         
