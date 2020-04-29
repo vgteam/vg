@@ -4,6 +4,7 @@ var searchData=
   ['gaplessextension',['GaplessExtension',['../structvg_1_1GaplessExtension.html',1,'vg']]],
   ['gbwt_5fthread_5ft',['gbwt_thread_t',['../structhaplo_1_1gbwt__thread__t.html',1,'haplo']]],
   ['gbwtscoreprovider',['GBWTScoreProvider',['../classhaplo_1_1GBWTScoreProvider.html',1,'haplo']]],
+  ['gbwttraversalfinder',['GBWTTraversalFinder',['../classvg_1_1GBWTTraversalFinder.html',1,'vg']]],
   ['genomestate',['GenomeState',['../classvg_1_1GenomeState.html',1,'vg']]],
   ['genomestatecommand',['GenomeStateCommand',['../structvg_1_1GenomeStateCommand.html',1,'vg']]],
   ['genotype',['Genotype',['../structvg_1_1Genotype.html',1,'vg']]],

@@ -406,7 +406,7 @@ var searchData=
   ['string_5fhash_5fmap_3c_20bdsg_3a_3apackedvector_2c_20int64_5ft_20_3e',['string_hash_map&lt; bdsg::PackedVector, int64_t &gt;',['../classbdsg_1_1string__hash__map.html',1,'bdsg']]],
   ['string_5fhash_5fmap_3c_20std_3a_3astring_2c_20uint64_5ft_20_3e',['string_hash_map&lt; std::string, uint64_t &gt;',['../classbdsg_1_1string__hash__map.html',1,'bdsg']]],
   ['string_5fhash_5fmap_3c_20string_2c_20int64_5ft_20_3e',['string_hash_map&lt; string, int64_t &gt;',['../classbdsg_1_1string__hash__map.html',1,'bdsg']]],
-  ['string_5fhash_5fset',['string_hash_set',['../classvg_1_1string__hash__set.html',1,'vg::string_hash_set&lt; K &gt;'],['../classbdsg_1_1string__hash__set.html',1,'bdsg::string_hash_set&lt; K &gt;']]],
+  ['string_5fhash_5fset',['string_hash_set',['../classbdsg_1_1string__hash__set.html',1,'bdsg::string_hash_set&lt; K &gt;'],['../classvg_1_1string__hash__set.html',1,'vg::string_hash_set&lt; K &gt;']]],
   ['string_5fquality_5fchar_5fto_5fshort',['string_quality_char_to_short',['../namespacevg.html#a01985b9f56eb0f7e566bb957cf839a97',1,'vg']]],
   ['string_5fquality_5fshort_5fto_5fchar',['string_quality_short_to_char',['../namespacevg.html#ac4851c5fbea81739228502a86a0134c8',1,'vg']]],
   ['strip_5fbonuses',['strip_bonuses',['../classvg_1_1BaseMapper.html#a34ab4a12d44f5b17b5b6caa03ea4cd79',1,'vg::BaseMapper']]],
