@@ -12,9 +12,9 @@
 
 #include "algorithms/dagify.hpp"
 #include "algorithms/dijkstra.hpp"
-#include "algorithms/is_acyclic.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
+#include <gbwtgraph/algorithms.h>
 
 #include <iostream>
 #include <algorithm>
@@ -2126,50 +2126,71 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
 
     // Find all nodes within a reasonable range from aligned_read.
+    // TODO: How big should the rescue subgraph be?
     std::unordered_set<id_t> rescue_nodes;
-    //TODO: How big should the rescue subgraph be?
-    int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4*fragment_length_distr.stdev());
-    int64_t max_distance = fragment_length_distr.mean() + 4*fragment_length_distr.stdev();
+    int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * fragment_length_distr.stdev());
+    int64_t max_distance = fragment_length_distr.mean() + 4 * fragment_length_distr.stdev();
     distance_index.subgraphInRange(aligned_read.path(), &gbwt_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
 
-    // Build a subgraph overlay.
-    // FIXME: Temporary
-    SubHandleGraph sub_graph(&gbwt_graph);
-    for (id_t id : rescue_nodes)  {
-        sub_graph.add_handle(gbwt_graph.get_handle(id));
-    }
-
-    // Create an overlay where each strand is a separate node.
-    StrandSplitGraph split_graph(&sub_graph);
-
-    // Dagify the subgraph if necessary.
-    // FIXME We already know the topological order after this, so we should reuse it for building the GSSW graph.
-    HandleGraph* align_graph = &split_graph;
-    bdsg::HashGraph dagified;
-    std::unordered_map<id_t, id_t> dagify_trans;
-    bool is_dagified = false;
-    if (!algorithms::is_directed_acyclic(&sub_graph)) {
-        dagify_trans = algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
-        align_graph = &dagified;
-        is_dagified = true;
-    }
-
-    //Align to the subgraph
+    // Get rid of the old path.
     rescued_alignment.clear_path();
-    get_regular_aligner()->align(rescued_alignment, *align_graph, true);
 
-    // Map the alignment back to the original graph.
-    Path& path = *(rescued_alignment.mutable_path());
-    for (size_t i = 0; i < path.mapping_size(); i++) {
-        Position& pos = *(path.mutable_mapping(i)->mutable_position());
-        id_t id = (is_dagified ? dagify_trans[pos.node_id()] : pos.node_id());
-        handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(id));
-        pos.set_node_id(sub_graph.get_id(handle));
-        pos.set_is_reverse(sub_graph.get_is_reverse(handle));
+    // Check if the subgraph is acyclic. Rescue is much faster in acyclic subgraphs.
+    gbwt::CachedGBWT cache = this->gbwt_graph.get_cache();
+    std::vector<handle_t> topological_order = gbwtgraph::topological_order(this->gbwt_graph, rescue_nodes, &cache);
+    if (!topological_order.empty()) {
+        // Build a subgraph overlay.
+        // FIXME Temporary
+        SubHandleGraph sub_graph(&gbwt_graph);
+        for (id_t id : rescue_nodes)  {
+            sub_graph.add_handle(gbwt_graph.get_handle(id));
+        }
+
+        // Create an overlay where each strand is a separate node.
+        // FIXME Temporary
+        StrandSplitGraph split_graph(&sub_graph);
+
+        // Align to the subgraph.
+        // FIXME A specialized alignment routine using gbwt_graph, rescue_nodes, topological_order, and cache.
+        get_regular_aligner()->align(rescued_alignment, split_graph, true);
+
+        // Map the alignment back to the original graph.
+        // FIXME This will become unnecessary
+        Path& path = *(rescued_alignment.mutable_path());
+        for (size_t i = 0; i < path.mapping_size(); i++) {
+            Position& pos = *(path.mutable_mapping(i)->mutable_position());
+            handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(pos.node_id()));
+            pos.set_node_id(sub_graph.get_id(handle));
+            pos.set_is_reverse(sub_graph.get_is_reverse(handle));
+        }
+    } else {
+        // Build a subgraph overlay.
+        SubHandleGraph sub_graph(&gbwt_graph);
+        for (id_t id : rescue_nodes)  {
+            sub_graph.add_handle(gbwt_graph.get_handle(id));
+        }
+
+        // Create an overlay where each strand is a separate node.
+        StrandSplitGraph split_graph(&sub_graph);
+
+        // Dagify the subgraph.
+        bdsg::HashGraph dagified;
+        std::unordered_map<id_t, id_t> dagify_trans =
+            algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
+
+        // Align to the subgraph.
+        get_regular_aligner()->align(rescued_alignment, dagified, true);
+
+        // Map the alignment back to the original graph.
+        Path& path = *(rescued_alignment.mutable_path());
+        for (size_t i = 0; i < path.mapping_size(); i++) {
+            Position& pos = *(path.mutable_mapping(i)->mutable_position());
+            id_t id = dagify_trans[pos.node_id()];
+            handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(id));
+            pos.set_node_id(sub_graph.get_id(handle));
+            pos.set_is_reverse(sub_graph.get_is_reverse(handle));
+        }
     }
-
-    //TODO: mpmap also checks the score here
-    return;
 }
 
 void MinimizerMapper::attempt_rescue_haplotypes(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward) {
@@ -2199,9 +2220,6 @@ void MinimizerMapper::attempt_rescue_haplotypes(const Alignment& aligned_read, A
 
     // Get the corresponding alignment to the original graph.
     this->extender.transform_alignment(rescued_alignment, haplotype_paths);
-
-    // TODO: mpmap also checks the score here
-    return;
 }
 
 int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment& aln2) {
