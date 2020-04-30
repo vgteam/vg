@@ -984,7 +984,12 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
             // For each handle in the adjacency component that this handle is heading (including the head)
             
             // Follow as an edge again, by flipping
-            handle_t member_connected_head = cactus.find(graph->flip(node));
+            handle_t member_connected_head = cactus.find(graph->flip(other_member));
+            
+            if (member_connected_head == node && graph->get_is_reverse(other_member)) {
+                // For self loops, only follow them in one direction. Skip in the other.
+                return;
+            }
             
             // Announce it. Multi-edges are OK.
             emit_edge(member_connected_head);
