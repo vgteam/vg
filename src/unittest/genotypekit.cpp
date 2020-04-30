@@ -195,7 +195,7 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
     
 }
 
-TEST_CASE("sites can be found with the IntegratedSnarlFinder", "[genotype]") {
+TEST_CASE("sites can be found with the IntegratedSnarlFinder", "[genotype][integrated-snarl-finder]") {
     
   // Build a toy graph
   const string graph_json = R"(
@@ -328,7 +328,7 @@ TEST_CASE("sites can be found with the IntegratedSnarlFinder", "[genotype]") {
   }
 }
 
-TEST_CASE("CactusSnarlFinder safely rejects a single node graph", "[genotype]") {
+TEST_CASE("CactusSnarlFinder safely rejects a single node graph", "[genotype][cactus-snarl-finder]") {
     
   // Build a toy graph
   const string graph_json = R"(
@@ -356,7 +356,7 @@ TEST_CASE("CactusSnarlFinder safely rejects a single node graph", "[genotype]") 
     
 }
 
-TEST_CASE("CactusSnarlFinder throws an error instead of crashing when the graph has no edges", "[genotype]") {
+TEST_CASE("CactusSnarlFinder throws an error instead of crashing when the graph has no edges", "[genotype][cactus-snarl-finder]") {
     
   // Build a toy graph
   const string graph_json = R"(
@@ -566,13 +566,11 @@ TEST_CASE("ExhaustiveTraversalFinder finds all paths on a bubble with an inverte
   REQUIRE(found_trav_2);
 }
 
-TEST_CASE("SnarlFinder can differntiate ultrabubbles from snarls", "[genotype]") {
+TEST_CASE("CactusSnarlFinder can differentiate ultrabubbles from snarls", "[genotype][cactus-snarl-finder]") {
 
-  SECTION("Directed cycle does not count as ultrabubble") {
-    
-    // Build a toy graph
-    const string graph_json = R"(
-    
+    SECTION("Directed cycle does not count as ultrabubble") {
+        // Build a toy graph
+        const string graph_json = R"(
         {
         "node": [
             {"id": 1, "sequence": "G"},
@@ -590,35 +588,34 @@ TEST_CASE("SnarlFinder can differntiate ultrabubbles from snarls", "[genotype]")
         ]
         }
         )";
-    
-    // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+        
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
 
-    // Find the snarls
-    CactusSnarlFinder cubs(graph);
-    SnarlManager snarl_manager = cubs.find_snarls();
-    const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+        // Find the snarls
+        CactusSnarlFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
 
-    // Make sure we have one non-ultrabubble start at 1-5
-    REQUIRE(snarl_roots.size() == 1);
-    const Snarl* snarl = snarl_roots[0];
-    int64_t start = snarl->start().node_id();
-    int64_t end = snarl->end().node_id();
-    if (start > end) {
-      std::swap(start, end);
+        // Make sure we have one non-ultrabubble start at 1-5
+        REQUIRE(snarl_roots.size() == 1);
+        const Snarl* snarl = snarl_roots[0];
+        int64_t start = snarl->start().node_id();
+        int64_t end = snarl->end().node_id();
+        if (start > end) {
+          std::swap(start, end);
+        }
+        REQUIRE((start == 1 && end == 5) == true);
+        REQUIRE(snarl->type() != ULTRABUBBLE);
     }
-    REQUIRE((start == 1 && end == 5) == true);
-    REQUIRE(snarl->type() != ULTRABUBBLE);
-  }
 
-  SECTION("Ultrabubble flagged as ultrabubble") {
-    
-    // Build a toy graph
-    const string graph_json = R"(
-    
+    SECTION("Ultrabubble flagged as ultrabubble") {
+
+        // Build a toy graph
+        const string graph_json = R"(
         {
         "node": [
             {"id": 1, "sequence": "G"},
@@ -642,52 +639,174 @@ TEST_CASE("SnarlFinder can differntiate ultrabubbles from snarls", "[genotype]")
         }
         )";
     
-    // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
 
-    // Find the snarls
-    CactusSnarlFinder cubs(graph);
-    SnarlManager snarl_manager = cubs.find_snarls();
-    const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+        // Find the snarls
+        CactusSnarlFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
 
-    // Make sure we have one ultrabubble from 1 forward to 6 reverse, and
-    // another ultrabubble closing the cycle from 6 reverse to 1 forward.
-    REQUIRE(snarl_roots.size() == 2);
-    const Snarl* snarl1 = snarl_roots[0];
-    const Snarl* snarl2 = snarl_roots[1];
+        // Make sure we have one ultrabubble from 1 forward to 6 reverse, and
+        // another ultrabubble closing the cycle from 6 reverse to 1 forward.
+        REQUIRE(snarl_roots.size() == 2);
+        const Snarl* snarl1 = snarl_roots[0];
+        const Snarl* snarl2 = snarl_roots[1];
+            
+        if (snarl1->start().node_id() > snarl1->end().node_id()) {
+          // Flip it around so it goes from lower to higher numbers.
+          snarl_manager.flip(snarl1);
+        }
+            
+        if (snarl2->start().node_id() > snarl2->end().node_id()) {
+          // Flip it around so it goes from lower to higher numbers.
+          snarl_manager.flip(snarl2);
+        }
+            
+        if (snarl1->start().node_id() > snarl2->start().node_id() ||
+            (snarl1->start().node_id() == snarl2->start().node_id() &&
+             snarl1->start().backward() > snarl2->start().backward())) {
+          // Make sure to order them deterministically
+          std::swap(snarl1, snarl2);
+        }
+            
+        REQUIRE(snarl1->start().node_id() == 1);
+        REQUIRE(snarl1->start().backward() == false);
+        REQUIRE(snarl1->end().node_id() == 6);
+        REQUIRE(snarl1->end().backward() == true);
+        REQUIRE(snarl1->type() == ULTRABUBBLE);
+            
+        REQUIRE(snarl2->start().node_id() == 1);
+        REQUIRE(snarl2->start().backward() == true);
+        REQUIRE(snarl2->end().node_id() == 6);
+        REQUIRE(snarl2->end().backward() == false);
+        REQUIRE(snarl2->type() == ULTRABUBBLE);
+    }   
+
+}
+
+TEST_CASE("IntegratedSnarlFinder can differentiate ultrabubbles from snarls", "[genotype][integrated-snarl-finder]") {
+
+    SECTION("Directed cycle does not count as ultrabubble") {
+        // Build a toy graph
+        const string graph_json = R"(
+        {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "GT"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 2, "to": 3},
+            {"from": 3, "to": 4},
+            {"from": 1, "to": 4, "to_end": true},
+            {"from": 4, "to": 5}
+        ]
+        }
+        )";
         
-    if (snarl1->start().node_id() > snarl1->end().node_id()) {
-      // Flip it around so it goes from lower to higher numbers.
-      snarl_manager.flip(snarl1);
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
+
+        // Find the snarls
+        IntegratedSnarlFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+
+        // Make sure we have one non-ultrabubble start at 1-5
+        REQUIRE(snarl_roots.size() == 1);
+        const Snarl* snarl = snarl_roots[0];
+        int64_t start = snarl->start().node_id();
+        int64_t end = snarl->end().node_id();
+        if (start > end) {
+          std::swap(start, end);
+        }
+        REQUIRE((start == 1 && end == 5) == true);
+        REQUIRE(snarl->type() != ULTRABUBBLE);
     }
-        
-    if (snarl2->start().node_id() > snarl2->end().node_id()) {
-      // Flip it around so it goes from lower to higher numbers.
-      snarl_manager.flip(snarl2);
-    }
-        
-    if (snarl1->start().node_id() > snarl2->start().node_id() ||
-        (snarl1->start().node_id() == snarl2->start().node_id() &&
-         snarl1->start().backward() > snarl2->start().backward())) {
-      // Make sure to order them deterministically
-      std::swap(snarl1, snarl2);
-    }
-        
-    REQUIRE(snarl1->start().node_id() == 1);
-    REQUIRE(snarl1->start().backward() == false);
-    REQUIRE(snarl1->end().node_id() == 6);
-    REQUIRE(snarl1->end().backward() == true);
-    REQUIRE(snarl1->type() == ULTRABUBBLE);
-        
-    REQUIRE(snarl2->start().node_id() == 1);
-    REQUIRE(snarl2->start().backward() == true);
-    REQUIRE(snarl2->end().node_id() == 6);
-    REQUIRE(snarl2->end().backward() == false);
-    REQUIRE(snarl2->type() == ULTRABUBBLE);
-  }
+
+    SECTION("Ultrabubble flagged as ultrabubble") {
+
+        // Build a toy graph
+        const string graph_json = R"(
+        {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "GT"},
+            {"id": 6, "sequence": "GT"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2, "to_end": true},
+            {"from": 2, "to": 4, "from_start": true},
+            {"from": 2, "to": 5, "from_start": true},
+            {"from": 4, "to": 6, "to_end": true},
+            {"from": 3, "to": 1, "from_start": true, "to_end": true},
+            {"from": 4, "to": 3, "from_start": true, "to_end": true},
+            {"from": 5, "to": 3, "from_start": true, "to_end": true},
+            {"from": 6, "to": 5, "to_end": true},
+            {"from": 1, "to": 6, "from_start": true}
+        ]
+        }
+        )";
+    
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
+
+        // Find the snarls
+        IntegratedSnarlFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+
+        // Make sure we have one ultrabubble from 1 forward to 6 reverse, and
+        // another ultrabubble closing the cycle from 6 reverse to 1 forward.
+        REQUIRE(snarl_roots.size() == 2);
+        const Snarl* snarl1 = snarl_roots[0];
+        const Snarl* snarl2 = snarl_roots[1];
+            
+        if (snarl1->start().node_id() > snarl1->end().node_id()) {
+          // Flip it around so it goes from lower to higher numbers.
+          snarl_manager.flip(snarl1);
+        }
+            
+        if (snarl2->start().node_id() > snarl2->end().node_id()) {
+          // Flip it around so it goes from lower to higher numbers.
+          snarl_manager.flip(snarl2);
+        }
+            
+        if (snarl1->start().node_id() > snarl2->start().node_id() ||
+            (snarl1->start().node_id() == snarl2->start().node_id() &&
+             snarl1->start().backward() > snarl2->start().backward())) {
+          // Make sure to order them deterministically
+          std::swap(snarl1, snarl2);
+        }
+            
+        REQUIRE(snarl1->start().node_id() == 1);
+        REQUIRE(snarl1->start().backward() == false);
+        REQUIRE(snarl1->end().node_id() == 6);
+        REQUIRE(snarl1->end().backward() == true);
+        REQUIRE(snarl1->type() == ULTRABUBBLE);
+            
+        REQUIRE(snarl2->start().node_id() == 1);
+        REQUIRE(snarl2->start().backward() == true);
+        REQUIRE(snarl2->end().node_id() == 6);
+        REQUIRE(snarl2->end().backward() == false);
+        REQUIRE(snarl2->type() == ULTRABUBBLE);
+    }   
 
 }
 
