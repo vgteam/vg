@@ -1238,7 +1238,7 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                             
                             frame.todo.push_back(inbound);
                         } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound)) {
-                            // Count all self edges as elided, trivial chains.
+                            // Count all self edges as empty chains.
                             
 #ifdef debug
                             cerr << "\t\tContain edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
@@ -1489,7 +1489,7 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                                 cerr << "\t\tInherit contained edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
 #endif
                             
-                                // Count all self edges as elided, trivial chains.
+                                // Count all self edges as empty chains.
                                 begin_chain(inbound);
                                 end_chain(inbound);
                                 

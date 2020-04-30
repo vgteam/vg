@@ -76,7 +76,7 @@ public:
     
     /**
      * Visit all snarls and chains, including trivial snarls and single-node
-     * trivial chains.
+     * empty chains.
      *
      * Calls begin_chain and end_chain when entrering and exiting chains in the
      * traversal. Within each chain, calls begin_snarl and end_snarl when
@@ -86,8 +86,8 @@ public:
      * Each begin/end call receives the handle reading into/out of the snarl or
      * chain. 
      *
-     * Both trivial and cyclic chains have the in and out handles the same.
-     * They are distinguished by context; trivial chains have no shild snarls,
+     * Both empty and cyclic chains have the in and out handles the same.
+     * They are distinguished by context; empty chains have no shild snarls,
      * while cyclic chains do.
      *
      * Roots the decomposition at a global snarl with no bounding nodes, for
@@ -239,7 +239,7 @@ public:
         
     /// Make a new NetGraph for the given snarl in the given backing graph,
     /// using the given chains as child chains. Unary snarls are stored as
-    /// single-snarl chains just like other trivial chains.
+    /// trivial chains just like other trivial chains.
     template<typename ChainContainer>
     NetGraph(const Visit& start, const Visit& end,
              const ChainContainer& child_chains_mixed,
@@ -253,7 +253,7 @@ public:
                 // This is a unary snarl wrapped in a chain
                 add_unary_child(chain.front().first);
             } else {
-                // This is a real (but possibly trivial) chain
+                // This is a real (but possibly singlr-snarl) chain
                 add_chain_child(chain);
             }
         }
@@ -518,7 +518,7 @@ public:
     /// Returns true if snarl has no parent and false otherwise
     bool is_root(const Snarl* snarl) const;
 
-    /// Returns true if the sanrl is trivial (an ultrabubble with just the
+    /// Returns true if the snarl is trivial (an ultrabubble with just the
     /// start and end nodes) and false otherwise.
     /// TODO: Implement without needing the vg graph, by adding a flag to trivial snarls.
     bool is_trivial(const Snarl* snarl, const HandleGraph& graph) const;

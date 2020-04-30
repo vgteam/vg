@@ -49,7 +49,7 @@ public:
     
     /**
      * Visit all snarls and chains, including trivial snarls and single-node
-     * trivial chains.
+     * empty chains.
      *
      * Calls begin_chain and end_chain when entrering and exiting chains in the
      * traversal. Within each chain, calls begin_snarl and end_snarl when
@@ -59,8 +59,8 @@ public:
      * Each begin/end call receives the handle reading into/out of the snarl or
      * chain. 
      *
-     * Both trivial and cyclic chains have the in and out handles the same.
-     * They are distinguished by context; trivial chains have no shild snarls,
+     * Both empty and cyclic chains have the in and out handles the same.
+     * They are distinguished by context; empty chains have no shild snarls,
      * while cyclic chains do.
      *
      * Roots the decomposition at a global snarl with no bounding nodes, for
