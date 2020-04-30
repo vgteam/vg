@@ -27,6 +27,11 @@ HandleGraphSnarlFinder::HandleGraphSnarlFinder(const PathHandleGraph* graph) : g
 }
 
 SnarlManager HandleGraphSnarlFinder::find_snarls() {
+    auto manager = find_snarls_unfinished();
+    manager.finish();
+}
+
+SnarlManager HandleGraphSnarlFinder::find_snarls_unfinished() {
     // Start with an empty SnarlManager
     SnarlManager snarl_manager;
     
@@ -292,10 +297,7 @@ SnarlManager HandleGraphSnarlFinder::find_snarls() {
         stack.pop_back();
     });
     
-    // Let the snarl manager compute all its indexes
-    snarl_manager.finish();
-    
-    // Give it back
+    // Give it back without calling finish();
     return snarl_manager;
 }
 

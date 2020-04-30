@@ -60,6 +60,14 @@ protected:
      * The graph we are finding snarls on. It must outlive us.
      */
     const PathHandleGraph* graph;
+    
+    /**
+     * Find all the snarls, and put them into a SnarlManager.
+     * Skip making the snarl manager index (so the manager can just hold snarls
+     * that may be copied out later).
+     */
+    SnarlManager find_snarls_unfinished(bool finish_index);
+    
 public:
 
     /**

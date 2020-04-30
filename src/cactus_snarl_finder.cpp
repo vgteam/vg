@@ -16,15 +16,16 @@ namespace vg {
 
 using namespace std;
 
-CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph& graph, const string& hint_path) :
-    graph(&graph) {
+CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph& graph, const string& hint_path, bool known_single_component) :
+    HandleGraphSnarlFinder(&graph), known_single_component(known_single_component) {
+    
     if (!hint_path.empty()) {
         hint_paths.insert(hint_path);
         // TODO: actually use it
     }
 }
 
-SnarlManager CactusSnarlFinder::find_snarls_impl(bool known_single_component, bool finish_index) {
+SnarlManager CactusSnarlFinder::find_snarls_unfinished() {
     
     if (graph->get_node_count() <= 1) {
         // No snarls here!
@@ -60,18 +61,14 @@ SnarlManager CactusSnarlFinder::find_snarls_impl(bool known_single_component, bo
     // free the cactus graph
     stCactusGraph_destruct(cactus_graph);
 
-    if (finish_index) {
-        // Finish the SnarlManager
-        snarl_manager.finish();
-    }
-    
-    // Return the completed SnarlManager
+    // Return the filled but unfinished/unindexed SnarlManager
     return snarl_manager;
     
 }
 
 SnarlManager CactusSnarlFinder::find_snarls() {
-    return find_snarls_impl(false, true);
+    auto manager = find_snarls_unfinished();
+    manager.finish();
 }
 
 SnarlManager CactusSnarlFinder::find_snarls_parallel() {
@@ -89,10 +86,10 @@ SnarlManager CactusSnarlFinder::find_snarls_parallel() {
             subgraph = new PathSubgraphOverlay(graph, &weak_components[i]);
         }
         string hint_path = !hint_paths.empty() ? *hint_paths.begin() : "";
-        CactusSnarlFinder finder(*subgraph, hint_path);
-        // find the snarls, telling the finder that the graph is a single component
-        // and that we don't want to finish the snarl index
-        snarl_managers[i] = finder.find_snarls_impl(true, false);
+        // Tell the finder that the graph is a single component.
+        CactusSnarlFinder finder(*subgraph, hint_path, true);
+        // Find snarls but don't index.
+        snarl_managers[i] = finder.find_snarls_unfinished();
         if (weak_components.size() != 1) {
             // delete our component graph overlay
             delete subgraph;
@@ -118,9 +115,10 @@ SnarlManager CactusSnarlFinder::find_snarls_parallel() {
 }
 
 
-const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, const Visit& end,
-                                                        const Visit& parent_start, const Visit& parent_end,
-                                                        stList* chains_list, stList* unary_snarls_list, SnarlManager& destination) {
+void CactusSnarlFinder::recursively_emit_snarls(const Visit& start, const Visit& end,
+        stList* chains_list, stList* unary_snarls_list,
+        const function<void(handle_t)>& begin_chain, const function<void(handle_t)>& end_chain,
+        const function<void(handle_t)>& begin_snarl, const function<void(handle_t)>& end_snarl) {
         
 #ifdef debug    
     cerr << "Explore snarl " << start << " -> " << end << endl;
@@ -142,18 +140,9 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
             *snarl.mutable_parent()->mutable_start() = parent_start;
             *snarl.mutable_parent()->mutable_end() = parent_end;
         }
-    } 
+    }
     
-    // This will hold the pointer to the copy of the snarl in the SnarlManager,
-    // or null if the snarl is a fake root and we don't add it.
-    const Snarl* managed = nullptr;
-    
-    // Before we can pass our snarl to the snarl manager, we need to look at all
-    // its children so we can get connectivity info.
-    
-    // We have a vector of the snarls made for the child snarls in each ordinary
-    // chain, plus trivial chains for the unary snarls.
-    vector<Chain> child_chains;
+    begin_snarl(graph->get_handle(start.node_id(), start.backward()));
     
 #ifdef debug
     cerr << "Look at " << stList_length(chains_list) << " child chains" << endl;
@@ -163,17 +152,11 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     for (int64_t i = 0; i < stList_length(chains_list); i++) {
         // For each child chain
         stList* cactus_chain = (stList*)stList_get(chains_list, i);
-            
-        // Make a new chain.
-        // We aren't going to pass it on to the snarl manager, because chains need to be recomputed for consistency.
-        // But we need it for computing the internal snarl connectivity.
-        child_chains.emplace_back();
-        auto& chain = child_chains.back();
         
 #ifdef debug
         cerr << "Chain " << i << " has " << stList_length(cactus_chain) << " child snarls" << endl;
 #endif
-        
+
         for (int64_t j = 0; j < stList_length(cactus_chain); j++) {
             // for each child snarl in the chain
             stSnarl* child_snarl = (stSnarl*)stList_get(cactus_chain, j);
@@ -192,21 +175,21 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
             child_end.set_node_id(cac_child_side2->node);
             // End is backward if the interior is an end
             child_end.set_backward(cac_child_side2->is_end);
+            
+            if (j == 0) {
+                // Begin chain before first child snarl
+                chain_start(graph->get_handle(child_start.node_id(), child_start.backward());
+            }
                 
             // Recursively create a snarl for the child
-            const Snarl* converted_child = recursively_emit_snarls(child_start, child_end, start, end,
-                                                             child_snarl->chains, child_snarl->unarySnarls, destination);
-            // Work out if it should be backward in the chain
-            bool backward_in_chain = false;
-            if (!chain.empty()) {
-                 bool last_backward_in_chain = chain.back().second;
-                 auto dangling_id = last_backward_in_chain ? chain.back().first->end().node_id() : chain.back().first->start().node_id();
-                 // We are backward if our end is shared with the previous snarl in the chain.
-                 backward_in_chain = converted_child->end().node_id() == dangling_id;
-            }
+            const Snarl* converted_child = recursively_emit_snarls(child_start, child_end,
+                                                             child_snarl->chains, child_snarl->unarySnarls,
+                                                             chain_start, chain_end, snarl_startm snarl_end);
             
-            // And then add it to this chain.
-            chain.emplace_back(converted_child, backward_in_chain);
+            if (j + 1 == stList_length(cactus_chain)) {
+                // End chain after last child snarl
+                chain_end(graph->get_handle(child_end.node_id(), child_end.backward());
+            }
         }
     }
     
