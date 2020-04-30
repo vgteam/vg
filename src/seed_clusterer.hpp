@@ -126,12 +126,12 @@ class SnarlSeedClusterer {
                 //Get the forward rank of this node in the parent's netgraph
                 //to look up distances
 
-                size_t rank = node_type == NODE ? dist_index.getPrimaryRank(id) :
-                                                  dist_index.getSecondaryRank(id);
+                size_t rank = node_type == NODE ? dist_index.get_primary_rank(id) :
+                                                  dist_index.get_secondary_rank(id);
                 if ( (node_type == SNARL && 
-                      dist_index.snarl_indexes[dist_index.getPrimaryAssignment(id)].rev_in_parent) ||
+                      dist_index.snarl_indexes[dist_index.get_primary_assignment(id)].rev_in_parent) ||
                      (node_type == CHAIN && 
-                      dist_index.chain_indexes[dist_index.getChainAssignment(id)].rev_in_parent)) {
+                      dist_index.chain_indexes[dist_index.get_chain_assignment(id)].rev_in_parent)) {
                     rank = rank % 2 == 0 ? rank + 1 : rank - 1;
                 }
                 return rank;

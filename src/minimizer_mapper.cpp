@@ -2125,7 +2125,7 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
     //TODO: How big should the rescue subgraph be?
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4*fragment_length_distr.stdev());
     int64_t max_distance = fragment_length_distr.mean() + 4*fragment_length_distr.stdev();
-    distance_index.subgraphInRange(aligned_read.path(), &gbwt_graph, min_distance, max_distance, sub_graph, rescue_forward); 
+    distance_index.subgraph_in_range(aligned_read.path(), &gbwt_graph, min_distance, max_distance, sub_graph, rescue_forward); 
 
 
     //Convert subgraph to directed, acyclic graph
@@ -2158,7 +2158,7 @@ void MinimizerMapper::attempt_rescue_haplotypes(const Alignment& aligned_read, A
     // TODO: How big should the rescue subgraph be?
     int64_t min_distance = std::max(0.0, this->fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * this->fragment_length_distr.stdev());
     int64_t max_distance = this->fragment_length_distr.mean() + 4 * this->fragment_length_distr.stdev();
-    this->distance_index.subgraphInRange(aligned_read.path(), &(this->gbwt_graph), min_distance, max_distance, sub_graph, rescue_forward); 
+    this->distance_index.subgraph_in_range(aligned_read.path(), &(this->gbwt_graph), min_distance, max_distance, sub_graph, rescue_forward); 
 
     // Find and unfold the local haplotypes in the subgraph.
     std::vector<std::vector<handle_t>> haplotype_paths;
@@ -2183,7 +2183,7 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
     pos_t pos1 = initial_position(aln1.path()); 
     pos_t pos2 = final_position(aln2.path());
 
-    int64_t min_dist = distance_index.minDistance(pos1, pos2);
+    int64_t min_dist = distance_index.min_distance(pos1, pos2);
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
 }
 

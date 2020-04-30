@@ -812,8 +812,8 @@ namespace vg {
         if (use_min_dist_clusterer || use_tvs_clusterer) {
             assert(!forward_strand);
             // measure the distance in both directions and choose the minimum (or the only) absolute distance
-            int64_t forward_dist = distance_index->minDistance(pos_1, pos_2);
-            int64_t reverse_dist = distance_index->minDistance(pos_2, pos_1);
+            int64_t forward_dist = distance_index->min_distance(pos_1, pos_2);
+            int64_t reverse_dist = distance_index->min_distance(pos_2, pos_1);
             if (forward_dist == -1 && reverse_dist == -1) {
                 // unreachable both ways, convert to the sentinel that the client code expects
                 dist = numeric_limits<int64_t>::max();

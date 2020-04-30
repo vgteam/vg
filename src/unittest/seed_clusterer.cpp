@@ -1788,7 +1788,7 @@ namespace unittest {
                             for (size_t i1 = 0 ; i1 < clust.size() ; i1++) {
                                 pos_t pos1 = all_seeds[read_num][clust[i1]].pos;
                                 fragment_clusters[fragment_cluster].emplace_back(pos1);
-                                size_t len1 = graph.get_length(graph.get_handle(get_id(pos1), false));
+                                size_t len1 = dist_index.node_length(get_id(pos1));
                                 pos_t rev1 = make_pos_t(get_id(pos1), !is_rev(pos1),len1 - get_offset(pos1)-1); 
 
                                 for (size_t b = 0 ; b < one_read_clusters.size() ; b++) {
@@ -1799,19 +1799,19 @@ namespace unittest {
                                             //And each position in each other cluster,
                                             //make sure that this position is far away from i1
                                             pos_t pos2 = all_seeds[read_num][clust2[i2]].pos;
-                                            size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
+                                            size_t len2 = dist_index.node_length(get_id(pos2));
                                             pos_t rev2 = make_pos_t(get_id(pos2), 
                                                              !is_rev(pos2),
                                                              len2 - get_offset(pos2)-1); 
 
-                                            int64_t dist1 = dist_index.minDistance(pos1, pos2);
-                                            int64_t dist2 = dist_index.minDistance(pos1, rev2);
-                                            int64_t dist3 = dist_index.minDistance(rev1, pos2);
-                                            int64_t dist4 = dist_index.minDistance(rev1, rev2);
-                                            int64_t dist = MinimumDistanceIndex::minPos({dist1, 
+                                            int64_t dist1 = dist_index.min_distance(pos1, pos2);
+                                            int64_t dist2 = dist_index.min_distance(pos1, rev2);
+                                            int64_t dist3 = dist_index.min_distance(rev1, pos2);
+                                            int64_t dist4 = dist_index.min_distance(rev1, rev2);
+                                            int64_t dist = MinimumDistanceIndex::min_pos({dist1, 
                                                                dist2, dist3, dist4});
                                             if ( dist != -1 && dist <= read_lim) {
-                                                dist_index.printSelf();
+                                                dist_index.print_self();
                                                 graph.serialize_to_file("testGraph");
                                                 cerr << "These should have been in the same read cluster: " ;
                                                 cerr << pos1 << " and " << pos2 << endl;
@@ -1829,11 +1829,11 @@ namespace unittest {
                                     pos_t rev2 = make_pos_t(get_id(pos2), 
                                                          !is_rev(pos2),
                                                          len2 - get_offset(pos2)-1); 
-                                    int64_t dist1 = dist_index.minDistance(pos1, pos2);
-                                    int64_t dist2 = dist_index.minDistance(pos1, rev2);
-                                    int64_t dist3 = dist_index.minDistance(rev1, pos2);
-                                    int64_t dist4 = dist_index.minDistance(rev1, rev2);
-                                    int64_t dist = MinimumDistanceIndex::minPos({dist1, 
+                                    int64_t dist1 = dist_index.min_distance(pos1, pos2);
+                                    int64_t dist2 = dist_index.min_distance(pos1, rev2);
+                                    int64_t dist3 = dist_index.min_distance(rev1, pos2);
+                                    int64_t dist4 = dist_index.min_distance(rev1, rev2);
+                                    int64_t dist = MinimumDistanceIndex::min_pos({dist1, 
                                                        dist2, dist3, dist4});
                                     if ( dist != -1 && dist <= read_lim) {
                                         new_clusters.union_groups(i1, i2);
@@ -1843,7 +1843,7 @@ namespace unittest {
                             }
                             auto actual_clusters = new_clusters.all_groups();
                             if (actual_clusters.size() != 1) {
-                                                dist_index.printSelf();
+                                                dist_index.print_self();
                                 graph.serialize_to_file("testGraph");
                                 cerr << "These should be different read clusters: " << endl;
                                 for (auto c : actual_clusters) {
@@ -1885,14 +1885,14 @@ namespace unittest {
                                                      !is_rev(pos2),
                                                      len2 - get_offset(pos2)-1); 
 
-                                    int64_t dist1 = dist_index.minDistance(pos1, pos2);
-                                    int64_t dist2 = dist_index.minDistance(pos1, rev2);
-                                    int64_t dist3 = dist_index.minDistance(rev1, pos2);
-                                    int64_t dist4 = dist_index.minDistance(rev1, rev2);
-                                    int64_t dist = MinimumDistanceIndex::minPos({dist1, 
+                                    int64_t dist1 = dist_index.min_distance(pos1, pos2);
+                                    int64_t dist2 = dist_index.min_distance(pos1, rev2);
+                                    int64_t dist3 = dist_index.min_distance(rev1, pos2);
+                                    int64_t dist4 = dist_index.min_distance(rev1, rev2);
+                                    int64_t dist = MinimumDistanceIndex::min_pos({dist1, 
                                                        dist2, dist3, dist4});
                                     if ( dist != -1 && dist <= fragment_lim) {
-                                        dist_index.printSelf();
+                                        dist_index.print_self();
                                         graph.serialize_to_file("testGraph");
                                         cerr << "These should have been in the same fragment cluster: " ;
                                         cerr << pos1 << " and " << pos2 << endl;
@@ -1910,11 +1910,11 @@ namespace unittest {
                             pos_t rev2 = make_pos_t(get_id(pos2), 
                                                  !is_rev(pos2),
                                                  len2 - get_offset(pos2)-1); 
-                            int64_t dist1 = dist_index.minDistance(pos1, pos2);
-                            int64_t dist2 = dist_index.minDistance(pos1, rev2);
-                            int64_t dist3 = dist_index.minDistance(rev1, pos2);
-                            int64_t dist4 = dist_index.minDistance(rev1, rev2);
-                            int64_t dist = MinimumDistanceIndex::minPos({dist1, 
+                            int64_t dist1 = dist_index.min_distance(pos1, pos2);
+                            int64_t dist2 = dist_index.min_distance(pos1, rev2);
+                            int64_t dist3 = dist_index.min_distance(rev1, pos2);
+                            int64_t dist4 = dist_index.min_distance(rev1, rev2);
+                            int64_t dist = MinimumDistanceIndex::min_pos({dist1, 
                                                dist2, dist3, dist4});
                             if ( dist != -1 && dist <= fragment_lim) {
                                 new_clusters.union_groups(i1, i2);
@@ -1924,7 +1924,7 @@ namespace unittest {
                     }
                     auto actual_clusters = new_clusters.all_groups();
                     if (actual_clusters.size() != 1) {
-                                        dist_index.printSelf();
+                                        dist_index.print_self();
                         graph.serialize_to_file("testGraph");
                         cerr << "These should be different fragment clusters: " << endl;
                         for (auto c : actual_clusters) {

@@ -36,7 +36,7 @@ static pair<unordered_set<Node*>, unordered_set<Edge*> > pb_contents(
     return ret;
 }
 
-int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
+int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
     //Distance using djikstras algorithm
 
     auto cmp = [] (pair<pair<id_t, bool> , int64_t> x, 
@@ -150,18 +150,18 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
             MinimumDistanceIndex di (&graph, &snarl_manager);
 #ifdef print
-            di.printSelf();
+            di.print_self();
 #endif
 
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(2, false, 0) ) == 3);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(8, false, 0) ) == 3);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(6, false, 0) ) == 4);
-            REQUIRE(di.minDistance(make_pos_t(2, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(2, false, 0),
                                    make_pos_t(6, false, 0) ) == 1);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(7, false, 0) ) == 5);
 
         } 
@@ -169,29 +169,29 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
             MinimumDistanceIndex di (&graph, &snarl_manager, 20);
 #ifdef print
-            di.printSelf();
+            di.print_self();
 #endif
 
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(2, false, 0) ) == 3);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(8, false, 0) ) == 3);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(6, false, 0) ) == 4);
-            REQUIRE(di.minDistance(make_pos_t(2, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(2, false, 0),
                                    make_pos_t(6, false, 0) ) == 1);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(7, false, 0) ) == 5);
 
-            REQUIRE(di.maxDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(1, false, 0),
                                    make_pos_t(2, false, 0) ) >= 3);
-            REQUIRE(di.maxDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(1, false, 0),
                                    make_pos_t(8, false, 0) ) >= 13);
-            REQUIRE(di.maxDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(1, false, 0),
                                    make_pos_t(6, false, 0) ) >= 5);
-            REQUIRE(di.maxDistance(make_pos_t(2, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(2, false, 0),
                                    make_pos_t(6, false, 0) ) >= 1);
-            REQUIRE(di.maxDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(1, false, 0),
                                    make_pos_t(7, false, 0) ) >= 12);
 
         }
@@ -242,7 +242,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         SECTION( "Create distance index" ) {
             //REQUIRE(di.chainDistances.size() == 0);
 #ifdef print
-            di.printSelf();
+            di.print_self();
 #endif
         }
 
@@ -263,15 +263,15 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             pos_t pos11 = make_pos_t(11, false, 0);
             pos_t pos12 = make_pos_t(12, false, 0);
 
-            REQUIRE(di.minDistance( pos1, pos4) == 4);
-            REQUIRE(di.minDistance( pos1, pos6) == 7);
-            REQUIRE(di.minDistance( pos6, pos7) == -1);
+            REQUIRE(di.min_distance( pos1, pos4) == 4);
+            REQUIRE(di.min_distance( pos1, pos6) == 7);
+            REQUIRE(di.min_distance( pos6, pos7) == -1);
 
-            REQUIRE(di.minDistance( pos9, pos12) == 5);
-            REQUIRE(di.minDistance(pos9, pos11) == 1);
-            REQUIRE(di.minDistance( pos4, pos9) == -1);
-            REQUIRE(di.minDistance( pos4, pos12) == -1);
-            REQUIRE(di.minDistance( pos1, pos11) == -1);
+            REQUIRE(di.min_distance( pos9, pos12) == 5);
+            REQUIRE(di.min_distance(pos9, pos11) == 1);
+            REQUIRE(di.min_distance( pos4, pos9) == -1);
+            REQUIRE(di.min_distance( pos4, pos12) == -1);
+            REQUIRE(di.min_distance( pos1, pos11) == -1);
 
 
         }
@@ -308,20 +308,20 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
             MinimumDistanceIndex di (&graph, &snarl_manager);
 #ifdef print
-            di.printSelf();
+            di.print_self();
 #endif
 
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(5, false, 0)) == 5);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(6, false, 0)) == 8);
-            REQUIRE(di.minDistance(make_pos_t(6, true, 0),
+            REQUIRE(di.min_distance(make_pos_t(6, true, 0),
                                    make_pos_t(1, true, 0)) == 6);
-            REQUIRE(di.minDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(3, false, 0),
                                    make_pos_t(6, false, 0)) == 4);
-            REQUIRE(di.minDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(3, false, 0),
                                    make_pos_t(7, false, 0)) == 4);
-            REQUIRE(di.minDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(3, false, 0),
                                    make_pos_t(8, false, 0)) == 5);
 
         }
@@ -330,37 +330,37 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
             MinimumDistanceIndex di (&graph, &snarl_manager, 20);
 #ifdef print
-            di.printSelf();
+            di.print_self();
 #endif
 
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(5, false, 0)) == 5);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(6, false, 0)) == 8);
-            REQUIRE(di.minDistance(make_pos_t(6, true, 0),
+            REQUIRE(di.min_distance(make_pos_t(6, true, 0),
                                    make_pos_t(1, true, 0)) == 6);
-            REQUIRE(di.minDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(3, false, 0),
                                    make_pos_t(6, false, 0)) == 4);
-            REQUIRE(di.minDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(3, false, 0),
                                    make_pos_t(7, false, 0)) == 4);
-            REQUIRE(di.minDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(3, false, 0),
                                    make_pos_t(8, false, 0)) == 5);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(8, false, 0)) == 3);
 
-            REQUIRE(di.maxDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(1, false, 0),
                                    make_pos_t(5, false, 0)) >= 8);
-            REQUIRE(di.maxDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(1, false, 0),
                                    make_pos_t(6, false, 0)) >= 11);
-            REQUIRE(di.maxDistance(make_pos_t(6, true, 0),
+            REQUIRE(di.max_distance(make_pos_t(6, true, 0),
                                    make_pos_t(1, true, 0)) >= 9);
-            REQUIRE(di.maxDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(3, false, 0),
                                    make_pos_t(6, false, 0)) >= 4);
-            REQUIRE(di.maxDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(3, false, 0),
                                    make_pos_t(7, false, 0)) >= 5);
-            REQUIRE(di.maxDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(3, false, 0),
                                    make_pos_t(8, false, 0)) >= 6);
-            REQUIRE(di.maxDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(1, false, 0),
                                    make_pos_t(8, false, 0)) >= 13);
 
         }
@@ -401,15 +401,15 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
             MinimumDistanceIndex di (&graph, &snarl_manager);
             #ifdef print
-            di.printSelf();
+            di.print_self();
             #endif
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(8, false, 0)) == 3);
-            REQUIRE(di.minDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(3, false, 0),
                                    make_pos_t(7, false, 0)) == 4);
-            REQUIRE(di.minDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(3, false, 0),
                                    make_pos_t(4, true, 0)) == 7);
-            REQUIRE(di.minDistance(make_pos_t(5, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(5, false, 0),
                                    make_pos_t(6, true, 0)) == 5);
 
 
@@ -418,15 +418,15 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         SECTION("Max distance") {
             MinimumDistanceIndex di (&graph, &snarl_manager, 30);
             #ifdef print
-            di.printSelf();
+            di.print_self();
             #endif
-            REQUIRE(di.maxDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(1, false, 0),
                                    make_pos_t(8, false, 0)) >= 13);
-            REQUIRE(di.maxDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(3, false, 0),
                                    make_pos_t(7, false, 0)) >= 5);
-            REQUIRE(di.maxDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(3, false, 0),
                                    make_pos_t(4, true, 0)) >= 27);
-            REQUIRE(di.maxDistance(make_pos_t(5, false, 0),
+            REQUIRE(di.max_distance(make_pos_t(5, false, 0),
                                    make_pos_t(6, true, 0)) >= 15);
 
 
@@ -470,17 +470,17 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         SECTION("Create distance index") {
             MinimumDistanceIndex di (&graph, &snarl_manager);
             #ifdef print
-            di.printSelf();
+            di.print_self();
             #endif
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(7, false, 0)) == 8);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(10, false, 0)) == 7);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(5, false, 0)) == 5);
-            REQUIRE(di.minDistance(make_pos_t(2, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(2, false, 0),
                                    make_pos_t(9, false, 0)) == 10);
-            REQUIRE(di.minDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(3, false, 0),
                                    make_pos_t(9, false, 0)) == 9);
 
         }
@@ -522,23 +522,23 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         SECTION("Create distance index") { 
             MinimumDistanceIndex di (&graph, &snarl_manager);
             #ifdef print
-            di.printSelf();
+            di.print_self();
             #endif
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(7, false, 0)) == 8);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(8, false, 0)) == 9);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(8, true, 0)) == 9);
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(5, false, 0)) == 8);
-            REQUIRE(di.minDistance(make_pos_t(8, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(8, false, 0),
                                    make_pos_t(5, true, 0)) == 5);
-            REQUIRE(di.minDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(3, false, 0),
                                    make_pos_t(6, false, 0)) == 5);
-            REQUIRE(di.minDistance(make_pos_t(3, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(3, false, 0),
                                    make_pos_t(10, false, 0)) == 11);
-            REQUIRE(di.minDistance(make_pos_t(7, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(7, false, 0),
                                    make_pos_t(1, true, 0)) == 11);
 
         }
@@ -577,13 +577,13 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         SECTION("Minimum distance") {
             MinimumDistanceIndex di (&graph, &snarl_manager);
             #ifdef print
-            di.printSelf();
+            di.print_self();
             #endif
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
                                    make_pos_t(7, false, 0)) == 4);
-            REQUIRE(di.minDistance(make_pos_t(2, true, 0),
+            REQUIRE(di.min_distance(make_pos_t(2, true, 0),
                                    make_pos_t(3, false, 0)) == 7);
-            REQUIRE(di.minDistance(make_pos_t(4, true, 0),
+            REQUIRE(di.min_distance(make_pos_t(4, true, 0),
                                    make_pos_t(2, false, 0)) == 11);
         }
     }//end test case
@@ -622,8 +622,8 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         MinimumDistanceIndex di (&graph, &snarl_manager);
         
         SECTION( "Min distance" ) {
-            REQUIRE(di.minDistance(make_pos_t(5, false, 1), make_pos_t(5, false, 0)) == 11); 
-            REQUIRE(di.minDistance(make_pos_t(5, false, 0), make_pos_t(5, false, 0)) == 0); 
+            REQUIRE(di.min_distance(make_pos_t(5, false, 1), make_pos_t(5, false, 0)) == 11); 
+            REQUIRE(di.min_distance(make_pos_t(5, false, 0), make_pos_t(5, false, 0)) == 0); 
         }
 
     }//End test case
@@ -659,15 +659,15 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
         SECTION ("Min distance") {
 
-            REQUIRE(di.minDistance(make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 4);
-            REQUIRE(di.minDistance( make_pos_t(5, false, 0), make_pos_t(6, false, 0)) == -1);
-            REQUIRE(di.minDistance( make_pos_t(5, false, 0), make_pos_t(6, true, 0)) == -1);
-            REQUIRE(di.minDistance( make_pos_t(5, true, 2), make_pos_t(6, false, 0)) == 11);
-            REQUIRE(di.minDistance(make_pos_t(2, false, 0), make_pos_t(7, false, 0)) == 6);
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 4);
+            REQUIRE(di.min_distance( make_pos_t(5, false, 0), make_pos_t(6, false, 0)) == -1);
+            REQUIRE(di.min_distance( make_pos_t(5, false, 0), make_pos_t(6, true, 0)) == -1);
+            REQUIRE(di.min_distance( make_pos_t(5, true, 2), make_pos_t(6, false, 0)) == 11);
+            REQUIRE(di.min_distance(make_pos_t(2, false, 0), make_pos_t(7, false, 0)) == 6);
 
-            REQUIRE(minDistance(&graph, make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 4);
-            REQUIRE(minDistance(&graph, make_pos_t(5, true, 2), make_pos_t(6, false, 0)) == 11);
-            REQUIRE(minDistance(&graph, make_pos_t(2, false, 0), make_pos_t(7, false, 0)) == 6);
+            REQUIRE(min_distance(&graph, make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 4);
+            REQUIRE(min_distance(&graph, make_pos_t(5, true, 2), make_pos_t(6, false, 0)) == 11);
+            REQUIRE(min_distance(&graph, make_pos_t(2, false, 0), make_pos_t(7, false, 0)) == 6);
 
       
         }
@@ -716,30 +716,30 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         SECTION ("Min distance") {
             MinimumDistanceIndex di (&graph, &snarl_manager);
 #ifdef print
-            di.printSelf();
+            di.print_self();
 #endif
 
-            REQUIRE(di.minDistance( make_pos_t(2, true, 0), 
+            REQUIRE(di.min_distance( make_pos_t(2, true, 0), 
                                     make_pos_t(9, true, 1)) == 2);
-            REQUIRE(di.minDistance( make_pos_t(2, false, 0), 
+            REQUIRE(di.min_distance( make_pos_t(2, false, 0), 
                                     make_pos_t(9, true, 1)) == 5);
-            REQUIRE(di.minDistance( make_pos_t(3, true, 0),
+            REQUIRE(di.min_distance( make_pos_t(3, true, 0),
                                     make_pos_t(9, false, 0)) == 4);
-            REQUIRE(di.minDistance( make_pos_t(3, true, 0), 
+            REQUIRE(di.min_distance( make_pos_t(3, true, 0), 
                                     make_pos_t(9, true, 1)) == 3);
-            REQUIRE(di.minDistance( make_pos_t(3, false, 0), 
+            REQUIRE(di.min_distance( make_pos_t(3, false, 0), 
                                     make_pos_t(9, false, 0)) == 11);
-            REQUIRE(di.minDistance( make_pos_t(4, false, 0), 
+            REQUIRE(di.min_distance( make_pos_t(4, false, 0), 
                                     make_pos_t(5, false, 0)) == 14);
-            REQUIRE(di.minDistance( make_pos_t(4, true, 0), 
+            REQUIRE(di.min_distance( make_pos_t(4, true, 0), 
                                     make_pos_t(5, false, 0)) == 8);
-            REQUIRE(di.minDistance(make_pos_t(7, false, 0), 
+            REQUIRE(di.min_distance(make_pos_t(7, false, 0), 
                                    make_pos_t(12, false, 0)) == 14);
-            REQUIRE(di.minDistance(make_pos_t(7, false, 0), 
+            REQUIRE(di.min_distance(make_pos_t(7, false, 0), 
                                    make_pos_t(12, true, 0)) == 13);
-            REQUIRE(di.minDistance(make_pos_t(7, true, 0),
+            REQUIRE(di.min_distance(make_pos_t(7, true, 0),
                                    make_pos_t(12, false, 0)) == 15);
-            REQUIRE(di.minDistance(make_pos_t(8, false, 0), 
+            REQUIRE(di.min_distance(make_pos_t(8, false, 0), 
                                    make_pos_t(11, false, 0)) == 7);
 
         }
@@ -802,26 +802,26 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         MinimumDistanceIndex di (&graph, &snarl_manager);
 
 #ifdef print
-            di.printSelf();
+            di.print_self();
 #endif
 
-            REQUIRE(di.minDistance(make_pos_t(2, true, 0), 
+            REQUIRE(di.min_distance(make_pos_t(2, true, 0), 
                                    make_pos_t(10, true, 0)) == 2);
-            REQUIRE(di.minDistance(make_pos_t(2, false, 0), 
+            REQUIRE(di.min_distance(make_pos_t(2, false, 0), 
                                    make_pos_t(10, false, 0)) == 4);
-            REQUIRE(di.minDistance(make_pos_t(4, true, 3), 
+            REQUIRE(di.min_distance(make_pos_t(4, true, 3), 
                                    make_pos_t(5, false, 0)) == 5);
-            REQUIRE(di.minDistance(make_pos_t(4, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(4, false, 0),
                                    make_pos_t(5, false, 0)) == 11);
-            REQUIRE(di.minDistance(make_pos_t(4, true, 3),
+            REQUIRE(di.min_distance(make_pos_t(4, true, 3),
                                    make_pos_t(5, true, 0)) == 8);
-            REQUIRE(di.minDistance(make_pos_t(14, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(14, false, 0),
                                    make_pos_t(10, false, 0)) == 10);
-            REQUIRE(di.minDistance(make_pos_t(14, false, 0), 
+            REQUIRE(di.min_distance(make_pos_t(14, false, 0), 
                                    make_pos_t(10, true, 0)) == 5);
-            REQUIRE(di.minDistance(make_pos_t(14, false, 0), 
+            REQUIRE(di.min_distance(make_pos_t(14, false, 0), 
                                    make_pos_t(3, false, 0)) == 7);
-            REQUIRE(di.minDistance(make_pos_t(16, false, 0),
+            REQUIRE(di.min_distance(make_pos_t(16, false, 0),
                                    make_pos_t(3, false, 0)) == 5);
         }
     }//End test case
@@ -865,37 +865,37 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
             MinimumDistanceIndex di (&graph, &snarl_manager);
             #ifdef print
-                di.printSelf();
+                di.print_self();
             #endif
 
-            REQUIRE(di.minDistance(make_pos_t(4, false, 0), 
+            REQUIRE(di.min_distance(make_pos_t(4, false, 0), 
                                    make_pos_t(6, false, 0)) == 19);
-            REQUIRE(di.minDistance(make_pos_t(4, false, 0), 
+            REQUIRE(di.min_distance(make_pos_t(4, false, 0), 
                                    make_pos_t(6, true, 0)) == 25);
-            REQUIRE(di.minDistance(make_pos_t(2, true, 0), 
+            REQUIRE(di.min_distance(make_pos_t(2, true, 0), 
                                    make_pos_t(7, false, 0)) == 7);
-            REQUIRE(di.minDistance(make_pos_t(2, false, 0), 
+            REQUIRE(di.min_distance(make_pos_t(2, false, 0), 
                                    make_pos_t(7, false, 0)) == 6);
-            REQUIRE(di.minDistance(make_pos_t(2, false, 0), 
+            REQUIRE(di.min_distance(make_pos_t(2, false, 0), 
                                    make_pos_t(7, true, 0)) == 11);
 
-            REQUIRE(minDistance(&graph, make_pos_t(4, false, 0),  
+            REQUIRE(min_distance(&graph, make_pos_t(4, false, 0),  
                                          make_pos_t(6, true, 0)) == 25);
-            REQUIRE(minDistance(&graph, make_pos_t(2, false, 0),
+            REQUIRE(min_distance(&graph, make_pos_t(2, false, 0),
                                          make_pos_t(7, true, 0)) == 11);
         }
         SECTION ("Max distance") {
 
             MinimumDistanceIndex di (&graph, &snarl_manager, 50);
             #ifdef print
-                di.printSelf();
+                di.print_self();
             #endif
 
-            REQUIRE(di.maxDistance(make_pos_t(4, false, 0), 
+            REQUIRE(di.max_distance(make_pos_t(4, false, 0), 
                                    make_pos_t(6, false, 0)) >= 40);
-            REQUIRE(di.maxDistance(make_pos_t(4, false, 0), 
+            REQUIRE(di.max_distance(make_pos_t(4, false, 0), 
                                    make_pos_t(6, true, 0)) >= 25);
-            REQUIRE(di.maxDistance(make_pos_t(2, false, 0), 
+            REQUIRE(di.max_distance(make_pos_t(2, false, 0), 
                                    make_pos_t(7, false, 0)) >= 22);
 
         }
@@ -930,7 +930,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
        SECTION ("Distance functions") {
             MinimumDistanceIndex di (&graph, &snarl_manager);
             #ifdef print
-                di.printSelf();
+                di.print_self();
             #endif
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, true);
             const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
@@ -939,7 +939,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             pos_t pos1 = make_pos_t(1, false, 0);
             pos_t pos2 = make_pos_t(2, false, 0);
 
-            REQUIRE(di.minDistance(pos1, pos2) == minDistance(&graph, pos1, pos2));
+            REQUIRE(di.min_distance(pos1, pos2) == min_distance(&graph, pos1, pos2));
 
 
 
@@ -1001,7 +1001,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
        SECTION ("Simple disconnected graph") {
             MinimumDistanceIndex di (&graph, &snarl_manager);
             #ifdef print
-                di.printSelf();
+                di.print_self();
             #endif
 
             //Connected components should be have unique identifiers
@@ -1132,7 +1132,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
        SECTION ("Nested disconnected graph") {
             MinimumDistanceIndex di (&graph, &snarl_manager);
             #ifdef print
-                di.printSelf();
+                di.print_self();
             #endif
 
             //Connected components should be have unique identifiers
@@ -1205,10 +1205,10 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
         MinimumDistanceIndex di (&vg, &snarl_manager);
-        di.printSelf();
+        di.print_self();
         pos_t pos1 = make_pos_t(208, true, 4);
         pos_t pos2 = make_pos_t(256, false, 2); 
-        REQUIRE(di.minDistance(pos1, pos2) == minDistance(&vg, pos1, pos2));
+        REQUIRE(di.min_distance(pos1, pos2) == min_distance(&vg, pos1, pos2));
 */
 
         for (int i = 0; i < 0; i++) {
@@ -1222,7 +1222,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             uint64_t cap = 50;
             MinimumDistanceIndex di (&graph, &snarl_manager, cap);
             #ifdef print        
-                di.printSelf();
+                di.print_self();
 
             #endif
 
@@ -1278,16 +1278,16 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
                     //If the nodes aren't child snarls
 
-                    int64_t myDist = di.minDistance(pos1, pos2);
-                    int64_t maxDist = di.maxDistance(pos1, pos2);
-                    int64_t actDist = minDistance(&graph, pos1, pos2);
+                    int64_t myDist = di.min_distance(pos1, pos2);
+                    int64_t maxDist = di.max_distance(pos1, pos2);
+                    int64_t actDist = min_distance(&graph, pos1, pos2);
 
 
-                    int64_t dist2 = di.minDistance(pos1, make_pos_t(nodeID2, !is_rev(pos2), node2->sequence().size() - offset2 - 1) ); 
+                    int64_t dist2 = di.min_distance(pos1, make_pos_t(nodeID2, !is_rev(pos2), node2->sequence().size() - offset2 - 1) ); 
                     dist2 = myDist == -1 ? dist2 : (dist2 == -1 ? myDist : min(myDist, dist2));
-                    int64_t dist3 = di.minDistance(make_pos_t(nodeID1, !is_rev(pos1), node1->sequence().size() - offset1 - 1), pos2 ); 
+                    int64_t dist3 = di.min_distance(make_pos_t(nodeID1, !is_rev(pos1), node1->sequence().size() - offset1 - 1), pos2 ); 
                     dist3 = dist2 == -1 ? dist3 : (dist3 == -1 ? dist2 : min(dist2, dist3));
-                    int64_t dist4 = di.minDistance(make_pos_t(nodeID1, !is_rev(pos1), node1->sequence().size() - offset1 - 1), 
+                    int64_t dist4 = di.min_distance(make_pos_t(nodeID1, !is_rev(pos1), node1->sequence().size() - offset1 - 1), 
                                                    make_pos_t(nodeID2, !is_rev(pos2), node2->sequence().size() - offset2 - 1) ); 
                     dist4 = dist3 == -1 ? dist4 : (dist4 == -1 ? dist3 : min(dist3, dist4));
 
@@ -1327,7 +1327,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
                     if (!passed) { 
                         graph.serialize_to_file("testGraph");
-                        di.printSelf();
+                        di.print_self();
                         cerr << "Failed on random test: " << endl;
                         
                         cerr << "Position 1 on snarl " << 
@@ -1391,7 +1391,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
            pos_t pos1 = make_pos_t(nodeID1, false, 0);
            pos_t pos2 = make_pos_t(nodeID2, false, 0);
-           REQUIRE(di.minDistance(pos1, pos2) == distance(&vg, pos1, pos2));
+           REQUIRE(di.min_distance(pos1, pos2) == distance(&vg, pos1, pos2));
         }
 
     }
@@ -1422,8 +1422,8 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             MinimumDistanceIndex sdi (in);
             buf.close();
             #ifdef print        
-                di.printSelf();
-                sdi.printSelf();
+                di.print_self();
+                sdi.print_self();
 
             #endif
  
@@ -1475,14 +1475,14 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
                     //If the nodes aren't child snarls
 
-                    int64_t myDist = di.minDistance(pos1, pos2);
-                    int64_t serialDist = sdi.minDistance(pos1, pos2);
+                    int64_t myDist = di.min_distance(pos1, pos2);
+                    int64_t serialDist = sdi.min_distance(pos1, pos2);
 
                     bool passed = myDist == serialDist;
 
                     if (!passed) { 
                         graph.serialize_to_file("testGraph");
-                        di.printSelf();
+                        di.print_self();
                         cerr << "Failed on random test: " << endl;
                         
                         cerr << "Position 1 on snarl " << 
@@ -1528,11 +1528,11 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             MinimumDistanceIndex sdi (&graph, &snarl_manager, in);
             buf.close();
             #ifdef print        
-                di.printSelf();
-                sdi.printSelf();
+                di.print_self();
+                sdi.print_self();
 
             #endif
-            REQUIRE (sdi.maxIndex.minDistances.size() == 0);
+            REQUIRE (sdi.maxIndex.min_distances.size() == 0);
  
             vector<const Snarl*> allSnarls;
             auto addSnarl = [&] (const Snarl* s) {
@@ -1582,14 +1582,14 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
                     //If the nodes aren't child snarls
 
-                    int64_t myDist = di.minDistance(pos1, pos2);
-                    int64_t serialDist = sdi.minDistance(snarl1, snarl2,pos1, pos2);
+                    int64_t myDist = di.min_distance(pos1, pos2);
+                    int64_t serialDist = sdi.min_distance(snarl1, snarl2,pos1, pos2);
 
                     bool passed = myDist == serialDist;
 
                     if (!passed) { 
                         graph.serialize_to_file("testGraph");
-                        di.printSelf();
+                        di.print_self();
                         cerr << "Failed on random test: " << endl;
                         
                         cerr << "Position 1 on snarl " << 
@@ -1647,7 +1647,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 5, 7, sub_graph, true); 
+            dist_index.subgraph_in_range(path, &graph, 5, 7, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(sub_graph.has_node(4));
@@ -1665,7 +1665,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 4, 7, sub_graph, true); 
+            dist_index.subgraph_in_range(path, &graph, 4, 7, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(sub_graph.has_node(4));
@@ -1710,7 +1710,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 4, 7, sub_graph, true); 
+            dist_index.subgraph_in_range(path, &graph, 4, 7, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(sub_graph.has_node(4));
@@ -1727,7 +1727,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 10, 10, sub_graph, true); 
+            dist_index.subgraph_in_range(path, &graph, 10, 10, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(!sub_graph.has_node(4));
@@ -1745,7 +1745,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 6, 6, sub_graph, true); 
+            dist_index.subgraph_in_range(path, &graph, 6, 6, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(!sub_graph.has_node(4));
@@ -1805,7 +1805,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 9, 9, sub_graph, true); 
+            dist_index.subgraph_in_range(path, &graph, 9, 9, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(!sub_graph.has_node(8));
@@ -1826,7 +1826,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 12, 14, sub_graph, true); 
+            dist_index.subgraph_in_range(path, &graph, 12, 14, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(3));
             REQUIRE(!sub_graph.has_node(8));
@@ -1846,7 +1846,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 8, 11, sub_graph, true); 
+            dist_index.subgraph_in_range(path, &graph, 8, 11, sub_graph, true); 
 
             REQUIRE(sub_graph.has_node(1));
             REQUIRE(!sub_graph.has_node(2));
@@ -1867,7 +1867,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 12, 13, sub_graph, true); 
+            dist_index.subgraph_in_range(path, &graph, 12, 13, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(1));
             REQUIRE(!sub_graph.has_node(2));
@@ -1890,7 +1890,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
             Path path = path_from_path_handle(graph, path_handle);
 
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
-            dist_index.subgraphInRange(path, &graph, 16, 17, sub_graph, true); 
+            dist_index.subgraph_in_range(path, &graph, 16, 17, sub_graph, true); 
 
             REQUIRE(!sub_graph.has_node(1));
             REQUIRE(!sub_graph.has_node(2));
@@ -1919,7 +1919,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 //        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 //
 //        MinimumDistanceIndex di (&vg, &snarl_manager);
-//        di.printSelf();
+//        di.print_self();
 //
 //        handle_t handle = vg.get_handle(30, false);
 //        path_handle_t path_handle = vg.create_path_handle("test_path");
@@ -1927,7 +1927,7 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 //        Path path = path_from_path_handle(vg, path_handle);
 //
 //        SubHandleGraph sub_graph(&vg);
-//        di.subgraphInRange(path, &vg, min, max, sub_graph, false); 
+//        di.subgraph_in_range(path, &vg, min, max, sub_graph, false); 
 //
 //        REQUIRE(sub_graph.has_node(27));
 
@@ -1969,19 +1969,19 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
                 SubHandleGraph sub_graph(&graph);
                 size_t node_len = graph.get_length(handle);
-                dist_index.subgraphInRange(path, &graph, min+1, max+1, sub_graph, true); 
+                dist_index.subgraph_in_range(path, &graph, min+1, max+1, sub_graph, true); 
 
                 graph.for_each_handle([&] (const handle_t h ) { 
                     id_t node_id = graph.get_id(h);
                     int64_t len = graph.get_length(h);
-                    int64_t dist_start_fd = dist_index.minDistance(pos1, make_pos_t(node_id, false, 0));
+                    int64_t dist_start_fd = dist_index.min_distance(pos1, make_pos_t(node_id, false, 0));
                     int64_t dist_end_fd = dist_start_fd == -1 ? -1 : dist_start_fd + len - 1;
 
                     bool start_forward = dist_start_fd != -1 && (dist_start_fd >= min && dist_start_fd <= max);
                     bool end_forward = dist_end_fd != -1 && (dist_end_fd >= min && dist_end_fd <= max);
                     bool in_forward = dist_start_fd != -1 && dist_end_fd == -1 || (dist_start_fd <= min && dist_end_fd >= max);
                 
-                    int64_t dist_start_bk = dist_index.minDistance(pos1, make_pos_t(node_id, true, 0));
+                    int64_t dist_start_bk = dist_index.min_distance(pos1, make_pos_t(node_id, true, 0));
                     int64_t dist_end_bk = dist_start_bk == -1 ? -1 : dist_start_bk + len - 1;
 
                     bool start_backward = dist_start_bk != -1 && (dist_start_bk >= min && dist_start_bk <= max);
@@ -1992,8 +1992,8 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
 
                         if (!(start_forward || end_forward || in_forward || start_backward || end_backward || in_backward)) {
                             cerr << "Node " << node_id << " from pos " << pos1 << " with distances " 
-                                 << dist_index.minDistance(pos1, make_pos_t(node_id, false, 0)) << " and " 
-                                 << dist_index.minDistance(pos1, make_pos_t(node_id, true, 0)) 
+                                 << dist_index.min_distance(pos1, make_pos_t(node_id, false, 0)) << " and " 
+                                 << dist_index.min_distance(pos1, make_pos_t(node_id, true, 0)) 
                                  << " (" << dist_start_fd << " " << dist_end_fd << " " << dist_start_bk << " " << dist_end_bk << ") "
                                  << " is in the subgraph but shouldn't be " << endl;
                             graph.serialize_to_file("testGraph");
@@ -2003,8 +2003,8 @@ int64_t minDistance(VG* graph, pos_t pos1, pos_t pos2){
                         if ((start_forward || end_forward || in_forward || start_backward || end_backward || in_backward) &&
                              node_id != get_id(pos1)) {
                             cerr << "Node " << node_id << " from pos " << pos1 <<" with distances " 
-                                 << dist_index.minDistance(pos1, make_pos_t(node_id, false, 0)) << " and " 
-                                 << dist_index.minDistance(pos1, make_pos_t(node_id, true, 0)) 
+                                 << dist_index.min_distance(pos1, make_pos_t(node_id, false, 0)) << " and " 
+                                 << dist_index.min_distance(pos1, make_pos_t(node_id, true, 0)) 
                                  << " (" << dist_start_fd << " " << dist_end_fd << " " << dist_start_bk << " " << dist_end_bk << ") "
                                  << " is not in the subgraph but should be " << endl;
                             graph.serialize_to_file("testGraph");
