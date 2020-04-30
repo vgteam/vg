@@ -867,13 +867,14 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        SupportBasedSnarlCaller& snarl_caller,
                        SnarlManager& snarl_manager,
                        const string& sample_name,
-                       size_t max_traversals,
+                       TraversalFinder& traversal_finder,
                        const vector<string>& ref_paths,
                        const vector<size_t>& ref_path_offsets,
                        ostream& out_stream) :
     GraphCaller(snarl_caller, snarl_manager, out_stream),
     VCFOutputCaller(sample_name),
     graph(graph),
+    traversal_finder(traversal_finder),
     ref_paths(ref_paths) {
     
     for (int i = 0; i < ref_paths.size(); ++i) {
@@ -881,24 +882,10 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
         ref_path_set.insert(ref_paths[i]);
     }
 
-    // todo: do we ever want to toggle in min-support?
-    function<double(handle_t)> node_support = [&] (handle_t h) {
-        const auto& support_finder = snarl_caller.get_support_finder();
-        return support_finder.support_val(support_finder.get_avg_node_support(graph.get_id(h)));
-    };
-
-    function<double(edge_t)> edge_support = [&] (edge_t e) {
-        const auto& support_finder = snarl_caller.get_support_finder();
-        return support_finder.support_val(support_finder.get_edge_support(e));
-    };
-
-    // create the flow traversal finder
-    traversal_finder = new FlowTraversalFinder(graph, snarl_manager, max_traversals,
-                                               node_support, edge_support);
 }
    
 FlowCaller::~FlowCaller() {
-    delete traversal_finder;
+
 }
 
 bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
@@ -1008,35 +995,41 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
     }
     assert(ref_trav.visit(0) == snarl.start() && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
 
-    // find the max flow traversals, along with their flows (todo: use them?)
-    pair<vector<SnarlTraversal>, vector<double>> weighted_travs = traversal_finder->find_weighted_traversals(snarl, greedy_avg_flow);
+    vector<SnarlTraversal> travs;
+    FlowTraversalFinder* flow_trav_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
+    if (flow_trav_finder != nullptr) {
+        // find the max flow traversals using specialized interface that accepts avg heurstic toggle
+        pair<vector<SnarlTraversal>, vector<double>> weighted_travs = flow_trav_finder->find_weighted_traversals(snarl, greedy_avg_flow);
+        travs = std::move(weighted_travs.first);
+    } else {
+        // find the traversals using the generic interface
+        travs = traversal_finder.find_traversals(snarl);
+    }
 
     // find the reference traversal in the list of results from the traversal finder
     int ref_trav_idx = -1;
-    for (int i = 0; i < weighted_travs.first.size() && ref_trav_idx < 0; ++i) {
+    for (int i = 0; i < travs.size() && ref_trav_idx < 0; ++i) {
         // todo: is there a way to speed this up?
-        if (weighted_travs.first[i] == ref_trav) {
+        if (travs[i] == ref_trav) {
             ref_trav_idx = i;
         }
     }
 
     if (ref_trav_idx == -1) {
-        ref_trav_idx = weighted_travs.first.size();
+        ref_trav_idx = travs.size();
         // we didn't get the reference traversal from the finder, so we add it here
-        weighted_travs.first.push_back(ref_trav);
-        // note: we could calculatte this above if we use it
-        weighted_travs.second.push_back(0.);
+        travs.push_back(ref_trav);
     }
 
     // use our support caller to choose our genotype
     vector<int> trav_genotype;
     unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-    std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, weighted_travs.first, ref_trav_idx, ploidy, ref_path_name,
+    std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
                                                                     make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
     assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
 
-    emit_variant(graph, snarl_caller, snarl, weighted_travs.first, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
+    emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
                  ref_offsets[ref_path_name]);
 
     if (flipped) {

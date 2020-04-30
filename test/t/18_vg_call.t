@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 8
+plan tests 9
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -119,3 +119,18 @@ vg call c.aug.xg -k m.aug.pack >m.vcf
 is $(cat m.vcf | grep -v "^#" | grep -v "0/0" | wc -l) 3 "vg call finds true homozygous variants in a cyclic graph"
 rm -f c.vg c.xg c.gcsa c.gcsa.lcp m.fa m.vg m.xg m.sim m.gam m.aug.gam c.aug.vg c.aug.xg m.aug.pack m.vcf
 
+# simple gbwt
+vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
+vg index -G x.gbwt -v small/x.vcf.gz x.vg
+# simulate 500 reads from each thread path
+vg paths  -g x.gbwt -V -Q _thread_1_x_0_0 0 -x x.vg >> x.vg
+vg paths  -g x.gbwt -V -Q _thread_1_x_1_0 0 -x x.vg >> x.vg
+vg sim -x x.vg -P  _thread_1_x_0_0 -n 500 -a -s 23 > sim.gam
+vg sim -x x.vg -P  _thread_1_x_1_0 -n 500 -a -s 23 >> sim.gam
+# call some hets
+vg pack -x x.vg -o x.pack -g sim.gam
+vg call x.vg -k x.pack > call.vcf
+vg call x.vg -k x.pack -g x.gbwt > callg.vcf
+is "$(grep -v 0/0 callg.vcf | wc -l)" "$(grep -v 0/0 call.vcf | wc -l)" "vg call finds same variants when using gbwt to enumerate traversals"
+
+rm -f x.vg x.gbwt sim.gam x.pack call.vcf callg.vcf

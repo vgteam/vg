@@ -6,6 +6,8 @@
 #include "../genotypekit.hpp"
 #include "../snarls.hpp"
 #include "../traversal_finder.hpp"
+#include "xg.hpp"
+#include "../haplotype_extracter.hpp"
 
 namespace Catch {
 
@@ -768,6 +770,138 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals of simple inversions",
     
     REQUIRE(found_inverted);
     REQUIRE(found_normal);
+}
+
+TEST_CASE("GBWTTraversalFinder finds traversals for GBWT threads", "[genotype][gbwttraversalfinder]") {
+
+    // (copied from haplotypes.cpp)
+    
+    // This graph is the start of xy2 from test/small
+    string graph_json = R"({"node": [{"id": 1, "sequence": "CAAATAAGGCTT"}, {"id": 2, "sequence": "G"}, {"id": 3, "sequence": "GGAAATTTTC"}, {"id": 4, "sequence": "C"}, {"id": 5, "sequence": "TGGAGTTCTATTATATTCC"}, {"id": 6, "sequence": "G"}, {"id": 7, "sequence": "A"}, {"id": 8, "sequence": "ACTCTCTGGTTCCTG"}, {"id": 9, "sequence": "A"}, {"id": 10, "sequence": "G"}, {"id": 11, "sequence": "TGCTATGTGTAACTAGTAATGGTAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAATGGAAAGAATACAAGATTTGGAGCCA"}], "edge": [{"from": 1, "to": 2}, {"from": 1, "to": 3}, {"from": 2, "to": 3}, {"from": 3, "to": 4}, {"from": 3, "to": 5}, {"from": 4, "to": 5}, {"from": 5, "to": 6}, {"from": 5, "to": 7}, {"from": 6, "to": 8}, {"from": 7, "to": 8}, {"from": 8, "to": 9}, {"from": 8, "to": 10}, {"from": 9, "to": 11}, {"from": 10, "to": 11}]})";
+  
+    // Load the JSON
+    vg::Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    // Build the xg index
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(vg::VG(proto_graph));
+    
+    gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+  
+    // Populate a map from node ID to encoded GBWT node.
+    map<vg::id_t, gbwt::vector_type::value_type> tm;
+    map<vg::id_t, gbwt::vector_type::value_type> tr;
+    xg_index.for_each_handle([&](const vg::handle_t& here) {
+            tm[xg_index.get_id(here)] = gbwt::Node::encode(xg_index.get_id(here), false);
+            tr[xg_index.get_id(here)] = gbwt::Node::encode(xg_index.get_id(here), true);
+        });
+  
+    // Make the threads
+    gbwt::vector_type thread0 = {tm[1], tm[3], tm[4], tm[5], tm[7], tm[8], tm[10], tm[11], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
+    gbwt::vector_type thread1 = {tm[1], tm[2], tm[3], tm[4], tm[5], tm[6], tm[8], tm[9], tm[11], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
+    gbwt::vector_type thread2 = {tm[2], tm[3], tm[4], tm[5], tm[6], tm[8], tm[9], tm[11], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
+    gbwt::vector_type thread3 = {tm[1], tm[3], tm[4], tm[5], tm[6], tm[8], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
+    
+    gbwt::vector_type thread1r = {tr[11], tr[9], tr[8], tr[6], tr[5], tr[4], tr[3], tr[2], tr[1], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
+  
+    vector<gbwt::vector_type > haplotypes_to_add = {
+        thread0,
+        thread1,
+        thread2,
+        thread3,
+        thread1r
+    };
+
+    function<SnarlTraversal(gbwt::vector_type&)> gv_to_st = [&](gbwt::vector_type& gv) {
+        SnarlTraversal st;
+        for (int i = 0; i < gv.size() - 1; ++i) {
+            Visit* v= st.add_visit();
+            v->set_node_id(gbwt::Node::id(gv[i]));
+            v->set_backward(gbwt::Node::is_reverse(gv[i]));
+        }
+        return st;
+    };
+
+    // a fake snarl spanning all the variants
+    Snarl one_eleven;
+    one_eleven.mutable_start()->set_node_id(1);
+    one_eleven.mutable_start()->set_backward(false);
+    one_eleven.mutable_end()->set_node_id(11);
+    one_eleven.mutable_end()->set_backward(false);
+
+    Snarl eleven_one;
+    eleven_one.mutable_start()->set_node_id(11);
+    eleven_one.mutable_start()->set_backward(true);
+    eleven_one.mutable_end()->set_node_id(1);
+    eleven_one.mutable_end()->set_backward(true);
+
+    // just a single forward thread
+    gbwt::DynamicGBWT gbwt_d_1f;
+    gbwt_d_1f.insert(thread1);
+    gbwt::GBWT gbwt_1f(gbwt_d_1f);
+    GBWTTraversalFinder trav_finder_1f(xg_index, gbwt_1f);
+    vector<SnarlTraversal> travs_1f = trav_finder_1f.find_traversals(one_eleven);
+    REQUIRE(travs_1f.size() == 1);
+    REQUIRE(travs_1f[0].visit_size() == thread1.size() - 1);
+    REQUIRE(travs_1f[0] == gv_to_st(thread1));
+
+    vector<SnarlTraversal> travs_1f1 = trav_finder_1f.find_traversals(eleven_one);
+    REQUIRE(travs_1f1.size() == 1);
+    SnarlTraversal flip_1f;
+    for (int i = travs_1f1[0].visit_size() - 1; i >= 0; --i) {
+        Visit* visit = flip_1f.add_visit();
+        *visit = travs_1f1[0].visit(i);
+        visit->set_backward(!visit->backward());
+    }
+    REQUIRE(flip_1f == travs_1f[0]);
+
+    // just a single reverse thread
+    gbwt::DynamicGBWT gbwt_d_1r;
+    gbwt_d_1r.insert(thread1);
+    gbwt::GBWT gbwt_1r(gbwt_d_1r);
+    GBWTTraversalFinder trav_finder_1r(xg_index, gbwt_1r);
+    vector<SnarlTraversal> travs_1r = trav_finder_1r.find_traversals(one_eleven);
+    REQUIRE(travs_1r.size() == 1);
+    REQUIRE(travs_1r[0].visit_size() == thread1r.size() - 1);
+
+    vector<SnarlTraversal> travs_1r1 = trav_finder_1r.find_traversals(eleven_one);
+    REQUIRE(travs_1r1.size() == 1);
+    REQUIRE(travs_1r1[0] == gv_to_st(thread1r));
+    SnarlTraversal flip_1r;
+    for (int i = travs_1r1[0].visit_size() - 1; i >= 0; --i) {
+        Visit* visit = flip_1r.add_visit();
+        *visit = travs_1r1[0].visit(i);
+        visit->set_backward(!visit->backward());
+    }
+    REQUIRE(flip_1r == travs_1r[0]);
+
+    // forward and reverse version of the same thread.  we only want one back
+    gbwt::DynamicGBWT gbwt_d_1fr;
+    gbwt_d_1fr.insert(thread1);
+    gbwt_d_1fr.insert(thread1r);
+    gbwt::GBWT gbwt_1fr(gbwt_d_1fr);
+    GBWTTraversalFinder trav_finder_1fr(xg_index, gbwt_1fr);
+    vector<SnarlTraversal> travs_1fr = trav_finder_1fr.find_traversals(one_eleven);
+    REQUIRE(travs_1fr.size() == 1);
+    REQUIRE(travs_1fr[0].visit_size() == thread1.size() - 1);
+    REQUIRE(travs_1f[0] == gv_to_st(thread1));
+
+    // all the threads
+    gbwt::DynamicGBWT gbwt_d_all;
+    for (auto& thread : haplotypes_to_add) {
+        gbwt_d_all.insert(thread);
+    }
+    gbwt::GBWT gbwt_all(gbwt_d_all);
+    GBWTTraversalFinder trav_finder_all(xg_index, gbwt_all);
+    vector<SnarlTraversal> travs_all = trav_finder_all.find_traversals(one_eleven);
+    // only 2 unique spanning traversals
+    REQUIRE(travs_all.size() == 2);
+    // canonicalize order for comparison
+    if (travs_all[0].visit_size() > travs_all[1].visit_size()) {
+        std::swap(travs_all[0], travs_all[1]);
+    }
+    REQUIRE(gv_to_st(thread0) == travs_all[0]);
+    REQUIRE(gv_to_st(thread1) == travs_all[1]);
 }
 
 }

@@ -11,9 +11,13 @@
 #include <vg/io/vpkg.hpp>
 #include "../multipath_mapper.hpp"
 #include "../path.hpp"
-#include "../xg.hpp"
+#include "../watchdog.hpp"
 #include "../watchdog.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
+#include <bdsg/odgi.hpp>
+#include <bdsg/packed_graph.hpp>
+#include <bdsg/hash_graph.hpp>
+#include <xg.hpp>
 
 //#define record_read_run_times
 
@@ -29,12 +33,12 @@ using namespace vg::subcommand;
 
 void help_mpmap(char** argv) {
     cerr
-    << "usage: " << argv[0] << " mpmap [options] -x index.xg -g index.gcsa [-f reads1.fq [-f reads2.fq] | -G reads.gam] > aln.gamp" << endl
+    << "usage: " << argv[0] << " mpmap [options] -x graph.[xg|pg|og|hg] -g index.gcsa [-f reads1.fq [-f reads2.fq] | -G reads.gam] > aln.gamp" << endl
     << "Multipath align reads to a graph." << endl
     << endl
     << "basic options:" << endl
     << "graph/index:" << endl
-    << "  -x, --xg-name FILE            use this XG index of the graph (required)" << endl
+    << "  -x, --graph-name FILE         graph (required; XG format recommended but other formats are valid, see `vg convert`) " << endl
     << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair for MEMs (required; both FILE and FILE.lcp)" << endl
     //<< "  -H, --gbwt-name FILE          use this GBWT haplotype index for population-based MAPQs" << endl
     << "  -d, --dist-name FILE          use this snarl distance index for clustering" << endl
@@ -43,18 +47,20 @@ void help_mpmap(char** argv) {
     << "  -s, --snarls FILE             align to alternate paths in these snarls" << endl
     << "input:" << endl
     << "  -f, --fastq FILE              input FASTQ (possibly gzipped), can be given twice for paired ends (for stdin use -)" << endl
-    << "  -G, --gam-input FILE          input GAM (for stdin, use -)" << endl
-    << "  -i, --interleaved             FASTQ or GAM contains interleaved paired ends" << endl
-    << "  -e, --same-strand             read pairs are from the same strand of the DNA molecule" << endl
+    << "  -i, --interleaved             input contains interleaved paired ends" << endl
+    << "algorithm presets:" << endl
+    << "  -n, --nt-type TYPE            sequence type preset: 'dna' for genomic data, 'rna' for transcriptomic data [dna]" << endl
+    << "  -l, --read-length TYPE        read length preset: 'very-short', 'short', or 'long' (approx. <50bp, 50-500bp, and >500bp) [short]" << endl
+    << "  -e, --error-rate TYPE         error rate preset: 'low' or 'high' (approx. PHRED >20 and <20) [low]" << endl
     << "output:" << endl
+    << "  -S, --single-path-mode        output single-path alignments (GAM) instead of multipath alignments (GAMP)" << endl
     << "  -N, --sample NAME             add this sample name to output" << endl
     << "  -R, --read-group NAME         add this read group to output" << endl
-    << "  -S, --single-path-mode        output single-path alignments (GAM) instead of multipath alignments (GAMP) (ignores -saX)" << endl
     << "  -p, --suppress-progress       do not report progress to stderr (slightly reduces thread contention)" << endl
     //<< "algorithm:" << endl
     //<< "       --min-dist-cluster        use the minimum distance based clusterer (requires a distance index from -d)" << endl
-    << "scoring:" << endl
-    << "  -E, --long-read-scoring       set alignment scores to long-read defaults: -q1 -z1 -o1 -y1 -L0 (can be overridden)" << endl
+//    << "scoring:" << endl
+//    << "  -E, --long-read-scoring       set alignment scores to long-read defaults: -q1 -z1 -o1 -y1 -L0 (can be overridden)" << endl
     << "computational parameters:" << endl
     << "  -t, --threads INT             number of compute threads to use [all available]" << endl
     << endl
@@ -64,24 +70,26 @@ void help_mpmap(char** argv) {
     //<< "  -X, --snarl-max-cut INT       do not align to extra paths in a snarl if there is an exact match this long (0 for no limit) [5]" << endl
     //<< "  -a, --alt-paths INT           align to (up to) this many alternate paths in snarls [10]" << endl
     //<< "      --suppress-tail-anchors   don't produce extra anchors when aligning to alternate paths in snarls" << endl
+    << "  -T, --same-strand             read pairs are from the same strand of the DNA/RNA molecule" << endl
+    << "  -M, --max-multimaps INT       report (up to) this many mappings per read [1]" << endl
+    << "  -Q, --mq-max INT              cap mapping quality estimates at this much [60]" << endl
     << "  -b, --frag-sample INT         look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
     << "  -I, --frag-mean FLOAT         mean for a pre-determined fragment length distribution (also requires -D)" << endl
     << "  -D, --frag-stddev FLOAT       standard deviation for a pre-determined fragment length distribution (also requires -I)" << endl
     << "  -B, --no-calibrate            do not auto-calibrate mismapping dectection" << endl
+    << "  -G, --gam-input FILE          input GAM (for stdin, use -)" << endl
     //<< "  -P, --max-p-val FLOAT         background model p-value must be less than this to avoid mismapping detection [0.00001]" << endl
-    << "  -Q, --mq-max INT              cap mapping quality estimates at this much [60]" << endl
     << "  -U, --report-group-mapq       add an annotation for the collective mapping quality of all reported alignments" << endl
     //<< "      --padding-mult FLOAT      pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
     << "  -u, --map-attempts INT        perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
     //<< "      --max-paths INT           consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
     //<< "      --top-tracebacks          consider paths for each alignment based only on alignment score and not based on haplotypes" << endl
-    << "  -M, --max-multimaps INT       report (up to) this many mappings per read [1]" << endl
     //<< "  -r, --reseed-length INT       reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
     //<< "  -W, --reseed-diff FLOAT       require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
     //<< "  -K, --clust-length INT        minimum MEM length used in clustering [automatic]" << endl
     //<< "  -F, --stripped-match          use stripped match algorithm instead of MEMs" << endl
-    << "  -c, --hit-max INT             use at most this many hits for any match seeds (0 for no limit) [1024]" << endl
-    //<< "  --approx-exp FLOAT            let the approximate likelihood miscalculate likelihood ratios by this power [10.0]" << endl
+    << "  -c, --hit-max INT             use at most this many hits for any match seeds (0 for no limit) [1024 DNA / 256 RNA]" << endl
+    //<< "  --approx-exp FLOAT            let the approximate likelihood miscalculate likelihood ratios by this power [10.0 DNA / 5.0 RNA]" << endl
     //<< "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
     //<< "  --always-check-population     always try to population-score reads, even if there is only a single mapping" << endl
     //<< "  --delay-population            do not apply population scoring at intermediate stages of the mapping algorithm" << endl
@@ -91,15 +99,14 @@ void help_mpmap(char** argv) {
     << "scoring:" << endl
     << "  -A, --no-qual-adjust          do not perform base quality adjusted alignments even when base qualities are available" << endl
     << "  -q, --match INT               use this match score [1]" << endl
-    << "  -z, --mismatch INT            use this mismatch penalty [4]" << endl
-    << "  -o, --gap-open INT            use this gap open penalty [6]" << endl
+    << "  -z, --mismatch INT            use this mismatch penalty [4 low error, 1 high error]" << endl
+    << "  -o, --gap-open INT            use this gap open penalty [6 low error, 1 high error]" << endl
     << "  -y, --gap-extend INT          use this gap extension penalty [1]" << endl
-    << "  -L, --full-l-bonus INT        add this score to alignments that align each end of the read [5]" << endl
+    << "  -L, --full-l-bonus INT        add this score to alignments that align each end of the read [mismatch+1 short, 0 long]" << endl
     << "  -w, --score-matrix FILE       read a 4x4 integer substitution scoring matrix from a file (in the order ACGT)" << endl
-    << "  -m, --remove-bonuses          remove full length alignment bonuses in reported scores" << endl
-    << "computational parameters:" << endl
-    << "  -Z, --buffer-size INT         buffer this many alignments together (per compute thread) before outputting to stdout [200]" << endl;
-    
+    << "  -m, --remove-bonuses          remove full length alignment bonuses in reported scores" << endl;
+    //<< "computational parameters:" << endl
+    //<< "  -Z, --buffer-size INT         buffer this many alignments together (per compute thread) before outputting to stdout [200]" << endl;    
 }
 
 
@@ -130,8 +137,9 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_STRIP_COUNT 1016
     #define OPT_SECONDARY_RESCUE_ATTEMPTS 1017
     #define OPT_SECONDARY_MAX_DIFF 1018
+    #define OPT_NO_CLUSTER 1019
     string matrix_file_name;
-    string xg_name;
+    string graph_name;
     string gcsa_name;
     string gbwt_name;
     string sublinearLS_name;
@@ -150,7 +158,7 @@ int main_mpmap(int argc, char** argv) {
     int default_snarl_cut_size = 5;
     int snarl_cut_size = default_snarl_cut_size;
     int max_branch_trim_length = 5;
-    bool suppress_tail_anchors = false;
+    bool synthesize_tail_anchors = false;
     int max_paired_end_map_attempts = 24;
     int max_single_end_map_attempts = 64;
     int max_rescue_attempts = 10;
@@ -163,9 +171,11 @@ int main_mpmap(int argc, char** argv) {
     int max_num_mappings = 1;
     int buffer_size = 200;
     int hit_max = 1024;
-    int hard_hit_max_muliplier = 10;
+    int hit_max_arg = numeric_limits<int>::min();
+    int hard_hit_max_muliplier = 3;
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
+    int min_clustering_mem_length_arg = numeric_limits<int>::min();
     bool use_stripped_match_alg = false;
     int default_strip_length = 10;
     int stripped_match_alg_strip_length = default_strip_length;
@@ -173,14 +183,17 @@ int main_mpmap(int argc, char** argv) {
     int default_strip_count = 10;
     int stripped_match_alg_target_count = default_strip_count;
     int reseed_length = 28;
+    int reseed_length_arg = numeric_limits<int>::min();
     double reseed_diff = 0.45;
+    double reseed_diff_arg = numeric_limits<double>::lowest();
     double reseed_exp = 0.065;
     bool use_adaptive_reseed = true;
     double cluster_ratio = 0.2;
     bool use_tvs_clusterer = false;
     bool use_min_dist_clusterer = false;
     bool greedy_min_dist = false;
-    bool component_min_dist = false;
+    bool component_min_dist = true;
+    bool no_clustering = false;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Exact;
@@ -191,6 +204,7 @@ int main_mpmap(int argc, char** argv) {
     int num_alt_alns = default_num_alt_alns;
     double suboptimal_path_exponent = 1.25;
     double likelihood_approx_exp = 10.0;
+    double likelihood_approx_exp_arg = numeric_limits<double>::lowest();
     double recombination_penalty = 20.7;
     bool always_check_population = false;
     size_t force_haplotype_count = 0;
@@ -204,13 +218,14 @@ int main_mpmap(int argc, char** argv) {
     bool auto_calibrate_mismapping_detection = true;
     double max_mapping_p_value = 0.00001;
     size_t num_calibration_simulations = 100;
-    vector<size_t> calibration_read_lengths{50, 75, 100, 150, 250, 450, 750};
+    vector<size_t> calibration_read_lengths{50, 100, 150, 250, 450};
     bool use_weibull_calibration = false;
     size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
     double secondary_rescue_score_diff = 0.8;
     size_t secondary_rescue_attempts = 4;
+    size_t secondary_rescue_attempts_arg = numeric_limits<size_t>::max();
     size_t rescue_only_min = numeric_limits<size_t>::max(); // disabling this for now
     size_t rescue_only_anchor_max = 16;
     string sample_name = "";
@@ -224,16 +239,24 @@ int main_mpmap(int argc, char** argv) {
     bool suppress_cluster_merging = false;
     bool dynamic_max_alt_alns = true;
     bool simplify_topologies = true;
-    bool long_read_scoring = false;
+    int max_alignment_gap = 5000;
+    double pessimistic_tail_gap_multiplier = 0.0; // i.e. none
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
     int gap_open_score_arg = std::numeric_limits<int>::min();
     int gap_extension_score_arg = std::numeric_limits<int>::min();
     int full_length_bonus_arg = std::numeric_limits<int>::min();
     int reversing_walk_length = 1;
+
+    // default presets
+    string nt_type = "dna";
+    string read_length = "short";
+    string error_rate = "low";
+    
+    // logging and warning
     bool suppress_progress = false;
     int fragment_length_warning_factor = 50;
-    uint64_t progress_frequency = 500000;
+    uint64_t progress_frequency = 100000;
     uint64_t num_reads_mapped = 0;
     
     int c;
@@ -242,7 +265,7 @@ int main_mpmap(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
-            {"xg-name", required_argument, 0, 'x'},
+            {"graph-name", required_argument, 0, 'x'},
             {"gcsa-name", required_argument, 0, 'g'},
             {"gbwt-name", required_argument, 0, 'H'},
             {"dist-name", required_argument, 0, 'd'},
@@ -253,10 +276,10 @@ int main_mpmap(int argc, char** argv) {
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
             {"interleaved", no_argument, 0, 'i'},
-            {"same-strand", no_argument, 0, 'e'},
+            {"same-strand", no_argument, 0, 'T'},
             {"single-path-mode", no_argument, 0, 'S'},
             {"snarls", required_argument, 0, 's'},
-            {"suppress-tail-anchors", no_argument, 0, OPT_SUPPRESS_TAIL_ANCHORS},
+            {"synth-tail-anchors", no_argument, 0, OPT_SUPPRESS_TAIL_ANCHORS},
             {"tvs-clusterer", no_argument, 0, 'v'},
             {"snarl-max-cut", required_argument, 0, 'X'},
             {"alt-paths", required_argument, 0, 'a'},
@@ -290,9 +313,13 @@ int main_mpmap(int argc, char** argv) {
             {"min-dist-cluster", no_argument, 0, OPT_MIN_DIST_CLUSTER},
             {"greedy-min-dist", no_argument, 0, OPT_GREEDY_MIN_DIST},
             {"component-min-dist", no_argument, 0, OPT_COMPONENT_MIN_DIST},
+            {"no-cluster", no_argument, 0, OPT_NO_CLUSTER},
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, OPT_PRUNE_EXP},
             {"long-read-scoring", no_argument, 0, 'E'},
+            {"read-length", required_argument, 0, 'l'},
+            {"nt-type", required_argument, 0, 'n'},
+            {"error-rate", required_argument, 0, 'e'},
             {"match", required_argument, 0, 'q'},
             {"mismatch", required_argument, 0, 'z'},
             {"score-matrix", required_argument, 0, 'w'},
@@ -307,7 +334,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:ieSs:vX:u:a:b:I:D:BP:Q:UpM:r:W:K:Fc:C:R:Eq:z:w:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iSs:vX:u:a:b:I:D:BP:Q:UpM:r:W:K:Fc:C:R:En:l:e:q:z:w:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -318,9 +345,9 @@ int main_mpmap(int argc, char** argv) {
         switch (c)
         {
             case 'x':
-                xg_name = optarg;
-                if (xg_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide XG file with -x." << endl;
+                graph_name = optarg;
+                if (graph_name.empty()) {
+                    cerr << "error:[vg mpmap] Must provide Graph file with -x." << endl;
                     exit(1);
                 }
                 break;
@@ -357,7 +384,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case OPT_SECONDARY_RESCUE_ATTEMPTS:
-                secondary_rescue_attempts = parse<int>(optarg);
+                secondary_rescue_attempts_arg = parse<int>(optarg);
                 break;
                 
             case OPT_SECONDARY_MAX_DIFF:
@@ -421,7 +448,7 @@ int main_mpmap(int argc, char** argv) {
                 interleaved_input = true;
                 break;
                 
-            case 'e':
+            case 'T':
                 same_strand = true;
                 break;
                 
@@ -442,7 +469,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case OPT_SUPPRESS_TAIL_ANCHORS:
-                suppress_tail_anchors = true;
+                synthesize_tail_anchors = true;
                 break;
                 
             case 'v':
@@ -511,15 +538,15 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'r':
-                reseed_length = parse<int>(optarg);
+                reseed_length_arg = parse<int>(optarg);
                 break;
                 
             case 'W':
-                reseed_diff = parse<double>(optarg);
+                reseed_diff_arg = parse<double>(optarg);
                 break;
                 
             case 'K':
-                min_clustering_mem_length = parse<int>(optarg);
+                min_clustering_mem_length_arg = parse<int>(optarg);
                 break;
                 
             case 'F':
@@ -535,7 +562,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'c':
-                hit_max = parse<int>(optarg);
+                hit_max_arg = parse<int>(optarg);
                 break;
                 
             case OPT_HARD_HIT_MAX_MULTIPLIER:
@@ -543,7 +570,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case OPT_APPROX_EXP:
-                likelihood_approx_exp = parse<double>(optarg);
+                likelihood_approx_exp_arg = parse<double>(optarg);
                 break;
                 
             case OPT_RECOMBINATION_PENALTY:
@@ -565,10 +592,16 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_GREEDY_MIN_DIST:
                 greedy_min_dist = true;
+                component_min_dist = false;
                 break;
                 
             case OPT_COMPONENT_MIN_DIST:
+                // the default now
                 component_min_dist = true;
+                break;
+                
+            case OPT_NO_CLUSTER:
+                no_clustering = true;
                 break;
                 
             case 'C':
@@ -580,7 +613,20 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'E':
-                long_read_scoring = true;
+                cerr << "warning:[vg mpmap] Long read scoring option (--long-read-scoring) is deprecated. Instead, use read length preset (--read-length)." << endl;
+                read_length = "long";
+                break;
+                
+            case 'l':
+                read_length = optarg;
+                break;
+                
+            case 'e':
+                error_rate = optarg;
+                break;
+                
+            case 'n':
+                nt_type = optarg;
                 break;
                 
             case 'q':
@@ -643,9 +689,163 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
-    // check for valid parameters
+    // normalize capitalization on preset options
+    if (read_length == "Long" || read_length == "LONG") {
+        read_length = "long";
+    }
+    else if (read_length == "Very-Short" || read_length == "Very-short" || read_length == "VERY-SHORT") {
+        read_length = "very-short";
+    }
+    else if (read_length != "Short" || read_length != "SHORT") {
+        read_length = "short";
+    }
     
+    if (nt_type == "RNA") {
+        nt_type = "rna";
+    }
+    else if (nt_type == "DNA") {
+        nt_type = "dna";
+    }
+    
+    if (error_rate == "Low" || error_rate == "LOW") {
+        error_rate = "low";
+    }
+    else if (error_rate == "High" || error_rate == "HIGH") {
+        error_rate = "high";
+    }
+        
+    // set baseline parameters according to presets
+    
+    if (error_rate == "high") {
+        // alignment scores that don't penalize gaps or mismatches as much
+        mismatch_score = 1;
+        gap_open_score = 1;
+        // do less DP on tails (having a presumption that long tails with no seeds
+        // will probably be soft-clipped)
+        pessimistic_tail_gap_multiplier = 3.0;
+    }
+    
+    if (read_length == "long") {
+        // we don't care so much about soft-clips on long reads
+        full_length_bonus = 0;
+    }
+    else if (read_length == "very-short") {
+        // clustering is unlikely to improve accuracy in very short data
+        // TODO: should i add a way to override this option?
+        no_clustering = true;
+        // we don't want to throw away short matches a priori in very short data
+        min_clustering_mem_length = 1;
+    }
+    else if (read_length != "short") {
+        // short is the default
+        cerr << "error:[vg mpmap] Cannot identify read length preset (-l): " << read_length << endl;
+        exit(1);
+    }
+    
+    if (nt_type == "rna") {
+        // RNA preset
+        if (distance_index_name.empty()) {
+            cerr << "warning:[vg mpmap] It is HIGHLY recommended to use a distance index (-d) for clustering on splice graphs. Both accuracy and speed will suffer without one." << endl;
+        }
+        // seed finding, cluster pruning, and rescue parameters tuned for a lower repeat content
+        secondary_rescue_attempts = 1;
+        hit_max = 256;
+        reseed_length = 40;
+        reseed_diff = 0.6;
+        likelihood_approx_exp = 6.0;
+    }
+    else if (nt_type != "dna") {
+        // DNA is the default
+        cerr << "error:[vg mpmap] Cannot identify sequencing type preset (-n): " << nt_type << endl;
+        exit(1);
+    }
+        
+    if (single_path_alignment_mode && read_length != "long") {
+        // we get better performance by splitting up clusters a bit more when we're forcing alignments to go to only one place
+        // long reads on the other hand display underclustering behavior with some parameter settings
+        min_median_mem_coverage_for_split = 2;
+        suppress_cluster_merging = true;
+    }
+    
+    if (read_length == "long" && !single_path_alignment_mode) {
+        // we sometimes need to synthesize anchors for the tails to get good multipath alignments on long reads
+        synthesize_tail_anchors = true;
+    }
+        
+    if (single_path_alignment_mode) {
+        // simplifying topologies is redundant work if we're just going to take the maximum weight path anyway
+        simplify_topologies = false;
+    }
+    
+    if (single_path_alignment_mode &&
+        (population_max_paths == 0 || (sublinearLS_name.empty() && gbwt_name.empty()))) {
+        // adjust parameters that produce irrelevant extra work single path mode
+        if (!snarls_name.empty()) {
+            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
+        }
+        
+        if (snarl_cut_size != default_snarl_cut_size) {
+            cerr << "warning:[vg mpmap] Snarl cut limit (-X) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
+        }
+        
+        if (num_alt_alns != default_num_alt_alns) {
+            cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
+        }
+        
+        // don't cut inside snarls or load the snarl manager
+        snarl_cut_size = 0;
+        snarls_name = "";
+        
+        // only get 1 traceback for an inter-MEM or tail alignment
+        dynamic_max_alt_alns = false;
+        num_alt_alns = 1;
+    }
+        
+    // set the overrides to preset-controlled parameters
+    if (hit_max_arg != numeric_limits<int>::min()) {
+        hit_max = hit_max_arg;
+    }
+    if (reseed_length_arg != numeric_limits<int>::min()) {
+        reseed_length = reseed_length_arg;
+    }
+    if (reseed_diff_arg != numeric_limits<double>::lowest()) {
+        reseed_diff = reseed_diff_arg;
+    }
+    if (min_clustering_mem_length_arg != numeric_limits<int>::min()) {
+        min_clustering_mem_length = min_clustering_mem_length_arg;
+    }
+    if (secondary_rescue_attempts_arg != numeric_limits<size_t>::max()) {
+        secondary_rescue_attempts = secondary_rescue_attempts_arg;
+    }
+    if (likelihood_approx_exp_arg != numeric_limits<double>::lowest()) {
+        likelihood_approx_exp = likelihood_approx_exp_arg;
+    }
+    if (match_score_arg != std::numeric_limits<int>::min()) {
+        match_score = match_score_arg;
+    }
+    if (mismatch_score_arg != std::numeric_limits<int>::min()) {
+        mismatch_score = mismatch_score_arg;
+    }
+    if (gap_open_score_arg != std::numeric_limits<int>::min()) {
+        gap_open_score = gap_open_score_arg;
+    }
+    if (gap_extension_score_arg != std::numeric_limits<int>::min()) {
+        gap_extension_score = gap_extension_score_arg;
+    }
+    if (full_length_bonus_arg != std::numeric_limits<int>::min()) {
+        full_length_bonus = full_length_bonus_arg;
+    }
+    else if (read_length != "long") {
+        // TODO: not so elegant
+        // the full length bonus should override a mismatch unless we're in long read mode
+        full_length_bonus = min<int>(mismatch_score + 1, std::numeric_limits<int8_t>::max());
+    }
+    
+    // hits that are much more frequent than the number of hits we sample are unlikely to produce high MAPQs, so
+    // we can usually ignore them
     int hard_hit_max = hard_hit_max_muliplier * hit_max;
+    
+    // check for valid parameters
     
     if (std::isnan(frag_length_mean) != std::isnan(frag_length_stddev)) {
         cerr << "error:[vg mpmap] Cannot specify only one of fragment length mean (-I) and standard deviation (-D)." << endl;
@@ -871,13 +1071,13 @@ int main_mpmap(int argc, char** argv) {
         cerr << "warning:[vg mpmap] greedy minimum distance clustering (--greedy-min-dist) is ignored if not using minimum distance clustering (-d)" << endl;
     }
     
-    if (component_min_dist && !use_min_dist_clusterer) {
-        cerr << "warning:[vg mpmap] minimum distance component clustering (--component-min-dist) is ignored if not using minimum distance clustering (-d)" << endl;
-    }
-    
     if (greedy_min_dist && component_min_dist) {
         cerr << "error:[vg mpmap] cannot simultaneously use greedy (--greedy-min-dist) and component (--component-min-dist) clustering" << endl;
         exit(1);
+    }
+    
+    if (no_clustering && !distance_index_name.empty()) {
+        cerr << "warning:[vg mpmap] No clustering option (--no-cluster) causes distance index (-d) to be ignored. This option is activated by default for 'very-short' read lengths (-l)." << endl;
     }
     
     if (suboptimal_path_exponent < 1.0) {
@@ -885,35 +1085,20 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if ((match_score_arg != std::numeric_limits<int>::min() || mismatch_score_arg != std::numeric_limits<int>::min()) && !matrix_file_name.empty())  {
-        cerr << "error:[vg mpmap] Cannot choose custom scoring matrix (--score-matrix) and custom match/mismatch score (-q/-z) simultaneously." << endl;
+    if (max_alignment_gap < 0) {
+        cerr << "error:[vg mpmap] Max alignment grap set to " << max_alignment_gap << ", must set to a non-negative integer." << endl;
+        exit(1);
+    }
+        
+    if (buffer_size <= 0) {
+        cerr << "error:[vg mpmap] Buffer size (-Z) set to " << buffer_size << ", must set to a positive integer." << endl;
         exit(1);
     }
     
-    if (long_read_scoring) {
-        // defaults for long read scoring
-        match_score = 1;
-        mismatch_score = 1;
-        gap_open_score = 1;
-        gap_extension_score = 1;
-        full_length_bonus = 0;
-    }
     
-    // if we indicated any other scores, apply those, possibly overriding
-    if (match_score_arg != std::numeric_limits<int>::min()) {
-        match_score = match_score_arg;
-    }
-    if (mismatch_score_arg != std::numeric_limits<int>::min()) {
-        mismatch_score = mismatch_score_arg;
-    }
-    if (gap_open_score_arg != std::numeric_limits<int>::min()) {
-        gap_open_score = gap_open_score_arg;
-    }
-    if (gap_extension_score_arg != std::numeric_limits<int>::min()) {
-        gap_extension_score = gap_extension_score_arg;
-    }
-    if (full_length_bonus_arg != std::numeric_limits<int>::min()) {
-        full_length_bonus = full_length_bonus_arg;
+    if ((match_score_arg != std::numeric_limits<int>::min() || mismatch_score_arg != std::numeric_limits<int>::min()) && !matrix_file_name.empty())  {
+        cerr << "error:[vg mpmap] Cannot choose custom scoring matrix (-w) and custom match/mismatch score (-q/-z) simultaneously." << endl;
+        exit(1);
     }
     
     if (match_score > std::numeric_limits<int8_t>::max() || mismatch_score > std::numeric_limits<int8_t>::max()
@@ -924,59 +1109,23 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (buffer_size <= 0) {
-        cerr << "error:[vg mpmap] Buffer size (-Z) set to " << buffer_size << ", must set to a positive integer." << endl;
-        exit(1);
-    }
-    
-    // adjust parameters that produce irrelevant extra work or bad behavior single path mode
-    
-    if (single_path_alignment_mode && population_max_paths == 0) {
-        if (!snarls_name.empty()) {
-            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
-            // TODO: Not true!
-        }
-        
-        if (snarl_cut_size != default_snarl_cut_size) {
-            cerr << "warning:[vg mpmap] Snarl cut limit (-X) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
-        }
-        
-        if (num_alt_alns != default_num_alt_alns) {
-            cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (--max-paths)." << endl;
-        }
-        
-        num_alt_alns = 1;
-    }
-    
-    if (single_path_alignment_mode && !long_read_scoring) {
-        // we get better performance by splitting up clusters a bit more when we're forcing alignments to go to only one place
-        // long reads on the other hand display underclustering behavior with some parameter settings
-        min_median_mem_coverage_for_split = 2;
-        suppress_cluster_merging = true;
-    }
-    
-    if (single_path_alignment_mode) {
-        // simplifying topologies is redundant work if we're just going to take the maximum weight path anyway
-        simplify_topologies = false;
-    }
-    
     // ensure required parameters are provided
     
-    if (xg_name.empty()) {
-        cerr << "error:[vg mpmap] Multipath mapping requires an XG index, must provide XG file (-x)" << endl;
+    if (graph_name.empty()) {
+        cerr << "error:[vg mpmap] Multipath mapping requires a graph (-x)" << endl;
         exit(1);
     }
     
     if (gcsa_name.empty()) {
-        cerr << "error:[vg mpmap] Multipath mapping requires a GCSA2 index, must provide GCSA2 file (-g)" << endl;
+        cerr << "error:[vg mpmap] Multipath mapping requires a GCSA2 index (-g)" << endl;
         exit(1);
     }
     
     // create in-memory objects
     
-    ifstream xg_stream(xg_name);
-    if (!xg_stream) {
-        cerr << "error:[vg mpmap] Cannot open XG file " << xg_name << endl;
+    ifstream graph_stream(graph_name);
+    if (!graph_stream) {
+        cerr << "error:[vg mpmap] Cannot open graph file " << graph_name << endl;
         exit(1);
     }
     
@@ -1003,7 +1152,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     ifstream distance_index_stream;
-    if (!distance_index_name.empty()) {
+    if (!distance_index_name.empty() && !no_clustering) {
         distance_index_stream.open(distance_index_name);
         if (!distance_index_stream) {
             cerr << "error:[vg mpmap] Cannot open distance index file " << distance_index_name << endl;
@@ -1038,6 +1187,14 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
+    if (!suppress_progress) {
+        cerr << "[vg mpmap] Executing command:";
+        for (size_t i = 0; i < argc; ++i) {
+            cerr << " " << argv[i];
+        }
+        cerr << endl;
+    }
+    
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
@@ -1046,20 +1203,85 @@ int main_mpmap(int argc, char** argv) {
     
     // Load required indexes
     if (!suppress_progress) {
-        cerr << "[vg mpmap] loading graph from " << xg_name << endl;
+        cerr << "[vg mpmap] Loading graph from " << graph_name << endl;
     }
-    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_stream);
-    bdsg::PathPositionOverlayHelper overlay_helper;
-    PathPositionHandleGraph* xg_index = overlay_helper.apply(path_handle_graph.get());
+    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_stream);
+    
     if (!suppress_progress) {
-        cerr << "[vg mpmap] loading GCSA2 from " << gcsa_name << endl;
+        // let's be a friendly guide to selecting a graph
+        
+        // get the graphs magic number if it has one
+        uint32_t magic_num = 0;
+        {
+            SerializableHandleGraph* serializable = dynamic_cast<SerializableHandleGraph*>(path_handle_graph.get());
+            if (serializable) {
+                magic_num = serializable->get_magic_number();
+            }
+        }
+        
+        // compare to known magic numbers
+        string type;
+        if (magic_num == xg::XG().get_magic_number()) {
+            type = "XG";
+        }
+        else if (magic_num == bdsg::PackedGraph().get_magic_number()) {
+            type = "PackedGraph";
+        }
+        else if (magic_num == bdsg::HashGraph().get_magic_number()) {
+            type = "HashGraph";
+        }
+        else if (magic_num == bdsg::ODGI().get_magic_number()) {
+            type = "ODGI";
+        }
+        
+        if (!type.empty()) {
+            // we found the type, give an appropriate message about it
+            cerr << "[vg mpmap] Graph is in " << type << " format. ";
+            
+            if (type == "XG") {
+                cerr << "XG is a good graph format for most mapping use cases. PackedGraph may be selected if memory usage is too high. ";
+            }
+            else if (type == "HashGraph") {
+                cerr << "HashGraph can have high memory usage. ";
+            }
+            else if (type == "PackedGraph") {
+                cerr << "PackedGraph is memory efficient, but has some slow queries. ";
+            }
+            else if (type == "ODGI") {
+                cerr << "ODGI is fairly memory efficient, but can be slow on certain queries. ";
+            }
+        }
+        else {
+            // probably a VG graph
+            cerr << "[vg mpmap] Graph is not in XG format. " << endl;
+        }
+        
+        // are they using a graph combo that I don't recommend?
+        if (type != "XG" && (!use_min_dist_clusterer || type == "HashGraph" || type.empty())) {
+            // min dist clustering alleviates the issues with slow path queries because we don't need to do
+            // so many, but I want to dissuade people from using HashGraph and VG for mapping regardless
+            cerr << "XG format is recommended for most mapping tasks. ";
+        }
+        
+        cerr << "See `vg convert` if you want to change graph formats." << endl;
+    }
+    
+    if (path_handle_graph->get_path_count() == 0 && distance_index_name.empty()) {
+        cerr << "warning:[vg mpmap] Using a distance index (-d) for clustering is highly recommended for graphs that lack embedded paths. Speed and accuracy are likely to suffer severely without one." << endl;
+    }
+    
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
+    
+    if (!suppress_progress) {
+        cerr << "[vg mpmap] Loading GCSA2 from " << gcsa_name << endl;
     }
     unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     unique_ptr<gcsa::LCPArray> lcp_array;
     if (!use_stripped_match_alg) {
         // The stripped algorithm doesn't use the LCP, but we aren't doing it
         if (!suppress_progress) {
-            cerr << "[vg mpmap] loading LCP from " << lcp_name << endl;
+            cerr << "[vg mpmap] Loading LCP from " << lcp_name << endl;
         }
         lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     }
@@ -1071,7 +1293,7 @@ int main_mpmap(int argc, char** argv) {
     haplo::ScoreProvider* haplo_score_provider = nullptr;
     if (!gbwt_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] loading GBWT from " << gbwt_name << endl;
+            cerr << "[vg mpmap] Loading GBWT from " << gbwt_name << endl;
         }
         // Load the GBWT from its container
         gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
@@ -1087,30 +1309,29 @@ int main_mpmap(int argc, char** argv) {
     }
     else if (!sublinearLS_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] loading LS index from " << sublinearLS_name << endl;
+            cerr << "[vg mpmap] Loading LS index from " << sublinearLS_name << endl;
         }
         
         // TODO: we only support a single ref contig, and we use these
         // hardcoded mutation and recombination likelihoods
         
-        sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, *xg_index,
-                                                 xg_index->get_path_handle(sublinearLS_ref_path));
+        sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, *path_position_handle_graph,
+                                                 path_position_handle_graph->get_path_handle(sublinearLS_ref_path));
         haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
     }
-    // TODO: Allow using haplo::XGScoreProvider?
     
     unique_ptr<SnarlManager> snarl_manager;
     if (!snarls_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] loading snarls from " << snarls_name << endl;
+            cerr << "[vg mpmap] Loading snarls from " << snarls_name << endl;
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
     }
     
     unique_ptr<MinimumDistanceIndex> distance_index;
-    if (!distance_index_name.empty()) {
+    if (!distance_index_name.empty() && !no_clustering) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] loading distance index from " << distance_index_name << endl;
+            cerr << "[vg mpmap] Loading distance index from " << distance_index_name << endl;
         }
         
         // Load the index
@@ -1118,7 +1339,7 @@ int main_mpmap(int argc, char** argv) {
         
     }
     
-    MultipathMapper multipath_mapper(xg_index, gcsa_index.get(), lcp_array.get(), haplo_score_provider,
+    MultipathMapper multipath_mapper(path_position_handle_graph, gcsa_index.get(), lcp_array.get(), haplo_score_provider,
         snarl_manager.get(), distance_index.get());
     
     // set alignment parameters
@@ -1176,6 +1397,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.force_haplotype_count = force_haplotype_count;
     
     // set pruning and clustering parameters
+    multipath_mapper.no_clustering = no_clustering;
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
     multipath_mapper.use_min_dist_clusterer = use_min_dist_clusterer;
     multipath_mapper.greedy_min_dist = greedy_min_dist;
@@ -1189,6 +1411,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
     multipath_mapper.reversing_walk_length = reversing_walk_length;
     multipath_mapper.max_alt_mappings = max_num_mappings;
+    multipath_mapper.max_alignment_gap = max_alignment_gap;
+    multipath_mapper.pessimistic_tail_gap_multiplier = pessimistic_tail_gap_multiplier;
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
@@ -1203,7 +1427,7 @@ int main_mpmap(int argc, char** argv) {
     // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;
     multipath_mapper.max_branch_trim_length = max_branch_trim_length;
-    multipath_mapper.suppress_tail_anchors = suppress_tail_anchors;
+    multipath_mapper.suppress_tail_anchors = !synthesize_tail_anchors;
     multipath_mapper.num_alt_alns = num_alt_alns;
     multipath_mapper.dynamic_max_alt_alns = dynamic_max_alt_alns;
     multipath_mapper.simplify_topologies = simplify_topologies;
@@ -1212,7 +1436,7 @@ int main_mpmap(int argc, char** argv) {
     // if directed to, auto calibrate the mismapping detection to the graph
     if (auto_calibrate_mismapping_detection) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] building null model to calibrate mismapping detection (can take some time)" << endl;
+            cerr << "[vg mpmap] Building null model to calibrate mismapping detection (can take some time)." << endl;
         }
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_lengths);
     }
@@ -1222,7 +1446,7 @@ int main_mpmap(int argc, char** argv) {
     
     // Establish a watchdog to find reads that take too long to map.
     // If we see any, we will issue a warning.
-    unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::minutes(20)));
+    unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::minutes(read_length == "long" ? 40 : 5)));
     
     // are we doing paired ends?
     if (interleaved_input || !fastq_name_2.empty()) {
@@ -1333,7 +1557,9 @@ int main_mpmap(int argc, char** argv) {
             else {
                 output_buf.emplace_back();
                 rev_comp_multipath_alignment(mp_aln_pair.second,
-                                             [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); },
+                                             [&](vg::id_t node_id) {
+                    return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
+                },
                                              output_buf.back());
             }
 
@@ -1402,7 +1628,9 @@ int main_mpmap(int argc, char** argv) {
             // switch second read back to the opposite strand if necessary
             if (!same_strand) {
                 reverse_complement_alignment_in_place(&output_buf.back(),
-                                                      [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
+                                                      [&](vg::id_t node_id) {
+                    return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
+                });
             }
             
             // label with read group and sample name
@@ -1462,7 +1690,7 @@ int main_mpmap(int argc, char** argv) {
             if (n % progress_frequency == 0) {
 #pragma omp critical
                 {
-                    cerr << "[vg mpmap] mapped " << n << " reads" << endl;
+                    cerr << "[vg mpmap] Mapped " << n << " reads" << endl;
                 }
             }
         }
@@ -1498,9 +1726,11 @@ int main_mpmap(int argc, char** argv) {
         if (!same_strand) {
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
-            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id)); });
         }
-                
+        
+        size_t num_buffered = ambiguous_pair_buffer.size();
+        
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
         multipath_mapper.multipath_map_paired(alignment_1, alignment_2, mp_aln_pairs, ambiguous_pair_buffer);
         
@@ -1522,14 +1752,15 @@ int main_mpmap(int argc, char** argv) {
             watchdog->check_out(thread_num);
         }
         
-        if (!suppress_progress) {
+        if (!suppress_progress && num_buffered == ambiguous_pair_buffer.size()) {
+            // the read didn't get buffered during the frag length estimation phase
             uint64_t n;
 #pragma omp atomic capture
             n = ++num_reads_mapped;
             if (n % progress_frequency == 0) {
 #pragma omp critical
                 {
-                    cerr << "[vg mpmap] mapped " << n << " read pairs" << endl;
+                    cerr << "[vg mpmap] Mapped " << n << " read pairs" << endl;
                 }
             }
         }
@@ -1568,7 +1799,7 @@ int main_mpmap(int argc, char** argv) {
         
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
-            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id)); });
         }
         
         // Align independently
@@ -1605,6 +1836,18 @@ int main_mpmap(int argc, char** argv) {
             watchdog->check_out(thread_num);
         }
         
+        if (!suppress_progress) {
+            uint64_t n;
+#pragma omp atomic capture
+            n = ++num_reads_mapped;
+            if (n % progress_frequency == 0) {
+#pragma omp critical
+                {
+                    cerr << "[vg mpmap] Mapped " << n << " read pairs" << endl;
+                }
+            }
+        }
+        
 #ifdef record_read_run_times
         clock_t finish = clock();
 #pragma omp critical
@@ -1617,12 +1860,12 @@ int main_mpmap(int argc, char** argv) {
         return multipath_mapper.has_fixed_fragment_length_distr();
     };
     
-    if (!suppress_progress) {
-        cerr << "[vg mpmap] mapping reads" << endl;
-    }
-    
     // FASTQ input
     if (!fastq_name_1.empty()) {
+        if (!suppress_progress) {
+            cerr << "[vg mpmap] Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << endl;
+        }
+        
         if (interleaved_input) {
             fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name_1, do_paired_alignments,
                                                                   multi_threaded_condition);
@@ -1643,6 +1886,10 @@ int main_mpmap(int argc, char** argv) {
                 cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << endl;
                 exit(1);
             }
+            if (!suppress_progress) {
+                cerr << "[vg mpmap] Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << endl;
+            }
+            
             if (interleaved_input) {
                 vg::io::for_each_interleaved_pair_parallel_after_wait(gam_in, do_paired_alignments,
                                                                       multi_threaded_condition);
@@ -1666,7 +1913,9 @@ int main_mpmap(int argc, char** argv) {
                 // TODO: slightly wasteful, inelegant
                 if (!same_strand) {
                     reverse_complement_alignment_in_place(&aln_pair.second,
-                                                          [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
+                                                          [&](vg::id_t node_id) {
+                        return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
+                    });
                 }
                 do_paired_alignments(aln_pair.first, aln_pair.second);
             }
@@ -1682,7 +1931,9 @@ int main_mpmap(int argc, char** argv) {
                 // TODO: slightly wasteful, inelegant
                 if (!same_strand) {
                     reverse_complement_alignment_in_place(&aln_pair.second,
-                                                          [&](vg::id_t node_id) { return xg_index->get_length(xg_index->get_handle(node_id)); });
+                                                          [&](vg::id_t node_id) {
+                        return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
+                    });
                 }
                 do_independent_paired_alignments(aln_pair.first, aln_pair.second);
             }
@@ -1699,6 +1950,17 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     cout.flush();
+    
+    if (!suppress_progress) {
+        cerr << "[vg mpmap] Mapping finished. Mapped " << num_reads_mapped;
+        if (fastq_name_2.empty() && !interleaved_input) {
+            cerr << " reads.";
+        }
+        else {
+            cerr << " read pairs.";
+        }
+        cerr << endl;
+    }
     
 #ifdef record_read_run_times
     read_time_file.close();
