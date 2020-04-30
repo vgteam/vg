@@ -26,11 +26,7 @@ using namespace std;
  * Does not (yet) use paths for rooting. Roots the decomposition at the simple
  * cycle or bridge tree path with the most bases of fixed sequence.
  */
-class IntegratedSnarlFinder : public SnarlFinder {
-protected:
-    /// Holds the base graph we are looking for sites in.
-    const PathHandleGraph* graph;
-    
+class IntegratedSnarlFinder : public HandleGraphSnarlFinder {
 private:
     // Forward-declare this member type we use inside some functions.
     
@@ -52,22 +48,28 @@ public:
     IntegratedSnarlFinder(const PathHandleGraph& graph);
     
     /**
-     * Visit all snarls, including trivial snarls.
+     * Visit all snarls and chains, including trivial snarls and single-node
+     * trivial chains.
      *
-     * Visits children before their parents.
+     * Calls begin_chain and end_chain when entrering and exiting chains in the
+     * traversal. Within each chain, calls begin_snarl and end_snarl when
+     * entering and exiting each snarl, in order. The caller is intended to
+     * maintain its own stack to match up begin and end events.
      *
-     * Calls the iteratee with the parent's boundaries if any, and the snarl's boundaries.
+     * Each begin/end call receives the handle reading into/out of the snarl or
+     * chain. 
+     *
+     * Both trivial and cyclic chains have the in and out handles the same.
+     * They are distinguished by context; trivial chains have no shild snarls,
+     * while cyclic chains do.
+     *
+     * Roots the decomposition at a global snarl with no bounding nodes, for
+     * which begin_snarl is not called. So the first call will be begin_chain.
      *
      * Start handles are inward facing and end handles are outward facing.
      */
-    void for_each_snarl_including_trivial_postorder_with_parent(const function<void(const pair<handle_t, handle_t>*, const pair<handle_t, handle_t>&)>& iteratee) const;
-        
-    /**
-     * Find all the snarls, and put them into a SnarlManager. Make sure to
-     * include trivial snarls to keep chains intact.
-     */
-    virtual SnarlManager find_snarls();
-    
+    void traverse_decomposition(const function<void(handle_t)>& begin_chain, const function<void(handle_t)>& end_chain,
+        const function<void(handle_t)>& begin_snarl, const function<void(handle_t)>& end_snarl) const;
 };
 
 }

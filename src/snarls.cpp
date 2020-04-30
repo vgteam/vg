@@ -22,6 +22,60 @@ SnarlManager SnarlFinder::find_snarls_parallel() {
     return find_snarls();
 }
 
+HandleGraphSnarlFinder::HandleGraphSnarlFinder(const PathHandleGraph* graph) : graph(graph) {
+    // Nothing to do!
+}
+
+SnarlManager HandleGraphSnarlFinder::find_snarls() {
+    // Start with an empty SnarlManager
+    SnarlManager snarl_manager;
+    
+    // Stack that lets us connect snarls to their parents.
+    // Holds each snarl and the child snarls we have finished for it so far.
+    vector<pair<vg::Snarl, vector<vg::Snarl>>> snarl_stack;
+    
+    traverse_decomposition([&](handle_t chain_start) {
+        // Ignore chains. Manager will recompute.
+    }, [&](handle_t chain_end) {
+        // Ignore chains. Manager will recompute.
+    }, [&](handle_t snarl_start) {
+        // Stack up a snarl
+        snarl_stack.emplace_back();
+        // And fill in its start
+        snarl_stack.back().first.mutable_start()->set_node_id(graph->get_id(snarl_start));
+        snarl_stack.back().first.mutable_start()->set_backward(graph->get_is_reverse(snarl_start));
+    }, [&](handle_t snarl_end) {
+        // Fill in its end
+        snarl_stack.back().first.mutable_end()->set_node_id(graph->get_id(snarl_end));
+        snarl_stack.back().first.mutable_end()->set_backward(graph->get_is_reverse(snarl_end));
+        
+        for (auto& child : snarl_stack.back().second) {
+            // For each child snarl, fill us in as the parent
+            *child.mutable_parent() = snarl_stack.back().first;
+            // And report it to the manager with the cross-reference to us filled in.
+            snarl_manager.add_snarl(child);
+        }
+        
+        if (snarl_stack.size() > 1) {
+            // We have a parent. Join it as a child.
+            vg::Snarl us = std::move(snarl_stack.back().first);
+            snarl_stack.pop_back();
+            snarl_stack.back().second.emplace_back(std::move(us));
+        } else {
+            // Just emit ourselves now
+            snarl_manager.add_snarl(snarl_stack.back().first);
+            // And leave the stack
+            snarl_stack.pop_back();
+        }
+    });
+    
+    // Let the snarl manager compute all its indexes
+    snarl_manager.finish();
+    
+    // Give it back
+    return snarl_manager;
+}
+
 bool start_backward(const Chain& chain) {
     // The start snarl is backward if it is marked backward.
     return !chain.empty() && chain.front().second;

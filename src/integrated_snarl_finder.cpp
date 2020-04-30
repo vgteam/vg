@@ -935,13 +935,14 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
 
 
 
-
-IntegratedSnarlFinder::IntegratedSnarlFinder(const PathHandleGraph& graph) : graph(&graph) {
+IntegratedSnarlFinder::IntegratedSnarlFinder(const PathHandleGraph& graph) : HandleGraphSnarlFinder(&graph) {
     // Nothing to do!
 }
 
-void IntegratedSnarlFinder::for_each_snarl_including_trivial_postorder_with_parent(const function<void(const pair<handle_t, handle_t>*, const pair<handle_t, handle_t>&)>& iteratee) const {
-    // Do the actual snarl finding work and then feed the iteratee our snarls.
+void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)>& begin_chain, const function<void(handle_t)>& end_chain,
+    const function<void(handle_t)>& begin_snarl, const function<void(handle_t)>& end_snarl) const {
+    
+    // Do the actual snarl finding work and then walk the bulayered tree.
     
 #ifdef debug
     cerr << "Finding snarls." << endl;
@@ -1192,6 +1193,13 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial_postorder_with_pare
                 frame.saw_children = true;
                 
 #ifdef debug
+                cerr << "\tAnnouncing entry..." << endl;
+#endif
+                
+                // Announce entering this snarl or chain in the traversal
+                (frame.is_snarl ? begin_snarl : begin_chain)(frame.bounds.first);
+                
+#ifdef debug
                 cerr << "\tLooking for children..." << endl;
 #endif
                 
@@ -1231,11 +1239,13 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial_postorder_with_pare
                             frame.todo.push_back(inbound);
                         } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound)) {
                             // Count all self edges as elided, trivial chains.
-                            // TODO: register as part of snarl in index
                             
 #ifdef debug
                             cerr << "\t\tContain edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
 #endif
+                            
+                            begin_chain(inbound);
+                            end_chain(inbound);
                             
                             visited.insert(graph->forward(inbound));
                         }
@@ -1469,7 +1479,9 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial_postorder_with_pare
 #endif
                             
                                 // Count all self edges as elided, trivial chains.
-                                // TODO: register as part of snarl in index
+                                begin_chain(inbound);
+                                end_chain(inbound);
+                                
                                 visited.insert(graph->forward(inbound));
                             }   
                         });
@@ -1506,35 +1518,16 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial_postorder_with_pare
             } else {
                 // Now we have finished a stack frame!
                 
-                if (frame.is_snarl && frame.parent != numeric_limits<size_t>::max()) {
-                    // If this is a snarl frame with bounds, emit it now that we have emitted all its children.
+                if (frame.parent != numeric_limits<size_t>::max()) {
+                    // We have bounds
                     
 #ifdef debug
-                    cerr << "\tEmit snarl " << graph->get_id(frame.bounds.first) << (graph->get_is_reverse(frame.bounds.first) ? "-" : "+") << " to "
-                        << graph->get_id(frame.bounds.second) << (graph->get_is_reverse(frame.bounds.second) ? "-" : "+") << endl;
+                    cerr << "\tAnnouncing exit..." << endl;
 #endif
-                    
-                    // Find the bounds of the parent snarl.
-                    // TODO: this is a bunch of ugly stack walking.
-                    const pair<handle_t, handle_t>* parent_bounds = nullptr;
-                    auto& parent_frame = stack[frame.parent];
-                    // Our parent frame is a chain.
-                    if (parent_frame.parent != numeric_limits<size_t>::max()) {
-                        // But we have a grandparent
-                        auto& grandparent_frame = stack[parent_frame.parent];
-                        if (grandparent_frame.parent != numeric_limits<size_t>::max()) {
-                            // And that grandparent frame has bounds (becuase it has a parent and isn't the root)
-                            assert(grandparent_frame.is_snarl);
-                            // Point to its bounds.
-                            parent_bounds = &grandparent_frame.bounds;
-                        }
-                    }
-                    
-                    // Tell the iteratee about us and out parent.
-                    // TODO: pick a better internal format somehow. Do a pre-order traversal and notify when we come out, or something?
-                    iteratee(parent_bounds, frame.bounds);
-                    
-                    // TODO: Compose through-connectivity info as we go up.
+                
+                    // Announce leaving this snarl or chain in the traversal
+                    (frame.is_snarl ? end_snarl : end_chain)(frame.bounds.second);
+                
                 }
                 
 #ifdef debug
@@ -1548,48 +1541,6 @@ void IntegratedSnarlFinder::for_each_snarl_including_trivial_postorder_with_pare
         }
     }
     
-}
-
-SnarlManager IntegratedSnarlFinder::find_snarls() {
-    // Start with an empty SnarlManager
-    SnarlManager snarl_manager;
-    
-    for_each_snarl_including_trivial_postorder_with_parent([&](const pair<handle_t, handle_t>* parent_bounds, const pair<handle_t, handle_t>& bounds) {
-        // For every snarl, including the trivial ones
-        
-        // Make a Protobuf version of it
-        vg::Snarl proto_snarl;
-        
-        // Convert boundary handles to Visits
-        proto_snarl.mutable_start()->set_node_id(graph->get_id(bounds.first));
-        proto_snarl.mutable_start()->set_backward(graph->get_is_reverse(bounds.first));
-        proto_snarl.mutable_end()->set_node_id(graph->get_id(bounds.second));
-        proto_snarl.mutable_end()->set_backward(graph->get_is_reverse(bounds.second));
-        
-        if (parent_bounds != nullptr) {
-            Snarl* parent_snarl = proto_snarl.mutable_parent();
-            
-            // Convert boundary handles to Visits again.
-            // TODO: function?
-            parent_snarl->mutable_start()->set_node_id(graph->get_id(parent_bounds->first));
-            parent_snarl->mutable_start()->set_backward(graph->get_is_reverse(parent_bounds->first));
-            parent_snarl->mutable_end()->set_node_id(graph->get_id(parent_bounds->second));
-            parent_snarl->mutable_end()->set_backward(graph->get_is_reverse(parent_bounds->second));
-            
-        }
-        
-        // TODO: Determine snarl metadata (connectivity, type) somehow.
-    
-        // Add the Protobuf version of the snarl to the Snarl Manager.
-        // TODO: is it happy getting children before parents?
-        snarl_manager.add_snarl(proto_snarl);
-    });
-    
-    // Let the snarl manager compute all its indexes
-    snarl_manager.finish();
-    
-    // Give it back
-    return snarl_manager;
 }
 
 }
