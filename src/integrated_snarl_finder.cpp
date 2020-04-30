@@ -1255,6 +1255,7 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                     // We know we're a cycle that can be followed.
                     handle_t here = frame.bounds.first;
                     unordered_set<handle_t> seen;
+                    size_t region_start = frame.todo.size();
                     do {
                     
 #ifdef debug
@@ -1274,6 +1275,16 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                         // Keep going until we come to the end.
                         // We do this as a do-while because the start may be the end but we still want to go around the cycle.
                     } while (here != frame.bounds.second);
+                    
+                    // Now we have put all the snarls in the chain on the to
+                    // do list. But we process the to do list from the end, so
+                    // as is we're going to traverse them backward along the
+                    // chain. We want to see them forward along the chain
+                    // instead, so reverse this part of the vector.
+                    // TODO: should we make the to do list a list? That would
+                    // save a reverse but require a bunch of allocations and
+                    // pointer follows.
+                    std::reverse(frame.todo.begin() + region_start, frame.todo.end());
                 }
                 
             }

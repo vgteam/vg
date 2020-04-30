@@ -67,6 +67,7 @@ public:
      * which begin_snarl is not called. So the first call will be begin_chain.
      *
      * Start handles are inward facing and end handles are outward facing.
+     * Snarls must be oriented forward in their chains.
      */
     void traverse_decomposition(const function<void(handle_t)>& begin_chain, const function<void(handle_t)>& end_chain,
         const function<void(handle_t)>& begin_snarl, const function<void(handle_t)>& end_snarl) const;
