@@ -27,6 +27,7 @@
 #include "snarls.hpp"
 #include "path_index.hpp"
 #include "genotypekit.hpp"
+#include "gbwt_helper.hpp"
 
 namespace vg {
 
@@ -610,6 +611,32 @@ public:
 
 };    
 
+/** Rerturn all traversals of a snarl that correspond to haplotypes stored in a GBWT
+ */
+class GBWTTraversalFinder : public TraversalFinder {
+
+protected:
+    
+    const HandleGraph& graph;
+    const gbwt::GBWT& gbwt;
+    
+public:
+    
+    GBWTTraversalFinder(const HandleGraph& graph, const gbwt::GBWT& gbwt);
+    
+    virtual ~GBWTTraversalFinder();
+
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
+protected:
+
+    /**
+     * Breadth first search from the start to the end, only branching if there's a haplotype 
+     * in the GBWT, and returning all unique haplotypes found. 
+     */
+    vector<vector<gbwt::node_type>> get_spanning_haplotypes(handle_t start, handle_t end);
+    
+};
 
 }
 

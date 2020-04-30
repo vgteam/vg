@@ -195,6 +195,7 @@ namespace vg {
         else {
             clusterer = unique_ptr<MEMClusterer>(new TVSClusterer(xindex, distance_index));
         }
+        clusterer->max_gap = max_alignment_gap;
         
         // generate clusters
         return clusterer->clusters(alignment, mems, get_aligner(!alignment.quality().empty()),
@@ -257,6 +258,7 @@ namespace vg {
         else {
             clusterer = unique_ptr<MEMClusterer>(new TVSClusterer(xindex, distance_index));
         }
+        
         return clusterer->pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
                                        alt_anchors_1, alt_anchors_2,
                                        fragment_length_distr.mean(),
@@ -502,7 +504,7 @@ namespace vg {
         
         // the longest path we could possibly align to (full gap and a full sequence)
         auto aligner = get_aligner(!multipath_aln.quality().empty() && !other_aln.quality().empty());
-        size_t target_length = other_aln.sequence().size() + aligner->longest_detectable_gap(other_aln);
+        size_t target_length = other_aln.sequence().size() + min(aligner->longest_detectable_gap(other_aln), max_alignment_gap);
         
         // convert from bidirected to directed
         StrandSplitGraph align_digraph(&rescue_graph);
@@ -2683,9 +2685,9 @@ namespace vg {
                 // get the start position of the MEM
                 positions.push_back(mem_hit.second);
                 // search far enough away to get any hit detectable without soft clipping
-                forward_max_dist.push_back(aligner->longest_detectable_gap(alignment, mem_hit.first->end)
+                forward_max_dist.push_back(min(aligner->longest_detectable_gap(alignment, mem_hit.first->end), max_alignment_gap)
                                            + (alignment.sequence().end() - mem_hit.first->begin));
-                backward_max_dist.push_back(aligner->longest_detectable_gap(alignment, mem_hit.first->begin)
+                backward_max_dist.push_back(min(aligner->longest_detectable_gap(alignment, mem_hit.first->begin), max_alignment_gap)
                                             + (mem_hit.first->begin - alignment.sequence().begin()));
             }
             
@@ -2996,7 +2998,7 @@ namespace vg {
         
         // the longest path we could possibly align to (full gap and a full sequence)
         auto aligner = get_aligner(!alignment.quality().empty());
-        size_t target_length = alignment.sequence().size() + aligner->longest_detectable_gap(alignment);
+        size_t target_length = alignment.sequence().size() + min(aligner->longest_detectable_gap(alignment), max_alignment_gap);
         
         // check if we can get away with using only one strand of the graph
         bool use_single_stranded = algorithms::is_single_stranded(graph);
@@ -3103,6 +3105,7 @@ namespace vg {
             multi_aln_graph.prune_to_high_scoring_paths(alignment, aligner,
                                                         max_suboptimal_path_score_ratio, topological_order);
         }
+        
         if (snarl_manager) {
             // We want to do snarl cutting
             
@@ -3113,7 +3116,8 @@ namespace vg {
 #endif
 
                 // Make fake anchor paths to cut the snarls out of in the tails
-                multi_aln_graph.synthesize_tail_anchors(alignment, *align_dag, aligner, min_tail_anchor_length, num_alt_alns, false);
+                multi_aln_graph.synthesize_tail_anchors(alignment, *align_dag, aligner, min_tail_anchor_length, num_alt_alns,
+                                                        false, max_alignment_gap, pessimistic_tail_gap_multiplier);
                 
             }
        
@@ -3123,7 +3127,9 @@ namespace vg {
 #endif
         
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
-            multi_aln_graph.resect_snarls_from_paths(snarl_manager, translator, max_snarl_cut_size);
+            if (max_snarl_cut_size) {
+                multi_aln_graph.resect_snarls_from_paths(snarl_manager, translator, max_snarl_cut_size);
+            }
         }
 
 
@@ -3147,7 +3153,8 @@ namespace vg {
         };
         
         // do the connecting alignments and fill out the MultipathAlignment object
-        multi_aln_graph.align(alignment, *align_dag, aligner, true, num_alt_alns, dynamic_max_alt_alns, choose_band_padding, multipath_aln_out);
+        multi_aln_graph.align(alignment, *align_dag, aligner, true, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
+                              pessimistic_tail_gap_multiplier, choose_band_padding, multipath_aln_out);
         
         // Note that we do NOT topologically order the MultipathAlignment. The
         // caller has to do that, after it is finished breaking it up into
@@ -3195,7 +3202,8 @@ namespace vg {
         };
         
         // do the connecting alignments and fill out the MultipathAlignment object
-        multi_aln_graph.align(alignment, subgraph, aligner, false, num_alt_alns, dynamic_max_alt_alns, choose_band_padding, multipath_aln_out);
+        multi_aln_graph.align(alignment, subgraph, aligner, false, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
+                              pessimistic_tail_gap_multiplier, choose_band_padding, multipath_aln_out);
         
         for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
             translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);
