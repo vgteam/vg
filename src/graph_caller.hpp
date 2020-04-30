@@ -225,8 +225,9 @@ protected:
 
 
 /**
- * FlowCaller : Uses the FlowTraversal finder to find best-supported
- * traversals, and calls those.  should work on any graph but will not
+ * FlowCaller : Uses any traversals finder (ex, FlowTraversalFinder) to find 
+ * traversals, and calls those based on how much support they have.  
+ * Should work on any graph but will not
  * report cyclic traversals.  Does not (yet, anyway) support nested
  * calling, so the entire site is processes in one shot. 
  * Designed to replace LegacyCaller, as it should miss fewer obviously
@@ -238,7 +239,7 @@ public:
                SupportBasedSnarlCaller& snarl_caller,
                SnarlManager& snarl_manager,
                const string& sample_name,
-               size_t max_traverals,
+               TraversalFinder& traversal_finder,
                const vector<string>& ref_paths = {},
                const vector<size_t>& ref_path_offsets = {},
                ostream& out_stream = cout);
@@ -256,7 +257,7 @@ protected:
     const PathPositionHandleGraph& graph;
 
     /// the traversal finder
-    FlowTraversalFinder* traversal_finder;
+    TraversalFinder& traversal_finder;
 
     /// keep track of the reference paths
     vector<string> ref_paths;
