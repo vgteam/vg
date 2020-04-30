@@ -15,6 +15,8 @@
 
 namespace vg {
 
+#define debug
+
 using namespace std;
 
 class IntegratedSnarlFinder::MergedAdjacencyGraph {

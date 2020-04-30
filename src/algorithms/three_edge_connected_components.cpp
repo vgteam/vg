@@ -14,7 +14,7 @@ extern "C" {
 #include <iostream>
 #include <sstream>
 
-//#define debug
+#define debug
 
 namespace vg {
 namespace algorithms {
@@ -356,7 +356,7 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                         // This is the first time we are thinking about this neighbor.
                         
 #ifdef debug
-                        cerr << "\tThink of neighbor " << neighbor_number << " for the first time" << endl;
+                        cerr << "\tThink of edge to neighbor " << neighbor_number << " for the first time" << endl;
 #endif
                     
                         // Increment degree of the node we're coming from
