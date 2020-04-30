@@ -573,11 +573,11 @@ TEST_CASE("CactusSnarlFinder can differentiate ultrabubbles from snarls", "[geno
         const string graph_json = R"(
         {
         "node": [
-            {"id": 1, "sequence": "G"},
+            {"id": 1, "sequence": "AGGAGGG"},
             {"id": 2, "sequence": "A"},
             {"id": 3, "sequence": "T"},
             {"id": 4, "sequence": "GGG"},
-            {"id": 5, "sequence": "GT"}
+            {"id": 5, "sequence": "GTTTGTG"}
         ],
         "edge": [
             {"from": 1, "to": 2},
@@ -692,14 +692,15 @@ TEST_CASE("IntegratedSnarlFinder can differentiate ultrabubbles from snarls", "[
 
     SECTION("Directed cycle does not count as ultrabubble") {
         // Build a toy graph
+        // Make sure start and end nodes are long enough to suggest the rooting we want.
         const string graph_json = R"(
         {
         "node": [
-            {"id": 1, "sequence": "G"},
+            {"id": 1, "sequence": "AGGAGGG"},
             {"id": 2, "sequence": "A"},
             {"id": 3, "sequence": "T"},
             {"id": 4, "sequence": "GGG"},
-            {"id": 5, "sequence": "GT"}
+            {"id": 5, "sequence": "GTTTGTG"}
         ],
         "edge": [
             {"from": 1, "to": 2},
