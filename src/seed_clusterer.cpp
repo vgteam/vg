@@ -109,7 +109,7 @@ cerr << endl << endl << endl << endl << "New cluster calculation:" << endl;
         //This is later used to populate snarl_to_node in the tree state
         vector<hash_map<size_t, vector<pair<NetgraphNode, NodeClusters>>>> snarl_to_nodes_by_level;
         //TODO: probably don't want to use the max depth of the snarl tree
-        snarl_to_nodes_by_level.resize(dist_index.tree_depth+1);
+        snarl_to_nodes_by_level.reserve(dist_index.tree_depth+1);
 
 
 
@@ -126,9 +126,9 @@ cerr << endl << endl << endl << endl << "New cluster calculation:" << endl;
         get_nodes(tree_state, snarl_to_nodes_by_level);
 
         //Initialize the tree state to be the bottom level
-        tree_state.snarl_to_nodes = std::move(snarl_to_nodes_by_level[dist_index.tree_depth]);
+        tree_state.snarl_to_nodes = std::move(snarl_to_nodes_by_level[snarl_to_nodes_by_level.size() - 1]);
 
-        for (int depth = dist_index.tree_depth ; depth >= 0 ; depth --) {
+        for (int depth = snarl_to_nodes_by_level.size() - 1 ; depth >= 0 ; depth --) {
             //Go through each level of the tree, bottom up, and cluster that
             // level. Each level includes the snarl at that level, the nodes
             // belonging to those snarls, and the chains comprised of them
@@ -295,6 +295,9 @@ cerr << "Nested positions: " << endl << "\t";
                         seen_nodes.insert(id);
                         size_t snarl_i = dist_index.getPrimaryAssignment(id);
                         size_t depth = dist_index.snarl_indexes[snarl_i].depth;
+                        if (depth+1 > snarl_to_nodes_by_level.size()) {
+                            snarl_to_nodes_by_level.resize(depth+1);
+                        }
                         snarl_to_nodes_by_level[depth][snarl_i].emplace_back(
                                  NetgraphNode(id, NODE), NodeClusters(tree_state.all_seeds->size()));
                     } 
@@ -332,6 +335,10 @@ cerr << "Nested positions: " << endl << "\t";
                 }
             }
             std::sort(tree_state.node_to_seeds[read_num].begin(), tree_state.node_to_seeds[read_num].end());
+        }
+
+        if (snarl_to_nodes_by_level.empty()) {
+            snarl_to_nodes_by_level.resize(1);
         }
 #ifdef DEBUG_CLUSTER
         cerr << endl << "Top-level seeds:" << endl << "\t";
