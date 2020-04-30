@@ -15,6 +15,7 @@
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 #include <gbwtgraph/algorithms.h>
+#include <gbwtgraph/cached_gbwtgraph.h>
 
 #include <iostream>
 #include <algorithm>
@@ -2125,25 +2126,27 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 
 void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
 
+    // We are traversing the same small subgraph repeatedly, so it's better to use a cache.
+    gbwtgraph::CachedGBWTGraph cached_graph(this->gbwt_graph);
+
     // Find all nodes within a reasonable range from aligned_read.
     // TODO: How big should the rescue subgraph be?
     std::unordered_set<id_t> rescue_nodes;
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * fragment_length_distr.stdev());
     int64_t max_distance = fragment_length_distr.mean() + 4 * fragment_length_distr.stdev();
-    distance_index.subgraphInRange(aligned_read.path(), &gbwt_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
+    distance_index.subgraphInRange(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
 
     // Get rid of the old path.
     rescued_alignment.clear_path();
 
     // Check if the subgraph is acyclic. Rescue is much faster in acyclic subgraphs.
-    gbwt::CachedGBWT cache = this->gbwt_graph.get_cache();
-    std::vector<handle_t> topological_order = gbwtgraph::topological_order(this->gbwt_graph, rescue_nodes, &cache);
+    std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
     if (!topological_order.empty()) {
         // Build a subgraph overlay.
         // FIXME Temporary
-        SubHandleGraph sub_graph(&gbwt_graph);
+        SubHandleGraph sub_graph(&cached_graph);
         for (id_t id : rescue_nodes)  {
-            sub_graph.add_handle(gbwt_graph.get_handle(id));
+            sub_graph.add_handle(cached_graph.get_handle(id));
         }
 
         // Create an overlay where each strand is a separate node.
@@ -2165,9 +2168,9 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
         }
     } else {
         // Build a subgraph overlay.
-        SubHandleGraph sub_graph(&gbwt_graph);
+        SubHandleGraph sub_graph(&cached_graph);
         for (id_t id : rescue_nodes)  {
-            sub_graph.add_handle(gbwt_graph.get_handle(id));
+            sub_graph.add_handle(cached_graph.get_handle(id));
         }
 
         // Create an overlay where each strand is a separate node.
