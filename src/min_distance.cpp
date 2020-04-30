@@ -812,7 +812,7 @@ void MinimumDistanceIndex::populateSnarlIndex(const HandleGraph* graph, const Sn
 
             if (start_id.first != snarl_start_id && start_id.first != snarl_end_id &&
                 curr_id.first != snarl_start_id && curr_id.first != snarl_end_id &&
-                curr_id != start_id) {
+                !first_loop ) {
                 //If we started from an interior node and ended at another interior node
                 snarl_indexes[snarl_assignment].is_simple_snarl = false;
             }
