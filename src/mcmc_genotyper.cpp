@@ -7,6 +7,8 @@
 #include <utility>
 #include "multipath_alignment.hpp"
 
+#define debug_mcmc
+
 namespace vg {
 
     using namespace std;
@@ -22,20 +24,19 @@ namespace vg {
         // set a flag for invalid contents so a message is observed 
         bool invalid_contents = false;
         bool return_optimal = false;
-        bool swapped_to_old_allele = false; 
-
 
         // generate initial value
         unique_ptr<PhasedGenome> genome = generate_initial_guess();
         
-        double max_likelihood = 0.0; //max log likelihood
-        double current_likelihood = 0.0; // current log likelihood
+        double max_likelihood = 0.0; 
+        double current_likelihood = 0.0; 
         double previous_likelihood = 0.0;
-
+ 
         unique_ptr<PhasedGenome> optimal;
         
         // build markov chain using Metropolis-Hastings
         for(int i = 0; i< n_iterations; i++){
+            cerr << "iteration " << i << endl;
             // holds the previous sample allele
             double x_prev = log_target(genome, reads);
 
@@ -52,54 +53,41 @@ namespace vg {
                 const Snarl& modified_site = *get<1>(to_receive); 
                 vector<NodeTraversal>& old_allele = get<2>(to_receive); 
  
-                // holds new sample allele
+                // holds new sample allele score 
                 double x_new = log_target(genome, reads);
 
-                // calculate likelihood ratio of posterior distribution 
                 double likelihood_ratio = exp(log_base*(x_new - x_prev));
                 
-                // cerr << "\ttotal score of new genome "<< x_new << endl;
-                // cerr << "\ttotal score of prev genome "<< x_prev << endl;
-                // cerr << "\tlikelihood ratio            " << likelihood_ratio << endl;
-
-                if(!swapped_to_old_allele){
-                    //if we accepted new allele (did not swap back to old allele), we update prev = current
-                    previous_likelihood = current_likelihood;
-                    current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
-                    // cerr << "\tprev log likelihood         " << previous_likelihood << endl; 
-                    // cerr << "\tcurrent log likelihood      " << current_likelihood << endl;
-                    cerr << current_likelihood << endl;
-                }else{
-                    //otherwise we did not accept new allele (did swap back to old allele) and prev,current do not change
-                    current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
-                    // cerr << "\tprev log likelihood         " << previous_likelihood << endl; 
-                    // cerr << "\tcurrent log likelihood      " << current_likelihood << endl;
-                    cerr << current_likelihood << endl;
-                }
                 
+#ifdef debug_mcmc
+                
+#endif
                 if (current_likelihood > max_likelihood){
                     max_likelihood = current_likelihood;
                     optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
                     return_optimal=true;
                 }
-
+                
                 // calculate acceptance probability 
                 double acceptance_probability = min(1.0, likelihood_ratio);
 
                 // if u~U(0,1) > alpha, discard new allele and keep previous 
                 auto uniform_smpl = generate_continuous_uniform(0.0,1.0);
-                // cerr << "\tuniform smpl " << uniform_smpl <<endl;
-                // cerr <<"\tacceptance prob " << acceptance_probability <<endl;
                 if(uniform_smpl > acceptance_probability){ 
-                    swapped_to_old_allele = true; 
                     genome->set_allele(modified_site, old_allele.begin(), old_allele.end(), modified_haplo); 
-                    // cerr << "Rejected new allele" <<endl;
-                    // genome->print_phased_genome();
+#ifdef debug_mcmc
+                    cerr << "Rejected new allele" <<endl;
+                    cerr << "clikelihood " << previous_likelihood <<endl;
+                    genome->print_phased_genome();
+#endif                    
+                }else{     
+#ifdef debug_mcmc 
+                    cerr << "Accepted new allele" <<endl;
+                    cerr << "clikelihood " << current_likelihood <<endl;
+                    genome->print_phased_genome();
+#endif
+                    previous_likelihood = current_likelihood;
                     
-                }else{
-                    swapped_to_old_allele = false;
-                    // cerr << "Accepted new allele" <<endl;
-                    // genome->print_phased_genome();
                 }         
             }
         } 
@@ -107,9 +95,10 @@ namespace vg {
             // for graphs without snarls 
             return genome; 
         }else{
-            // cerr <<"optimal genome " <<endl;
-            // optimal->print_phased_genome();
-            cerr << max_likelihood <<endl;
+#ifdef debug_mcmc 
+            cerr <<"klikelihood " << max_likelihood <<endl;
+            optimal->print_phased_genome();
+#endif
             return optimal; 
         }
 
@@ -142,10 +131,6 @@ namespace vg {
         
         // sample uniformly between snarls 
         random_snarl = snarls.discrete_uniform_sample(random_engine);
-        
-        // comment this out when testing Test1 - will cause segfault
-        // cerr << "this is the boundary nodes of the snarl " << random_snarl->start() << random_snarl->end() <<endl;
-        
 
         if(random_snarl == nullptr){
             random_haplotype = -1;
@@ -267,11 +252,22 @@ namespace vg {
         }
         // save old allele so we can swap back to it if we need to 
         old_allele = current->get_allele(*random_snarl, random_haplotype);
-        
+
+#ifdef debug_mcmc 
+        cerr << "modifying haplotype " << random_num << endl; 
+        for(auto iter = allele.begin(); iter != allele.end(); iter++ ){
+            cerr << "new allele: " <<"node " << iter->node->id() << " " << iter->node->sequence() <<endl;
+
+        }
+        for(auto iter = old_allele.begin(); iter != old_allele.end(); iter++ ){
+            cerr << "old allele: " <<"node " << iter->node->id() <<  " " << iter->node->sequence() <<endl;
+
+        }
+#endif
         // set new allele with random allele, replace with previous allele 
         current->set_allele(*random_snarl , allele.rbegin(), allele.rend(), random_haplotype);
         
- 
+        
         return to_return;
 
     }

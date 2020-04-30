@@ -256,13 +256,13 @@ namespace vg {
     void PhasedGenome::print_phased_genome(){
          // output number of haplotypes contained in phased genome 
         size_t haplo_num = num_haplotypes();
-        cerr << "The haplotype num is: " << haplo_num << endl;
+        //cerr << "The haplotype num is: " << haplo_num << endl;
 
         // iterate through the genome and all its haplotypes
         for(int i = 0; i < haplo_num; i++){
-            cerr << "Haplotype ID is: " << i <<endl;
+            cerr << "Haplotype ID: " << i <<endl;
             // iterate through each node in the haplotype
-            for(auto iter = begin(i); iter != end(i); iter++ ){
+            for(auto iter = begin(i); iter != end(i); iter++ ){    
                 cerr << "node " << (*iter).node->id() << ": " <<(*iter).node->sequence() <<endl;
             }
             cerr<<endl;

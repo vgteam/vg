@@ -892,8 +892,8 @@ namespace vg {
                 double count_minus = 0.0;
                 vector<double> results = vector<double>();
                 
-                int num_iterations = 100;
-                int seed_i = -537267595;
+                int num_iterations = 25;
+                int seed_i = std::chrono::system_clock::now().time_since_epoch().count();
                 
                 VG graph;
 
