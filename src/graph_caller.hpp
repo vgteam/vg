@@ -32,10 +32,10 @@ public:
     /// Run call_snarl() on every top-level snarl in the manager.
     /// For any that return false, try the children, etc. (when recurse_on_fail true)
     /// Snarls are processed in parallel
-    virtual void call_top_level_snarls(bool recurse_on_fail = true);
+    virtual void call_top_level_snarls(int ploidy, bool recurse_on_fail = true);
 
     /// Call a given snarl, and print the output to out_stream
-    virtual bool call_snarl(const Snarl& snarl) = 0;
+    virtual bool call_snarl(const Snarl& snarl, int ploidy) = 0;
    
 protected:
 
@@ -68,6 +68,21 @@ public:
     void write_variants(ostream& out_stream) const;
     
 protected:
+
+    /// print a vcf variant 
+    void emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
+                      const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
+                      const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                      const string& ref_path_name, int ref_offset) const;
+
+    /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
+    /// the bool is true if the snarl's backward on the path
+    tuple<size_t, size_t, bool, step_handle_t, step_handle_t> get_ref_interval(const PathPositionHandleGraph& graph, const Snarl& snarl,
+                                                                               const string& ref_path_name) const;
+
+    /// clean up the alleles to not share common prefixes / suffixes
+    void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
+    
     /// output vcf
     mutable vcflib::VariantCallFile output_vcf;
 
@@ -95,7 +110,7 @@ public:
 
     virtual ~VCFGenotyper();
 
-    virtual bool call_snarl(const Snarl& snarl);
+    virtual bool call_snarl(const Snarl& snarl, int ploidy);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -139,7 +154,7 @@ public:
 
     virtual ~LegacyCaller();
 
-    virtual bool call_snarl(const Snarl& snarl);
+    virtual bool call_snarl(const Snarl& snarl, int ploidy);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -165,22 +180,11 @@ protected:
                                                                                               const string& ref_path_name,
                                                                                               pair<size_t, size_t> ref_interval) const;
 
-    /// print a vcf variant 
-    void emit_variant(const Snarl& snarl, TraversalFinder& trav_finder, const vector<SnarlTraversal>& called_traversals,
-                      const vector<int>& genotype, const unique_ptr<SnarlCaller::CallInfo>& call_info, const string& ref_path_name) const;
-
     /// check if a site can be handled by the RepresentativeTraversalFinder
     bool is_traversable(const Snarl& snarl);
 
     /// look up a path index for a site and return its name too
     pair<string, PathIndex*> find_index(const Snarl& snarl, const vector<PathIndex*> path_indexes) const;
-
-    /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
-    /// the bool is true if the snarl's backward on the path
-    tuple<size_t, size_t, bool> get_ref_interval(const Snarl& snarl, const string& ref_path_name) const;
-
-    /// clean up the alleles to not share common prefixes / suffixes
-    void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
 
 protected:
 
@@ -216,6 +220,54 @@ protected:
     /// What's the maximum number of bubble path combinations we can explore
     /// while finding one with maximum support?
     size_t max_bubble_paths = 100;
+
+};
+
+
+/**
+ * FlowCaller : Uses any traversals finder (ex, FlowTraversalFinder) to find 
+ * traversals, and calls those based on how much support they have.  
+ * Should work on any graph but will not
+ * report cyclic traversals.  Does not (yet, anyway) support nested
+ * calling, so the entire site is processes in one shot. 
+ * Designed to replace LegacyCaller, as it should miss fewer obviously
+ * good traversals, and is not dependent on old protobuf-based structures. 
+ */
+class FlowCaller : public GraphCaller, public VCFOutputCaller {
+public:
+    FlowCaller(const PathPositionHandleGraph& graph,
+               SupportBasedSnarlCaller& snarl_caller,
+               SnarlManager& snarl_manager,
+               const string& sample_name,
+               TraversalFinder& traversal_finder,
+               const vector<string>& ref_paths = {},
+               const vector<size_t>& ref_path_offsets = {},
+               ostream& out_stream = cout);
+   
+    virtual ~FlowCaller();
+
+    virtual bool call_snarl(const Snarl& snarl, int ploidy);
+
+    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                              const vector<size_t>& contig_length_overrides = {}) const;
+
+protected:
+
+    /// the graph
+    const PathPositionHandleGraph& graph;
+
+    /// the traversal finder
+    TraversalFinder& traversal_finder;
+
+    /// keep track of the reference paths
+    vector<string> ref_paths;
+    unordered_set<string> ref_path_set;
+
+    /// keep track of offsets in the reference paths
+    map<string, size_t> ref_offsets;
+
+    /// until we support nested snarls, cap snarl size we attempt to process
+    size_t max_snarl_edges = 500000;
 
 };
 

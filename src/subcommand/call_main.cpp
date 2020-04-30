@@ -16,7 +16,7 @@
 #include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -37,9 +37,11 @@ void help_call(char** argv) {
        << "    -i, --ins-fasta FILE    Insertions fasta (required if VCF contains symbolic insertions)" << endl
        << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
        << "    -r, --snarls FILE       Snarls (from vg snarls) to avoid recomputing." << endl
+       << "    -g, --gbwt FILE         Only call genotypes that are present in given GBWT index." << endl
        << "    -p, --ref-path NAME     Reference path to call on (multipile allowed.  defaults to all paths)" << endl
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
        << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
+       << "    -d, --ploidy N          Ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
@@ -49,6 +51,7 @@ int main_call(int argc, char** argv) {
     string vcf_filename;
     string sample_name = "SAMPLE";
     string snarl_filename;
+    string gbwt_filename;
     string ref_fasta_filename;
     string ins_fasta_filename;
     vector<string> ref_paths;
@@ -57,6 +60,14 @@ int main_call(int argc, char** argv) {
     string min_support_string;
     string bias_string;
     bool ratio_caller = false;
+    bool legacy = false;
+    int ploidy = 2;
+
+    // constants
+    const size_t avg_trav_threshold = 50;
+    const size_t avg_node_threshold = 50;
+    const size_t depth_bin_width = 50;
+    const size_t max_yens_traversals = 50;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -72,9 +83,12 @@ int main_call(int argc, char** argv) {
             {"ins-fasta", required_argument, 0, 'i'},
             {"sample", required_argument, 0, 's'},            
             {"snarls", required_argument, 0, 'r'},
+            {"gbwt", required_argument, 0, 'g'},
             {"ref-path", required_argument, 0, 'p'},
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
+            {"ploidy", required_argument, 0, 'd'},
+            {"legacy", no_argument, 0, 'L'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
@@ -82,7 +96,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Bb:m:v:f:i:s:r:p:o:l:t:h",
+        c = getopt_long (argc, argv, "k:Bb:m:v:f:i:s:r:g:p:o:l:d:Lt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -118,6 +132,9 @@ int main_call(int argc, char** argv) {
         case 'r':
             snarl_filename = optarg;
             break;
+        case 'g':
+            gbwt_filename = optarg;
+            break;
         case 'p':
             ref_paths.push_back(optarg);
             break;
@@ -126,7 +143,13 @@ int main_call(int argc, char** argv) {
             break;
         case 'l':
             ref_path_lengths.push_back(parse<int>(optarg));
-            break;            
+            break;
+        case 'd':
+            ploidy = parse<int>(optarg);
+            break;
+        case 'L':
+            legacy = true;
+            break;
         case 't':
         {
             int num_threads = parse<int>(optarg);
@@ -229,6 +252,27 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: -b can only be used with -B" << endl;
         return 1;
     }
+    // Check ploidy option
+    if (ploidy < 1 || ploidy > 2) {
+        cerr << "error [vg call]: ploidy (-d) must be either 1 or 2" << endl;
+        return 1;
+    }
+    if (ratio_caller == true && ploidy != 2) {
+        cerr << "error [vg call]: ploidy (-d) must be 2 when using ratio caller (-B)" << endl;
+        return 1;
+    }
+    if (legacy == true && ploidy != 2) {
+        cerr << "error [vg call]: ploidy (-d) must be 2 when using legacy caller (-L)" << endl;
+        return 1;
+    }
+    if (!vcf_filename.empty() && !gbwt_filename.empty()) {
+        cerr << "error [vg call]: gbwt (-g) cannot be used when genotyping VCF (-v)" << endl;
+        return 1;
+    }
+    if (legacy == true && !gbwt_filename.empty()) {
+        cerr << "error [vg call]: gbwt (-g) cannot be used with legacy caller (-L)" << endl;
+        return 1;
+    }
 
     // No paths specified: use them all
     if (ref_paths.empty()) {
@@ -254,11 +298,10 @@ int main_call(int argc, char** argv) {
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
     
-    unique_ptr<GraphCaller> graph_caller;
+    // Make a Packed Support Caller
     unique_ptr<SnarlCaller> snarl_caller;
     algorithms::BinnedDepthIndex depth_index;
 
-    // Make a Packed Support Caller
     unique_ptr<Packer> packer;
     unique_ptr<TraversalSupportFinder> support_finder;
     if (!pack_filename.empty()) {        
@@ -269,13 +312,20 @@ int main_call(int argc, char** argv) {
         PackedTraversalSupportFinder* packed_support_finder = new CachedPackedTraversalSupportFinder(*packer, *snarl_manager);
         support_finder = unique_ptr<TraversalSupportFinder>(packed_support_finder);
         
+        // need to use average support when genotyping as small differences in between sample and graph
+        // will lead to spots with 0-support, espeically in and around SVs. 
+        support_finder->set_support_switch_threshold(avg_trav_threshold, avg_node_threshold);
+
+        // todo: toggle between min / average (or thresholds) via command line
+        
         SupportBasedSnarlCaller* packed_caller = nullptr;
 
         if (ratio_caller == false) {
             // Make a depth index
-            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, 50, 0, true, true);
+            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, depth_bin_width, 0, true, true);
             // Make a new-stype probablistic caller
-            auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index);
+            auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index,
+                                                                packer->has_qualities());
             packed_caller = poisson_caller;
         } else {
             // Make an old-style ratio support caller
@@ -296,6 +346,10 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: pack file (-k) is required" << endl;
         return 1;
     }
+
+    unique_ptr<GraphCaller> graph_caller;
+    unique_ptr<TraversalFinder> traversal_finder;
+    unique_ptr<gbwt::GBWT> gbwt_index;
 
     vcflib::VariantCallFile variant_file;
     unique_ptr<FastaReference> ref_fasta;
@@ -325,17 +379,52 @@ int main_call(int argc, char** argv) {
                                                        ref_fasta.get(),
                                                        ins_fasta.get());
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
-    } else {
+    } else if (legacy) {
         // de-novo caller (port of the old vg call code, which requires a support based caller)
         LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                        *snarl_manager,
                                                        sample_name, ref_paths, ref_path_offsets);
         graph_caller = unique_ptr<GraphCaller>(legacy_caller);
+    } else {
+        // flow caller can take any kind of traversal finder.  two are supported for now:
+        
+        if (!gbwt_filename.empty()) {
+            // GBWT traversals
+            gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_filename);
+            if (gbwt_index.get() == nullptr) {
+                cerr << "error:[vg call] unable to load gbwt index file: " << gbwt_filename << endl;
+                return 1;
+            }
+            GBWTTraversalFinder* gbwt_traversal_finder = new GBWTTraversalFinder(*graph, *gbwt_index.get());
+            traversal_finder = unique_ptr<TraversalFinder>(gbwt_traversal_finder);
+        } else {
+            // Flow traversals (Yen's algorithm)
+            
+            // todo: do we ever want to toggle in min-support?
+            function<double(handle_t)> node_support = [&] (handle_t h) {
+                return support_finder->support_val(support_finder->get_avg_node_support(graph->get_id(h)));
+            };
+            
+            function<double(edge_t)> edge_support = [&] (edge_t e) {
+                return support_finder->support_val(support_finder->get_edge_support(e));
+            };
+
+            // create the flow traversal finder
+            FlowTraversalFinder* flow_traversal_finder = new FlowTraversalFinder(*graph, *snarl_manager, max_yens_traversals,
+                                                                                 node_support, edge_support);
+            traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
+        }
+        
+        FlowCaller* flow_caller = new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                                 *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+                                                 *snarl_manager,
+                                                 sample_name, *traversal_finder, ref_paths, ref_path_offsets);
+        graph_caller = unique_ptr<GraphCaller>(flow_caller);
     }
 
     // Call the graph
-    graph_caller->call_top_level_snarls();
+    graph_caller->call_top_level_snarls(ploidy);
 
     // VCF output is our only supported output
     VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());

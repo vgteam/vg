@@ -17,7 +17,7 @@
 #include "../xg.hpp"
 #include "../readfilter.hpp"
 #include <vg/io/vpkg.hpp>
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -32,8 +32,8 @@ void help_filter(char** argv) {
          << "    -N, --name-prefixes FILE   keep reads with names with one of many prefixes, one per nonempty line" << endl
          << "    -X, --exclude-contig REGEX drop reads with refpos annotations on contigs matching the given regex (may repeat)" << endl
          << "    -F, --exclude-feature NAME drop reads with the given feature in the \"features\" annotation (may repeat)" << endl
-         << "    -s, --min-secondary N      minimum score to keep secondary alignment [default=0]" << endl
-         << "    -r, --min-primary N        minimum score to keep primary alignment [default=0]" << endl
+         << "    -s, --min-secondary N      minimum score to keep secondary alignment" << endl
+         << "    -r, --min-primary N        minimum score to keep primary alignment" << endl
          << "    -O, --rescore              re-score reads using default parameters and only alignment information" << endl
          << "    -f, --frac-score           normalize score based on length" << endl
          << "    -u, --substitutions        use substitution count instead of score" << endl

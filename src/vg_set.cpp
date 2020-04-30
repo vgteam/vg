@@ -58,8 +58,6 @@ id_t VGset::max_node_id(void) {
 
 int64_t VGset::merge_id_space(void) {
     int64_t max_node_id = 0;
-    // TODO: for now, only vg::VG actually implements increment_node_ids,
-    // despite it being in the interface.
     auto lambda = [&max_node_id](MutableHandleGraph* g) {
         int64_t delta = max_node_id - g->min_node_id();
         if (delta >= 0) {
@@ -226,10 +224,10 @@ void VGset::for_each_kmer_parallel(size_t kmer_size, const function<void(const k
 }
 
 void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
-                                   id_t head_id, id_t tail_id) {
+                                   nid_t head_id, nid_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
         // Detect head and tail IDs in advance if we have multiple graphs
-        id_t max_id = max_node_id(); // expensive, as we'll stream through all the files
+        nid_t max_id = max_node_id(); // expensive, as we'll stream through all the files
         head_id = max_id + 1;
         tail_id = max_id + 2;
     }
@@ -259,10 +257,10 @@ void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
 
 // writes to a specific output stream
 void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_limit,
-                                    id_t head_id, id_t tail_id) {
+                                    nid_t head_id, nid_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
         // Detect head and tail IDs in advance if we have multiple graphs
-        id_t max_id = max_node_id(); // expensive, as we'll stream through all the files
+        nid_t max_id = max_node_id(); // expensive, as we'll stream through all the files
         head_id = max_id + 1;
         tail_id = max_id + 2;
     }
@@ -286,10 +284,10 @@ void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_li
 
 // writes to a set of temp files and returns their names
 vector<string> VGset::write_gcsa_kmers_binary(int kmer_size, size_t& size_limit,
-                                              id_t head_id, id_t tail_id) {
+                                              nid_t head_id, nid_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
         // Detect head and tail IDs in advance if we have multiple graphs
-        id_t max_id = max_node_id(); // expensive, as we'll stream through all the files
+        nid_t max_id = max_node_id(); // expensive, as we'll stream through all the files
         head_id = max_id + 1;
         tail_id = max_id + 2;
     }

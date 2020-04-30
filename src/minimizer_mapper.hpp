@@ -15,6 +15,7 @@
 #include "seed_clusterer.hpp"
 #include "snarls.hpp"
 #include "tree_subgraph.hpp"
+#include "funnel.hpp"
 
 #include <gbwtgraph/minimizer.h>
 #include <structures/immutable_list.hpp>
@@ -32,7 +33,7 @@ public:
      */
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-         const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes,
+         const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes,
          MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -73,15 +74,6 @@ public:
      * fragment length distribution.
      */
     pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
-     
-
-    /**
-     * Given an aligned read, extract a subgraph of the graph within a distance range
-     * based on the fragment length distribution and attempt to align the unaligned
-     * read to it.
-     * Rescue_forward is true if the aligned read is the first and false otherwise. Assumes that both reads are facing the same direction
-     */
-     void attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
 
     // Mapping settings.
     // TODO: document each
@@ -108,6 +100,12 @@ public:
     //If a cluster's score is smaller than the best score of any cluster by more than
     //this much, then don't extend it
     double cluster_score_threshold = 50;
+    
+    //If the second best cluster's score is no more than this many points below
+    //the cutoff set by cluster_score_threshold, snap that cutoff down to the
+    //second best cluster's score, to avoid throwing away promising
+    //secondaries.
+    double pad_cluster_score_threshold = 20;
 
     //If the read coverage of a cluster is less than the best coverage of any cluster
     //by more than this much, don't extend it
@@ -145,16 +143,62 @@ public:
             fragment_length_distr.force_parameters(fragment_length_distr.mean(), fragment_length_distr.stdev());
         } 
     }
+
+   /**
+    * Given an aligned read, extract a subgraph of the graph within a distance range
+    * based on the fragment length distribution and attempt to align the unaligned
+    * read to it.
+    * Rescue_forward is true if the aligned read is the first and false otherwise.
+    * Assumes that both reads are facing the same direction.
+    * TODO: This should be const, but some of the function calls are not.
+    */
+   void attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
+
+   /**
+    * Given an aligned read, extract all haplotypes within a distance range based on the
+    * fragment length distribution and attempt to align the unaligned read to it.
+    * Rescue_forward is true if the aligned read is the first and false otherwise.
+    * Assumes that both reads are facing the same direction.
+    * NOTE: Using this in a graph with small variants is generally a bad idea, because
+    * the number of local haplotypes is probably too large.
+    * TODO: This should be const, but some of the function calls are not.
+    */
+   void attempt_rescue_haplotypes(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
+
     /**
      * Get the distance between a pair of read alignments
      */
     int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
 protected:
+
+    /**
+     * We define our own type for minimizers, to use during mapping and to pass around between our internal functions.
+     */
+    struct Minimizer {
+        typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
+        size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
+        size_t agglomeration_length; // What is the regioin of consecutive windows this minimizer instance is minimal in?
+        size_t hits; // How many hits does the minimizer have?
+        const gbwtgraph::hit_type* occs;
+        size_t origin; // This minimizer came from minimizer_indexes[origin].
+        double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
+
+        // Sort the minimizers in descending order by score.
+        bool operator< (const Minimizer& another) const {
+            return (this->score > another.score);
+        }
+    };
+
+    /// The information we store for each seed.
+    typedef SnarlSeedClusterer::Seed Seed;
+
+    /// The information we store for each cluster.
+    typedef SnarlSeedClusterer::Cluster Cluster;
+
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
-    const std::vector<std::unique_ptr<gbwtgraph::DefaultMinimizerIndex>>& minimizer_indexes;
+    const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes;
     MinimumDistanceIndex& distance_index;
-
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     
@@ -165,6 +209,97 @@ protected:
     SnarlSeedClusterer clusterer;
 
     FragmentLengthDistribution fragment_length_distr;
+
+    /// Use this many bits for approximate probabilities.
+    constexpr static size_t PRECISION = 8;
+
+    /**
+     * Assume that we have n <= max_k independent events with probability p each.
+     * Let x be the PRECISION most significant bits of p. Then
+     *
+     *   phred_at_least_one[(n << PRECISION) + x]
+     *
+     * is an approximate phred score of at least one event occurring.
+     */
+    std::vector<double> phred_at_least_one;
+
+//-----------------------------------------------------------------------------
+
+    // Stages of mapping.
+
+    /**
+     * Find the minimizers in the sequence using all minimizer indexes and
+     * return them sorted in descending order by score.
+     */
+    std::vector<Minimizer> find_minimizers(const std::string& sequence, Funnel& funnel) const;
+
+    /**
+     * Find seeds for all minimizers passing the filters.
+     */
+    std::vector<Seed> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+
+    /**
+     * Determine cluster score, read coverage, and a vector of flags for the
+     * minimizers present in the cluster. Score is the sum of the scores of
+     * distinct minimizers in the cluster, while read coverage is the fraction
+     * of the read covered by seeds in the cluster.
+     */
+    void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
+
+   /**
+    * Score the set of extensions for each cluster using score_extension_group().
+    * Return the scores in the same order as the extensions.
+    */
+   std::vector<int> score_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
+
+   /**
+    * Score the set of extensions for each cluster using score_extension_group().
+    * Return the scores in the same order as the extensions.
+    */
+   std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
+
+//-----------------------------------------------------------------------------
+
+   /**
+    * Assume that we have n <= max_k independent random events that occur with
+    * probability p each (p is interpreted as a real number between 0 and 1 and
+    * max_k is the largest k in the minimizer indexes). Return an approximate
+    * probability for at least one event occurring as a phred score.
+    */
+   double phred_for_at_least_one(size_t p, size_t n) const;
+
+    /**
+     * Compute MAPQ caps based on all minimizers present in extended clusters.
+     *
+     * Needs access to the input alignment for sequence and quality
+     * information.
+     *
+     * Returns only an "extended" cap at the moment.
+     */
+    double compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
+                             const sdsl::bit_vector& present_in_any_extended_cluster);
+
+    /**
+     * Compute a bound on the Phred score probability of having created the
+     * agglomerations of the specified minimizers by base errors from the given
+     * sequence, which was sequenced with the given qualities.
+     *
+     * No limit is imposed if broken is empty.
+     *
+     * Takes the collection of all minimizers found, and a vector of the
+     * indices of minimizers we are interested in the agglomerations of. May
+     * modify the order of that index vector.
+     *
+     * Also takes the sequence of the read (to avoid Ns) and the quality string
+     * (interpreted as a byte array).
+     *
+     * Currently computes a lower-score-bound, upper-probability-bound,
+     * suitable for use as a mapping quality cap, by assuming the
+     * easiest-to-disrupt possible layout of the windows, and the lowest
+     * possible qualities for the disrupting bases.
+     */
+    double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
+        const string& sequence, const string& quality_bytes) const;
     
     /**
      * Score the given group of gapless extensions. Determines the best score
@@ -314,28 +449,28 @@ protected:
      * items that would fail the score threshold.
      */
     template<typename Item, typename Score = double>
-    void process_until_threshold(const vector<Item>& items, const function<Score(size_t)>& get_score,
+    void process_until_threshold_a(const vector<Item>& items, const function<Score(size_t)>& get_score,
         double threshold, size_t min_count, size_t max_count,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
      
     /**
-     * Same as the other process_until_threshold overload, except using a vector to supply scores.
+     * Same as the other process_until_threshold functions, except using a vector to supply scores.
      */
     template<typename Item, typename Score = double>
-    void process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
+    void process_until_threshold_b(const vector<Item>& items, const vector<Score>& scores,
         double threshold, size_t min_count, size_t max_count,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
      
     /**
-     * Same as the other process_until_threshold overload, except user supplies 
+     * Same as the other process_until_threshold functions, except user supplies 
      * comparator to sort the items (must still be sorted by score).
      */
     template<typename Item, typename Score = double>
-    void process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
+    void process_until_threshold_c(const vector<Item>& items, const function<Score(size_t)>& get_score,
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
         const function<bool(size_t)>& process_item,
@@ -344,70 +479,19 @@ protected:
 };
 
 template<typename Item, typename Score>
-void MinimizerMapper::process_until_threshold(const vector<Item>& items, const function<Score(size_t)>& get_score,
+void MinimizerMapper::process_until_threshold_a(const vector<Item>& items, const function<Score(size_t)>& get_score,
     double threshold, size_t min_count, size_t max_count,
     const function<bool(size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
     const function<void(size_t)>& discard_item_by_score) const {
 
-    // Sort item indexes by item score
-    vector<size_t> indexes_in_order;
-    indexes_in_order.reserve(items.size());
-    for (size_t i = 0; i < items.size(); i++) {
-        indexes_in_order.push_back(i);
-    }
-    
-    // Put the highest scores first
-    std::sort(indexes_in_order.begin(), indexes_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
-        // Return true if a must come before b, and false otherwise
-        return get_score(a) > get_score(b);
-    });
-
-    // Retain items only if their score is at least as good as this
-    double cutoff = items.size() == 0 ? 0 : get_score(indexes_in_order[0]) - threshold;
-    
-    // Count up non-skipped items for min_count and max_count
-    size_t unskipped = 0;
-    
-    // Go through the items in descending score order.
-    for (size_t i = 0; i < indexes_in_order.size(); i++) {
-        // Find the item we are talking about
-        size_t& item_num = indexes_in_order[i];
-        
-        if (threshold != 0 && get_score(item_num) <= cutoff) {
-            // Item would fail the score threshold
-            
-            if (unskipped < min_count) {
-                // But we need it to make up the minimum number.
-                
-                // Go do it.
-                // If it is not skipped by the user, add it to the total number
-                // of unskipped items, for min/max number accounting.
-                unskipped += (size_t) process_item(item_num);
-            } else {
-                // We will reject it for score
-                discard_item_by_score(item_num);
-            }
-        } else {
-            // The item has a good enough score
-            
-            if (unskipped < max_count) {
-                // We have room for it, so accept it.
-                
-                // Go do it.
-                // If it is not skipped by the user, add it to the total number
-                // of unskipped items, for min/max number accounting.
-                unskipped += (size_t) process_item(item_num);
-            } else {
-                // We are out of room! Reject for count.
-                discard_item_by_count(item_num);
-            }
-        }
-    }
+    process_until_threshold_c<Item, Score>(items, get_score, [&](size_t a, size_t b) -> bool {
+        return (get_score(a) > get_score(b));
+    },threshold, min_count, max_count, process_item, discard_item_by_count, discard_item_by_score);
 }
 
 template<typename Item, typename Score>
-void MinimizerMapper::process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
+void MinimizerMapper::process_until_threshold_b(const vector<Item>& items, const vector<Score>& scores,
     double threshold, size_t min_count, size_t max_count,
     const function<bool(size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
@@ -415,13 +499,15 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const v
     
     assert(scores.size() == items.size());
     
-    process_until_threshold<Item, Score>(items, [&](size_t i) -> Score {
-        return scores.at(i);
-    }, threshold, min_count, max_count, process_item, discard_item_by_count, discard_item_by_score);
-    
+    process_until_threshold_c<Item, Score>(items, [&](size_t i) -> Score {
+        return scores[i];
+    }, [&](size_t a, size_t b) -> bool {
+        return (scores[a] > scores[b]);
+    },threshold, min_count, max_count, process_item, discard_item_by_count, discard_item_by_score);
 }
+
 template<typename Item, typename Score>
-void MinimizerMapper::process_until_threshold(const vector<Item>& items, const vector<Score>& scores,
+void MinimizerMapper::process_until_threshold_c(const vector<Item>& items, const function<Score(size_t)>& get_score,
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
         const function<bool(size_t)>& process_item,
@@ -439,7 +525,7 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const v
     std::sort(indexes_in_order.begin(), indexes_in_order.end(), comparator);
 
     // Retain items only if their score is at least as good as this
-    double cutoff = items.size() == 0 ? 0 : scores[indexes_in_order[0]] - threshold;
+    double cutoff = items.size() == 0 ? 0 : get_score(indexes_in_order[0]) - threshold;
     
     // Count up non-skipped items for min_count and max_count
     size_t unskipped = 0;
@@ -449,7 +535,7 @@ void MinimizerMapper::process_until_threshold(const vector<Item>& items, const v
         // Find the item we are talking about
         size_t& item_num = indexes_in_order[i];
         
-        if (threshold != 0 && scores[item_num] <= cutoff) {
+        if (threshold != 0 && get_score(item_num) <= cutoff) {
             // Item would fail the score threshold
             
             if (unskipped < min_count) {

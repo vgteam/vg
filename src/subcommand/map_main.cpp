@@ -7,7 +7,7 @@
 #include "../alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -59,7 +59,7 @@ void help_map(char** argv) {
          << "scoring:" << endl
          << "    -q, --match INT               use this match score [1]" << endl
          << "    -z, --mismatch INT            use this mismatch penalty [4]" << endl
-         << "    --score-matrix FILE           read a 5x5 integer substitution scoring matrix from a file" << endl
+         << "    --score-matrix FILE           read a 4x4 integer substitution scoring matrix from a file" << endl
          << "    -o, --gap-open INT            use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT          use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT        the full-length alignment bonus [5]" << endl
@@ -815,9 +815,16 @@ int main_map(int argc, char** argv) {
         m->fast_reseed = use_fast_reseed;
         m->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
         m->max_target_factor = max_target_factor;
-        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, max_gap_length, haplotype_consistency_exponent);
-        if(matrix_stream.is_open()) m->load_scoring_matrix(matrix_stream);
+        if (matrix_stream.is_open()) {
+            m->set_alignment_scores(matrix_stream, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent);
+            // reset the stream for the next Mapper
+            matrix_stream.seekg(0);
+        }
+        else {
+            m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent);
+        }
         m->strip_bonuses = strip_bonuses;
+        m->max_xdrop_gap_length = max_gap_length;
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
         m->extra_multimaps = extra_multimaps;
         m->mapping_quality_method = mapping_quality_method;

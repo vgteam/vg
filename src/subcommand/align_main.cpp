@@ -14,8 +14,12 @@
 #include "subcommand.hpp"
 
 #include "../utility.hpp"
-#include "../vg.hpp"
-#include "../convert_handle.hpp"
+#include "../handle.hpp"
+#include "../path.hpp"
+#include "../split_strand_graph.hpp"
+#include "../dagified_graph.hpp"
+#include "../ssw_aligner.hpp"
+#include "../aligner.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
@@ -181,20 +185,6 @@ int main_align(int argc, char** argv) {
             graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
         });
     }
-    
-    // Look at the graph as a vg if possible
-    VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
-    
-    if (vg_graph == nullptr) {
-        // Copy instead. Should be fine because we only ever want to run this on small graphs anyway.
-        // TODO: Replace VG::align with non-vg-specific alignment algorithm!
-        // TODO: This converts from VG protobuf and then back to it when loading a Protobuf graph!
-        vg_graph = new vg::VG();
-        convert_path_handle_graph(graph.get(), vg_graph);
-        
-        // Give the unique_ptr ownership and delete the graph we loaded.
-        graph.reset(vg_graph);
-    }
 
     ifstream matrix_stream;
     if (!matrix_file_name.empty()) {
@@ -204,6 +194,7 @@ int main_align(int argc, char** argv) {
           exit(1);
       }
     }
+    
 
     Alignment alignment;
     if (!ref_seq.empty()) {
@@ -214,10 +205,51 @@ int main_align(int argc, char** argv) {
         SSWAligner ssw = SSWAligner(match, mismatch, gap_open, gap_extend);
         alignment = ssw.align(seq, ref_seq);
     } else {
-        Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus, vg::default_gc_content, seq.size());
-        if(matrix_stream.is_open()) aligner.load_scoring_matrix(matrix_stream);
-        alignment = vg_graph->align(seq, &aligner, true, false, 0, pinned_alignment, pin_left,
-                                    banded_global, 0, 0, 0, 0, debug);
+        
+        // construct a score matrix
+        int8_t* score_matrix;
+        if (matrix_stream.is_open()) {
+            score_matrix = AlignerClient::parse_matrix(matrix_stream);
+        }
+        else {
+            score_matrix = (int8_t*) malloc(sizeof(int8_t) * 16);
+            for (size_t i = 0; i < 16; ++i) {
+                if (i % 5 == 0) {
+                    score_matrix[i] = match;
+                }
+                else {
+                    score_matrix[i] = -mismatch;
+                }
+            }
+        }
+        
+        // initialize an aligner
+        Aligner aligner = Aligner(score_matrix, gap_open, gap_extend, full_length_bonus, vg::default_gc_content);
+        
+        free(score_matrix);
+        
+        // put everything on the forward strand
+        StrandSplitGraph split(&(*graph));
+        
+        // dagify it as far as we might ever want
+        DagifiedGraph dag(&split, seq.size() + aligner.longest_detectable_gap(seq.size(), seq.size() / 2));
+        
+        alignment.set_sequence(seq);
+        if (pinned_alignment) {
+            aligner.align_pinned(alignment, dag, pin_left);
+        }
+        else if (banded_global) {
+            aligner.align_global_banded(alignment, dag, 1, true);
+        }
+        else {
+            aligner.align(alignment, dag, true);
+        }
+        
+        // translate back from the overlays
+        translate_oriented_node_ids(*alignment.mutable_path(), [&](vg::id_t node_id) {
+            handle_t under = split.get_underlying_handle(dag.get_underlying_handle(dag.get_handle(node_id)));
+            return make_pair(graph->get_id(under), graph->get_is_reverse(under));
+        });
     }
 
     if (!seq_name.empty()) {

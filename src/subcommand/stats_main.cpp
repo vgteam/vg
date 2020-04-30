@@ -19,11 +19,11 @@
 #include "../algorithms/weakly_connected_components.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
-#include "../convert_handle.hpp"
+#include "../algorithms/copy_graph.hpp"
 #include "../handle.hpp"
 
 #include "../path.hpp"
-#include "../distributions.hpp"
+#include "../statistics.hpp"
 #include "../genotypekit.hpp"
 
 using namespace std;
@@ -359,7 +359,7 @@ int main_stats(int argc, char** argv) {
         if (vg_graph == nullptr) {
             // TODO: This path overlap code can be handle-ified, and should be.
             vg_graph = new vg::VG();
-            convert_path_handle_graph(graph.get(), vg_graph);
+            algorithms::copy_path_handle_graph(graph.get(), vg_graph);
             // Give the unique_ptr ownership and delete the graph we loaded.
             graph.reset(vg_graph);
             // Make sure the paths are all synced up

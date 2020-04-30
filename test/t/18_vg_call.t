@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 6
+plan tests 9
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -25,7 +25,7 @@ rm -f tiny.vg tiny_aug.vg tiny_aug.xg empty_aug.gam tiny_aug.pack tiny_aug.vcf e
 
 vg construct -r inverting/miniFasta.fa -v inverting/miniFasta_VCFinversion.vcf.gz -S > miniFastaGraph.vg
 vg index -x miniFastaGraph.xg -g miniFastaGraph.gcsa miniFastaGraph.vg
-vg sim -x miniFastaGraph.xg -n 1000 -l 30 -a > miniFasta.gam
+vg sim -x miniFastaGraph.xg -n 1000 -l 30 -a -s 1 > miniFasta.gam
 vg map -G miniFasta.gam -g miniFastaGraph.gcsa -x miniFastaGraph.xg > miniFastaGraph.gam
 vg augment  miniFastaGraph.vg miniFastaGraph.gam -A mappedminitest_aug.gam > mappedminitest_aug.vg
 vg index mappedminitest_aug.vg -x mappedminitest_aug.xg
@@ -34,8 +34,24 @@ vg call  mappedminitest_aug.xg -k mappedminitest_aug.pack > calledminitest.vcf
 
 L_COUNT=$(cat calledminitest.vcf | grep "#" -v | wc -l)
 is "${L_COUNT}" "1" "Called microinversion"
- 
-rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam calledminitest.vcf mappedminitest.trans mappedminitest.support mappedminitest.pileup miniFastaGraph.xg miniFastaGraph.gcsa mappedminitest_aug.vg mappedminitest_aug.gam mappedminitest_aug.xg mappedminitest_aug.pack miniFastaGraph.gcsa.lcp
+
+rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam calledminitest.vcf  miniFastaGraph.xg miniFastaGraph.gcsa mappedminitest_aug.vg mappedminitest_aug.gam mappedminitest_aug.xg mappedminitest_aug.pack miniFastaGraph.gcsa.lcp
+
+vg construct -r inverting/miniFasta.fa -v inverting/miniFasta_VCFinversion.vcf.gz -S > miniFastaGraph.vg
+vg index -x miniFastaGraph.xg -g miniFastaGraph.gcsa miniFastaGraph.vg
+vg sim -x miniFastaGraph.xg -n 1000 -l 30 -a -s 1 > miniFasta.gam
+vg construct -r inverting/miniFasta.fa > miniFastaFlat.vg
+vg sim -x  miniFastaFlat.vg -n 500 -l 30 -a -s 1 >> miniFasta.gam
+vg map -G miniFasta.gam -g miniFastaGraph.gcsa -x miniFastaGraph.xg > miniFastaGraph.gam
+vg augment  miniFastaGraph.vg miniFastaGraph.gam -A mappedminitest_aug.gam > mappedminitest_aug.vg
+vg index mappedminitest_aug.vg -x mappedminitest_aug.xg
+vg pack -x mappedminitest_aug.xg -g mappedminitest_aug.gam -o mappedminitest_aug.pack
+vg call  mappedminitest_aug.xg -k mappedminitest_aug.pack -d 1 > calledminitest.vcf
+
+L_COUNT=$(cat calledminitest.vcf | grep "#" -v | wc -l)
+is "${L_COUNT}" "0" "Called no microinversion with haploid setting"
+
+rm -f miniFastaGraph.vg miniFastaFlat.vg miniFasta.gam miniFastaGraph.gam calledminitest.vcf calledminitest1.vcf miniFastaGraph.xg miniFastaGraph.gcsa mappedminitest_aug.vg mappedminitest_aug.gam mappedminitest_aug.xg mappedminitest_aug.pack miniFastaGraph.gcsa.lcp
 
 ## SV Genotyping test
 # augment the graph with the alt paths
@@ -50,11 +66,21 @@ vg call HGSVC_alts.xg -k HGSVC_alts.pack -v call/HGSVC_chr22_17200000_17800000.v
 gzip -dc call/HGSVC_chr22_17200000_17800000.vcf.gz | grep -v '#' | awk '{print $10}' | awk -F ':' '{print $1}' > baseline_gts.txt
 # extract the called genotypes
 grep -v '#' HGSVC.vcf | sort -k1,1d -k2,2n | awk '{print $10}' | awk -F ':' '{print $1}' | sed 's/\//\|/g' > gts.txt
-DIFF_COUNT=$(diff -U 0 baseline_gts.txt gts.txt | grep ^@ | wc -l)
-LESS_SIX=$(if (( $DIFF_COUNT < 8 )); then echo 1; else echo 0; fi)
-is "${LESS_SIX}" "1" "Fewer than 6 differences between called and true SV genotypes" 
+DIFF_COUNT=$(diff -y --suppress-common-lines baseline_gts.txt gts.txt | grep '^' | wc -l)
+LESS_EIGHT=$(if (( $DIFF_COUNT < 8 )); then echo 1; else echo 0; fi)
+is "${LESS_EIGHT}" "1" "Fewer than 8 differences between called and true SV genotypes"
 
-rm -f HGSVC_alts.vg HGSVC_alts.xg HGSVC_alts.pack HGSVC.vcf baseline_gts.txt gts.txt
+# genotype the VCF in haploid mode
+vg call HGSVC_alts.xg -k HGSVC_alts.pack -v call/HGSVC_chr22_17200000_17800000.vcf.gz -s HG00514 -d 1 > HGSVC1.vcf
+# extract the "true" calls
+gzip -dc call/HGSVC_chr22_17200000_17800000.vcf.gz | grep -v '#' | awk '{print $10}' | awk -F ':' '{print $1}' | awk -F '|' '{print $1}'  > baseline_gts1.txt
+# extract the called genotypes
+grep -v '#' HGSVC.vcf | sort -k1,1d -k2,2n | awk '{print $10}' | awk -F ':' '{print $1}' | sed 's/\//\|/g' > gts1.txt
+DIFF_COUNT=$(diff -y --suppress-common-lines baseline_gts.txt gts.txt | grep '^' | wc -l)
+LESS_EIGHT=$(if (( $DIFF_COUNT < 8 )); then echo 1; else echo 0; fi)
+is "${LESS_EIGHT}" "1" "Fewer than 8 differences between called haploid and truncated true SV genotypes"
+
+rm -f HGSVC_alts.vg HGSVC_alts.xg HGSVC_alts.pack HGSVC.vcf baseline_gts.txt gts.txt HGSVC1.vcf baseline_gts1.txt gts1.txt 
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz > x.vg
 vg index -x x.xg x.vg -L
@@ -90,6 +116,21 @@ vg augment c.vg m.gam -A m.aug.gam >c.aug.vg
 vg index -x c.aug.xg c.aug.vg
 vg pack -x c.aug.xg -g m.aug.gam -o m.aug.pack
 vg call c.aug.xg -k m.aug.pack >m.vcf
-is $(cat m.vcf | grep -v "^#" | wc -l) 3 "vg call finds true homozygous variants in a cyclic graph"
+is $(cat m.vcf | grep -v "^#" | grep -v "0/0" | wc -l) 3 "vg call finds true homozygous variants in a cyclic graph"
 rm -f c.vg c.xg c.gcsa c.gcsa.lcp m.fa m.vg m.xg m.sim m.gam m.aug.gam c.aug.vg c.aug.xg m.aug.pack m.vcf
 
+# simple gbwt
+vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
+vg index -G x.gbwt -v small/x.vcf.gz x.vg
+# simulate 500 reads from each thread path
+vg paths  -g x.gbwt -V -Q _thread_1_x_0_0 0 -x x.vg >> x.vg
+vg paths  -g x.gbwt -V -Q _thread_1_x_1_0 0 -x x.vg >> x.vg
+vg sim -x x.vg -P  _thread_1_x_0_0 -n 500 -a -s 23 > sim.gam
+vg sim -x x.vg -P  _thread_1_x_1_0 -n 500 -a -s 23 >> sim.gam
+# call some hets
+vg pack -x x.vg -o x.pack -g sim.gam
+vg call x.vg -k x.pack > call.vcf
+vg call x.vg -k x.pack -g x.gbwt > callg.vcf
+is "$(grep -v 0/0 callg.vcf | wc -l)" "$(grep -v 0/0 call.vcf | wc -l)" "vg call finds same variants when using gbwt to enumerate traversals"
+
+rm -f x.vg x.gbwt sim.gam x.pack call.vcf callg.vcf

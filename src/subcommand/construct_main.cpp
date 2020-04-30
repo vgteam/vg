@@ -281,71 +281,19 @@ int main_construct(int argc, char** argv) {
             }
         }
         
-        // This will own all the VCF files
-        vector<unique_ptr<vcflib::VariantCallFile>> variant_files;
-        for (auto& vcf_filename : vcf_filenames) {
-            // Make sure each VCF file exists. Otherwise Tabix++ may exit with a non-
-            // helpful message.
-            
-            // We can't invoke stat woithout a place for it to write. But all we
-            // really want is its return value.
-            struct stat temp;
-            if(stat(vcf_filename.c_str(), &temp)) {
-                cerr << "error:[vg construct] file \"" << vcf_filename << "\" not found" << endl;
-                return 1;
-            }
-            vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
-            variant_file->parseSamples = false; // Major speedup if there are many samples.
-            variant_files.emplace_back(variant_file);
-            variant_file->open(vcf_filename);
-            if (!variant_file->is_open()) {
-                cerr << "error:[vg construct] could not open" << vcf_filename << endl;
-                return 1;
-            }
-        }
         
         if (fasta_filenames.empty()) {
             cerr << "error:[vg construct] a reference is required for graph construction" << endl;
             return 1;
         }
-        vector<unique_ptr<FastaReference>> references;
-        for (auto& fasta_filename : fasta_filenames) {
-            // Open each FASTA file
-            FastaReference* reference = new FastaReference();
-            references.emplace_back(reference);
-            reference->open(fasta_filename);
-        }
-        
-        vector<unique_ptr<FastaReference> > insertions;
-        for (auto& insertion_filename : insertion_filenames){
-            // Open up those insertion files
-            FastaReference* insertion = new FastaReference();
-            insertions.emplace_back(insertion);
-            insertion->open(insertion_filename);
-        }
-        
-        // Make vectors of just bare pointers
-        vector<vcflib::VariantCallFile*> vcf_pointers;
-        for(auto& vcf : variant_files) {
-            vcf_pointers.push_back(vcf.get());
-        }
-        vector<FastaReference*> fasta_pointers;
-        for(auto& fasta : references) {
-            fasta_pointers.push_back(fasta.get());
-        }
-        vector<FastaReference*> ins_pointers;
-        for (auto& ins : insertions){
-            ins_pointers.push_back(ins.get());
-        }
-        
-        if (ins_pointers.size() > 1){
+        if (insertion_filenames.size() > 1){
             cerr << "Error: only one insertion file may be provided." << endl;
             exit(1);
         }
         
+        
         // Construct the graph.
-        constructor.construct_graph(fasta_pointers, vcf_pointers,
-                                    ins_pointers, callback);
+        constructor.construct_graph(fasta_filenames, vcf_filenames, insertion_filenames, callback);
                                     
         // The output will be flushed when the ProtobufEmitter we use in the callback goes away.
         // Don't add an extra EOF marker or anything.

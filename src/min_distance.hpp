@@ -66,6 +66,19 @@ class MinimumDistanceIndex {
     void subgraphInRange(const Path& path, const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
                          SubHandleGraph& sub_graph, bool look_forward);
 
+
+    //Given a position, return a unique identifier for the connected component that the node is on and
+    //the offset of the position in the root chain - the minimum distance from the beginning of the chain to 
+    //the position
+    //If the position is not on a root node (that is, a boundary node of a snarl in a root chain), returns
+    //<MIPayload::NO_VALUE, MIPayload::NO_VALUE> 
+    pair<size_t, size_t> offset_in_root_chain (pos_t pos);
+
+    //What is the length of the top level chain that this node belongs to?
+    int64_t top_level_chain_length(id_t node_id);
+
+    size_t get_connected_component(id_t node_id);
+
     ///Helper function to find the minimum value that is not -1
     static int64_t minPos(vector<int64_t> vals);
 
@@ -193,7 +206,6 @@ class MinimumDistanceIndex {
 
         friend class MinimumDistanceIndex;
         friend class SnarlSeedClusterer;
-        friend class TestMinDistanceIndex;
     };
 
 
@@ -285,7 +297,6 @@ class MinimumDistanceIndex {
 
         friend class MinimumDistanceIndex;   
         friend class SnarlSeedClusterer;
-        friend class TestMinDistanceIndex;
     }; 
 
 
@@ -301,6 +312,13 @@ class MinimumDistanceIndex {
     ///vector of all ChainIndex objects
     vector< ChainIndex> chain_indexes;
 
+    //Each connected component of the graph gets a unique identifier
+    //Identifiers start at 1, 0 indicates that it is not in a component
+    //Assigns each node to its connected component
+    sdsl::int_vector<> node_to_component;
+    //TODO: These could be one vector but they're small enough it probably doesn't matter
+    sdsl::int_vector<> component_to_chain_length;
+    sdsl::int_vector<> component_to_chain_index;
 
     //Each of the ints in these vectors are offset by 1: 0 is stored as 1, etc.
     //This is so that we can store -1 as 0 instead of int max
@@ -369,7 +387,8 @@ class MinimumDistanceIndex {
 
 
     //Header for the serialized file
-    string file_header = "distance index version 2";
+    string file_header = "distance index version 2.1";
+    bool include_component; //TODO: This is true for version 2.1 so it includes node_to_component, etc. 
 
     ////// Private helper functions
  
@@ -379,12 +398,15 @@ class MinimumDistanceIndex {
 
     ///Helper function for constructor - populate the minimum distance index
     ///Given the top level snarls
+    //Returns the length of the chain
     int64_t calculateMinIndex(const HandleGraph* graph, 
                       const SnarlManager* snarl_manager, const Chain* chain, 
                        size_t parent_id, bool rev_in_parent, 
-                       bool trivial_chain, size_t depth); 
+                       bool trivial_chain, size_t depth, size_t component_num); 
+
     void populateSnarlIndex(const HandleGraph* graph, const SnarlManager* snarl_manager, const NetGraph& ng,
-                            const Snarl* snarl, bool snarl_rev_in_chain, size_t snarl_assignment, hash_set<pair<id_t, bool>>& all_nodes, size_t depth);
+                            const Snarl* snarl, bool snarl_rev_in_chain, size_t snarl_assignment, 
+                            hash_set<pair<id_t, bool>>& all_nodes, size_t depth, size_t component_num);
 
     ///Compute min_distances and max_distances, which store
     /// distances needed for maximum distance calculation
@@ -449,11 +471,32 @@ class MinimumDistanceIndex {
     friend class SnarlIndex;
     friend class ChainIndex;
     friend class SnarlSeedClusterer;
-    friend class TestMinDistanceIndex;
 
 
 };
- 
+
+/**
+ * The encoding of (chain id, chain offset) pairs for positions in top-level chains.
+ * We store this information in the minimizer index.
+ */
+struct MIPayload {
+    typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
+
+    constexpr static code_type NO_CODE = std::numeric_limits<code_type>::max();
+    constexpr static size_t NO_VALUE = std::numeric_limits<size_t>::max(); // From offset_in_root_chain().
+
+    constexpr static size_t ID_OFFSET = 32;
+    constexpr static code_type OFFSET_MASK = (static_cast<code_type>(1) << ID_OFFSET) - 1;
+
+    static code_type encode(std::pair<size_t, size_t> chain_pos) {
+        return (chain_pos.first << ID_OFFSET) | (chain_pos.second & OFFSET_MASK);
+    }
+
+    static std::pair<size_t, size_t> decode(code_type code) {
+        return std::pair<size_t, size_t>(code >> ID_OFFSET, code & OFFSET_MASK);
+    }
+};
+
 }
 
 #endif

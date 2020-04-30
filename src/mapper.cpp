@@ -4,6 +4,7 @@
 #include "annotation.hpp"
 
 //#define debug_mapper
+//#define debug_strip_match
 
 namespace vg {
 
@@ -34,10 +35,7 @@ BaseMapper::BaseMapper(PathPositionHandleGraph* xidex,
 {
 
     if (xindex != nullptr) {
-        xindex->for_each_handle([&](const handle_t& handle) {
-                total_seq_length += xindex->get_length(handle);
-            });
-        avg_node_length = total_seq_length / xindex->get_node_count();
+        avg_node_length = xindex->get_total_length() / xindex->get_node_count();
     }
     
     // TODO: removing these consistency checks because we seem to have violated them pretty wontonly in
@@ -596,12 +594,15 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         }
         
         if (mem.match_count > 0) {
-            if (hit_max) {
-                gcsa->locate(mem.range, hit_max, mem.nodes);
-                
-            } else {
-                gcsa->locate(mem.range, mem.nodes);
+            if (!hard_hit_max || mem.match_count < hard_hit_max) {
+                if (hit_max) {
+                    gcsa->locate(mem.range, hit_max, mem.nodes);
+                    
+                } else {
+                    gcsa->locate(mem.range, mem.nodes);
+                }
             }
+            
             // keep track of the initial number of hits we query in case the nodes vector is
             // modified later (e.g. by prefiltering)
             mem.queried_count = mem.nodes.size();
@@ -1094,6 +1095,137 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
     reverse(sub_mems_out.begin(), sub_mems_out.end());
 }
 
+vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterator seq_begin,
+                                                            string::const_iterator seq_end,
+                                                            size_t strip_length, size_t max_match_length,
+                                                            size_t target_count) {
+    if (!gcsa) {
+        throw runtime_error("error:[vg::Mapper] a GCSA2 index is required to query matches");
+    }
+    if (strip_length <= 0) {
+        throw runtime_error("error:[vg::Mapper] strip match length must be positive, set to " + to_string(strip_length));
+    }
+    if (target_count <= 0) {
+        throw runtime_error("error:[vg::Mapper] target match count must be positive, set to " + to_string(target_count));
+    }
+    
+#ifdef debug_strip_match
+    cerr << "starting stripped match algorithm" << endl;
+    cerr << "\tstrip length:" << strip_length << endl;
+    cerr << "\tmax match length:" << max_match_length << endl;
+    cerr << "\ttarget count:" << target_count << endl;
+    cerr << "\tsequence:" << string(seq_begin, seq_end) << endl;
+    
+#endif
+    
+    // init the return value
+    vector<MaximalExactMatch> matches;
+    
+    if (seq_end != seq_begin) {
+        // we are not in the empty string
+        int64_t seq_len = seq_end - seq_begin;
+        int64_t num_strips = (seq_len - 1) / strip_length + 1;
+        for (int64_t strip_num = 0; strip_num < num_strips; ++strip_num) {
+            
+#ifdef debug_strip_match
+            cerr << "strip number " << strip_num << " of " << num_strips << endl;
+#endif
+            
+            // the end of other strip match we will find
+            auto strip_end = seq_end - strip_num * strip_length;
+            // empty string starts matching entire index
+            auto range = gcsa::range_type(0, gcsa->size() - 1);
+            // a pointer to the next char we will match to
+            auto cursor = strip_end - 1;
+            
+            while (cursor >= seq_begin &&
+                   (!max_match_length || strip_end - cursor <= max_match_length)) {
+                
+                if (*cursor == 'N') {
+                    // N matches are uninformative, so we don't want to match them
+                    break;
+                }
+                
+                // match one more char
+                auto next_range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
+                
+#ifdef debug_strip_match
+                cerr << "\tgot next range which is length " << gcsa::Range::length(next_range) << " and " << (gcsa::Range::empty(next_range) ? "" : "not ") << "empty" << endl;
+#endif
+                
+                if (gcsa::Range::empty(next_range)) {
+                    // we've gone too far, there are no more hits
+                    break;
+                }
+                
+                // the match was successful, advance to the range and move the cursor
+                range = next_range;
+                --cursor;
+                
+                if (target_count && gcsa::Range::length(next_range) <= target_count) {
+                    // the (approximate) count is below the specified limit, so
+                    // we've found reasonably unique sequence, stop looking for more
+                    break;
+                }
+            }
+            
+            if (cursor + 1 == strip_end) {
+                // edge case where one char mismatches the entire index, don't bother
+                // with this
+                continue;
+            }
+            
+            if (!matches.empty()) {
+                if (matches.back().begin <= cursor + 1 &&
+                    matches.back().end >= strip_end) {
+                    // this match is entirely contained within the larger match
+                    // of the previous strip, so it's not likely to give us any
+                    // new information
+                    // also, filtering this helps us maintain reverse lexicographic
+                    // order
+                    continue;
+                }
+            }
+            
+#ifdef debug_strip_match
+            cerr << "adding match of sequence " << string(cursor + 1, strip_end) << " and " << gcsa->count(range) << " hits" << endl;
+#endif
+            
+            matches.emplace_back(cursor + 1, strip_end, range, gcsa->count(range));
+            matches.back().primary = true;
+            
+            if (cursor < seq_begin) {
+                // all further hits will be contained in ones we've already seen
+                break;
+            }
+        }
+    }
+    
+    // matches are queried in reverse lexicographic order, flip them around
+    reverse(matches.begin(), matches.end());
+    
+    for (MaximalExactMatch& match : matches) {
+        // figure out how many occurrences there are
+        match.match_count = gcsa->count(match.range);
+        if (!hard_hit_max || match.match_count < hard_hit_max) {
+            // the total number of hits is low enough that we think it's at least
+            // potentially worth querying hits
+            if (hit_max) {
+                // we may want to subsample
+                gcsa->locate(match.range, hit_max, match.nodes);
+                
+            } else {
+                // we won't subsample down to a prespecified maximum
+                gcsa->locate(match.range, match.nodes);
+            }
+        }
+        match.queried_count = match.nodes.size();
+    }
+    
+    
+    return matches;
+}
+
 void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
                                               vector<pair<int, vector<size_t>>>& sub_mem_containment_graph) {
 
@@ -1505,9 +1637,18 @@ int BaseMapper::random_match_length(double chance_random) {
 }
 
 void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend,
-    int8_t full_length_bonus, uint32_t xdrop_max_gap_length, double haplotype_consistency_exponent) {
+    int8_t full_length_bonus, double haplotype_consistency_exponent) {
     
-    AlignerClient::set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, xdrop_max_gap_length);
+    AlignerClient::set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
+    
+    // Save the consistency exponent
+    this->haplotype_consistency_exponent = haplotype_consistency_exponent;
+}
+
+void BaseMapper::set_alignment_scores(istream& matrix_stream, int8_t gap_open, int8_t gap_extend,
+                                      int8_t full_length_bonus, double haplotype_consistency_exponent) {
+    
+    AlignerClient::set_alignment_scores(matrix_stream, gap_open, gap_extend, full_length_bonus);
     
     // Save the consistency exponent
     this->haplotype_consistency_exponent = haplotype_consistency_exponent;
@@ -1674,8 +1815,6 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         node_trans = overlay_node_translations(dagify_trans, node_trans);
     }
 
-    auto order = algorithms::topological_order(&align_graph);
-
     if (banded_global) {
         // the banded global alignment no longer constructs an internal representation of the graph
         // for topological sorting, etc., instead counting on the HandleGraph to do that itself. accordingly
@@ -1686,13 +1825,14 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
         get_aligner(!aln.quality().empty())->align_global_banded(aligned, align_graph, band_padding, false);
     } else if (pinned_alignment) {
-        get_aligner(!aln.quality().empty())->align_pinned(aligned, align_graph, order, pin_left);
+        get_aligner(!aln.quality().empty())->align_pinned(aligned, align_graph, pin_left);
     } else if (xdrop_alignment) {
-        get_aligner(!aln.quality().empty())->get_xdrop()->align(aligned, {align_graph, order},
-                                                                translate_mems(mems, node_trans),
-                                                                (xdrop_alignment == 1) ? false : true);
+        get_aligner(!aln.quality().empty())->align_xdrop(aligned, align_graph,
+                                                         translate_mems(mems, node_trans),
+                                                         xdrop_alignment != 1,
+                                                         max_xdrop_gap_length);
     } else {
-        get_aligner(!aln.quality().empty())->align(aligned, align_graph, order, traceback, false);
+        get_aligner(!aln.quality().empty())->align(aligned, align_graph, traceback);
     }
     if (traceback && !keep_bonuses && aligned.score()) {
         remove_full_length_bonuses(aligned);

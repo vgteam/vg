@@ -24,6 +24,7 @@
 #include "annotation.hpp"
 #include "path_component_index.hpp"
 #include "memoizing_graph.hpp"
+#include "statistics.hpp"
 
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
@@ -94,7 +95,7 @@ namespace vg {
         
         /// Map random sequences against the graph to calibrate a parameterized distribution that detects
         /// when mappings are likely to have occurred by chance
-        void calibrate_mismapping_detection(size_t num_simulations = 1000, size_t simulated_read_length = 150);
+        void calibrate_mismapping_detection(size_t num_simulations, const vector<size_t>& simulated_read_lengths);
         
         /// Should be called once after construction, or any time the band padding multiplier is changed
         void init_band_padding_memo();
@@ -106,6 +107,7 @@ namespace vg {
         bool suppress_tail_anchors = false;
         size_t min_tail_anchor_length = 3;
         double band_padding_multiplier = 1.0;
+        double pessimistic_tail_gap_multiplier = 0.0;
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
@@ -113,9 +115,23 @@ namespace vg {
         size_t num_mapping_attempts = 48;
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
+        bool use_stripped_match_alg = false;
+        size_t stripped_match_alg_strip_length = 16;
+        size_t stripped_match_alg_max_length = 0;
+        size_t stripped_match_alg_target_count = 5;
         size_t max_p_value_memo_size = 500;
-        size_t band_padding_memo_size = 500;
-        double pseudo_length_multiplier = 1.65;
+        size_t band_padding_memo_size = 2000;
+        bool use_weibull_calibration = false;
+        double max_exponential_rate_intercept = 0.7612;
+        double max_exponential_rate_slope = 0.0001496;
+        double max_exponential_shape_intercept = 12.37;
+        double max_exponential_shape_slope = 0.007191;
+        double weibull_scale_intercept = 1.05;
+        double weibull_scale_slope = 0.0601;
+        double weibull_shape_intercept = -0.176;
+        double weibull_shape_slope = 0.199;
+        double weibull_offset_intercept = 2.342;
+        double weibull_offset_slope = 0.07168;
         double max_mapping_p_value = 0.00001;
         size_t max_alt_mappings = 1;
         size_t max_single_end_mappings_for_rescue = 64;
@@ -123,7 +139,7 @@ namespace vg {
         size_t plausible_rescue_cluster_coverage_diff = 5;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
-        double mapq_scaling_factor = 1.0 / 4.0;
+        double mapq_scaling_factor = 1.0;
         bool report_group_mapq = false;
         // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
         bool use_population_mapqs = false;
@@ -150,11 +166,16 @@ namespace vg {
         size_t alt_anchor_max_length_diff = 5;
         bool dynamic_max_alt_alns = false;
         bool simplify_topologies = false;
-        bool delay_population_scoring = false;
         bool use_tvs_clusterer = false;
         bool use_min_dist_clusterer = false;
+        bool greedy_min_dist = false;
+        bool component_min_dist = false;
+        bool no_clustering = false;
         // length of reversing walks during graph extraction
         size_t reversing_walk_length = 0;
+        bool suppress_p_value_memoization = false;
+        size_t fragment_length_warning_factor = 0;
+        size_t max_alignment_gap = 5000;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -224,7 +245,8 @@ namespace vg {
                                                  vector<clustergraph_t>& cluster_graphs2,
                                                  bool block_rescue_from_1, bool block_rescue_from_2,
                                                  vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                 vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances);
+                                                 vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances_out,
+                                                 vector<double>& pair_multiplicities_out);
         
         /// Use the rescue routine on strong suboptimal clusters to see if we can find a good secondary.
         /// Produces topologically sorted MultipathAlignments.
@@ -251,7 +273,8 @@ namespace vg {
         void merge_rescued_mappings(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                     vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
-                                    vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) const;
+                                    vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs,
+                                    vector<double>& rescued_multiplicities) const;
         
         /// Use the oriented distance clusterer or the TVS clusterer to cluster MEMs depending on parameters.
         /// If using oriented distance cluster, must alo provide an oriented distance measurer.
@@ -311,7 +334,9 @@ namespace vg {
         void strip_full_length_bonuses(MultipathAlignment& multipath_aln) const;
         
         /// Compute a mapping quality from a list of scores, using the selected method.
-        int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method) const;
+        /// Optionally considers non-present duplicates of the scores encoded as multiplicities
+        int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method,
+                                                        bool have_qualities, const vector<double>* multiplicities = nullptr) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
         /// Optionally also sorts a vector of indexes to keep track of the cluster-of-origin
@@ -325,10 +350,11 @@ namespace vg {
         /// OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector)
         /// Allows multipath alignments where the best single path alignment is leaving the read unmapped.
         /// MultipathAlignments MUST be topologically sorted.
+        /// Optionally considers non-present duplicates of the scores encoded as multiplicities
         void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
                                               vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                              bool allow_population_component,
-                                              vector<pair<size_t, size_t>>* duplicate_pairs_out = nullptr) const;
+                                              vector<pair<size_t, size_t>>* duplicate_pairs_out = nullptr,
+                                              vector<double>* pair_multiplicities = nullptr) const;
 
         /// Estimates the probability that the correct cluster was not chosen as a cluster to rescue from and caps the
         /// mapping quality to the minimum of the current mapping quality and this probability (in Phred scale)

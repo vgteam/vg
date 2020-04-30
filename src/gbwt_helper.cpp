@@ -3,18 +3,115 @@
 
 #include <sstream>
 
-using namespace xg;
-
 namespace vg {
+
+std::vector<std::string> parseGenotypes(const std::string& vcf_line, size_t num_samples) {
+    std::vector<std::string> result;
+
+    // The 9th tab-separated field should start with "GT".
+    size_t offset = 0;
+    for (int i = 0; i < 8; i++) {
+        size_t pos = vcf_line.find('\t', offset);
+        if (pos == std::string::npos) {
+            std::cerr << "error: [vg index] VCF line does not contain genotype information" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        offset = pos + 1;
+    }
+    if (vcf_line.substr(offset, 2) != "GT") {
+        std::cerr << "error: [vg index] VCF line does not contain genotype information" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    // Genotype strings are the first colon-separated fields in the 10th+ tab-separated fields.
+    offset = vcf_line.find('\t', offset);
+    while (offset != std::string::npos && offset + 1 < vcf_line.length()) {
+        offset++;
+        size_t pos = vcf_line.find_first_of("\t:", offset);
+        if (pos == std::string::npos) {
+            pos = vcf_line.length();
+        }
+        result.emplace_back(vcf_line.substr(offset, pos - offset));
+        offset = vcf_line.find('\t', offset);
+    }
+
+    if (result.size() != num_samples) {
+        std::cerr << "error: [vg index] expected " << num_samples << " samples, got " << result.size() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    return result;
+}
 
 //------------------------------------------------------------------------------
 
-std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i) {
-    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || i >= gbwt_index.metadata.paths()) {
+std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+
+    gbwt::size_type sequence_id = gbwt::Path::encode(id, false);
+    if (sequence_id >= gbwt_index.sequences()) {
+        std::cerr << "error: [insert_gbwt_path()] invalid path id: " << id << std::endl;
         return "";
     }
 
-    const gbwt::PathName& path = gbwt_index.metadata.path(i);
+    std::string path_name = thread_name(gbwt_index, id);
+    if (path_name.empty()) {
+        path_name = std::to_string(id);
+    }
+    if (graph.has_path(path_name)) {
+        std::cerr << "error: [insert_gbwt_path()] path name already exists: " << path_name << std::endl;
+        return "";
+    }
+
+    path_handle_t handle = graph.create_path_handle(path_name);
+    gbwt::edge_type pos = gbwt_index.start(sequence_id);
+    while (pos.first != gbwt::ENDMARKER) {
+        graph.append_step(handle, gbwt_to_handle(graph, pos.first));
+        pos = gbwt_index.LF(pos);
+    }
+
+    return path_name;
+}
+
+Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+
+    Path result;
+    gbwt::size_type sequence_id = gbwt::Path::encode(id, false);
+    if (sequence_id >= gbwt_index.sequences()) {
+        std::cerr << "error: [insert_gbwt_path()] invalid path id: " << id << std::endl;
+        return result;
+    }
+
+    std::string path_name = thread_name(gbwt_index, id);
+    if (path_name.empty()) {
+        path_name = std::to_string(id);
+    }
+    result.set_name(path_name);
+
+    gbwt::edge_type pos = gbwt_index.start(sequence_id);
+    size_t rank = 1;
+    while (pos.first != gbwt::ENDMARKER) {
+        Mapping* m = result.add_mapping();
+        Position* p = m->mutable_position();
+        p->set_node_id(gbwt::Node::id(pos.first));
+        p->set_is_reverse(gbwt::Node::is_reverse(pos.first));
+        Edit* e = m->add_edit();
+        size_t len = graph.get_length(gbwt_to_handle(graph, pos.first));
+        e->set_to_length(len);
+        e->set_from_length(len);
+        m->set_rank(rank);
+        pos = gbwt_index.LF(pos);
+        rank++;
+    }
+
+    return result;
+}
+
+std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
+        return "";
+    }
+
+    const gbwt::PathName& path = gbwt_index.metadata.path(id);
     std::stringstream stream;
     stream << "_thread_";
     if (gbwt_index.metadata.hasSampleNames()) {

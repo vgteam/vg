@@ -46,7 +46,11 @@ void extract_containing_graph(const HandleGraph* source,
                                     *std::max_element(backward_search_lengths.begin(), backward_search_lengths.end()));
     
     // for keeping track of all the edges we cross to add later
-    unordered_set<edge_t> observed_edges;
+    //
+    // we use spp because the order of the edges affects some tie-breaking behavior
+    // later on that we want to remain system independent (i.e. no dependence on the
+    // system stdlib)
+    spp::sparse_hash_set<edge_t> observed_edges;
     
     // initialize the queue, opposite order so priority queue selects minimum
     // priority represent distance from starting pos to the left side of this node
@@ -90,7 +94,6 @@ void extract_containing_graph(const HandleGraph* source,
             source->follow_edges(trav.first, false, [&](const handle_t& next) {
                 // record the edge
                 observed_edges.insert(source->edge_handle(trav.first, next));
-                
                 // add it to the queue
                 queue.push_or_reprioritize(next, dist_thru);
             });

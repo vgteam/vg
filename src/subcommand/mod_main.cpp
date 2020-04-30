@@ -16,7 +16,7 @@
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/mutable_path_deletable_handle_graph.hpp>
 #include "../handle.hpp"
-#include "../convert_handle.hpp"
+#include "../algorithms/copy_graph.hpp"
 #include "../utility.hpp"
 #include "../algorithms/topological_sort.hpp"
 #include "../algorithms/remove_high_degree.hpp"
@@ -103,7 +103,7 @@ int main_mod(int argc, char** argv) {
     bool remove_non_path = false;
     bool remove_path = false;
     bool compact_ranks = false;
-    vector<int64_t> root_nodes;
+    vector<nid_t> root_nodes;
     int32_t context_steps;
     bool remove_null = false;
     bool strong_connect = false;
@@ -113,7 +113,7 @@ int main_mod(int argc, char** argv) {
     uint32_t dagify_to = 0;
     uint32_t dagify_component_length_max = 0;
     bool orient_forward = false;
-    int64_t destroy_node_id = 0;
+    nid_t destroy_node_id = 0;
     int until_normal_iter = 0;
     bool flip_doubly_reversed_edges = false;
     bool cactus = false;
@@ -607,7 +607,7 @@ int main_mod(int argc, char** argv) {
         if (vg_graph == nullptr) {
             // Copy instead.
             vg_graph = new vg::VG();
-            convert_path_handle_graph(graph.get(), vg_graph);
+            algorithms::copy_path_handle_graph(graph.get(), vg_graph);
             // Give the unique_ptr ownership and delete the graph we loaded.
             graph.reset(vg_graph);
             // Make sure the paths are all synced up
@@ -667,14 +667,14 @@ int main_mod(int argc, char** argv) {
     }
 
     if (dagify_steps) {
-        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         // TODO: turn into an algorithm
         ensure_vg();
         *vg_graph = vg_graph->dagify(dagify_steps, node_translation, 0, dagify_component_length_max);
     }
 
     if (dagify_to) {
-        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         // use the walk as our maximum number of steps; it's the worst case
         // TODO: turn into an algorithm
         ensure_vg();
@@ -682,7 +682,7 @@ int main_mod(int argc, char** argv) {
     }
 
     if (unfold_to) {
-        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         // TODO: turn into an algorithm
         ensure_vg();
         *vg_graph = vg_graph->unfold(unfold_to, node_translation);

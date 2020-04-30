@@ -15,7 +15,7 @@
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
 #include <vg/io/vpkg.hpp>
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 #include <gbwtgraph/gbwtgraph.h>
 #include <gbwtgraph/path_cover.h>

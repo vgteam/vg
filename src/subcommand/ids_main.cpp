@@ -21,7 +21,7 @@
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
 #include "bdsg/odgi.hpp"
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 #include "../io/save_handle_graph.hpp"
 #include <gcsa/support.h>
 

@@ -13,7 +13,7 @@
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
-#include "distributions.hpp"
+#include "statistics.hpp"
 #include "lru_cache.h"
 #include "json2pb.h"
 #include "algorithms/subgraph.hpp"

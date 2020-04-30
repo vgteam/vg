@@ -30,7 +30,7 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@b6a91af71d42ee797e7ffb2f015d594f85e52505"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@d097d913352d07418b5ec7743a2527f57c3e30b6"
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.20.0"
 # or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
@@ -53,7 +53,7 @@ LOAD_JUNIT=""
 CREATE_REPORT=1
 # What S3 URL does test output go to?
 OUTPUT_DESTINATION="s3://vg-data/vg_ci"
-# What bucket owner account ID should be granted full control of uploaded objects?
+# What bucket owner account ID if any should be granted full control of uploaded objects?
 OUTPUT_OWNER="b1cf5e10ba0aeeb00e5ec70b3532826f22a979ae96c886d3081d0bdc1f51f67e"
 
 usage() {
@@ -145,18 +145,33 @@ then
     >&2 echo "WARNING: No AWS credentials at ~/.aws/credentials; test data may not be able to be downloaded!"
 fi
 
-PLATFORM=`uname -s`
-if [ $PLATFORM == "Darwin" ]
+if [ -e /sys/fs/cgroup/cpu/cpu.cfs_quota_us ] && [ -e /sys/fs/cgroup/cpu/cpu.cfs_period_us ]
 then
-    NUM_CORES=`sysctl -n hw.ncpu`
-else
-    NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
+    # If confined to a container, use the container's CPU limit (if >= 1)
+    NUM_CORES=$(("$(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us)" / "$(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us)"))
+fi
+
+if [ "${NUM_CORES}" == "0" ]
+then
+    PLATFORM=`uname -s`
+    if [ $PLATFORM == "Darwin" ]
+    then
+        NUM_CORES=`sysctl -n hw.ncpu`
+    else
+        NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
+    fi
 fi
 
 if [ "${NUM_CORES}" == "0" ]
 then
     echo "could not determine NUM_CORES, using 2"
 	NUM_CORES=2
+fi
+
+# Add these arguments to grant ownership of uploads
+GRANT_ARGS=()
+if [[ ! -z "${OUTPUT_OWNER}" ]] ; then
+    GRANT_ARGS=(--grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}")
 fi
 
 # We have 3 phases: build, test, and report.
@@ -296,7 +311,7 @@ then
         rm -rf awscli
     fi
     if [ ! -e awscli ]; then
-        virtualenv --python=python2 --never-download awscli && awscli/bin/pip install awscli
+        virtualenv --python=python3.6 --never-download awscli && awscli/bin/pip install awscli
     fi
     # Expose binaries to the PATH
     ln -snf ${PWD}/awscli/bin/aws bin/
@@ -307,7 +322,7 @@ then
         rm -rf .env
     fi
     if [ ! -e .env ]; then
-        virtualenv --python=python2  .env
+        virtualenv --python=python3.6  .env
     fi
     . .env/bin/activate
 
@@ -323,13 +338,13 @@ then
 
     # Upgrade pip so that it can use the wheels for numpy & scipy, so that they
     # don't try to build from source
-    pip install --upgrade pip
+    pip install --upgrade pip setuptools==45.0.0
 
     # Dependencies for running tests.  Need numpy, scipy and sklearn
     # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
-    pip install numpy
+    pip install numpy==1.17.1
     pip install scipy==1.0.0rc2 --only-binary :all:
-    pip install sklearn
+    pip install scikit-learn==0.22.1
     pip install dateutils
     pip install requests
     pip install timeout_decorator
@@ -413,9 +428,9 @@ then
         # Upload the results of this test in particular, as soon as it is done, instead of waiting for the final report job to do it.
         tar czf "test_output.tar.gz" "${SAVE_WORK_DIR}/" test-report.xml
         DEST_URL="${OUTPUT_DESTINATION}/vgci_output_archives/${VG_VERSION}/${CI_PIPELINE_ID}/${CI_JOB_ID}/test_output.tar.gz"
-        aws s3 cp --only-show-errors \
-            "test_output.tar.gz" "${DEST_URL}" \
-            --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
+	aws s3 cp --only-show-errors \
+            "test_output.tar.gz" "${DEST_URL}" "${GRANT_ARGS[@]}"
+            
         
         echo "Test(s) failed. Output is available at ${DEST_URL}"
     fi
@@ -451,7 +466,7 @@ then
             rm -rf awscli
         fi
         if [ ! -e awscli ]; then
-            virtualenv --python=python2 --never-download awscli && awscli/bin/pip install awscli
+            virtualenv --python=python3.6 --never-download awscli && awscli/bin/pip install awscli
         fi
         # Expose binaries to the PATH
         ln -snf ${PWD}/awscli/bin/aws bin/
@@ -464,7 +479,7 @@ then
         rm -rf s3am
     fi
     if [ ! -e s3am ]; then
-        virtualenv --never-download s3am && s3am/bin/pip install s3am==2.0
+        virtualenv --python=python3.6 --never-download s3am && s3am/bin/pip install s3am==2.0
     fi
     mkdir -p bin
     # Expose binaries to the PATH
@@ -481,9 +496,10 @@ then
     # Generate a report in two files: HTML full output, and a Markdown summary.
     # Takes as input the test result XML and the work directory with the
     # test output files.
-    vgci/mine-logs.py test-report.xml "${LOAD_WORK_DIR}/" report-html/ summary.md
+    python3 vgci/mine-logs.py test-report.xml "${LOAD_WORK_DIR}/" report-html/ summary.md
     if [ "$?" -ne 0 ]
     then
+        echo "Log mining fail"
         REPORT_FAIL=1
     fi
 
@@ -496,6 +512,7 @@ then
         vgci/post-report report-html summary.md
         if [ "$?" -ne 0 ]
         then
+            echo "Report posting fail"
             REPORT_FAIL=1
         fi
         
@@ -512,10 +529,10 @@ then
         # we publish the results to the archive
         tar czf "${VG_VERSION}_output.tar.gz" "${LOAD_WORK_DIR}/" test-report.xml vgci/vgci.py vgci/vgci.sh vgci_cfg.tsv
         aws s3 cp --only-show-errors \
-            "${VG_VERSION}_output.tar.gz" "${OUTPUT_DESTINATION}/vgci_output_archives/" \
-            --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
+            "${VG_VERSION}_output.tar.gz" "${OUTPUT_DESTINATION}/vgci_output_archives/" "${GRANT_ARGS[@]}"
         if [ "$?" -ne 0 ]
         then
+            echo "Archive upload fail"
             REPORT_FAIL=1
         fi
 
@@ -524,20 +541,20 @@ then
         then
             echo "Updating baseline"
             aws s3 sync --only-show-errors --delete \
-                "${LOAD_WORK_DIR}/" "${OUTPUT_DESTINATION}/vgci_regression_baseline" \
-                --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
+                "${LOAD_WORK_DIR}/" "${OUTPUT_DESTINATION}/vgci_regression_baseline" "${GRANT_ARGS[@]}"
             if [ "$?" -ne 0 ]
             then
+                echo "Baseline upload fail"
                 REPORT_FAIL=1
             fi
         
             printf "${VG_VERSION}\n" > "vg_version_${VG_VERSION}.txt"
             printf "${CI_COMMIT_TITLE}" >> "vg_version_${VG_VERSION}.txt"
             aws s3 cp --only-show-errors \
-                "vg_version_${VG_VERSION}.txt" "${OUTPUT_DESTINATION}/vgci_regression_baseline/" \
-                --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
+                "vg_version_${VG_VERSION}.txt" "${OUTPUT_DESTINATION}/vgci_regression_baseline/" "${GRANT_ARGS[@]}"
             if [ "$?" -ne 0 ]
             then
+                echo "Version upload fail"
                 REPORT_FAIL=1
             fi
         fi
@@ -580,15 +597,18 @@ fi
 # Decide an exit status: use the first failing stage
 if [ "${BUILD_FAIL}" != "0" ]
 then
+    echo "Build phase has failed"
     exit "${BUILD_FAIL}"
 fi
 
 if [ "${TEST_FAIL}" != "0" ]
 then
+    echo "Test phase has failed"
     exit "${TEST_FAIL}"
 fi
 
 if [ "${REPORT_FAIL}" != "0" ]
 then
+    echo "Report phase has failed"
     exit "${REPORT_FAIL}"
 fi

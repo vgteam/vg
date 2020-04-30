@@ -5,6 +5,8 @@
 
 //#define debug
 
+#include <vg/io/protobuf_emitter.hpp>
+
 #include "snarls.hpp"
 #include "json2pb.h"
 #include "algorithms/topological_sort.hpp"
@@ -24,7 +26,7 @@ CactusSnarlFinder::CactusSnarlFinder(const PathHandleGraph& graph, const string&
 
 SnarlManager CactusSnarlFinder::find_snarls_impl(bool known_single_component, bool finish_index) {
     
-    if (graph->get_node_count() == 0) {
+    if (graph->get_node_count() <= 1) {
         // No snarls here!
         return SnarlManager();
     }
@@ -612,6 +614,30 @@ SnarlManager::SnarlManager(const function<void(const function<void(Snarl&)>&)>& 
     });
     // Record the tree structure and build the other indexes
     finish();
+}
+
+void SnarlManager::serialize(ostream& out) const {
+    
+    vg::io::ProtobufEmitter<Snarl> emitter(out);
+    list<const Snarl*> stack;
+
+    for (const Snarl* root : top_level_snarls()) {
+        stack.push_back(root);
+        
+        while (!stack.empty()) {
+            // Grab a snarl from the stack
+            const Snarl* snarl = stack.back();
+            stack.pop_back();
+            
+            // Write out the snarl
+            emitter.write_copy(*root);
+
+            for (const Snarl* child_snarl : children_of(snarl)) {
+                // Stack up its children
+                stack.push_back(child_snarl);
+            }
+        }
+    }
 }
     
 const vector<const Snarl*>& SnarlManager::children_of(const Snarl* snarl) const {

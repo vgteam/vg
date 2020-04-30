@@ -12,7 +12,11 @@
 
 #include "subcommand.hpp"
 
+#include "../utility.hpp"
+#include "../handle.hpp"
 #include "../vg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 using namespace std;
 using namespace vg;
@@ -117,42 +121,49 @@ int main_circularize(int argc, char** argv){
         paths_to_circularize.push_back(path);
     }
 
+    // TODO: if we settle on a uniform serialzation method that covers the VG class, the code is ready to be switched
     VG* graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
     });
 
     // Check if paths are in graph:
-    for (string p : paths_to_circularize){
-        bool paths_in_graph = true;
-        if (!graph->paths.has_path(p)){
+    for (const string& p : paths_to_circularize){
+        if (!graph->has_path(p)){
             cerr << "ERROR: PATH NOT IN GRAPH - " << p << endl;
-            paths_in_graph = false;
-        }
-
-        if (!paths_in_graph){
             exit(1);
         }
-
     }
 
     if (describe){
-       for (auto& p : graph->paths._paths){
-            cout << p.first << endl;
-       }
+        graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+            cout << graph->get_path_name(path_handle) << endl;
+        });
        exit(0);
     }
 
     if (head > 0 && tail > head){
-        graph->circularize(head, tail);
+        graph->create_edge(graph->get_handle(tail), graph->get_handle(head));
     }
     else{
-        graph->circularize(paths_to_circularize);
+        for (const auto& path_name : paths_to_circularize) {
+            path_handle_t path = graph->get_path_handle(path_name);
+            if (graph->get_step_count(path) > 0) {
+                graph->create_edge(graph->get_handle_of_step(graph->path_back(path)),
+                                   graph->get_handle_of_step(graph->path_begin(path)));
+            }
+            graph->set_circularity(path, true);
+        }
     }
-
-    graph->serialize_to_ostream(std::cout);
-    delete graph;
-
+    
+    graph->serialize_to_ostream(cout);
+//    SerializableHandleGraph* to_serialize = dynamic_cast<SerializableHandleGraph*>(&(*graph));
+//    if (!to_serialize) {
+//        cerr << "error: graph format is not serializable!" << endl;
+//        return 1;
+//    }
+//    to_serialize->serialize(std::cout);
+    
     return 0;
 }
 

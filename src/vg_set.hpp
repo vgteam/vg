@@ -58,11 +58,11 @@ public:
      * function returns, size_limit is the total size of the kmer files in bytes.
      */
     void write_gcsa_kmers_ascii(ostream& out, int kmer_size,
-                                int64_t head_id=0, int64_t tail_id=0);
+                                nid_t head_id=0, nid_t tail_id=0);
     void write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_limit,
-                                 int64_t head_id=0, int64_t tail_id=0);
+                                 nid_t head_id=0, nid_t tail_id=0);
     vector<string> write_gcsa_kmers_binary(int kmer_size, size_t& size_limit,
-                                           int64_t head_id=0, int64_t tail_id=0);
+                                           nid_t head_id=0, nid_t tail_id=0);
 
     // Should we show our progress running through each graph?             
     bool show_progress = false;

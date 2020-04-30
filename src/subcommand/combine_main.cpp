@@ -17,7 +17,7 @@
 #include "subcommand.hpp"
 
 #include "../handle.hpp"
-#include "../convert_handle.hpp"
+#include "../algorithms/copy_graph.hpp"
 #include "../vg.hpp"
 
 using namespace std;
@@ -132,7 +132,7 @@ int main_combine(int argc, char** argv) {
             VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
             if (vg_graph == nullptr) {
                 vg_graph = new vg::VG();
-                convert_path_handle_graph(graph.get(), vg_graph);
+                algorithms::copy_path_handle_graph(graph.get(), vg_graph);
                 // Give the unique_ptr ownership and delete the graph we loaded.
                 graph.reset(vg_graph);
                 // Make sure the paths are all synced up

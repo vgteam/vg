@@ -18,9 +18,13 @@
 #include "../gfa.hpp"
 #include "../io/json_stream_helper.hpp"
 #include "../handle.hpp"
-#include "../convert_handle.hpp"
+#include "../algorithms/copy_graph.hpp"
+#include "../algorithms/gfa_to_handle.hpp"
+
 #include <vg/io/message_iterator.hpp>
 #include <vg/io/vpkg.hpp>
+#include <bdsg/hash_graph.hpp>
+
 
 using namespace std;
 using namespace vg;
@@ -490,13 +494,22 @@ int main_view(int argc, char** argv) {
             });
         }
     } else if (input_type == "gfa") {
-        get_input_file(file_name, [&](istream& in) {
-            graph = make_unique<VG>();
-            if (!gfa_to_graph(in, dynamic_cast<vg::VG*>(graph.get()))) {
-                // GFA loading has failed because the file is invalid
-                exit(1);
-            }
-        });
+        graph = make_unique<bdsg::HashGraph>();
+       
+        try {
+            // Use the disk-backed GFA loader that `vg convert` also uses.
+            algorithms::gfa_to_path_handle_graph(file_name,
+                dynamic_cast<MutablePathMutableHandleGraph*>(graph.get()));
+        } catch (algorithms::GFAFormatError& e) {
+            cerr << "error:[vg view] Input GFA is not acceptable." << endl;
+            cerr << e.what() << endl;
+            exit(1);
+        } catch (std::ios_base::failure& e) {
+            cerr << "error:[vg view] IO error processing input GFA." << endl;
+            cerr << e.what() << endl;
+            exit(1);
+        }
+        
         // GFA can convert to any of the graph formats, so keep going
     } else if(input_type == "json") {
         assert(input_json);
@@ -839,7 +852,7 @@ int main_view(int argc, char** argv) {
     if (vg_graph == nullptr) {
         // Copy instead. Should be fine because we on;y ever want to run this on small graphs anyway.
         vg_graph = new vg::VG();
-        convert_path_handle_graph(graph.get(), vg_graph);
+        algorithms::copy_path_handle_graph(graph.get(), vg_graph);
         
         // Make sure the new VG has its Proto right
         // TODO: if we didn't reach into vg.graph we wouldn't need to do this.
