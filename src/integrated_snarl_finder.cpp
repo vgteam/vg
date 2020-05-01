@@ -103,8 +103,8 @@ public:
     /// or longest simple cycle merged away, whichever is longer.
     ///
     /// Needs access to the longest simple cycles that were merged out, if any.
-    /// If a path in the forest doesn't beat the length of the cycle that lives
-    /// in its tree, it is omitted.
+    /// If a path in the forest doesn't match or beat the length of the cycle
+    /// that lives in its tree, it is omitted.
     pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> longest_paths_in_forest(const vector<pair<size_t, handle_t>>& longest_simple_cycles) const;
     
     /// Describe the graph in dot format to the given stream;
@@ -748,7 +748,7 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                             // Either we didn't root at a cycle, or we found a longer leaf-leaf path that should be the decomposition root instead.
                             
 #ifdef debug
-                            cerr << "\t\t\tTree has a longer leaf-leaf path than any cycle at root." << endl;
+                            cerr << "\t\t\tTree has leaf-leaf path that is as long as or longer than any cycle at root." << endl;
 #endif
                             
                             // We need to record the longest tree path.
@@ -1109,10 +1109,11 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
         };
         vector<SnarlChainFrame> stack;
         
-        if (longest_cycles.empty() || (!longest_paths.empty() && longest_cycles.back().first < longest_paths.back().first)) {
+        if (longest_cycles.empty() || (!longest_paths.empty() && longest_cycles.back().first <= longest_paths.back().first)) {
             assert(!longest_paths.empty());
             
-            // We will root on a tip-tip path for its connected component, if not already covered.
+            // We will root on a tip-tip path for its connected component, if
+            // not already covered, because there isn't a longer cycle.
             
             if (!visited.count(longest_paths.back().second.front())) {
                 // This connected component isn't already covered.
