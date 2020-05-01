@@ -18,6 +18,7 @@ namespace vg {
             std::get<0>(cluster_seeds_internal(all_seeds, read_distance_limit, 0))[0].all_groups();
 
         std::vector<Cluster> result;
+        result.reserve(all_clusters.size());
         for (auto& cluster : all_clusters) {
             result.emplace_back();
             result.back().seeds = std::move(cluster);
@@ -45,22 +46,22 @@ namespace vg {
         vector<structures::UnionFind>* read_union_finds = &std::get<0>(union_finds);
         structures::UnionFind* fragment_union_find = &std::get<1>(union_finds);
 
-        std::vector<std::vector<Cluster>> result;
+        std::vector<std::vector<Cluster>> result (all_seeds.size());
         //Map the old group heads to new indices
         size_t curr_index = 0;
         size_t read_num_offset = 0;
         hash_map<size_t, size_t> old_to_new_cluster_index;
 
         for (size_t read_num = 0 ; read_num < read_union_finds->size() ; read_num++) {
-            result.emplace_back();
             vector<vector<size_t>> read_clusters = read_union_finds->at(read_num).all_groups();
+            result[read_num].reserve(read_clusters.size());
             for (vector<size_t>& cluster : read_clusters) {
-                result.back().emplace_back();
-                Cluster& curr = result.back().back();
+                result[read_num].emplace_back();
+                Cluster& curr = result[read_num].back();
                 curr.seeds = std::move(cluster);
             }
         //TODO: Sorting fixes determinism issues but seems unecessary
-            std::sort(result.back().begin(), result.back().end(), [&] (Cluster& cluster1, Cluster& cluster2) {
+            std::sort(result[read_num].begin(), result[read_num].end(), [&] (Cluster& cluster1, Cluster& cluster2) {
                 return cluster1.seeds.front() < cluster2.seeds.front();
             });
         }
@@ -1107,7 +1108,9 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
     };
 
 
+
     SnarlSeedClusterer::NodeClusters SnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chain_i, size_t depth) const {
+
         //Get the index of the chain we're on
         MinimumDistanceIndex::ChainIndex& chain_index = dist_index.chain_indexes[chain_i];
 
@@ -1116,6 +1119,7 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
 #endif
 
         //Maps each snarl to its clusters, in the order of the snarls in the chain
+        //TODO: I think this doesn't need to be a map anymore since we're sorting later anyway, depending on the sort algorithm
         std::map<size_t, pair<size_t, NodeClusters>>& snarls_in_chain =tree_state.chain_to_snarls[chain_i];
 
         size_t connected_component_num = dist_index.get_connected_component(chain_index.id_in_parent);
@@ -1132,6 +1136,7 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
         //Holds all clusters as tuple of <is top level seed ? -1 : offset of first node in the snarl, read num, seed num> 
         //vectors of tuples are sorted by the offset
         vector<tuple<int64_t, size_t, size_t>> cluster_head_indices ;
+        cluster_head_indices.reserve(snarls_in_chain.size());
 
 
         //Insert a cluster (offset in chain, read num, seed num) into a sorted list of clusters
@@ -1164,7 +1169,7 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                 insert_in_order(cluster_head_indices, make_tuple(-1, indices.first, indices.second));
             }
 
-            //Add top-level simple snarls after the seeds
+            //Cluster top-level simple snarls and add them to the list of cluster heads after the seeds
             for (auto& snarl_to_node : 
                     tree_state.simple_snarl_to_nodes_by_component[tree_state.component_to_index[connected_component_num]] ){
 
@@ -1192,7 +1197,7 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                      << add_dist_left_left << " " << add_dist_right_right << endl;
                 MinimumDistanceIndex::SnarlIndex& snarl_index = dist_index.snarl_indexes[dist_index.get_primary_assignment(node_id)];
                 assert(dist_index.get_chain_rank(snarl_index.id_in_parent) ==  start_rank);
-                assert(snarl_index.node_length(dist_index.getPrimaryRank(node_id)) == node_len);
+                assert(snarl_index.node_length(dist_index.get_primary_rank(node_id)) == node_len);
                 if (snarl_index.rev_in_parent) {
                     assert(snarl_index.node_length(0) == end_length);
                     assert(snarl_index.node_length(snarl_index.num_nodes*2-1) == start_length);
@@ -2026,7 +2031,8 @@ cerr <<  "\t\t cluster" << read_num << " " << std::get<0>(prev_snarl_cluster_by_
         //Cluster a top-level simple snarl and save the distances to the ends of the node in tree_state.read_cluster_dists 
         //Returns a vector of cluster heads (<read_num, seed num>)
 #ifdef DEBUG_CLUSTER
-        cerr << "cluster simple snarl" << endl;
+        cerr << "cluster simple snarl " << endl;
+        cerr << " loop distances: " << loop_left << " " << loop_right << endl;
 #endif
 
 
@@ -2098,6 +2104,8 @@ cerr <<  "\t\t cluster" << read_num << " " << std::get<0>(prev_snarl_cluster_by_
                         dist_left + loop_left + best_left[cluster_head.first] - 1 <= tree_state.read_distance_limit) {
                     if (combined_read_left[cluster_head.first] == -1) {
                         combined_read_left[cluster_head.first] = cluster_head.second;
+                        tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second = 
+                                min_not_minus_one(dist_right, dist_left + loop_left + snarl_length);
                     } else {
                         int64_t best_left = min_not_minus_one(dist_left, 
                                 tree_state.read_cluster_dists[cluster_head.first][combined_read_left[cluster_head.first]].first);
@@ -2116,8 +2124,11 @@ cerr <<  "\t\t cluster" << read_num << " " << std::get<0>(prev_snarl_cluster_by_
                         tree_state.read_cluster_dists[cluster_head.first][combined_read_left[cluster_head.first]].first = 
                             min_not_minus_one(best_left, loop_right == -1 ? -1 : best_right + loop_right + snarl_length);
                         tree_state.read_cluster_dists[cluster_head.first][combined_read_left[cluster_head.first]].second = 
-                            min_not_minus_one(best_right, loop_left == -1 ? -1 : best_left + loop_left + snarl_length);
+                            min_not_minus_one(best_right, best_left + loop_left + snarl_length);
                     }
+                } else {
+                    tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].second = 
+                            min_not_minus_one(dist_right, dist_left + loop_left + snarl_length);
                 }
             }
 
@@ -2140,6 +2151,8 @@ cerr <<  "\t\t cluster" << read_num << " " << std::get<0>(prev_snarl_cluster_by_
                     dist_right  + loop_right + best_right[cluster_head.first] - 1 <= tree_state.read_distance_limit) {
                     if (combined_read_right[cluster_head.first] == -1) {
                         combined_read_right[cluster_head.first] = cluster_head.second;
+                        tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first = 
+                                min_not_minus_one(dist_left, dist_right + loop_right + snarl_length);
                     } else {
                         int64_t best_left = min_not_minus_one(dist_left, 
                                 tree_state.read_cluster_dists[cluster_head.first][combined_read_right[cluster_head.first]].first);
@@ -2155,10 +2168,13 @@ cerr <<  "\t\t cluster" << read_num << " " << std::get<0>(prev_snarl_cluster_by_
 
 
                         tree_state.read_cluster_dists[cluster_head.first][combined_read_right[cluster_head.first]].first = 
-                            min_not_minus_one(best_left, loop_right == -1 ? -1 : best_right + loop_right + snarl_length);
+                            min_not_minus_one(best_left, best_right + loop_right + snarl_length);
                         tree_state.read_cluster_dists[cluster_head.first][combined_read_right[cluster_head.first]].second = 
                             min_not_minus_one(best_right, loop_left == -1 ? -1 : best_left + loop_left + snarl_length);
                     }
+                } else {
+                    tree_state.read_cluster_dists[cluster_head.first][cluster_head.second].first = 
+                            min_not_minus_one(dist_left, dist_right + loop_right + snarl_length);
                 }
             }
         }
