@@ -565,77 +565,84 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
 #ifdef debug
                         cerr << "\tReturned from recursion on neighbor " << neighbor_number << endl;
 #endif
-                        
-                        // Do steps 1.1.1 and 1.1.2 of the algorithm as described in the paper.
-                        if (neighbor.effective_degree <= 2) {
-                            // This neighbor gets absorbed and possibly ejected.
-                            
-#ifdef debug
-                            cerr << "\t\tNeighbor is on a stick" << endl;
-                            
-                            cerr << "\t\t\tEdge " << frame.current << "-" << neighbor_number << " should never be seen again" << endl;
-#endif
-                            
-                            // Take it off of its own path.
-                            neighbor.is_on_path = false;
-                            
-#ifdef debug
-                            cerr << "\t\t\tNew neighbor path: " << path_to_string(neighbor_number) << endl;
-#endif
 
-                            if (neighbor.effective_degree == 1) {
-                                // Absorbing/ejecting the neighbor and taking its edges doesn't replace the edge *to* the neighbor.
-                                // So we have to decrement our effective degree.
-                                // Note that the paper doesn't cover this!
-                                // It's one of the modifications we need to support bridge edges without preprocessing.
-                                node.effective_degree--;
+                        // Support bridge edges: detect if we are returning
+                        // across a bridge edge and censor it. Tsin 2014 as
+                        // written in the paper assumes no bridge edges, and
+                        // what we're about to do relies on all neighbors
+                        // connecting back somewhere.
+                        if (neighbor.low_point == neighbor.dfs_counter) {
+                            // It has no back-edges out of its own subtree, so it must be across a bridge.
+#ifdef debug
+                            cerr << "\t\tNeighbor is across a bridge edge! Hide edge!" << endl;
+#endif
+                            
+                            // Hide the edge we just took from degree calculations.
+                            neighbor.effective_degree--;
+                            node.effective_degree--;
+                            
+                            // Don't do anything else with the edge
+                        } else {
+                            // Wasn't a bridge edge, so we care about more than just traversing that part of the graph.
+                            
+                            // Do steps 1.1.1 and 1.1.2 of the algorithm as described in the paper.
+                            if (neighbor.effective_degree <= 2) {
+                                // This neighbor gets absorbed and possibly ejected.
                                 
 #ifdef debug
-                                cerr << "\t\t\tNeighbor was at end of stick. Decrement our degree to " << node.effective_degree << endl;
+                                cerr << "\t\tNeighbor is on a stick" << endl;
+                                
+                                cerr << "\t\t\tEdge " << frame.current << "-" << neighbor_number << " should never be seen again" << endl;
+#endif
+                                
+                                // Take it off of its own path.
+                                neighbor.is_on_path = false;
+                                
+#ifdef debug
+                                cerr << "\t\t\tNew neighbor path: " << path_to_string(neighbor_number) << endl;
 #endif
                             }
-                            
-                        }
-                        if (node.low_point <= neighbor.low_point) {
+                            if (node.low_point <= neighbor.low_point) {
 
 #ifdef debug
-                            cerr << "\t\tWe have a sufficiently low low point" << endl;
-                            
-                            cerr << "\t\t\tAbsorb us and then the neighbor's path to the end" << endl;
+                                cerr << "\t\tWe have a sufficiently low low point; neighbor comes back in in our subtree" << endl;
+                                
+                                cerr << "\t\t\tAbsorb us and then the neighbor's path to the end" << endl;
 #endif
-                            
-                            // Absorb all along the path starting with here and
-                            // continuing with this neighbor's path, to the
-                            // end.
-                            absorb_all_along_path(frame.current,
-                                                 neighbor_number,
-                                                 numeric_limits<number_t>::max()); 
-                        } else {
+                                
+                                // Absorb all along the path starting with here and
+                                // continuing with this neighbor's path, to the
+                                // end.
+                                absorb_all_along_path(frame.current,
+                                                     neighbor_number,
+                                                     numeric_limits<number_t>::max()); 
+                            } else {
 #ifdef debug
-                            cerr << "\t\tNeighbor has a lower low point ("
-                                << neighbor.low_point << " < " <<  node.low_point << ")" << endl;
+                                cerr << "\t\tNeighbor has a lower low point ("
+                                    << neighbor.low_point << " < " <<  node.low_point << "); comes back in outside our subtree" << endl;
 #endif
-                            
-                            // Lower our low point to that of the neighbor
-                            node.low_point = neighbor.low_point;
-                            
+                                
+                                // Lower our low point to that of the neighbor
+                                node.low_point = neighbor.low_point;
+                                
 #ifdef debug
-                            cerr << "\t\t\tNew low point: " << node.low_point << endl;
-                            
-                            cerr << "\t\t\tAbsorb along path to old low point soure" << endl;
+                                cerr << "\t\t\tNew low point: " << node.low_point << endl;
+                                
+                                cerr << "\t\t\tAbsorb along path to old low point soure" << endl;
 #endif
 
-                            // Absorb all along our own path
-                            absorb_all_along_path(numeric_limits<number_t>::max(),
-                                                  frame.current,
-                                                  numeric_limits<number_t>::max());
-                            // Adjust our path to be us and then our neighbor's path
-                            node.is_on_path = true;
-                            node.path_tail = neighbor_number;
-                            
+                                // Absorb all along our own path
+                                absorb_all_along_path(numeric_limits<number_t>::max(),
+                                                      frame.current,
+                                                      numeric_limits<number_t>::max());
+                                // Adjust our path to be us and then our neighbor's path
+                                node.is_on_path = true;
+                                node.path_tail = neighbor_number;
+                                
 #ifdef debug
-                            cerr << "\t\t\tNew path " << path_to_string(frame.current) << endl;
+                                cerr << "\t\t\tNew path " << path_to_string(frame.current) << endl;
 #endif
+                            }
                         }
                         
                         // Say we aren't coming back from a recursive call
