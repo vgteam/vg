@@ -77,6 +77,9 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
     }
     
     SECTION("An empty graph") {
+        adjacencies = {};
+        components = structures::UnionFind(adjacencies.size(), true);
+    
         SECTION("Works with Cactus") {
             algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);
             REQUIRE(components.size() == 0);
