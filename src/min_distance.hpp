@@ -130,7 +130,7 @@ class MinimumDistanceIndex {
             void load(istream& in, bool include_component);
 
             ///Serialize the snarl
-            void serialize(ostream& out, bool include_component) const;
+            void serialize(ostream& out) const;
             
             ///Distance between start and end, not including the lengths of
             ///the two nodes

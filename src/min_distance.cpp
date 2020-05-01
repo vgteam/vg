@@ -325,7 +325,7 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
     sdsl::write_member(snarl_indexes.size(), out);
     
     for (auto& snarl_index: snarl_indexes) {
-        snarl_index.serialize(out, include_component);
+        snarl_index.serialize(out);
     }
     primary_snarl_assignments.serialize(out);
     primary_snarl_ranks.serialize(out);
@@ -1682,7 +1682,7 @@ void MinimumDistanceIndex::SnarlIndex::load(istream& in, bool include_component)
     sdsl::read_member(max_width, in);
 }
 
-void MinimumDistanceIndex::SnarlIndex::serialize(ostream& out, bool include_component) const {
+void MinimumDistanceIndex::SnarlIndex::serialize(ostream& out) const {
     /* Serialize object to out stream
       Vector contains a header of four ints: #nodes, start node, end node, parent
                   a vector representing visitToIndex [node1, node2, ...] where
@@ -1699,9 +1699,7 @@ void MinimumDistanceIndex::SnarlIndex::serialize(ostream& out, bool include_comp
     sdsl::write_member(num_nodes, out);
     sdsl::write_member(depth, out);
     sdsl::write_member(is_unary_snarl, out);
-    if (include_component) {
-        sdsl::write_member(is_simple_snarl, out);
-    }
+    sdsl::write_member(is_simple_snarl, out);
     sdsl::write_member(max_width, out);
 
 }
