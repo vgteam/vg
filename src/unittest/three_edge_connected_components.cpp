@@ -211,6 +211,61 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
     }
 }
 
+TEST_CASE("Tsin 2014 handles a simplified graph with self loops", "[3ecc][algorithms]") {
+    vector<vector<size_t>> adjacencies;
+   
+    auto for_each_connected_node = [&](size_t node, const function<void(size_t)>& iteratee) {
+#ifdef debug
+        cerr << "Asked for edges of node " << node << endl;
+#endif
+        for (auto& other : adjacencies.at(node)) {
+            iteratee(other);
+        }
+    };
+    
+    // Represent the results as a union-find for checking
+    structures::UnionFind components(adjacencies.size(), true);
+    
+    auto component_callback = [&](const function<void(const function<void(size_t)>&)>& for_each_member) {
+#ifdef debug
+        cerr << "Got component" << endl;
+#endif
+        size_t first = 0;
+        bool is_first = true;
+        for_each_member([&](size_t member) {
+#ifdef debug
+            cerr << "Component contained " << member << endl;
+#endif
+            if (is_first) {
+                // Find the first member of each component
+                first = member;
+                is_first = false;
+            } else {
+                // And union everything into it
+                components.union_groups(first, member);
+            }
+        });
+    };
+    
+    adjacencies = {{3, 1}, {4, 0, 2}, {1, 3, 3}, {2, 2, 0}, {1, 4}};
+    components = structures::UnionFind(adjacencies.size(), true);
+    
+    algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
+            
+    for (auto& group : components.all_groups()) {
+        cerr << "Group:";
+        for (auto& member : group) {
+            cerr << " " << member;
+        }
+        cerr << endl;
+    }
+    
+    // Only two things should merge.
+    REQUIRE(components.all_groups().size() == 5);
+        
+    
+}
+
 TEST_CASE("Tsin 2014 handles a graph with self loops", "[3ecc][algorithms]") {
     vector<vector<size_t>> adjacencies;
    
