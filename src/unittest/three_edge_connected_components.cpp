@@ -211,7 +211,7 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
     }
 }
 
-TEST_CASE("Tsin 2014 handles a simplified graph with self loops", "[3ecc][algorithms]") {
+TEST_CASE("Tsin 2014 does not over-collapse a triangle", "[3ecc][algorithms]") {
     vector<vector<size_t>> adjacencies;
    
     auto for_each_connected_node = [&](size_t node, const function<void(size_t)>& iteratee) {
@@ -247,7 +247,7 @@ TEST_CASE("Tsin 2014 handles a simplified graph with self loops", "[3ecc][algori
         });
     };
     
-    adjacencies = {{3, 1}, {4, 0, 2}, {1, 3, 3}, {2, 2, 0}, {1, 4}};
+    adjacencies = {{2, 2, 1}, {2, 0}, {1, 0, 0}};
     components = structures::UnionFind(adjacencies.size(), true);
     
     algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
@@ -261,12 +261,12 @@ TEST_CASE("Tsin 2014 handles a simplified graph with self loops", "[3ecc][algori
     }
     
     // Only two things should merge.
-    REQUIRE(components.all_groups().size() == 5);
+    REQUIRE(components.all_groups().size() == 2);
         
     
 }
 
-TEST_CASE("Tsin 2014 handles a graph with self loops", "[3ecc][algorithms]") {
+TEST_CASE("Tsin 2014 handles a graph with self loops and extra-edge triangles", "[3ecc][algorithms]") {
     vector<vector<size_t>> adjacencies;
    
     auto for_each_connected_node = [&](size_t node, const function<void(size_t)>& iteratee) {
