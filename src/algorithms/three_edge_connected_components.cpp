@@ -602,6 +602,10 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                                 cerr << "\t\t\tNew neighbor path: " << path_to_string(neighbor_number) << endl;
 #endif
                             }
+                            
+                            // Because we hid the bridge edges, degree 1 nodes should never happen
+                            assert(neighbor.effective_degree != 1);
+                            
                             if (node.low_point <= neighbor.low_point) {
 
 #ifdef debug
