@@ -586,7 +586,7 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                             // Wasn't a bridge edge, so we care about more than just traversing that part of the graph.
                             
                             // Do steps 1.1.1 and 1.1.2 of the algorithm as described in the paper.
-                            if (neighbor.effective_degree <= 2) {
+                            if (neighbor.effective_degree == 2) {
                                 // This neighbor gets absorbed and possibly ejected.
                                 
 #ifdef debug
