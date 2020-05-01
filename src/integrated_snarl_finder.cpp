@@ -15,8 +15,6 @@
 
 namespace vg {
 
-#define debug
-
 using namespace std;
 
 class IntegratedSnarlFinder::MergedAdjacencyGraph {
@@ -1181,7 +1179,6 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
         }
         
         while (!stack.empty()) {
-        
             auto& frame = stack.back();
             
 #ifdef debug
@@ -1242,7 +1239,6 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
 #ifdef debug
                             cerr << "\t\tLook at cycle edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
 #endif
-                            
                             frame.todo.push_back(inbound);
                         } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound)) {
                             // Count all self edges as empty chains.
@@ -1349,22 +1345,24 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
 #ifdef debug
                         cerr << "\t\tWalk edge " << graph->get_id(edge) << (graph->get_is_reverse(edge) ? "-" : "+") << endl;
 #endif
-                        handle_t head = forest.find(edge);
-                        auto deepest_it = towards_deepest_leaf.find(head);
+                        // Track the head in the Cactus graph for the bridge edges we walk.
+                        handle_t cactus_head = cactus.find(edge);
+                        // And track where its bridge forest component points to as towards the deepest leaf.
+                        auto deepest_it = towards_deepest_leaf.find(forest.find(cactus_head));
                         while (deepest_it != towards_deepest_leaf.end()) {
                             // Follow its path down bridge graph heads, to the
                             // deepest bridge graph leaf head (which has no
                             // deeper child)
                             
-                            // See what our next edge comes out of
-                            handle_t next_back_head = forest.find(graph->flip(deepest_it->second));
+                            // See what our next bridge edge comes out of in the Cactus graph
+                            handle_t next_back_head = cactus.find(graph->flip(deepest_it->second));
                             
 #ifdef debug
-                            cerr << "\t\t\tHead: " << graph->get_id(head) << (graph->get_is_reverse(head) ? "-" : "+") << endl;
+                            cerr << "\t\t\tHead: " << graph->get_id(cactus_head) << (graph->get_is_reverse(cactus_head) ? "-" : "+") << endl;
                             cerr << "\t\t\tNext edge back head: " << graph->get_id(next_back_head) << (graph->get_is_reverse(next_back_head) ? "-" : "+") << endl;
 #endif
                             
-                            if (head != next_back_head) {
+                            if (cactus_head != next_back_head) {
                                 // We skipped over a cycle in the bridge tree.
                                 // That cycle needs to be cut into two pieces
                                 // that can be alternatives in the snarl. There
@@ -1380,21 +1378,39 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                                 // We need to find the shared cycle.
                                 // TODO: If we knew what cycle everything was in, that would be good.
                                 // Without that we just have to walk all the cycles until we find one that gets to the other component.
+                                // We only need to walk each cycle once so it's still O(n), but probably a needlessly slow one.
                                 
-                                auto here_cactus_head = cactus.find(head);
                                 auto other_cactus_head = cactus.find(graph->flip(deepest_it->second));
                                 
                                 auto through_here = next_along_cycle.end();
                                 auto through_other = next_along_cycle.end();
                                 
-                                cactus.for_each_member(here_cactus_head, [&](handle_t inbound) {
+                                cactus.for_each_member(cactus_head, [&](handle_t inbound) {
                                     auto through_here_candidate = next_along_cycle.find(inbound);
+                                    
+                                    if (through_here_candidate != next_along_cycle.end()) {
+#ifdef debug
+                                        cerr << "\t\t\t\tConsider cycle connecting " << graph->get_id(cactus_head) << (graph->get_is_reverse(cactus_head) ? "-" : "+") 
+                                            << " and " << graph->get_id(through_here_candidate->second) << (graph->get_is_reverse(through_here_candidate->second) ? "-" : "+") << endl;
+#endif
+                                    }
+                                    
                                     for (auto it = through_here_candidate; it != next_along_cycle.end() && it->second != inbound; it = next_along_cycle.find(it->second)) {
                                         // Until we get all the way around the cycle, if there is one
                                         
-                                        if (cactus.find(it->first) == other_cactus_head) {
-                                            // This entry int he cycle map goes through the other component.
+#ifdef debug
+                                        cerr << "\t\t\t\t\tCycle connects " << graph->get_id(it->first) << (graph->get_is_reverse(it->first) ? "-" : "+") 
+                                            << " and " << graph->get_id(it->second) << (graph->get_is_reverse(it->second) ? "-" : "+") << endl;
+#endif
+                                        
+                                        if (cactus.find(it->second) == other_cactus_head) {
+                                            // This entry in the cycle map reaches the component.
+                                            // (Must come before the one that reaches the start again and terminates the loop, if it exists.)
                                             // We found the connecting cycle!
+                                            
+#ifdef debug
+                                            cerr << "\t\t\t\t\t\tFound shared cycle!" << endl;
+#endif
                                             
                                             // Make sure there is only one.
                                             assert(through_here == next_along_cycle.end());
@@ -1402,7 +1418,8 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                                             
                                             // Save this one
                                             through_here = through_here_candidate;
-                                            through_other = it;
+                                            // Make sure to advance to the entry that starts with the other head, which we know is next.
+                                            through_other = next_along_cycle.find(it->second);
                                             
                                             // No need to look at the rest of this cycle.
                                             break;
@@ -1426,13 +1443,35 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                                 // Exchange their destinations to pinch the cycle in two.
                                 std::swap(through_here->second, through_other->second);
                                 
+                                if (through_here->first == through_here->second) {
+                                    // Now a self loop cycle. Delete the cycle.
+                                    
 #ifdef debug
-                                cerr << "\t\t\tPinch cycle between " << graph->get_id(here_cactus_head) << (graph->get_is_reverse(here_cactus_head) ? "-" : "+")
+                                    cerr << "\t\t\t\tDelete self loop cycle " << graph->get_id(through_here->first) << (graph->get_is_reverse(through_here->first) ? "-" : "+") << endl;
+#endif
+                                    
+                                    // Won't affect other iterators.
+                                    next_along_cycle.erase(through_here);
+                                }
+                                
+                                if (through_other->first == through_other->second) {
+                                    // Now a self loop cycle. Delete the cycle.
+                                    
+#ifdef debug
+                                    cerr << "\t\t\t\tDelete self loop cycle " << graph->get_id(through_other->first) << (graph->get_is_reverse(through_other->first) ? "-" : "+") << endl;
+#endif
+                                    
+                                    // Won't affect other iterators.
+                                    next_along_cycle.erase(through_other);
+                                }
+                                
+#ifdef debug
+                                cerr << "\t\t\tPinch cycle between " << graph->get_id(cactus_head) << (graph->get_is_reverse(cactus_head) ? "-" : "+")
                                     << " and " << graph->get_id(other_cactus_head) << (graph->get_is_reverse(other_cactus_head) ? "-" : "+") << endl;
 #endif
                                 
                                 // Merge the two components where the bridge edges attach, to close the two new cycles.
-                                cactus.merge(here_cactus_head, other_cactus_head);
+                                cactus.merge(cactus_head, other_cactus_head);
                             }
                             
                             // Record the new cycle we are making from this bridge path
@@ -1443,8 +1482,8 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
 #ifdef debug
                             cerr << "\t\tWalk edge " << graph->get_id(edge) << (graph->get_is_reverse(edge) ? "-" : "+") << endl;
 #endif
-                            head = forest.find(edge);
-                            deepest_it = towards_deepest_leaf.find(head);
+                            cactus_head = cactus.find(edge);
+                            deepest_it = towards_deepest_leaf.find(forest.find(cactus_head));
                         }
                         
                         // When you get to the end
@@ -1480,7 +1519,7 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                         // First find all the new cycles this brings along.
                         // It can't bring any bridge edges.
                         // This will detect the cycle we just created.
-                        cactus.for_each_member(cactus.find(head), [&](handle_t inbound) {
+                        cactus.for_each_member(cactus_head, [&](handle_t inbound) {
                             // TODO: deduplicate with snarl setup
                             if (next_along_cycle.count(inbound)) {
                             

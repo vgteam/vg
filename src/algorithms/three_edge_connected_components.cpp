@@ -14,7 +14,7 @@ extern "C" {
 #include <iostream>
 #include <sstream>
 
-#define debug
+//#define debug
 
 namespace vg {
 namespace algorithms {
