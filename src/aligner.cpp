@@ -1165,8 +1165,8 @@ void Aligner::align(Alignment& alignment, const HandleGraph& g,
 
     // Create the edges.
     for (const handle_t& from : topological_order) {
+        gssw_node* from_node = nodes[from];
         g.follow_edges(from, false, [&](const handle_t& to) {
-            gssw_node* from_node = nodes[from];
             if (subgraph.find(g.get_id(to)) != subgraph.end()) {
                 gssw_nodes_add_edge(from_node, nodes[to]);
             }
@@ -1176,8 +1176,8 @@ void Aligner::align(Alignment& alignment, const HandleGraph& g,
     // Align the read to the subgraph.
     gssw_graph_fill_pinned(graph, alignment.sequence().c_str(),
                            nt_table, score_matrix,
-                           gap_open, gap_extension, full_length_bonus,
-                           0, 15, 2, true);
+                           gap_open, gap_extension, full_length_bonus, full_length_bonus,
+                           15, 2, true);
     gssw_graph_mapping* gm = gssw_graph_trace_back(graph,
                                                    alignment.sequence().c_str(), alignment.sequence().length(),
                                                    nt_table, score_matrix,
