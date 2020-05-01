@@ -211,7 +211,7 @@ TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][a
     }
 }
 
-TEST_CASE("Tsin 2014 does not over-collapse a triangle", "[3ecc][algorithms]") {
+TEST_CASE("3ECC algorithms do not over-collapse an extra-edge triangle", "[3ecc][algorithms]") {
     vector<vector<size_t>> adjacencies;
    
     auto for_each_connected_node = [&](size_t node, const function<void(size_t)>& iteratee) {
@@ -250,20 +250,28 @@ TEST_CASE("Tsin 2014 does not over-collapse a triangle", "[3ecc][algorithms]") {
     adjacencies = {{2, 2, 1}, {2, 0}, {1, 0, 0}};
     components = structures::UnionFind(adjacencies.size(), true);
     
-    algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
-            
-    for (auto& group : components.all_groups()) {
-        cerr << "Group:";
-        for (auto& member : group) {
-            cerr << " " << member;
-        }
-        cerr << endl;
+    SECTION("Works with Cactus") {
+        algorithms::three_edge_connected_components_dense_cactus(adjacencies.size(), for_each_connected_node, component_callback);
+    
+        // Only two things should merge.
+        REQUIRE(components.all_groups().size() == 2);
     }
     
-    // Only two things should merge.
-    REQUIRE(components.all_groups().size() == 2);
+    SECTION("Works with Tsin 2014") {
+        algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
+            
+        for (auto& group : components.all_groups()) {
+            cerr << "Group:";
+            for (auto& member : group) {
+                cerr << " " << member;
+            }
+            cerr << endl;
+        }
         
-    
+        // Only two things should merge.
+        REQUIRE(components.all_groups().size() == 2);
+        
+    }
 }
 
 TEST_CASE("Tsin 2014 handles a graph with self loops and extra-edge triangles", "[3ecc][algorithms]") {

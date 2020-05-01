@@ -245,6 +245,12 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
         /// Track all the neighbors left to visit.
         /// When we visit a neighbor we pop it off the back.
         vector<number_t> neighbors;
+        /// When we look at the neighbors, we need to be able to tell the tree
+        /// edge to the parent from further back edges to the parent. So we
+        /// have a flag for whether we have seen the parent tree edge already,
+        /// and the first neighbors entry that is our parent will get called
+        /// the tree edge.
+        bool saw_parent_tree_edge = false; 
         /// Track whether we made a recursive DFS call into the last neighbor
         /// or not. If we did, we need to do some work when we come out of it
         /// and return to this frame.
@@ -322,13 +328,13 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                     << " path: " << path_to_string(frame.current) << endl;
 #endif
                 
-                // Stack up all the edges to follow
+                // Stack up all the edges to follow.
                 for_each_connected_node(frame.current, [&](size_t connected) {
                     frame.neighbors.push_back(connected);
                 });
                 
 #ifdef debug
-                cerr << "\tPut " << frame.neighbors.size() << " edges on to do list" << endl;
+                cerr << "\tPut " << frame.neighbors.size() << " edges that aren't the incoming edge on to do list" << endl;
 #endif
                 
                 // Now we're in a state where we can process edges.
@@ -382,31 +388,34 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                             // unvisited node on top of the stack and do its
                             // visit and add its edges to its to do list.
                         } else {
-                            // No need to recurse. But this edge is a back-edge.
-                            // Which way are we looking at it?
+                            // No need to recurse.This is either a back-edge or the back side of the tree edge to the parent.
                             
+                            if (stack.size() > 1 && neighbor_number == stack[stack.size() - 2].current && !frame.saw_parent_tree_edge) {
+                                // This is the edge we took to get here (tree edge)
 #ifdef debug
-                            cerr << "\t\tNeighbor has been visited. This is a back-edge." << endl;
+                                cerr << "\t\tNeighbor is parent; this is the tree edge in." << endl;
 #endif
-                            
-                            // Do steps 1.2 and 1.3 from the paper.
-                            if (neighbor.dfs_counter < node.dfs_counter) {
+
+                                // For tree edges, since they aren't either kind of back edge, neither 1.2 nor 1.3 fires.
+                                // But the next edge to the parent will be a back edge.
+                                frame.saw_parent_tree_edge = true;
+                            } else if (neighbor.dfs_counter < node.dfs_counter) {
                                 // The edge to the neighbor is an outgoing
                                 // back-edge (i.e. the neighbor was visited
-                                // first)
+                                // first). Paper step 1.2.
                                 
 #ifdef debug
-                                cerr << "\t\t\tNeighbor is upstream of us (outgoing back edge)." << endl;
+                                cerr << "\t\tNeighbor is upstream of us (outgoing back edge)." << endl;
 #endif
                                 
                                 if (neighbor.dfs_counter < node.low_point) {
                                     // The neighbor is below our low point.
                                     
 #ifdef debug
-                                    cerr << "\t\t\t\tNeighbor has a lower low point ("
+                                    cerr << "\t\t\tNeighbor has a lower low point ("
                                         << neighbor.dfs_counter << " < " << node.low_point << ")" << endl;
                                     
-                                    cerr << "\t\t\t\t\tAbsorb along path to old low point source" << endl;
+                                    cerr << "\t\t\t\tAbsorb along path to old low point source" << endl;
 #endif
 
                                     // Absorb along our whole path.
@@ -419,7 +428,7 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                                     node.low_point = neighbor.dfs_counter;
 
 #ifdef debug
-                                    cerr << "\t\t\t\t\tNew lower low point " << node.low_point << endl;
+                                    cerr << "\t\t\t\tNew lower low point " << node.low_point << endl;
 #endif
                                     
                                     // Our path is now just us.
@@ -427,13 +436,13 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                                     node.path_tail = numeric_limits<number_t>::max();
                                     
 #ifdef debug
-                                    cerr << "\t\t\t\t\tNew path " << path_to_string(frame.current) << endl;
+                                    cerr << "\t\t\t\tNew path " << path_to_string(frame.current) << endl;
 #endif
 
                                 } else {
                                 
 #ifdef debug
-                                    cerr << "\t\t\t\tWe have a sufficiently low low point" << endl;
+                                    cerr << "\t\t\tWe have a sufficiently low low point" << endl;
 #endif
                                 
                                 }
@@ -441,10 +450,10 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                                 // The edge to the neighbor is an incoming
                                 // back-edge (i.e. we were visited first, but
                                 // we recursed into something that got us to
-                                // this neighbor already).
+                                // this neighbor already). Paper step 1.3.
                                 
 #ifdef debug
-                                cerr << "\t\t\tWe are upstream of neighbor (incoming back edge)." << endl;
+                                cerr << "\t\tWe are upstream of neighbor (incoming back edge)." << endl;
 #endif
                                 
                                 // Drop our effective degree by 2 (I think
@@ -452,9 +461,9 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                                 node.effective_degree -= 2;
 
 #ifdef debug
-                                cerr << "\t\t\t\tDrop degree to " << node.effective_degree << endl;
+                                cerr << "\t\t\tDrop degree to " << node.effective_degree << endl;
                                 
-                                cerr << "\t\t\t\tWant to absorb along path towards low point source through neighbor" << endl;
+                                cerr << "\t\t\tWant to absorb along path towards low point source through neighbor" << endl;
 #endif
                                 
                                 // Now, the algorithm says to absorb
@@ -506,9 +515,9 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                                 auto& replacement_neighbor = nodes[replacement_neighbor_number];
                                 
 #ifdef debug
-                                cerr << "\t\t\t\tNeighbor currently belongs to node " << replacement_neighbor_number << endl;
+                                cerr << "\t\t\tNeighbor currently belongs to node " << replacement_neighbor_number << endl;
                                 
-                                cerr << "\t\t\t\tAbsorb along path towards low point source through there" << endl;
+                                cerr << "\t\t\tAbsorb along path towards low point source through there" << endl;
 #endif
                                 
                                 // Absorb along our path from ourselves to the
@@ -532,9 +541,16 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                                 // continue with the part we didn't already
                                 // eat.
                                 node.path_tail = replacement_neighbor.path_tail;
+                            } else {
+                                // The other possibility is the neighbor is just
+                                // us. Then we don't do anything.
+                                
+                                // TODO: should self loops count for more degree?
+                                
+#ifdef debug
+                                cerr << "\t\tWe are neighbor (self loop)." << endl;
+#endif
                             }
-                            // The other possibility is the neighbor is just
-                            // us. Then we don't do anything.
                             
                             // Clean up the neighbor from the to do list; we
                             // finished it without recursing.
@@ -746,7 +762,7 @@ void three_edge_connected_components_dense_cactus(size_t node_count,
             // And when we get the function to feed the members to
             for (size_t j = 0; j < stList_length(component); j++) {
 #ifdef debug
-                cerr << "Component " << i << " contains node " << j << endl;
+                cerr << "Component " << i << " contains node " << stIntTuple_get((stIntTuple*) stList_get(component, j), 0) << endl;
 #endif
             
                 // Call it with each member
