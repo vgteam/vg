@@ -118,6 +118,7 @@ var searchData=
   ['_7eserializablehandlegraph',['~SerializableHandleGraph',['../classhandlegraph_1_1SerializableHandleGraph.html#a21940e94ff216cfd44eaf540044d8fc7',1,'handlegraph::SerializableHandleGraph']]],
   ['_7esimpleconsistencycalculator',['~SimpleConsistencyCalculator',['../classvg_1_1SimpleConsistencyCalculator.html#a1b254ae9c4be5dc930b1593bd65fe2a9',1,'vg::SimpleConsistencyCalculator']]],
   ['_7esimpletraversalsupportcalculator',['~SimpleTraversalSupportCalculator',['../classvg_1_1SimpleTraversalSupportCalculator.html#a8b886a386884b9dd13ef5eaeb7eee2fc',1,'vg::SimpleTraversalSupportCalculator']]],
+  ['_7esmallbitset',['~SmallBitset',['../classvg_1_1SmallBitset.html#ab480cbcce093b352a39bba8404d6ea27',1,'vg::SmallBitset']]],
   ['_7esnarlcaller',['~SnarlCaller',['../classvg_1_1SnarlCaller.html#abda61a55c21f1473db0443293144c96d',1,'vg::SnarlCaller']]],
   ['_7esnarlfinder',['~SnarlFinder',['../classvg_1_1SnarlFinder.html#aa2511b024b03f3902ac149f3d6a055d5',1,'vg::SnarlFinder']]],
   ['_7esnarlmanager',['~SnarlManager',['../classvg_1_1SnarlManager.html#a3a6eb9b943f3e1b090e21f23dae5f8ea',1,'vg::SnarlManager']]],

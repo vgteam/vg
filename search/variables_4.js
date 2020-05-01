@@ -1,7 +1,7 @@
 var searchData=
 [
   ['dagify_5fsteps',['dagify_steps',['../classvg_1_1Genotyper.html#a384f22f52c2a1f78b7ca613468e2e186',1,'vg::Genotyper']]],
-  ['data',['data',['../structbdsg_1_1node__t_1_1step__t.html#a672108d18cf94cd007fc7b8be2474a5c',1,'bdsg::node_t::step_t::data()'],['../structhandlegraph_1_1handle__t.html#a83dd8888c344b33ba7e3ebf8c0b578a9',1,'handlegraph::handle_t::data()'],['../structhandlegraph_1_1path__handle__t.html#a887f73bef5f50884ab956f6cb7b544c0',1,'handlegraph::path_handle_t::data()'],['../structhandlegraph_1_1step__handle__t.html#ad62b1978c001199b0077ea154c350dfe',1,'handlegraph::step_handle_t::data()']]],
+  ['data',['data',['../classvg_1_1SmallBitset.html#abcef065d7ab95209b8996d1d60969b1f',1,'vg::SmallBitset::data()'],['../structbdsg_1_1node__t_1_1step__t.html#a672108d18cf94cd007fc7b8be2474a5c',1,'bdsg::node_t::step_t::data()'],['../structhandlegraph_1_1handle__t.html#a83dd8888c344b33ba7e3ebf8c0b578a9',1,'handlegraph::handle_t::data()'],['../structhandlegraph_1_1path__handle__t.html#a887f73bef5f50884ab956f6cb7b544c0',1,'handlegraph::path_handle_t::data()'],['../structhandlegraph_1_1step__handle__t.html#ad62b1978c001199b0077ea154c350dfe',1,'handlegraph::step_handle_t::data()']]],
   ['data_5fwidth',['data_width',['../classvg_1_1Packer.html#a2ebdd5cb535ee0264886e084dbdd00f4',1,'vg::Packer']]],
   ['db',['db',['../classvg_1_1Index.html#a1e594e1678d5644e579e9ea915312cbc',1,'vg::Index']]],
   ['db_5foptions',['db_options',['../classvg_1_1Index.html#ad2dd73cd581069d8718b0d576b7d1961',1,'vg::Index']]],

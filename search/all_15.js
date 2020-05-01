@@ -31,6 +31,7 @@ var searchData=
   ['uniform_5freal_5fdistribution_3c_20double_20_3e',['uniform_real_distribution&lt; double &gt;',['../classvg_1_1uniform__real__distribution.html',1,'vg']]],
   ['unindex_5fedge_5fby_5fnode_5fsides',['unindex_edge_by_node_sides',['../classvg_1_1VG.html#a1c0b7db8d3043747e8b9a44cba4eaac9',1,'vg::VG::unindex_edge_by_node_sides(const NodeSide &amp;side1, const NodeSide &amp;side2)'],['../classvg_1_1VG.html#a5677da9ff22052f6c6a85bfe66e1256d',1,'vg::VG::unindex_edge_by_node_sides(Edge *edge)']]],
   ['uniqueness',['uniqueness',['../structvg_1_1Alignment.html#a2d744ce39b375cdeb8adfc3721a18eb0',1,'vg::Alignment']]],
+  ['universe_5fsize',['universe_size',['../classvg_1_1SmallBitset.html#aa8dbf9601e90ce99f26895d8a4d79de0',1,'vg::SmallBitset']]],
   ['unlock',['unlock',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a1cfc8d66ced1ef3d435f99579ac44ca6',1,'vg::GraphSynchronizer::Lock']]],
   ['unmapped_5ffilter',['unmapped_filter',['../classvg_1_1Filter.html#a3a02d37cb7cf0b042aa5933186a76061',1,'vg::Filter']]],
   ['unpack_5fbit',['unpack_bit',['../structhandlegraph_1_1number__bool__packing.html#a52f57c83e66ad6f09b519dff55be71d9',1,'handlegraph::number_bool_packing']]],

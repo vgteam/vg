@@ -1,8 +1,11 @@
 var searchData=
 [
   ['v',['v',['../structvg_1_1TreeNode.html#aa4855443d5325cd35ff3d1d5a6855190',1,'vg::TreeNode']]],
-  ['value',['value',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#abaad50c48424395686b10a95dfc16ab7',1,'vg::MinimizerMapper::Minimizer::value()'],['../classvg_1_1BaseOption.html#aa74c66fcf0f363ce08bb6e5060fd42e5',1,'vg::BaseOption::value()'],['../classvg_1_1io_1_1MessageIterator.html#a698864a67e1e721c06a97875f6cbcbde',1,'vg::io::MessageIterator::value()'],['../classvg_1_1io_1_1ProtobufIterator.html#aa66494ab08ee29d36b1aa04f0213f566',1,'vg::io::ProtobufIterator::value()']]],
+  ['value',['value',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#abaad50c48424395686b10a95dfc16ab7',1,'vg::MinimizerMapper::Minimizer::value()'],['../classvg_1_1BaseOption.html#aa74c66fcf0f363ce08bb6e5060fd42e5',1,'vg::BaseOption::value()'],['../classvg_1_1SmallBitset.html#a486a8a8a5a30fab268ae96a9cf464fdd',1,'vg::SmallBitset::value()'],['../classvg_1_1io_1_1MessageIterator.html#a698864a67e1e721c06a97875f6cbcbde',1,'vg::io::MessageIterator::value()'],['../classvg_1_1io_1_1ProtobufIterator.html#aa66494ab08ee29d36b1aa04f0213f566',1,'vg::io::ProtobufIterator::value()']]],
   ['value_5fat',['value_at',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a2146c37988fd520600d806d1606f0f3f',1,'vg::NGSSimulator::MarkovDistribution']]],
+  ['value_5fbits',['VALUE_BITS',['../classvg_1_1SmallBitset.html#a7c65b3086e41ace8aaeceaf508a49efc',1,'vg::SmallBitset']]],
+  ['value_5fmask',['VALUE_MASK',['../classvg_1_1SmallBitset.html#a062acec9e30a8d5d496c91a775ac423d',1,'vg::SmallBitset']]],
+  ['value_5fshift',['VALUE_SHIFT',['../classvg_1_1SmallBitset.html#a6174413b1bd7d78f5510252f80aaf3fd',1,'vg::SmallBitset']]],
   ['var',['var',['../namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4',1,'vg']]],
   ['variant_5falts',['variant_alts',['../structvg_1_1VG_1_1Plan.html#ad2b28e3a651018396d6c0a1b3377e161',1,'vg::VG::Plan']]],
   ['variant_5frange',['variant_range',['../classvg_1_1VariantAdder.html#aa23751086259b5976ffe78169a6000b9',1,'vg::VariantAdder']]],

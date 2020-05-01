@@ -222,6 +222,7 @@ $(function() {
 , <a class="el" href="structvg_1_1AugmentedGraph.html#ad394712ba7a2480a7c811e8bde56253b">vg::AugmentedGraph</a>
 , <a class="el" href="classvg_1_1Packer.html#a0680bd0b5bbe74029e94b33e2f1ea666">vg::Packer</a>
 , <a class="el" href="classvg_1_1Paths.html#a8ddaaebbbe22105029887baddf9cbdf7">vg::Paths</a>
+, <a class="el" href="classvg_1_1SmallBitset.html#a22c6afec220aa75244da08ca04f5825d">vg::SmallBitset</a>
 , <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a02bf17acd1d5deb6e3044f9807756e81">vg::SupportAugmentedGraph</a>
 , <a class="el" href="classvg_1_1VG.html#aa1eb3332c0a99a25c75681da485297e5">vg::VG</a>
 </li>
@@ -381,7 +382,7 @@ $(function() {
 : <a class="el" href="classvg_1_1GSSWAligner.html#a9ab75f941cc5450b8fff9b7f07507272">vg::GSSWAligner</a>
 </li>
 <li>compute_mapq_caps()
-: <a class="el" href="classvg_1_1MinimizerMapper.html#a2b20fa6da14da0a38f2bdfe21c3f67c9">vg::MinimizerMapper</a>
+: <a class="el" href="classvg_1_1MinimizerMapper.html#ac861bd6bd13e84585765ca5e27dd5d0b">vg::MinimizerMapper</a>
 </li>
 <li>compute_paired_mapping_quality()
 : <a class="el" href="classvg_1_1GSSWAligner.html#a86d07f5ef78625fc4ca8c166c396f613">vg::GSSWAligner</a>
@@ -439,10 +440,11 @@ $(function() {
 : <a class="el" href="classvg_1_1Transcriptome.html#a04996265f450b7e47ec35cf099972ea3">vg::Transcriptome</a>
 </li>
 <li>construct_graph()
-: <a class="el" href="classvg_1_1Constructor.html#a15b718913b678313cea993c7ea58d53f">vg::Constructor</a>
+: <a class="el" href="classvg_1_1Constructor.html#af184b354666c1ec73f43f4322120bad7">vg::Constructor</a>
 </li>
 <li>contains()
 : <a class="el" href="structvg_1_1GaplessExtension.html#aba7a20e9cda82fefa76322cd597530fe">vg::GaplessExtension</a>
+, <a class="el" href="classvg_1_1SmallBitset.html#a58b8cbb133801d25d76785eb54bf6247">vg::SmallBitset</a>
 </li>
 <li>contract()
 : <a class="el" href="classbdsg_1_1PackedDeque.html#a375bd5e44da8e9170e0ece258083dd14">bdsg::PackedDeque</a>
@@ -459,6 +461,12 @@ $(function() {
 </li>
 <li>convert_unpaired()
 : <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a8b188cc73a956f6479e6e04ef34c8775">vg::HTSAlignmentEmitter</a>
+</li>
+<li>copy()
+: <a class="el" href="classvg_1_1SmallBitset.html#aac805c827da15890d9b237643fc49b1f">vg::SmallBitset</a>
+</li>
+<li>count()
+: <a class="el" href="classvg_1_1SmallBitset.html#af834de5870b38cc53768eb8ba9c60025">vg::SmallBitset</a>
 </li>
 <li>count_haplotypes()
 : <a class="el" href="classvg_1_1GenomeState.html#a07dc4168e8469c98227847c4f168cc78">vg::GenomeState</a>
@@ -490,7 +498,7 @@ $(function() {
 , <a class="el" href="classbdsg_1_1ODGI.html#a1f05c91a157684e6321a1cbcf83467e2">bdsg::ODGI</a>
 , <a class="el" href="classbdsg_1_1PackedGraph.html#a457e1feb2fcdfce59119616183ca956b">bdsg::PackedGraph</a>
 , <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a3ff0a0f9497da3498170fdfc2ce97797">handlegraph::MutableHandleGraph</a>
-, <a class="el" href="classvg_1_1VG.html#a8ecb9833a1b3e7d5ca41fcaa96000976">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#a8fd0565d5133a239856444049783edcd">vg::VG</a>
 </li>
 <li>create_gssw_graph()
 : <a class="el" href="classvg_1_1GSSWAligner.html#a56a0a0d3962e573dc9ed372394fbd13a">vg::GSSWAligner</a>
@@ -501,7 +509,7 @@ $(function() {
 , <a class="el" href="classbdsg_1_1ODGI.html#a4d4789eb41a9285a0dbc8c3f7dfe41b0">bdsg::ODGI</a>
 , <a class="el" href="classbdsg_1_1PackedGraph.html#a28bde85caccd04a4bd4a9531d9177033">bdsg::PackedGraph</a>
 , <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a8c9d8ca8160a9b94a57000eab3e97aaa">handlegraph::MutableHandleGraph</a>
-, <a class="el" href="classvg_1_1VG.html#a54ad97e46dc1297b1a65a32697e2d37e">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#a292614805cec28a1d863bbdb494d1c04">vg::VG</a>
 </li>
 <li>create_hidden_handle()
 : <a class="el" href="classbdsg_1_1ODGI.html#aceea39a6c1a3ca2404d36cb968970f62">bdsg::ODGI</a>
@@ -537,7 +545,7 @@ $(function() {
 , <a class="el" href="classvg_1_1VG.html#af7c99e48723b360eb2b1315b2c5af7cc">vg::VG</a>
 </li>
 <li>create_progress()
-: <a class="el" href="classvg_1_1Progressive.html#a1cce3f715516ed2bbb4ce3a312b01e02">vg::Progressive</a>
+: <a class="el" href="classvg_1_1Progressive.html#a75d4e92a36a277be5bc0cee5d01f5ca1">vg::Progressive</a>
 </li>
 <li>create_projector()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a4f4f566eaf695fac8c08dc6e5c2083a7">vg::MultipathAlignmentGraph</a>
@@ -570,7 +578,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Homogenizer.html#a13fefa241cbae8c0aac05334b2f10eb4">vg::Homogenizer</a>
 </li>
 <li>cut_tips()
-: <a class="el" href="classvg_1_1Homogenizer.html#a1ce07681ff57215bfdfff95c96c433f5">vg::Homogenizer</a>
+: <a class="el" href="classvg_1_1Homogenizer.html#a85942931139bd8f40e2616206580eb8d">vg::Homogenizer</a>
 </li>
 </ul>
 </div><!-- contents -->

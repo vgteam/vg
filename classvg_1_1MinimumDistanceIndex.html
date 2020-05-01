@@ -101,8 +101,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a4957ae7c8ac0291a50900ee902f1a714"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1c1601fab05bdc99b13ab2b60c11babc"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#a1c1601fab05bdc99b13ab2b60c11babc">maxDistance</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos1, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos2) const</td></tr>
 <tr class="separator:a1c1601fab05bdc99b13ab2b60c11babc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a46f43e69697fd5e2547f8de45781ca1e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#a46f43e69697fd5e2547f8de45781ca1e">subgraphInRange</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *super_graph, int64_t min_distance, int64_t max_distance, <a class="el" href="classvg_1_1SubHandleGraph.html">SubHandleGraph</a> &amp;sub_graph, bool look_forward)</td></tr>
-<tr class="separator:a46f43e69697fd5e2547f8de45781ca1e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab13bc364d5fb50e436011c6fc7959114"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#ab13bc364d5fb50e436011c6fc7959114">subgraphInRange</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *super_graph, int64_t min_distance, int64_t max_distance, std::unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;sub_graph, bool look_forward)</td></tr>
+<tr class="separator:ab13bc364d5fb50e436011c6fc7959114"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a811be217badfa3d805c2c3b6a5d4047c"><td class="memItemLeft" align="right" valign="top">pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#a811be217badfa3d805c2c3b6a5d4047c">offset_in_root_chain</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos)</td></tr>
 <tr class="separator:a811be217badfa3d805c2c3b6a5d4047c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adb1ac6f7ceac1aa123db1b88c523b478"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#adb1ac6f7ceac1aa123db1b88c523b478">top_level_chain_length</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id)</td></tr>
@@ -132,8 +132,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a2156f4283daae92384a26606fe16fb8c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a14d3483f9703955d75465ab4f5411b02"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#a14d3483f9703955d75465ab4f5411b02">calculateMaxIndex</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, int64_t cap)</td></tr>
 <tr class="separator:a14d3483f9703955d75465ab4f5411b02"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a11605af9194d688dc330e0cbe4b9b9f9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#a11605af9194d688dc330e0cbe4b9b9f9">addNodesInRange</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *super_graph, int64_t min_distance, int64_t max_distance, <a class="el" href="classvg_1_1SubHandleGraph.html">SubHandleGraph</a> &amp;sub_graph, vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, int64_t &gt;&gt; &amp;start_nodes, <a class="el" href="classvg_1_1hash__set.html">hash_set</a>&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;seen_nodes)</td></tr>
-<tr class="separator:a11605af9194d688dc330e0cbe4b9b9f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac74a0ff4c34101469f32d42ccd65872f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#ac74a0ff4c34101469f32d42ccd65872f">addNodesInRange</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *super_graph, int64_t min_distance, int64_t max_distance, std::unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;sub_graph, vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, int64_t &gt;&gt; &amp;start_nodes, <a class="el" href="classvg_1_1hash__set.html">hash_set</a>&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;seen_nodes)</td></tr>
+<tr class="separator:ac74a0ff4c34101469f32d42ccd65872f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5f38e6b389aaff2852502502cf9d4115"><td class="memItemLeft" align="right" valign="top">tuple&lt; int64_t, int64_t, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#a5f38e6b389aaff2852502502cf9d4115">distToCommonAncestor</a> (pair&lt; size_t, bool &gt; common_ancestor, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos, bool rev) const</td></tr>
 <tr class="separator:a5f38e6b389aaff2852502502cf9d4115"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4ab70f7e9f10e43af740916bf994785c"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#a4ab70f7e9f10e43af740916bf994785c">getPrimaryAssignment</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> i) const</td></tr>
@@ -286,8 +286,8 @@ Friends</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a11605af9194d688dc330e0cbe4b9b9f9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a11605af9194d688dc330e0cbe4b9b9f9">&#9670;&nbsp;</a></span>addNodesInRange()</h2>
+<a id="ac74a0ff4c34101469f32d42ccd65872f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac74a0ff4c34101469f32d42ccd65872f">&#9670;&nbsp;</a></span>addNodesInRange()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -316,7 +316,7 @@ Friends</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1SubHandleGraph.html">SubHandleGraph</a> &amp;&#160;</td>
+          <td class="paramtype">std::unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>sub_graph</em>, </td>
         </tr>
         <tr>
@@ -967,8 +967,8 @@ Friends</h2></td></tr>
 
 </div>
 </div>
-<a id="a46f43e69697fd5e2547f8de45781ca1e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a46f43e69697fd5e2547f8de45781ca1e">&#9670;&nbsp;</a></span>subgraphInRange()</h2>
+<a id="ab13bc364d5fb50e436011c6fc7959114"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab13bc364d5fb50e436011c6fc7959114">&#9670;&nbsp;</a></span>subgraphInRange()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1000,7 +1000,7 @@ Friends</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1SubHandleGraph.html">SubHandleGraph</a> &amp;&#160;</td>
+          <td class="paramtype">std::unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>sub_graph</em>, </td>
         </tr>
         <tr>

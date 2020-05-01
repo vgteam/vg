@@ -10,6 +10,7 @@ var searchData=
   ['underlying_5fpath_5fposition_5fgraph',['underlying_path_position_graph',['../classbdsg_1_1PathPositionVectorizableOverlay.html#a35cac640c3674b1c92586cd3ee35b626',1,'bdsg::PathPositionVectorizableOverlay']]],
   ['unfold_5fmax_5flength',['unfold_max_length',['../classvg_1_1Genotyper.html#ab3e4270419b361c9455125ca305709e2',1,'vg::Genotyper']]],
   ['uniqueness',['uniqueness',['../structvg_1_1Alignment.html#a2d744ce39b375cdeb8adfc3721a18eb0',1,'vg::Alignment']]],
+  ['universe_5fsize',['universe_size',['../classvg_1_1SmallBitset.html#aa8dbf9601e90ce99f26895d8a4d79de0',1,'vg::SmallBitset']]],
   ['unpaired_5fpenalty',['unpaired_penalty',['../classvg_1_1BaseMapper.html#ad20ea9a68bcaca157350595f03b4601c',1,'vg::BaseMapper']]],
   ['unstranded',['unstranded',['../classvg_1_1OrientedDistanceClusterer.html#a34e43333ce3f5294f28b3cadc18c54ac',1,'vg::OrientedDistanceClusterer']]],
   ['upper_5fbound',['upper_bound',['../structvg_1_1BREAKPOINT.html#add7be6a634fda8c98ff9627ecd454683',1,'vg::BREAKPOINT']]],

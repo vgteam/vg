@@ -183,6 +183,7 @@ var searchData=
   ['mismatches',['mismatches',['../structvg_1_1GaplessExtension.html#a4898e2fabc109703f497e19f10bb164a',1,'vg::GaplessExtension']]],
   ['mode_5fname',['mode_name',['../prune__main_8cpp.html#a9b89c7a3b7a8efd51b246bc312140bb8',1,'prune_main.cpp']]],
   ['modular_5fexponent',['modular_exponent',['../namespacevg.html#abc8f8791be2575164e6070e1cef39b4e',1,'vg']]],
+  ['move',['move',['../classvg_1_1SmallBitset.html#a5c80c7e3d6d92c7c5e58463771a2a341',1,'vg::SmallBitset']]],
   ['msaconverter',['MSAConverter',['../classvg_1_1MSAConverter.html#ac6e82d70cf93d7b8a75750b40dd89277',1,'vg::MSAConverter']]],
   ['multinode_5fstrongly_5fconnected_5fcomponents',['multinode_strongly_connected_components',['../classvg_1_1VG.html#a61b409bcd2733d6d1be2b5ec5dc31045',1,'vg::VG']]],
   ['multinomial_5fcensored_5fsampling_5fprob_5fln',['multinomial_censored_sampling_prob_ln',['../namespacevg.html#a074fcebfeb68fc970b5b2a0db3722f01',1,'vg']]],
