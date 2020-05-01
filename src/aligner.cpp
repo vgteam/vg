@@ -1,5 +1,7 @@
 #include "aligner.hpp"
 
+#include "hash_map.hpp"
+
 //#define debug_print_score_matrices
 
 using namespace vg;
@@ -70,8 +72,6 @@ gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g) const {
     return graph;
     
 }
-
-
 
 unordered_set<vg::id_t> GSSWAligner::identify_pinning_points(const HandleGraph& graph) const {
     
@@ -1140,6 +1140,62 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
 void Aligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln) const {
     
     align_internal(alignment, nullptr, g, false, false, 1, traceback_aln);
+}
+
+void Aligner::align(Alignment& alignment, const HandleGraph& g,
+                    const std::unordered_set<id_t>& subgraph,
+                    const std::vector<handle_t>& topological_order) const {
+
+    // Create a gssw_graph and a mapping from handles to nodes.
+    gssw_graph* graph = gssw_graph_create(g.get_node_count());
+    hash_map<handle_t, gssw_node*> nodes;
+
+    // Create the nodes. Use offsets in the topological order as node ids.
+    for (size_t i = 0; i < topological_order.size(); i++) {
+        handle_t handle = topological_order[i];
+        auto cleaned_seq = nonATGCNtoN(g.get_sequence(handle));
+        gssw_node* node = gssw_node_create(nullptr,
+                                           i,
+                                           cleaned_seq.c_str(),
+                                           nt_table,
+                                           score_matrix);
+        nodes[handle] = node;
+        gssw_graph_add_node(graph, node);
+    }
+
+    // Create the edges.
+    for (const handle_t& from : topological_order) {
+        g.follow_edges(from, false, [&](const handle_t& to) {
+            gssw_node* from_node = nodes[from];
+            if (subgraph.find(g.get_id(to)) != subgraph.end()) {
+                gssw_nodes_add_edge(from_node, nodes[to]);
+            }
+        });
+    }
+
+    // Align the read to the subgraph.
+    gssw_graph_fill_pinned(graph, alignment.sequence().c_str(),
+                           nt_table, score_matrix,
+                           gap_open, gap_extension, full_length_bonus,
+                           0, 15, 2, true);
+    gssw_graph_mapping* gm = gssw_graph_trace_back(graph,
+                                                   alignment.sequence().c_str(), alignment.sequence().length(),
+                                                   nt_table, score_matrix,
+                                                   gap_open, gap_extension, full_length_bonus, full_length_bonus);
+
+    // Convert the mapping to Alignment.
+    this->gssw_mapping_to_alignment(graph, gm, alignment, false, false);
+    Path& path = *(alignment.mutable_path());
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        Position& pos = *(path.mutable_mapping(i)->mutable_position());
+        handle_t handle = topological_order[pos.node_id()];
+        pos.set_node_id(g.get_id(handle));
+        pos.set_is_reverse(g.get_is_reverse(handle));
+    }
+
+    // Destroy the temporary objects.
+    gssw_graph_mapping_destroy(gm);
+    gssw_graph_destroy(graph);
 }
 
 void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop,

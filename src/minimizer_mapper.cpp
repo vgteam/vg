@@ -2142,30 +2142,7 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
     // Check if the subgraph is acyclic. Rescue is much faster in acyclic subgraphs.
     std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
     if (!topological_order.empty()) {
-        // Build a subgraph overlay.
-        // FIXME Temporary
-        SubHandleGraph sub_graph(&cached_graph);
-        for (id_t id : rescue_nodes)  {
-            sub_graph.add_handle(cached_graph.get_handle(id));
-        }
-
-        // Create an overlay where each strand is a separate node.
-        // FIXME Temporary
-        StrandSplitGraph split_graph(&sub_graph);
-
-        // Align to the subgraph.
-        // FIXME A specialized alignment routine using gbwt_graph, rescue_nodes, topological_order, and cache.
-        get_regular_aligner()->align(rescued_alignment, split_graph, true);
-
-        // Map the alignment back to the original graph.
-        // FIXME This will become unnecessary
-        Path& path = *(rescued_alignment.mutable_path());
-        for (size_t i = 0; i < path.mapping_size(); i++) {
-            Position& pos = *(path.mutable_mapping(i)->mutable_position());
-            handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(pos.node_id()));
-            pos.set_node_id(sub_graph.get_id(handle));
-            pos.set_is_reverse(sub_graph.get_is_reverse(handle));
-        }
+        get_regular_aligner()->align(rescued_alignment, cached_graph, rescue_nodes, topological_order);
     } else {
         // Build a subgraph overlay.
         SubHandleGraph sub_graph(&cached_graph);

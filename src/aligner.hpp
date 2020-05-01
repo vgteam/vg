@@ -66,7 +66,7 @@ namespace vg {
         // for construction
         // needed when constructing an alignable graph from the nodes
         gssw_graph* create_gssw_graph(const HandleGraph& g) const;
-        
+
         // identify the IDs of nodes that should be used as pinning points in GSSW for pinned
         // alignment ((i.e. non-empty nodes as close as possible to sinks))
         unordered_set<id_t> identify_pinning_points(const HandleGraph& graph) const;
@@ -279,7 +279,15 @@ namespace vg {
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
         void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln) const;
-        
+
+        /// Align against a subgraph induced by a subset of nodes. The topological
+        /// order of the handles in the subgraph must be provided.
+        /// Store optimal local alignment in the Alignment object.
+        /// Gives the full length bonus separately on each end of the alignment.
+        void align(Alignment& alignment, const HandleGraph& g,
+                   const std::unordered_set<id_t>& subgraph,
+                   const std::vector<handle_t>& topological_order) const;
+
         /// store optimal alignment against a graph in the Alignment object with one end of the sequence
         /// guaranteed to align to a source/sink node. if xdrop is selected, use the xdrop heuristic, which
         /// does not guarantee an optimal alignment.
