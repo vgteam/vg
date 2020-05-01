@@ -582,6 +582,18 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
 #ifdef debug
                             cerr << "\t\t\tNew neighbor path: " << path_to_string(neighbor_number) << endl;
 #endif
+
+                            if (neighbor.effective_degree == 1) {
+                                // Absorbing/ejecting the neighbor and taking its edges doesn't replace the edge *to* the neighbor.
+                                // So we have to decrement our effective degree.
+                                // Note that the paper doesn't cover this!
+                                // It's one of the modifications we need to support bridge edges without preprocessing.
+                                node.effective_degree--;
+                                
+#ifdef debug
+                                cerr << "\t\t\tNeighbor was at end of stick. Decrement our degree to " << node.effective_degree << endl;
+#endif
+                            }
                             
                         }
                         if (node.low_point <= neighbor.low_point) {
@@ -589,7 +601,7 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
 #ifdef debug
                             cerr << "\t\tWe have a sufficiently low low point" << endl;
                             
-                            cerr << "\t\t\t\tAbsorb us and then the neighbor's path to the end" << endl;
+                            cerr << "\t\t\tAbsorb us and then the neighbor's path to the end" << endl;
 #endif
                             
                             // Absorb all along the path starting with here and
