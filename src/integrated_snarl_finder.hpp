@@ -40,7 +40,6 @@ private:
     /// contains the flipped version of the handle. Each component is
     /// identified by a "head" handle.
     class MergedAdjacencyGraph;
-    
 public:
     /**
      * Make a new IntegratedSnarlFinder to find snarls in the given graph.

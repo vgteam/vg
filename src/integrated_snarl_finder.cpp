@@ -93,6 +93,12 @@ public:
     /// Ignores self loops.
     pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> cycles_in_cactus() const;
     
+    /// Find a path of cycles connecting two components in a Cactus graph.
+    /// Cycles are represented by the handle that brings that cyle into the component where it intersects the previous cycle.
+    /// Because the graph is a Cactus graph, cycles are a tree and intersect at at most one node.
+    /// Uses the given map of cycles, stored in one orientation only, to traverse cycles.
+    vector<handle_t> find_cycle_path_in_cactus(const unordered_map<handle_t, handle_t>& next_along_cycle, handle_t start_cactus_head, handle_t end_cactus_head) const;
+    
     /// Return the path length (total edge length in bp) and edges for the
     /// longest path in each tree in a forest. Ignores self loops on tree nodes.
     ///
@@ -446,6 +452,83 @@ pair<vector<pair<size_t, handle_t>>, unordered_map<handle_t, handle_t>> Integrat
    
     return to_return;
 }
+
+vector<handle_t> IntegratedSnarlFinder::MergedAdjacencyGraph::find_cycle_path_in_cactus(const unordered_map<handle_t, handle_t>& next_along_cycle, handle_t start_head, handle_t end_head) const {
+    // We fill this in with a path of cycles.
+    // Each cycle is the edge on that cycle leading into the node that it shares with the previous cycle.
+    vector<handle_t> cycle_path;
+    
+    // We just DFS through the cycle tree until we find one that touches the
+    // other node. We represent each cycle by an edge on it into the node where
+    // it overlaps the parent cycle, and store the current cycle and the other
+    // cycles to do that share nodes.
+    vector<tuple<handle_t, vector<handle_t>, bool>> cycle_stack;
+    
+    // We have a list of DFS roots we can stop early on.
+    vector<handle_t> roots;
+    for_each_member(start_head, [&](handle_t inbound) {
+        if (next_along_cycle.count(inbound)) {
+            // This edge is how a cycle comes into here. Consider this cycle.
+            roots.push_back(inbound);
+        }
+    });
+    
+    for (auto& root : roots) {
+        // Root at each root
+        cycle_stack.emplace_back(root, vector<handle_t>(), false);
+        while (!cycle_stack.empty()) {
+            auto& cycle_frame = cycle_stack.back();
+            if (!get<2>(cycle_frame)) {
+                // First visit
+                get<2>(cycle_frame) = true;
+                
+                // Need to fill in child cycles.
+                for (auto it = next_along_cycle.find(get<0>(cycle_frame)); it->second != get<0>(cycle_frame); it = next_along_cycle.find(it->second)) {
+                    // For each other edge around the cycle (in it->second) other than the one we started at
+                    
+                    handle_t node = find(it->second);
+                    if (node == end_head) {
+                        // This cycle intersects the destination. It is the last on the cycle path.
+                        
+                        // Copy the path on the stack over.
+                        // Note that the first think on the path is in the
+                        // start's component, but the last thing on the path
+                        // isn't in the end's component.
+                        cycle_path.reserve(cycle_stack.size());
+                        for (auto& f : cycle_stack) {
+                            cycle_path.push_back(get<0>(f));
+                        }
+                        
+                        // Now the cycle path is done
+                        return cycle_path;
+                    }
+                    
+                    for_each_member(node, [&](handle_t inbound) {
+                        // For each edge in the component it enters
+                        if (inbound != it->second && next_along_cycle.count(inbound)) {
+                            // This edge is a cycle coming into a node our current cycle touches.
+                            get<1>(cycle_frame).push_back(inbound);
+                        }
+                    });
+                }
+            }
+            if (!get<1>(cycle_frame).empty()) {
+                // Need to recurse on a connected cycle.
+                handle_t child = get<1>(cycle_frame).back();
+                get<1>(cycle_frame).pop_back();
+                cycle_stack.emplace_back(child, vector<handle_t>(), false);
+            } else {
+                // Need to clean up and return
+                cycle_stack.pop_back();
+            }
+        }
+    }
+    
+    // If we get here, we never found a path.
+    // Complain! Something is wrong!
+    throw runtime_error("Cound not find cycle path!");
+}
+
 
 pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> IntegratedSnarlFinder::MergedAdjacencyGraph::longest_paths_in_forest(
     const vector<pair<size_t, handle_t>>& longest_simple_cycles) const {
@@ -925,7 +1008,6 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
     return to_return;
 }
 
-    
 
 
 
@@ -1364,115 +1446,77 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
 #endif
                             
                             if (cactus_head != next_back_head) {
-                                // We skipped over a cycle in the bridge tree.
-                                // That cycle needs to be cut into two pieces
-                                // that can be alternatives in the snarl. There
-                                // can only be one such nontrivial cycle
-                                // touching both cactus graph components, but
-                                // there can be any number of cycles
-                                // intersecting only one of the two components.
+                                // We skipped over a run of interlinked cycle in the bridge tree.
+                                
+                                // We need to find a path of cycles to complete the path in the bridge tree.
+                                
+                                // Each cycle needs to be cut into two pieces
+                                // that can be alternatives in the snarl.
                                 
 #ifdef debug
-                                cerr << "\t\t\tFind skipped cycle..." << endl;
+                                cerr << "\t\t\tFind skipped cycle path" << endl;
 #endif
                                 
-                                // We need to find the shared cycle.
-                                // TODO: If we knew what cycle everything was in, that would be good.
-                                // Without that we just have to walk all the cycles until we find one that gets to the other component.
-                                // We only need to walk each cycle once so it's still O(n), but probably a needlessly slow one.
+                                vector<handle_t> cycle_path = cactus.find_cycle_path_in_cactus(next_along_cycle, cactus_head, next_back_head);
                                 
-                                auto other_cactus_head = cactus.find(graph->flip(deepest_it->second));
-                                
-                                auto through_here = next_along_cycle.end();
-                                auto through_other = next_along_cycle.end();
-                                
-                                cactus.for_each_member(cactus_head, [&](handle_t inbound) {
-                                    auto through_here_candidate = next_along_cycle.find(inbound);
+                                while (!cycle_path.empty()) {
+                                    // Now pop stuff off the end of the path and
+                                    // merge it with the component next_back_head
+                                    // is in, making sure to pinch off the cycles
+                                    // we cut as we do it.
                                     
-                                    if (through_here_candidate != next_along_cycle.end()) {
+                                    // Walk the cycle (again) to find where it hits the end component.
+                                    // TODO: Save the first traversal we did!
+                                    auto through_path_member = next_along_cycle.find(cycle_path.back());
+                                    auto through_end = through_path_member;
+                                    do {
+                                        // Follow the cycle until we reach the edge going into the end component.
+                                        through_end = next_along_cycle.find(through_end->second);
+                                    } while (cactus.find(through_end->first) != cactus.find(next_back_head));
+                                    
+                                    // Now pinch the cycle
+                                    
 #ifdef debug
-                                        cerr << "\t\t\t\tConsider cycle connecting " << graph->get_id(cactus_head) << (graph->get_is_reverse(cactus_head) ? "-" : "+") 
-                                            << " and " << graph->get_id(through_here_candidate->second) << (graph->get_is_reverse(through_here_candidate->second) ? "-" : "+") << endl;
+                                    cerr << "\t\t\tPinch cycle between " << graph->get_id(cycle_path.back()) << (graph->get_is_reverse(cycle_path.back()) ? "-" : "+")
+                                        << " and " << graph->get_id(through_end->first) << (graph->get_is_reverse(through_end->first) ? "-" : "+") << endl;
 #endif
-                                    }
                                     
-                                    for (auto it = through_here_candidate; it != next_along_cycle.end() && it->second != inbound; it = next_along_cycle.find(it->second)) {
-                                        // Until we get all the way around the cycle, if there is one
+                                    // Merge the two components where the bridge edges attach, to close the two new cycles.
+                                    cactus.merge(cycle_path.back(), next_back_head);
+                                    
+#ifdef debug
+                                    cerr << "\t\t\t\tExchange successors of " << graph->get_id(through_path_member->first) << (graph->get_is_reverse(through_path_member->first) ? "-" : "+")
+                                        << " and " << graph->get_id(through_end->first) << (graph->get_is_reverse(through_end->first) ? "-" : "+") << endl;
+#endif
+                                    
+                                    // Exchange their destinations to pinch the cycle in two.
+                                    std::swap(through_path_member->second, through_end->second);
+                                    
+                                    if (through_path_member->first == through_path_member->second) {
+                                        // Now a self loop cycle. Delete the cycle.
                                         
 #ifdef debug
-                                        cerr << "\t\t\t\t\tCycle connects " << graph->get_id(it->first) << (graph->get_is_reverse(it->first) ? "-" : "+") 
-                                            << " and " << graph->get_id(it->second) << (graph->get_is_reverse(it->second) ? "-" : "+") << endl;
+                                        cerr << "\t\t\t\t\tDelete self loop cycle " << graph->get_id(through_path_member->first) << (graph->get_is_reverse(through_path_member->first) ? "-" : "+") << endl;
 #endif
                                         
-                                        if (cactus.find(it->second) == other_cactus_head) {
-                                            // This entry in the cycle map reaches the component.
-                                            // (Must come before the one that reaches the start again and terminates the loop, if it exists.)
-                                            // We found the connecting cycle!
-                                            
-#ifdef debug
-                                            cerr << "\t\t\t\t\t\tFound shared cycle!" << endl;
-#endif
-                                            
-                                            // Make sure there is only one.
-                                            assert(through_here == next_along_cycle.end());
-                                            assert(through_other == next_along_cycle.end());
-                                            
-                                            // Save this one
-                                            through_here = through_here_candidate;
-                                            // Make sure to advance to the entry that starts with the other head, which we know is next.
-                                            through_other = next_along_cycle.find(it->second);
-                                            
-                                            // No need to look at the rest of this cycle.
-                                            break;
-                                            
-                                            // TODO: stop loop over other cycles early
-                                        }
+                                        // Won't affect other iterators.
+                                        next_along_cycle.erase(through_path_member);
                                     }
-                                });
-                                
-                                // Make sure we got something.
-                                assert(through_here != next_along_cycle.end());
-                                assert(through_other != next_along_cycle.end());
-                                
-                                // Now we have the mappings that connect across the two components.
-                                
-#ifdef debug
-                                cerr << "\t\t\tExchange successors of " << graph->get_id(through_here->first) << (graph->get_is_reverse(through_here->first) ? "-" : "+")
-                                    << " and " << graph->get_id(through_other->first) << (graph->get_is_reverse(through_other->first) ? "-" : "+") << endl;
-#endif
-                                
-                                // Exchange their destinations to pinch the cycle in two.
-                                std::swap(through_here->second, through_other->second);
-                                
-                                if (through_here->first == through_here->second) {
-                                    // Now a self loop cycle. Delete the cycle.
                                     
+                                    if (through_end->first == through_end->second) {
+                                        // Now a self loop cycle. Delete the cycle.
+                                        
 #ifdef debug
-                                    cerr << "\t\t\t\tDelete self loop cycle " << graph->get_id(through_here->first) << (graph->get_is_reverse(through_here->first) ? "-" : "+") << endl;
+                                        cerr << "\t\t\t\t\tDelete self loop cycle " << graph->get_id(through_end->first) << (graph->get_is_reverse(through_end->first) ? "-" : "+") << endl;
 #endif
+                                        
+                                        // Won't affect other iterators.
+                                        next_along_cycle.erase(through_end);
+                                    }
                                     
-                                    // Won't affect other iterators.
-                                    next_along_cycle.erase(through_here);
+                                    // And pop it off and merge the end (which now includes it) with whatever came before it on the path.
+                                    cycle_path.pop_back();
                                 }
-                                
-                                if (through_other->first == through_other->second) {
-                                    // Now a self loop cycle. Delete the cycle.
-                                    
-#ifdef debug
-                                    cerr << "\t\t\t\tDelete self loop cycle " << graph->get_id(through_other->first) << (graph->get_is_reverse(through_other->first) ? "-" : "+") << endl;
-#endif
-                                    
-                                    // Won't affect other iterators.
-                                    next_along_cycle.erase(through_other);
-                                }
-                                
-#ifdef debug
-                                cerr << "\t\t\tPinch cycle between " << graph->get_id(cactus_head) << (graph->get_is_reverse(cactus_head) ? "-" : "+")
-                                    << " and " << graph->get_id(other_cactus_head) << (graph->get_is_reverse(other_cactus_head) ? "-" : "+") << endl;
-#endif
-                                
-                                // Merge the two components where the bridge edges attach, to close the two new cycles.
-                                cactus.merge(cactus_head, other_cactus_head);
                             }
                             
                             // Record the new cycle we are making from this bridge path
