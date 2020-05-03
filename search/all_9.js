@@ -85,6 +85,7 @@ var searchData=
   ['init_5fmapper',['init_mapper',['../classvg_1_1Filter.html#abd9fa5045b867b20e1b20e3d74d77e4b',1,'vg::Filter']]],
   ['init_5fmapping_5fquality',['init_mapping_quality',['../classvg_1_1GSSWAligner.html#ab7540eba367eaa6d11ca74b7f68bad32',1,'vg::GSSWAligner']]],
   ['init_5fnode_5fquality_5fbin',['init_node_quality_bin',['../classvg_1_1Packer.html#aff44bf5abf4eacda46958eeb436eb2e4',1,'vg::Packer']]],
+  ['init_5ftraceback_5findexes',['init_traceback_indexes',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ab251d4ff6f6b7f351f29c5dd29ead002',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['initial_5fposition',['initial_position',['../namespacevg.html#acd31d3a8dc67801f147d0ba1b0059c3f',1,'vg']]],
   ['initialize_5fsam_5ffile',['initialize_sam_file',['../classvg_1_1HTSAlignmentEmitter.html#a13ea72ef0fd7badeb2ae3e951acc8c43',1,'vg::HTSAlignmentEmitter']]],
   ['inject_5fmain_2ecpp',['inject_main.cpp',['../inject__main_8cpp.html',1,'']]],

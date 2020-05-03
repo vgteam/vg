@@ -85,9 +85,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a54be0f91b1460bbd03e87e6da6be6e32"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a54be0f91b1460bbd03e87e6da6be6e32">fill_matrix</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>, int8_t *score_mat, int8_t *nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, IntType min_inf)</td></tr>
 <tr class="memdesc:a54be0f91b1460bbd03e87e6da6be6e32"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use DP to fill the band with alignment scores.  <a href="#a54be0f91b1460bbd03e87e6da6be6e32">More...</a><br /></td></tr>
 <tr class="separator:a54be0f91b1460bbd03e87e6da6be6e32"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5aaf286d1b8f4fb70084cee02833c18d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a5aaf286d1b8f4fb70084cee02833c18d">traceback</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BABuilder.html">BABuilder</a> &amp;builder, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html">AltTracebackStack</a> &amp;traceback_stack, <a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> start_mat, int8_t *score_mat, int8_t *nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, IntType min_inf)</td></tr>
-<tr class="memdesc:a5aaf286d1b8f4fb70084cee02833c18d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Traceback through the band after using DP to fill it.  <a href="#a5aaf286d1b8f4fb70084cee02833c18d">More...</a><br /></td></tr>
-<tr class="separator:a5aaf286d1b8f4fb70084cee02833c18d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab251d4ff6f6b7f351f29c5dd29ead002"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ab251d4ff6f6b7f351f29c5dd29ead002">init_traceback_indexes</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>, int64_t &amp;i, int64_t &amp;j)</td></tr>
+<tr class="separator:ab251d4ff6f6b7f351f29c5dd29ead002"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1366942f6ff4eecbebad9b29e9ef2c94"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a1366942f6ff4eecbebad9b29e9ef2c94">traceback</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BABuilder.html">BABuilder</a> &amp;builder, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html">AltTracebackStack</a> &amp;traceback_stack, int64_t &amp;i, int64_t &amp;j, <a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> &amp;mat, bool &amp;in_lead_gap, const int8_t *score_mat, const int8_t *nt_table, const int8_t gap_open, const int8_t gap_extend, const bool qual_adjusted, IntType const min_inf)</td></tr>
+<tr class="separator:a1366942f6ff4eecbebad9b29e9ef2c94"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0210e1c9a9da04e28e253e2963dd96ad"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a0210e1c9a9da04e28e253e2963dd96ad">traceback_over_edge</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BABuilder.html">BABuilder</a> &amp;builder, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html">AltTracebackStack</a> &amp;traceback_stack, int64_t &amp;i, int64_t &amp;j, <a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> &amp;mat, bool &amp;in_lead_gap, int64_t &amp;node_id, const int8_t *score_mat, const int8_t *nt_table, const int8_t gap_open, const int8_t gap_extend, const bool qual_adjusted, IntType const min_inf)</td></tr>
+<tr class="separator:a0210e1c9a9da04e28e253e2963dd96ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a521dac0777a22cd632a45ad72f320810"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a521dac0777a22cd632a45ad72f320810">print_full_matrices</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>)</td></tr>
 <tr class="memdesc:a521dac0777a22cd632a45ad72f320810"><td class="mdescLeft">&#160;</td><td class="mdescRight">Debugging function.  <a href="#a521dac0777a22cd632a45ad72f320810">More...</a><br /></td></tr>
 <tr class="separator:a521dac0777a22cd632a45ad72f320810"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -97,8 +100,6 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
-<tr class="memitem:ab96ec549cc9e77d5c7cdd919d69cb36e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ab96ec549cc9e77d5c7cdd919d69cb36e">traceback_internal</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BABuilder.html">BABuilder</a> &amp;builder, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html">AltTracebackStack</a> &amp;traceback_stack, int64_t start_row, int64_t start_col, <a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> start_mat, bool in_lead_gap, int8_t *score_mat, int8_t *nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, IntType min_inf)</td></tr>
-<tr class="separator:ab96ec549cc9e77d5c7cdd919d69cb36e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee399b25f2ed671ad8a17e6c55757671"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#aee399b25f2ed671ad8a17e6c55757671">print_matrix</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>, <a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> which_mat)</td></tr>
 <tr class="memdesc:aee399b25f2ed671ad8a17e6c55757671"><td class="mdescLeft">&#160;</td><td class="mdescRight">Debugging function.  <a href="#aee399b25f2ed671ad8a17e6c55757671">More...</a><br /></td></tr>
 <tr class="separator:aee399b25f2ed671ad8a17e6c55757671"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -139,6 +140,8 @@ Friends</h2></td></tr>
 <tr class="separator:a0e96e19808a2cdebe69caa967ca2ca5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afb02520a42fa4bde2fefbf5b46e028c9"><td class="memItemLeft" align="right" valign="top">class&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#afb02520a42fa4bde2fefbf5b46e028c9">AltTracebackStack</a></td></tr>
 <tr class="separator:afb02520a42fa4bde2fefbf5b46e028c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa1514e35f3c2194f569f60067c542ab9"><td class="memItemLeft" align="right" valign="top">class&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#aa1514e35f3c2194f569f60067c542ab9">BandedGlobalAligner</a></td></tr>
+<tr class="separator:aa1514e35f3c2194f569f60067c542ab9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><h3>template&lt;class IntType&gt;<br />
@@ -282,6 +285,42 @@ template&lt;class IntType &gt; </div>
 
 </div>
 </div>
+<a id="ab251d4ff6f6b7f351f29c5dd29ead002"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab251d4ff6f6b7f351f29c5dd29ead002">&#9670;&nbsp;</a></span>init_traceback_indexes()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class IntType &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::init_traceback_indexes </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramname"><em>i</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramname"><em>j</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="ac248371cbaae3b95340035f88de09e0a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac248371cbaae3b95340035f88de09e0a">&#9670;&nbsp;</a></span>print_band()</h2>
 
@@ -406,8 +445,8 @@ template&lt;class IntType &gt; </div>
 
 </div>
 </div>
-<a id="a5aaf286d1b8f4fb70084cee02833c18d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5aaf286d1b8f4fb70084cee02833c18d">&#9670;&nbsp;</a></span>traceback()</h2>
+<a id="a1366942f6ff4eecbebad9b29e9ef2c94"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1366942f6ff4eecbebad9b29e9ef2c94">&#9670;&nbsp;</a></span>traceback()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -435,43 +474,61 @@ template&lt;class IntType &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a>&#160;</td>
-          <td class="paramname"><em>start_mat</em>, </td>
+          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramname"><em>i</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int8_t *&#160;</td>
+          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramname"><em>j</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>mat</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool &amp;&#160;</td>
+          <td class="paramname"><em>in_lead_gap</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const int8_t *&#160;</td>
           <td class="paramname"><em>score_mat</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int8_t *&#160;</td>
+          <td class="paramtype">const int8_t *&#160;</td>
           <td class="paramname"><em>nt_table</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int8_t&#160;</td>
+          <td class="paramtype">const int8_t&#160;</td>
           <td class="paramname"><em>gap_open</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int8_t&#160;</td>
+          <td class="paramtype">const int8_t&#160;</td>
           <td class="paramname"><em>gap_extend</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
+          <td class="paramtype">const bool&#160;</td>
           <td class="paramname"><em>qual_adjusted</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">IntType&#160;</td>
+          <td class="paramtype">IntType const&#160;</td>
           <td class="paramname"><em>min_inf</em>&#160;</td>
         </tr>
         <tr>
@@ -482,23 +539,18 @@ template&lt;class IntType &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Traceback through the band after using DP to fill it. </p>
-
 </div>
 </div>
-<a id="ab96ec549cc9e77d5c7cdd919d69cb36e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab96ec549cc9e77d5c7cdd919d69cb36e">&#9670;&nbsp;</a></span>traceback_internal()</h2>
+<a id="a0210e1c9a9da04e28e253e2963dd96ad"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0210e1c9a9da04e28e253e2963dd96ad">&#9670;&nbsp;</a></span>traceback_over_edge()</h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
 template&lt;class IntType &gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::traceback_internal </td>
+          <td class="memname">void <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::traceback_over_edge </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -518,61 +570,67 @@ template&lt;class IntType &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>start_row</em>, </td>
+          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramname"><em>i</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>start_col</em>, </td>
+          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramname"><em>j</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a>&#160;</td>
-          <td class="paramname"><em>start_mat</em>, </td>
+          <td class="paramtype"><a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>mat</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
+          <td class="paramtype">bool &amp;&#160;</td>
           <td class="paramname"><em>in_lead_gap</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int8_t *&#160;</td>
+          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramname"><em>node_id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const int8_t *&#160;</td>
           <td class="paramname"><em>score_mat</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int8_t *&#160;</td>
+          <td class="paramtype">const int8_t *&#160;</td>
           <td class="paramname"><em>nt_table</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int8_t&#160;</td>
+          <td class="paramtype">const int8_t&#160;</td>
           <td class="paramname"><em>gap_open</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int8_t&#160;</td>
+          <td class="paramtype">const int8_t&#160;</td>
           <td class="paramname"><em>gap_extend</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
+          <td class="paramtype">const bool&#160;</td>
           <td class="paramname"><em>qual_adjusted</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">IntType&#160;</td>
+          <td class="paramtype">IntType const&#160;</td>
           <td class="paramname"><em>min_inf</em>&#160;</td>
         </tr>
         <tr>
@@ -581,11 +639,6 @@ template&lt;class IntType &gt; </div>
           <td></td><td></td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
@@ -628,6 +681,30 @@ template&lt;class IntType &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">friend class <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BABuilder.html">BABuilder</a></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">friend</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="aa1514e35f3c2194f569f60067c542ab9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa1514e35f3c2194f569f60067c542ab9">&#9670;&nbsp;</a></span>BandedGlobalAligner</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class IntType &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">friend class <a class="el" href="classvg_1_1BandedGlobalAligner.html">BandedGlobalAligner</a></td>
         </tr>
       </table>
   </td>
