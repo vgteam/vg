@@ -277,7 +277,7 @@ protected:
      * Returns only an "extended" cap at the moment.
      */
     double compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
-                             const sdsl::bit_vector& present_in_any_extended_cluster);
+                             const SmallBitset& present_in_any_extended_cluster);
 
     /**
      * Compute a bound on the Phred score probability of having created the

@@ -1,14 +1,10 @@
 #ifndef VG_MIN_DISTANCE_HPP_INCLUDED
 #define VG_MIN_DISTANCE_HPP_INCLUDED
 
+#include <unordered_set>
+
 #include "snarls.hpp"
 #include "hash_map.hpp"
-#include "split_strand_graph.hpp"
-#include "algorithms/dagify.hpp"
-#include "algorithms/split_strands.hpp"
-#include "algorithms/topological_sort.hpp"
-#include "algorithms/is_acyclic.hpp"
-#include "algorithms/is_single_stranded.hpp"
 
 #include "bdsg/hash_graph.hpp"
 
@@ -62,12 +58,14 @@ class MinimumDistanceIndex {
     ///Returns a positive value even if the two nodes are unreachable
     int64_t max_distance(pos_t pos1, pos_t pos2) const;
 
-    //Given an alignment to a graph and a range, populate  a subgraph 
-    //with all nodes in the graph for which the minimum distance from the position to any position in the node
-    //is within the given distance range
-    //If look_forward is true, then start from the start of the path forward, otherwise start from the end going backward
+
+    //Given an alignment to a graph and a range, find the set of nodes in the
+    //graph for which the minimum distance from the position to any position
+    //in the node is within the given distance range
+    //If look_forward is true, then start from the start of the path forward,
+    //otherwise start from the end going backward
     void subgraph_in_range(const Path& path, const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
-                         SubHandleGraph& sub_graph, bool look_forward);
+                         std::unordered_set<id_t>& sub_graph, bool look_forward);
 
 
     //Given a position, return distances that can be stored by a minimizer
@@ -434,12 +432,13 @@ class MinimumDistanceIndex {
     void calculate_max_index(const HandleGraph* graph, int64_t cap); 
 
 
-    ///Helper for subgraph_in_range
-    /// Given starting handles in the super graph and the distances to each handle (including the start position and 
+
+    ///Helper for subgraphInRange
+    ///Given starting handles in the super graph and the distances to each handle (including the start position and 
     //the first position in the handle), add all nodes within the givendistance range to the subgraph
     //Ignore all nodes in seen_nodes (nodes that are too close)
     void add_nodes_in_range(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
-                         SubHandleGraph& sub_graph, vector<tuple<handle_t, int64_t>>& start_nodes,
+                         std::unordered_set<id_t>& sub_graph, vector<tuple<handle_t, int64_t>>& start_nodes,
                          hash_set<pair<id_t, bool>>& seen_nodes);
 
     ///Helper function for distance calculation

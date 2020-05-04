@@ -1664,7 +1664,7 @@ namespace unittest {
 
 
 
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 0; i++) {
             // For each random graph
             
             default_random_engine generator(time(NULL));
