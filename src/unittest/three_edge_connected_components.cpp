@@ -18,19 +18,19 @@ using namespace std;
 // We use this global adjacencies vector and functions to look at it as a "current" graph
 vector<vector<size_t>> adjacencies;
    
-auto for_each_connected_node = [&](size_t node, const function<void(size_t)>& iteratee) {
+static void for_each_connected_node(size_t node, const function<void(size_t)>& iteratee) {
 #ifdef debug
     cerr << "Asked for edges of node " << node << endl;
 #endif
     for (auto& other : adjacencies.at(node)) {
         iteratee(other);
     }
-};
+}
 
 // Represent the results as a union-find for checking, in this global union-find for the current graph.
 structures::UnionFind components(adjacencies.size(), true);
 
-auto component_callback = [&](const function<void(const function<void(size_t)>&)>& for_each_member) {
+static void component_callback(const function<void(const function<void(size_t)>&)>& for_each_member) {
 #ifdef debug
     cerr << "Got component" << endl;
 #endif
@@ -49,7 +49,7 @@ auto component_callback = [&](const function<void(const function<void(size_t)>&)
             components.union_groups(first, member);
         }
     });
-};
+}
 
 TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][algorithms]") {
     

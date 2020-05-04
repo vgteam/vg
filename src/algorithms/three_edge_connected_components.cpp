@@ -1,6 +1,5 @@
 #include "three_edge_connected_components.hpp"
 
-// Grab the Tsin's Algorithm header out of pinchesAndCacti, which installs it into sonLib's include directory
 extern "C" {
 #include "sonLib/sonLibList.h"
 #include "sonLib/sonLibTuples.h"
@@ -25,7 +24,7 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
     const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
     const function<void(size_t, size_t)>& same_component) {
     
-    // Independent Implementation of Tsin and Norouzi (2014) "A simple 3-edge
+    // Independent Implementation of  Norouzi and Tsin (2014) "A simple 3-edge
     // connected component algorithm revisited", which can't reallyu be
     // understood without Tsin (2007) "A Simple 3-Edge-Connected Component
     // Algorithm".
@@ -567,10 +566,10 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
 #endif
 
                         // Support bridge edges: detect if we are returning
-                        // across a bridge edge and censor it. Tsin 2014 as
-                        // written in the paper assumes no bridge edges, and
-                        // what we're about to do relies on all neighbors
-                        // connecting back somewhere.
+                        // across a bridge edge and censor it. Norouzi and Tsin
+                        // 2014 as written in the paper assumes no bridge
+                        // edges, and what we're about to do relies on all
+                        // neighbors connecting back somewhere.
                         if (neighbor.low_point == neighbor.dfs_counter) {
                             // It has no back-edges out of its own subtree, so it must be across a bridge.
 #ifdef debug
