@@ -1051,6 +1051,8 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
 #ifdef debug
     size_t tecc_id = 0;
 #endif
+    // Buffer merges until the algorithm is done.
+    vector<pair<handle_t, handle_t>> merge_list;
     algorithms::three_edge_connected_component_merges<handle_t>([&](const function<void(handle_t)>& emit_node) {
         // Feed all the handles that head adjacency components into the algorithm
         cactus.for_each_head([&](handle_t head) {
@@ -1078,9 +1080,16 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
         });
     }, [&](handle_t a, handle_t b) {
         // Now we got a merge to create the 3 edge connected components.
-        // Tell the graph.
-        cactus.merge(a, b);
+        // We can't actually do the merge now, because we can't let the merges
+        // be visible to the algorithm while it is working. 
+        merge_list.emplace_back(a, b);
     });
+    
+    // Now execute the merges, since the algorithm is done looking at the graph.
+    for (auto& ab : merge_list) {
+        cactus.merge(ab.first, ab.second);
+    }
+    merge_list.clear();
     
     // Now our 3-edge-connected components have been condensed, and we have a proper Cactus graph.
     

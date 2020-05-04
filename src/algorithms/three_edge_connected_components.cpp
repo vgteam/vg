@@ -331,7 +331,7 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                 });
                 
 #ifdef debug
-                cerr << "\tPut " << frame.neighbors.size() << " edges that aren't the incoming edge on to do list" << endl;
+                cerr << "\tPut " << frame.neighbors.size() << " edges on to do list" << endl;
 #endif
                 
                 // Now we're in a state where we can process edges.

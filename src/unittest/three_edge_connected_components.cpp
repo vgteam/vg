@@ -397,8 +397,6 @@ TEST_CASE("Tsin 2014 handles a graph with self loops and extra-edge triangles", 
     
     // Only two things should merge.
     REQUIRE(components.all_groups().size() == 6);
-        
-    
 }
 
 }

@@ -21,7 +21,7 @@ using namespace std;
  * given a node, loops an iteratee over all nodes connected to it.
  *
  * For each component identified, calls the given callback with a function that
- * iterates over all nodes in the component.
+ * iterates over all nodes in the component. 
  *
  * If you have a graph where you can easily rank the nodes, don't use this. Use
  * three_edge_connected_components_dense() instead. The first thing this
@@ -42,8 +42,8 @@ void three_edge_connected_components(const function<void(const function<void(TEC
  *
  * Calls same_component with pairs of nodes in (at least) a spanning tree of
  * the set of nodes in each component (not restricted to the input graph).
- * Doing merge operations on a union-find can get
- * you the set of components.
+ * Doing merge operations on a union-find can get you the set of components.
+ * The callback MUST NOT modify the graph!
  *
  * If you have a graph where you can easily rank the nodes, don't use this. Use
  * three_edge_connected_components_dense() instead. The first thing this
@@ -65,8 +65,8 @@ void three_edge_connected_component_merges(const function<void(const function<vo
  *
  * Calls same_component with pairs of nodes in (at least) a spanning tree of
  * the set of nodes in each component (not restricted to the input graph).
- * Doing merge operations on a union-find can get
- * you the set of components.
+ * Doing merge operations on a union-find can get you the set of components.
+ * The callback MUST NOT modify the graph!
  */
 void three_edge_connected_component_merges_dense(size_t node_count, size_t first_root,
     const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
