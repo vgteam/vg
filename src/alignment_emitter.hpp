@@ -94,8 +94,8 @@ public:
 /// the graph can be provided in order to form spliced CIGAR strings for the HTSlib
 /// formats. Other output formats ignore the graph.
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
-    const map<string, int64_t>& path_length, size_t max_threads,
-    const PathPositionHandleGraph* splicing_graph = nullptr);
+                                                   const map<string, int64_t>& path_length, size_t max_threads,
+                                                   const PathPositionHandleGraph* splicing_graph = nullptr);
 
 /**
  * Discards all alignments.

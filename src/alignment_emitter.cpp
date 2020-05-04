@@ -45,6 +45,8 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
     if (format == "GAM" || format == "JSON") {
         // Make an emitter that supports VG formats
         backing = new VGAlignmentEmitter(filename, format, max_threads);
+    } else if (format == "GAF") {
+        backing = new GafAlignmentEmitter(filename, format, *splicing_graph, max_threads);
     } else if (format == "SAM" || format == "BAM" || format == "CRAM") {
         // Make an emitter that supports HTSlib formats
         if (splicing_graph) {
@@ -1108,7 +1110,7 @@ string GafAlignmentEmitter::aln2gaf(const Alignment& aln) {
     gaf << aln.name() << "\t"
         //2 int Query sequence length
         << aln.sequence().length() << "\t";
-    bool has_path = (!aln.has_path() || aln.path().mapping_size() == 0);
+    bool has_path = !(!aln.has_path() || aln.path().mapping_size() == 0);
     if (!has_path) {
         gaf << "*" << "\t" << "*" << "\t" << "*" << "\t";
     } else {
