@@ -827,6 +827,7 @@ cerr << "Nested positions: " << endl << "\t";
         //Maps each cluster of child nodes to its left and right distances
         //of the node its on
         hash_map<pair<size_t,size_t>, pair<int64_t, int64_t>> old_dists;
+        old_dists.reserve(child_nodes.size());
 
         for (size_t i = 0; i < child_nodes.size() ; i++) {
             //Go through each child node of the netgraph

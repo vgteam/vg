@@ -1640,76 +1640,31 @@ namespace unittest {
         SnarlManager snarl_manager = bubble_finder.find_snarls();
 
         MinimumDistanceIndex dist_index (&vg, &snarl_manager);
+        dist_index.print_self();
         SnarlSeedClusterer clusterer(dist_index);
 
-        int64_t read_lim = 20;// Distance between read clusters
-        int64_t fragment_lim = 30;// Distance between fragment clusters
 
 
-
-        vector<vector<SnarlSeedClusterer::Seed>> seeds(2);
+        vector<SnarlSeedClusterer::Seed> seeds;
         vector<pos_t> pos_ts;
-        pos_ts.emplace_back(18, true, 6);
-        pos_ts.emplace_back(10, false, 0);
-        pos_ts.emplace_back(18, false, 3);
-        pos_ts.emplace_back(15, true, 151);
-        pos_ts.emplace_back(22, false, 2);
-        pos_ts.emplace_back(5, true, 0);
-        pos_ts.emplace_back(24, false, 340);
-        pos_ts.emplace_back(20, false, 26);
+        pos_ts.emplace_back(151, true, 0);
+        pos_ts.emplace_back(119, false, 24);
 
 
         for (pos_t pos : pos_ts) {
             std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
-            seeds[0].push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+            seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
         }
+        vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 30); 
 
-        pos_ts.clear();
-		pos_ts.emplace_back(2, false, 0);
-        pos_ts.emplace_back(26, false, 1);
-        pos_ts.emplace_back(7 , true, 0);
-        pos_ts.emplace_back(26, true, 2);
-        pos_ts.emplace_back(18, true, 4);
-        pos_ts.emplace_back(10, false, 0);
-        pos_ts.emplace_back(22, true, 4);
-        pos_ts.emplace_back(5, true, 0);
-
-        for (pos_t pos : pos_ts) {
-            std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
-            seeds[1].push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-               std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
-        }
-
-            cerr << "serialized graph has nodes: " << endl;
-            vector<id_t> all_nodes_serialized;
-            vg.for_each_handle([&](const handle_t& h)->bool{
-                id_t id = vg.get_id(h);
-                cerr << id << " ";
-                all_nodes_serialized.push_back(id);
-                return true;
-            });
-            cerr << endl;
-        vector<vector<SnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 30, 50); 
-
-            cerr << "after clustering, graph has nodes: " << endl;
-            vg.for_each_handle([&](const handle_t& h)->bool{
-                id_t id = vg.get_id(h);
-                cerr << id << " ";
-                return true;
-            });
-            cerr << endl << "checking nodes" << endl;
-            for (id_t id : all_nodes_serialized) {
-                cerr << id << " ";
-                REQUIRE( vg.has_node(id));
-            }
         REQUIRE(false);
-
-*/
-
+        */
 
 
-        for (int i = 0; i < 0; i++) {
+
+
+        for (int i = 0; i < 1000; i++) {
             // For each random graph
             
             default_random_engine generator(time(NULL));

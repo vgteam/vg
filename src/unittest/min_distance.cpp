@@ -1398,7 +1398,7 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
         
 */
 
-    TEST_CASE("Serialize distance index", "[dist][serial]") {
+    TEST_CASE("Serialize distance index", "[min_dist][serial]") {
         for (int i = 0; i < 0; i++) {
 
             VG graph;
