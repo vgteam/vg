@@ -16,7 +16,7 @@ namespace unittest {
 using namespace std;
 
 // We use this global adjacencies vector and functions to look at it as a "current" graph
-vector<vector<size_t>> adjacencies;
+static vector<vector<size_t>> adjacencies;
    
 static void for_each_connected_node(size_t node, const function<void(size_t)>& iteratee) {
 #ifdef debug
@@ -28,7 +28,7 @@ static void for_each_connected_node(size_t node, const function<void(size_t)>& i
 }
 
 // Represent the results as a union-find for checking, in this global union-find for the current graph.
-structures::UnionFind components(adjacencies.size(), true);
+static structures::UnionFind components(adjacencies.size(), true);
 
 static void component_callback(const function<void(const function<void(size_t)>&)>& for_each_member) {
 #ifdef debug
@@ -231,6 +231,7 @@ TEST_CASE("3ECC algorithms do not over-collapse an extra-edge triangle", "[3ecc]
     SECTION("Works with Tsin 2014") {
         algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
             
+#ifdef debug
         for (auto& group : components.all_groups()) {
             cerr << "Group:";
             for (auto& member : group) {
@@ -238,6 +239,7 @@ TEST_CASE("3ECC algorithms do not over-collapse an extra-edge triangle", "[3ecc]
             }
             cerr << endl;
         }
+#endif
         
         // Only two things should merge.
         REQUIRE(components.all_groups().size() == 2);
@@ -251,6 +253,7 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge edges", "[
     
     algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
             
+#ifdef debug
     for (auto& group : components.all_groups()) {
         cerr << "Group:";
         for (auto& member : group) {
@@ -258,6 +261,7 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge edges", "[
         }
         cerr << endl;
     }
+#endif
     
     // Node 0 should not merge
     REQUIRE(components.group_size(0) == 1);
@@ -271,6 +275,7 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge edges with
     
     algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
             
+#ifdef debug
     for (auto& group : components.all_groups()) {
         cerr << "Group:";
         for (auto& member : group) {
@@ -278,6 +283,7 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge edges with
         }
         cerr << endl;
     }
+#endif
     
     // Node 0 should not merge
     REQUIRE(components.group_size(0) == 1);
@@ -291,6 +297,7 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge edges with
     
     algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
             
+#ifdef debug
     for (auto& group : components.all_groups()) {
         cerr << "Group:";
         for (auto& member : group) {
@@ -298,6 +305,7 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge edges with
         }
         cerr << endl;
     }
+#endif
     
     // Node 0 should not merge
     REQUIRE(components.group_size(0) == 1);
@@ -311,6 +319,7 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge sticks wit
     
     algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
             
+#ifdef debug
     for (auto& group : components.all_groups()) {
         cerr << "Group:";
         for (auto& member : group) {
@@ -318,6 +327,7 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge sticks wit
         }
         cerr << endl;
     }
+#endif
     
     // Node 0 should not merge
     REQUIRE(components.group_size(0) == 1);
@@ -331,6 +341,7 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge edges with
     
     algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
             
+#ifdef debug
     for (auto& group : components.all_groups()) {
         cerr << "Group:";
         for (auto& member : group) {
@@ -338,6 +349,7 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge edges with
         }
         cerr << endl;
     }
+#endif
     
     // Node 0 should not merge
     REQUIRE(components.group_size(0) == 1);
@@ -351,6 +363,7 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge sticks wit
     
     algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
             
+#ifdef debug
     for (auto& group : components.all_groups()) {
         cerr << "Group:";
         for (auto& member : group) {
@@ -358,6 +371,7 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge sticks wit
         }
         cerr << endl;
     }
+#endif
     
     // Node 0 should not merge
     REQUIRE(components.group_size(0) == 1);
@@ -371,6 +385,7 @@ TEST_CASE("Tsin 2014 handles a graph with self loops and extra-edge triangles", 
     
     algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
             
+#ifdef debug
     for (auto& group : components.all_groups()) {
         cerr << "Group:";
         for (auto& member : group) {
@@ -378,6 +393,7 @@ TEST_CASE("Tsin 2014 handles a graph with self loops and extra-edge triangles", 
         }
         cerr << endl;
     }
+#endif
     
     // Only two things should merge.
     REQUIRE(components.all_groups().size() == 6);
