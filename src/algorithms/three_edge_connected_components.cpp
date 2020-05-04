@@ -24,8 +24,8 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
     const function<void(size_t, const function<void(size_t)>&)>& for_each_connected_node,
     const function<void(size_t, size_t)>& same_component) {
     
-    // Independent Implementation of  Norouzi and Tsin (2014) "A simple 3-edge
-    // connected component algorithm revisited", which can't reallyu be
+    // Independent implementation of Norouzi and Tsin (2014) "A simple 3-edge
+    // connected component algorithm revisited", which can't really be
     // understood without Tsin (2007) "A Simple 3-Edge-Connected Component
     // Algorithm".
     
@@ -38,8 +38,9 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
     // edge. It (conceptually) steals all the edges from the node at the other
     // end of the edge, deletes the edge, and deletes the other node as well if
     // it has a degree greater than 2. (The original algorithm didn't have to
-    // deal with degree 1; here we treat it the same as degree 2 and leave the
-    // node floating in its own 3 edge connected component.)
+    // deal with degree 1; here we treat it about the same as degree 2 and
+    // leave the node floating in its own 3 edge connected component, while
+    // hiding the single edge from the real logic of the algorithm.)
     
     // Because of guarantees about the order in which we traverse the graph, we
     // don't actually have to *do* any of the absorb-eject graph topology
@@ -54,12 +55,9 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
     // nowhere if the path ends). The head of a path is tougher, because a
     // node's path can be empty. The node may not be on its own path. It is not
     // immediately clear from analyzing the algorithm whether a node can have a
-    // nonempty path that it itself is not on. To support that case, we also
-    // give each node a flag for whether it is on its own path.
-    
-    // In addition to the effective degrees of the nodes, we track a DFS
-    // counter for each node saying when in the DFS it was visited, and a "low
-    // point", called "lowpt" in the papers, and a visited flag.
+    // nonempty path that it itself is not on, or be the tail of another node's
+    // path without being on that path. To support those cases, we also give
+    // each node a flag for whether it is on its own path.
     
     // TODO: should we template this on an integer size so we can fit more work
     // in less memory bandwidth when possible?
