@@ -2126,6 +2126,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 
 void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
 
+
     // We are traversing the same small subgraph repeatedly, so it's better to use a cache.
     gbwtgraph::CachedGBWTGraph cached_graph(this->gbwt_graph);
 
@@ -2134,7 +2135,7 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
     std::unordered_set<id_t> rescue_nodes;
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * fragment_length_distr.stdev());
     int64_t max_distance = fragment_length_distr.mean() + 4 * fragment_length_distr.stdev();
-    distance_index.subgraphInRange(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
+    distance_index.subgraph_in_range(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
 
     // Get rid of the old path.
     rescued_alignment.clear_path();
@@ -2180,7 +2181,8 @@ void MinimizerMapper::attempt_rescue_haplotypes(const Alignment& aligned_read, A
     // TODO: How big should the rescue subgraph be?
     int64_t min_distance = std::max(0.0, this->fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * this->fragment_length_distr.stdev());
     int64_t max_distance = this->fragment_length_distr.mean() + 4 * this->fragment_length_distr.stdev();
-    this->distance_index.subgraphInRange(aligned_read.path(), &(this->gbwt_graph), min_distance, max_distance, rescue_nodes, rescue_forward);
+
+    this->distance_index.subgraph_in_range(aligned_read.path(), &(this->gbwt_graph), min_distance, max_distance, rescue_nodes, rescue_forward);
 
     // Build a subgraph overlay.
     // TODO: We could skip this and use the set of nodes in unfold_haplotypes().
@@ -2209,7 +2211,7 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
     pos_t pos1 = initial_position(aln1.path()); 
     pos_t pos2 = final_position(aln2.path());
 
-    int64_t min_dist = distance_index.minDistance(pos1, pos2);
+    int64_t min_dist = distance_index.min_distance(pos1, pos2);
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
 }
 
@@ -2319,11 +2321,14 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     hit = reverse_base_pos(hit, node_length);
                 }
                 // Extract component id and offset in the root chain, if we have them for this seed.
-                std::pair<size_t, size_t> chain_info(MIPayload::NO_VALUE, MIPayload::NO_VALUE);
+                // TODO: Get all the seed values here
+                tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info
+                    (false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false );
                 if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
                     chain_info = MIPayload::decode(minimizer.occs[j].payload);
                 }
-                seeds.push_back({ hit, i, chain_info.first, chain_info.second });
+                seeds.push_back({ hit, i, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
+                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info) });
             }
             
             if (!(took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {
