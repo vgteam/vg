@@ -10,6 +10,9 @@
 #include "snarls.hpp"
 
 #include <functional>
+#include <vector>
+#include <unordered_map>
+#include <utility>
 
 namespace vg {
 
@@ -30,16 +33,33 @@ class IntegratedSnarlFinder : public HandleGraphSnarlFinder {
 private:
     // Forward-declare this member type we use inside some functions.
     
-    /// Represents a graph that starts as the graph of adjacency components in
-    /// a HandleGraph, and which can be further merged. Can be used to
-    /// represent a cactus graph or a bridge forest.
-    ///
-    /// Represents a graph of "components". Each component contains some number
-    /// of handles from the backing graph, all reading into the component. Each
-    /// handle connects that component to another component: the component that
-    /// contains the flipped version of the handle. Each component is
-    /// identified by a "head" handle.
+    /**
+     * Represents a graph that starts as the graph of adjacency components in
+     * a HandleGraph, and which can be further merged. Can be used to
+     * represent a cactus graph or a bridge forest.
+     *
+     * Represents a graph of "components". Each component contains some number
+     * of handles from the backing graph, all reading into the component. Each
+     * handle connects that component to another component: the component that
+     * contains the flipped version of the handle. Each component is
+     * identified by a "head" handle.
+     */
     class MergedAdjacencyGraph;
+    
+    /**
+     * Find all the snarls, given the Cactus graph, the bridge forest, the
+     * longest paths and cycles, and the towards-leaf/around-cycle information
+     * needed to follow them.
+     */
+    void traverse_computed_decomposition(MergedAdjacencyGraph& cactus,
+        const MergedAdjacencyGraph& forest,
+        vector<pair<size_t, vector<handle_t>>>& longest_paths,
+        unordered_map<handle_t, handle_t>& towards_deepest_leaf,
+        vector<pair<size_t, handle_t>>& longest_cycles,
+        unordered_map<handle_t, handle_t>& next_along_cycle,
+        const function<void(handle_t)>& begin_chain, const function<void(handle_t)>& end_chain,
+        const function<void(handle_t)>& begin_snarl, const function<void(handle_t)>& end_snarl) const;
+    
 public:
     /**
      * Make a new IntegratedSnarlFinder to find snarls in the given graph.

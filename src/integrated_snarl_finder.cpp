@@ -1149,6 +1149,30 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
     // We need basically priority queue between them. But we don't need insert so we jsut sort.
     std::sort(longest_cycles.begin(), longest_cycles.end());
     std::sort(longest_paths.begin(), longest_paths.end());
+    
+    // Now that we have computed the graphs we need, do the traversal of them.
+    // This modifies the structures we have computed in-place, and also does
+    // some extra merges in the cactus graph to make all chains cycles.
+    traverse_computed_decomposition(cactus,
+                                    forest,
+                                    longest_paths,
+                                    towards_deepest_leaf,
+                                    longest_cycles,
+                                    next_along_cycle,
+                                    begin_chain,
+                                    end_chain,
+                                    begin_snarl,
+                                    end_snarl);
+}
+  
+void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph& cactus,
+    const MergedAdjacencyGraph& forest,
+    vector<pair<size_t, vector<handle_t>>>& longest_paths,
+    unordered_map<handle_t, handle_t>& towards_deepest_leaf,
+    vector<pair<size_t, handle_t>>& longest_cycles,
+    unordered_map<handle_t, handle_t>& next_along_cycle,
+    const function<void(handle_t)>& begin_chain, const function<void(handle_t)>& end_chain,
+    const function<void(handle_t)>& begin_snarl, const function<void(handle_t)>& end_snarl) const {
   
     // Now, keep a set of all the edges that have found a place in the decomposition.
     unordered_set<handle_t> visited;
@@ -1572,7 +1596,7 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                             if (next_along_cycle.count(inbound)) {
                             
 #ifdef debug
-                                cerr << "\t\tInherit cycle edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
+                                cerrVectorizableHandleGraph << "\t\tInherit cycle edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
 #endif
                             
                                 // This edge is the incoming edge for a cycle. Queue it up.
