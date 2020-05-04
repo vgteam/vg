@@ -147,8 +147,15 @@ namespace vg {
         virtual void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments,
                                                const HandleGraph& g, int32_t max_alt_alns, int32_t band_padding = 0,
                                                bool permissive_banding = true) const = 0;
-        // xdrop aligner
-        virtual void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const = 0;
+        /// xdrop aligner
+        virtual void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
+                                 bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const = 0;
+        
+        /// xdrop aligner, but with a precomputed topological order on the graph, which need not include
+        /// all of the graph's handles and which may contain both orientations of a handle
+        virtual void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order,
+                                 const vector<MaximalExactMatch>& mems, bool reverse_complemented,
+                                 uint16_t max_gap_length = default_xdrop_max_gap_length) const = 0;
 
         /// Compute the score of an exact match in the given alignment, from the
         /// given offset, of the given length.
@@ -320,9 +327,15 @@ namespace vg {
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true) const;
 
-        // xdrop aligner
+        /// xdrop aligner
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                          bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const;
+        
+        /// xdrop aligner, but with a precomputed topological order on the graph, which need not include
+        /// all of the graph's handles and which may contain both orientations of a handle
+        void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order,
+                         const vector<MaximalExactMatch>& mems, bool reverse_complemented,
+                         uint16_t max_gap_length = default_xdrop_max_gap_length) const;
 
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
@@ -376,6 +389,9 @@ namespace vg {
                                 
         void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                          bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length) const;
+        void align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order,
+                         const vector<MaximalExactMatch>& mems, bool reverse_complemented,
+                         uint16_t max_gap_length = default_xdrop_max_gap_length) const;
         
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;

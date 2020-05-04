@@ -93,6 +93,15 @@ public:
                bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length);
     
     /**
+     * Same as above except using a precomputed topological order, which
+     * need not include all handles in the graph, and which may contain both
+     * orientations of a handle.
+     */
+    void align(Alignment& alignment, const HandleGraph& graph, const vector<handle_t>& order,
+               const vector<MaximalExactMatch>& mems,  bool reverse_complemented,
+               uint16_t max_gap_length = default_xdrop_max_gap_length);
+    
+    /**
      * Compute a pinned alignment, where the start (pin_left=true) or end
      * (pin_left=false) end of the Alignment sequence is pinned to the
      * start of the first (pin_left=true) or end of the last
@@ -123,6 +132,9 @@ protected:
      */
     struct OrderedGraph {
         OrderedGraph(const HandleGraph& graph, const vector<handle_t>& order);
+        void for_each_neighbor(const size_t i, bool go_left, const function<void(size_t)>& lambda) const;
+        size_t size() const;
+        
         const HandleGraph& graph;
         const vector<handle_t>& order;
         unordered_map<handle_t, size_t> index_of;

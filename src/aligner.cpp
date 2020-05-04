@@ -1382,11 +1382,17 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
 void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                           bool reverse_complemented, uint16_t max_gap_length) const
 {
+    align_xdrop(alignment, g, algorithms::lazier_topological_order(&g), mems, reverse_complemented, max_gap_length);
+}
+
+void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order,
+                          const vector<MaximalExactMatch>& mems, bool reverse_complemented, uint16_t max_gap_length) const
+{
     // XdropAligner manages its own stack, so it can never be threadsafe without be recreated
     // for every alignment, which meshes poorly with its stack implementation. We achieve
     // thread-safety by having one per thread, which makes this method const-ish.
     XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
-    xdrop.align(alignment, g, mems, reverse_complemented, max_gap_length);
+    xdrop.align(alignment, g, order, mems, reverse_complemented, max_gap_length);
 }
 
 
@@ -1856,15 +1862,21 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
 }
 
-// X-drop aligner
 void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                                  bool reverse_complemented, uint16_t max_gap_length) const
+{
+    align_xdrop(alignment, g, algorithms::lazier_topological_order(&g), mems, reverse_complemented, max_gap_length);
+}
+
+void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order,
+                                 const vector<MaximalExactMatch>& mems, bool reverse_complemented,
+                                 uint16_t max_gap_length) const
 {
     // QualAdjXdropAligner manages its own stack, so it can never be threadsafe without being recreated
     // for every alignment, which meshes poorly with its stack implementation. We achieve
     // thread-safety by having one per thread, which makes this method const-ish.
     QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
-    xdrop.align(alignment, g, mems, reverse_complemented, max_gap_length);
+    xdrop.align(alignment, g, order, mems, reverse_complemented, max_gap_length);
 }
 
 int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {
