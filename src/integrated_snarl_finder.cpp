@@ -773,7 +773,7 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                     if (record.has_second_deepest_child) {
                         // If there's a second incoming leaf path there's a converging leaf-leaf path here.
                         // Grab the length of the longest leaf-leaf path converging exactly here.
-                        // TODO: can we not look up he deepest child's record again?
+                        // TODO: can we not look up the deepest child's record again?
                         size_t longest_here_path_length = records[find(deepest_child_edge_it->second)].leaf_path_length;
                         longest_here_path_length += records[find(record.second_deepest_child_edge)].leaf_path_length;
                         
@@ -1172,7 +1172,7 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
         }
 #endif
         
-        // We have a stack
+        // We have a stack.
         struct SnarlChainFrame {
             // Set to true if this is a snarl being generated, and false if it is a chain.
             bool is_snarl = true;
@@ -1181,12 +1181,8 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
             // If we get back to a frame, and this is true, and todo is empty, we are done with the frame.
             bool saw_children = false;
             
-            // Parent snarl or chain on the stack. If
-            // numeric_limits<size_t>::max(), we have no parent and no bounds.
-            // TODO: If we're using the todo list, get rid of this (only top entry has no bounds and no parent)
-            size_t parent = numeric_limits<size_t>::max();
-            
             // Into and out-of edges of this snarl or chain, within its parent.
+            // Only set if we aren't the root frame on the stack.
             pair<handle_t, handle_t> bounds;
             
             // Edges denoting children to process.
@@ -1263,7 +1259,6 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                 // Stack up a frame for doing the chain, with the cycle-closing edge as both ends.
                 stack.emplace_back();
                 stack.back().is_snarl = false;
-                stack.back().parent = stack.size() - 2;
                 stack.back().bounds = make_pair(longest_cycles.back().second, longest_cycles.back().second);
             }
             
@@ -1275,7 +1270,7 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
             
 #ifdef debug
             cerr << "At stack frame " << stack.size() - 1 << " for ";
-            if (frame.parent == numeric_limits<size_t>::max()) {
+            if (stack.size() == 1) {
                 cerr << "root";
             } else {
                 cerr << (frame.is_snarl ? "snarl" : "chain") << " " << graph->get_id(frame.bounds.first) << (graph->get_is_reverse(frame.bounds.first) ? "-" : "+")
@@ -1284,7 +1279,7 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
             cerr << endl;
 #endif
             
-            if (frame.parent != numeric_limits<size_t>::max() && !frame.saw_children) {
+            if (stack.size() > 1 && !frame.saw_children) {
                 // We need to queue up the children; this is the first time we are doing this frame.
                 frame.saw_children = true;
                 
@@ -1411,7 +1406,7 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                             << graph->get_id(task) << (graph->get_is_reverse(task) ? "-" : "+") << endl;
 #endif
                        
-                        if (frame.parent != numeric_limits<size_t>::max()) {
+                        if (stack.size() > 1) {
                             // We have boundaries. Make sure we don't try and
                             // do a chain that starts or ends with our
                             // boundaries. That's impossible.
@@ -1422,7 +1417,6 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                         // Recurse on the chain bounded by those edges, as a child
                         stack.emplace_back();
                         stack.back().is_snarl = false;
-                        stack.back().parent = stack.size() - 2;
                         stack.back().bounds = make_pair(outgoing, task);
                         
                     } else {
@@ -1622,14 +1616,13 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                     
                     stack.emplace_back();
                     stack.back().is_snarl = true;
-                    stack.back().parent = stack.size() - 2;
                     stack.back().bounds = make_pair(task, out_edge);
                 }
             
             } else {
                 // Now we have finished a stack frame!
                 
-                if (frame.parent != numeric_limits<size_t>::max()) {
+                if (stack.size() > 1) {
                     // We have bounds
                     
 #ifdef debug
