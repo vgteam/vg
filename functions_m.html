@@ -299,6 +299,9 @@ $(function() {
 <li>max_depth
 : <a class="el" href="classvg_1_1RepresentativeTraversalFinder.html#a79339337af609bc33f77cf4696962492">vg::RepresentativeTraversalFinder</a>
 </li>
+<li>max_distance()
+: <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a55cdaa03bda701f54462c226cd5b9abc">vg::MinimumDistanceIndex</a>
+</li>
 <li>max_distances
 : <a class="el" href="classvg_1_1MinimumDistanceIndex.html#aca887995e3a06b1fc3af09694f681281">vg::MinimumDistanceIndex</a>
 </li>
@@ -531,9 +534,6 @@ $(function() {
 <li>max_xdrop_gap_length
 : <a class="el" href="classvg_1_1Mapper.html#a2754b67772ef25cb66d06b66b8caeb55">vg::Mapper</a>
 </li>
-<li>maxDistance()
-: <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a1c1601fab05bdc99b13ab2b60c11babc">vg::MinimumDistanceIndex</a>
-</li>
 <li>MaximalExactMatch()
 : <a class="el" href="classvg_1_1MaximalExactMatch.html#a0eb93e97b671cbafb0de7aa5827fa5f0">vg::MaximalExactMatch</a>
 </li>
@@ -717,6 +717,9 @@ $(function() {
 <li>min_depth
 : <a class="el" href="classvg_1_1Filter.html#a941f203667435234a1e08cce0358d8c6">vg::Filter</a>
 </li>
+<li>min_distance()
+: <a class="el" href="classvg_1_1MinimumDistanceIndex.html#afdf0c30e576d1380e69d90252d7909b9">vg::MinimumDistanceIndex</a>
+</li>
 <li>min_distances
 : <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a17330c71b9cf7a8a3fd3cae14aeed13a">vg::MinimumDistanceIndex</a>
 </li>
@@ -807,6 +810,9 @@ $(function() {
 <li>min_percent_identity
 : <a class="el" href="classvg_1_1Filter.html#afd9cc5bfa5740f71e70a601f7f0b8199">vg::Filter</a>
 </li>
+<li>min_pos()
+: <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a122be7a14ea34cf8820706386f7234a1">vg::MinimumDistanceIndex</a>
+</li>
 <li>min_primary
 : <a class="el" href="classvg_1_1ReadFilter.html#a17dbd2182c6cf4816c1fe22ae60e2a01">vg::ReadFilter</a>
 </li>
@@ -865,9 +871,6 @@ $(function() {
 <li>min_unique_per_strand
 : <a class="el" href="classvg_1_1Genotyper.html#a6b1feebb10944e684e417115e880fe39">vg::Genotyper</a>
 </li>
-<li>minDistance()
-: <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a4957ae7c8ac0291a50900ee902f1a714">vg::MinimumDistanceIndex</a>
-</li>
 <li>MinDistanceClusterer()
 : <a class="el" href="classvg_1_1MinDistanceClusterer.html#ace4b150ada4a32d6729e64e03871aa30">vg::MinDistanceClusterer</a>
 </li>
@@ -894,11 +897,8 @@ $(function() {
 </li>
 <li>MinimumDistanceIndex
 : <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#add2e684a8d89bece650446af2010ecdf">vg::MinimumDistanceIndex::ChainIndex</a>
-, <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a8ae49234a4f69d23ac362357d4699ba0">vg::MinimumDistanceIndex</a>
+, <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a6b970ddf56bf164b201d6a61620ff001">vg::MinimumDistanceIndex</a>
 , <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#add2e684a8d89bece650446af2010ecdf">vg::MinimumDistanceIndex::SnarlIndex</a>
-</li>
-<li>minPos()
-: <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a2fc24090c68aec1f777b9947048536c7">vg::MinimumDistanceIndex</a>
 </li>
 <li>mismatch
 : <a class="el" href="classvg_1_1GSSWAligner.html#abf06d9e9138bbbd23a451d1d0848c503">vg::GSSWAligner</a>
@@ -942,7 +942,7 @@ $(function() {
 : <a class="el" href="classvg_1_1MultipathMapper.html#a53760c308ff042a9c743d5ea42c55d4e">vg::MultipathMapper</a>
 </li>
 <li>MultipathAlignmentGraph()
-: <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aa6d3c327e2c5b5633400f45d30c8b8bf">vg::MultipathAlignmentGraph</a>
+: <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a94a03af717ae90e2f7484f3c72309494">vg::MultipathAlignmentGraph</a>
 </li>
 <li>MultipathMapper()
 : <a class="el" href="classvg_1_1MultipathMapper.html#a97c6b2109d7f740afcdbde9458b96e6f">vg::MultipathMapper</a>
@@ -959,7 +959,7 @@ $(function() {
 : <a class="el" href="classvg_1_1NGSSimulator.html#a9501d39b8059ad161395f2b7ba89d424">vg::NGSSimulator</a>
 </li>
 <li>MutablePositionOverlay()
-: <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#ae3f1557dc25c2f3f616083a2deb501c8">bdsg::MutablePositionOverlay</a>
+: <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#ae66aaa048f923391bb98768b64cafed2">bdsg::MutablePositionOverlay</a>
 </li>
 <li>mutate()
 : <a class="el" href="classvg_1_1Sampler.html#a8f148dac7598a3465202371511e53f2a">vg::Sampler</a>

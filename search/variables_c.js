@@ -20,6 +20,8 @@ var searchData=
   ['left_5fmaximal',['left_maximal',['../structvg_1_1GaplessExtension.html#a3b8b053fc8800c5453b002cbc2aad173',1,'vg::GaplessExtension']]],
   ['left_5ftelomere_5fnode',['left_telomere_node',['../classvg_1_1PhasedGenome_1_1Haplotype.html#ac4abe06cebb2edac649930a7597cc126',1,'vg::PhasedGenome::Haplotype']]],
   ['length',['length',['../classhaplo_1_1hDP__gbwt__graph__accessor.html#ac06d9b8444018d7490500c9dfa97a03b',1,'haplo::hDP_gbwt_graph_accessor::length()'],['../structhaplo_1_1haplo__DP__column.html#a43833a8ca83be7d6c2daa13b7707f32f',1,'haplo::haplo_DP_column::length()'],['../classvg_1_1mapping__t.html#ac2e746a37c551e0ecc8a4549135b8440',1,'vg::mapping_t::length()'],['../structvg_1_1walk__t.html#a8a21c6a00b24ce88ba0278eb6c0c3d43',1,'vg::walk_t::length()'],['../structbdsg_1_1ODGI_1_1path__metadata__t.html#ad5014ddd89b0b846b4534f2b171b540a',1,'bdsg::ODGI::path_metadata_t::length()'],['../structvg_1_1Path.html#ac512f92c7b82e38265062cd3fdc90acf',1,'vg::Path::length()']]],
+  ['length_5fmask',['LENGTH_MASK',['../structvg_1_1MIPayload.html#ac273e8b2a227fcb347f433fc525a2bb1',1,'vg::MIPayload']]],
+  ['length_5fwidth',['LENGTH_WIDTH',['../structvg_1_1MIPayload.html#a4b140f039b8131898c230d554ffa934a',1,'vg::MIPayload']]],
   ['lengths',['lengths',['../classvg_1_1FragmentLengthDistribution.html#a368340de267064b485b898da2331dc97',1,'vg::FragmentLengthDistribution']]],
   ['likelihood',['likelihood',['../structvg_1_1Genotype.html#afac9953bdbfbc0e3991e1b8a6e7e8c36',1,'vg::Genotype']]],
   ['likelihood_5fln',['likelihood_ln',['../structvg_1_1Genotyper_1_1Affinity.html#ad1c0431bc83746580740d35e43fd2a46',1,'vg::Genotyper::Affinity']]],

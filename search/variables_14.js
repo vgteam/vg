@@ -39,7 +39,6 @@ var searchData=
   ['top_5fborder',['top_border',['../classvg_1_1Viz.html#a9e044e100116d5fe502953643f07d2d2',1,'vg::Viz']]],
   ['top_5fdiag',['top_diag',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a76c5471f0be987920ff0076101367fbc',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['top_5fk',['top_k',['../classvg_1_1PoissonSupportSnarlCaller.html#a4610e26e36319f7b2620566c7b655c63',1,'vg::PoissonSupportSnarlCaller']]],
-  ['top_5flevel_5fclusters',['top_level_clusters',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a4f857884d7ebc7a8e6d959b3a69779a3',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['top_5flevel_5fseed_5fclusters',['top_level_seed_clusters',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a463abb9dec86c8612467e0e2fdc9be78',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['top_5fm',['top_m',['../classvg_1_1PoissonSupportSnarlCaller.html#af61d6e6931ba127537e41cfdbf258d38',1,'vg::PoissonSupportSnarlCaller']]],
   ['top_5ftracebacks',['top_tracebacks',['../classvg_1_1MultipathMapper.html#a122b1eaa39c84e9b18a971ebe6566030',1,'vg::MultipathMapper']]],
