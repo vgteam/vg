@@ -341,6 +341,51 @@ private:
     vector<unique_ptr<vg::io::ProtobufEmitter<Alignment>>> proto;
 };
 
+/**
+ * Emit Alignments to a stream in GAF format
+ * Thread safe.
+ */
+class GafAlignmentEmitter : public AlignmentEmitter {
+public:
+    /// Create a GafAlignmentEmitter writing to the given file (or "-")
+    GafAlignmentEmitter(const string& filename,
+                        const string& format,
+                        const PathPositionHandleGraph& _graph,
+                        size_t max_threads);
+    
+    /// Finish and drstroy a VGAlignmentEmitter.
+    ~GafAlignmentEmitter();
+    
+    /// Emit a batch of Alignments.
+    virtual void emit_singles(vector<Alignment>&& aln_batch);
+    /// Emit a batch of Alignments with secondaries. All secondaries must have
+    /// is_secondary set already.
+    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
+    /// Emit a batch of pairs of Alignments.
+    virtual void emit_pairs(vector<Alignment>&& aln1_batch,
+                            vector<Alignment>&& aln2_batch,
+                            vector<int64_t>&& tlen_limit_batch);
+    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
+    /// must have is_secondary set already.
+    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+                                   vector<vector<Alignment>>&& alns2_batch,
+                                   vector<int64_t>&& tlen_limit_batch);
+    
+private:
+
+    /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
+    unique_ptr<ofstream> out_file;
+    
+    /// This holds a StreamMultiplexer on the output stream, for sharing it between threads.
+    vg::io::StreamMultiplexer multiplexer;
+
+    /// Emit a GAF record representing an alignment
+    string aln2gaf(const Alignment& aln);
+
+    /// Graph that alignments were aligned against
+    const PathPositionHandleGraph& graph;
+};
+
 }
 
 
