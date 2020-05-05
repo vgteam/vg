@@ -19,19 +19,9 @@ using namespace std;
 
 class IntegratedSnarlFinder::MergedAdjacencyGraph {
 protected:
-    /// Hold onto the backing HandleGraph
-    const HandleGraph* graph;
-    
-    /// Keep a vectorizable overlay over it to let us map between handles
-    /// and union-find indices via handle ranking. The handles are all at index
-    /// (rank - 1) * 2 + is_reverse.
-    ///
-    /// We rely on handles in the vectorizable overlay and handles in the
-    /// backing graph being identical.
-    ///
-    /// TODO: make not-mutable when https://github.com/vgteam/libbdsg/issues/63
-    /// is fixed.
-    mutable bdsg::VectorizableOverlayHelper overlay_helper;
+    /// Hold onto the backing RankedHandleGraph.
+    /// Union find index is handle rank - 1 (to make it 0-based).
+    const RankedHandleGraph* graph;
     
     /// Keep a union-find over the ranks of the merged oriented handles that
     /// make up each component. Runs with include_children=true so we can find
@@ -51,8 +41,8 @@ protected:
     handle_t uf_handle(size_t rank) const;
     
 public:
-    /// Make a MergedAdjacencyGraph representing the graph of adjacency components of the given HandleGraph.
-    MergedAdjacencyGraph(const HandleGraph* graph);
+    /// Make a MergedAdjacencyGraph representing the graph of adjacency components of the given RankedHandleGraph.
+    MergedAdjacencyGraph(const RankedHandleGraph* graph);
     
     /// Copy a MergedAdjacencyGraph by re-doing all the merges. Uses its own internal vectorization.
     MergedAdjacencyGraph(const MergedAdjacencyGraph& other);
@@ -138,21 +128,17 @@ void IntegratedSnarlFinder::MergedAdjacencyGraph::to_dot(ostream& out) const {
 }
 
 size_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_rank(handle_t into) const {
-    // We need to 0-base the backing rank, space it out, and make the low bit orientation
-    return (overlay_helper.get()->id_to_rank(graph->get_id(into)) - 1) * 2 + (size_t) graph->get_is_reverse(into);
+    // We need to 0-base the backing rank
+    return graph->handle_to_rank(into) - 1;
 }
 
 handle_t IntegratedSnarlFinder::MergedAdjacencyGraph::uf_handle(size_t rank) const {
-    // We nefor here.ed to take the high bits and than make it 1-based, and get the orientation from the low bit
-    return graph->get_handle(overlay_helper.get()->rank_to_id(rank / 2 + 1), rank % 2);
+    // We need to 1-base the rank and then get the handle.
+    return graph->rank_to_handle(rank + 1);
 }
 
-IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const HandleGraph* graph) : graph(graph),
-    overlay_helper(), union_find(graph->get_node_count() * 2, true) {
-    
-    // Make sure we have our vectorizable version of the graph.
-    // TODO: remove const_cast when https://github.com/vgteam/libbdsg/issues/64 is fixed.
-    overlay_helper.apply(const_cast<HandleGraph*>(graph));
+IntegratedSnarlFinder::MergedAdjacencyGraph::MergedAdjacencyGraph(const RankedHandleGraph* graph) : graph(graph),
+    union_find(graph->get_node_count() * 2, true) {
     
     // TODO: we want the adjacency components that are just single edges
     // between two handles (i.e. trivial snarls) to be implicit, so we don't
@@ -1017,21 +1003,29 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
 
 
 
-IntegratedSnarlFinder::IntegratedSnarlFinder(const PathHandleGraph& graph) : HandleGraphSnarlFinder(&graph) {
+IntegratedSnarlFinder::IntegratedSnarlFinder(const HandleGraph& graph) : HandleGraphSnarlFinder(&graph) {
     // Nothing to do!
 }
 
 void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)>& begin_chain, const function<void(handle_t)>& end_chain,
     const function<void(handle_t)>& begin_snarl, const function<void(handle_t)>& end_snarl) const {
     
-    // Do the actual snarl finding work and then walk the bulayered tree.
+    // Do the actual snarl finding work and then walk the bilayered tree.
+    
+#ifdef debug
+    cerr << "Ranking graph handles." << endl;
+#endif
+    
+    // First we need to ensure that our graph has dense handle ranks
+    bdsg::RankedOverlayHelper overlay_helper;
+    auto ranked_graph = overlay_helper.apply(graph);
     
 #ifdef debug
     cerr << "Finding snarls." << endl;
 #endif
     
     // We need a union-find over the adjacency components of the graph, in which we will build the cactus graph.
-    MergedAdjacencyGraph cactus(graph);
+    MergedAdjacencyGraph cactus(ranked_graph);
     
 #ifdef debug
     cerr << "Base adjacency components:" << endl;
@@ -1046,7 +1040,7 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
     
     // Now we need to do the 3 edge connected component merging, using Tsin's algorithm.
     // We don't really have a good dense rank space on the adjacency components, so we use the general version.
-    // TODO: Somehow have a nice dense rank space?
+    // TODO: Somehow have a nice dense rank space on components. Can we just use backing graph ranks and hope it's dense enough?
     // We represent each adjacency component (node) by its heading handle.
 #ifdef debug
     size_t tecc_id = 0;
@@ -1596,7 +1590,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                             if (next_along_cycle.count(inbound)) {
                             
 #ifdef debug
-                                cerrVectorizableHandleGraph << "\t\tInherit cycle edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
+                                cerr << "\t\tInherit cycle edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
 #endif
                             
                                 // This edge is the incoming edge for a cycle. Queue it up.

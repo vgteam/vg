@@ -64,7 +64,7 @@ public:
     /**
      * Make a new IntegratedSnarlFinder to find snarls in the given graph.
      */
-    IntegratedSnarlFinder(const PathHandleGraph& graph);
+    IntegratedSnarlFinder(const HandleGraph& graph);
     
     /**
      * Visit all snarls and chains, including trivial snarls and single-node

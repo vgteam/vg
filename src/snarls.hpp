@@ -59,13 +59,13 @@ protected:
     /**
      * The graph we are finding snarls on. It must outlive us.
      */
-    const PathHandleGraph* graph;
+    const HandleGraph* graph;
 public:
 
     /**
      * Create a HandleGraphSnarlFinder to find snarls in the given graph.
      */
-    HandleGraphSnarlFinder(const PathHandleGraph* graph);
+    HandleGraphSnarlFinder(const HandleGraph* graph);
 
     virtual ~HandleGraphSnarlFinder() = default;
 

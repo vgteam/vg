@@ -22,7 +22,7 @@ SnarlManager SnarlFinder::find_snarls_parallel() {
     return find_snarls();
 }
 
-HandleGraphSnarlFinder::HandleGraphSnarlFinder(const PathHandleGraph* graph) : graph(graph) {
+HandleGraphSnarlFinder::HandleGraphSnarlFinder(const HandleGraph* graph) : graph(graph) {
     // Nothing to do!
 }
 
