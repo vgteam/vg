@@ -1,5 +1,7 @@
 var searchData=
 [
+  ['uf_5fhandle',['uf_handle',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a84a5d20d03e165edd89bdddf7ccfa25f',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
+  ['uf_5frank',['uf_rank',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a7d285e6a4baec754e89edd5338589f3e',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
   ['unaligned_5fload',['unaligned_load',['../namespacebdsg_1_1sqvarint.html#a818b895051d28fb80c98fd31c2a2b17c',1,'bdsg::sqvarint']]],
   ['unaligned_5fload_5fu16',['unaligned_load_u16',['../namespacebdsg_1_1sqvarint.html#ad184da9ecc81881faf9b459ee71b98cf',1,'bdsg::sqvarint']]],
   ['unaligned_5fload_5fu64',['unaligned_load_u64',['../namespacebdsg_1_1sqvarint.html#a203d7eb0e50cae20eba08a7e49945e30',1,'bdsg::sqvarint']]],

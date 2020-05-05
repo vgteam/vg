@@ -226,7 +226,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:a452b70cec271a66a9f154cfa40ed6466"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new node with the given id and sequence, then return the handle.  <a href="#a452b70cec271a66a9f154cfa40ed6466">More...</a><br /></td></tr>
 <tr class="separator:a452b70cec271a66a9f154cfa40ed6466"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aceea39a6c1a3ca2404d36cb968970f62"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#aceea39a6c1a3ca2404d36cb968970f62">create_hidden_handle</a> (const std::string &amp;sequence)</td></tr>
-<tr class="memdesc:aceea39a6c1a3ca2404d36cb968970f62"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a "hidden" node which might carry parts of paths that traversed deleted portions of the graph.  <a href="#aceea39a6c1a3ca2404d36cb968970f62">More...</a><br /></td></tr>
 <tr class="separator:aceea39a6c1a3ca2404d36cb968970f62"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a63156a0199c9382de3b196aeef7d845e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a63156a0199c9382de3b196aeef7d845e">destroy_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle)</td></tr>
 <tr class="separator:a63156a0199c9382de3b196aeef7d845e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -448,9 +447,8 @@ Private Attributes</h2></td></tr>
 <tr class="separator:abbcd0546ab6e96642d38570f642a6a2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a042ef9861a75537a35e26d2dd31516c6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a042ef9861a75537a35e26d2dd31516c6">_id_increment</a> = 1</td></tr>
 <tr class="separator:a042ef9861a75537a35e26d2dd31516c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab1912ed2dfb8ca4d717573e7abab1eda"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classbdsg_1_1hash__set.html">hash_set</a>&lt; uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ab1912ed2dfb8ca4d717573e7abab1eda">graph_id_hidden_set</a></td></tr>
-<tr class="memdesc:ab1912ed2dfb8ca4d717573e7abab1eda"><td class="mdescLeft">&#160;</td><td class="mdescRight">records nodes that are hidden, but used to compactly store path sequence that has been removed from the node space  <a href="#ab1912ed2dfb8ca4d717573e7abab1eda">More...</a><br /></td></tr>
-<tr class="separator:ab1912ed2dfb8ca4d717573e7abab1eda"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aec8bceab131b7a51df75c8b2354dc215"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classbdsg_1_1hash__set.html">hash_set</a>&lt; <a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#aec8bceab131b7a51df75c8b2354dc215">graph_id_hidden_set</a></td></tr>
+<tr class="separator:aec8bceab131b7a51df75c8b2354dc215"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a82c86ac9e3606a17826e01c73719ee0d"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structbdsg_1_1ODGI_1_1path__metadata__t.html">path_metadata_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a82c86ac9e3606a17826e01c73719ee0d">path_metadata_v</a></td></tr>
 <tr class="memdesc:a82c86ac9e3606a17826e01c73719ee0d"><td class="mdescLeft">&#160;</td><td class="mdescRight">maps between path identifier and the start, end, and length of the path  <a href="#a82c86ac9e3606a17826e01c73719ee0d">More...</a><br /></td></tr>
 <tr class="separator:a82c86ac9e3606a17826e01c73719ee0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -460,9 +458,6 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:a22bc41b3879acd02979c22f841791e6e"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a22bc41b3879acd02979c22f841791e6e">_node_count</a> = 0</td></tr>
 <tr class="memdesc:a22bc41b3879acd02979c22f841791e6e"><td class="mdescLeft">&#160;</td><td class="mdescRight">A helper to record the number of live nodes.  <a href="#a22bc41b3879acd02979c22f841791e6e">More...</a><br /></td></tr>
 <tr class="separator:a22bc41b3879acd02979c22f841791e6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a604bc3e78b1c7fe270b819579884d019"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a604bc3e78b1c7fe270b819579884d019">_hidden_count</a> = 0</td></tr>
-<tr class="memdesc:a604bc3e78b1c7fe270b819579884d019"><td class="mdescLeft">&#160;</td><td class="mdescRight">A counter that records the number of hidden nodes.  <a href="#a604bc3e78b1c7fe270b819579884d019">More...</a><br /></td></tr>
-<tr class="separator:a604bc3e78b1c7fe270b819579884d019"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8a55ac331a90b588e7f795572c4b0963"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a8a55ac331a90b588e7f795572c4b0963">_edge_count</a> = 0</td></tr>
 <tr class="memdesc:a8a55ac331a90b588e7f795572c4b0963"><td class="mdescLeft">&#160;</td><td class="mdescRight">A helper to record the number of live edges.  <a href="#a8a55ac331a90b588e7f795572c4b0963">More...</a><br /></td></tr>
 <tr class="separator:a8a55ac331a90b588e7f795572c4b0963"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -888,6 +883,7 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Create a new node with the given sequence and return the handle. </p>
+<p>Create a new node with the given sequence and return the handle. The sequence may not be empty. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a8c9d8ca8160a9b94a57000eab3e97aaa">handlegraph::MutableHandleGraph</a>.</p>
 
@@ -928,6 +924,7 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Create a new node with the given id and sequence, then return the handle. </p>
+<p>Create a new node with the given id and sequence, then return the handle. The sequence may not be empty. The ID must be strictly greater than 0. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#ae844fce457858cd2dc54dde786f79e5c">handlegraph::MutableHandleGraph</a>.</p>
 
@@ -948,8 +945,7 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Create a "hidden" node which might carry parts of paths that traversed deleted portions of the graph. </p>
+<p>Create a node that is immediately "hidden" (i.e. to be used for parts of paths that traversed deleted portions of the graph). has_node for the ID of a hidden handle will return false. Also, no edges may be added to it. </p>
 
 </div>
 </div>
@@ -1179,7 +1175,8 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Remove the node belonging to the given handle and all of its edges. Does not update any stored paths. Invalidates the destroyed handle. May be called during serial for_each_handle iteration <b>ONLY</b> on the node being iterated. May <b>NOT</b> be called during parallel for_each_handle iteration. May <b>NOT</b> be called on the node from which edges are being followed during follow_edges. </p>
+<p>Remove the node belonging to the given handle and all of its edges. If any paths visit it, it becomes a "hidden" node accessible only via the paths. Invalidates the destroyed handle. May be called during serial for_each_handle iteration <b>ONLY</b> on the node being iterated. May <b>NOT</b> be called during parallel for_each_handle iteration. May <b>NOT</b> be called on the node from which edges are being followed during follow_edges.</p>
+<p>Remove the node belonging to the given handle and all of its edges. If any paths visit it, it becomes a "hidden" node accessible only via the paths. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#a06d4d3ecda0694d5045c457f3eecd8e3">handlegraph::DeletableHandleGraph</a>.</p>
 
@@ -1976,7 +1973,8 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Return the number of nodes in the graph TODO: can't be node_count because XG has a field named node_count. </p>
+<p>Return the number of nodes in the graph TODO: can't be node_count because XG has a field named node_count.</p>
+<p>Return the number of nodes in the graph. Doesn't count deleted or hidden nodes. TODO: can't be node_count because XG has a field named node_count. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a9f95108e6c3f68f404fa93bd3306e4c6">handlegraph::HandleGraph</a>.</p>
 
@@ -3297,30 +3295,6 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a604bc3e78b1c7fe270b819579884d019"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a604bc3e78b1c7fe270b819579884d019">&#9670;&nbsp;</a></span>_hidden_count</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">uint64_t bdsg::ODGI::_hidden_count = 0</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>A counter that records the number of hidden nodes. </p>
-
-</div>
-</div>
 <a id="a042ef9861a75537a35e26d2dd31516c6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a042ef9861a75537a35e26d2dd31516c6">&#9670;&nbsp;</a></span>_id_increment</h2>
 
@@ -3486,8 +3460,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ab1912ed2dfb8ca4d717573e7abab1eda"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab1912ed2dfb8ca4d717573e7abab1eda">&#9670;&nbsp;</a></span>graph_id_hidden_set</h2>
+<a id="aec8bceab131b7a51df75c8b2354dc215"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aec8bceab131b7a51df75c8b2354dc215">&#9670;&nbsp;</a></span>graph_id_hidden_set</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3496,7 +3470,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classbdsg_1_1hash__set.html">hash_set</a>&lt;uint64_t&gt; bdsg::ODGI::graph_id_hidden_set</td>
+          <td class="memname"><a class="el" href="classbdsg_1_1hash__set.html">hash_set</a>&lt;<a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a>&gt; bdsg::ODGI::graph_id_hidden_set</td>
         </tr>
       </table>
   </td>
@@ -3505,8 +3479,7 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>records nodes that are hidden, but used to compactly store path sequence that has been removed from the node space </p>
+<p>Records nodes that are hidden, but used to compactly store path sequence that has been removed from the node space. Hidden nodes are not counted towards the node count of the graph, and has_node will return false for their IDs (although new nodes cannot be created with the same IDs). Hidden nodes are destroyed as soon as the last path leaves them, so they may be invalidated by (or in the middle of!) path operations like rewrite_segment. </p>
 
 </div>
 </div>

@@ -65,15 +65,15 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pri-methods">Private Member Functions</a> &#124;
-<a href="#pri-attribs">Private Attributes</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
+<a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="classvg_1_1CactusSnarlFinder-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::CactusSnarlFinder Class Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p><code>#include &lt;snarls.hpp&gt;</code></p>
+<p><code>#include &lt;cactus_snarl_finder.hpp&gt;</code></p>
 <div class="dynheader">
 Inheritance diagram for vg::CactusSnarlFinder:</div>
 <div class="dyncontent">
@@ -96,15 +96,15 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aa2511b024b03f3902ac149f3d6a055d5 inherit pub_methods_classvg_1_1SnarlFinder"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlFinder.html#aa2511b024b03f3902ac149f3d6a055d5">~SnarlFinder</a> ()=default</td></tr>
 <tr class="separator:aa2511b024b03f3902ac149f3d6a055d5 inherit pub_methods_classvg_1_1SnarlFinder"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
-Private Member Functions</h2></td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
 <tr class="memitem:aad8a90f6cd0fddf6ab908f6287e3ddf3"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1CactusSnarlFinder.html#aad8a90f6cd0fddf6ab908f6287e3ddf3">recursively_emit_snarls</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;start, const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;end, const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;parent_start, const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;parent_end, stList *chains_list, stList *unary_snarls_list, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;destination)</td></tr>
 <tr class="separator:aad8a90f6cd0fddf6ab908f6287e3ddf3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ff89d5f26398349404796d325b32f69"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1CactusSnarlFinder.html#a9ff89d5f26398349404796d325b32f69">find_snarls_impl</a> (bool known_single_component, bool finish_index)</td></tr>
 <tr class="separator:a9ff89d5f26398349404796d325b32f69"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
-Private Attributes</h2></td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
+Protected Attributes</h2></td></tr>
 <tr class="memitem:abb2127506508ae3515f901375b205e2d"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1CactusSnarlFinder.html#abb2127506508ae3515f901375b205e2d">graph</a></td></tr>
 <tr class="memdesc:abb2127506508ae3515f901375b205e2d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Holds the vg graph we are looking for sites in.  <a href="#abb2127506508ae3515f901375b205e2d">More...</a><br /></td></tr>
 <tr class="separator:abb2127506508ae3515f901375b205e2d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -203,7 +203,7 @@ Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span><span class="mlabel">virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -233,9 +233,9 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Find all the snarls of weakly connected components in parallel </p>
+<p>Find all the snarls of weakly connected components in parallel. Even single-threaded, this may be worth using as it will use less memory by only considering each component in the context of itself. </p>
 
-<p>Implements <a class="el" href="classvg_1_1SnarlFinder.html#a33c72efed97f46434623b5fa24eddb85">vg::SnarlFinder</a>.</p>
+<p>Reimplemented from <a class="el" href="classvg_1_1SnarlFinder.html#a7b8b315c1129de42cfb3120de7281291">vg::SnarlFinder</a>.</p>
 
 </div>
 </div>
@@ -298,7 +298,7 @@ Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -322,7 +322,7 @@ Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -346,7 +346,7 @@ Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -356,8 +356,8 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <hr/>The documentation for this class was generated from the following files:<ul>
-<li>src/<a class="el" href="snarls_8hpp.html">snarls.hpp</a></li>
-<li>src/<a class="el" href="snarls_8cpp.html">snarls.cpp</a></li>
+<li>src/<a class="el" href="cactus__snarl__finder_8hpp.html">cactus_snarl_finder.hpp</a></li>
+<li>src/<a class="el" href="cactus__snarl__finder_8cpp.html">cactus_snarl_finder.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

@@ -1,5 +1,7 @@
 var searchData=
 [
+  ['uf_5fhandle',['uf_handle',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a84a5d20d03e165edd89bdddf7ccfa25f',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
+  ['uf_5frank',['uf_rank',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a7d285e6a4baec754e89edd5338589f3e',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
   ['ultrabubble',['ULTRABUBBLE',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97aea6b4b85aa567a940c7434df2fcb56fb',1,'vg']]],
   ['unaligned_5fbands',['unaligned_bands',['../classvg_1_1AlignmentChainModel.html#a86bcd77b21cc9b8b9c2b9f100fb9ce71',1,'vg::AlignmentChainModel']]],
   ['unaligned_5fload',['unaligned_load',['../namespacebdsg_1_1sqvarint.html#a818b895051d28fb80c98fd31c2a2b17c',1,'bdsg::sqvarint']]],
@@ -30,6 +32,7 @@ var searchData=
   ['uniform_5freal_5fdistribution',['uniform_real_distribution',['../classvg_1_1uniform__real__distribution.html',1,'vg::uniform_real_distribution&lt; T &gt;'],['../classvg_1_1uniform__real__distribution.html#aaa8046adecf3b01e7e702df2e4fe3abd',1,'vg::uniform_real_distribution::uniform_real_distribution()']]],
   ['uniform_5freal_5fdistribution_3c_20double_20_3e',['uniform_real_distribution&lt; double &gt;',['../classvg_1_1uniform__real__distribution.html',1,'vg']]],
   ['unindex_5fedge_5fby_5fnode_5fsides',['unindex_edge_by_node_sides',['../classvg_1_1VG.html#a1c0b7db8d3043747e8b9a44cba4eaac9',1,'vg::VG::unindex_edge_by_node_sides(const NodeSide &amp;side1, const NodeSide &amp;side2)'],['../classvg_1_1VG.html#a5677da9ff22052f6c6a85bfe66e1256d',1,'vg::VG::unindex_edge_by_node_sides(Edge *edge)']]],
+  ['union_5ffind',['union_find',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a6bcd65e92edd9e1bf925a9e4a8c7cc01',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
   ['uniqueness',['uniqueness',['../structvg_1_1Alignment.html#a2d744ce39b375cdeb8adfc3721a18eb0',1,'vg::Alignment']]],
   ['universe_5fsize',['universe_size',['../classvg_1_1SmallBitset.html#aa8dbf9601e90ce99f26895d8a4d79de0',1,'vg::SmallBitset']]],
   ['unlock',['unlock',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a1cfc8d66ced1ef3d435f99579ac44ca6',1,'vg::GraphSynchronizer::Lock']]],

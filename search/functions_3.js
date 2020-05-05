@@ -205,5 +205,6 @@ var searchData=
   ['cut_5fmapping_5foffset',['cut_mapping_offset',['../namespacevg.html#a9e9091c8bf2f73d219522420a705dc1f',1,'vg::cut_mapping_offset(const Mapping &amp;m, size_t offset)'],['../namespacevg.html#a455dd0d543b21690c3e71e67ff45e57d',1,'vg::cut_mapping_offset(const mapping_t &amp;m, size_t offset)']]],
   ['cut_5fnonref_5ftips',['cut_nonref_tips',['../classvg_1_1Homogenizer.html#a13fefa241cbae8c0aac05334b2f10eb4',1,'vg::Homogenizer']]],
   ['cut_5fpath',['cut_path',['../namespacevg.html#a0456e049dd685a689886372f4b0a354d',1,'vg::cut_path(const Path &amp;path, const Position &amp;pos)'],['../namespacevg.html#a1dbdbb650e0a076cd3890c2a74515260',1,'vg::cut_path(const Path &amp;path, size_t offset)']]],
-  ['cut_5ftips',['cut_tips',['../classvg_1_1Homogenizer.html#a1ce07681ff57215bfdfff95c96c433f5',1,'vg::Homogenizer::cut_tips(vg::VG *graph)'],['../classvg_1_1Homogenizer.html#a85942931139bd8f40e2616206580eb8d',1,'vg::Homogenizer::cut_tips(vector&lt; id_t &gt; tip_ids, vg::VG *graph)']]]
+  ['cut_5ftips',['cut_tips',['../classvg_1_1Homogenizer.html#a1ce07681ff57215bfdfff95c96c433f5',1,'vg::Homogenizer::cut_tips(vg::VG *graph)'],['../classvg_1_1Homogenizer.html#a85942931139bd8f40e2616206580eb8d',1,'vg::Homogenizer::cut_tips(vector&lt; id_t &gt; tip_ids, vg::VG *graph)']]],
+  ['cycles_5fin_5fcactus',['cycles_in_cactus',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a8ef2897eef1a33c4dd97306058f379e6',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]]
 ];

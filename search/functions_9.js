@@ -65,6 +65,7 @@ var searchData=
   ['int_5fas_5fdna',['int_as_dna',['../namespacebdsg.html#aeda460eaf7426e0aca5129a9a81d8e15',1,'bdsg']]],
   ['int_5fweighted_5fsum',['int_weighted_sum',['../namespacehaplo_1_1haploMath.html#a5bc2868874173d377a55c788f21796ef',1,'haplo::haploMath::int_weighted_sum(double *values, int64_t *counts, size_t n_values)'],['../namespacehaplo_1_1haploMath.html#ab17ccf8a6fa509f269bdaf1c69e4f6bc',1,'haplo::haploMath::int_weighted_sum(vector&lt; double &gt; values, vector&lt; int64_t &gt; counts)']]],
   ['integer_5fpower',['integer_power',['../namespacevg.html#aca4239af1a9e3eb1283f78bf5cc1411a',1,'vg::integer_power(uint64_t base, uint64_t exponent)'],['../namespacevg.html#aa7c32d1e90ec006624a7ee03655f3c35',1,'vg::integer_power(size_t x, size_t power)']]],
+  ['integratedsnarlfinder',['IntegratedSnarlFinder',['../classvg_1_1IntegratedSnarlFinder.html#afbca016f488cea619bf78d1075bd70ac',1,'vg::IntegratedSnarlFinder']]],
   ['interchromosomal_5ffilter',['interchromosomal_filter',['../classvg_1_1Filter.html#a1f1daa97b40d6ca6b2a3f37950f4f117',1,'vg::Filter']]],
   ['internal_5findex',['internal_index',['../classbdsg_1_1PackedDeque.html#a8c1c76dfa1717ffd101e475ead0e8d6a',1,'bdsg::PackedDeque']]],
   ['intersection',['intersection',['../structhaplo_1_1int__itvl__t.html#ade4051b750fcce428be13a69663ec035',1,'haplo::int_itvl_t']]],

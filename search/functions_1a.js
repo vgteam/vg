@@ -42,6 +42,7 @@ var searchData=
   ['_7egreedymindistanceclusterer',['~GreedyMinDistanceClusterer',['../classvg_1_1GreedyMinDistanceClusterer.html#a9d51c4982f45dda3d6da98f182969c6b',1,'vg::GreedyMinDistanceClusterer']]],
   ['_7egsswaligner',['~GSSWAligner',['../classvg_1_1GSSWAligner.html#a14f93c839c3aab59afee99708cb83430',1,'vg::GSSWAligner']]],
   ['_7ehandlegraph',['~HandleGraph',['../classhandlegraph_1_1HandleGraph.html#a24fb796441c9ad8c870fdb716a82b305',1,'handlegraph::HandleGraph']]],
+  ['_7ehandlegraphsnarlfinder',['~HandleGraphSnarlFinder',['../classvg_1_1HandleGraphSnarlFinder.html#a01f84699fe59b5d360df0ef4a671edb2',1,'vg::HandleGraphSnarlFinder']]],
   ['_7ehandler',['~Handler',['../structvg_1_1temp__file_1_1Handler.html#abefd598acc672c960d80c70fa53c5476',1,'vg::temp_file::Handler::~Handler()'],['../structxg_1_1temp__file_1_1Handler.html#a6a4006456b42c1507d5d3505a8aa93a2',1,'xg::temp_file::Handler::~Handler()']]],
   ['_7ehaplo_5fdp_5fcolumn',['~haplo_DP_column',['../structhaplo_1_1haplo__DP__column.html#a179bfa823f2329b2500fb948bfff30ca',1,'haplo::haplo_DP_column']]],
   ['_7ehaplotype',['~Haplotype',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a29c3049eebafef23e3ec539093ffe9ce',1,'vg::PhasedGenome::Haplotype']]],

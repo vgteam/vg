@@ -78,7 +78,9 @@ Inheritance diagram for vg::SnarlFinder:</div>
  <div class="center">
   <img src="classvg_1_1SnarlFinder.png" usemap="#vg::SnarlFinder_map" alt=""/>
   <map id="vg::SnarlFinder_map" name="vg::SnarlFinder_map">
-<area href="classvg_1_1CactusSnarlFinder.html" alt="vg::CactusSnarlFinder" shape="rect" coords="0,56,138,80"/>
+<area href="classvg_1_1CactusSnarlFinder.html" alt="vg::CactusSnarlFinder" shape="rect" coords="0,56,174,80"/>
+<area href="classvg_1_1HandleGraphSnarlFinder.html" alt="vg::HandleGraphSnarlFinder" shape="rect" coords="184,56,358,80"/>
+<area href="classvg_1_1IntegratedSnarlFinder.html" alt="vg::IntegratedSnarlFinder" shape="rect" coords="184,112,358,136"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -88,8 +90,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aa2511b024b03f3902ac149f3d6a055d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a28d2aa85a748836df818c8c4ac8a8fd9"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlFinder.html#a28d2aa85a748836df818c8c4ac8a8fd9">find_snarls</a> ()=0</td></tr>
 <tr class="separator:a28d2aa85a748836df818c8c4ac8a8fd9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a33c72efed97f46434623b5fa24eddb85"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlFinder.html#a33c72efed97f46434623b5fa24eddb85">find_snarls_parallel</a> ()=0</td></tr>
-<tr class="separator:a33c72efed97f46434623b5fa24eddb85"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7b8b315c1129de42cfb3120de7281291"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlFinder.html#a7b8b315c1129de42cfb3120de7281291">find_snarls_parallel</a> ()</td></tr>
+<tr class="separator:a7b8b315c1129de42cfb3120de7281291"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Represents a strategy for finding (nested) sites in a vg graph that can be described by snarls. Polymorphic base class/interface. </p>
@@ -144,12 +146,12 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Find all the snarls, and put them into a <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1CactusSnarlFinder.html#a3060bcff3b01e21176f17ebb74d31452">vg::CactusSnarlFinder</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1HandleGraphSnarlFinder.html#a3b6820315dc0a0a15fcd61076f87fcf7">vg::HandleGraphSnarlFinder</a>, and <a class="el" href="classvg_1_1CactusSnarlFinder.html#a3060bcff3b01e21176f17ebb74d31452">vg::CactusSnarlFinder</a>.</p>
 
 </div>
 </div>
-<a id="a33c72efed97f46434623b5fa24eddb85"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a33c72efed97f46434623b5fa24eddb85">&#9670;&nbsp;</a></span>find_snarls_parallel()</h2>
+<a id="a7b8b315c1129de42cfb3120de7281291"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7b8b315c1129de42cfb3120de7281291">&#9670;&nbsp;</a></span>find_snarls_parallel()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -158,7 +160,7 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> vg::SnarlFinder::find_snarls_parallel </td>
+          <td class="memname"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> vg::SnarlFinder::find_snarls_parallel </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
@@ -166,18 +168,19 @@ Public Member Functions</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Find all the snarls of weakly connected components in parallel. Even single-threaded, this may be worth using as it will use less memory by only considering one component at a time. </p>
+<p>Find all the snarls of weakly connected components, optionally in parallel. If not implemented, defaults to the single-threaded implementation. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1CactusSnarlFinder.html#a712cd81719c13a172c3da46349419524">vg::CactusSnarlFinder</a>.</p>
+<p>Reimplemented in <a class="el" href="classvg_1_1CactusSnarlFinder.html#a712cd81719c13a172c3da46349419524">vg::CactusSnarlFinder</a>.</p>
 
 </div>
 </div>
-<hr/>The documentation for this class was generated from the following file:<ul>
+<hr/>The documentation for this class was generated from the following files:<ul>
 <li>src/<a class="el" href="snarls_8hpp.html">snarls.hpp</a></li>
+<li>src/<a class="el" href="snarls_8cpp.html">snarls.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

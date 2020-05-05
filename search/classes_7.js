@@ -2,6 +2,7 @@ var searchData=
 [
   ['handle_5ft',['handle_t',['../structhandlegraph_1_1handle__t.html',1,'handlegraph']]],
   ['handlegraph',['HandleGraph',['../classhandlegraph_1_1HandleGraph.html',1,'handlegraph']]],
+  ['handlegraphsnarlfinder',['HandleGraphSnarlFinder',['../classvg_1_1HandleGraphSnarlFinder.html',1,'vg']]],
   ['handler',['Handler',['../structvg_1_1temp__file_1_1Handler.html',1,'vg::temp_file::Handler'],['../structxg_1_1temp__file_1_1Handler.html',1,'xg::temp_file::Handler']]],
   ['haplo_5fdp',['haplo_DP',['../structhaplo_1_1haplo__DP.html',1,'haplo']]],
   ['haplo_5fdp_5fcolumn',['haplo_DP_column',['../structhaplo_1_1haplo__DP__column.html',1,'haplo']]],
@@ -38,8 +39,8 @@ var searchData=
   ['hash_5foriented_5fedge',['hash_oriented_edge',['../structvg_1_1Genotyper_1_1hash__oriented__edge.html',1,'vg::Genotyper']]],
   ['hash_5fset',['hash_set',['../classvg_1_1hash__set.html',1,'vg::hash_set&lt; K &gt;'],['../classbdsg_1_1hash__set.html',1,'bdsg::hash_set&lt; K &gt;']]],
   ['hash_5fset_3c_20k_20_2a_20_3e',['hash_set&lt; K * &gt;',['../classvg_1_1hash__set_3_01K_01_5_01_4.html',1,'vg::hash_set&lt; K * &gt;'],['../classbdsg_1_1hash__set_3_01K_01_5_01_4.html',1,'bdsg::hash_set&lt; K * &gt;']]],
+  ['hash_5fset_3c_20nid_5ft_20_3e',['hash_set&lt; nid_t &gt;',['../classbdsg_1_1hash__set.html',1,'bdsg']]],
   ['hash_5fset_3c_20pair_3c_20size_5ft_2c_20size_5ft_20_3e_20_3e',['hash_set&lt; pair&lt; size_t, size_t &gt; &gt;',['../classvg_1_1hash__set.html',1,'vg']]],
-  ['hash_5fset_3c_20uint64_5ft_20_3e',['hash_set&lt; uint64_t &gt;',['../classbdsg_1_1hash__set.html',1,'bdsg']]],
   ['hash_5fset_3c_20vg_3a_3aid_5ft_20_3e',['hash_set&lt; vg::id_t &gt;',['../classvg_1_1hash__set.html',1,'vg']]],
   ['hashgraph',['HashGraph',['../classbdsg_1_1HashGraph.html',1,'bdsg']]],
   ['hdp_5fgbwt_5fgraph_5faccessor',['hDP_gbwt_graph_accessor',['../classhaplo_1_1hDP__gbwt__graph__accessor.html',1,'haplo']]],

@@ -151,10 +151,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a66e3e50eb06c106445f975a9f9f64bdb"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1PackedGraph.html#a66e3e50eb06c106445f975a9f9f64bdb">max_node_id</a> (void) const</td></tr>
 <tr class="separator:a66e3e50eb06c106445f975a9f9f64bdb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a28bde85caccd04a4bd4a9531d9177033"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1PackedGraph.html#a28bde85caccd04a4bd4a9531d9177033">create_handle</a> (const std::string &amp;sequence)</td></tr>
-<tr class="memdesc:a28bde85caccd04a4bd4a9531d9177033"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new node with the given sequence and return the handle.  <a href="#a28bde85caccd04a4bd4a9531d9177033">More...</a><br /></td></tr>
 <tr class="separator:a28bde85caccd04a4bd4a9531d9177033"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acf661f0200611fd54c465435d3002248"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1PackedGraph.html#acf661f0200611fd54c465435d3002248">create_handle</a> (const std::string &amp;sequence, const <a class="el" href="namespacebdsg.html#ac3b5b3c8391e0b96f62c290d510b357f">nid_t</a> &amp;id)</td></tr>
-<tr class="memdesc:acf661f0200611fd54c465435d3002248"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new node with the given id and sequence, then return the handle.  <a href="#acf661f0200611fd54c465435d3002248">More...</a><br /></td></tr>
 <tr class="separator:acf661f0200611fd54c465435d3002248"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af299fbb72bf0e424756d673990f51d59"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1PackedGraph.html#af299fbb72bf0e424756d673990f51d59">destroy_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle)</td></tr>
 <tr class="separator:af299fbb72bf0e424756d673990f51d59"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -882,8 +880,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Create a new node with the given sequence and return the handle. </p>
+<p>Create a new node with the given sequence and return the handle. The sequence may not be empty. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a8c9d8ca8160a9b94a57000eab3e97aaa">handlegraph::MutableHandleGraph</a>.</p>
 
@@ -922,8 +919,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Create a new node with the given id and sequence, then return the handle. </p>
+<p>Create a new node with the given id and sequence, then return the handle. The sequence may not be empty. The ID must be strictly greater than 0. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#ae844fce457858cd2dc54dde786f79e5c">handlegraph::MutableHandleGraph</a>.</p>
 
@@ -1196,7 +1192,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Remove the node belonging to the given handle and all of its edges. Does not update any stored paths. Invalidates the destroyed handle. May be called during serial for_each_handle iteration <b>ONLY</b> on the node being iterated. May <b>NOT</b> be called during parallel for_each_handle iteration. May <b>NOT</b> be called on the node from which edges are being followed during follow_edges. </p>
+<p>Remove the node belonging to the given handle and all of its edges. Destroys any paths in which the node participates. Invalidates the destroyed handle. May be called during serial for_each_handle iteration <b>ONLY</b> on the node being iterated. May <b>NOT</b> be called during parallel for_each_handle iteration. May <b>NOT</b> be called on the node from which edges are being followed during follow_edges. May <b>NOT</b> be called during iteration over paths, if it would destroy a path. May <b>NOT</b> be called during iteration along a path, if it would destroy that path. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#a06d4d3ecda0694d5045c457f3eecd8e3">handlegraph::DeletableHandleGraph</a>.</p>
 

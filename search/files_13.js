@@ -2,6 +2,8 @@ var searchData=
 [
   ['test_5flibbdsg_2ecpp',['test_libbdsg.cpp',['../test__libbdsg_8cpp.html',1,'']]],
   ['test_5fmain_2ecpp',['test_main.cpp',['../test__main_8cpp.html',1,'']]],
+  ['three_5fedge_5fconnected_5fcomponents_2ecpp',['three_edge_connected_components.cpp',['../three__edge__connected__components_8cpp.html',1,'']]],
+  ['three_5fedge_5fconnected_5fcomponents_2ehpp',['three_edge_connected_components.hpp',['../three__edge__connected__components_8hpp.html',1,'']]],
   ['to_5fgfa_2ecpp',['to_gfa.cpp',['../to__gfa_8cpp.html',1,'']]],
   ['to_5fgfa_2ehpp',['to_gfa.hpp',['../to__gfa_8hpp.html',1,'']]],
   ['topological_5fsort_2ecpp',['topological_sort.cpp',['../topological__sort_8cpp.html',1,'']]],

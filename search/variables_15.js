@@ -9,6 +9,7 @@ var searchData=
   ['underlying_5fpath_5fgraph',['underlying_path_graph',['../classbdsg_1_1PathVectorizableOverlay.html#a709c4615e0c447cd6e3e0e6bf76a2d87',1,'bdsg::PathVectorizableOverlay']]],
   ['underlying_5fpath_5fposition_5fgraph',['underlying_path_position_graph',['../classbdsg_1_1PathPositionVectorizableOverlay.html#a35cac640c3674b1c92586cd3ee35b626',1,'bdsg::PathPositionVectorizableOverlay']]],
   ['unfold_5fmax_5flength',['unfold_max_length',['../classvg_1_1Genotyper.html#ab3e4270419b361c9455125ca305709e2',1,'vg::Genotyper']]],
+  ['union_5ffind',['union_find',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a6bcd65e92edd9e1bf925a9e4a8c7cc01',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
   ['uniqueness',['uniqueness',['../structvg_1_1Alignment.html#a2d744ce39b375cdeb8adfc3721a18eb0',1,'vg::Alignment']]],
   ['universe_5fsize',['universe_size',['../classvg_1_1SmallBitset.html#aa8dbf9601e90ce99f26895d8a4d79de0',1,'vg::SmallBitset']]],
   ['unpaired_5fpenalty',['unpaired_penalty',['../classvg_1_1BaseMapper.html#ad20ea9a68bcaca157350595f03b4601c',1,'vg::BaseMapper']]],

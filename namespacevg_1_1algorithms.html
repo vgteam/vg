@@ -315,6 +315,18 @@ Functions</h2></td></tr>
 <tr class="separator:ad37fc704de99f02f0bf767d6ab41fe4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6347e00229560b4adb7cc7cb6332b21a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a6347e00229560b4adb7cc7cb6332b21a">add_connecting_edges_to_subgraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;source, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> &amp;subgraph)</td></tr>
 <tr class="separator:a6347e00229560b4adb7cc7cb6332b21a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4d4b7c6814fb1f53a83c2e8355d72efa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4d4b7c6814fb1f53a83c2e8355d72efa">three_edge_connected_component_merges_dense</a> (size_t node_count, size_t first_root, const function&lt; void(size_t, const function&lt; void(size_t)&gt; &amp;)&gt; &amp;for_each_connected_node, const function&lt; void(size_t, size_t)&gt; &amp;same_component)</td></tr>
+<tr class="separator:a4d4b7c6814fb1f53a83c2e8355d72efa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a34c4a74208a88c0f956e697d5e183f5c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a34c4a74208a88c0f956e697d5e183f5c">three_edge_connected_components_dense</a> (size_t node_count, size_t first_root, const function&lt; void(size_t, const function&lt; void(size_t)&gt; &amp;)&gt; &amp;for_each_connected_node, const function&lt; void(const function&lt; void(const function&lt; void(size_t)&gt; &amp;)&gt; &amp;)&gt; &amp;component_callback)</td></tr>
+<tr class="separator:a34c4a74208a88c0f956e697d5e183f5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a57de725b70b138394479863428f9d2eb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a57de725b70b138394479863428f9d2eb">three_edge_connected_components_dense_cactus</a> (size_t node_count, const function&lt; void(size_t, const function&lt; void(size_t)&gt; &amp;)&gt; &amp;for_each_connected_node, const function&lt; void(const function&lt; void(const function&lt; void(size_t)&gt; &amp;)&gt; &amp;)&gt; &amp;component_callback)</td></tr>
+<tr class="separator:a57de725b70b138394479863428f9d2eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae4677e69f0b8ceb8580bc019cc8fbea8"><td class="memTemplParams" colspan="2">template&lt;typename TECCNode &gt; </td></tr>
+<tr class="memitem:ae4677e69f0b8ceb8580bc019cc8fbea8"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae4677e69f0b8ceb8580bc019cc8fbea8">three_edge_connected_components</a> (const function&lt; void(const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;for_each_node, const function&lt; void(TECCNode, const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;for_each_connected_node, const function&lt; void(const function&lt; void(const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;)&gt; &amp;component_callback)</td></tr>
+<tr class="separator:ae4677e69f0b8ceb8580bc019cc8fbea8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7215192f2cc6536b6b3aadef4e95c64a"><td class="memTemplParams" colspan="2">template&lt;typename TECCNode &gt; </td></tr>
+<tr class="memitem:a7215192f2cc6536b6b3aadef4e95c64a"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a7215192f2cc6536b6b3aadef4e95c64a">three_edge_connected_component_merges</a> (const function&lt; void(const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;for_each_node, const function&lt; void(TECCNode, const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;for_each_connected_node, const function&lt; void(TECCNode, TECCNode)&gt; &amp;same_component)</td></tr>
+<tr class="separator:a7215192f2cc6536b6b3aadef4e95c64a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1a00f34b2cd9cec3dde22cc5d361694e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1a00f34b2cd9cec3dde22cc5d361694e">to_gfa</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, ostream &amp;out)</td></tr>
 <tr class="separator:a1a00f34b2cd9cec3dde22cc5d361694e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8442734145ff14710441ddca0b32bff6"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8442734145ff14710441ddca0b32bff6">topological_order</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g)</td></tr>
@@ -4021,6 +4033,222 @@ template&lt;class DistHeuristic &gt; </div>
 
 <p>Find all of the nodes with no edges on their left sides. </p>
 <p>Find all of the nodes with no edges on their right sides. </p>
+
+</div>
+</div>
+<a id="a7215192f2cc6536b6b3aadef4e95c64a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7215192f2cc6536b6b3aadef4e95c64a">&#9670;&nbsp;</a></span>three_edge_connected_component_merges()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename TECCNode &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::three_edge_connected_component_merges </td>
+          <td>(</td>
+          <td class="paramtype">const function&lt; void(const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>for_each_node</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(TECCNode, const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>for_each_connected_node</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(TECCNode, TECCNode)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>same_component</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the three-edge-connected components of an arbitrary graph (not necessarily a handle graph). Only recognizes one kind of edge and one kind of node. Nodes are arbitrary value types (which may need to be hashable).</p>
+<p>Takes a function that loops an iteratee over all nodes, and a function that, given a node, loops an iteratee over all nodes connected to it.</p>
+<p>Calls same_component with pairs of nodes in (at least) a spanning tree of the set of nodes in each component (not restricted to the input graph). Doing merge operations on a union-find can get you the set of components. The callback MUST NOT modify the graph!</p>
+<p>If you have a graph where you can easily rank the nodes, don't use this. Use <a class="el" href="namespacevg_1_1algorithms.html#a34c4a74208a88c0f956e697d5e183f5c">three_edge_connected_components_dense()</a> instead. The first thing this function does is asign nodes a dense, 0-based rank space. </p>
+
+</div>
+</div>
+<a id="a4d4b7c6814fb1f53a83c2e8355d72efa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4d4b7c6814fb1f53a83c2e8355d72efa">&#9670;&nbsp;</a></span>three_edge_connected_component_merges_dense()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::three_edge_connected_component_merges_dense </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>node_count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>first_root</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(size_t, const function&lt; void(size_t)&gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>for_each_connected_node</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(size_t, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>same_component</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the three-edge-connected components of an arbitrary graph (not necessarily a handle graph). Only recognizes one kind of edge and one kind of node. Nodes are dense positive integers starting with 0.</p>
+<p>Takes a total node count, a suggested root (or 0), and a function that, given a node, loops an iteratee over all nodes connected to it.</p>
+<p>Calls same_component with pairs of nodes in (at least) a spanning tree of the set of nodes in each component (not restricted to the input graph). Doing merge operations on a union-find can get you the set of components. The callback MUST NOT modify the graph! </p>
+<p>This defines the data we track for each node in the graph</p>
+<p>When in the DFS were we first visited?</p>
+<p>When in the DFS were we last visited? Needed for finding replacement neighbors to implement path range absorption in part 1.3, when we're asked for a range to a neighbor that got eaten.</p>
+<p>What is our "low point" in the search. This is the earliest dfs_counter for a node that this node or any node in its DFS subtree has a back-edge to.</p>
+<p>What is the effective degree of this node in the graph with all the absorb-eject modifications applied?</p>
+<p>What node has the continuation of this node's path? If equal to numeric_limits&lt;number_t&gt;::max(), the path ends after here. The node's path is the path from this node, into its DFS subtree, to (one of) the nodes in the subtree that has the back-edge that caused this node's low point to be so low. Basically a low point traceback.</p>
+<p>Is this node actually on its own path? Nodes can be removed from their paths if those nodes don't matter any more (i.e. got absorbed) but their paths still need to be tails for other paths.</p>
+<p>Has the node been visited yet? Must be 0. TODO: Move to its own vector to make zeroing them all free-ish with page table shenanigans.</p>
+<p>Track the node that this stack frame represents</p>
+<p>Track all the neighbors left to visit. When we visit a neighbor we pop it off the back.</p>
+<p>When we look at the neighbors, we need to be able to tell the tree edge to the parent from further back edges to the parent. So we have a flag for whether we have seen the parent tree edge already, and the first neighbors entry that is our parent will get called the tree edge.</p>
+<p>Track whether we made a recursive DFS call into the last neighbor or not. If we did, we need to do some work when we come out of it and return to this frame. </p>
+
+</div>
+</div>
+<a id="ae4677e69f0b8ceb8580bc019cc8fbea8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae4677e69f0b8ceb8580bc019cc8fbea8">&#9670;&nbsp;</a></span>three_edge_connected_components()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename TECCNode &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::three_edge_connected_components </td>
+          <td>(</td>
+          <td class="paramtype">const function&lt; void(const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>for_each_node</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(TECCNode, const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>for_each_connected_node</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(const function&lt; void(const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>component_callback</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the three-edge-connected components of an arbitrary graph (not necessarily a handle graph). Only recognizes one kind of edge and one kind of node. Nodes are arbitrary value types (which may need to be hashable).</p>
+<p>Takes a function that loops an iteratee over all nodes, and a function that, given a node, loops an iteratee over all nodes connected to it.</p>
+<p>For each component identified, calls the given callback with a function that iterates over all nodes in the component.</p>
+<p>If you have a graph where you can easily rank the nodes, don't use this. Use <a class="el" href="namespacevg_1_1algorithms.html#a34c4a74208a88c0f956e697d5e183f5c">three_edge_connected_components_dense()</a> instead. The first thing this function does is asign nodes a dense, 0-based rank space. </p>
+
+</div>
+</div>
+<a id="a34c4a74208a88c0f956e697d5e183f5c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a34c4a74208a88c0f956e697d5e183f5c">&#9670;&nbsp;</a></span>three_edge_connected_components_dense()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::three_edge_connected_components_dense </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>node_count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>first_root</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(size_t, const function&lt; void(size_t)&gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>for_each_connected_node</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(const function&lt; void(const function&lt; void(size_t)&gt; &amp;)&gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>component_callback</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the three-edge-connected components of an arbitrary graph (not necessarily a handle graph). Only recognizes one kind of edge and one kind of node. Nodes are dense positive integers starting with 0.</p>
+<p>Takes a total node count, a suggested root (or 0), and a function that, given a node, loops an iteratee over all nodes connected to it.</p>
+<p>For each component identified, calls the given callback with a function that iterates over all nodes in the component. </p>
+
+</div>
+</div>
+<a id="a57de725b70b138394479863428f9d2eb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a57de725b70b138394479863428f9d2eb">&#9670;&nbsp;</a></span>three_edge_connected_components_dense_cactus()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::three_edge_connected_components_dense_cactus </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>node_count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(size_t, const function&lt; void(size_t)&gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>for_each_connected_node</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(const function&lt; void(const function&lt; void(size_t)&gt; &amp;)&gt; &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>component_callback</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the three-edge-connected components of an arbitrary graph (not necessarily a handle graph). Only recognizes one kind of edge and one kind of node. Nodes are dense positive integers starting with 0.</p>
+<p>Wraps the known good the 3 edge connected components algorithm from the pinchesAndCacti library.</p>
+<p>Takes a total node count, and a function that, given a node, loops an iteratee over all nodes connected to it.</p>
+<p>For each component identified, calls the given callback with a function that iterates over all nodes in the component. </p>
 
 </div>
 </div>

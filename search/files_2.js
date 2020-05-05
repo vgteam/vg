@@ -2,6 +2,8 @@ var searchData=
 [
   ['cactus_2ecpp',['cactus.cpp',['../cactus_8cpp.html',1,'']]],
   ['cactus_2ehpp',['cactus.hpp',['../cactus_8hpp.html',1,'']]],
+  ['cactus_5fsnarl_5ffinder_2ecpp',['cactus_snarl_finder.cpp',['../cactus__snarl__finder_8cpp.html',1,'']]],
+  ['cactus_5fsnarl_5ffinder_2ehpp',['cactus_snarl_finder.hpp',['../cactus__snarl__finder_8hpp.html',1,'']]],
   ['call_5fmain_2ecpp',['call_main.cpp',['../call__main_8cpp.html',1,'']]],
   ['chunk_5fmain_2ecpp',['chunk_main.cpp',['../chunk__main_8cpp.html',1,'']]],
   ['chunker_2ecpp',['chunker.cpp',['../chunker_8cpp.html',1,'']]],

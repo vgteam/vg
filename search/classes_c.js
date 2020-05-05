@@ -11,6 +11,7 @@ var searchData=
   ['memchainmodelvertex',['MEMChainModelVertex',['../classvg_1_1MEMChainModelVertex.html',1,'vg']]],
   ['memclusterer',['MEMClusterer',['../classvg_1_1MEMClusterer.html',1,'vg']]],
   ['memoizinggraph',['MemoizingGraph',['../classvg_1_1MemoizingGraph.html',1,'vg']]],
+  ['mergedadjacencygraph',['MergedAdjacencyGraph',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html',1,'vg::IntegratedSnarlFinder']]],
   ['messageemitter',['MessageEmitter',['../classvg_1_1io_1_1MessageEmitter.html',1,'vg::io']]],
   ['messageiterator',['MessageIterator',['../classvg_1_1io_1_1MessageIterator.html',1,'vg::io']]],
   ['mindistanceclusterer',['MinDistanceClusterer',['../classvg_1_1MinDistanceClusterer.html',1,'vg']]],

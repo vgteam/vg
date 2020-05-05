@@ -101,10 +101,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ace50b9ed07cbbe94f7da963ff02d4141"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#ace50b9ed07cbbe94f7da963ff02d4141">~MutableHandleGraph</a> ()=default</td></tr>
 <tr class="separator:ace50b9ed07cbbe94f7da963ff02d4141"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8c9d8ca8160a9b94a57000eab3e97aaa"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a8c9d8ca8160a9b94a57000eab3e97aaa">create_handle</a> (const std::string &amp;sequence)=0</td></tr>
-<tr class="memdesc:a8c9d8ca8160a9b94a57000eab3e97aaa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new node with the given sequence and return the handle.  <a href="#a8c9d8ca8160a9b94a57000eab3e97aaa">More...</a><br /></td></tr>
 <tr class="separator:a8c9d8ca8160a9b94a57000eab3e97aaa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae844fce457858cd2dc54dde786f79e5c"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#ae844fce457858cd2dc54dde786f79e5c">create_handle</a> (const std::string &amp;sequence, const <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &amp;id)=0</td></tr>
-<tr class="memdesc:ae844fce457858cd2dc54dde786f79e5c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new node with the given id and sequence, then return the handle.  <a href="#ae844fce457858cd2dc54dde786f79e5c">More...</a><br /></td></tr>
 <tr class="separator:ae844fce457858cd2dc54dde786f79e5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a34a5e01f270713ba856a93c55039faf0"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a34a5e01f270713ba856a93c55039faf0">create_edge</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;left, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;right)=0</td></tr>
 <tr class="separator:a34a5e01f270713ba856a93c55039faf0"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -330,7 +328,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Create an edge connecting the given handles in the given order and orientations. Ignores existing edges. </p>
 
-<p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a7924235c7e3194cb629cc5191e18a313">bdsg::MutablePositionOverlay</a>, <a class="el" href="classvg_1_1VG.html#a8922810d5228ab5c4619eb2ddc16e78b">vg::VG</a>, <a class="el" href="classbdsg_1_1ODGI.html#a34b8028afdfac4bc5f14ab58de8e4a8c">bdsg::ODGI</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#a457e1feb2fcdfce59119616183ca956b">bdsg::PackedGraph</a>, and <a class="el" href="classbdsg_1_1HashGraph.html#a1048fcb2cb754c6a96622332082e967a">bdsg::HashGraph</a>.</p>
+<p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a7924235c7e3194cb629cc5191e18a313">bdsg::MutablePositionOverlay</a>, <a class="el" href="classbdsg_1_1ODGI.html#a34b8028afdfac4bc5f14ab58de8e4a8c">bdsg::ODGI</a>, <a class="el" href="classvg_1_1VG.html#a8922810d5228ab5c4619eb2ddc16e78b">vg::VG</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#a457e1feb2fcdfce59119616183ca956b">bdsg::PackedGraph</a>, and <a class="el" href="classbdsg_1_1HashGraph.html#a1048fcb2cb754c6a96622332082e967a">bdsg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -385,8 +383,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Create a new node with the given sequence and return the handle. </p>
+<p>Create a new node with the given sequence and return the handle. The sequence may not be empty. </p>
 
 <p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a704ee604af1d1a51fa69dfe704aa15e9">bdsg::MutablePositionOverlay</a>, <a class="el" href="classbdsg_1_1ODGI.html#a4d4789eb41a9285a0dbc8c3f7dfe41b0">bdsg::ODGI</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#a28bde85caccd04a4bd4a9531d9177033">bdsg::PackedGraph</a>, and <a class="el" href="classbdsg_1_1HashGraph.html#a68aec3a3a8658a14d61042f5ef7ec48f">bdsg::HashGraph</a>.</p>
 
@@ -425,8 +422,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Create a new node with the given id and sequence, then return the handle. </p>
+<p>Create a new node with the given id and sequence, then return the handle. The sequence may not be empty. The ID must be strictly greater than 0. </p>
 
 <p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#ae07c4396bcf69e2274334f8cbbd3aee2">bdsg::MutablePositionOverlay</a>, <a class="el" href="classbdsg_1_1ODGI.html#a452b70cec271a66a9f154cfa40ed6466">bdsg::ODGI</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#acf661f0200611fd54c465435d3002248">bdsg::PackedGraph</a>, and <a class="el" href="classbdsg_1_1HashGraph.html#a351600818e4092cd47a995ce5b162f38">bdsg::HashGraph</a>.</p>
 
@@ -592,7 +588,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Renumber all node IDs using the given function, which, given an old ID, returns the new ID. Modifies the graph in place. Invalidates all outstanding handles. If the graph supports paths, they also must be updated. The mapping function may return 0. In this case, the input ID will remain unchanged. The mapping function should not return any ID for which it would return 0. </p>
 
-<p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#ae63e32e27c18094cef3eec06023e95c0">bdsg::MutablePositionOverlay</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#af7f213978cb671f8e9586901321b79e2">bdsg::PackedGraph</a>, <a class="el" href="classvg_1_1VG.html#aca4a358ff4c7f387c1c6d5d239499a07">vg::VG</a>, <a class="el" href="classbdsg_1_1HashGraph.html#ad971e81291cf79ca44f20dbfeb2817ea">bdsg::HashGraph</a>, and <a class="el" href="classbdsg_1_1ODGI.html#aeb9d9a5e4259e365194e650f4d8de89a">bdsg::ODGI</a>.</p>
+<p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#ae63e32e27c18094cef3eec06023e95c0">bdsg::MutablePositionOverlay</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#af7f213978cb671f8e9586901321b79e2">bdsg::PackedGraph</a>, <a class="el" href="classbdsg_1_1HashGraph.html#ad971e81291cf79ca44f20dbfeb2817ea">bdsg::HashGraph</a>, <a class="el" href="classvg_1_1VG.html#aca4a358ff4c7f387c1c6d5d239499a07">vg::VG</a>, and <a class="el" href="classbdsg_1_1ODGI.html#aeb9d9a5e4259e365194e650f4d8de89a">bdsg::ODGI</a>.</p>
 
 </div>
 </div>
@@ -621,7 +617,7 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Set a minimum id to increment the id space by, used as a hint during construction. May have no effect on a backing implementation. </p>
 
-<p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a1b2a8ffa0fbd9eaf1d2567d7262d11c8">bdsg::MutablePositionOverlay</a>, <a class="el" href="classvg_1_1VG.html#aebe71b82645b85e73342366cea0a4549">vg::VG</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#a265258f9e9ea78a96e86f594e11224ad">bdsg::PackedGraph</a>, <a class="el" href="classbdsg_1_1HashGraph.html#ad010229b5fdc8373cd5d926c756cc9ee">bdsg::HashGraph</a>, and <a class="el" href="classbdsg_1_1ODGI.html#a3daecc421eea0f87fac165694a07f689">bdsg::ODGI</a>.</p>
+<p>Implemented in <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a1b2a8ffa0fbd9eaf1d2567d7262d11c8">bdsg::MutablePositionOverlay</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#a265258f9e9ea78a96e86f594e11224ad">bdsg::PackedGraph</a>, <a class="el" href="classvg_1_1VG.html#aebe71b82645b85e73342366cea0a4549">vg::VG</a>, <a class="el" href="classbdsg_1_1HashGraph.html#ad010229b5fdc8373cd5d926c756cc9ee">bdsg::HashGraph</a>, and <a class="el" href="classbdsg_1_1ODGI.html#a3daecc421eea0f87fac165694a07f689">bdsg::ODGI</a>.</p>
 
 </div>
 </div>

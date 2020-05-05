@@ -12,7 +12,6 @@ var searchData=
   ['_5fflush_5fop',['_flush_op',['../dozeu__interface_8cpp.html#a3592941015e5430b738db9e882e0305d',1,'dozeu_interface.cpp']]],
   ['_5ffor_5feach_5fkmer',['_for_each_kmer',['../classvg_1_1VG.html#aaf5016c5e5d28db6db32aa7626440238',1,'vg::VG']]],
   ['_5ffp',['_fp',['../classvg_1_1io_1_1JSONStreamHelper.html#a9a37ea0b07062cb1fcab096188ac5ced',1,'vg::io::JSONStreamHelper']]],
-  ['_5fhidden_5fcount',['_hidden_count',['../classbdsg_1_1ODGI.html#a604bc3e78b1c7fe270b819579884d019',1,'bdsg::ODGI']]],
   ['_5fid_5fincrement',['_id_increment',['../classbdsg_1_1ODGI.html#a042ef9861a75537a35e26d2dd31516c6',1,'bdsg::ODGI']]],
   ['_5fmax_5fnode_5frank',['_max_node_rank',['../classbdsg_1_1ODGI.html#a1c79025549d3e373a09fe471d09c8808',1,'bdsg::ODGI']]],
   ['_5fmin_5fnode_5frank',['_min_node_rank',['../classbdsg_1_1ODGI.html#abbcd0546ab6e96642d38570f642a6a2a',1,'bdsg::ODGI']]],

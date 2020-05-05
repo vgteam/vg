@@ -42,5 +42,6 @@ var searchData=
   ['overlapping_5frefs',['overlapping_refs',['../classvg_1_1SRPE.html#a9bc3e671b90795b69d9b9266d189f89a',1,'vg::SRPE']]],
   ['overlay',['overlay',['../classbdsg_1_1OverlayHelper.html#a506896f6331bcc32419ded038ca480c9',1,'bdsg::OverlayHelper']]],
   ['overlay1',['overlay1',['../classbdsg_1_1PairOverlayHelper.html#a89e705966e9309eabccd4ff950306502',1,'bdsg::PairOverlayHelper']]],
-  ['overlay2',['overlay2',['../classbdsg_1_1PairOverlayHelper.html#a4bde3a038c4e72b3362e0503585e30d2',1,'bdsg::PairOverlayHelper']]]
+  ['overlay2',['overlay2',['../classbdsg_1_1PairOverlayHelper.html#a4bde3a038c4e72b3362e0503585e30d2',1,'bdsg::PairOverlayHelper']]],
+  ['overlay_5fhelper',['overlay_helper',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a5dcb9b78c915778821223c636032ecee',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]]
 ];

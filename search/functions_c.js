@@ -53,5 +53,6 @@ var searchData=
   ['logsum',['logsum',['../namespacehaplo_1_1haploMath.html#a5bc510bf3fca2eeaba726ababf32678f',1,'haplo::haploMath']]],
   ['logt',['logT',['../structhaplo_1_1haploMath_1_1RRMemo.html#ac74af8f5adda75809d2995a37ca79317',1,'haplo::haploMath::RRMemo']]],
   ['longest_5fdetectable_5fgap',['longest_detectable_gap',['../classvg_1_1GSSWAligner.html#a801ffb646287d9a74d990f7ba7a22a09',1,'vg::GSSWAligner::longest_detectable_gap(const Alignment &amp;alignment, const string::const_iterator &amp;read_pos) const'],['../classvg_1_1GSSWAligner.html#a820cb34582e239efb55297b55455e310',1,'vg::GSSWAligner::longest_detectable_gap(size_t read_length, size_t read_pos) const'],['../classvg_1_1GSSWAligner.html#adaddff537ae9d455811c45a0c362252f',1,'vg::GSSWAligner::longest_detectable_gap(const Alignment &amp;alignment) const']]],
+  ['longest_5fpaths_5fin_5fforest',['longest_paths_in_forest',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a98105712f44db6c5fadc3b9bd64f97f0',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
   ['loop_5fdistance',['loop_distance',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a528edda6b16740041ffae6d1d2e430be',1,'vg::MinimumDistanceIndex::ChainIndex']]]
 ];
