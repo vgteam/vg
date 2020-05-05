@@ -1143,12 +1143,12 @@ void Aligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_a
 }
 
 void Aligner::align(Alignment& alignment, const HandleGraph& g,
-                    const std::unordered_set<id_t>& subgraph,
                     const std::vector<handle_t>& topological_order) const {
 
     // Create a gssw_graph and a mapping from handles to nodes.
-    gssw_graph* graph = gssw_graph_create(g.get_node_count());
+    gssw_graph* graph = gssw_graph_create(topological_order.size());
     hash_map<handle_t, gssw_node*> nodes;
+    nodes.reserve(topological_order.size());
 
     // Create the nodes. Use offsets in the topological order as node ids.
     for (size_t i = 0; i < topological_order.size(); i++) {
@@ -1167,8 +1167,9 @@ void Aligner::align(Alignment& alignment, const HandleGraph& g,
     for (const handle_t& from : topological_order) {
         gssw_node* from_node = nodes[from];
         g.follow_edges(from, false, [&](const handle_t& to) {
-            if (subgraph.find(g.get_id(to)) != subgraph.end()) {
-                gssw_nodes_add_edge(from_node, nodes[to]);
+            auto iter = nodes.find(to);
+            if (iter != nodes.end()) {
+                gssw_nodes_add_edge(from_node, iter->second);
             }
         });
     }

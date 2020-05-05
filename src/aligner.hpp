@@ -292,7 +292,6 @@ namespace vg {
         /// Store optimal local alignment in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
         void align(Alignment& alignment, const HandleGraph& g,
-                   const std::unordered_set<id_t>& subgraph,
                    const std::vector<handle_t>& topological_order) const;
 
         /// store optimal alignment against a graph in the Alignment object with one end of the sequence
