@@ -6,6 +6,8 @@
 #include "integrated_snarl_finder.hpp"
 
 #include "algorithms/three_edge_connected_components.hpp"
+#include "algorithms/weakly_connected_components.hpp"
+#include "subgraph_overlay.hpp"
 
 #include <bdsg/overlays/overlay_helper.hpp>
 #include <structures/union_find.hpp>
@@ -1663,6 +1665,47 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
         }
     }
     
+}
+
+SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
+
+    vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components(graph);    
+    vector<SnarlManager> snarl_managers(weak_components.size());
+
+    #pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < weak_components.size(); ++i) {
+        const HandleGraph* subgraph;
+        if (weak_components.size() == 1) {
+            subgraph = graph;
+        } else {
+            // turn the component into a graph
+            subgraph = new SubgraphOverlay(graph, &weak_components[i]);
+        }
+        IntegratedSnarlFinder finder(*subgraph);
+        // find the snarls without building the index
+        snarl_managers[i] = finder.find_snarls_unindexed();
+        if (weak_components.size() != 1) {
+            // delete our component graph overlay
+            delete subgraph;
+        }
+    }
+
+    // merge the managers into the biggest one.
+    size_t biggest_snarl_idx = 0;
+    for (size_t i = 1; i < snarl_managers.size(); ++i) {
+        if (snarl_managers[i].num_snarls() > snarl_managers[biggest_snarl_idx].num_snarls()) {
+            biggest_snarl_idx = i;
+        }
+    }
+    for (size_t i = 0; i < snarl_managers.size(); ++i) {
+        if (i != biggest_snarl_idx) {
+            snarl_managers[i].for_each_snarl_unindexed([&](const Snarl* snarl) {
+                snarl_managers[biggest_snarl_idx].add_snarl(*snarl);
+            });
+        }
+    }
+    snarl_managers[biggest_snarl_idx].finish();
+    return std::move(snarl_managers[biggest_snarl_idx]);
 }
 
 }

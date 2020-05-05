@@ -26,7 +26,7 @@ HandleGraphSnarlFinder::HandleGraphSnarlFinder(const HandleGraph* graph) : graph
     // Nothing to do!
 }
 
-SnarlManager HandleGraphSnarlFinder::find_snarls() {
+SnarlManager HandleGraphSnarlFinder::find_snarls_unindexed() {
     // Start with an empty SnarlManager
     SnarlManager snarl_manager;
     
@@ -292,10 +292,18 @@ SnarlManager HandleGraphSnarlFinder::find_snarls() {
         stack.pop_back();
     });
     
-    // Let the snarl manager compute all its indexes
+    // Give it back
+    return snarl_manager;
+}
+
+SnarlManager HandleGraphSnarlFinder::find_snarls() {
+    // Find all the snarls
+    auto snarl_manager(find_snarls_unindexed());
+    
+    // Index them
     snarl_manager.finish();
     
-    // Give it back
+    // Return the finished SnarlManager
     return snarl_manager;
 }
 

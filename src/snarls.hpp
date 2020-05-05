@@ -60,6 +60,13 @@ protected:
      * The graph we are finding snarls on. It must outlive us.
      */
     const HandleGraph* graph;
+    
+    /**
+     * Find all the snarls, and put them into a SnarlManager, but don't finish it.
+     * More snarls can be added later before it is finished.
+     */
+    virtual SnarlManager find_snarls_unindexed();
+    
 public:
 
     /**

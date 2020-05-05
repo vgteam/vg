@@ -67,6 +67,11 @@ public:
     IntegratedSnarlFinder(const HandleGraph& graph);
     
     /**
+     * Find all the snarls of weakly connected components in parallel.
+     */
+    virtual SnarlManager find_snarls_parallel();
+    
+    /**
      * Visit all snarls and chains, including trivial snarls and single-node
      * empty chains.
      *
