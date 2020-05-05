@@ -122,6 +122,7 @@ var searchData=
   ['for_5feach_5fmapping',['for_each_mapping',['../classvg_1_1Index.html#afa6b730ea82dcd095b146a3cb42a6889',1,'vg::Index::for_each_mapping()'],['../classvg_1_1Paths.html#a059807c77ba1efd246c25d2070947792',1,'vg::Paths::for_each_mapping()']]],
   ['for_5feach_5fname',['for_each_name',['../classvg_1_1Paths.html#a26c3854ce2cfcfd56064077e5062a440',1,'vg::Paths']]],
   ['for_5feach_5fname_5fstoppable',['for_each_name_stoppable',['../classvg_1_1Paths.html#af5231f3d55b57ca9ec341be62d18155d',1,'vg::Paths']]],
+  ['for_5feach_5fneighbor',['for_each_neighbor',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html#a1e63b71aba9a614f17b497908c638797',1,'vg::DozeuInterface::OrderedGraph']]],
   ['for_5feach_5fnode',['for_each_node',['../classvg_1_1VG.html#af585f2161de09403d197e05fbcfb9a07',1,'vg::VG::for_each_node(function&lt; void(Node *)&gt; lambda)'],['../classvg_1_1VG.html#a23b34b164590c0537bf704dd1b816760',1,'vg::VG::for_each_node(function&lt; void(const Node *)&gt; lambda) const']]],
   ['for_5feach_5fnode_5fparallel',['for_each_node_parallel',['../classvg_1_1VG.html#a39790d52fe4c09804086d58164258fcf',1,'vg::VG']]],
   ['for_5feach_5fparallel',['for_each_parallel',['../namespacevg_1_1io.html#a6a3ddf4b05771fabe7c543dae992e13a',1,'vg::io']]],

@@ -102,7 +102,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ab3b92372eb75a5b54311b74aa6fe9190"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab3b92372eb75a5b54311b74aa6fe9190">align_global_banded_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t max_alt_alns, int32_t band_padding=0, bool permissive_banding=true) const =0</td></tr>
 <tr class="separator:ab3b92372eb75a5b54311b74aa6fe9190"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a71da93203b17beaffac6d7e6bbfe7c0b"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a71da93203b17beaffac6d7e6bbfe7c0b">align_xdrop</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented, uint16_t max_gap_length=default_xdrop_max_gap_length) const =0</td></tr>
+<tr class="memdesc:a71da93203b17beaffac6d7e6bbfe7c0b"><td class="mdescLeft">&#160;</td><td class="mdescRight">xdrop aligner  <a href="#a71da93203b17beaffac6d7e6bbfe7c0b">More...</a><br /></td></tr>
 <tr class="separator:a71da93203b17beaffac6d7e6bbfe7c0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2ed8a7b2fefb98c7d814449c8e884dde"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a2ed8a7b2fefb98c7d814449c8e884dde">align_xdrop</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;order, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented, uint16_t max_gap_length=default_xdrop_max_gap_length) const =0</td></tr>
+<tr class="separator:a2ed8a7b2fefb98c7d814449c8e884dde"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac33af43d7d8d4a3d94a5ef1582c50cc4"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ac33af43d7d8d4a3d94a5ef1582c50cc4">score_exact_match</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t read_offset, size_t length) const =0</td></tr>
 <tr class="separator:ac33af43d7d8d4a3d94a5ef1582c50cc4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac8e1b97332df85221c6a2be61cbd1b3d"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ac8e1b97332df85221c6a2be61cbd1b3d">score_exact_match</a> (const string &amp;sequence, const string &amp;base_quality) const =0</td></tr>
@@ -484,7 +487,7 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <a id="a71da93203b17beaffac6d7e6bbfe7c0b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a71da93203b17beaffac6d7e6bbfe7c0b">&#9670;&nbsp;</a></span>align_xdrop()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a71da93203b17beaffac6d7e6bbfe7c0b">&#9670;&nbsp;</a></span>align_xdrop() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -535,7 +538,72 @@ Protected Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
+<p>xdrop aligner </p>
+
 <p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#a02375e46df40e5163bee95a18cca0705">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#afe034724ee09124b54e70421e0de61c7">vg::Aligner</a>.</p>
+
+</div>
+</div>
+<a id="a2ed8a7b2fefb98c7d814449c8e884dde"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2ed8a7b2fefb98c7d814449c8e884dde">&#9670;&nbsp;</a></span>align_xdrop() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void vg::GSSWAligner::align_xdrop </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>g</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>order</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>mems</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>reverse_complemented</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint16_t&#160;</td>
+          <td class="paramname"><em>max_gap_length</em> = <code>default_xdrop_max_gap_length</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>xdrop aligner, but with a precomputed topological order on the graph, which need not include all of the graph's handles and which may contain both orientations of a handle </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#acd4904b68a5db468672d13d095b3a298">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#afe013f60648d39b5eb3a679151d3ed46">vg::Aligner</a>.</p>
 
 </div>
 </div>
