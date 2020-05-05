@@ -438,14 +438,26 @@ namespace vg {
             else if (ignore_deletion_start) {
                 // we would need to remove the whole node, except we indicated that we want
                 // to preserve the tail anchors to the start
+                
                 path_node.end = path_node.begin;
+                
+                pos_t start_pos = initial_position(path_node.path);
                 path_node.path.Clear();
+                Mapping* mapping = path.add_mapping();
+                *mapping->mutable_position() = make_position(start_pos);
+                mapping->add_edit();
             }
             else if (ignore_deletion_end) {
                 // we would need to remove the whole node, except we indicated that we want
                 // to preserve the tail anchors to the end
+                
                 path_node.begin = path_node.end;
+                
+                pos_t end_pos = final_position(path_node.path);
                 path_node.path.Clear();
+                Mapping* mapping = path.add_mapping();
+                *mapping->mutable_position() = make_position(end_pos);
+                mapping->add_edit();
             }
             else {
                 // We do need to remove the whole node; now it is empty.
