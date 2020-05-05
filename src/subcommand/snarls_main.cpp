@@ -13,6 +13,8 @@
 #include "../vg.hpp"
 #include <vg/vg.pb.h>
 #include "../traversal_finder.hpp"
+#include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
@@ -26,6 +28,7 @@ void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
+         << "    -A, --algorithm NAME   compute snarls using 'cactus' or 'integrated' algorithms (default: integrated)" << endl
          << "    -p, --pathnames        output variant paths as SnarlTraversals to STDOUT" << endl
          << "    -r, --traversals FILE  output SnarlTraversals for ultrabubbles." << endl
          << "    -l, --leaf-only        restrict traversals to leaf ultrabubbles." << endl
@@ -49,6 +52,7 @@ int main_snarl(int argc, char** argv) {
 
     static const int buffer_size = 100;
     
+    string algorithm = "integrated";
     string traversal_file;
     bool leaf_only = false;
     bool top_level_only = false;
@@ -66,6 +70,7 @@ int main_snarl(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
+                {"algorithm", required_argument, 0, 'A'},
                 {"traversals", required_argument, 0, 'r'},
                 {"pathnames", no_argument, 0, 'p'},
                 {"leaf-only", no_argument, 0, 'l'},
@@ -83,7 +88,7 @@ int main_snarl(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "sr:laTopm:v:f:i:h?t:",
+        c = getopt_long (argc, argv, "A:sr:laTopm:v:f:i:h?t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -92,7 +97,11 @@ int main_snarl(int argc, char** argv) {
 
         switch (c)
         {
-            
+        
+        case 'A':
+            algorithm = optarg;
+            break;
+        
         case 'r':
             traversal_file = optarg;
             break;
@@ -174,7 +183,16 @@ int main_snarl(int argc, char** argv) {
     });
     
     // The only implemented snarl finder:
-    unique_ptr<SnarlFinder> snarl_finder(new CactusSnarlFinder(*graph));
+    unique_ptr<SnarlFinder> snarl_finder;
+    
+    if (algorithm == "cactus") {
+        snarl_finder.reset(new CactusSnarlFinder(*graph));
+    } else if (algorithm == "integrated") {
+        snarl_finder.reset(new IntegratedSnarlFinder(*graph));
+    } else {
+        cerr << "error:[vg snarl]: Algorithm must be 'cactus' or 'integrated', not '" << algorithm << "'" << endl;
+        return 1;
+    }
 
     unique_ptr<TraversalFinder> trav_finder;
     vcflib::VariantCallFile variant_file;
