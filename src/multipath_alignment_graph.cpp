@@ -446,6 +446,10 @@ namespace vg {
                 Mapping* mapping = path.add_mapping();
                 *mapping->mutable_position() = make_position(start_pos);
                 mapping->add_edit();
+                
+#ifdef debug_multipath_alignment
+                cerr << "preserving start deletion path read[" << (path_node.begin - alignment.sequence().begin()) << "] " << pb2json(path_node.path) << endl;
+#endif
             }
             else if (ignore_deletion_end) {
                 // we would need to remove the whole node, except we indicated that we want
@@ -458,8 +462,15 @@ namespace vg {
                 Mapping* mapping = path.add_mapping();
                 *mapping->mutable_position() = make_position(end_pos);
                 mapping->add_edit();
+                
+#ifdef debug_multipath_alignment
+                cerr << "preserving end deletion path read[" << (path_node.begin - alignment.sequence().begin()) << "] " << pb2json(path_node.path) << endl;
+#endif
             }
             else {
+#ifdef debug_multipath_alignment
+                cerr << "entire path node is trimmed" << endl;
+#endif
                 // We do need to remove the whole node; now it is empty.
                 return true;
             }
@@ -2524,15 +2535,20 @@ namespace vg {
                             PathNode& candidate_end_node = path_nodes[candidate_end];
                             
                             if (candidate_end_node.end <= start_node.begin) {
-                                // these MEMs are read colinear and graph reachable, so connect them
-                                candidate_end_node.edges.emplace_back(start, candidate_dist);
-                                
+                                // these MEMs are read colinear and graph reachable
+                                if (start != candidate_end) {
+                                    // and they are not the same path node, so add an edge
+                                    // (this is almost always the case, but some code paths will add empty read sequences
+                                    // to anchor to specific locations, which slightly confuses the reachability logic)
+                                    candidate_end_node.edges.emplace_back(start, candidate_dist);
+                                    
 #ifdef debug_multipath_alignment
-                                cerr << "connection is read colinear, adding edge on " << candidate_end << " for total of " << candidate_end_node.edges.size() << " edges so far" << endl;
-                                for (auto& edge : candidate_end_node.edges) {
-                                    cerr << "\t-> " << edge.first << " dist " << edge.second << endl;
-                                }
+                                    cerr << "connection is read colinear, adding edge on " << candidate_end << " for total of " << candidate_end_node.edges.size() << " edges so far" << endl;
+                                    for (auto& edge : candidate_end_node.edges) {
+                                        cerr << "\t-> " << edge.first << " dist " << edge.second << endl;
+                                    }
 #endif
+                                }
                                 
                                 // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
                                 // this connection
