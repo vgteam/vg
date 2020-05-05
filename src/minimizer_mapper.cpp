@@ -2126,6 +2126,8 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 
 void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
 
+#define USE_XDROP_FOR_GIRAFFE_RESCUE
+
     // We are traversing the same small subgraph repeatedly, so it's better to use a cache.
     gbwtgraph::CachedGBWTGraph cached_graph(this->gbwt_graph);
 
@@ -2142,7 +2144,12 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
     // Check if the subgraph is acyclic. Rescue is much faster in acyclic subgraphs.
     std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
     if (!topological_order.empty()) {
+        #ifdef USE_XDROP_FOR_GIRAFFE_RESCUE
+        get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
+                                           std::vector<MaximalExactMatch>(), false);
+        #else
         get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
+        #endif
     } else {
         // Build a subgraph overlay.
         SubHandleGraph sub_graph(&cached_graph);
@@ -2159,7 +2166,11 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
             algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
 
         // Align to the subgraph.
+        #ifdef USE_XDROP_FOR_GIRAFFE_RESCUE
+        get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false);
+        #else
         get_regular_aligner()->align(rescued_alignment, dagified, true);
+        #endif
 
         // Map the alignment back to the original graph.
         Path& path = *(rescued_alignment.mutable_path());
