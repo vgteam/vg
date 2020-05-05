@@ -52,13 +52,14 @@ namespace vg {
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                                      const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project,
-                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans, bool realign_Ns) {
+                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans, bool realign_Ns,
+                                                     bool preserve_tail_anchors) {
         
         // Set up the initial multipath graph from the given path chunks.
         create_path_chunk_nodes(graph, path_chunks, alignment, project, injection_trans);
         
         // trim indels off of nodes to make the score dynamic programmable across nodes
-        trim_hanging_indels(alignment, realign_Ns);
+        trim_hanging_indels(alignment, realign_Ns, preserve_tail_anchors);
         
         // compute reachability and add edges
         add_reachability_edges(graph, project, injection_trans);
@@ -67,18 +68,20 @@ namespace vg {
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                                     const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project, bool realign_Ns) :
+                                                     const Alignment& alignment, const function<pair<id_t, bool>(id_t)>& project, bool realign_Ns,
+                                                     bool preserve_tail_anchors) :
                                                      MultipathAlignmentGraph(graph, path_chunks, alignment, project,
-                                                                             create_injection_trans(graph, project), realign_Ns) {
+                                                                             create_injection_trans(graph, project), realign_Ns, preserve_tail_anchors) {
         // Nothing to do
         
     }
 
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                                     const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans, bool realign_Ns) :
+                                                     const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans, bool realign_Ns,
+                                                     bool preserve_tail_anchors) :
                                                      MultipathAlignmentGraph(graph, path_chunks, alignment, create_projector(projection_trans),
-                                                                             create_injection_trans(projection_trans), realign_Ns) {
+                                                                             create_injection_trans(projection_trans), realign_Ns, preserve_tail_anchors) {
         // Nothing to do
         
     }
@@ -291,7 +294,12 @@ namespace vg {
    
     
     bool MultipathAlignmentGraph::trim_and_check_for_empty(const Alignment& alignment, bool trim_Ns, PathNode& path_node,
-        int64_t* removed_start_from_length, int64_t* removed_end_from_length) {
+                                                           bool preserve_tail_anchors, int64_t* removed_start_from_length,
+                                                           int64_t* removed_end_from_length) {
+        
+#ifdef debug_multipath_alignment
+        cerr << "trimming path node " << string(path_node.begin, path_node.end) << " " << pb2json(path_node.path) << endl;
+#endif
         
         // Trim down the given PathNode of everything except softclips.
         // Return true if it all gets trimmed away and should be removed.
@@ -307,10 +315,24 @@ namespace vg {
         bool softclip_start = (path.mapping(0).edit(0).from_length() == 0 &&
                                path.mapping(0).edit(0).to_length() > 0 &&
                                path_node.begin == alignment.sequence().begin());
-        
         bool softclip_end = (path.mapping(mapping_last_idx).edit(edit_last_idx).from_length() == 0 &&
                              path.mapping(mapping_last_idx).edit(edit_last_idx).to_length() > 0 &&
                              path_node.end == alignment.sequence().end());
+        
+        // if indicated, we may want to preserve the location of tail anchors in spite of deletions
+        bool ignore_deletion_start = (path.mapping(0).edit(0).from_length() > 0 &&
+                                      path.mapping(0).edit(0).to_length() == 0 &&
+                                      path_node.begin == alignment.sequence().begin() &&
+                                      preserve_tail_anchors);
+        bool ignore_deletion_end = (path.mapping(mapping_last_idx).edit(edit_last_idx).from_length() > 0 &&
+                                    path.mapping(mapping_last_idx).edit(edit_last_idx).to_length() == 0 &&
+                                    path_node.end == alignment.sequence().end() &&
+                                    preserve_tail_anchors);
+        
+#ifdef debug_multipath_alignment
+        cerr << "preserving softclips: begin? " << softclip_start << ", end? " << softclip_end << endl;
+        cerr << "preserving deletion anchors: begin? " << ignore_deletion_start << ", end? " << ignore_deletion_end << endl;
+#endif
         
         // Track how much we trim off each end
         int64_t removed_start_to_length = 0;
@@ -325,7 +347,7 @@ namespace vg {
         int64_t removed_start_mapping_from_length = 0;
         
         // find the first aligned, non-N bases from the start of the path
-        if (!softclip_start) {
+        if (!softclip_start && !ignore_deletion_start) {
             bool found_start = false;
             for (; mapping_start_idx < path.mapping_size(); mapping_start_idx++) {
                 const Mapping& mapping = path.mapping(mapping_start_idx);
@@ -354,7 +376,7 @@ namespace vg {
         }
         
         // find the first aligned bases from the end of the path
-        if (!softclip_end) {
+        if (!softclip_end && !ignore_deletion_end) {
             bool found_last = false;
             for (; mapping_last_idx >= 0; mapping_last_idx--) {
                 const Mapping& mapping = path.mapping(mapping_last_idx);
@@ -413,6 +435,18 @@ namespace vg {
                 
                 path_node.path = move(trimmed_path);
             }
+            else if (ignore_deletion_start) {
+                // we would need to remove the whole node, except we indicated that we want
+                // to preserve the tail anchors to the start
+                path_node.end = path_node.begin;
+                path_node.path.Clear();
+            }
+            else if (ignore_deletion_end) {
+                // we would need to remove the whole node, except we indicated that we want
+                // to preserve the tail anchors to the end
+                path_node.begin = path_node.end;
+                path_node.path.Clear();
+            }
             else {
                 // We do need to remove the whole node; now it is empty.
                 return true;
@@ -423,7 +457,8 @@ namespace vg {
         return false;
     }
    
-    void MultipathAlignmentGraph::trim_hanging_indels(const Alignment& alignment, bool trim_Ns) {
+    void MultipathAlignmentGraph::trim_hanging_indels(const Alignment& alignment, bool trim_Ns,
+                                                      bool preserve_tail_anchors) {
         
         // if the path begins or ends with any gaps we have to remove them to make the score
         // dynamic programmable across Subpaths
@@ -434,7 +469,7 @@ namespace vg {
             
             PathNode& path_node = path_nodes.at(i);
             
-            if (trim_and_check_for_empty(alignment, trim_Ns, path_node)) {
+            if (trim_and_check_for_empty(alignment, trim_Ns, path_node, preserve_tail_anchors)) {
                 // We trimmed it and it all trimmed away
                 to_remove.insert(i);
             }

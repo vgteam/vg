@@ -685,7 +685,7 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                 handle_t next_handle = graph.get_handle_of_step(next_step);
                 const Position& next_pos = path.mapping(rev ? path.mapping_size() - 2 - i : i + 1).position();
                 if (graph.get_id(next_handle) != next_pos.node_id()
-                    || (graph.get_is_reverse(next_handle) == next_pos.is_reverse()) != rev) {
+                    || (graph.get_is_reverse(next_handle) != next_pos.is_reverse()) != rev) {
                     
                     // the next mapping in the alignment is not the next mapping on the path, so we must have
                     // taken a deletion
