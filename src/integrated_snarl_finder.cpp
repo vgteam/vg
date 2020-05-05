@@ -17,7 +17,7 @@
 
 namespace vg {
 
-#define debug
+//#define debug
 
 using namespace std;
 
