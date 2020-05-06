@@ -578,7 +578,7 @@ struct MIPayload {
     static std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> decode(code_type code) {
         if (code == NO_CODE) {
             return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, NO_VALUE, NO_VALUE, false, NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
-        } else if (code & (static_cast<code_type>(1)) == (static_cast<code_type>(1))) {
+        } else if ((code & (static_cast<code_type>(1))) == (static_cast<code_type>(1))) {
             //This is a top-level chain
             return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>
                     (true, code >> ID_OFFSET, code >> 1 & OFFSET_MASK, false, NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
