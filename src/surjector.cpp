@@ -731,14 +731,13 @@ using namespace std;
         MultipathAlignment mp_aln;
         mp_aln_graph.align(source, split_path_graph, get_aligner(), false, 1, false, numeric_limits<int64_t>::max(),
                            false, 1, mp_aln, allow_negative_scores);
+        topologically_order_subpaths(mp_aln);
         
         if (preserve_tail_indel_anchors) {
             // this code path sometimes produces subpaths that have no aligned bases, which
             // sometimes play poorly with other parts of the code base
             remove_empty_subpaths(mp_aln);
         }
-        
-        topologically_order_subpaths(mp_aln);
         
         for (size_t i = 0; i < mp_aln.subpath_size(); i++) {
             // translate back into the original ID space
