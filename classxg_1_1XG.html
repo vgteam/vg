@@ -88,7 +88,9 @@ Inheritance diagram for xg::XG:</div>
 <area href="classhandlegraph_1_1SerializableHandleGraph.html" alt="handlegraph::SerializableHandleGraph" shape="rect" coords="245,112,480,136"/>
 <area href="classhandlegraph_1_1VectorizableHandleGraph.html" alt="handlegraph::VectorizableHandleGraph" shape="rect" coords="490,112,725,136"/>
 <area href="classhandlegraph_1_1PathHandleGraph.html" alt="handlegraph::PathHandleGraph" shape="rect" coords="0,56,235,80"/>
+<area href="classhandlegraph_1_1RankedHandleGraph.html" alt="handlegraph::RankedHandleGraph" shape="rect" coords="490,56,725,80"/>
 <area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,235,24"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="490,0,725,24"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -358,6 +360,12 @@ Public Member Functions</h2></td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1VectorizableHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1VectorizableHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html">handlegraph::VectorizableHandleGraph</a></td></tr>
 <tr class="memitem:ae5986cf718d8f9d98b20f7e819db43f3 inherit pub_methods_classhandlegraph_1_1VectorizableHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#ae5986cf718d8f9d98b20f7e819db43f3">~VectorizableHandleGraph</a> ()=default</td></tr>
 <tr class="separator:ae5986cf718d8f9d98b20f7e819db43f3 inherit pub_methods_classhandlegraph_1_1VectorizableHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_methods_classhandlegraph_1_1RankedHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1RankedHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1RankedHandleGraph.html">handlegraph::RankedHandleGraph</a></td></tr>
+<tr class="memitem:a6a21763bef01676efd4dd10767681bfc inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#a6a21763bef01676efd4dd10767681bfc">handle_to_rank</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
+<tr class="separator:a6a21763bef01676efd4dd10767681bfc inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aacf6651545adbd407082a539222f8a69 inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#aacf6651545adbd407082a539222f8a69">rank_to_handle</a> (const size_t &amp;rank) const</td></tr>
+<tr class="memdesc:aacf6651545adbd407082a539222f8a69 inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the handle with a given rank.  <a href="classhandlegraph_1_1RankedHandleGraph.html#aacf6651545adbd407082a539222f8a69">More...</a><br /></td></tr>
+<tr class="separator:aacf6651545adbd407082a539222f8a69 inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -2217,7 +2225,7 @@ Static Private Attributes</h2></td></tr>
 
 <p>id to rank helper function </p>
 
-<p>Implements <a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#acb73ffef7b675caa5576df272fc0af1f">handlegraph::VectorizableHandleGraph</a>.</p>
+<p>Implements <a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#a4c919e31efff422d9a29fa264290836c">handlegraph::RankedHandleGraph</a>.</p>
 
 </div>
 </div>
@@ -3002,7 +3010,7 @@ Static Private Attributes</h2></td></tr>
 
 <p>rank to id helper function </p>
 
-<p>Implements <a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#a56efef723eaabc70f6cd750a879b0416">handlegraph::VectorizableHandleGraph</a>.</p>
+<p>Implements <a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#a5bf563241454b21539effcad11406ec9">handlegraph::RankedHandleGraph</a>.</p>
 
 </div>
 </div>

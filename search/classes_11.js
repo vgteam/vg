@@ -1,6 +1,7 @@
 var searchData=
 [
   ['range',['Range',['../structvg_1_1Range.html',1,'vg']]],
+  ['rankedhandlegraph',['RankedHandleGraph',['../classhandlegraph_1_1RankedHandleGraph.html',1,'handlegraph']]],
   ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html',1,'vg']]],
   ['ratiosupportsnarlcaller',['RatioSupportSnarlCaller',['../classvg_1_1RatioSupportSnarlCaller.html',1,'vg']]],
   ['readfilter',['ReadFilter',['../classvg_1_1ReadFilter.html',1,'vg']]],

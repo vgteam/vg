@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: handlegraph::VectorizableHandleGraph Class Reference</title>
+<title>vg: handlegraph::RankedHandleGraph Class Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,27 +59,27 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="namespacehandlegraph.html">handlegraph</a></li><li class="navelem"><a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html">VectorizableHandleGraph</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacehandlegraph.html">handlegraph</a></li><li class="navelem"><a class="el" href="classhandlegraph_1_1RankedHandleGraph.html">RankedHandleGraph</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="classhandlegraph_1_1VectorizableHandleGraph-members.html">List of all members</a>  </div>
+<a href="classhandlegraph_1_1RankedHandleGraph-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">handlegraph::VectorizableHandleGraph Class Reference<span class="mlabels"><span class="mlabel">abstract</span></span></div>  </div>
+<div class="title">handlegraph::RankedHandleGraph Class Reference<span class="mlabels"><span class="mlabel">abstract</span></span></div>  </div>
 </div><!--header-->
 <div class="contents">
 
 <p><code>#include &lt;handle_graph.hpp&gt;</code></p>
 <div class="dynheader">
-Inheritance diagram for handlegraph::VectorizableHandleGraph:</div>
+Inheritance diagram for handlegraph::RankedHandleGraph:</div>
 <div class="dyncontent">
  <div class="center">
-  <img src="classhandlegraph_1_1VectorizableHandleGraph.png" usemap="#handlegraph::VectorizableHandleGraph_map" alt=""/>
-  <map id="handlegraph::VectorizableHandleGraph_map" name="handlegraph::VectorizableHandleGraph_map">
-<area href="classhandlegraph_1_1RankedHandleGraph.html" alt="handlegraph::RankedHandleGraph" shape="rect" coords="122,56,357,80"/>
+  <img src="classhandlegraph_1_1RankedHandleGraph.png" usemap="#handlegraph::RankedHandleGraph_map" alt=""/>
+  <map id="handlegraph::RankedHandleGraph_map" name="handlegraph::RankedHandleGraph_map">
 <area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="122,0,357,24"/>
+<area href="classhandlegraph_1_1VectorizableHandleGraph.html" alt="handlegraph::VectorizableHandleGraph" shape="rect" coords="122,112,357,136"/>
 <area href="classbdsg_1_1VectorizableOverlay.html" alt="bdsg::VectorizableOverlay" shape="rect" coords="0,168,235,192"/>
 <area href="classxg_1_1XG.html" alt="xg::XG" shape="rect" coords="245,168,480,192"/>
 <area href="classbdsg_1_1PathVectorizableOverlay.html" alt="bdsg::PathVectorizableOverlay" shape="rect" coords="0,224,235,248"/>
@@ -89,28 +89,17 @@ Inheritance diagram for handlegraph::VectorizableHandleGraph:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:ae5986cf718d8f9d98b20f7e819db43f3"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#ae5986cf718d8f9d98b20f7e819db43f3">~VectorizableHandleGraph</a> ()=default</td></tr>
-<tr class="separator:ae5986cf718d8f9d98b20f7e819db43f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8666da4a9f55361893544fbb4eff76ce"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#a8666da4a9f55361893544fbb4eff76ce">node_vector_offset</a> (const <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &amp;node_id) const =0</td></tr>
-<tr class="separator:a8666da4a9f55361893544fbb4eff76ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3095e541eee436a9f49ef0846539ef44"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#a3095e541eee436a9f49ef0846539ef44">node_at_vector_offset</a> (const size_t &amp;offset) const =0</td></tr>
-<tr class="memdesc:a3095e541eee436a9f49ef0846539ef44"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the node overlapping the given offset in the implicit node vector.  <a href="#a3095e541eee436a9f49ef0846539ef44">More...</a><br /></td></tr>
-<tr class="separator:a3095e541eee436a9f49ef0846539ef44"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5aa85bce7358af90d1e63d2060a50a39"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#a5aa85bce7358af90d1e63d2060a50a39">edge_index</a> (const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;edge) const =0</td></tr>
-<tr class="memdesc:a5aa85bce7358af90d1e63d2060a50a39"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a unique index among edges in the graph.  <a href="#a5aa85bce7358af90d1e63d2060a50a39">More...</a><br /></td></tr>
-<tr class="separator:a5aa85bce7358af90d1e63d2060a50a39"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="inherit_header pub_methods_classhandlegraph_1_1RankedHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1RankedHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1RankedHandleGraph.html">handlegraph::RankedHandleGraph</a></td></tr>
-<tr class="memitem:a4c919e31efff422d9a29fa264290836c inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#a4c919e31efff422d9a29fa264290836c">id_to_rank</a> (const <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &amp;node_id) const =0</td></tr>
-<tr class="memdesc:a4c919e31efff422d9a29fa264290836c inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the rank of a node (ranks start at 1 and are dense).  <a href="classhandlegraph_1_1RankedHandleGraph.html#a4c919e31efff422d9a29fa264290836c">More...</a><br /></td></tr>
-<tr class="separator:a4c919e31efff422d9a29fa264290836c inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5bf563241454b21539effcad11406ec9 inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#a5bf563241454b21539effcad11406ec9">rank_to_id</a> (const size_t &amp;rank) const =0</td></tr>
-<tr class="memdesc:a5bf563241454b21539effcad11406ec9 inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the node with a given rank.  <a href="classhandlegraph_1_1RankedHandleGraph.html#a5bf563241454b21539effcad11406ec9">More...</a><br /></td></tr>
-<tr class="separator:a5bf563241454b21539effcad11406ec9 inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6a21763bef01676efd4dd10767681bfc inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#a6a21763bef01676efd4dd10767681bfc">handle_to_rank</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
-<tr class="separator:a6a21763bef01676efd4dd10767681bfc inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aacf6651545adbd407082a539222f8a69 inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#aacf6651545adbd407082a539222f8a69">rank_to_handle</a> (const size_t &amp;rank) const</td></tr>
-<tr class="memdesc:aacf6651545adbd407082a539222f8a69 inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the handle with a given rank.  <a href="classhandlegraph_1_1RankedHandleGraph.html#aacf6651545adbd407082a539222f8a69">More...</a><br /></td></tr>
-<tr class="separator:aacf6651545adbd407082a539222f8a69 inherit pub_methods_classhandlegraph_1_1RankedHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4c919e31efff422d9a29fa264290836c"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#a4c919e31efff422d9a29fa264290836c">id_to_rank</a> (const <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &amp;node_id) const =0</td></tr>
+<tr class="memdesc:a4c919e31efff422d9a29fa264290836c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the rank of a node (ranks start at 1 and are dense).  <a href="#a4c919e31efff422d9a29fa264290836c">More...</a><br /></td></tr>
+<tr class="separator:a4c919e31efff422d9a29fa264290836c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5bf563241454b21539effcad11406ec9"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#a5bf563241454b21539effcad11406ec9">rank_to_id</a> (const size_t &amp;rank) const =0</td></tr>
+<tr class="memdesc:a5bf563241454b21539effcad11406ec9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the node with a given rank.  <a href="#a5bf563241454b21539effcad11406ec9">More...</a><br /></td></tr>
+<tr class="separator:a5bf563241454b21539effcad11406ec9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6a21763bef01676efd4dd10767681bfc"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#a6a21763bef01676efd4dd10767681bfc">handle_to_rank</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
+<tr class="separator:a6a21763bef01676efd4dd10767681bfc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aacf6651545adbd407082a539222f8a69"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#aacf6651545adbd407082a539222f8a69">rank_to_handle</a> (const size_t &amp;rank) const</td></tr>
+<tr class="memdesc:aacf6651545adbd407082a539222f8a69"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the handle with a given rank.  <a href="#aacf6651545adbd407082a539222f8a69">More...</a><br /></td></tr>
+<tr class="separator:aacf6651545adbd407082a539222f8a69"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1HandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1HandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a></td></tr>
 <tr class="memitem:a24fb796441c9ad8c870fdb716a82b305 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a24fb796441c9ad8c870fdb716a82b305">~HandleGraph</a> ()=default</td></tr>
 <tr class="separator:a24fb796441c9ad8c870fdb716a82b305 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -182,10 +171,11 @@ Additional Inherited Members</h2></td></tr>
 <tr class="separator:af48ba081fcb810267dc50e3a3e7ad391 inherit pro_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Defines an interface providing a vectorization of the graph nodes and edges, which can be co-inherited alongside <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>. </p>
-</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="ae5986cf718d8f9d98b20f7e819db43f3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae5986cf718d8f9d98b20f7e819db43f3">&#9670;&nbsp;</a></span>~VectorizableHandleGraph()</h2>
+<div class="textblock"><p>Defines an interface for a handle graph that can rank its nodes and handles.</p>
+<p>Doesn't actually require an efficient node lookup by sequence position as in <a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html">VectorizableHandleGraph</a>. </p>
+</div><h2 class="groupheader">Member Function Documentation</h2>
+<a id="a6a21763bef01676efd4dd10767681bfc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6a21763bef01676efd4dd10767681bfc">&#9670;&nbsp;</a></span>handle_to_rank()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -194,54 +184,25 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual handlegraph::VectorizableHandleGraph::~VectorizableHandleGraph </td>
+          <td class="memname">size_t handlegraph::RankedHandleGraph::handle_to_rank </td>
           <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span><span class="mlabel">default</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<h2 class="groupheader">Member Function Documentation</h2>
-<a id="a5aa85bce7358af90d1e63d2060a50a39"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5aa85bce7358af90d1e63d2060a50a39">&#9670;&nbsp;</a></span>edge_index()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual size_t handlegraph::VectorizableHandleGraph::edge_index </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>edge</em></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em></td><td>)</td>
           <td> const</td>
         </tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Return a unique index among edges in the graph. </p>
-
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#a184f3b8960859cee3ef5d929a4391e0b">xg::XG</a>, and <a class="el" href="classbdsg_1_1VectorizableOverlay.html#a7665c7c7aa21c58b6e8fedae4b99fd31">bdsg::VectorizableOverlay</a>.</p>
+<p>Return the rank of a handle (ranks start at 1 and are dense, and each orientation has its own rank). Handle ranks may not have anything to do with node ranks. </p>
 
 </div>
 </div>
-<a id="a3095e541eee436a9f49ef0846539ef44"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3095e541eee436a9f49ef0846539ef44">&#9670;&nbsp;</a></span>node_at_vector_offset()</h2>
+<a id="a4c919e31efff422d9a29fa264290836c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4c919e31efff422d9a29fa264290836c">&#9670;&nbsp;</a></span>id_to_rank()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -250,37 +211,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> handlegraph::VectorizableHandleGraph::node_at_vector_offset </td>
-          <td>(</td>
-          <td class="paramtype">const size_t &amp;&#160;</td>
-          <td class="paramname"><em>offset</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Return the node overlapping the given offset in the implicit node vector. </p>
-
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#a2f2c0b014af5d0032f9beaefb074cc59">xg::XG</a>, and <a class="el" href="classbdsg_1_1VectorizableOverlay.html#af2e84fe9afaafa17bcd98c24fbd15e50">bdsg::VectorizableOverlay</a>.</p>
-
-</div>
-</div>
-<a id="a8666da4a9f55361893544fbb4eff76ce"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8666da4a9f55361893544fbb4eff76ce">&#9670;&nbsp;</a></span>node_vector_offset()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual size_t handlegraph::VectorizableHandleGraph::node_vector_offset </td>
+          <td class="memname">virtual size_t handlegraph::RankedHandleGraph::id_to_rank </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &amp;&#160;</td>
           <td class="paramname"><em>node_id</em></td><td>)</td>
@@ -293,14 +224,74 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Return the start position of the node in a (possibly implict) sorted array constructed from the concatenation of the node sequences </p>
 
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#abc79b8d077e089d9a847a6a4a4be70cc">xg::XG</a>, and <a class="el" href="classbdsg_1_1VectorizableOverlay.html#a08c7cb59b44ca3fb1b02eded1d71488b">bdsg::VectorizableOverlay</a>.</p>
+<p>Return the rank of a node (ranks start at 1 and are dense). </p>
+
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#a39172dc94153da745dd765f3c45ceeea">xg::XG</a>.</p>
 
 </div>
 </div>
-<hr/>The documentation for this class was generated from the following file:<ul>
+<a id="aacf6651545adbd407082a539222f8a69"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aacf6651545adbd407082a539222f8a69">&#9670;&nbsp;</a></span>rank_to_handle()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> handlegraph::RankedHandleGraph::rank_to_handle </td>
+          <td>(</td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
+          <td class="paramname"><em>rank</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Return the handle with a given rank. </p>
+
+</div>
+</div>
+<a id="a5bf563241454b21539effcad11406ec9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5bf563241454b21539effcad11406ec9">&#9670;&nbsp;</a></span>rank_to_id()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> handlegraph::RankedHandleGraph::rank_to_id </td>
+          <td>(</td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
+          <td class="paramname"><em>rank</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Return the node with a given rank. </p>
+
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#aee052f301d8cae7b30c50c115c6b950b">xg::XG</a>.</p>
+
+</div>
+</div>
+<hr/>The documentation for this class was generated from the following files:<ul>
 <li>deps/libhandlegraph/src/include/handlegraph/<a class="el" href="handle__graph_8hpp.html">handle_graph.hpp</a></li>
+<li>deps/libhandlegraph/src/<a class="el" href="handle_8cpp.html">handle.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
