@@ -1290,6 +1290,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ae03e9d67c4a774a71895ade9f10c6d19"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae03e9d67c4a774a71895ade9f10c6d19">topologically_order_subpaths</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln)</td></tr>
 <tr class="memdesc:ae03e9d67c4a774a71895ade9f10c6d19"><td class="mdescLeft">&#160;</td><td class="mdescRight">Put subpaths in topological order (assumed to be true for other algorithms)  <a href="#ae03e9d67c4a774a71895ade9f10c6d19">More...</a><br /></td></tr>
 <tr class="separator:ae03e9d67c4a774a71895ade9f10c6d19"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac3cf619defb6d34660fbd0ca89b6e4e8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac3cf619defb6d34660fbd0ca89b6e4e8">remove_empty_subpaths</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln)</td></tr>
+<tr class="memdesc:ac3cf619defb6d34660fbd0ca89b6e4e8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Removes subpaths that have no aligned bases and adds in any implied edges crossing through them.  <a href="#ac3cf619defb6d34660fbd0ca89b6e4e8">More...</a><br /></td></tr>
+<tr class="separator:ac3cf619defb6d34660fbd0ca89b6e4e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a84d3918e06a7c8948bb6e91ba1226fa9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a84d3918e06a7c8948bb6e91ba1226fa9">identify_start_subpaths</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln)</td></tr>
 <tr class="separator:a84d3918e06a7c8948bb6e91ba1226fa9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af0b28c682c013f735434f20e4d97ba1b"><td class="memItemLeft" align="right" valign="top">tuple&lt; <a class="el" href="structvg_1_1MultipathProblem.html">MultipathProblem</a>, int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af0b28c682c013f735434f20e4d97ba1b">run_multipath_dp</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln, bool subpath_global=false)</td></tr>
@@ -12218,8 +12221,38 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
+<a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[5/13]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
+          <td>(</td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1mapping__t.html">mapping_t</a>&#160;</td>
+          <td class="paramname"><em>mapping</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
+
+</div>
+</div>
 <a id="a9b4bea48392e7bb9e745b3b04e5bf223"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[5/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[6/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -12253,36 +12286,6 @@ template&lt;typename Scalar &gt; </div>
 </div><div class="memdoc">
 
 <p>Print a <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> to a stream. </p>
-
-</div>
-</div>
-<a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[6/13]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
-          <td>(</td>
-          <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1mapping__t.html">mapping_t</a>&#160;</td>
-          <td class="paramname"><em>mapping</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
 
 </div>
 </div>
@@ -14734,6 +14737,26 @@ template&lt;class Decoder &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac3cf619defb6d34660fbd0ca89b6e4e8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac3cf619defb6d34660fbd0ca89b6e4e8">&#9670;&nbsp;</a></span>remove_empty_subpaths()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::remove_empty_subpaths </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Removes subpaths that have no aligned bases and adds in any implied edges crossing through them. </p>
 
 </div>
 </div>
