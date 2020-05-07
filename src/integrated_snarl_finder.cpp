@@ -831,25 +831,38 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                             auto& path = longest_tree_paths.back().second;
                             
                             auto& path_root_frame = records[record.longest_subtree_path_root];
-                            assert(path_root_frame.has_second_deepest_child);
-                            // Collect the whole path down the second deepest child
-                            path.push_back(path_root_frame.second_deepest_child_edge);
-                            auto path_trace_it = deepest_child_edge.find(find(path.back()));
-                            while (path_trace_it != deepest_child_edge.end()) {
-                                // Follow the deepest child relationships until they run out.
-                                path.push_back(path_trace_it->second);
-                                path_trace_it = deepest_child_edge.find(find(path.back()));
+                            
+                            if (path_root_frame.has_second_deepest_child) {
+                                // This is an actual convergence point
+                            
+#ifdef debug
+                                cerr << "\t\t\t\tConverges at real convergence point" << endl;
+#endif
+                                
+                                // Collect the whole path down the second deepest child
+                                path.push_back(path_root_frame.second_deepest_child_edge);
+                                auto path_trace_it = deepest_child_edge.find(find(path.back()));
+                                while (path_trace_it != deepest_child_edge.end()) {
+                                    // Follow the deepest child relationships until they run out.
+                                    path.push_back(path_trace_it->second);
+                                    path_trace_it = deepest_child_edge.find(find(path.back()));
+                                }
+                                // Reverse what's there and flip all the edges
+                                vector<handle_t> flipped;
+                                flipped.reserve(path.size());
+                                for (auto path_it = path.rbegin(); path_it != path.rend(); ++path_it) {
+                                    flipped.push_back(graph->flip(*path_it));
+                                }
+                                path = std::move(flipped);
+                            } else {
+                                // There's no second-longest path; we statted at one of the most distant leaves.
+#ifdef debug
+                                cerr << "\t\t\t\tConverges at leaf" << endl;
+#endif
                             }
-                            // Reverse what's there and flip all the edges
-                            vector<handle_t> flipped;
-                            flipped.reserve(path.size());
-                            for (auto path_it = path.rbegin(); path_it != path.rend(); ++path_it) {
-                                flipped.push_back(graph->flip(*path_it));
-                            }
-                            path = std::move(flipped);
                             // Now trace the actual longest path from root to leaf and add it on
                             path.push_back(deepest_child_edge[record.longest_subtree_path_root]);
-                            path_trace_it = deepest_child_edge.find(find(path.back()));
+                            auto path_trace_it = deepest_child_edge.find(find(path.back()));
                             while (path_trace_it != deepest_child_edge.end()) {
                                 // Follow the deepest child relationships until they run out.
                                 path.push_back(path_trace_it->second);
