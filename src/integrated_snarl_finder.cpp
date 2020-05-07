@@ -519,7 +519,6 @@ vector<handle_t> IntegratedSnarlFinder::MergedAdjacencyGraph::find_cycle_path_in
     throw runtime_error("Cound not find cycle path!");
 }
 
-#define debug
 pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> IntegratedSnarlFinder::MergedAdjacencyGraph::longest_paths_in_forest(
     const vector<pair<size_t, handle_t>>& longest_simple_cycles) const {
     
@@ -1011,7 +1010,6 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
     
     return to_return;
 }
-#undef debug
 
 
 
@@ -1132,12 +1130,10 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
         forest.merge(kv.first, kv.second);
     }
 
-#define debug
 #ifdef debug
     cerr << "Bridge forest:" << endl;
     forest.to_dot(cerr);
 #endif
-#undef debug
     
 #ifdef debug
     cerr << "Finding bridge edge paths..." << endl;
