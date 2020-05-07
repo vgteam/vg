@@ -519,7 +519,7 @@ vector<handle_t> IntegratedSnarlFinder::MergedAdjacencyGraph::find_cycle_path_in
     throw runtime_error("Cound not find cycle path!");
 }
 
-
+#define debug
 pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> IntegratedSnarlFinder::MergedAdjacencyGraph::longest_paths_in_forest(
     const vector<pair<size_t, handle_t>>& longest_simple_cycles) const {
     
@@ -821,7 +821,8 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                             // Either we didn't root at a cycle, or we found a longer leaf-leaf path that should be the decomposition root instead.
                             
 #ifdef debug
-                            cerr << "\t\t\tTree has leaf-leaf path that is as long as or longer than any cycle at root." << endl;
+                            cerr << "\t\t\tTree has leaf-leaf path that is as long as or longer than any cycle at root ("
+                                << record.longest_subtree_path_length << "bp)." << endl;
 #endif
                             
                             // We need to record the longest tree path.
@@ -997,6 +998,7 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
     
     return to_return;
 }
+#undef debug
 
 
 
@@ -1116,11 +1118,13 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
         // Merge along all cycles in the bridge forest
         forest.merge(kv.first, kv.second);
     }
-    
+
+#define debug
 #ifdef debug
     cerr << "Bridge forest:" << endl;
     forest.to_dot(cerr);
 #endif
+#undef debug
     
 #ifdef debug
     cerr << "Finding bridge edge paths..." << endl;

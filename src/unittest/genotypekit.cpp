@@ -501,7 +501,7 @@ TEST_CASE("IntegratedSnarlFinder works on a complex bundle-y region with a neste
     REQUIRE(child->end().backward() == false);
 }
 
-TEST_CASE("CactusSnarlFinder safely rejects a single node graph", "[genotype][cactus-snarl-finder]") {
+TEST_CASE("CactusSnarlFinder safely handles a single node graph", "[genotype][cactus-snarl-finder]") {
     
   // Build a toy graph
   const string graph_json = R"(
@@ -521,12 +521,81 @@ TEST_CASE("CactusSnarlFinder safely rejects a single node graph", "[genotype][ca
   graph.merge(chunk);
     
   // Make a CactusSnarlFinder
-  SnarlFinder* finder = new CactusSnarlFinder(graph);
+  unique_ptr<SnarlFinder> finder(new CactusSnarlFinder(graph));
     
   SECTION("CactusSnarlFinder returns empty snarl manager instead of throwing or crashing") {
     REQUIRE(finder->find_snarls().num_snarls() == 0);
   }
+  
+}
+
+TEST_CASE("IntegratedSnarlFinder safely handles a single node graph", "[genotype][integrated-snarl-finder]") {
     
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GATTACA"}
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make a CactusSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    // There should be no snarls but the root implicit snarl.
+    REQUIRE(finder->find_snarls().num_snarls() == 0);
+}
+
+TEST_CASE("IntegratedSnarlFinder safely handles a single node conencted component in a larger graph", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GATTACA"},
+            {"id": 2, "sequence": "GAT"},
+            {"id": 3, "sequence": "TACA"}
+        ], "edge": [
+            {"from": 2, "to": 3}
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+    
+    auto manager = finder->find_snarls();
+    
+    // We expect the one trivial snarl only.
+    REQUIRE(manager.num_snarls() == 1);
+    
+    auto sites = manager.top_level_snarls();
+        
+    // There should just be 1 top snarl.
+    REQUIRE(sites.size() == 1);
+    
+    // It should have the right bounds
+    REQUIRE(sites[0]->start().node_id() == 2);
+    REQUIRE(sites[0]->start().backward() == false);
+    REQUIRE(sites[0]->end().node_id() == 3);
+    REQUIRE(sites[0]->end().backward() == false);
 }
 
 TEST_CASE("CactusSnarlFinder throws an error instead of crashing when the graph has no edges", "[genotype][cactus-snarl-finder]") {
@@ -557,12 +626,12 @@ TEST_CASE("CactusSnarlFinder throws an error instead of crashing when the graph 
   graph.merge(chunk);
     
   // Make a CactusSnarlFinder
-  SnarlFinder* finder = new CactusSnarlFinder(graph);
+  unique_ptr<SnarlFinder> finder(new CactusSnarlFinder(graph));
     
   SECTION("CactusSnarlFinder should fail gracefully") {
     REQUIRE_THROWS(finder->find_snarls());
   }
-    
+  
 }
 
 TEST_CASE("fixed priors can be assigned to genotypes", "[genotype]") {
