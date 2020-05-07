@@ -1158,7 +1158,7 @@ string GafAlignmentEmitter::aln2gaf(const Alignment& aln) {
 //10 int Number of residue matches
             << matched_length << "\t"
 //11 int Alignment block length
-            << std::max(end_position - start_position, aln.sequence().size()) << "\t"
+            << std::max(end_position - start_position, (uint64_t)aln.sequence().size()) << "\t"
 //12 int Mapping quality (0-255; 255 for missing)
             << aln.mapping_quality();
     }
