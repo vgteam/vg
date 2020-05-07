@@ -759,12 +759,19 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                     
                     // The length of the longest leaf-leaf path converging at or under any child (if any) is in record.longest_subtree_path_length.
                     
-                    if (record.has_second_deepest_child) {
+                    if (record.has_second_deepest_child || stack.size() == 1) {
                         // If there's a second incoming leaf path there's a converging leaf-leaf path here.
+                        // If we're the root and there *isn't* a second incoming leaf-leaf path, we are ourselves a leaf.
+                        
                         // Grab the length of the longest leaf-leaf path converging exactly here.
                         // TODO: can we not look up the deepest child's record again?
-                        size_t longest_here_path_length = records[find(deepest_child_edge_it->second)].leaf_path_length;
-                        longest_here_path_length += records[find(record.second_deepest_child_edge)].leaf_path_length;
+                        size_t longest_here_path_length = 0;
+                        if (deepest_child_edge_it != deepest_child_edge.end()) {
+                            longest_here_path_length += records[find(deepest_child_edge_it->second)].leaf_path_length;
+                        }
+                        if (record.has_second_deepest_child) {
+                            longest_here_path_length += records[find(record.second_deepest_child_edge)].leaf_path_length;
+                        }
                         
 #ifdef debug
                         cerr << "\t\tPaths converge here with total length " << longest_here_path_length << " bp" << endl;
@@ -815,7 +822,7 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
 #ifdef debug
                         cerr << "\t\tWe were the root of the traversal." << endl;
 #endif
-                        
+
                         if (record.longest_subtree_path_length >= root_cycle_length) {
                             // Either we didn't root at a cycle, or we found a longer leaf-leaf path that should be the decomposition root instead.
                             
@@ -859,13 +866,22 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                                 cerr << "\t\t\t\tConverges at leaf" << endl;
 #endif
                             }
-                            // Now trace the actual longest path from root to leaf and add it on
-                            path.push_back(deepest_child_edge[record.longest_subtree_path_root]);
-                            auto path_trace_it = deepest_child_edge.find(find(path.back()));
-                            while (path_trace_it != deepest_child_edge.end()) {
-                                // Follow the deepest child relationships until they run out.
-                                path.push_back(path_trace_it->second);
-                                path_trace_it = deepest_child_edge.find(find(path.back()));
+                            
+                            if (deepest_child_edge.count(record.longest_subtree_path_root)) {
+                            
+#ifdef debug
+                                cerr << "\t\t\t\tNonempty path to distinct other leaf" << endl;
+#endif
+                            
+                                // There's a nonempty path to another leaf (and we aren't just a point).
+                                // Trace the actual longest path from root to leaf and add it on
+                                path.push_back(deepest_child_edge[record.longest_subtree_path_root]);
+                                auto path_trace_it = deepest_child_edge.find(find(path.back()));
+                                while (path_trace_it != deepest_child_edge.end()) {
+                                    // Follow the deepest child relationships until they run out.
+                                    path.push_back(path_trace_it->second);
+                                    path_trace_it = deepest_child_edge.find(find(path.back()));
+                                }
                             }
                             
                             // OK now we have the longest leaf-leaf path saved.
@@ -970,6 +986,24 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                                 // The new root has no parent itself, so all its edges are eligible and the one with the longest path wins.
                                 convergence_to_old_root.pop_back();
                             }
+                            
+#ifdef debug
+                            for (auto& item : path) {
+                                cerr << "\t\t\t\tPath visits: "
+                                    << graph->get_id(item) << (graph->get_is_reverse(item) ? "-" : "+")
+                                    << " length " << graph->get_length(item) << endl;
+                            }
+#endif
+
+                            if (path.empty()) {
+                                // If the leaf-leaf path is empty, stick in a handle so we can actually find the single leaf in the bridge forest.
+                                assert(longest_tree_paths.back().first == 0);
+                                path.push_back(traversal_root);
+                            } else {
+                                // If anything is on the path, we shouldn't have 0 length.
+                                assert(longest_tree_paths.back().first != 0);
+                            }
+                            
                         }
                     }
                     
@@ -1148,6 +1182,9 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
     //
     // Make sure to root at the nodes corresponding to the collapsed longest
     // cycles, if the leaf-leaf paths don't win their components.
+    //
+    // For empty leaf-leaf paths, will emit a single node "path" with a length
+    // of 0.
     pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> forest_paths = forest.longest_paths_in_forest(longest_cycles);
     auto& longest_paths = forest_paths.first;
     auto& towards_deepest_leaf = forest_paths.second;
@@ -1232,7 +1269,10 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
         vector<SnarlChainFrame> stack;
         
         if (longest_cycles.empty() || (!longest_paths.empty() && longest_cycles.back().first <= longest_paths.back().first)) {
+            // There should be a path still
             assert(!longest_paths.empty());
+            // It should not be empty. It should at least have a single bridge forest node to visit.
+            assert(!longest_paths.back().second.empty());
             
             // We will root on a tip-tip path for its connected component, if
             // not already covered, because there isn't a longer cycle.
@@ -1241,34 +1281,105 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                 // This connected component isn't already covered.
                 
                 handle_t first_edge = longest_paths.back().second.front();
+                
+                if (longest_paths.back().first == 0) {
+                    // This is a 0-length path, but we want to root the decomposition here.
+                    // This bridge tree has no nonempty cycles and no bridge edges. It's just all one adjacency component.
+                    // All contents spill out into the root snarl as contained nodes.
+                    
+#ifdef debug
+                    cerr << "Single node bridge tree with no real cycles for "
+                        << graph->get_id(first_edge) << (graph->get_is_reverse(first_edge) ? "-" : "+") << endl;
+                        
+                    cerr << "\tSpilling contents into root snarl." << endl;
+#endif
+                    
+                    cactus.for_each_member(cactus.find(first_edge), [&](handle_t inbound) {
+                        // The contents are all self loops
+                        assert(cactus.find(inbound) == cactus.find(graph->flip(inbound)));
+                        if (!graph->get_is_reverse(inbound)) {
+                            // We only want them forward so each becomes only one empty chain.
+                        
+#ifdef debug
+                            cerr << "\t\tContain edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
+#endif
+                        
+                            begin_chain(inbound);
+                            end_chain(inbound);
+                            
+                            visited.insert(graph->forward(inbound));
+                        }
+                    });
+                } else {
+                
+                    // This is a real path between distinct bridge edge tree leaves
                
 #ifdef debug
-                cerr << "Rooting component at tip-tip path starting with " << graph->get_id(first_edge) << (graph->get_is_reverse(first_edge) ? "-" : "+") << endl;
+                    cerr << "Rooting component at tip-tip path starting with " << graph->get_id(first_edge) << (graph->get_is_reverse(first_edge) ? "-" : "+") << endl;
 #endif
+                    
+                    for (size_t i = 1; i < longest_paths.back().second.size(); i++) {
+                        // Rewrite the deepest bridge graph leaf path map to point from one end of the tip-tip path to the other
+                        // TODO: bump this down into the bridge path finding function
+                        
+                        handle_t prev_path_edge = longest_paths.back().second[i - 1];
+                        handle_t prev_head = forest.find(prev_path_edge);
+                        handle_t next_path_edge = longest_paths.back().second[i];
+                        
+                        towards_deepest_leaf[prev_head] = next_path_edge;
+                        
+#ifdef debug
+                        cerr << "\tEnforce leaf path goes " << graph->get_id(prev_path_edge) << (graph->get_is_reverse(prev_path_edge) ? "-" : "+")
+                            << " with head " << graph->get_id(prev_head) << (graph->get_is_reverse(prev_head) ? "-" : "+")
+                            << " to next edge " << graph->get_id(next_path_edge) << (graph->get_is_reverse(next_path_edge) ? "-" : "+") << endl;
+#endif
+                        
+                    }
                 
-                for (size_t i = 1; i < longest_paths.back().second.size(); i++) {
-                    // Rewrite the deepest bridge graph leaf path map to point from one end of the tip-tip path to the other
-                    // TODO: bump this down into the bridge path finding function
-                    
-                    handle_t prev_path_edge = longest_paths.back().second[i - 1];
-                    handle_t prev_head = forest.find(prev_path_edge);
-                    handle_t next_path_edge = longest_paths.back().second[i];
-                    
-                    towards_deepest_leaf[prev_head] = next_path_edge;
+                    // Stack up a root/null snarl containing this bridge edge.
+                    // Remember to queue it facing inward, toward the new new root at the start of the path.
+                    stack.emplace_back();
+                    stack.back().is_snarl = true;
+                    stack.back().todo.push_back(graph->flip(first_edge));
                     
 #ifdef debug
-                    cerr << "\tEnforce leaf path goes " << graph->get_id(prev_path_edge) << (graph->get_is_reverse(prev_path_edge) ? "-" : "+")
-                        << " with head " << graph->get_id(prev_head) << (graph->get_is_reverse(prev_head) ? "-" : "+")
-                        << " to next edge " << graph->get_id(next_path_edge) << (graph->get_is_reverse(next_path_edge) ? "-" : "+") << endl;
+                    cerr << "\tPut cycles and self edges at tip into root snarl" << endl;
 #endif
                     
-                }
+                    // Find all the cycles and self edges that are also here and make sure to do them. Connectivity will be in the root snarl.
+                    cactus.for_each_member(cactus.find(graph->flip(first_edge)), [&](handle_t inbound) {
+                        if (inbound == graph->flip(first_edge)) {
+                            // Skip the one bridge edge we started with
+                            return;
+                        }
                     
-                // Stack up a root/null snarl containing this bridge edge.
-                // Remember to queue it facing inward, toward the new new root at the start of the path.
-                stack.emplace_back();
-                stack.back().is_snarl = true;
-                stack.back().todo.push_back(graph->flip(first_edge));
+#ifdef debug
+                        cerr << "\t\tLook at edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << " on " << next_along_cycle.count(inbound) << " cycles" << endl;
+#endif
+                    
+                        if (next_along_cycle.count(inbound)) {
+                            // Put this cycle on the to do list also
+                            
+#ifdef debug
+                            cerr << "\t\t\tLook at cycle edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
+#endif
+                            
+                            stack.back().todo.push_back(inbound);
+                        } else if (cactus.find(inbound) == cactus.find(graph->flip(inbound)) && !graph->get_is_reverse(inbound)) {
+                            // Self loop.
+                            // We only want them forward so each becomes only one empty chain.
+                            
+#ifdef debug
+                            cerr << "\t\t\tContain edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
+#endif
+                        
+                            begin_chain(inbound);
+                            end_chain(inbound);
+                            
+                            visited.insert(graph->forward(inbound));
+                        } 
+                    });
+                }
             }
             
             longest_paths.pop_back();
@@ -1295,6 +1406,8 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                 stack.emplace_back();
                 stack.back().is_snarl = false;
                 stack.back().bounds = make_pair(longest_cycles.back().second, longest_cycles.back().second);
+                
+                // We'll find all the self edges OK when we look in the first/last snarls on the chain.
             }
             
             longest_cycles.pop_back();
@@ -1362,8 +1475,8 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                             cerr << "\t\tLook at cycle edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
 #endif
                             frame.todo.push_back(inbound);
-                        } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound)) {
-                            // Count all self edges as empty chains.
+                        } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound) && !graph->get_is_reverse(inbound)) {
+                            // Count all self edges as empty chains, but only in one orientation.
                             
 #ifdef debug
                             cerr << "\t\tContain edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
