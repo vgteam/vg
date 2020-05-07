@@ -747,10 +747,11 @@ int main_mpmap(int argc, char** argv) {
         }
         // seed finding, cluster pruning, and rescue parameters tuned for a lower repeat content
         secondary_rescue_attempts = 1;
-        hit_max = 256;
-        reseed_length = 40;
+        max_single_end_mappings_for_rescue = 32;
+        hit_max = 100;
+        reseed_length = 28; // TODO: returned to the DNA value
         reseed_diff = 0.6;
-        likelihood_approx_exp = 6.0;
+        likelihood_approx_exp = 3.5;
     }
     else if (nt_type != "dna") {
         // DNA is the default
@@ -1877,6 +1878,10 @@ int main_mpmap(int argc, char** argv) {
     
     // GAM input
     if (!gam_file_name.empty()) {
+        if (!suppress_progress) {
+            cerr << "[vg mpmap] Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << " using " << thread_count << " threads" << endl;
+        }
+        
         function<void(istream&)> execute = [&](istream& gam_in) {
             if (!gam_in) {
                 cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << endl;
