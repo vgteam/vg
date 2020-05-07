@@ -1475,15 +1475,15 @@ int main_mpmap(int argc, char** argv) {
     const uint64_t thread_progress_frequency = 1000;
     assert(progress_frequency % thread_progress_frequency == 0);
     uint64_t num_reads_mapped = 0;
-    vector<int> thread_num_reads_mapped(thread_count, 0);
+    vector<uint64_t> thread_num_reads_mapped(thread_count, 0);
     
     function<void(int)> register_mapping = [&](int thread_num) {
         if (!suppress_progress) {
-            int num_mapped = ++thread_num_reads_mapped[thread_num];
+            uint64_t num_mapped = ++thread_num_reads_mapped[thread_num];
             if (num_mapped == thread_progress_frequency) {
                 uint64_t n;
 #pragma omp atomic capture
-                n = (num_reads_mapped += num_mapped);
+                n = num_reads_mapped += num_mapped;
                 if (n % progress_frequency == 0) {
 #pragma omp critical
                     {
