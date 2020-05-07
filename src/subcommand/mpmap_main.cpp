@@ -1953,7 +1953,7 @@ int main_mpmap(int argc, char** argv) {
     cout.flush();
     
     if (!suppress_progress) {
-        for (int uncounted_mappings : thread_num_reads_mapped) {
+        for (auto uncounted_mappings : thread_num_reads_mapped) {
             num_reads_mapped += uncounted_mappings;
         }
         cerr << "[vg mpmap] Mapping finished. Mapped " << num_reads_mapped;
