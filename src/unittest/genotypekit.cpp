@@ -428,6 +428,79 @@ TEST_CASE("IntegratedSnarlFinder works when cactus graph contains longer back-to
     REQUIRE(sites.size() == 1);
 }
 
+TEST_CASE("IntegratedSnarlFinder works on a complex bundle-y region with a nested snarl", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+        {"edge": [{"from": "129672", "to": "129673"},
+                  {"from": "129662", "to": "129663"}, 
+                  {"from": "129662", "to": "129664"}, 
+                  {"from": "129664", "to": "129665"}, 
+                  {"from": "129664", "to": "129666"}, 
+                  {"from": "129666", "to": "129668"}, 
+                  {"from": "129666", "to": "129669"}, 
+                  {"from": "129666", "to": "129667"}, 
+                  {"from": "129667", "to": "129668"}, 
+                  {"from": "129667", "to": "129669"}, 
+                  {"from": "129669", "to": "129670"}, 
+                  {"from": "129669", "to": "129673"}, 
+                  {"from": "129671", "to": "129672"}, 
+                  {"from": "129668", "to": "129670"}, 
+                  {"from": "129668", "to": "129673"}, 
+                  {"from": "129665", "to": "129668"}, 
+                  {"from": "129665", "to": "129669"}, 
+                  {"from": "129665", "to": "129667"}, 
+                  {"from": "129670", "to": "129671"}, 
+                  {"from": "129670", "to": "129672"}, 
+                  {"from": "129663", "to": "129665"}, 
+                  {"from": "129663", "to": "129666"}], 
+        "node": [{"id": "129672", "sequence": "AT"}, 
+                 {"id": "129662", "sequence": "CAGGTCAAACTGTGAT"}, 
+                 {"id": "129664", "sequence": "T"}, 
+                 {"id": "129666", "sequence": "T"}, 
+                 {"id": "129667", "sequence": "G"}, 
+                 {"id": "129669", "sequence": "G"}, 
+                 {"id": "129671", "sequence": "T"}, 
+                 {"id": "129668", "sequence": "A"}, 
+                 {"id": "129665", "sequence": "A"}, 
+                 {"id": "129670", "sequence": "A"}, 
+                 {"id": "129673", "sequence": "ATATATATATACTTATTGTAAAAATCTTTAGA"}, 
+                 {"id": "129663", "sequence": "G"}]}
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    SnarlManager manager = finder->find_snarls();
+        
+    auto sites = manager.top_level_snarls();
+        
+    // There should just be 1 top snarl.
+    REQUIRE(sites.size() == 1);
+    
+    // It should have the right bounds
+    REQUIRE(sites[0]->start().node_id() == 129662);
+    REQUIRE(sites[0]->start().backward() == false);
+    REQUIRE(sites[0]->end().node_id() == 129673);
+    REQUIRE(sites[0]->end().backward() == false);
+           
+    // It should have one child snarl
+    REQUIRE(manager.children_of(sites[0]).size() == 1);
+    auto& child = manager.children_of(sites[0])[0];
+    
+    // And the child should have the right bounds
+    REQUIRE(child->start().node_id() == 129670);
+    REQUIRE(child->start().backward() == false);
+    REQUIRE(child->end().node_id() == 129672);
+    REQUIRE(child->end().backward() == false);
+}
+
 TEST_CASE("CactusSnarlFinder safely rejects a single node graph", "[genotype][cactus-snarl-finder]") {
     
   // Build a toy graph
