@@ -161,6 +161,7 @@ int main_mpmap(int argc, char** argv) {
     bool synthesize_tail_anchors = false;
     int max_paired_end_map_attempts = 24;
     int max_single_end_map_attempts = 64;
+    int max_single_end_mappings_for_rescue = max_single_end_map_attempts;
     int max_rescue_attempts = 10;
     int population_max_paths = 10;
     int population_paths_hard_cap = 1000;
@@ -843,7 +844,9 @@ int main_mpmap(int argc, char** argv) {
     // choose either the user supplied max or the default for paired/unpaired
     int max_map_attempts = max_map_attempts_arg ? max_map_attempts_arg : ((interleaved_input || !fastq_name_2.empty()) ?
                                                                           max_paired_end_map_attempts : max_single_end_map_attempts);
-    int max_single_end_mappings_for_rescue = max_map_attempts_arg ? max_map_attempts_arg : max_single_end_map_attempts;
+    if (max_map_attempts_arg) {
+        max_single_end_mappings_for_rescue = max_map_attempts_arg;
+    }
     
     // hits that are much more frequent than the number of hits we sample are unlikely to produce high MAPQs, so
     // we can usually ignore them
