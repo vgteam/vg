@@ -648,7 +648,7 @@ int main_map(int argc, char** argv) {
     unique_ptr<gcsa::LCPArray> lcp;
     unique_ptr<gbwt::GBWT> gbwt;
     // Used only for memory management:
-    unique_ptr<PathPositionHandleGraph> path_handle_graph;
+    unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     
     // One of them may be used to provide haplotype scores
@@ -665,7 +665,7 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
-        path_handle_graph = vg::io::VPKG::load_one<PathPositionHandleGraph>(xg_stream);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_stream);
         xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
     }
 
@@ -737,7 +737,7 @@ int main_map(int argc, char** argv) {
         });
 
     // Set up output to an emitter that will handle serialization
-    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count, path_handle_graph.get());
+    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count, xgidx);
 
     // TODO: Refactor the surjection code out of surject_main and into somewhere where we can just use it here!
 
