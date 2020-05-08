@@ -173,8 +173,12 @@ protected:
     /// If direction is false, finds a seed hit on the first node of the graph. If it is true, finds a hit on the last node.
     ///
     /// This replaces calculate_seed_position for the case where we have no MEMs.
-    graph_pos_s scan_seed_position(const OrderedGraph& graph, const Alignment& alignment, bool direction,
-                                   vector<const dz_forefront_s*>& forefronts, uint16_t max_gap_length);
+    ///
+    /// The bool return with the position indicates whether the scan succeeded or failed.
+    /// If the scan failed, then the alignment should not be attempted.
+    pair<graph_pos_s, bool> scan_seed_position(const OrderedGraph& graph, const Alignment& alignment,
+                                               bool direction, vector<const dz_forefront_s*>& forefronts,
+                                               uint16_t max_gap_length);
     
     /// Append an edit at the end of the current mapping array.
     /// Returns the length passed in.

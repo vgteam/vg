@@ -1393,6 +1393,11 @@ void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vect
     // thread-safety by having one per thread, which makes this method const-ish.
     XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
     xdrop.align(alignment, g, order, mems, reverse_complemented, max_gap_length);
+    if (!alignment.has_path() && mems.empty()) {
+        // dozeu couldn't find an alignment, probably because it's seeding heuristic failed
+        // we'll just fall back on GSSW
+        align(alignment, g, true);
+    }
 }
 
 
@@ -1877,6 +1882,11 @@ void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, con
     // thread-safety by having one per thread, which makes this method const-ish.
     QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
     xdrop.align(alignment, g, order, mems, reverse_complemented, max_gap_length);
+    if (!alignment.has_path() && mems.empty()) {
+        // dozeu couldn't find an alignment, probably because it's seeding heuristic failed
+        // we'll just fall back on GSSW
+        align(alignment, g, true);
+    }
 }
 
 int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {
