@@ -17,7 +17,9 @@ nid_t parse_gfa_sequence_id(const string& str) {
 
 void validate_gfa_edge(const gfak::edge_elem& e) {
     string not_blunt = ("error:[gfa_to_handle_graph] Can only load blunt-ended GFAs. "
-        "Try \"bluntifying\" your graph with a tool like <https://github.com/hnikaein/stark>.");
+        "Try \"bluntifying\" your graph with a tool like <https://github.com/hnikaein/stark>, or "
+        "transitively merge overlaps with a pipeline of <https://github.com/ekg/gimbricate> and "
+        "<https://github.com/ekg/seqwish>.");
     if (e.source_begin != e.source_end || e.sink_begin != 0 || e.sink_end != 0) {
         throw GFAFormatError(not_blunt + " Found edge with an overlay: " + e.source_name + "[" + to_string(e.source_begin) + ":" + to_string(e.source_end) + "] -> " + e.sink_name + "[" + to_string(e.sink_begin) + ":" + to_string(e.sink_end) + "]");
     }
