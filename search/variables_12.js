@@ -52,6 +52,7 @@ var searchData=
   ['repeat_5fsize',['repeat_size',['../classvg_1_1ReadFilter.html#a4d1bcac75fda8d439384ba8c09c780cf',1,'vg::ReadFilter']]],
   ['report_5fgroup_5fmapq',['report_group_mapq',['../classvg_1_1MultipathMapper.html#a42577bd89395f56ea2045c378b745456',1,'vg::MultipathMapper']]],
   ['rescore',['rescore',['../classvg_1_1ReadFilter.html#ab3b47fbeff165aa3fb4fdff25d2cb6fb',1,'vg::ReadFilter']]],
+  ['rescue_5falgorithm',['rescue_algorithm',['../classvg_1_1MinimizerMapper.html#a17f800e4588567e473ea18a55bd186b9',1,'vg::MinimizerMapper']]],
   ['rescue_5fonly_5fanchor_5fmax',['rescue_only_anchor_max',['../classvg_1_1MultipathMapper.html#acd7c1016549d1f96af13b9c317f239f3',1,'vg::MultipathMapper']]],
   ['rescue_5fonly_5fmin',['rescue_only_min',['../classvg_1_1MultipathMapper.html#a2ad423f9fc1a81bbe31e9c25992de378',1,'vg::MultipathMapper']]],
   ['reserved',['reserved',['../structvg_1_1Alignment.html#a8374111b6348509e8e9ecca0cd1ac046',1,'vg::Alignment']]],
