@@ -256,8 +256,6 @@ int main_mpmap(int argc, char** argv) {
     // logging and warning
     bool suppress_progress = false;
     int fragment_length_warning_factor = 50;
-    uint64_t progress_frequency = 100000;
-    uint64_t num_reads_mapped = 0;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -840,6 +838,11 @@ int main_mpmap(int argc, char** argv) {
         // the full length bonus should override a mismatch unless we're in long read mode
         full_length_bonus = min<int>(mismatch_score + 1, std::numeric_limits<int8_t>::max());
     }
+        
+    // choose either the user supplied max or the default for paired/unpaired
+    int max_map_attempts = max_map_attempts_arg ? max_map_attempts_arg : ((interleaved_input || !fastq_name_2.empty()) ?
+                                                                          max_paired_end_map_attempts : max_single_end_map_attempts);
+    int max_single_end_mappings_for_rescue = max_map_attempts_arg ? max_map_attempts_arg : max_single_end_map_attempts;
     
     // hits that are much more frequent than the number of hits we sample are unlikely to produce high MAPQs, so
     // we can usually ignore them
@@ -953,10 +956,6 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    // choose either the user supplied max or the default for paired/unpaired
-    int max_map_attempts = max_map_attempts_arg ? max_map_attempts_arg : ((interleaved_input || !fastq_name_2.empty()) ?
-                                                                          max_paired_end_map_attempts : max_single_end_map_attempts);
-    int max_single_end_mappings_for_rescue = max_map_attempts_arg ? max_map_attempts_arg : max_single_end_map_attempts;
     if (max_num_mappings > max_map_attempts && max_map_attempts != 0) {
         cerr << "warning:[vg mpmap] Reporting up to " << max_num_mappings << " mappings, but only computing up to " << max_map_attempts << " mappings." << endl;
     }
@@ -1471,6 +1470,31 @@ int main_mpmap(int argc, char** argv) {
     ofstream read_time_file(READ_TIME_FILE);
 #endif
     
+    // a probably over-engineered way to report progress across threads with minimal contention
+    const uint64_t progress_frequency = read_length == "long" ? 250000 : 5000000;
+    const uint64_t thread_progress_frequency = 1000;
+    assert(progress_frequency % thread_progress_frequency == 0);
+    uint64_t num_reads_mapped = 0;
+    vector<uint64_t> thread_num_reads_mapped(thread_count, 0);
+    
+    function<void(int)> register_mapping = [&](int thread_num) {
+        if (!suppress_progress) {
+            uint64_t num_mapped = ++thread_num_reads_mapped[thread_num];
+            if (num_mapped == thread_progress_frequency) {
+                uint64_t n;
+#pragma omp atomic capture
+                n = num_reads_mapped += num_mapped;
+                if (n % progress_frequency == 0) {
+#pragma omp critical
+                    {
+                        cerr << "[vg mpmap] Mapped " << n << (!interleaved_input && fastq_name_2.empty() ? " reads" : " read pairs") << endl;
+                    }
+                }
+                thread_num_reads_mapped[thread_num] = 0;
+            }
+        }
+    };
+    
     // a buffer to hold read pairs that can't be unambiguously mapped before the fragment length distribution
     // is estimated
     // note: sufficient to have only one buffer because multithreading code enforces single threaded mode
@@ -1683,17 +1707,7 @@ int main_mpmap(int argc, char** argv) {
             watchdog->check_out(thread_num);
         }
         
-        if (!suppress_progress) {
-            uint64_t n;
-#pragma omp atomic capture
-            n = ++num_reads_mapped;
-            if (n % progress_frequency == 0) {
-#pragma omp critical
-                {
-                    cerr << "[vg mpmap] Mapped " << n << " reads" << endl;
-                }
-            }
-        }
+        register_mapping(thread_num);
         
 #ifdef record_read_run_times
         clock_t finish = clock();
@@ -1752,17 +1766,9 @@ int main_mpmap(int argc, char** argv) {
             watchdog->check_out(thread_num);
         }
         
-        if (!suppress_progress && num_buffered == ambiguous_pair_buffer.size()) {
+        if (num_buffered == ambiguous_pair_buffer.size()) {
             // the read didn't get buffered during the frag length estimation phase
-            uint64_t n;
-#pragma omp atomic capture
-            n = ++num_reads_mapped;
-            if (n % progress_frequency == 0) {
-#pragma omp critical
-                {
-                    cerr << "[vg mpmap] Mapped " << n << " read pairs" << endl;
-                }
-            }
+            register_mapping(thread_num);
         }
         
 #ifdef record_read_run_times
@@ -1836,17 +1842,7 @@ int main_mpmap(int argc, char** argv) {
             watchdog->check_out(thread_num);
         }
         
-        if (!suppress_progress) {
-            uint64_t n;
-#pragma omp atomic capture
-            n = ++num_reads_mapped;
-            if (n % progress_frequency == 0) {
-#pragma omp critical
-                {
-                    cerr << "[vg mpmap] Mapped " << n << " read pairs" << endl;
-                }
-            }
-        }
+        register_mapping(thread_num);
         
 #ifdef record_read_run_times
         clock_t finish = clock();
@@ -1863,7 +1859,7 @@ int main_mpmap(int argc, char** argv) {
     // FASTQ input
     if (!fastq_name_1.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << endl;
+            cerr << "[vg mpmap] Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << " using " << thread_count << " threads" << endl;
         }
         
         if (interleaved_input) {
@@ -1952,6 +1948,9 @@ int main_mpmap(int argc, char** argv) {
     cout.flush();
     
     if (!suppress_progress) {
+        for (int uncounted_mappings : thread_num_reads_mapped) {
+            num_reads_mapped += uncounted_mappings;
+        }
         cerr << "[vg mpmap] Mapping finished. Mapped " << num_reads_mapped;
         if (fastq_name_2.empty() && !interleaved_input) {
             cerr << " reads.";
