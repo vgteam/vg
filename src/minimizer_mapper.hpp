@@ -134,9 +134,15 @@ public:
     /// algorithm. Only works if track_provenance is true.
     bool track_correctness = false;
 
-    //For paired end mapping, how many times should we attempt rescue (per read)?
+    /// For paired end mapping, how many times should we attempt rescue (per read)?
     size_t max_rescue_attempts = 0;
-    
+
+    /// Implemented rescue algorithms: no rescue, dozeu, GSSW, dozeu on local haplotypes.
+    enum RescueAlgorithm { rescue_none, rescue_dozeu, rescue_gssw, rescue_haplotypes };
+
+    /// The algorithm used for rescue.
+    RescueAlgorithm rescue_algorithm = rescue_dozeu;
+
     bool fragment_distr_is_finalized () {return fragment_length_distr.is_finalized();}
     void finalize_fragment_length_distr() {
         if (!fragment_length_distr.is_finalized()) {
@@ -152,18 +158,7 @@ public:
     * Assumes that both reads are facing the same direction.
     * TODO: This should be const, but some of the function calls are not.
     */
-   void attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
-
-   /**
-    * Given an aligned read, extract all haplotypes within a distance range based on the
-    * fragment length distribution and attempt to align the unaligned read to it.
-    * Rescue_forward is true if the aligned read is the first and false otherwise.
-    * Assumes that both reads are facing the same direction.
-    * NOTE: Using this in a graph with small variants is generally a bad idea, because
-    * the number of local haplotypes is probably too large.
-    * TODO: This should be const, but some of the function calls are not.
-    */
-   void attempt_rescue_haplotypes(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
+   void attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
 
     /**
      * Get the distance between a pair of read alignments

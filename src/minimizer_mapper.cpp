@@ -2124,8 +2124,9 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 
 //-----------------------------------------------------------------------------
 
-void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
+void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
 
+    if (this->rescue_algorithm == rescue_none) { return; }
 
     // We are traversing the same small subgraph repeatedly, so it's better to use a cache.
     gbwtgraph::CachedGBWTGraph cached_graph(this->gbwt_graph);
@@ -2140,68 +2141,68 @@ void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& 
     // Get rid of the old path.
     rescued_alignment.clear_path();
 
-    // Check if the subgraph is acyclic. Rescue is much faster in acyclic subgraphs.
-    std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
-    if (!topological_order.empty()) {
-        get_regular_aligner()->align(rescued_alignment, cached_graph, rescue_nodes, topological_order);
-    } else {
-        // Build a subgraph overlay.
+    if (this->rescue_algorithm == rescue_haplotypes) {
+        // FIXME Implement this using the subset of nodes.
         SubHandleGraph sub_graph(&cached_graph);
         for (id_t id : rescue_nodes)  {
-            sub_graph.add_handle(cached_graph.get_handle(id));
+            sub_graph.add_handle(gbwt_graph.get_handle(id));
         }
 
-        // Create an overlay where each strand is a separate node.
-        StrandSplitGraph split_graph(&sub_graph);
-
-        // Dagify the subgraph.
-        bdsg::HashGraph dagified;
-        std::unordered_map<id_t, id_t> dagify_trans =
-            algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
+        // Find and unfold the local haplotypes in the subgraph.
+        std::vector<std::vector<handle_t>> haplotype_paths;
+        bdsg::HashGraph align_graph;
+        this->extender.unfold_haplotypes(sub_graph, haplotype_paths, align_graph);
 
         // Align to the subgraph.
-        get_regular_aligner()->align(rescued_alignment, dagified, true);
+        this->get_regular_aligner()->align_xdrop(rescued_alignment, align_graph,
+                                                 std::vector<MaximalExactMatch>(), false);
 
-        // Map the alignment back to the original graph.
-        Path& path = *(rescued_alignment.mutable_path());
-        for (size_t i = 0; i < path.mapping_size(); i++) {
-            Position& pos = *(path.mutable_mapping(i)->mutable_position());
-            id_t id = dagify_trans[pos.node_id()];
-            handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(id));
-            pos.set_node_id(sub_graph.get_id(handle));
-            pos.set_is_reverse(sub_graph.get_is_reverse(handle));
+        // Get the corresponding alignment to the original graph.
+        this->extender.transform_alignment(rescued_alignment, haplotype_paths);
+    } else {
+        // Check if the subgraph is acyclic. Rescue is much faster in acyclic subgraphs.
+        std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
+        if (!topological_order.empty()) {
+            if (this->rescue_algorithm == rescue_dozeu) {
+                get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
+                                                   std::vector<MaximalExactMatch>(), false);
+            } else {
+                get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
+            }
+        } else {
+            // Build a subgraph overlay.
+            SubHandleGraph sub_graph(&cached_graph);
+            for (id_t id : rescue_nodes)  {
+                sub_graph.add_handle(cached_graph.get_handle(id));
+            }
+
+            // Create an overlay where each strand is a separate node.
+            StrandSplitGraph split_graph(&sub_graph);
+
+            // Dagify the subgraph.
+            bdsg::HashGraph dagified;
+            std::unordered_map<id_t, id_t> dagify_trans =
+                algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
+
+            // Align to the subgraph.
+            if (this->rescue_algorithm == rescue_dozeu) {
+                get_regular_aligner()->align_xdrop(rescued_alignment, dagified,
+                                                   std::vector<MaximalExactMatch>(), false);
+            } else {
+                get_regular_aligner()->align(rescued_alignment, dagified, true);
+            }
+
+            // Map the alignment back to the original graph.
+            Path& path = *(rescued_alignment.mutable_path());
+            for (size_t i = 0; i < path.mapping_size(); i++) {
+                Position& pos = *(path.mutable_mapping(i)->mutable_position());
+                id_t id = dagify_trans[pos.node_id()];
+                handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(id));
+                pos.set_node_id(sub_graph.get_id(handle));
+                pos.set_is_reverse(sub_graph.get_is_reverse(handle));
+            }
         }
     }
-}
-
-void MinimizerMapper::attempt_rescue_haplotypes(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward) {
-
-    // Find all nodes within a reasonable range from aligned_read.
-    std::unordered_set<id_t> rescue_nodes;
-    // TODO: How big should the rescue subgraph be?
-    int64_t min_distance = std::max(0.0, this->fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * this->fragment_length_distr.stdev());
-    int64_t max_distance = this->fragment_length_distr.mean() + 4 * this->fragment_length_distr.stdev();
-
-    this->distance_index.subgraph_in_range(aligned_read.path(), &(this->gbwt_graph), min_distance, max_distance, rescue_nodes, rescue_forward);
-
-    // Build a subgraph overlay.
-    // TODO: We could skip this and use the set of nodes in unfold_haplotypes().
-    SubHandleGraph sub_graph(&(this->gbwt_graph));
-    for (id_t id : rescue_nodes)  {
-        sub_graph.add_handle(gbwt_graph.get_handle(id));
-    }
-
-    // Find and unfold the local haplotypes in the subgraph.
-    std::vector<std::vector<handle_t>> haplotype_paths;
-    bdsg::HashGraph align_graph;
-    this->extender.unfold_haplotypes(sub_graph, haplotype_paths, align_graph);
-    
-    // Align to the subgraph.
-    rescued_alignment.clear_path();
-    this->get_regular_aligner()->align(rescued_alignment, align_graph, true);
-
-    // Get the corresponding alignment to the original graph.
-    this->extender.transform_alignment(rescued_alignment, haplotype_paths);
 }
 
 int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment& aln2) {

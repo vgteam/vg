@@ -477,7 +477,7 @@ TEST_CASE("Aligner can align to a subgraph", "[aligner][alignment][mapping]") {
     SECTION("Align to forward strand") {
         Alignment alignment;
         alignment.set_sequence("ATTACA");
-        aligner.align(alignment, graph, subgraph, topological_order);
+        aligner.align(alignment, graph, topological_order);
 
         const Path& path = alignment.path();
         REQUIRE(path.mapping_size() == 2);
@@ -488,7 +488,7 @@ TEST_CASE("Aligner can align to a subgraph", "[aligner][alignment][mapping]") {
     SECTION("Align to reverse strand") {
         Alignment alignment;
         alignment.set_sequence("TGTAAT");
-        aligner.align(alignment, graph, subgraph, topological_order);
+        aligner.align(alignment, graph, topological_order);
 
         const Path& path = alignment.path();
         REQUIRE(path.mapping_size() == 2);
