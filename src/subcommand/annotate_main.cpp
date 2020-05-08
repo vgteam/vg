@@ -23,7 +23,7 @@ void help_annotate(char** argv) {
          << "graph annotation options:" << endl
          << "    -x, --xg-name FILE     xg index or graph to annotate (required)" << endl
          << "    -b, --bed-name FILE    a BED file to convert to GAM. May repeat." << endl
-         << "    -f, --gff-name FILE    a GFF3/GTF file to convert to GAM. May repeat." << endl
+         << "    -f, --gff-name FILE    a GFF3 file to convert to GAM. May repeat." << endl
          << "    -g, --ggff             output at GGFF subgraph annotation file instead of GAM (requires -s)" << endl
          << "    -s, --snarls FILE      file containing snarls to expand GFF intervals into" << endl
          << "alignment annotation options:" << endl

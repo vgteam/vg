@@ -379,6 +379,28 @@ TEST_CASE("Tsin 2014 does not over-collapse in the presence of bridge sticks wit
     REQUIRE(components.all_groups().size() == adjacencies.size());
 }
 
+TEST_CASE("Tsin 2014 does not over-collapse a run of edge pairs", "[3ecc][algorithms]") {
+    adjacencies = {{1}, {0, 2, 2}, {1, 1, 3, 3}, {2, 2, 3, 4, 4}, {3, 3, 5, 5}, {4, 4, 5}};
+    components = structures::UnionFind(adjacencies.size(), true);
+    
+    algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
+            
+#ifdef debug
+    for (auto& group : components.all_groups()) {
+        cerr << "Group:";
+        for (auto& member : group) {
+            cerr << " " << member;
+        }
+        cerr << endl;
+    }
+#endif
+    
+    // Node 5 should not merge
+    REQUIRE(components.group_size(5) == 1);
+    // In fact nothing should merge
+    REQUIRE(components.all_groups().size() == adjacencies.size());
+}
+
 TEST_CASE("Tsin 2014 handles a graph with self loops and extra-edge triangles", "[3ecc][algorithms]") {
     adjacencies = {{4, 1, 2}, {0}, {5, 0, 3}, {2, 4, 4}, {3, 3, 0}, {2, 5, 6}, {5}};
     components = structures::UnionFind(adjacencies.size(), true);

@@ -31,7 +31,8 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
     
     // That algorithm assumes that all bridge edges are removed (i.e.
     // everything is at least 2-connected), but we hack it a bit to generalize
-    // to graphs with bridge edges.
+    // to graphs with bridge edges. It also assumes there are no self loops,
+    // but this implementation detects and allows self loops.
     
     // The algorithm does a depth-first search through the graph, and is based
     // on this "absorb-eject" operation. You do it at a node, across ("on") an
@@ -540,13 +541,14 @@ void three_edge_connected_component_merges_dense(size_t node_count, size_t first
                                 node.path_tail = replacement_neighbor.path_tail;
                             } else {
                                 // The other possibility is the neighbor is just
-                                // us. Then we don't do anything.
-                                
-                                // TODO: should self loops count for more degree?
+                                // us. Officially self loops aren't allowed, so
+                                // we censor the edge.
                                 
 #ifdef debug
-                                cerr << "\t\tWe are neighbor (self loop)." << endl;
+                                cerr << "\t\tWe are neighbor (self loop). Hide edge!" << endl;
 #endif
+
+                                node.effective_degree--;
                             }
                             
                             // Clean up the neighbor from the to do list; we
