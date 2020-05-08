@@ -140,8 +140,9 @@ DozeuInterface::graph_pos_s DozeuInterface::calculate_max_position(const Ordered
 	return pos;
 }
 
-DozeuInterface::graph_pos_s DozeuInterface::scan_seed_position(const OrderedGraph& graph, const Alignment& alignment, bool direction,
-                                                               vector<const dz_forefront_s*>& forefronts, uint16_t max_gap_length)
+pair<DozeuInterface::graph_pos_s, bool> DozeuInterface::scan_seed_position(const OrderedGraph& graph, const Alignment& alignment,
+                                                                           bool direction, vector<const dz_forefront_s*>& forefronts,
+                                                                           uint16_t max_gap_length)
 {
     const string& query_seq = alignment.sequence();
     const string& query_qual = alignment.quality();
@@ -188,14 +189,22 @@ DozeuInterface::graph_pos_s DozeuInterface::scan_seed_position(const OrderedGrap
             max_idx = i;
         }
     }
-
-	graph_pos_s pos;
-	pos.node_index = 0;
-	pos.ref_offset = 0;
-	pos.query_offset = direction ? scan_len : qlen - scan_len;
-	graph_pos_s p = calculate_max_position(graph, pos, max_idx, direction, forefronts);
-	debug("node_index(%lu), ref_offset(%d), query_offset(%d), max(%d)", p.node_index, p.ref_offset, p.query_offset, forefronts[max_idx]->max);
-	return p;
+    
+    if (forefronts[max_idx]->mcap == nullptr) {
+        // the scan failed find a positive scoring seed alignment, we will return a placeholder
+        // and a flag that indicates the failure
+        return make_pair(graph_pos_s(), false);
+    }
+    else {
+        // find the maximum scoring position and return a success
+        graph_pos_s pos;
+        pos.node_index = 0;
+        pos.ref_offset = 0;
+        pos.query_offset = direction ? scan_len : qlen - scan_len;
+        graph_pos_s p = calculate_max_position(graph, pos, max_idx, direction, forefronts);
+        debug("node_index(%lu), ref_offset(%d), query_offset(%d), max(%d)", p.node_index, p.ref_offset, p.query_offset, forefronts[max_idx]->max);
+        return make_pair(p, true);
+    }
 }
 
 size_t DozeuInterface::do_poa(const OrderedGraph& graph, const dz_query_s* packed_query,
@@ -615,7 +624,13 @@ void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const
 		// seeds are not available here; probably called from mate_rescue
         
         // scan seed position mems is empty
-		head_pos = scan_seed_position(ordered_graph, alignment, direction, forefronts, max_gap_length);
+        bool scan_success;
+		tie(head_pos, scan_success) = scan_seed_position(ordered_graph, alignment, direction, forefronts, max_gap_length);
+        if (!scan_success) {
+            // we failed to find a seed, so we will not attempt an alignment
+            // clear the path just in case we're realigning a GAM
+            alignment.clear_path();
+        }
 	}
     else {
 		// ordinary extension DP
