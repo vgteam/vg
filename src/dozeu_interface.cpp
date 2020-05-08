@@ -630,6 +630,7 @@ void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const
             // we failed to find a seed, so we will not attempt an alignment
             // clear the path just in case we're realigning a GAM
             alignment.clear_path();
+            return;
         }
 	}
     else {
