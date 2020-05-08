@@ -161,6 +161,7 @@ int main_mpmap(int argc, char** argv) {
     bool synthesize_tail_anchors = false;
     int max_paired_end_map_attempts = 24;
     int max_single_end_map_attempts = 64;
+    int max_single_end_mappings_for_rescue = max_single_end_map_attempts;
     int max_rescue_attempts = 10;
     int population_max_paths = 10;
     int population_paths_hard_cap = 1000;
@@ -747,10 +748,11 @@ int main_mpmap(int argc, char** argv) {
         }
         // seed finding, cluster pruning, and rescue parameters tuned for a lower repeat content
         secondary_rescue_attempts = 1;
-        hit_max = 256;
-        reseed_length = 40;
+        max_single_end_mappings_for_rescue = 32;
+        hit_max = 100;
+        reseed_length = 28; // TODO: returned to the DNA value
         reseed_diff = 0.6;
-        likelihood_approx_exp = 6.0;
+        likelihood_approx_exp = 3.5;
     }
     else if (nt_type != "dna") {
         // DNA is the default
@@ -842,7 +844,9 @@ int main_mpmap(int argc, char** argv) {
     // choose either the user supplied max or the default for paired/unpaired
     int max_map_attempts = max_map_attempts_arg ? max_map_attempts_arg : ((interleaved_input || !fastq_name_2.empty()) ?
                                                                           max_paired_end_map_attempts : max_single_end_map_attempts);
-    int max_single_end_mappings_for_rescue = max_map_attempts_arg ? max_map_attempts_arg : max_single_end_map_attempts;
+    if (max_map_attempts_arg) {
+        max_single_end_mappings_for_rescue = max_map_attempts_arg;
+    }
     
     // hits that are much more frequent than the number of hits we sample are unlikely to produce high MAPQs, so
     // we can usually ignore them
@@ -1877,6 +1881,10 @@ int main_mpmap(int argc, char** argv) {
     
     // GAM input
     if (!gam_file_name.empty()) {
+        if (!suppress_progress) {
+            cerr << "[vg mpmap] Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << " using " << thread_count << " threads" << endl;
+        }
+        
         function<void(istream&)> execute = [&](istream& gam_in) {
             if (!gam_in) {
                 cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << endl;
@@ -1948,7 +1956,7 @@ int main_mpmap(int argc, char** argv) {
     cout.flush();
     
     if (!suppress_progress) {
-        for (int uncounted_mappings : thread_num_reads_mapped) {
+        for (auto uncounted_mappings : thread_num_reads_mapped) {
             num_reads_mapped += uncounted_mappings;
         }
         cerr << "[vg mpmap] Mapping finished. Mapped " << num_reads_mapped;
