@@ -792,7 +792,13 @@ int main_gaffe(int argc, char** argv) {
             indexes.set_vcf_filename(vcf_filename);
         }
     }
-   
+
+    // If we don't want rescue, let the user see we don't try it.
+    if (rescue_attempts == 0 || rescue_algorithm == MinimizerMapper::rescue_none) {
+        rescue_attempts = 0;
+        rescue_algorithm = MinimizerMapper::rescue_none;
+    }
+
     // Now all the arguments are parsed, so see if they make sense
     if (!indexes.can_get_gbwtgraph() && !indexes.can_get_graph()) {
         cerr << "error:[vg gaffe] Mapping requires a normal graph (-x) or a GBWTGraph (-g)" << endl;
