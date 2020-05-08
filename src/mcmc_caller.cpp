@@ -136,7 +136,7 @@ namespace vg {
             
             
             //get haplotypes that pass snarl
-            vector<int64_t> haplos_pass_snarl = genome.get_haplotypes_with_snarl(&snarl);
+            vector<id_t> haplos_pass_snarl = genome.get_haplotypes_with_snarl(&snarl);
             
             assert(!haplos_pass_snarl.empty());
 
