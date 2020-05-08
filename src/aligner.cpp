@@ -1397,7 +1397,7 @@ void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vect
     if (!alignment.has_path() && mems.empty()) {
         // dozeu couldn't find an alignment, probably because it's seeding heuristic failed
         // we'll just fall back on GSSW
-        align(alignment, g, true);
+        align(alignment, g, order);
     }
 }
 
