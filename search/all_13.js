@@ -43,7 +43,7 @@ var searchData=
   ['scan_5fcontig_5flengths',['scan_contig_lengths',['../classvg_1_1VCFGenotyper.html#a28f3c05eb4ffefef243a18dc27562b15',1,'vg::VCFGenotyper']]],
   ['scan_5ffor_5fdeletion',['scan_for_deletion',['../classvg_1_1VCFTraversalFinder.html#a7842cce2da7786e41fbd110c78e45ef6',1,'vg::VCFTraversalFinder']]],
   ['scan_5fpath',['scan_path',['../classhandlegraph_1_1PathHandleGraph.html#aa071f31a10a02d8231b029d0a7ddef0b',1,'handlegraph::PathHandleGraph']]],
-  ['scan_5fseed_5fposition',['scan_seed_position',['../classvg_1_1DozeuInterface.html#a5d884209f51aa98e4901978848f4c7ef',1,'vg::DozeuInterface']]],
+  ['scan_5fseed_5fposition',['scan_seed_position',['../classvg_1_1DozeuInterface.html#abc4f06ba80414e8024a54a03c5c5975a',1,'vg::DozeuInterface']]],
   ['scanner_2ecpp',['scanner.cpp',['../scanner_8cpp.html',1,'']]],
   ['scanner_2ehpp',['scanner.hpp',['../scanner_8hpp.html',1,'']]],
   ['scc_5fcopy_5fcount',['scc_copy_count',['../classvg_1_1DagifiedGraph.html#a780a2eb98c2a1ad1b106283048f95cf0',1,'vg::DagifiedGraph']]],
