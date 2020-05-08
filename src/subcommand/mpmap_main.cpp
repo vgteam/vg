@@ -1471,7 +1471,7 @@ int main_mpmap(int argc, char** argv) {
 #endif
     
     // a probably over-engineered way to report progress across threads with minimal contention
-    const uint64_t progress_frequency = read_length == "long" ? 100000 : 500000;
+    const uint64_t progress_frequency = read_length == "long" ? 250000 : 5000000;
     const uint64_t thread_progress_frequency = 1000;
     assert(progress_frequency % thread_progress_frequency == 0);
     uint64_t num_reads_mapped = 0;
