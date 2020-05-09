@@ -16,6 +16,7 @@ using namespace std;
 using namespace structures;
 
 namespace vg {
+
     
     void topologically_order_subpaths(MultipathAlignment& multipath_aln) {
         // Kahn's algorithm
