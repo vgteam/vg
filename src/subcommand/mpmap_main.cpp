@@ -27,6 +27,10 @@
 #include <iostream>
 #endif
 
+#ifdef mpmap_instrument_mem_statitics
+#define MEM_STATS_FILE "_mem_statistics.tsv"
+#endif
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -1140,6 +1144,14 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    
+#ifdef mpmap_instrument_mem_statitics
+    if (auto_calibrate_mismapping_detection) {
+        cerr << "error:[vg mpmap] set calibration off when profiling MEM statistics" << endl;
+        exit(1);
+    }
+#endif
+    
     // create in-memory objects
     
     ifstream graph_stream(graph_name);
@@ -1455,6 +1467,10 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.dynamic_max_alt_alns = dynamic_max_alt_alns;
     multipath_mapper.simplify_topologies = simplify_topologies;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
+
+#ifdef mpmap_instrument_mem_statitics
+    multipath_mapper._mem_stats.open(MEM_STATS_FILE);
+#endif
     
     // if directed to, auto calibrate the mismapping detection to the graph
     if (auto_calibrate_mismapping_detection) {
@@ -1463,6 +1479,7 @@ int main_mpmap(int argc, char** argv) {
         }
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_lengths);
     }
+    
     
     // Count our threads 
     int thread_count = get_thread_count();

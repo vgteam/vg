@@ -10,19 +10,10 @@
 //#define debug_report_startup_training
 //#define debug_pretty_print_alignments
 
-// note: only activated for single end mapping
-//#define debug_instrument_mem_statitics
-
 #include "multipath_mapper.hpp"
 
 // include this here to avoid a circular dependency
 #include "multipath_alignment_graph.hpp"
-
-
-#ifdef debug_instrument_mem_statitics
-fstream _mem_stats("_mem_statistics.tsv");
-bool _wrote_mem_stats_header = false;
-#endif
 
 namespace vg {
     
@@ -176,7 +167,7 @@ namespace vg {
         }
 #endif
         
-#ifdef debug_instrument_mem_statitics
+#ifdef mpmap_instrument_mem_statitics
         size_t num_mems = mems.size();
         size_t min_mem_length = numeric_limits<size_t>::max();
         size_t max_mem_length = 0;

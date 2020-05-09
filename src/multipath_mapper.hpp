@@ -46,11 +46,13 @@
 #include "algorithms/extend.hpp"
 #include "algorithms/jump_along_path.hpp"
 
-
 #include "bdsg/hash_graph.hpp"
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>
+
+// note: only activated for single end mapping
+//#define mpmap_instrument_mem_statitics
 
 using namespace std;
 using namespace haplo;
@@ -436,6 +438,12 @@ namespace vg {
         
         // a memo for transcendental band padidng function (gets initialized at construction)
         vector<size_t> band_padding_memo;
+        
+#ifdef mpmap_instrument_mem_statitics
+    public:
+        ofstream _mem_stats;
+        bool _wrote_mem_stats_header = false;
+#endif
     };
         
 }
