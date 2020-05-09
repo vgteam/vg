@@ -199,7 +199,7 @@ namespace vg {
             order.push_back(i);
         }
         sort(order.begin(), order.end(), [&](size_t i, size_t j) {
-            return clusters[cluster_idxs.front()][i].first->begin < clusters[cluster_idxs.front()][i].first->begin;
+            return clusters[cluster_idxs.front()][i].first->begin < clusters[cluster_idxs.front()][j].first->begin;
         });
         
         size_t winning_cluster_tail_bases = ((clusters[cluster_idxs.front()][order.front()].first->begin - alignment.sequence().begin())
@@ -217,13 +217,27 @@ namespace vg {
             winning_cluster_avg_intermem_gap /= order.size() - 1;
         }
         
+        int64_t max_non_winning_mem_length = 0;
+        for (size_t i = 0; i < mems.size(); ++i) {
+            bool found = false;
+            for (const auto hit : clusters[cluster_idxs.front()]) {
+                if (hit.first == &mems[i]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                max_non_winning_mem_length = max<int64_t>(max_non_winning_mem_length, mems[i].length());
+            }
+        }
+        
 #pragma omp critical
         {
             if (!_wrote_mem_stats_header) {
-                _mem_stats << "name\tread_len\tnum_mems\tmin_mem_length\tmax_mem_length\tavg_mem_length\tavg_mem_overlap\tnum_clusters\twinning_cluster_num_mems\twinning_cluster_min_mem_length\twinning_cluster_max_mem_length\twinning_cluster_total_bases\twinning_cluster_tail_bases\twinning_cluster_avg_intermem_gap" << endl;
+                _mem_stats << "name\tread_len\tnum_mems\tmin_mem_length\tmax_mem_length\tavg_mem_length\tavg_mem_overlap\tnum_clusters\twinning_cluster_num_mems\twinning_cluster_min_mem_length\twinning_cluster_max_mem_length\twinning_cluster_total_bases\twinning_cluster_tail_bases\twinning_cluster_avg_intermem_gap\tmax_non_winning_mem_length" << endl;
                 _wrote_mem_stats_header = true;
             }
-            _mem_stats << alignment.name() << "\t" << alignment.sequence().size() << "\t" << num_mems << "\t" << min_mem_length << "\t" << max_mem_length << "\t" << avg_mem_length << "\t" << avg_mem_overlap << "\t" << num_clusters << "\t" << winning_cluster_num_mems << "\t" << winning_cluster_min_mem_length << "\t" << winning_cluster_max_mem_length << "\t" << winning_cluster_total_bases << "\t" << winning_cluster_tail_bases << "\t" << winning_cluster_avg_intermem_gap << endl;
+            _mem_stats << alignment.name() << "\t" << alignment.sequence().size() << "\t" << num_mems << "\t" << min_mem_length << "\t" << max_mem_length << "\t" << avg_mem_length << "\t" << avg_mem_overlap << "\t" << num_clusters << "\t" << winning_cluster_num_mems << "\t" << winning_cluster_min_mem_length << "\t" << winning_cluster_max_mem_length << "\t" << winning_cluster_total_bases << "\t" << winning_cluster_tail_bases << "\t" << winning_cluster_avg_intermem_gap << "\t" << max_non_winning_mem_length << endl;
         }
 #endif
     }
