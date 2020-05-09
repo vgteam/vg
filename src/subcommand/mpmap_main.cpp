@@ -142,7 +142,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_SECONDARY_RESCUE_ATTEMPTS 1017
     #define OPT_SECONDARY_MAX_DIFF 1018
     #define OPT_NO_CLUSTER 1019
-    #define OPT_GREEDY_MEM_RESTARTS 1020
+    #define OPT_NO_GREEDY_MEM_RESTARTS 1020
     #define OPT_GREEDY_MEM_RESTART_MAX_LCP 1021
     string matrix_file_name;
     string graph_name;
@@ -189,10 +189,10 @@ int main_mpmap(int argc, char** argv) {
     int stripped_match_alg_max_length = 0; // no maximum yet
     int default_strip_count = 10;
     int stripped_match_alg_target_count = default_strip_count;
-    bool use_greedy_mem_restarts = false;
+    bool use_greedy_mem_restarts = true;
     int greedy_restart_min_length = 40;
     int greedy_restart_max_count = 2;
-    int greedy_restart_max_lcp = 0;
+    int greedy_restart_max_lcp = 30;
     int reseed_length = 28;
     int reseed_length_arg = numeric_limits<int>::min();
     double reseed_diff = 0.45;
@@ -313,7 +313,7 @@ int main_mpmap(int argc, char** argv) {
             {"stripped-match", no_argument, 0, 'F'},
             {"strip-length", no_argument, 0, OPT_STRIP_LENGTH},
             {"strip-count", no_argument, 0, OPT_STRIP_COUNT},
-            {"greedy-restart", no_argument, 0, OPT_GREEDY_MEM_RESTARTS},
+            {"no-greedy-restart", no_argument, 0, OPT_NO_GREEDY_MEM_RESTARTS},
             {"greedy-max-lcp", required_argument, 0, OPT_GREEDY_MEM_RESTART_MAX_LCP},
             {"hit-max", required_argument, 0, 'c'},
             {"hard-hit-mult", required_argument, 0, OPT_HARD_HIT_MAX_MULTIPLIER},
@@ -572,8 +572,8 @@ int main_mpmap(int argc, char** argv) {
                 stripped_match_alg_target_count = parse<int>(optarg);
                 break;
                 
-            case OPT_GREEDY_MEM_RESTARTS:
-                use_greedy_mem_restarts = true;
+            case OPT_NO_GREEDY_MEM_RESTARTS:
+                use_greedy_mem_restarts = false;
                 break;
                 
             case OPT_GREEDY_MEM_RESTART_MAX_LCP:
