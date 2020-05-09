@@ -88,7 +88,7 @@ void help_mpmap(char** argv) {
     //<< "  -W, --reseed-diff FLOAT       require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
     //<< "  -K, --clust-length INT        minimum MEM length used in clustering [automatic]" << endl
     //<< "  -F, --stripped-match          use stripped match algorithm instead of MEMs" << endl
-    << "  -c, --hit-max INT             use at most this many hits for any match seeds (0 for no limit) [1024 DNA / 256 RNA]" << endl
+    << "  -c, --hit-max INT             use at most this many hits for any match seeds (0 for no limit) [1024 DNA / 100 RNA]" << endl
     //<< "  --approx-exp FLOAT            let the approximate likelihood miscalculate likelihood ratios by this power [10.0 DNA / 5.0 RNA]" << endl
     //<< "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
     //<< "  --always-check-population     always try to population-score reads, even if there is only a single mapping" << endl

@@ -10,10 +10,19 @@
 //#define debug_report_startup_training
 //#define debug_pretty_print_alignments
 
+// note: only activated for single end mapping
+//#define debug_instrument_mem_statitics
+
 #include "multipath_mapper.hpp"
 
 // include this here to avoid a circular dependency
 #include "multipath_alignment_graph.hpp"
+
+
+#ifdef debug_instrument_mem_statitics
+fstream _mem_stats("_mem_statistics.tsv");
+bool _wrote_mem_stats_header = false;
+#endif
 
 namespace vg {
     
@@ -164,6 +173,43 @@ namespace vg {
         cerr << "final alignments being returned:" << endl;
         for (const MultipathAlignment& multipath_aln : multipath_alns_out) {
             view_multipath_alignment(cerr, multipath_aln, *xindex);
+        }
+#endif
+        
+#ifdef debug_instrument_mem_statitics
+        size_t num_mems = mems.size();
+        size_t min_mem_length = numeric_limits<size_t>::max();
+        size_t max_mem_length = 0;
+        double avg_mem_length = 0.0;
+        for (const auto& mem : mems) {
+            min_mem_length = min<size_t>(min_mem_length, mem.length());
+            max_mem_length = max<size_t>(max_mem_length, mem.length());
+            avg_mem_length += mem.length();
+        }
+        avg_mem_length /= mems.size();
+        double avg_mem_overlap = 0.0;
+        for (size_t i = 1; i < mems.size(); ++i) {
+            avg_mem_overlap += max<int64_t>(mems[i - 1].end - mems[i].begin, 0);
+        }
+        avg_mem_overlap /= (mems.size() - 1);
+        
+        size_t num_clusters = clusters.size();
+        size_t winning_cluster_num_mems = clusters[cluster_idxs.front()].size();
+        size_t winning_cluster_total_bases = 0;
+        size_t winning_cluster_min_mem_length = numeric_limits<size_t>::max();
+        size_t winning_cluster_max_mem_length = 0;
+        for (const auto& hit : clusters[cluster_idxs.front()]) {
+            winning_cluster_min_mem_length = min<size_t>(winning_cluster_min_mem_length, hit.first->length());
+            winning_cluster_max_mem_length = max<size_t>(winning_cluster_max_mem_length, hit.first->length());
+            winning_cluster_total_bases += hit.first->length();
+        }
+#pragma omp critical
+        {
+            if (!_wrote_mem_stats_header) {
+                _mem_stats << "name\tnum_mems\tmin_mem_length\tmax_mem_length\tavg_mem_length\tavg_mem_overlap\tnum_clusters\twinning_cluster_num_mems\twinning_cluster_min_mem_length\twinning_cluster_max_mem_length\twinning_cluster_total_bases" << endl;
+                _wrote_mem_stats_header = true;
+            }
+            _mem_stats << alignment.name() << "\t" << num_mems << "\t" << min_mem_length << "\t" << max_mem_length << "\t" << avg_mem_length << "\t" << avg_mem_overlap << "\t" << num_clusters << "\t" << winning_cluster_num_mems << "\t" << winning_cluster_min_mem_length << "\t" << winning_cluster_max_mem_length << "\t" << winning_cluster_total_bases << endl;
         }
 #endif
     }

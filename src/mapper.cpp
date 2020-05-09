@@ -414,7 +414,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             else {
                 match.begin = cursor + 1;
                 match.range = last_range;
-                mem_length = match.end - match.begin;
                 
                 // record the last MEM, but check to make sure were not actually still searching
                 // for the end of the next MEM
