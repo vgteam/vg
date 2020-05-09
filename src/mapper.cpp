@@ -270,12 +270,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                                                      bool record_max_lcp,
                                                      int reseed_below) {
 #ifdef debug_mapper
-    cerr << "find_mems: sequence ";
-    for (auto iter = seq_begin; iter != seq_end; iter++) {
-        cerr << *iter;
-    }
-    cerr << ", max mem length " << max_mem_length << ", min mem length " <<
-    min_mem_length << ", reseed length " << reseed_length << endl;
+    cerr << "find_mems: sequence " << string(seq_begin, seq_end) << ", max mem length " << max_mem_length << ", min mem length " << min_mem_length << ", reseed length " << reseed_length << endl;
 #endif
 
     if (!gcsa) {
@@ -284,7 +279,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     }
     
     if (min_mem_length > reseed_length && reseed_length) {
-        cerr << "error:[vg::Mapper] minimimum reseed length for MEMs cannot be less than minimum MEM length" << endl;
+        cerr << "error:[vg::Mapper] minimum reseed length for MEMs cannot be less than minimum MEM length" << endl;
         exit(1);
     }
     vector<MaximalExactMatch> mems;
@@ -355,7 +350,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 } else {
                     gcsa->locate(match.range, locations);
                 }
-                cerr << "adding MEM " << match.sequence() << " at positions ";
+                cerr << "adding MEM " << match.sequence() << " after hitting N at positions ";
                 for (auto nt : locations) {
                     cerr << make_pos_t(nt) << " ";
                 }
@@ -431,7 +426,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                     } else {
                         gcsa->locate(match.range, locations);
                     }
-                    cerr << "adding MEM " << match.sequence() << " at positions ";
+                    cerr << "adding MEM " << match.sequence() << " after hitting an empty extension at positions ";
                     for (auto nt : locations) {
                         cerr << make_pos_t(nt) << " ";
                     }
@@ -507,6 +502,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     if (mem_length >= min_mem_length) {
         if (record_max_lcp) max_lcp = (int)lcp->parent(match.range).lcp();
         mems.push_back(match);
+        mems.back().match_count = gcsa->count(mems.back().range);
+        mems.back().primary = true;
         lcp_maxima.push_back(max_lcp);
 #ifdef debug_mapper
         vector<gcsa::node_type> locations;
@@ -515,7 +512,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         } else {
             gcsa->locate(match.range, locations);
         }
-        cerr << "adding MEM " << match.sequence() << " at positions ";
+        cerr << "adding MEM " << match.sequence() << " after hitting beginning of read at positions ";
         for (auto nt : locations) {
             cerr << make_pos_t(nt) << " ";
         }
