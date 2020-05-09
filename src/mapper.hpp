@@ -221,8 +221,7 @@ public:
     // These are SMEMs by definition when shorter than the max_mem_length or GCSA2 order.
     // Designating reseed_length returns minimally-more-frequent sub-MEMs in addition to SMEMs when SMEM is >= reseed_length.
     // Minimally-more-frequent sub-MEMs are MEMs contained in an SMEM that have occurrences outside of the SMEM.
-    // SMEMs and sub-MEMs will be automatically filled with the nodes they contain, which the occurrences of the sub-MEMs
-    // that are inside SMEM hits filtered out. (filling sub-MEMs currently requires an PathPositionHandleGraph index)
+    // SMEMs and sub-MEMs will be automatically filled with the nodes they contain
     
     vector<MaximalExactMatch>
     find_mems_deep(string::const_iterator seq_begin,
@@ -282,6 +281,10 @@ public:
     bool use_approx_sub_mem_count = false;
     bool prefilter_redundant_hits = true;
     int max_sub_mem_recursion_depth = 2;
+    bool use_greedy_mem_restarts = false;
+    int greedy_restart_min_length = 40;
+    int greedy_restart_max_count = 2;
+    int greedy_restart_max_lcp = 0; // 0 for no max
     int unpaired_penalty = 17;
     bool precollapse_order_length_hits = true;
     double avg_node_length = 0;
