@@ -1678,7 +1678,7 @@ namespace vg {
                     // do we need to merge the abutting edits?
                     int64_t edit_idx = 0;
                     if (final_mapping->edit_size() && first_mapping.edit_size()) {
-                        Edit* final_edit = final_mapping->mutable_edit(0);
+                        Edit* final_edit = final_mapping->mutable_edit(final_mapping->edit_size() - 1);
                         const Edit& first_edit = first_mapping.edit(0);
                         if ((first_edit.from_length() > 0) == (final_edit->from_length() > 0) &&
                             (first_edit.to_length() > 0) == (final_edit->to_length() > 0) &&
