@@ -306,7 +306,7 @@ class SnarlSeedClusterer {
         NodeClusters cluster_one_chain(TreeState& tree_state, size_t chain_i, size_t depth) const;
 
         //Given a vector of only top level seeds, cluster them
-        void cluster_only_top_level_seed_clusters(TreeState& tree_state, vector<pair<size_t, size_t>>& seed_clusters) const;
+        void cluster_only_top_level_chain_seeds(TreeState& tree_state, vector<pair<size_t, size_t>>& seed_clusters) const;
 
         //For one simple snarl (a bubble where all non-boundary nodes only connect to the boundary nodes) 
         //cluster its seeds and return the cluster heads
