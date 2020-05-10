@@ -5,6 +5,10 @@ namespace vg {
 pos_t make_pos_t(const Position& pos) {
     return make_tuple(pos.node_id(), pos.is_reverse(), pos.offset());
 }
+
+pos_t make_pos_t(const position_t& pos) {
+    return make_tuple(pos.node_id(), pos.is_reverse(), pos.offset());
+}
     
 pos_t make_pos_t(gcsa::node_type node) {
     return make_tuple(gcsa::Node::id(node), gcsa::Node::rc(node), gcsa::Node::offset(node));

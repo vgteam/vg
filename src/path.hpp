@@ -365,6 +365,188 @@ Path path_from_path_handle(const PathHandleGraph& graph, path_handle_t path_hand
 
 // Wrap a Path in an Alignment
 Alignment alignment_from_path(const HandleGraph& graph, const Path& path);
+
+
+/*
+ * STL implementations of the protobuf object for use in in-memory operations
+ */
+class edit_t {
+public:
+    edit_t() = default;
+    edit_t(const edit_t&) = default;
+    edit_t(edit_t&&) = default;
+    ~edit_t() = default;
+    edit_t& operator=(const edit_t&) = default;
+    edit_t& operator=(edit_t&&) = default;
+    inline int32_t from_length() const;
+    inline void set_from_length(int32_t l);
+    inline int32_t to_length() const;
+    inline void set_to_length(int32_t l);
+    inline const string& sequence() const;
+    inline void set_sequence(const string& s);
+    inline string* mutable_sequence();
+private:
+    int32_t _from_length;
+    int32_t _to_length;
+    string _sequence;
+};
+
+// the mapping_t name is already taken
+class path_mapping_t {
+public:
+    path_mapping_t() = default;
+    path_mapping_t(const path_mapping_t&) = default;
+    path_mapping_t(path_mapping_t&&) = default;
+    ~path_mapping_t() = default;
+    path_mapping_t& operator=(const path_mapping_t&) = default;
+    path_mapping_t& operator=(path_mapping_t&&) = default;
+    inline const position_t& position() const;
+    inline position_t* mutable_position();
+    inline const vector<edit_t>& edit() const;
+    inline const edit_t& edit(size_t i) const;
+    inline vector<edit_t>* mutable_edit();
+    inline edit_t* mutable_edit(size_t i);
+    inline edit_t* add_edit();
+    inline size_t edit_size() const;
+private:
+    position_t _position;
+    vector<edit_t> _edit;
+};
+
+class path_t {
+public:
+    path_t() = default;
+    path_t(const path_t&) = default;
+    path_t(path_t&&) = default;
+    ~path_t() = default;
+    path_t& operator=(const path_t&) = default;
+    path_t& operator=(path_t&&) = default;
+    inline const vector<path_mapping_t>& mapping() const;
+    inline const path_mapping_t& mapping(size_t i) const;
+    inline vector<path_mapping_t>* mutable_mapping();
+    inline path_mapping_t* mutable_mapping(size_t i);
+    inline path_mapping_t* add_mapping();
+    inline void clear_mapping();
+    inline size_t mapping_size() const;
+private:
+    vector<path_mapping_t> _mapping;
+};
+
+void from_proto_edit(const Edit& proto_edit, edit_t& edit);
+void to_proto_edit(const edit_t& edit, Edit& proto_edit);
+void from_proto_mapping(const Mapping& proto_mapping, path_mapping_t& mapping);
+void to_proto_mapping(const path_mapping_t& mapping, Mapping& proto_mapping);
+void from_proto_path(const Path& proto_path, path_t& path);
+void to_proto_path(const path_t& path, Path& proto_path);
+
+
+// repeated functions for the new path_t class
+void translate_node_ids(path_t& path, const unordered_map<id_t, id_t>& translator);
+void translate_oriented_node_ids(path_t& path, const unordered_map<id_t, pair<id_t, bool>>& translator);
+void translate_oriented_node_ids(path_t& path, const function<pair<id_t, bool>(id_t)>& translator);
+
+int mapping_from_length(const path_mapping_t& mapping);
+int path_from_length(const path_t& path);
+int mapping_to_length(const path_mapping_t& mapping);
+int path_to_length(const path_t& path);
+
+path_mapping_t reverse_complement_mapping(const path_mapping_t& m,
+                                          const function<int64_t(id_t)>& node_length);
+path_t reverse_complement_path(const path_t& path,
+                               const function<int64_t(id_t)>& node_length);
+void reverse_complement_mapping_in_place(path_mapping_t* m,
+                                         const function<int64_t(id_t)>& node_length);
+void reverse_complement_path_in_place(path_t* path,
+                                      const function<int64_t(id_t)>& node_length);
+
+// the first position on the path
+pos_t initial_position(const path_t& path);
+// the last position on the path
+pos_t final_position(const path_t& path);
+
+/*
+ * Implementations of inline methods
+ */
+
+/*
+ * edit_t
+ */
+inline int32_t edit_t::from_length() const {
+    return _from_length;
+}
+inline void edit_t::set_from_length(int32_t l) {
+    _from_length = l;
+}
+inline int32_t edit_t::to_length() const {
+    return _to_length;
+}
+inline void edit_t::set_to_length(int32_t l) {
+    _to_length = l;
+}
+inline const string& edit_t::sequence() const {
+    return _sequence;
+}
+inline void edit_t::set_sequence(const string& s) {
+    _sequence = s;
+}
+inline string* edit_t::mutable_sequence() {
+    return &_sequence;
+}
+
+/*
+ * path_mapping_t
+ */
+inline const position_t& path_mapping_t::position() const {
+    return _position;
+}
+inline position_t* path_mapping_t::mutable_position() {
+    return &_position;
+}
+inline const vector<edit_t>& path_mapping_t::edit() const {
+    return _edit;
+}
+inline const edit_t& path_mapping_t::edit(size_t i) const {
+    return _edit[i];
+}
+inline vector<edit_t>* path_mapping_t::mutable_edit() {
+    return &_edit;
+}
+inline edit_t* path_mapping_t::add_edit() {
+    _edit.emplace_back();
+    return &_edit.back();
+}
+inline edit_t* path_mapping_t::mutable_edit(size_t i) {
+    return &_edit[i];
+}
+inline size_t path_mapping_t::edit_size() const {
+    return _edit.size();
+}
+
+/*
+ * path_t
+ */
+inline const vector<path_mapping_t>& path_t::mapping() const {
+    return _mapping;
+}
+inline const path_mapping_t& path_t::mapping(size_t i) const {
+    return _mapping[i];
+}
+inline vector<path_mapping_t>* path_t::mutable_mapping() {
+    return &_mapping;
+}
+inline path_mapping_t* path_t::mutable_mapping(size_t i) {
+    return &_mapping[i];
+}
+inline path_mapping_t* path_t::add_mapping() {
+    _mapping.emplace_back();
+    return &_mapping.back();
+}
+inline void path_t::clear_mapping() {
+    _mapping.clear();
+}
+inline size_t path_t::mapping_size() const {
+    return _mapping.size();
+}
 }
 
 #endif

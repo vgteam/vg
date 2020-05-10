@@ -348,7 +348,7 @@ namespace vg {
         }
     }
     
-    int32_t PhasedGenome::optimal_score_on_genome(const MultipathAlignment& multipath_aln, VG& graph) {
+    int32_t PhasedGenome::optimal_score_on_genome(const multipath_alignment_t& multipath_aln, VG& graph) {
         
         
         // must have identified start subpaths before computing optimal score   
@@ -364,8 +364,8 @@ namespace vg {
         unordered_map< pair<HaplotypeNode*, bool>, vector<int>> candidate_start_positions;
         for (int i = 0; i < multipath_aln.start_size(); i++) {
             // a starting subpath in the multipath alignment
-            const Subpath& start_subpath = multipath_aln.subpath(multipath_aln.start(i));
-            const Position& start_pos = start_subpath.path().mapping(0).position();
+            const subpath_t& start_subpath = multipath_aln.subpath(multipath_aln.start(i));
+            const position_t& start_pos = start_subpath.path().mapping(0).position();
             
 #ifdef debug_phased_genome
             cerr << "[PhasedGenome::optimal_score_on_genome]: looking for candidate start positions for subpath " << multipath_aln.start(i) << " on node " << start_pos.node_id() << endl;
@@ -423,14 +423,14 @@ namespace vg {
                 cerr << "[PhasedGenome::optimal_score_on_genome]: checking subpath " << i << " for consistent paths" << endl;
 #endif
                 
-                const Subpath& subpath = multipath_aln.subpath(i);
+                const subpath_t& subpath = multipath_aln.subpath(i);
                 
                 // iterate through mappings in this subpath (assumes one mapping per node)
                 bool subpath_follows_path = true;
                 for (int j = 0; j < subpath.path().mapping_size(); j++) {
                     // check if mapping corresponds to the next node in the path in the correct orientation
-                    const Mapping& mapping = subpath.path().mapping(j);
-                    const Position& position = mapping.position();
+                    const path_mapping_t& mapping = subpath.path().mapping(j);
+                    const position_t& position = mapping.position();
                     if (position.node_id() != subpath_node->node_traversal.node->id()
                         || ((position.is_reverse() == subpath_node->node_traversal.backward) != oriented_forward)) {
                         subpath_follows_path = false;

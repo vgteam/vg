@@ -91,11 +91,12 @@ int main_mcmc(int argc, char** argv) {
     unique_ptr<VG> graph = (vg::io::VPKG::load_one<VG>(graph_file));
     unique_ptr<SnarlManager> snarls = (vg::io::VPKG::load_one<SnarlManager>(snarls_file));
 
-    vector<MultipathAlignment> reads;
+    vector<multipath_alignment_t> reads;
     get_input_file(multipath_file, [&] (istream& open_file){
         io::ProtobufIterator<MultipathAlignment> iter (open_file);
         while(iter.has_current()){
-            reads.push_back(*iter);
+            reads.emplace_back();
+            from_proto_multipath_alignment(*iter, reads.back());
             // vg::view_multipath_alignment_as_dot(cerr,*iter,true);
             ++iter;
         }

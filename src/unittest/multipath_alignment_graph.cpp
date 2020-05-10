@@ -83,8 +83,8 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         // Make the MultipathAlignmentGraph to test
         MultipathAlignmentGraph mpg(vg, mem_hits, identity);
         
-        // Make the output MultipathAlignment
-        MultipathAlignment out;
+        // Make the output multipath_alignment_t
+        multipath_alignment_t out;
         
         SECTION("Tries multiple traversals of snarls in tails") {
         
@@ -178,8 +178,8 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         // Make the MultipathAlignmentGraph to test
         MultipathAlignmentGraph mpg(vg, mem_hits, identity);
         
-        // Make the output MultipathAlignment
-        MultipathAlignment out;
+        // Make the output multipath_alignment_t
+        multipath_alignment_t out;
         
         
         SECTION("Tries multiple traversals of snarls in tails") {
@@ -274,8 +274,8 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         // Make the MultipathAlignmentGraph to test
         MultipathAlignmentGraph mpg(vg, mem_hits, identity);
         
-        // Make the output MultipathAlignment
-        MultipathAlignment out;
+        // Make the output multipath_alignment_t
+        multipath_alignment_t out;
         
         SECTION("Tries multiple traversals of snarls in tails") {
         

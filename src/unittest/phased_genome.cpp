@@ -874,14 +874,14 @@ namespace vg {
                 
                 // construct a multipath alignment
                 
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence("CACTGTATTGCGGATA");
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.add_subpath();
+                subpath_t* subpath1 = multipath_aln.add_subpath();
+                subpath_t* subpath2 = multipath_aln.add_subpath();
+                subpath_t* subpath3 = multipath_aln.add_subpath();
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -890,47 +890,47 @@ namespace vg {
                 subpath2->add_next(3);
                 
                 // designate mappings and scores
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
                 mapping0->mutable_position()->set_offset(1);
-                Edit* edit00 = mapping0->add_edit();
+                edit_t* edit00 = mapping0->add_edit();
                 edit00->set_from_length(2);
                 edit00->set_to_length(2);
                 
-                Mapping* mapping1 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath0->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
-                Edit* edit10 = mapping1->add_edit();
+                edit_t* edit10 = mapping1->add_edit();
                 edit10->set_from_length(4);
                 edit10->set_to_length(4);
                 
                 subpath0->set_score(6);
                 
-                Mapping* mapping2 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath1->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit20 = mapping2->add_edit();
+                edit_t* edit20 = mapping2->add_edit();
                 edit20->set_from_length(1);
                 edit20->set_to_length(1);
                 edit20->set_sequence("A");
                 
                 subpath1->set_score(-4);
                 
-                Mapping* mapping3 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath2->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(4);
-                Edit* edit30 = mapping3->add_edit();
+                edit_t* edit30 = mapping3->add_edit();
                 edit30->set_from_length(1);
                 edit30->set_to_length(1);
                 
                 subpath2->set_score(1);
                 
-                Mapping* mapping4 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping4 = subpath3->mutable_path()->add_mapping();
                 mapping4->mutable_position()->set_node_id(5);
-                Edit* edit40 = mapping4->add_edit();
+                edit_t* edit40 = mapping4->add_edit();
                 edit40->set_from_length(3);
                 edit40->set_to_length(3);
                 
-                Mapping* mapping5 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping5 = subpath3->mutable_path()->add_mapping();
                 mapping5->mutable_position()->set_node_id(6);
-                Edit* edit50 = mapping5->add_edit();
+                edit_t* edit50 = mapping5->add_edit();
                 edit50->set_from_length(6);
                 edit50->set_to_length(6);
                 
@@ -1007,14 +1007,14 @@ namespace vg {
                 
                 // construct a multipath alignment
                 
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence("CACTGTATTGCGGATA");
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.add_subpath();
+                subpath_t* subpath1 = multipath_aln.add_subpath();
+                subpath_t* subpath2 = multipath_aln.add_subpath();
+                subpath_t* subpath3 = multipath_aln.add_subpath();
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -1023,47 +1023,47 @@ namespace vg {
                 subpath2->add_next(3);
                 
                 // designate mappings and scores
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
                 mapping0->mutable_position()->set_offset(1);
-                Edit* edit00 = mapping0->add_edit();
+                edit_t* edit00 = mapping0->add_edit();
                 edit00->set_from_length(2);
                 edit00->set_to_length(2);
                 
-                Mapping* mapping1 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath0->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
-                Edit* edit10 = mapping1->add_edit();
+                edit_t* edit10 = mapping1->add_edit();
                 edit10->set_from_length(4);
                 edit10->set_to_length(4);
                 
                 subpath0->set_score(6);
                 
-                Mapping* mapping2 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath1->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit20 = mapping2->add_edit();
+                edit_t* edit20 = mapping2->add_edit();
                 edit20->set_from_length(1);
                 edit20->set_to_length(1);
                 edit20->set_sequence("A");
                 
                 subpath1->set_score(-4);
                 
-                Mapping* mapping3 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath2->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(4);
-                Edit* edit30 = mapping3->add_edit();
+                edit_t* edit30 = mapping3->add_edit();
                 edit30->set_from_length(1);
                 edit30->set_to_length(1);
                 
                 subpath2->set_score(1);
                 
-                Mapping* mapping4 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping4 = subpath3->mutable_path()->add_mapping();
                 mapping4->mutable_position()->set_node_id(5);
-                Edit* edit40 = mapping4->add_edit();
+                edit_t* edit40 = mapping4->add_edit();
                 edit40->set_from_length(3);
                 edit40->set_to_length(3);
                 
-                Mapping* mapping5 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping5 = subpath3->mutable_path()->add_mapping();
                 mapping5->mutable_position()->set_node_id(6);
-                Edit* edit50 = mapping5->add_edit();
+                edit_t* edit50 = mapping5->add_edit();
                 edit50->set_from_length(6);
                 edit50->set_to_length(6);
                 
@@ -1119,14 +1119,14 @@ namespace vg {
                 
                 // construct a multipath alignment
                 
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence("CCGCTGTATTGTGC");
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.add_subpath();
+                subpath_t* subpath1 = multipath_aln.add_subpath();
+                subpath_t* subpath2 = multipath_aln.add_subpath();
+                subpath_t* subpath3 = multipath_aln.add_subpath();
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -1135,49 +1135,49 @@ namespace vg {
                 subpath2->add_next(3);
                 
                 // designate mappings and scores
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(6);
                 mapping0->mutable_position()->set_offset(3);
                 mapping0->mutable_position()->set_is_reverse(true);
-                Edit* edit00 = mapping0->add_edit();
+                edit_t* edit00 = mapping0->add_edit();
                 edit00->set_from_length(3);
                 edit00->set_to_length(3);
                 
-                Mapping* mapping1 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath0->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
-                Edit* edit10 = mapping1->add_edit();
+                edit_t* edit10 = mapping1->add_edit();
                 edit10->set_from_length(4);
                 edit10->set_to_length(4);
                 
                 subpath0->set_score(7);
                 
-                Mapping* mapping2 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath1->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit20 = mapping2->add_edit();
+                edit_t* edit20 = mapping2->add_edit();
                 edit20->set_from_length(1);
                 edit20->set_to_length(1);
                 edit20->set_sequence("A");
                 
                 subpath1->set_score(-4);
                 
-                Mapping* mapping3 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath2->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(4);
-                Edit* edit30 = mapping3->add_edit();
+                edit_t* edit30 = mapping3->add_edit();
                 edit30->set_from_length(1);
                 edit30->set_to_length(1);
                 
                 subpath2->set_score(1);
                 
-                Mapping* mapping4 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping4 = subpath3->mutable_path()->add_mapping();
                 mapping4->mutable_position()->set_node_id(5);
-                Edit* edit40 = mapping4->add_edit();
+                edit_t* edit40 = mapping4->add_edit();
                 edit40->set_from_length(3);
                 edit40->set_to_length(3);
                 
-                Mapping* mapping5 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping5 = subpath3->mutable_path()->add_mapping();
                 mapping5->mutable_position()->set_node_id(1);
                 mapping5->mutable_position()->set_is_reverse(true);
-                Edit* edit50 = mapping5->add_edit();
+                edit_t* edit50 = mapping5->add_edit();
                 edit50->set_from_length(3);
                 edit50->set_to_length(3);
                 

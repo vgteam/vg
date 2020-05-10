@@ -728,7 +728,7 @@ using namespace std;
         mp_aln_graph.remove_transitive_edges(topological_order);
         
         // align the intervening segments and store the result in a multipath alignment
-        MultipathAlignment mp_aln;
+        multipath_alignment_t mp_aln;
         mp_aln_graph.align(source, split_path_graph, get_aligner(), false, 1, false, numeric_limits<int64_t>::max(),
                            false, 1, mp_aln, allow_negative_scores);
         topologically_order_subpaths(mp_aln);

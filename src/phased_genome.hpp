@@ -20,6 +20,7 @@
 #include "genotypekit.hpp"
 #include "hash_map.hpp"
 #include "snarls.hpp"
+#include "multipath_alignment.hpp"
 
 
 using namespace std;
@@ -118,8 +119,8 @@ namespace vg {
         /// Returns the score of the highest scoring alignment contained in the multipath alignment
         /// that is restricted to the phased genome's paths through the variation graph.
         ///
-        /// Note: assumes that MultipathAlignment has 'start' field filled in
-        int32_t optimal_score_on_genome(const MultipathAlignment& multipath_aln, VG& graph);
+        /// Note: assumes that multipath_alignment_t has 'start' field filled in
+        int32_t optimal_score_on_genome(const multipath_alignment_t& multipath_aln, VG& graph);
         
         // TODO: make a local subalignment optimal score function (main obstacle is scoring partial subpaths)
         
