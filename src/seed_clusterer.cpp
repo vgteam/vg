@@ -1123,7 +1123,7 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
 
         //Maps each snarl to its clusters, in the order of the snarls in the chain
         //TODO: I think this doesn't need to be a map anymore since we're sorting later anyway, depending on the sort algorithm
-        std::map<size_t, pair<size_t, NodeClusters>>& snarls_in_chain =tree_state.chain_to_snarls[chain_i];
+        ash_map<size_t, pair<size_t, NodeClusters>>& snarls_in_chain =tree_state.chain_to_snarls[chain_i];
 
         size_t connected_component_num = dist_index.get_connected_component(chain_index.id_in_parent);
         int64_t chain_length = depth == 0 ? dist_index.top_level_chain_length(chain_index.id_in_parent)

@@ -220,7 +220,7 @@ class SnarlSeedClusterer {
             //Map maps the rank of the snarl to the snarl and snarl's clusters
             //  Since maps are ordered, it will be in the order of traversal
             //  of the snarls in the chain
-            hash_map<size_t, std::map<size_t, pair<size_t, NodeClusters>>> chain_to_snarls;
+            hash_map<size_t, hash_map<size_t, pair<size_t, NodeClusters>>> chain_to_snarls;
 
 
             //Same structure as snarl_to_nodes but for the level of the snarl
