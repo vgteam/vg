@@ -184,7 +184,6 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         
         SECTION("Tries multiple traversals of snarls in tails") {
         
-            cerr << "### test start" << endl;
             // Generate 2 fake tail anchors
             mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false, 100, 0.0);
             
@@ -198,7 +197,6 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
             // Make sure to topologically sort the resulting alignment. TODO: Should
             // the MultipathAlignmentGraph guarantee this for us by construction?
             topologically_order_subpaths(out);
-            
             // Make sure it worked at all
             REQUIRE(out.sequence() == read);
             REQUIRE(out.subpath_size() > 0);
@@ -212,12 +210,9 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
                 auto& aln = opt[i];
                 
                 vector<id_t> ids;
-                cerr << "tail: ";
                 for (auto& mapping : aln.path().mapping()) {
-                    cerr << mapping.position().node_id() << " ";
                     ids.push_back(mapping.position().node_id());
                 }
-                cerr << endl;
                 
                 // Save each list of visited IDs for checking.
                 got.insert(ids);
@@ -228,8 +223,6 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
             REQUIRE(got.count({1, 2, 4, 5, 7}));
             REQUIRE(got.count({1, 3, 4, 6, 7}));
             REQUIRE(got.count({1, 3, 4, 5, 7}));
-            
-            cerr << "### test end" << endl;
         }
         
         

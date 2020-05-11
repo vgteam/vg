@@ -3541,6 +3541,9 @@ namespace vg {
                     subpath_t* connecting_subpath = multipath_aln_out.add_subpath();
                     connecting_subpath->set_score(connecting_alignment.score());
                     path_t* subpath_path = connecting_subpath->mutable_path();
+                    
+                    // get a pointer to the subpath again in case the vector reallocated
+                    src_subpath = multipath_aln_out.mutable_subpath(j);
                                         
                     // check to make sure the first is not an empty anchoring mapping
                     if (add_first_mapping) {
@@ -3628,6 +3631,9 @@ namespace vg {
                 subpath_t* tail_subpath = multipath_aln_out.add_subpath();
                 from_proto_path(tail_alignment.path(), *tail_subpath->mutable_path());
                 tail_subpath->set_score(tail_alignment.score());
+                
+                // get the pointer again in case the vector reallocated
+                sink_subpath = multipath_aln_out.mutable_subpath(j);
                 
                 path_mapping_t* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
 
