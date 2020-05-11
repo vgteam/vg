@@ -17,6 +17,78 @@ using namespace structures;
 
 namespace vg {
 
+    multipath_alignment_t::~multipath_alignment_t() {
+        while (!_annotation.empty()) {
+            clear_annotation(_annotation.begin()->first);
+        }
+    }
+
+    void multipath_alignment_t::clear_annotation(const string& annotation_name) {
+        auto iter = _annotation.find(annotation_name);
+        if (iter != _annotation.end()) {
+            switch (iter->second.first) {
+                case Null:
+                    break;
+                case Double:
+                    free((double*) iter->second.second);
+                    break;
+                case Bool:
+                    free((bool*) iter->second.second);
+                    break;
+                case String:
+                    delete ((string*) iter->second.second);
+                    break;
+                default:
+                    cerr << "error: unrecognized annotation type" << endl;
+                    exit(1);
+                    break;
+            }
+            _annotation.erase(iter);
+        }
+    }
+
+    void multipath_alignment_t::set_annotation(const string& annotation_name) {
+        clear_annotation(annotation_name);
+        _annotation[annotation_name] = make_pair(Null, (void*) nullptr);
+    }
+
+    void multipath_alignment_t::set_annotation(const string& annotation_name, double value) {
+        clear_annotation(annotation_name);
+        auto ptr = (int64_t*) malloc(sizeof(double));
+        *ptr = value;
+        _annotation[annotation_name] = make_pair(Double, (void*) ptr);
+    }
+
+    void multipath_alignment_t::set_annotation(const string& annotation_name, bool value) {
+        clear_annotation(annotation_name);
+        auto ptr = (bool*) malloc(sizeof(bool));
+        *ptr = value;
+        _annotation[annotation_name] = make_pair(Bool, (void*) ptr);
+    }
+
+    void multipath_alignment_t::set_annotation(const string& annotation_name, const string& value) {
+        clear_annotation(annotation_name);
+        auto ptr = (string*) malloc(sizeof(string));
+        *ptr = value;
+        _annotation[annotation_name] = make_pair(String, (void*) ptr);
+    }
+
+    pair<multipath_alignment_t::anno_type_t, const void*>
+    multipath_alignment_t::get_annotation(const string& annotation_name) const {
+        auto iter = _annotation.find(annotation_name);
+        if (iter != _annotation.end()) {
+            return iter->second;
+        }
+        else {
+            return pair<anno_type_t, void*>(Null, nullptr);
+        }
+    }
+
+    void multipath_alignment_t::for_each_annotation(function<void(const string&, anno_type_t, const void*)> lambda) const {
+        for (const auto& annotation : _annotation) {
+            lambda(annotation.first, annotation.second.first, annotation.second.second);
+        }
+    }
     
     void topologically_order_subpaths(multipath_alignment_t& multipath_aln) {
         // Kahn's algorithm
@@ -1556,7 +1628,7 @@ namespace vg {
             }
         }
         
-        // TODO: annotations
+        
     }
 
     void from_proto_multipath_alignment(const MultipathAlignment& proto_multipath_aln,
@@ -1599,6 +1671,38 @@ namespace vg {
         
     }
 
+    template<class ProtoAlignment>
+    void transfer_from_proto_annotation(const ProtoAlignment& from, multipath_alignment_t& to) {
+        for_each_basic_annotation(from,
+                                  [&](const string& anno_name) { to.set_annotation(anno_name); },
+                                  [&](const string& anno_name, double value) { to.set_annotation(anno_name, value); },
+                                  [&](const string& anno_name, bool value) { to.set_annotation(anno_name, value); },
+                                  [&](const string& anno_name, const string& value) { to.set_annotation(anno_name, value); });
+    }
+
+    template<class ProtoAlignment>
+    void transfer_to_proto_annotation(const multipath_alignment_t& from, ProtoAlignment& to) {
+        from.for_each_annotation([&](const string& anno_name, multipath_alignment_t::anno_type_t type, const void* value) {
+            switch (type) {
+                case multipath_alignment_t::Null:
+                    break;
+                case multipath_alignment_t::Double:
+                    set_annotation(to, anno_name, *((const double*) value));
+                    break;
+                case multipath_alignment_t::Bool:
+                    set_annotation(to, anno_name, *((const bool*) value));
+                    break;
+                case multipath_alignment_t::String:
+                    set_annotation(to, anno_name, *((const string*) value));
+                    break;
+                default:
+                    cerr << "error: unrecognized annotation type" << endl;
+                    exit(1);
+                    break;
+            }
+        });
+    }
+
     void transfer_read_metadata(const MultipathAlignment& from, multipath_alignment_t& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
@@ -1606,6 +1710,7 @@ namespace vg {
         to.set_name(from.name());
         to.set_sample_name(from.sample_name());
         to.set_paired_read_name(from.paired_read_name());
+        transfer_from_proto_annotation(from, to);
     }
 
     void transfer_read_metadata(const multipath_alignment_t& from, MultipathAlignment& to) {
@@ -1615,6 +1720,7 @@ namespace vg {
         to.set_name(from.name());
         to.set_sample_name(from.sample_name());
         to.set_paired_read_name(from.paired_read_name());
+        transfer_to_proto_annotation(from, to);
     }
     
     void transfer_read_metadata(const multipath_alignment_t& from, multipath_alignment_t& to) {
@@ -1624,6 +1730,26 @@ namespace vg {
         to.set_name(from.name());
         to.set_sample_name(from.sample_name());
         to.set_paired_read_name(from.paired_read_name());
+        
+        from.for_each_annotation([&](const string& anno_name, multipath_alignment_t::anno_type_t type, const void* value) {
+            switch (type) {
+                case multipath_alignment_t::Null:
+                    break;
+                case multipath_alignment_t::Double:
+                    to.set_annotation(anno_name, *((const double*) value));
+                    break;
+                case multipath_alignment_t::Bool:
+                    to.set_annotation(anno_name, *((const bool*) value));
+                    break;
+                case multipath_alignment_t::String:
+                    to.set_annotation(anno_name, *((const string*) value));
+                    break;
+                default:
+                    cerr << "error: unrecognized annotation type" << endl;
+                    exit(1);
+                    break;
+            }
+        });
     }
     
     void transfer_read_metadata(const Alignment& from, multipath_alignment_t& to) {
@@ -1640,6 +1766,8 @@ namespace vg {
         else if (from.has_fragment_next()) {
             to.set_paired_read_name(from.fragment_next().name());
         }
+        
+        transfer_from_proto_annotation(from, to);
     }
     
     void transfer_read_metadata(const multipath_alignment_t& from, Alignment& to) {
@@ -1651,6 +1779,8 @@ namespace vg {
         
         // note: not transferring paired_read_name because it is unclear whether
         // it should go into fragment_prev or fragment_next
+        
+        transfer_to_proto_annotation(from, to);
     }
 
     void transfer_read_metadata(const Alignment& from, Alignment& to) {
@@ -1665,6 +1795,7 @@ namespace vg {
         if (from.has_fragment_next()) {
             *to.mutable_fragment_next() = from.fragment_next();
         }
+        *to.mutable_annotation() = from.annotation();
     }
     
     void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln) {

@@ -466,7 +466,7 @@ namespace vg {
                                          bool rescue_forward, multipath_alignment_t& rescue_multipath_aln) {
         
 #ifdef debug_multipath_mapper
-        cerr << "attemping pair rescue in " << (rescue_forward ? "forward" : "backward") << " direction from " << pb2json(multipath_aln) << endl;
+        cerr << "attemping pair rescue in " << (rescue_forward ? "forward" : "backward") << " direction from " << debug_string(multipath_aln) << endl;
 #endif
         
         // get the position to jump from and the distance to jump
@@ -563,7 +563,7 @@ namespace vg {
         
 #ifdef debug_multipath_mapper
         cerr << "converted multipath alignment is" << endl;
-        cerr << pb2json(rescue_multipath_aln) << endl;
+        cerr << debug_string(rescue_multipath_aln) << endl;
         cerr << "rescued alignment has effective match length " << pseudo_length(rescue_multipath_aln) << ", which gives p-value " << random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size()) << endl;
 #endif
 
@@ -1256,7 +1256,7 @@ namespace vg {
                 if (!likely_mismapping(cluster_multipath_alns.front())) {
                     bool rescued = attempt_rescue(cluster_multipath_alns.front(), rescue_aln, anchor_is_read_1, rescue_multipath_aln);
 #ifdef debug_multipath_mapper
-                    cerr << "rescued alignment is " << pb2json(rescue_multipath_aln) << endl;
+                    cerr << "rescued alignment is " << debug_string(rescue_multipath_aln) << endl;
 #endif
                     if (rescued) {
 #ifdef debug_multipath_mapper
@@ -1772,8 +1772,8 @@ namespace vg {
             multipath_aln_pair.second.set_paired_read_name(multipath_aln_pair.first.name());
             
             // Annotate with paired end distribution
-//            set_annotation(&multipath_aln_pair.first, "fragment_length_distribution", distribution);
-//            set_annotation(&multipath_aln_pair.second, "fragment_length_distribution", distribution);
+            multipath_aln_pair.first.set_annotation("fragment_length_distribution", distribution);
+            multipath_aln_pair.second.set_annotation("fragment_length_distribution", distribution);
         }
         
         // clean up the graph objects on the heap
@@ -1902,7 +1902,7 @@ namespace vg {
             
             if (comps.size() > 1) {
 #ifdef debug_multipath_mapper
-                cerr << "splitting multicomponent alignment " << pb2json(multipath_alns_out[i]) << endl;
+                cerr << "splitting multicomponent alignment " << debug_string(multipath_alns_out[i]) << endl;
 #endif
                 // split this multipath alignment into its connected components
                 for (size_t j = 1; j < comps.size(); j++) {
@@ -2464,8 +2464,8 @@ namespace vg {
                         
 #ifdef debug_multipath_mapper
                         cerr << "adding component pair at distance " << dist << ":" << endl;
-                        cerr  << pb2json(split_multipath_aln_pair.first) << endl;
-                        cerr  << pb2json(split_multipath_aln_pair.second) << endl;
+                        cerr  << debug_string(split_multipath_aln_pair.first) << endl;
+                        cerr  << debug_string(split_multipath_aln_pair.second) << endl;
 #endif
                         
                         if (!replaced_original) {
@@ -3495,7 +3495,7 @@ namespace vg {
                 
                 // Save the population score from the best total score Alignment.
                 // TODO: This is not the pop score of the linearization that the multipath_alignment_t wants to give us by default.
-//                set_annotation(multipath_alns[i], "haplotype_score", best_linearization_pop_score);
+                multipath_alns[i].set_annotation("haplotype_score", best_linearization_pop_score);
                 
                 // The multipath's base score is the base score of the
                 // best-base-score linear alignment. This is the "adjustment"
@@ -3523,7 +3523,7 @@ namespace vg {
             
             for (auto& mpaln : multipath_alns) {
                 // Remember that we did use population scoring on all these multipath_alignment_ts
-//                set_annotation(mpaln, "haplotype_score_used", true);
+                mpaln.set_annotation("haplotype_score_used", true);
             }
         } else {
             // Clean up pop score annotations and remove scores on all the reads.
@@ -3532,10 +3532,10 @@ namespace vg {
             cerr << "Haplotype consistency score is not being used." << endl;
 #endif
             
-//            for (auto& mpaln : multipath_alns) {
-//                clear_annotation(mpaln, "haplotype_score_used");
-//                clear_annotation(mpaln, "haplotype_score");
-//            }
+            for (auto& mpaln : multipath_alns) {
+                mpaln.clear_annotation("haplotype_score_used");
+                mpaln.clear_annotation("haplotype_score");
+            }
         }
         
         // Select whether to use base or adjusted scores depending on whether
@@ -3620,9 +3620,9 @@ namespace vg {
             // TODO: for some reason set_annotation will accept a double but not an int
             double group_mapq = min<double>(max_mapping_quality, mapq_scaling_factor * raw_mapq);
             
-//            for (size_t i = 0; i < num_reporting; ++i) {
-//                set_annotation(multipath_alns[i], "group_mapq", group_mapq);
-//            }
+            for (size_t i = 0; i < num_reporting; ++i) {
+                multipath_alns[i].set_annotation("group_mapq", group_mapq);
+            }
         }
     }
     
@@ -3840,10 +3840,10 @@ namespace vg {
                 // Compute the total pop adjusted score for this multipath_alignment_t
                 pop_adjusted_scores[i] = best_total_score[0] + best_total_score[1] + frag_score;
                 
-//                // Save the pop scores without the base scores to the multipath alignments.
-//                // TODO: Should we be annotating unmapped reads with 0 pop scores when the other read in the pair is mapped?
-//                set_annotation(multipath_aln_pair.first, "haplotype_score", best_pop_score[0]);
-//                set_annotation(multipath_aln_pair.second, "haplotype_score", best_pop_score[1]);
+                // Save the pop scores without the base scores to the multipath alignments.
+                // TODO: Should we be annotating unmapped reads with 0 pop scores when the other read in the pair is mapped?
+                multipath_aln_pair.first.set_annotation("haplotype_score", best_pop_score[0]);
+                multipath_aln_pair.second.set_annotation("haplotype_score", best_pop_score[1]);
                 
                 assert(!std::isnan(best_total_score[0]));
                 assert(!std::isnan(best_total_score[1]));
@@ -3872,24 +3872,24 @@ namespace vg {
 #ifdef debug_multipath_mapper
             cerr << "Haplotype consistency score is being used." << endl;
 #endif
-//            for (auto& multipath_aln_pair : multipath_aln_pairs) {
-//                // We have to do it on each read in each pair.
-//                // TODO: Come up with a simpler way to dump annotations in based on what happens during mapping.
-//                set_annotation(multipath_aln_pair.first, "haplotype_score_used", true);
-//                set_annotation(multipath_aln_pair.second, "haplotype_score_used", true);
-//            }
+            for (auto& multipath_aln_pair : multipath_aln_pairs) {
+                // We have to do it on each read in each pair.
+                // TODO: Come up with a simpler way to dump annotations in based on what happens during mapping.
+                multipath_aln_pair.first.set_annotation("haplotype_score_used", true);
+                multipath_aln_pair.second.set_annotation("haplotype_score_used", true);
+            }
         } else {
             // Clean up pop score annotations if present and remove scores from all the reads
 #ifdef debug_multipath_mapper
             cerr << "Haplotype consistency score is not being used." << endl;
 #endif
-//            for (auto& multipath_aln_pair : multipath_aln_pairs) {
-//                // We have to do it on each read in each pair.
-//                clear_annotation(multipath_aln_pair.first, "haplotype_score_used");
-//                clear_annotation(multipath_aln_pair.first, "haplotype_score");
-//                clear_annotation(multipath_aln_pair.second, "haplotype_score_used");
-//                clear_annotation(multipath_aln_pair.second, "haplotype_score");
-//            }
+            for (auto& multipath_aln_pair : multipath_aln_pairs) {
+                // We have to do it on each read in each pair.
+                multipath_aln_pair.first.clear_annotation("haplotype_score_used");
+                multipath_aln_pair.first.clear_annotation("haplotype_score");
+                multipath_aln_pair.second.clear_annotation("haplotype_score_used");
+                multipath_aln_pair.second.clear_annotation("haplotype_score");
+            }
         }
         
         // find the order of the scores
@@ -4072,12 +4072,12 @@ namespace vg {
                                        !multipath_aln_pairs.front().second.quality().empty());
             double raw_mapq = aligner->compute_group_mapping_quality(scores, reporting_idxs);
             
-//            // TODO: for some reason set_annotation will accept a double but not an int
-//            double group_mapq = min<double>(max_mapping_quality, mapq_scaling_factor * raw_mapq);
-//            for (size_t i = 0; i < num_reporting; ++i) {
-//                set_annotation(multipath_aln_pairs[i].first, "group_mapq", group_mapq);
-//                set_annotation(multipath_aln_pairs[i].second, "group_mapq", group_mapq);
-//            }
+            // TODO: for some reason set_annotation will accept a double but not an int
+            double group_mapq = min<double>(max_mapping_quality, mapq_scaling_factor * raw_mapq);
+            for (size_t i = 0; i < num_reporting; ++i) {
+                multipath_aln_pairs[i].first.set_annotation("group_mapq", group_mapq);
+                multipath_aln_pairs[i].second.set_annotation("group_mapq", group_mapq);
+            }
         }
     }
             

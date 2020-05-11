@@ -17,6 +17,7 @@
 #include "alignment.hpp"
 #include "utility.hpp"
 #include "handle.hpp"
+#include "annotation.hpp"
 
 // Declare the haplo::ScoreProvider we use for haplotype-aware traceback generation.
 namespace haplo {
@@ -60,7 +61,7 @@ namespace vg {
         multipath_alignment_t() = default;
         multipath_alignment_t(const multipath_alignment_t&) = default;
         multipath_alignment_t(multipath_alignment_t&&) = default;
-        ~multipath_alignment_t() = default;
+        ~multipath_alignment_t();
         multipath_alignment_t& operator=(const multipath_alignment_t&) = default;
         multipath_alignment_t& operator=(multipath_alignment_t&&) = default;
         inline const string& sequence() const;
@@ -97,8 +98,17 @@ namespace vg {
         inline const string& paired_read_name() const;
         inline string* mutable_paired_read_name();
         inline void set_paired_read_name(const string& n);
-        // TODO: how to handle annotations?
         
+        // annotation interface
+        // TODO: add List and Struct from https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/struct.proto
+        enum anno_type_t {Null = 0, Double = 2, Bool = 3, String = 4};
+        void set_annotation(const string& annotation_name);
+        void set_annotation(const string& annotation_name, double value);
+        void set_annotation(const string& annotation_name, bool value);
+        void set_annotation(const string& annotation_name, const string& value);
+        void clear_annotation(const string& annotation_name);
+        pair<anno_type_t, const void*> get_annotation(const string& annotation_name) const;
+        void for_each_annotation(function<void(const string&, anno_type_t, const void*)> lambda) const;
     private:
         string _sequence;
         string _quality;
@@ -109,7 +119,7 @@ namespace vg {
         int32_t _mapping_quality;
         vector<uint32_t> _start;
         string _paired_read_name;
-        map<string, string> _annotation;
+        map<string, pair<anno_type_t, void*>> _annotation;
     };
 
     string debug_string(const subpath_t& subpath);
