@@ -374,6 +374,79 @@ TEST_CASE("IntegratedSnarlFinder works when cactus graph contains back-to-back c
     REQUIRE(sites.size() == 1);
 }
 
+TEST_CASE("IntegratedSnarlFinder works on an all bridge edge Y graph with specific numbering", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+    {
+      "node": [
+        {
+          "id": "2",
+          "sequence": "G"
+        },
+        {
+          "id": "3",
+          "sequence": "G"
+        },
+        {
+          "id": "4",
+          "sequence": "G"
+        },
+        {
+          "id": "5",
+          "sequence": "G"
+        },
+        {
+          "id": "6",
+          "sequence": "G"
+        },
+        {
+          "id": "11",
+          "sequence": "G"
+        }
+      ],
+      "edge": [
+        {
+          "from": "2",
+          "to": "3"
+        },
+        {
+          "from": "3",
+          "to": "6"
+        },
+        {
+          "from": "4",
+          "to": "5"
+        },
+        {
+          "from": "5",
+          "to": "6"
+        },
+        {
+          "from": "6",
+          "to": "11"
+        }
+      ]
+    }
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    SnarlManager manager = finder->find_snarls();
+        
+    auto sites = manager.top_level_snarls();
+        
+    // There should just be 1 top snarl, with an internal adjacency component
+    REQUIRE(sites.size() == 1);
+}
+
 TEST_CASE("IntegratedSnarlFinder works when cactus graph contains longer back-to-back cycles along root path", "[genotype][integrated-snarl-finder]") {
     
     // Build a toy graph
