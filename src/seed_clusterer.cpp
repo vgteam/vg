@@ -1123,7 +1123,7 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
 
         //Maps each snarl to its clusters, in the order of the snarls in the chain
         //TODO: I think this doesn't need to be a map anymore since we're sorting later anyway, depending on the sort algorithm
-        ash_map<size_t, pair<size_t, NodeClusters>>& snarls_in_chain =tree_state.chain_to_snarls[chain_i];
+        hash_map<size_t, pair<size_t, NodeClusters>>& snarls_in_chain =tree_state.chain_to_snarls[chain_i];
 
         size_t connected_component_num = dist_index.get_connected_component(chain_index.id_in_parent);
         int64_t chain_length = depth == 0 ? dist_index.top_level_chain_length(chain_index.id_in_parent)
@@ -1868,6 +1868,9 @@ cerr <<  "\t\t cluster" << read_num << " " << std::get<0>(prev_snarl_cluster_by_
             chain_clusters.read_cluster_heads.emplace(std::get<1>(seed_index), new_cluster_head);
         }
         if (chain_index.is_looping_chain) {
+#ifdef DEBUG_CLUSTER
+            cerr << "Updating distances for looping chain" << endl;
+#endif
             //If the chain loops, then the clusters might be connected by
             //looping around the chain
             int64_t first_length = chain_index.prefix_sum[0]-1;
