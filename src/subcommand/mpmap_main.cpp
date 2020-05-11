@@ -27,6 +27,10 @@
 #include <iostream>
 #endif
 
+#ifdef mpmap_instrument_mem_statitics
+#define MEM_STATS_FILE "_mem_statistics.tsv"
+#endif
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -88,7 +92,7 @@ void help_mpmap(char** argv) {
     //<< "  -W, --reseed-diff FLOAT       require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
     //<< "  -K, --clust-length INT        minimum MEM length used in clustering [automatic]" << endl
     //<< "  -F, --stripped-match          use stripped match algorithm instead of MEMs" << endl
-    << "  -c, --hit-max INT             use at most this many hits for any match seeds (0 for no limit) [1024 DNA / 256 RNA]" << endl
+    << "  -c, --hit-max INT             use at most this many hits for any match seeds (0 for no limit) [1024 DNA / 100 RNA]" << endl
     //<< "  --approx-exp FLOAT            let the approximate likelihood miscalculate likelihood ratios by this power [10.0 DNA / 5.0 RNA]" << endl
     //<< "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
     //<< "  --always-check-population     always try to population-score reads, even if there is only a single mapping" << endl
@@ -138,6 +142,8 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_SECONDARY_RESCUE_ATTEMPTS 1017
     #define OPT_SECONDARY_MAX_DIFF 1018
     #define OPT_NO_CLUSTER 1019
+    #define OPT_NO_GREEDY_MEM_RESTARTS 1020
+    #define OPT_GREEDY_MEM_RESTART_MAX_LCP 1021
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -183,6 +189,10 @@ int main_mpmap(int argc, char** argv) {
     int stripped_match_alg_max_length = 0; // no maximum yet
     int default_strip_count = 10;
     int stripped_match_alg_target_count = default_strip_count;
+    bool use_greedy_mem_restarts = true;
+    int greedy_restart_min_length = 40;
+    int greedy_restart_max_count = 2;
+    int greedy_restart_max_lcp = 30;
     int reseed_length = 28;
     int reseed_length_arg = numeric_limits<int>::min();
     double reseed_diff = 0.45;
@@ -303,6 +313,8 @@ int main_mpmap(int argc, char** argv) {
             {"stripped-match", no_argument, 0, 'F'},
             {"strip-length", no_argument, 0, OPT_STRIP_LENGTH},
             {"strip-count", no_argument, 0, OPT_STRIP_COUNT},
+            {"no-greedy-restart", no_argument, 0, OPT_NO_GREEDY_MEM_RESTARTS},
+            {"greedy-max-lcp", required_argument, 0, OPT_GREEDY_MEM_RESTART_MAX_LCP},
             {"hit-max", required_argument, 0, 'c'},
             {"hard-hit-mult", required_argument, 0, OPT_HARD_HIT_MAX_MULTIPLIER},
             {"approx-exp", required_argument, 0, OPT_APPROX_EXP},
@@ -558,6 +570,14 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_STRIP_COUNT:
                 stripped_match_alg_target_count = parse<int>(optarg);
+                break;
+                
+            case OPT_NO_GREEDY_MEM_RESTARTS:
+                use_greedy_mem_restarts = false;
+                break;
+                
+            case OPT_GREEDY_MEM_RESTART_MAX_LCP:
+                greedy_restart_max_lcp = parse<int>(optarg);
                 break;
                 
             case 'c':
@@ -1124,6 +1144,14 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    
+#ifdef mpmap_instrument_mem_statitics
+    if (auto_calibrate_mismapping_detection) {
+        cerr << "error:[vg mpmap] set calibration off when profiling MEM statistics" << endl;
+        exit(1);
+    }
+#endif
+    
     // create in-memory objects
     
     ifstream graph_stream(graph_name);
@@ -1370,6 +1398,10 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.stripped_match_alg_strip_length = stripped_match_alg_strip_length;
     multipath_mapper.stripped_match_alg_max_length = stripped_match_alg_max_length;
     multipath_mapper.stripped_match_alg_target_count = stripped_match_alg_target_count;
+    multipath_mapper.use_greedy_mem_restarts = use_greedy_mem_restarts;
+    multipath_mapper.greedy_restart_min_length = greedy_restart_min_length;
+    multipath_mapper.greedy_restart_max_count = greedy_restart_max_count;
+    multipath_mapper.greedy_restart_max_lcp = greedy_restart_max_lcp;
     multipath_mapper.use_stripped_match_alg = use_stripped_match_alg;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
@@ -1435,6 +1467,10 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.dynamic_max_alt_alns = dynamic_max_alt_alns;
     multipath_mapper.simplify_topologies = simplify_topologies;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
+
+#ifdef mpmap_instrument_mem_statitics
+    multipath_mapper._mem_stats.open(MEM_STATS_FILE);
+#endif
     
     // if directed to, auto calibrate the mismapping detection to the graph
     if (auto_calibrate_mismapping_detection) {
@@ -1443,6 +1479,7 @@ int main_mpmap(int argc, char** argv) {
         }
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_lengths);
     }
+    
     
     // Count our threads 
     int thread_count = get_thread_count();
