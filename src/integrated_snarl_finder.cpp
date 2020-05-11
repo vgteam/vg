@@ -865,6 +865,9 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
 #ifdef debug
                                 cerr << "\t\t\t\tConverges at leaf" << endl;
 #endif
+
+                                // We need to start out with our leaf's bit of the path.
+                                path.push_back(record.longest_subtree_path_root);
                             }
                             
                             if (deepest_child_edge.count(record.longest_subtree_path_root)) {

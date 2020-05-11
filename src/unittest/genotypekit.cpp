@@ -378,56 +378,8 @@ TEST_CASE("IntegratedSnarlFinder works on an all bridge edge Y graph with specif
     
     // Build a toy graph
     const string graph_json = R"(
-    {
-      "node": [
-        {
-          "id": "2",
-          "sequence": "G"
-        },
-        {
-          "id": "3",
-          "sequence": "G"
-        },
-        {
-          "id": "4",
-          "sequence": "G"
-        },
-        {
-          "id": "5",
-          "sequence": "G"
-        },
-        {
-          "id": "6",
-          "sequence": "G"
-        },
-        {
-          "id": "11",
-          "sequence": "G"
-        }
-      ],
-      "edge": [
-        {
-          "from": "2",
-          "to": "3"
-        },
-        {
-          "from": "3",
-          "to": "6"
-        },
-        {
-          "from": "4",
-          "to": "5"
-        },
-        {
-          "from": "5",
-          "to": "6"
-        },
-        {
-          "from": "6",
-          "to": "11"
-        }
-      ]
-    }
+    {"node":[{"id":"2","sequence":"G"},{"id":"3","sequence":"G"},{"id":"4","sequence":"G"},{"id":"5","sequence":"G"},{"id":"6","sequence":"G"},{"id":"11","sequence":"G"}],
+    "edge":[{"from":"2","to":"3"},{"from":"3","to":"6"},{"from":"4","to":"5"},{"from":"5","to":"6"},{"from":"6","to":"11"}]}    
     )";
 
     // Make an actual graph
@@ -443,8 +395,30 @@ TEST_CASE("IntegratedSnarlFinder works on an all bridge edge Y graph with specif
         
     auto sites = manager.top_level_snarls();
         
-    // There should just be 1 top snarl, with an internal adjacency component
-    REQUIRE(sites.size() == 1);
+    // There should be 3 snarls in a chain, and 1 nested snarl
+    REQUIRE(sites.size() == 3);
+    REQUIRE(manager.num_snarls() == 4);
+    
+    // Top snarls should have the right bounds
+    REQUIRE(sites[0]->start().node_id() == 6);
+    REQUIRE(sites[0]->start().backward() == false);
+    REQUIRE(sites[0]->end().node_id() == 11);
+    REQUIRE(sites[0]->end().backward() == false);
+    // These are coming out backward vs chain order
+    REQUIRE(manager.chain_rank_of(sites[0]) == 2);
+    
+    REQUIRE(sites[1]->start().node_id() == 5);
+    REQUIRE(sites[1]->start().backward() == false);
+    REQUIRE(sites[1]->end().node_id() == 6);
+    REQUIRE(sites[1]->end().backward() == false);
+    REQUIRE(manager.chain_rank_of(sites[1]) == 1);
+    
+    REQUIRE(sites[2]->start().node_id() == 4);
+    REQUIRE(sites[2]->start().backward() == false);
+    REQUIRE(sites[2]->end().node_id() == 5);
+    REQUIRE(sites[2]->end().backward() == false);
+    REQUIRE(manager.chain_rank_of(sites[2]) == 0);
+    
 }
 
 TEST_CASE("IntegratedSnarlFinder works when cactus graph contains longer back-to-back cycles along root path", "[genotype][integrated-snarl-finder]") {
