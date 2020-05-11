@@ -399,6 +399,36 @@ TEST_CASE("IntegratedSnarlFinder works on an all bridge edge Y graph with specif
     REQUIRE(sites.size() == 3);
     REQUIRE(manager.num_snarls() == 4);
     
+    // We don't care which pair of Y branches it roots along.
+}
+
+TEST_CASE("IntegratedSnarlFinder roots correctly an all bridge edge Y graph with winning longest path", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+    {"node":[{"id":"2","sequence":"G"},{"id":"3","sequence":"G"},{"id":"4","sequence":"GG"},{"id":"5","sequence":"G"},{"id":"6","sequence":"G"},{"id":"11","sequence":"GG"}],
+    "edge":[{"from":"2","to":"3"},{"from":"3","to":"6"},{"from":"4","to":"5"},{"from":"5","to":"6"},{"from":"6","to":"11"}]}    
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    SnarlManager manager = finder->find_snarls();
+        
+    auto sites = manager.top_level_snarls();
+        
+    // There should be 3 snarls in a chain, and 1 nested snarl
+    REQUIRE(sites.size() == 3);
+    REQUIRE(manager.num_snarls() == 4);
+    
+    // We don't care which pair of Y branches it roots along.
+    
     // Top snarls should have the right bounds
     REQUIRE(sites[0]->start().node_id() == 6);
     REQUIRE(sites[0]->start().backward() == false);
@@ -618,6 +648,40 @@ TEST_CASE("IntegratedSnarlFinder safely handles a single node graph", "[genotype
 
     // There should be no snarls but the root implicit snarl.
     REQUIRE(finder->find_snarls().num_snarls() == 0);
+}
+
+TEST_CASE("IntegratedSnarlFinder safely handles a path when forced to root at one end", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GATTACA"},
+            {"id": 2, "sequence": "CATTAG"},
+            {"id": 3, "sequence": "A"},
+            {"id": 4, "sequence": "A"}
+        ], "edge": [
+            {"from": 1, "to": 2},
+            {"from": 2, "to": 3},
+            {"from": 3, "to": 4},
+            {"from": 4, "to": 3}
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make a CactusSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    // There should be a snarl along the body and a snarl for the cycle at the tip.
+    REQUIRE(finder->find_snarls().num_snarls() == 2);
 }
 
 TEST_CASE("IntegratedSnarlFinder safely handles a single node conencted component in a larger graph", "[genotype][integrated-snarl-finder]") {
