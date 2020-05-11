@@ -70,4 +70,9 @@ pair<int64_t, int64_t> min_oriented_distances(const unordered_map<path_handle_t,
     return make_pair(distance_same, distance_diff);
 }
 
+string debug_string(const position_t& pos) {
+    string to_return = "{id: " + to_string(pos.node_id()) + ", off: " + to_string(pos.offset()) + ", rev: " + (pos.is_reverse() ? "T" : "F") + "}";
+    return to_return;
+}
+
 }

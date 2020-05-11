@@ -464,6 +464,10 @@ pos_t initial_position(const path_t& path);
 // the last position on the path
 pos_t final_position(const path_t& path);
 
+string debug_string(const path_t& path);
+string debug_string(const path_mapping_t& mapping);
+string debug_string(const edit_t& edit);
+
 /*
  * Implementations of inline methods
  */

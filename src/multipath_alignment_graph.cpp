@@ -109,7 +109,7 @@ namespace vg {
         cerr << "nodes after adding, trimming, and collapsing:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& path_node = path_nodes.at(i);
-            cerr << i << " " << pb2json(path_node.path) << " ";
+            cerr << i << " " << debug_string(path_node.path) << " ";
             for (auto iter = path_node.begin; iter != path_node.end; iter++) {
                 cerr << *iter;
             }
@@ -284,7 +284,7 @@ namespace vg {
                 }
                 
 #ifdef debug_multipath_alignment
-                cerr << "walked path: " << pb2json(path_node.path) << endl;
+                cerr << "walked path: " << debug_string(path_node.path) << endl;
 #endif
             }
         }
@@ -296,7 +296,7 @@ namespace vg {
                                                            int64_t* removed_end_from_length) {
         
 #ifdef debug_multipath_alignment
-        cerr << "trimming path node " << string(path_node.begin, path_node.end) << " " << pb2json(path_node.path) << endl;
+        cerr << "trimming path node " << string(path_node.begin, path_node.end) << " " << debug_string(path_node.path) << endl;
 #endif
         
         // Trim down the given PathNode of everything except softclips.
@@ -449,7 +449,7 @@ namespace vg {
                 mapping->add_edit();
                 
 #ifdef debug_multipath_alignment
-                cerr << "preserving start deletion path read[" << (path_node.begin - alignment.sequence().begin()) << "] " << pb2json(path_node.path) << endl;
+                cerr << "preserving start deletion path read[" << (path_node.begin - alignment.sequence().begin()) << "] " << debug_string(path_node.path) << endl;
 #endif
             }
             else if (ignore_deletion_end) {
@@ -468,7 +468,7 @@ namespace vg {
                 mapping->add_edit();
                 
 #ifdef debug_multipath_alignment
-                cerr << "preserving end deletion path read[" << (path_node.begin - alignment.sequence().begin()) << "] " << pb2json(path_node.path) << endl;
+                cerr << "preserving end deletion path read[" << (path_node.begin - alignment.sequence().begin()) << "] " << debug_string(path_node.path) << endl;
 #endif
             }
             else {
@@ -659,7 +659,7 @@ namespace vg {
                         // of the parent MEM by a distance equal to the relative offset
                         
 #ifdef debug_multipath_alignment
-                        cerr << "traversing putative parent MEM with path " << pb2json(path) << endl;
+                        cerr << "traversing putative parent MEM with path " << debug_string(path) << endl;
 #endif
                         
                         int64_t prefix_length = 0;
@@ -787,7 +787,7 @@ namespace vg {
                         }
                         
 #ifdef debug_multipath_alignment
-                        cerr << pb2json(path) << endl;
+                        cerr << debug_string(path) << endl;
 #endif
                     }
                     else if (node_idx == node_seq.size()) {
@@ -847,7 +847,7 @@ namespace vg {
                 cerr << *iter;
             }
             cerr << endl;
-            cerr << "\t" << pb2json(match_node.path) << endl;
+            cerr << "\t" << debug_string(match_node.path) << endl;
 #endif
             
             // try to find any run of MEMs that could be merged with this MEM
@@ -867,7 +867,7 @@ namespace vg {
                     cerr << *iter;
                 }
                 cerr << endl;
-                cerr << "\t" << pb2json(last_run_node.path) << endl;
+                cerr << "\t" << debug_string(last_run_node.path) << endl;
 #endif
                 
                 // do they overhang an amount on the read that indicates they overlap and could be merged?
@@ -1005,8 +1005,8 @@ namespace vg {
                     PathNode& merge_from_node = path_nodes.at(merge_group[i]);
                     
 #ifdef debug_multipath_alignment
-                    cerr << "merging into node " << merge_group[0] << " path " << pb2json(merge_into_node.path) << endl;
-                    cerr << "from node " << merge_group[i] << " path " << pb2json(merge_from_node.path) << endl;
+                    cerr << "merging into node " << merge_group[0] << " path " << debug_string(merge_into_node.path) << endl;
+                    cerr << "from node " << merge_group[i] << " path " << debug_string(merge_from_node.path) << endl;
 #endif
                     
                     // walk backwards until we find the first mapping to add
@@ -1039,7 +1039,7 @@ namespace vg {
                         final_edit->set_to_length(final_edit->to_length() + mapping_to_add_length);
                         
 #ifdef debug_multipath_alignment
-                        cerr << "merged mapping is " << pb2json(*final_merging_mapping) << endl;
+                        cerr << "merged mapping is " << debug_string(*final_merging_mapping) << endl;
 #endif
                     }
                     else {
@@ -1048,7 +1048,7 @@ namespace vg {
                         *new_mapping = first_mapping_to_add;
                         
 #ifdef debug_multipath_alignment
-                        cerr << "new adjacent mapping is " << pb2json(*new_mapping) << endl;
+                        cerr << "new adjacent mapping is " << debug_string(*new_mapping) << endl;
 #endif
                     }
                     
@@ -1058,7 +1058,7 @@ namespace vg {
                         *new_mapping = merge_from_node.path.mapping(j);
                         
 #ifdef debug_multipath_alignment
-                        cerr << "new transfer mapping is " << pb2json(*new_mapping) << endl;
+                        cerr << "new transfer mapping is " << debug_string(*new_mapping) << endl;
 #endif
                     }
                     
@@ -1066,7 +1066,7 @@ namespace vg {
                     merge_into_node.end = merge_from_node.end;
                     
 #ifdef debug_multipath_alignment
-                    cerr << "merged path is " << pb2json(merge_into_node.path) << endl;
+                    cerr << "merged path is " << debug_string(merge_into_node.path) << endl;
                     cerr << "merged substring is ";
                     for (auto iter = merge_into_node.begin; iter != merge_into_node.end; iter++) {
                         cerr << *iter;
@@ -1109,7 +1109,7 @@ namespace vg {
         for (PathNode& path_node : path_nodes) {
             
 #ifdef debug_multipath_alignment
-            cerr << "trimming to branch points within " << max_trim_length << " of ends in path " << pb2json(path_node.path) << endl;
+            cerr << "trimming to branch points within " << max_trim_length << " of ends in path " << debug_string(path_node.path) << endl;
 #endif
             
             // find the mapping where we are first pass the maximum trim length coming inward
@@ -1198,7 +1198,7 @@ namespace vg {
                 }
                 path_node.path = move(new_path);
 #ifdef debug_multipath_alignment
-                cerr << "trimmed path: " << pb2json(path_node.path) << endl;
+                cerr << "trimmed path: " << debug_string(path_node.path) << endl;
 #endif
                 // update the read interval
                 path_node.begin += trimmed_prefix_to_length;
@@ -1228,7 +1228,7 @@ namespace vg {
             path_t* path = &path_node->path;
             
 #ifdef debug_multipath_alignment
-            cerr << "cutting node at index " << i << " with path " << pb2json(*path) << endl;
+            cerr << "cutting node at index " << i << " with path " << debug_string(*path) << endl;
 #endif
             
             // this list holds the beginning of the current segment at each depth in the snarl hierarchy
@@ -1376,7 +1376,7 @@ namespace vg {
                 
                 
 #ifdef debug_multipath_alignment
-                cerr << "new cut path: " << pb2json(path_node->path) << endl;
+                cerr << "new cut path: " << debug_string(path_node->path) << endl;
 #endif
                 
                 // keep track of the index in the node vector of the previous segment
@@ -1419,7 +1419,7 @@ namespace vg {
                     cut_node.end = original_begin + prefix_to_length;
                     
 #ifdef debug_multipath_alignment
-                    cerr << "new cut path: " << pb2json(cut_path) << endl;
+                    cerr << "new cut path: " << debug_string(cut_path) << endl;
 #endif
                     
                     prev_segment_idx = path_nodes.size() - 1;
@@ -1482,7 +1482,7 @@ namespace vg {
                 
 #ifdef debug_multipath_alignment
                 cerr << "Handling " << (handling_right_tail ? "right" : "left") << " tail off of PathNode "
-                    << attached_path_node_index << " with path " << pb2json(path_nodes.at(attached_path_node_index).path) << endl;
+                    << attached_path_node_index << " with path " << debug_string(path_nodes.at(attached_path_node_index).path) << endl;
 #endif
                 
                 for (auto& aln : alns) {
@@ -1555,7 +1555,7 @@ namespace vg {
                         synth_path_node.begin = synth_path_node.end - curr_match_length;
                         
 #ifdef debug_multipath_alignment
-                        cerr << "\tyielded anchor with path " << pb2json(synth_path_node.path) << " and seq ";
+                        cerr << "\tyielded anchor with path " << debug_string(synth_path_node.path) << " and seq ";
                         for (auto it = synth_path_node.begin; it != synth_path_node.end; ++it) {
                             cerr << *it;
                         }
@@ -2824,7 +2824,7 @@ namespace vg {
             for (auto node_iter = onto_node->begin; node_iter != onto_node->end; node_iter++) {
                 cerr << *node_iter;
             }
-            cerr << endl << "\t" << pb2json(onto_node->path) << endl;
+            cerr << endl << "\t" << debug_string(onto_node->path) << endl;
 #endif
             
             // TODO: there should be a way to do this in a single pass over mappings and edits
@@ -2967,12 +2967,12 @@ namespace vg {
                 for (auto node_iter = onto_node->begin; node_iter != onto_node->end; node_iter++) {
                     cerr << *node_iter;
                 }
-                cerr << endl << "\t" << pb2json(onto_node->path) << endl;
+                cerr << endl << "\t" << debug_string(onto_node->path) << endl;
                 cerr << "suffix node:" << endl << "\t";
                 for (auto node_iter = suffix_node.begin; node_iter != suffix_node.end; node_iter++) {
                     cerr << *node_iter;
                 }
-                cerr << endl << "\t" << pb2json(suffix_node.path) << endl;
+                cerr << endl << "\t" << debug_string(suffix_node.path) << endl;
 #endif
                 
                 while (iter != iter_range_end) {
@@ -3003,7 +3003,7 @@ namespace vg {
         cerr << "final graph after adding reachability edges:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& path_node = path_nodes.at(i);
-            cerr << i << " " << pb2json(path_node.path) << " ";
+            cerr << i << " " << debug_string(path_node.path) << " ";
             for (auto iter = path_node.begin; iter != path_node.end; iter++) {
                 cerr << *iter;
             }
@@ -3152,7 +3152,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
         cerr << "removed transitive edges, topology is:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            cerr << "node " << i << ", " << pb2json(path_nodes.at(i).path.mapping(0).position()) << " ";
+            cerr << "node " << i << ", " << debug_string(path_nodes.at(i).path.mapping(0).position()) << " ";
             for (auto iter = path_nodes.at(i).begin; iter != path_nodes.at(i).end; iter++) {
                 cerr << *iter;
             }
@@ -3294,7 +3294,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
         cerr << "pruned to high scoring paths, topology is:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            cerr << "node " << i << ", " << pb2json(path_nodes.at(i).path.mapping(0).position()) << " ";
+            cerr << "node " << i << ", " << debug_string(path_nodes.at(i).path.mapping(0).position()) << " ";
             for (auto iter = path_nodes.at(i).begin; iter != path_nodes.at(i).end; iter++) {
                 cerr << *iter;
             }
@@ -3409,7 +3409,7 @@ namespace vg {
         // perform alignment in the intervening sections
         for (int64_t j = 0; j < path_nodes.size(); j++) {
 #ifdef debug_multipath_alignment
-            cerr << "checking for intervening alignments from match node " << j << " with path " << pb2json(path_nodes.at(j).path) << " and sequence ";
+            cerr << "checking for intervening alignments from match node " << j << " with path " << debug_string(path_nodes.at(j).path) << " and sequence ";
             for (auto iter = path_nodes.at(j).begin; iter != path_nodes.at(j).end; iter++) {
                 cerr << *iter;
             }
@@ -3546,21 +3546,21 @@ namespace vg {
                     if (add_first_mapping) {
                         from_proto_mapping(first_mapping, *subpath_path->add_mapping());
 #ifdef debug_multipath_alignment
-                        cerr << "first mapping is not empty, formed mapping: " << pb2json(*mapping) << endl;
+                        cerr << "first mapping is not empty, formed mapping: " << pb2json(first_mapping) << endl;
 #endif
                     }
                     // add all mapping in between the ends
                     for (size_t j = 1; j < aligned_path.mapping_size() - 1; j++) {
                         from_proto_mapping(aligned_path.mapping(j), *subpath_path->add_mapping());
 #ifdef debug_multipath_alignment
-                        cerr << "added middle mapping: " << pb2json(*mapping) << endl;
+                        cerr << "added middle mapping: " << pb2json(aligned_path.mapping(j)) << endl;
 #endif
                     }
                     // check to make sure the last is not an empty anchoring mapping or the same as the first
                     if (add_last_mapping) {
                         from_proto_mapping(last_mapping, *subpath_path->add_mapping());
 #ifdef debug_multipath_alignment
-                        cerr << "final mapping is not empty, formed mapping: " << pb2json(*mapping) << endl;
+                        cerr << "final mapping is not empty, formed mapping: " << pb2json(last_mapping) << endl;
 #endif
                     }
                     
@@ -3579,7 +3579,7 @@ namespace vg {
                     
 #ifdef debug_multipath_alignment
                     cerr << "subpath from " << j << " to " << edge.first << ":" << endl;
-                    cerr << pb2json(*connecting_subpath) << endl;
+                    cerr << debug_string(*connecting_subpath) << endl;
 #endif
                 }
             }
@@ -3646,7 +3646,7 @@ namespace vg {
                 }
 #ifdef debug_multipath_alignment
                 cerr << "subpath from " << j << " to right tail:" << endl;
-                cerr << pb2json(*tail_subpath) << endl;
+                cerr << debug_string(*tail_subpath) << endl;
 #endif
             }
         }
@@ -3674,7 +3674,7 @@ namespace vg {
                     
 #ifdef debug_multipath_alignment
                     cerr << "subpath from " << j << " to left tail:" << endl;
-                    cerr << pb2json(*tail_subpath) << endl;
+                    cerr << debug_string(*tail_subpath) << endl;
 #endif
                     path_mapping_t* final_mapping = tail_subpath->mutable_path()->mutable_mapping(tail_subpath->path().mapping_size() - 1);
                     if (tail_subpath->path().mapping_size() == 1 && final_mapping->edit_size() == 1
@@ -3741,7 +3741,7 @@ namespace vg {
                 if (path_node.end != alignment.sequence().end()) {
     
 #ifdef debug_multipath_alignment
-                    cerr << "doing right end alignment from sink node " << j << " with path " << pb2json(path_node.path) << " and sequence ";
+                    cerr << "doing right end alignment from sink node " << j << " with path " << debug_string(path_node.path) << " and sequence ";
                     for (auto iter = path_node.begin; iter != path_node.end; iter++) {
                         cerr << *iter;
                     }

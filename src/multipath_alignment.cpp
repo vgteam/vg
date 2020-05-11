@@ -1668,10 +1668,9 @@ namespace vg {
     }
     
     void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln) {
-        
         vector<size_t> in_degree(multipath_aln.subpath_size(), 0);
         for (const subpath_t& subpath : multipath_aln.subpath()) {
-            for (int64_t next : subpath.next()) {
+            for (auto next : subpath.next()) {
                 in_degree[next]++;
             }
         }
@@ -1689,7 +1688,6 @@ namespace vg {
         };
         
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            
             if (i > 0) {
                 removed_so_far[i] = removed_so_far[i - 1];
             }
@@ -1738,16 +1736,14 @@ namespace vg {
                 if (first_position.node_id() == final_position.node_id() &&
                     first_position.is_reverse() == final_position.is_reverse() &&
                     first_position.offset() == final_position.offset() + mapping_from_length(*final_mapping)) {
-                    
                     // do we need to merge the abutting edits?
                     int64_t edit_idx = 0;
                     if (final_mapping->edit_size() && first_mapping.edit_size()) {
-                        edit_t* final_edit = final_mapping->mutable_edit(0);
+                        edit_t* final_edit = final_mapping->mutable_edit(final_mapping->edit_size() - 1);
                         const edit_t& first_edit = first_mapping.edit(0);
                         if ((first_edit.from_length() > 0) == (final_edit->from_length() > 0) &&
                             (first_edit.to_length() > 0) == (final_edit->to_length() > 0) &&
                             first_edit.sequence().empty() == final_edit->sequence().empty()) {
-                            
                             final_edit->set_from_length(final_edit->from_length() + first_edit.from_length());
                             final_edit->set_to_length(final_edit->to_length() + first_edit.to_length());
                             final_edit->set_sequence(final_edit->sequence() + first_edit.sequence());
@@ -2350,7 +2346,54 @@ namespace vg {
         
         out << "}" << endl;
     }
-        
+    
+    string debug_string(const subpath_t& subpath) {
+        string to_return = "{path: " + debug_string(subpath.path());
+        if (!subpath.next().empty()) {
+            to_return += ", next: [";
+            for (size_t i = 0; i < subpath.next_size(); ++i) {
+                if (i > 0) {
+                    to_return += ", ";
+                }
+                to_return += to_string(subpath.next(i));
+            }
+            to_return += "]";
+        }
+        to_return += ", score: " + to_string(subpath.score());
+        to_return += "}";
+        return to_return;
+    }
+
+    string debug_string(const multipath_alignment_t& multipath_aln) {
+        string to_return = "{name: " + multipath_aln.name() + ", seq: " + multipath_aln.sequence();
+        if (!multipath_aln.quality().empty()) {
+            to_return += ", qual: " + string_quality_short_to_char(multipath_aln.quality());
+        }
+        if (!multipath_aln.subpath().empty()) {
+            to_return += ", subpath: [";
+            for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                if (i > 0) {
+                    to_return += ", ";
+                }
+                to_return += debug_string(multipath_aln.subpath(i));
+            }
+            to_return += "]";
+        }
+        to_return += ", mapq: " + to_string(multipath_aln.mapping_quality());
+        if (!multipath_aln.start().empty()) {
+            to_return += ", start: [";
+            for (size_t i = 0; i < multipath_aln.start_size(); ++i) {
+                if (i > 0) {
+                    to_return += ", ";
+                }
+                to_return += to_string(multipath_aln.start(i));
+            }
+            to_return += "]";
+        }
+        to_return += "}";
+        return to_return;
+    }
+
 }
 
 

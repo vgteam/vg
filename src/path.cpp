@@ -2664,4 +2664,46 @@ pos_t final_position(const path_t& path) {
     return pos;
 }
 
+string debug_string(const path_t& path) {
+    string to_return = "{";
+    if (!path.mapping().empty()) {
+        to_return += "mapping: [";
+        for (size_t i = 0; i < path.mapping_size(); ++i) {
+            if (i > 0) {
+                to_return += ", ";
+            }
+            to_return += debug_string(path.mapping(i));
+        }
+        to_return += "]";
+    }
+    to_return += "}";
+    return to_return;
+}
+
+string debug_string(const path_mapping_t& mapping) {
+    string to_return = "{pos: " + debug_string(mapping.position());
+    if (!mapping.edit().empty()) {
+        to_return += ", edit: [";
+        for (size_t i = 0; i < mapping.edit_size(); ++i) {
+            if (i > 0) {
+                to_return += ", ";
+            }
+            to_return += debug_string(mapping.edit(i));
+        }
+        to_return += "]";
+    }
+    to_return += "}";
+    return to_return;
+}
+
+string debug_string(const edit_t& edit) {
+    string to_return = "{fl: " + to_string(edit.from_length()) + ", tl: " + to_string(edit.to_length());
+    if (!edit.sequence().empty()) {
+        to_return += ", seq: " + edit.sequence();
+    }
+    to_return += "}";
+    return to_return;
+}
+
+
 }

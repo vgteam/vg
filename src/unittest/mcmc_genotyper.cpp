@@ -127,10 +127,14 @@ namespace vg {
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths with same topology as graph
-                subpath_t* subpath0 = multipath_aln.add_subpath();
-                subpath_t* subpath1 = multipath_aln.add_subpath();
-                subpath_t* subpath2 = multipath_aln.add_subpath();
-                subpath_t* subpath3 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -354,14 +358,22 @@ namespace vg {
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths with same topology as graph
-                subpath_t* subpath0 = multipath_aln.add_subpath();
-                subpath_t* subpath1 = multipath_aln.add_subpath();
-                subpath_t* subpath2 = multipath_aln.add_subpath();
-                subpath_t* subpath3 = multipath_aln.add_subpath();
-                subpath_t* subpath4 = multipath_aln.add_subpath();
-                subpath_t* subpath5 = multipath_aln.add_subpath();
-                subpath_t* subpath6 = multipath_aln.add_subpath();
-                subpath_t* subpath7 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+                subpath_t* subpath4 = multipath_aln.mutable_subpath(4);
+                subpath_t* subpath5 = multipath_aln.mutable_subpath(5);
+                subpath_t* subpath6 = multipath_aln.mutable_subpath(6);
+                subpath_t* subpath7 = multipath_aln.mutable_subpath(7);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
