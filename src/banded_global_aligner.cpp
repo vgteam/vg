@@ -8,11 +8,11 @@
 #include "banded_global_aligner.hpp"
 #include "json2pb.h"
 
-//#define debug_banded_aligner_objects
-//#define debug_banded_aligner_graph_processing
-//#define debug_banded_aligner_fill_matrix
-//#define debug_banded_aligner_traceback
-//#define debug_banded_aligner_print_matrices
+#define debug_banded_aligner_objects
+#define debug_banded_aligner_graph_processing
+#define debug_banded_aligner_fill_matrix
+#define debug_banded_aligner_traceback
+#define debug_banded_aligner_print_matrices
 
 namespace vg {
 
@@ -224,12 +224,7 @@ BandedGlobalAligner<IntType>::BAMatrix::BAMatrix(Alignment& alignment, handle_t 
 template <class IntType>
 BandedGlobalAligner<IntType>::BAMatrix::~BAMatrix() {
 #ifdef debug_banded_aligner_objects
-    if (node != nullptr) {
-        cerr << "[BAMatrix::~BAMatrix] destructing matrix for node " << as_integer(node) << endl;
-    }
-    else {
-        cerr << "[BAMatrix::~BAMatrix] destructing null matrix" << endl;
-    }
+    cerr << "[BAMatrix::~BAMatrix] destructing matrix for handle " << handlegraph::as_integer(node) << endl;
 #endif
     free(match);
     free(insert_row);

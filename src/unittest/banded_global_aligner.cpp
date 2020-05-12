@@ -11,6 +11,7 @@
 #include "path.hpp"
 #include "banded_global_aligner.hpp"
 #include "json2pb.h"
+#include "bdsg/hash_graph.hpp"
 
 using namespace google::protobuf;
 
@@ -3502,6 +3503,43 @@ namespace vg {
                     }
                 }
             }
+        }
+    
+        TEST_CASE( "Banded global aligner doesn't crash on a hard example",
+                  "[alignment][banded][mapping]" ) {
+            
+            bdsg::HashGraph graph;
+            
+            handle_t h0 = graph.create_handle("", 68181350);
+            handle_t h1 = graph.create_handle("G", 68181343);
+            handle_t h2 = graph.create_handle("TGAGTGG", 68181344);
+            handle_t h3 = graph.create_handle("CTTTGGTTCCCGGCTGAGGTGGAGTGGGCTGA", 68181345);
+            handle_t h4 = graph.create_handle("GGACTAGACTGAGCCCTCGGACATGGAGGTGG", 68181346);
+            handle_t h5 = graph.create_handle("GGATGGGGCAGACTCATCCCATTCTTGACCAA", 68181347);
+            handle_t h6 = graph.create_handle("GCCCTTGTTCTGCTCCCTTCCCAG", 68181348);
+            handle_t h7 = graph.create_handle("", 68181349);
+            
+            graph.create_edge(h0, h1);
+            graph.create_edge(h0, h7);
+            graph.create_edge(h1, h2);
+            graph.create_edge(h2, h3);
+            graph.create_edge(h3, h4);
+            graph.create_edge(h4, h5);
+            graph.create_edge(h5, h6);
+            graph.create_edge(h6, h7);
+            
+            string sequence = "AA";
+            Alignment aln;
+            aln.set_sequence(sequence);
+            
+            TestAligner aligner_source;
+            const Aligner& aligner = *aligner_source.get_regular_aligner();
+            
+            aligner.align_global_banded(aln, graph, 2, true);
+            
+            REQUIRE(aln.path().mapping_size() == 2);
+            REQUIRE(aln.path().mapping(0).position().node_id() == graph.get_id(h0));
+            REQUIRE(aln.path().mapping(1).position().node_id() == graph.get_id(h7));
         }
     }
 }

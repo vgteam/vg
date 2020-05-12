@@ -1560,6 +1560,9 @@ namespace vg {
         to.set_name(from.name());
         to.set_sample_name(from.sample_name());
         to.set_paired_read_name(from.paired_read_name());
+        if (from.has_annotation()) {
+            *to.mutable_annotation() = from.annotation();
+        }
     }
     
     void transfer_read_metadata(const Alignment& from, MultipathAlignment& to) {
@@ -1576,6 +1579,10 @@ namespace vg {
         else if (from.has_fragment_next()) {
             to.set_paired_read_name(from.fragment_next().name());
         }
+        
+        if (from.has_annotation()) {
+            *to.mutable_annotation() = from.annotation();
+        }
     }
     
     void transfer_read_metadata(const MultipathAlignment& from, Alignment& to) {
@@ -1587,6 +1594,10 @@ namespace vg {
         
         // note: not transferring paired_read_name because it is unclear whether
         // it should go into fragment_prev or fragment_next
+        
+        if (from.has_annotation()) {
+            *to.mutable_annotation() = from.annotation();
+        }
     }
 
     void transfer_read_metadata(const Alignment& from, Alignment& to) {
@@ -1600,6 +1611,9 @@ namespace vg {
         }
         if (from.has_fragment_next()) {
             *to.mutable_fragment_next() = from.fragment_next();
+        }
+        if (from.has_annotation()) {
+            *to.mutable_annotation() = from.annotation();
         }
     }
     
