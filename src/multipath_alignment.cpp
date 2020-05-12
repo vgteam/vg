@@ -68,7 +68,7 @@ namespace vg {
 
     void multipath_alignment_t::set_annotation(const string& annotation_name, const string& value) {
         clear_annotation(annotation_name);
-        auto ptr = (string*) malloc(sizeof(string));
+        auto ptr = new string();
         *ptr = value;
         _annotation[annotation_name] = make_pair(String, (void*) ptr);
     }
