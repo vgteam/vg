@@ -7,16 +7,15 @@
 #include <stdio.h>
 #include <iostream>
 #include <list>
-#include "../json2pb.h"
+#include "json2pb.h"
 #include <vg/vg.pb.h>
 #include "catch.hpp"
-#include "../utility.hpp"
-#include "../phased_genome.hpp"
-#include "../multipath_alignment.hpp"
-#include "../nodetraversal.hpp"
-#include "../vg.hpp"
-#include "../genotypekit.hpp"
-#include "../cactus_snarl_finder.hpp"
+#include "utility.hpp"
+#include "phased_genome.hpp"
+#include "multipath_alignment.hpp"
+#include "nodetraversal.hpp"
+#include "vg.hpp"
+#include "genotypekit.hpp"
 
 namespace vg {
     namespace unittest {

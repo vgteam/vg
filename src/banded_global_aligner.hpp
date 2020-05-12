@@ -164,17 +164,10 @@ namespace vg {
         void fill_matrix(const HandleGraph& graph, int8_t* score_mat, int8_t* nt_table, int8_t gap_open,
                          int8_t gap_extend, bool qual_adjusted, IntType min_inf);
         
-        void init_traceback_indexes(const HandleGraph& graph, int64_t& i, int64_t& j);
-        
+        /// Traceback through the band after using DP to fill it
         void traceback(const HandleGraph& graph, BABuilder& builder, AltTracebackStack& traceback_stack,
-                       int64_t& i, int64_t& j, matrix_t& mat, bool& in_lead_gap,
-                       const int8_t* score_mat, const int8_t* nt_table, const int8_t gap_open, const int8_t gap_extend,
-                       const bool qual_adjusted, IntType const min_inf);
-        
-        void traceback_over_edge(const HandleGraph& graph, BABuilder& builder, AltTracebackStack& traceback_stack,
-                                 int64_t& i, int64_t& j, matrix_t& mat, bool& in_lead_gap, int64_t& node_id,
-                                 const int8_t* score_mat, const int8_t* nt_table, const int8_t gap_open,
-                                 const int8_t gap_extend, const bool qual_adjusted, IntType const min_inf);
+                       matrix_t start_mat, int8_t* score_mat, int8_t* nt_table, int8_t gap_open,
+                       int8_t gap_extend, bool qual_adjusted, IntType min_inf);
         
         /// Debugging function
         void print_full_matrices(const HandleGraph& graph);
@@ -204,6 +197,11 @@ namespace vg {
         /// DP matrix
         IntType* insert_row;
         
+        void traceback_internal(const HandleGraph& graph, BABuilder& builder, AltTracebackStack& traceback_stack,
+                                int64_t start_row, int64_t start_col, matrix_t start_mat, bool in_lead_gap,
+                                int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend,
+                                bool qual_adjusted, IntType min_inf);
+        
         /// Debugging function
         void print_matrix(const HandleGraph& graph, matrix_t which_mat);
         /// Debugging function
@@ -211,8 +209,6 @@ namespace vg {
         
         friend class BABuilder;
         friend class AltTracebackStack; // not a fan of this one, but constructor ugly without it
-        friend class BandedGlobalAligner; // also not a fan of this one but i have to refactor some
-                                          // debug statements without it
     };
     
     /**

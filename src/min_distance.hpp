@@ -1,10 +1,14 @@
 #ifndef VG_MIN_DISTANCE_HPP_INCLUDED
 #define VG_MIN_DISTANCE_HPP_INCLUDED
 
-#include <unordered_set>
-
 #include "snarls.hpp"
 #include "hash_map.hpp"
+#include "split_strand_graph.hpp"
+#include "algorithms/dagify.hpp"
+#include "algorithms/split_strands.hpp"
+#include "algorithms/topological_sort.hpp"
+#include "algorithms/is_acyclic.hpp"
+#include "algorithms/is_single_stranded.hpp"
 
 #include "bdsg/hash_graph.hpp"
 
@@ -45,45 +49,30 @@ class MinimumDistanceIndex {
     //snarl manager pointers.
     void load(istream& in);
     
-    //Get the length of the given node
-    int64_t node_length(id_t id) const;
-
     ///Get the minimum distance between two positions
     /// Distance includes only one of the positions. The distance from a 
     /// position to itself would be 1
     ///If there is no path between the two positions then the distance is -1
-    int64_t min_distance( pos_t pos1, pos_t pos2) const;
+    int64_t minDistance( pos_t pos1, pos_t pos2) const;
 
     ///Get a maximum distance bound between the positions, ignoring direction
     ///Returns a positive value even if the two nodes are unreachable
-    int64_t max_distance(pos_t pos1, pos_t pos2) const;
+    int64_t maxDistance(pos_t pos1, pos_t pos2) const;
+
+    //Given an alignment to a graph and a range, populate  a subgraph 
+    //with all nodes in the graph for which the minimum distance from the position to any position in the node
+    //is within the given distance range
+    //If look_forward is true, then start from the start of the path forward, otherwise start from the end going backward
+    void subgraphInRange(const Path& path, const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
+                         SubHandleGraph& sub_graph, bool look_forward);
 
 
-    //Given an alignment to a graph and a range, find the set of nodes in the
-    //graph for which the minimum distance from the position to any position
-    //in the node is within the given distance range
-    //If look_forward is true, then start from the start of the path forward,
-    //otherwise start from the end going backward
-    void subgraph_in_range(const Path& path, const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
-                         std::unordered_set<id_t>& sub_graph, bool look_forward);
-
-
-    //Given a position, return distances that can be stored by a minimizer
-    //
-    //If the position is on a boundary node of a top level chain, then return true, and 
-    //a unique identifier for the connected component that the node is on and
+    //Given a position, return a unique identifier for the connected component that the node is on and
     //the offset of the position in the root chain - the minimum distance from the beginning of the chain to 
     //the position
-    //The second bool will be false and the remaining size_t's will be 0
-    //
-    //If the position is on a child node of a top-level simple bubble (bubble has no children and nodes connect only to boundaries)
-    //return false, 0, 0, true, and the rank of the bubble in its chain, the length of the start
-    //node of the snarl, the length of the end node (relative to a fd traversal of the chain), and
-    //the length of the node
-    //
     //If the position is not on a root node (that is, a boundary node of a snarl in a root chain), returns
-    //false and MIPayload::NO_VALUE for all values
-    tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>  get_minimizer_distances (pos_t pos);
+    //<MIPayload::NO_VALUE, MIPayload::NO_VALUE> 
+    pair<size_t, size_t> offset_in_root_chain (pos_t pos);
 
     //What is the length of the top level chain that this node belongs to?
     int64_t top_level_chain_length(id_t node_id);
@@ -91,17 +80,17 @@ class MinimumDistanceIndex {
     size_t get_connected_component(id_t node_id);
 
     ///Helper function to find the minimum value that is not -1
-    static int64_t min_pos(vector<int64_t> vals);
+    static int64_t minPos(vector<int64_t> vals);
 
     ///Helper function to find the minimum value that is not -1
-    static int64_t min_pos(int64_t x, int64_t y) {
+    static int64_t minPos(int64_t x, int64_t y) {
         return static_cast<int64_t>(std::min(static_cast<uint64_t>(x), static_cast<uint64_t>(y)));
     }
 
     ///print the distance index for debugging
-    void print_self();
+    void printSelf();
     // Prints the number of nodes in each snarl netgraph and number of snarls in each chain
-    void print_snarl_stats();
+    void printSnarlStats();
 
     protected:
 
@@ -125,7 +114,7 @@ class MinimumDistanceIndex {
             SnarlIndex();
 
             //Load data from serialization
-            void load(istream& in, bool include_component);
+            void load(istream& in);
 
             ///Serialize the snarl
             void serialize(ostream& out) const;
@@ -138,7 +127,7 @@ class MinimumDistanceIndex {
             ///chains), or snarl boundaries.
             ///Rank 0 is the start node and rank num_nodes*2-1 is the end node,
             /// both pointing into the snarl
-            int64_t snarl_distance(size_t start, size_t end) const {
+            int64_t snarlDistance(size_t start, size_t end) const {
                 return int64_t(distances[index(start, end)]) - 1;
             }
              
@@ -146,28 +135,27 @@ class MinimumDistanceIndex {
             ///If it is a node, then the length of the node. If it is a snarl or
             ///chain, then the shortest distance between the boundaries
             /// i is the rank of the node in the snarl
-            int64_t node_length(size_t i) const {
+            int64_t nodeLength(size_t i) const {
                 return distances[i / 2] - 1;
             }
         
             ///Total length of the snarl-shortest distance from start to end
             ///including the lengths of boundary nodes
-            int64_t snarl_length() const;
+            int64_t snarlLength() const;
 
             ///Given distances from a position to either end of a node, find the
             ///shortest distance from that position to the start and end 
             ///nodes of the snarl
             ///rank is in the forward direction, but checks both forward and reverse
             
-            pair<int64_t, int64_t> dist_to_ends(size_t rank, 
+            pair<int64_t, int64_t> distToEnds(size_t rank, 
                                               int64_t distL, int64_t distR) const;
 
             ///For use during construction,
             ///add the distance from start to end to the index
-            void insert_distance(size_t start, size_t end, int64_t dist);
+            void insertDistance(size_t start, size_t end, int64_t dist);
 
-
-            void print_self();
+            void printSelf();
 
         protected:
  
@@ -207,11 +195,6 @@ class MinimumDistanceIndex {
             ///Since the start and end node are the same, the last ranking
             ///node is no longer the end node if this is true
             bool is_unary_snarl;
-
-            ///True if all children are nodes (not snarls or chains) and for every child node,
-            //there are only edges to the boundary nodes
-            bool is_simple_snarl;
-
 
             ///The maximum width of the snarl - the maximum of all minimum distance paths from each node to 
             //both ends of the snarl
@@ -255,17 +238,18 @@ class MinimumDistanceIndex {
             /// end node traversing forward. Orientation is relative to the 
             /// direction the chain is traversed in
             
-            int64_t chain_distance(pair<size_t, bool> start, 
+            int64_t chainDistance(pair<size_t, bool> start, 
                                   pair<size_t, bool> end, int64_t startLen, 
                                   int64_t endLen, bool check_loop=false) const;
 
 
             //Length of entire chain
-            int64_t chain_length() const {
+            int64_t chainLength() const {
+                //TODO: if there is a unary snarl then this should be -1
                 return prefix_sum[prefix_sum.size() - 1] - 1;
             }
 
-            void print_self();
+            void printSelf();
 
         protected:
 
@@ -307,7 +291,7 @@ class MinimumDistanceIndex {
 
             /// Helper function for chainDistance. Used to find the distance
             /// in a looping chain by taking the extra loop
-            int64_t loop_distance(pair<size_t, bool> start, 
+            int64_t loopDistance(pair<size_t, bool> start, 
                                   pair<size_t, bool> end, int64_t startLen, 
                                   int64_t endLen) const;
 
@@ -403,10 +387,8 @@ class MinimumDistanceIndex {
 
 
     //Header for the serialized file
-    string file_header = "distance index version 2.2";
-    //TODO: version 2 (no .anything) doesn't include component but we'll still accept it
-    //version 2.1 doesn't include snarl index.is_simple_snarl and will break if we try to load it 
-    bool include_component; //TODO: This is true for version 2.2 so it includes node_to_component, etc. 
+    string file_header = "distance index version 2.1";
+    bool include_component; //TODO: This is true for version 2.1 so it includes node_to_component, etc. 
 
     ////// Private helper functions
  
@@ -417,28 +399,27 @@ class MinimumDistanceIndex {
     ///Helper function for constructor - populate the minimum distance index
     ///Given the top level snarls
     //Returns the length of the chain
-    int64_t calculate_min_index(const HandleGraph* graph, 
+    int64_t calculateMinIndex(const HandleGraph* graph, 
                       const SnarlManager* snarl_manager, const Chain* chain, 
                        size_t parent_id, bool rev_in_parent, 
                        bool trivial_chain, size_t depth, size_t component_num); 
 
-    void populate_snarl_index(const HandleGraph* graph, const SnarlManager* snarl_manager, const NetGraph& ng,
+    void populateSnarlIndex(const HandleGraph* graph, const SnarlManager* snarl_manager, const NetGraph& ng,
                             const Snarl* snarl, bool snarl_rev_in_chain, size_t snarl_assignment, 
                             hash_set<pair<id_t, bool>>& all_nodes, size_t depth, size_t component_num);
 
     ///Compute min_distances and max_distances, which store
     /// distances needed for maximum distance calculation
     ///Only used if include_maximum is true
-    void calculate_max_index(const HandleGraph* graph, int64_t cap); 
-
+    void calculateMaxIndex(const HandleGraph* graph, int64_t cap); 
 
 
     ///Helper for subgraphInRange
-    ///Given starting handles in the super graph and the distances to each handle (including the start position and 
+    /// Given starting handles in the super graph and the distances to each handle (including the start position and 
     //the first position in the handle), add all nodes within the givendistance range to the subgraph
     //Ignore all nodes in seen_nodes (nodes that are too close)
-    void add_nodes_in_range(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
-                         std::unordered_set<id_t>& sub_graph, vector<tuple<handle_t, int64_t>>& start_nodes,
+    void addNodesInRange(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 
+                         SubHandleGraph& sub_graph, vector<tuple<handle_t, int64_t>>& start_nodes,
                          hash_set<pair<id_t, bool>>& seen_nodes);
 
     ///Helper function for distance calculation
@@ -450,13 +431,13 @@ class MinimumDistanceIndex {
     ///forward) and false if it is the end pos (if it must be reached in 
     ///the direction of pos)
     
-    tuple<int64_t, int64_t, pair<id_t, bool>> dist_to_common_ancestor(
+    tuple<int64_t, int64_t, pair<id_t, bool>> distToCommonAncestor(
                 pair<size_t, bool> common_ancestor, pos_t& pos, bool rev) const;
 
 
     /// Get the index into chain_indexes/rank in chain of node i.
     /// Detects and throws an error if node i never got assigned to a snarl.
-    size_t get_primary_assignment(id_t i) const {
+    size_t getPrimaryAssignment(id_t i) const {
         auto stored = primary_snarl_assignments[i - min_node_id];
         if (stored == 0) {
             // Somebody asked for a node. It should be assigned to a snarl, but it isn't.
@@ -466,23 +447,23 @@ class MinimumDistanceIndex {
         return primary_snarl_assignments[i - min_node_id] - 1;
     }
 
-    size_t get_primary_rank(id_t i) const {
+    size_t getPrimaryRank(id_t i) const {
         return primary_snarl_ranks[i - min_node_id] - 1;
     }
 
-    size_t get_chain_assignment(id_t i) const {
+    size_t getChainAssignment(id_t i) const {
         return chain_assignments[has_chain.rank(i - min_node_id)] - 1;
     }
 
-    size_t get_chain_rank(id_t i) const {
+    size_t getChainRank(id_t i) const {
         return chain_ranks[has_chain.rank(i - min_node_id)] - 1;
     }
 
-    size_t get_secondary_assignment(id_t i) const {
+    size_t getSecondaryAssignment(id_t i) const {
         return secondary_snarl_assignments[has_secondary_snarl.rank(i - min_node_id)] - 1;
     }
 
-    size_t get_secondary_rank(id_t i) const {
+    size_t getSecondaryRank(id_t i) const {
         return secondary_snarl_ranks[has_secondary_snarl.rank(i - min_node_id)] - 1;
     }
 
@@ -495,103 +476,24 @@ class MinimumDistanceIndex {
 };
 
 /**
- * The encoding of distances for positions in top-level chains or top-level simple bubbles.
- * Either stores (chain id, chain offset) for a position on a top-level chain, or
- * (snarl rank, node length, start length, end length) for a position on a simple bubble
+ * The encoding of (chain id, chain offset) pairs for positions in top-level chains.
  * We store this information in the minimizer index.
  */
-/*
-Simple bubble: 
-    
- 8 bit  |     1    |        24           |    10     |     10   |    10     |    1
-  ---   |  is rev  | snarl rank in chain | start len | end len  | node len  |  is_node
-   
-Top level chain 
-     
-    31 bit   |    32    |     1
-component id |  offset  |  is_node
-
-
-is_node is true if it is a top-level chain node, false if it is a simple bubble
-*/
-
 struct MIPayload {
     typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
 
     constexpr static code_type NO_CODE = std::numeric_limits<code_type>::max();
     constexpr static size_t NO_VALUE = std::numeric_limits<size_t>::max(); // From offset_in_root_chain().
 
-    constexpr static size_t NODE_LEN_OFFSET = 1;
-    constexpr static size_t END_LEN_OFFSET = 11;
-    constexpr static size_t START_LEN_OFFSET = 21;
-    constexpr static size_t RANK_OFFSET = 31;
-    constexpr static size_t REV_OFFSET = 55;
+    constexpr static size_t ID_OFFSET = 32;
+    constexpr static code_type OFFSET_MASK = (static_cast<code_type>(1) << ID_OFFSET) - 1;
 
-    
-    constexpr static size_t LENGTH_WIDTH = 10;
-    constexpr static size_t RANK_WIDTH = 24;
-    constexpr static code_type LENGTH_MASK = (static_cast<code_type>(1) << LENGTH_WIDTH) - 1;
-    constexpr static code_type RANK_MASK = (static_cast<code_type>(1) << RANK_WIDTH) - 1;
-    
-
-    
-    constexpr static size_t ID_OFFSET = 33;
-    constexpr static size_t ID_WIDTH = 31;
-    constexpr static size_t OFFSET_WIDTH = 32;
-    constexpr static code_type OFFSET_MASK = (static_cast<code_type>(1) << OFFSET_WIDTH) - 1;
-
-    static code_type encode(std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_pos) {
-        bool is_top_level_node; size_t component; size_t offset; //Values for a top level chain
-        bool is_top_level_snarl; size_t snarl_rank; size_t node_length; size_t start_length; size_t end_length; bool is_rev;//values for a bubble
-        std::tie(is_top_level_node, component, offset, is_top_level_snarl, snarl_rank, start_length, end_length, node_length, is_rev) = chain_pos;
-
-        if (!is_top_level_node && ! is_top_level_snarl) {
-
-            return NO_CODE;
-
-        } else if (is_top_level_node) {
-            //Top level node in chain
-
-            if (component >= (static_cast<code_type>(1) << 31) - 1 
-                || offset >= static_cast<size_t>(OFFSET_MASK) ) {
-                //If the values are too large to be stored
-                return NO_CODE;
-            }
-
-            return (component << ID_OFFSET) | (offset << 1) | static_cast<code_type>(true);
-
-        } else {
-            //Top level simple bubble
-
-            if (snarl_rank >= static_cast<size_t>(RANK_MASK)
-                || start_length >= static_cast<size_t>(LENGTH_MASK)
-                || end_length >=  static_cast<size_t>(LENGTH_MASK)
-                || node_length >= static_cast<size_t>(LENGTH_MASK) ){
-                //If the values are too large to be stored
-                return NO_CODE;
-            }
-
-            return (static_cast<code_type>(is_rev) << REV_OFFSET) | (snarl_rank << RANK_OFFSET) | (start_length << START_LEN_OFFSET) | (end_length << END_LEN_OFFSET) | (node_length << NODE_LEN_OFFSET) ;
-        }
+    static code_type encode(std::pair<size_t, size_t> chain_pos) {
+        return (chain_pos.first << ID_OFFSET) | (chain_pos.second & OFFSET_MASK);
     }
 
-    static std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> decode(code_type code) {
-        if (code == NO_CODE) {
-            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, NO_VALUE, NO_VALUE, false, NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
-        } else if ((code & (static_cast<code_type>(1))) == (static_cast<code_type>(1))) {
-            //This is a top-level chain
-            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>
-                    (true, code >> ID_OFFSET, code >> 1 & OFFSET_MASK, false, NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
-        } else {
-            //This is a top-level bubble
-            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>
-                    (false, NO_VALUE, NO_VALUE, true,
-                      code >> RANK_OFFSET & RANK_MASK, 
-                      code >> START_LEN_OFFSET & LENGTH_MASK, 
-                      code >> END_LEN_OFFSET & LENGTH_MASK, 
-                      code >> NODE_LEN_OFFSET & LENGTH_MASK,
-                      code >> REV_OFFSET & static_cast<code_type>(1));
-        }
+    static std::pair<size_t, size_t> decode(code_type code) {
+        return std::pair<size_t, size_t>(code >> ID_OFFSET, code & OFFSET_MASK);
     }
 };
 

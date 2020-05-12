@@ -1,6 +1,11 @@
 #include "gfa.hpp"
 #include <gfakluge.hpp>
 
+// Use sonLib pinch graphs
+#include <sonLib/stPinchGraphs.h>
+
+#include <structures/union_find.hpp>
+
 namespace vg {
 
 using namespace std;

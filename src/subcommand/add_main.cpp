@@ -15,10 +15,6 @@
 
 #include "../vg.hpp"
 #include "../variant_adder.hpp"
-#include "../algorithms/copy_graph.hpp"
-
-#include <vg/io/vpkg.hpp>
-
 
 
 
@@ -165,44 +161,22 @@ int main_add(int argc, char** argv) {
     }
     
     // Load the graph
-    
-    unique_ptr<handlegraph::MutablePathDeletableHandleGraph> graph;
+    VG* graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = vg::io::VPKG::load_one<handlegraph::MutablePathDeletableHandleGraph>(in);
+        graph = new VG(in, show_progress);
     });
     
-    VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
-    
-    // Call this to populate the vg_graph if it isn't populated.
-    auto ensure_vg = [&]() -> vg::VG* {
-        if (vg_graph == nullptr) {
-            // Copy instead.
-            vg_graph = new vg::VG();
-            algorithms::copy_path_handle_graph(graph.get(), vg_graph);
-            // Give the unique_ptr ownership and delete the graph we loaded.
-            graph.reset(vg_graph);
-            // Make sure the paths are all synced up
-            vg_graph->paths.to_graph(vg_graph->graph);
-        }
-        return vg_graph;
-    };
-    
-    // TODO: We need to move VariantAdder away from vg::VG eventually.
-    // Right now we always need the vg format graph.
-    // TODO: deduplicate ensure_vg with other subcommands?
-    ensure_vg();
-    
-    if (vg_graph == nullptr) {
+    if (graph == nullptr) {
         cerr << "error:[vg add]: Could not load graph" << endl;
         exit(1);
     }
     
     {
         // Clear existing path ranks (since we invalidate them)
-        vg_graph->paths.clear_mapping_ranks();
+        graph->paths.clear_mapping_ranks();
     
         // Make a VariantAdder for the graph
-        VariantAdder adder(*vg_graph);
+        VariantAdder adder(*graph);
         // Report updates when running interactively
         adder.print_updates = true;
         
@@ -233,12 +207,14 @@ int main_add(int argc, char** argv) {
         // TODO: should we sort the graph?
         
         // Rebuild all the path ranks and stuff
-        vg_graph->paths.rebuild_mapping_aux();
+        graph->paths.rebuild_mapping_aux();
     }
         
     // Output the modified graph
-    vg_graph->serialize_to_ostream(std::cout);
+    graph->serialize_to_ostream(std::cout);
     
+    delete graph;
+
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:
     //ShutdownProtobufLibrary();

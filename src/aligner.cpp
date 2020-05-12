@@ -1,7 +1,5 @@
 #include "aligner.hpp"
 
-#include "hash_map.hpp"
-
 //#define debug_print_score_matrices
 
 using namespace vg;
@@ -72,6 +70,8 @@ gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g) const {
     return graph;
     
 }
+
+
 
 unordered_set<vg::id_t> GSSWAligner::identify_pinning_points(const HandleGraph& graph) const {
     
@@ -1142,63 +1142,6 @@ void Aligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_a
     align_internal(alignment, nullptr, g, false, false, 1, traceback_aln);
 }
 
-void Aligner::align(Alignment& alignment, const HandleGraph& g,
-                    const std::vector<handle_t>& topological_order) const {
-
-    // Create a gssw_graph and a mapping from handles to nodes.
-    gssw_graph* graph = gssw_graph_create(topological_order.size());
-    hash_map<handle_t, gssw_node*> nodes;
-    nodes.reserve(topological_order.size());
-
-    // Create the nodes. Use offsets in the topological order as node ids.
-    for (size_t i = 0; i < topological_order.size(); i++) {
-        handle_t handle = topological_order[i];
-        auto cleaned_seq = nonATGCNtoN(g.get_sequence(handle));
-        gssw_node* node = gssw_node_create(nullptr,
-                                           i,
-                                           cleaned_seq.c_str(),
-                                           nt_table,
-                                           score_matrix);
-        nodes[handle] = node;
-        gssw_graph_add_node(graph, node);
-    }
-
-    // Create the edges.
-    for (const handle_t& from : topological_order) {
-        gssw_node* from_node = nodes[from];
-        g.follow_edges(from, false, [&](const handle_t& to) {
-            auto iter = nodes.find(to);
-            if (iter != nodes.end()) {
-                gssw_nodes_add_edge(from_node, iter->second);
-            }
-        });
-    }
-
-    // Align the read to the subgraph.
-    gssw_graph_fill_pinned(graph, alignment.sequence().c_str(),
-                           nt_table, score_matrix,
-                           gap_open, gap_extension, full_length_bonus, full_length_bonus,
-                           15, 2, true);
-    gssw_graph_mapping* gm = gssw_graph_trace_back(graph,
-                                                   alignment.sequence().c_str(), alignment.sequence().length(),
-                                                   nt_table, score_matrix,
-                                                   gap_open, gap_extension, full_length_bonus, full_length_bonus);
-
-    // Convert the mapping to Alignment.
-    this->gssw_mapping_to_alignment(graph, gm, alignment, false, false);
-    Path& path = *(alignment.mutable_path());
-    for (size_t i = 0; i < path.mapping_size(); i++) {
-        Position& pos = *(path.mutable_mapping(i)->mutable_position());
-        handle_t handle = topological_order[pos.node_id()];
-        pos.set_node_id(g.get_id(handle));
-        pos.set_is_reverse(g.get_is_reverse(handle));
-    }
-
-    // Destroy the temporary objects.
-    gssw_graph_mapping_destroy(gm);
-    gssw_graph_destroy(graph);
-}
-
 void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, bool xdrop,
                            uint16_t xdrop_max_gap_length) const {
     
@@ -1383,22 +1326,11 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
 void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                           bool reverse_complemented, uint16_t max_gap_length) const
 {
-    align_xdrop(alignment, g, algorithms::lazier_topological_order(&g), mems, reverse_complemented, max_gap_length);
-}
-
-void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order,
-                          const vector<MaximalExactMatch>& mems, bool reverse_complemented, uint16_t max_gap_length) const
-{
     // XdropAligner manages its own stack, so it can never be threadsafe without be recreated
     // for every alignment, which meshes poorly with its stack implementation. We achieve
     // thread-safety by having one per thread, which makes this method const-ish.
     XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
-    xdrop.align(alignment, g, order, mems, reverse_complemented, max_gap_length);
-    if (!alignment.has_path() && mems.empty()) {
-        // dozeu couldn't find an alignment, probably because it's seeding heuristic failed
-        // we'll just fall back on GSSW
-        align(alignment, g, order);
-    }
+    xdrop.align(alignment, g, mems, reverse_complemented, max_gap_length);
 }
 
 
@@ -1868,26 +1800,15 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
 }
 
+// X-drop aligner
 void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                                  bool reverse_complemented, uint16_t max_gap_length) const
-{
-    align_xdrop(alignment, g, algorithms::lazier_topological_order(&g), mems, reverse_complemented, max_gap_length);
-}
-
-void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order,
-                                 const vector<MaximalExactMatch>& mems, bool reverse_complemented,
-                                 uint16_t max_gap_length) const
 {
     // QualAdjXdropAligner manages its own stack, so it can never be threadsafe without being recreated
     // for every alignment, which meshes poorly with its stack implementation. We achieve
     // thread-safety by having one per thread, which makes this method const-ish.
     QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
-    xdrop.align(alignment, g, order, mems, reverse_complemented, max_gap_length);
-    if (!alignment.has_path() && mems.empty()) {
-        // dozeu couldn't find an alignment, probably because it's seeding heuristic failed
-        // we'll just fall back on GSSW
-        align(alignment, g, true);
-    }
+    xdrop.align(alignment, g, mems, reverse_complemented, max_gap_length);
 }
 
 int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {

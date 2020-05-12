@@ -684,27 +684,36 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(const HandleGraph& grap
 #endif
 }
 
-
 template <class IntType>
-void BandedGlobalAligner<IntType>::BAMatrix::init_traceback_indexes(const HandleGraph& graph, int64_t& i, int64_t& j) {
+void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph, BABuilder& builder, AltTracebackStack& traceback_stack,
+                                                       matrix_t start_mat, int8_t* score_mat, int8_t* nt_table, int8_t gap_open,
+                                                       int8_t gap_extend, bool qual_adjusted, IntType min_inf) {
     
     // get coordinates of bottom right corner
     const string& read = alignment.sequence();
     int64_t ncols = graph.get_length(node);
-    i = bottom_diag + ncols > (int64_t) read.length() ? (int64_t) read.length() - top_diag - ncols : bottom_diag - top_diag;
-    j = ncols - 1;
+    int64_t row = bottom_diag + ncols > (int64_t) read.length() ? (int64_t) read.length() - top_diag - ncols : bottom_diag - top_diag;
+    int64_t col = ncols - 1;
+    
+    
+#ifdef debug_banded_aligner_traceback
+    cerr << "[BAMatrix::traceback] beginning traceback in matrices for node " << graph.get_id(node) << " starting matrix is " << (start_mat == Match ? "match" : (start_mat == InsertCol ? "insert column" : "insert row")) << endl;
+#endif
+    
+    traceback_internal(graph, builder, traceback_stack, row, col, start_mat, alignment.sequence().empty(), score_mat, nt_table,
+                       gap_open, gap_extend, qual_adjusted, min_inf);
 }
 
 template <class IntType>
-void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph, BABuilder& builder,
-                                                       AltTracebackStack& traceback_stack,
-                                                       int64_t& i, int64_t& j, matrix_t& mat, bool& in_lead_gap,
-                                                       const int8_t* score_mat, const int8_t* nt_table,
-                                                       const int8_t gap_open,  const int8_t gap_extend,
-                                                       const bool qual_adjusted, const IntType min_inf) {
+void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(const HandleGraph& graph, BABuilder& builder,
+                                                                AltTracebackStack& traceback_stack,
+                                                                int64_t start_row, int64_t start_col, matrix_t start_mat,
+                                                                bool in_lead_gap, int8_t* score_mat, int8_t* nt_table,
+                                                                int8_t gap_open, int8_t gap_extend, bool qual_adjusted,
+                                                                IntType min_inf) {
     
 #ifdef debug_banded_aligner_traceback
-    cerr << "[BAMatrix::traceback] starting traceback back through node " << graph.get_id(node) << " from rectangular coordinates (" << i << ", " << j << "), currently " << (in_lead_gap ? "" : "not ") << "in a lead gap" << endl;
+    cerr << "[BAMatrix::traceback_internal] starting traceback back through node " << graph.get_id(node) << " from rectangular coordinates (" << start_row << ", " << start_col << "), currently " << (in_lead_gap ? "" : "not ") << "in a lead gap" << endl;
 #endif
     
     const string& read = alignment.sequence();
@@ -716,6 +725,8 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
     int64_t node_id = graph.get_id(node);
     
     int64_t idx, next_idx;
+    int64_t i = start_row, j = start_col;
+    matrix_t curr_mat = start_mat;
     IntType curr_score;
     IntType source_score;
     IntType score_diff;
@@ -724,20 +735,20 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
     
     // do node traceback unless we are in the lead gap implied at the edge of the DP matrix or we
     // are already at a node boundary trying to get across
-    while ((j > 0 || mat == InsertRow) && !in_lead_gap) {
+    while ((j > 0 || curr_mat == InsertRow) && !in_lead_gap) {
         
 #ifdef debug_banded_aligner_traceback
-        cerr << "[BAMatrix::traceback] traceback coordinates (" << i << ", " << j << "), current matrix is " << (mat == Match ? "match" : (mat == InsertCol ? "insert column" : "insert row")) << endl;
+        cerr << "[BAMatrix::traceback_internal] traceback coordinates (" << i << ", " << j << "), current matrix is " << (curr_mat == Match ? "match" : (curr_mat == InsertCol ? "insert column" : "insert row")) << endl;
 #endif
         
         // add traceback step to alignment
-        builder.update_state(graph, mat, node, i + top_diag + j, j);
+        builder.update_state(graph, curr_mat, node, i + top_diag + j, j);
         
         // check for a deflection
         if (traceback_stack.at_next_deflection(node_id, i, j)) {
             
             // move to the next position as dictated by current matrix
-            switch (mat) {
+            switch (curr_mat) {
                 case Match:
                     j--;
                     break;
@@ -758,10 +769,10 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
             }
             
             // take the deflection and advance the deflection iterator
-            mat = traceback_stack.deflect_to_matrix();
+            curr_mat = traceback_stack.deflect_to_matrix();
             
 #ifdef debug_banded_aligner_traceback
-            cerr << "[BAMatrix::traceback] taking inside matrix deflection to " << (mat == Match ? "match" : (mat == InsertCol ? "insert column" : "insert row")) << endl;
+            cerr << "[BAMatrix::traceback_internal] taking inside matrix deflection to " << (curr_mat == Match ? "match" : (curr_mat == InsertCol ? "insert column" : "insert row")) << endl;
 #endif
             
             continue;
@@ -770,15 +781,15 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
         // find optimal traceback
         idx = i * ncols + j;
         bool found_trace = false;
-        switch (mat) {
+        switch (curr_mat) {
             case Match:
             {
                 if (i + j == -top_diag) {
 #ifdef debug_banded_aligner_traceback
-                    cerr << "[BAMatrix::traceback] next cell is outside matrix, opening implied lead gap" << endl;
+                    cerr << "[BAMatrix::traceback_internal] next cell is outside matrix, opening implied lead gap" << endl;
 #endif
                     // at top of matrix, move into implied lead gap along top edge
-                    mat = InsertCol;
+                    curr_mat = InsertCol;
                     j--;
                     in_lead_gap = true;
                     // no where else to go, so break out of switch statement without checking alts
@@ -797,16 +808,16 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
                 }
                 
 #ifdef debug_banded_aligner_traceback
-                cerr << "[BAMatrix::traceback] transitioning from match, current score " << (int) match[idx] << " match/mismatch score " << (int) match_score << " from node char " << j << " (" << node_seq[j] << ") and read char " << i + top_diag + j << " (" << read[i + top_diag + j] << ")" << endl;
+                cerr << "[BAMatrix::traceback_internal] transitioning from match, current score " << (int) match[idx] << " match/mismatch score " << (int) match_score << " from node char " << j << " (" << node_seq[j] << ") and read char " << i + top_diag + j << " (" << read[i + top_diag + j] << ")" << endl;
 #endif
                 
                 source_score = match[next_idx];
                 score_diff = curr_score - (source_score + match_score);
                 if (score_diff == 0) {
 #ifdef debug_banded_aligner_traceback
-                    cerr << "[BAMatrix::traceback] found next cell in match matrix with score " << (int) match[next_idx] << endl;
+                    cerr << "[BAMatrix::traceback_internal] found next cell in match matrix with score " << (int) match[next_idx] << endl;
 #endif
-                    mat = Match;
+                    curr_mat = Match;
                     found_trace = true;
                 }
                 else if (source_score != min_inf) {
@@ -819,9 +830,9 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
                     score_diff = curr_score - (source_score + match_score);
                     if (!found_trace && score_diff == 0) {
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback] found next cell in insert row matrix with score " << (int) insert_row[next_idx] << endl;
+                        cerr << "[BAMatrix::traceback_internal] found next cell in insert row matrix with score " << (int) insert_row[next_idx] << endl;
 #endif
-                        mat = InsertRow;
+                        curr_mat = InsertRow;
                         found_trace = true;
                     }
                     else {
@@ -835,9 +846,9 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
                     score_diff = curr_score - (source_score + match_score);
                     if (!found_trace && score_diff == 0) {
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback] found next cell in insert column matrix with score " << (int) insert_col[next_idx] << endl;
+                        cerr << "[BAMatrix::traceback_internal] found next cell in insert column matrix with score " << (int) insert_col[next_idx] << endl;
 #endif
-                        mat = InsertCol;
+                        curr_mat = InsertCol;
                         found_trace = true;
                     }
                     else if (source_score != min_inf) {
@@ -879,7 +890,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
                 source_score = match[next_idx];
                 score_diff = curr_score - (source_score - gap_open);
                 if (score_diff == 0) {
-                    mat = Match;
+                    curr_mat = Match;
                     found_trace = true;
                 }
                 else if (source_score != min_inf) {
@@ -891,7 +902,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
                 if (source_score > min_inf) {
                     score_diff = curr_score - (source_score - gap_extend);
                     if (!found_trace && score_diff == 0) {
-                        mat = InsertRow;
+                        curr_mat = InsertRow;
                         found_trace = true;
                     }
                     else if (source_score != min_inf) {
@@ -904,7 +915,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
                 if (source_score > min_inf) {
                     score_diff = curr_score - (source_score - gap_open);
                     if (!found_trace && score_diff == 0) {
-                        mat = InsertCol;
+                        curr_mat = InsertCol;
                         found_trace = true;
                     }
                     else if (source_score != min_inf) {
@@ -938,7 +949,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
                 source_score = match[next_idx];
                 score_diff = curr_score - (source_score - gap_open);
                 if (score_diff == 0) {
-                    mat = Match;
+                    curr_mat = Match;
                     found_trace = true;
                 }
                 else if (source_score != min_inf) {
@@ -950,7 +961,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
                 if (source_score > min_inf) {
                     score_diff = curr_score - (source_score - gap_open);
                     if (!found_trace && score_diff == 0) {
-                        mat = InsertRow;
+                        curr_mat = InsertRow;
                         found_trace = true;
                     }
                     else if (source_score != min_inf) {
@@ -963,7 +974,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
                 if (source_score > min_inf) {
                     score_diff = curr_score - (source_score - gap_extend);
                     if (!found_trace && score_diff == 0) {
-                        mat = InsertCol;
+                        curr_mat = InsertCol;
                         found_trace = true;
                     }
                     else if (source_score != min_inf) {
@@ -994,27 +1005,16 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback(const HandleGraph& graph,
     
     if (in_lead_gap) {
 #ifdef debug_banded_aligner_traceback
-        cerr << "[BAMatrix::traceback] running through node sequence in a lead gap" << endl;
+        cerr << "[BAMatrix::traceback_internal] running through node sequence in a lead gap" << endl;
 #endif
         // add lead column gaps until reaching edge of node
-        mat = InsertCol;
+        curr_mat = InsertCol;
         while (j > 0) {
-            builder.update_state(graph, mat, node, -1, j);
+            builder.update_state(graph, curr_mat, node, -1, j);
             j--;
             i++;
         }
     }
-    
-}
-
-template<class IntType>
-void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGraph& graph, BABuilder& builder,
-                                                                 AltTracebackStack& traceback_stack,
-                                                                 int64_t& i, int64_t& j, matrix_t& mat,
-                                                                 bool& in_lead_gap, int64_t& node_id,
-                                                                 const int8_t* score_mat, const int8_t* nt_table,
-                                                                 const int8_t gap_open, const int8_t gap_extend,
-                                                                 const bool qual_adjusted, IntType const min_inf) {
     
     // begin POA across the boundary
     
@@ -1030,26 +1030,14 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
     int64_t traceback_seed_col = std::numeric_limits<int64_t>::min();
     matrix_t traceback_mat = Match;
     
-    const string& read = alignment.sequence();
-    const string& base_quality = alignment.quality();
-    
-    int64_t idx, next_idx;
-    IntType score_diff;
-    IntType alt_score;
-    IntType curr_score;
-    IntType source_score;
-    IntType curr_traceback_score = traceback_stack.current_traceback_score();
-    
     int64_t curr_diag = top_diag + i;
-    string node_seq = graph.get_sequence(node);
-    int64_t ncols = graph.get_length(node);
     
     if (traceback_stack.at_next_deflection(node_id, i, j)) {
 #ifdef debug_banded_aligner_traceback
-        cerr << "[BAMatrix::traceback_over_edge] at boundary, taking a deflection" << endl;
+        cerr << "[BAMatrix::traceback_internal] at boundary, taking a deflection" << endl;
 #endif
         
-        builder.update_state(graph, mat, node, curr_diag, 0);
+        builder.update_state(graph, curr_mat, node, curr_diag, 0);
         
         // where to deflect to?
         int64_t deflect_node_id;
@@ -1101,26 +1089,25 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
             auto end = seed_path.end();
             end--;
             for (auto iter = seed_path.begin(); iter != end; iter++) {
-                builder.update_state(graph, mat, (*iter)->node, i, 0, true);
+                builder.update_state(graph, curr_mat, (*iter)->node, i, 0, true);
             }
         }
         
         BAMatrix* seed = seed_path.back();
         
         int64_t seed_ncols = graph.get_length(seed->node);
-        traceback_seed_row = curr_diag - seed->top_diag - seed_ncols + (mat == InsertCol);
+        traceback_seed_row = curr_diag - seed->top_diag - seed_ncols + (curr_mat == InsertCol);
         traceback_seed_col = seed_ncols - 1;
         // check whether we're crossing into a lead gap
-        in_lead_gap = (curr_diag == 0 && mat == Match) || in_lead_gap;
+        in_lead_gap = (curr_diag == 0 && curr_mat == Match) || in_lead_gap;
         
 #ifdef debug_banded_aligner_traceback
-        cerr << "[BAMatrix::traceback_over_edge] taking node boundary deflection to " << (deflect_matrix == Match ? "match" : (deflect_matrix == InsertCol ? "insert column" : "insert row")) << " in node " << deflect_node_id << ", will start at coordinates (" << traceback_seed_row << ", " << traceback_seed_col << ")" << endl;
+        cerr << "[BAMatrix::traceback_internal] taking node boundary deflection to " << (deflect_matrix == Match ? "match" : (deflect_matrix == InsertCol ? "insert column" : "insert row")) << " in node " << deflect_node_id << ", will start at coordinates (" << traceback_seed_row << ", " << traceback_seed_col << ")" << endl;
 #endif
         
-        i = traceback_seed_row;
-        j = traceback_seed_col;
-        mat = deflect_matrix;
-        node_id = deflect_node_id;
+        // continue traceback in the next node
+        seed->traceback_internal(graph, builder, traceback_stack, traceback_seed_row, traceback_seed_col, deflect_matrix,
+                                 in_lead_gap, score_mat, nt_table, gap_open, gap_extend, qual_adjusted, min_inf);
         return;
     }
     
@@ -1137,13 +1124,13 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
     
     if (in_lead_gap) {
 #ifdef debug_banded_aligner_traceback
-        cerr << "[BAMatrix::traceback_over_edge] at boundary, following seed backward from a lead gap" << endl;
+        cerr << "[BAMatrix::traceback_internal] at boundary, following seed backward from a lead gap" << endl;
 #endif
         // we are in the implied lead gap along the top of the matrix
         // take the shortest path back to the origin of the global alignment
         
         // add final read deletion of node
-        builder.update_state(graph, mat, node, -1, j);
+        builder.update_state(graph, curr_mat, node, -1, j);
         
         while (!seed_queue.empty()) {
             
@@ -1157,19 +1144,19 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
             }
             
 #ifdef debug_banded_aligner_traceback
-            cerr << "[BAMatrix::traceback_over_edge] checking seed node " << graph.get_id(seed->node) << endl;
+            cerr << "[BAMatrix::traceback_internal] checking seed node " << graph.get_id(seed->node) << endl;
 #endif
             
             // if this node is empty, add its predecessors to the queue
             if (graph.get_length(seed->node) == 0) {
 #ifdef debug_banded_aligner_traceback
-                cerr << "[BAMatrix::traceback_over_edge] seed node " << graph.get_id(seed->node) << " is empty, checking predecessors" << endl;
+                cerr << "[BAMatrix::traceback_internal] seed node " << graph.get_id(seed->node) << " is empty, checking predecessors" << endl;
 #endif
                 // record that this seed comes before its predecessors in the traceback
                 seed_record.second.push_back(seed);
                 if (seed->seeds.empty()) {
 #ifdef debug_banded_aligner_traceback
-                    cerr << "[BAMatrix::traceback_over_edge] empty seed node " << graph.get_id(seed->node) << " is a source" << endl;
+                    cerr << "[BAMatrix::traceback_internal] empty seed node " << graph.get_id(seed->node) << " is a source" << endl;
 #endif
                     treat_as_source = true;
                     traceback_source_nodes.insert(graph.get_id(seed->node));
@@ -1185,7 +1172,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
             score_diff = gap_extend * (seed->cumulative_seq_len + graph.get_length(seed->node) - cumulative_seq_len);
             if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                cerr << "[BAMatrix::traceback_over_edge] found a lead gap traceback to node " << graph.get_id(seed->node) << endl;
+                cerr << "[BAMatrix::traceback_internal] found a lead gap traceback to node " << graph.get_id(seed->node) << endl;
 #endif
                 traceback_seed = seed;
                 empty_intermediate_nodes = seed_record.second;
@@ -1207,10 +1194,10 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
     }
     else {
         
-        builder.update_state(graph, mat, node, curr_diag, 0);
+        builder.update_state(graph, curr_mat, node, curr_diag, 0);
         
         IntType match_score;
-        switch (mat) {
+        switch (curr_mat) {
             case Match:
             {
                 curr_score = match[i * ncols];
@@ -1245,7 +1232,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
         }
         
 #ifdef debug_banded_aligner_traceback
-        cerr << "[BAMatrix::traceback_over_edge] at boundary, in node " << graph.get_id(node) << " following seed backward from " << (mat == Match ? "match" : "insert column") << " matrix with score " << (int) curr_score << endl;
+        cerr << "[BAMatrix::traceback_internal] at boundary, in node " << graph.get_id(node) << " following seed backward from " << (curr_mat == Match ? "match" : "insert column") << " matrix with score " << (int) curr_score << endl;
 #endif
         
         // matches stay on same diagonal, column insertions move over one diagonal
@@ -1260,7 +1247,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
             // is the matrix masked?
             if (seed == nullptr) {
 #ifdef debug_banded_aligner_traceback
-                cerr << "[BAMatrix::traceback_over_edge] seed is masked" << endl;
+                cerr << "[BAMatrix::traceback_internal] seed is masked" << endl;
 #endif
                 continue;
             }
@@ -1283,7 +1270,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
             
             
 #ifdef debug_banded_aligner_traceback
-            cerr << "[BAMatrix::traceback_over_edge] checking seed node " << graph.get_id(seed->node) << endl;
+            cerr << "[BAMatrix::traceback_internal] checking seed node " << graph.get_id(seed->node) << endl;
 #endif
             
             int64_t seed_node_id = graph.get_id(seed->node);
@@ -1294,32 +1281,32 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
             int64_t seed_extended_bottom_diag = seed->bottom_diag + seed_ncols;
             
             // does the traceback diagonal extend backward to this matrix?
-            if (curr_diag > seed_extended_bottom_diag - (mat == InsertCol) // col inserts hit 1 less of band
+            if (curr_diag > seed_extended_bottom_diag - (curr_mat == InsertCol) // col inserts hit 1 less of band
                 || curr_diag < seed_extended_top_diag) {
 #ifdef debug_banded_aligner_traceback
-                cerr << "[BAMatrix::traceback_over_edge] seed extended diags are top: " << seed_extended_top_diag << ", bottom: " << seed_extended_bottom_diag << " and curr mat is " << (mat == InsertCol ? "" : "not") << " insert column, so we cannot extend from this seed to the current diag " << curr_diag << endl;
+                cerr << "[BAMatrix::traceback_internal] seed extended diags are top: " << seed_extended_top_diag << ", bottom: " << seed_extended_bottom_diag << " and curr mat is " << (curr_mat == InsertCol ? "" : "not") << " insert column, so we cannot extend from this seed to the current diag " << curr_diag << endl;
 #endif
                 continue;
             }
             
             int64_t seed_col = seed_ncols - 1;
-            int64_t seed_row = -(seed_extended_top_diag - top_diag) + i + (mat == InsertCol);
+            int64_t seed_row = -(seed_extended_top_diag - top_diag) + i + (curr_mat == InsertCol);
             next_idx = seed_row * seed_ncols + seed_col;
             
 #ifdef debug_banded_aligner_traceback
-            cerr << "[BAMatrix::traceback_over_edge] checking seed rectangular coordinates (" << seed_row << ", " << seed_col << "), with indices calculated from current diagonal " << curr_diag << " (top diag " << top_diag << " + offset " << i << "), seed top diagonal " << seed->top_diag << ", seed seq length " << seed_ncols << " with insert column offset " << (mat == InsertCol) << endl;
+            cerr << "[BAMatrix::traceback_internal] checking seed rectangular coordinates (" << seed_row << ", " << seed_col << "), with indices calculated from current diagonal " << curr_diag << " (top diag " << top_diag << " + offset " << i << "), seed top diagonal " << seed->top_diag << ", seed seq length " << seed_ncols << " with insert column offset " << (curr_mat == InsertCol) << endl;
 #endif
             
-            switch (mat) {
+            switch (curr_mat) {
                 case Match:
                 {
 #ifdef debug_banded_aligner_traceback
-                    cerr << "[BAMatrix::traceback_over_edge] poa backwards from match, seed extended top diag " << seed_extended_top_diag << endl;
+                    cerr << "[BAMatrix::traceback_internal] poa backwards from match, seed extended top diag " << seed_extended_top_diag << endl;
 #endif
                     // does match lead into a lead row gap?
                     if (seed->top_diag + seed_row + seed_col == -1) {
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback_over_edge] traceback points to a lead column gap of length " << seed->cumulative_seq_len + seed_ncols << " with score " << (int) -gap_open - (seed->cumulative_seq_len + seed_ncols - 1) * gap_extend << " extending to score here of " << (int) curr_score << " with match score " << (int) match_score << endl;
+                        cerr << "[BAMatrix::traceback_internal] traceback points to a lead column gap of length " << seed->cumulative_seq_len + seed_ncols << " with score " << (int) -gap_open - (seed->cumulative_seq_len + seed_ncols - 1) * gap_extend << " extending to score here of " << (int) curr_score << " with match score " << (int) match_score << endl;
 #endif
                         // score of implied column gap
                         source_score = -gap_open - (seed->cumulative_seq_len + seed_ncols - 1) * gap_extend;
@@ -1333,7 +1320,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                             found_trace = true;
                             empty_intermediate_nodes = seed_record.second;
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] hit found in lead gap with score " << -gap_open - (seed->cumulative_seq_len + seed_ncols - 1) * gap_extend << endl;
+                            cerr << "[BAMatrix::traceback_internal] hit found in lead gap with score " << -gap_open - (seed->cumulative_seq_len + seed_ncols - 1) * gap_extend << endl;
 #endif
                         }
                         else {
@@ -1356,7 +1343,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                         found_trace = true;
                         empty_intermediate_nodes = seed_record.second;
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback_over_edge] hit found in match matrix with score " << (int) seed->match[next_idx] << endl;
+                        cerr << "[BAMatrix::traceback_internal] hit found in match matrix with score " << (int) seed->match[next_idx] << endl;
 #endif
                     }
                     else if (source_score != min_inf) {
@@ -1370,7 +1357,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                         score_diff = curr_score - (source_score + match_score);
                         if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] hit found in insert column matrix  with score " << (int) seed->insert_col[next_idx] << endl;
+                            cerr << "[BAMatrix::traceback_internal] hit found in insert column matrix  with score " << (int) seed->insert_col[next_idx] << endl;
 #endif
                             traceback_mat = InsertCol;
                             traceback_seed = seed;
@@ -1391,7 +1378,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                         score_diff = curr_score - (source_score + match_score);
                         if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] hit found in insert row matrix  with score " << (int) seed->insert_row[next_idx] << endl;
+                            cerr << "[BAMatrix::traceback_internal] hit found in insert row matrix  with score " << (int) seed->insert_row[next_idx] << endl;
 #endif
                             traceback_mat = InsertRow;
                             traceback_seed = seed;
@@ -1416,7 +1403,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                     score_diff = curr_score - (source_score - gap_open);
                     if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback_over_edge] hit found in match matrix with score " << (int) seed->match[next_idx] << endl;
+                        cerr << "[BAMatrix::traceback_internal] hit found in match matrix with score " << (int) seed->match[next_idx] << endl;
 #endif
                         traceback_mat = Match;
                         traceback_seed = seed;
@@ -1428,7 +1415,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                     else if (source_score != min_inf) {
                         alt_score = curr_traceback_score - score_diff;
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback_over_edge] no hit in match matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
+                        cerr << "[BAMatrix::traceback_internal] no hit in match matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
 #endif
                         traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, Match);
                     }
@@ -1439,7 +1426,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                         score_diff = curr_score - (source_score - gap_extend);
                         if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] hit found in insert column matrix with score " << (int) seed->match[next_idx] << endl;
+                            cerr << "[BAMatrix::traceback_internal] hit found in insert column matrix with score " << (int) seed->match[next_idx] << endl;
 #endif
                             traceback_mat = InsertCol;
                             traceback_seed = seed;
@@ -1451,7 +1438,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                         else {
                             alt_score = curr_traceback_score - score_diff;
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] no hit in insert row matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
+                            cerr << "[BAMatrix::traceback_internal] no hit in insert row matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
 #endif
                             traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertCol);
                         }
@@ -1463,7 +1450,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                         score_diff = curr_score - (source_score - gap_open);
                         if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] hit found in insert row matrix with score " << (int) seed->match[next_idx] << endl;
+                            cerr << "[BAMatrix::traceback_internal] hit found in insert row matrix with score " << (int) seed->match[next_idx] << endl;
 #endif
                             traceback_mat = InsertRow;
                             traceback_seed = seed;
@@ -1475,7 +1462,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                         else {
                             alt_score = curr_traceback_score - score_diff;
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_over_edge] no hit in insert column matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
+                            cerr << "[BAMatrix::traceback_internal] no hit in insert column matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
 #endif
                             traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertRow);
                         }
@@ -1507,7 +1494,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
         // this is a source node, or it is connected to one by a zero-length path
         
 #ifdef debug_banded_aligner_traceback
-        cerr << "[BAMatrix::traceback_over_edge] at beginning of first node in alignment" << endl;
+        cerr << "[BAMatrix::traceback_internal] at beginning of first node in alignment" << endl;
 #endif
         if (in_lead_gap && !found_trace) {
             // this will always be the shortest gap
@@ -1516,7 +1503,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
             i++;
         }
         else {
-            switch (mat) {
+            switch (curr_mat) {
                 case Match:
                 {
                     IntType match_score;
@@ -1531,9 +1518,9 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                     score_diff = curr_score - (source_score + match_score);
                     if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback_over_edge] alignment starts with match, adding read char " << top_diag + i << ": " << read[top_diag + i] << endl;
+                        cerr << "[BAMatrix::traceback_internal] alignment starts with match, adding read char " << top_diag + i << ": " << read[top_diag + i] << endl;
 #endif
-                        mat = InsertRow;
+                        curr_mat = InsertRow;
                         found_source_trace = true;
                     }
                     else {
@@ -1552,9 +1539,9 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
                     score_diff = curr_score - (source_score - gap_open);
                     if (score_diff == 0 && !found_trace) {
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback_over_edge] alignment starts with column gap" << endl;
+                        cerr << "[BAMatrix::traceback_internal] alignment starts with column gap" << endl;
 #endif
-                        mat = InsertRow;
+                        curr_mat = InsertRow;
                         found_source_trace = true;
                     }
                     else {
@@ -1588,24 +1575,21 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
         // add any lead row gaps necessary
         while (top_diag + i > 0) {
 #ifdef debug_banded_aligner_traceback
-            cerr << "[BAMatrix::traceback_over_edge] initial row gaps are present, adding read char " << top_diag + i - 1 << ": " << read[top_diag + i - 1] << endl;
+            cerr << "[BAMatrix::traceback_internal] initial row gaps are present, adding read char " << top_diag + i - 1 << ": " << read[top_diag + i - 1] << endl;
 #endif
             i--;
             const handle_t& end_node = empty_source_path.empty() ? node : empty_source_path.back()->node;
             builder.update_state(graph, InsertRow, end_node, i + top_diag, -1, graph.get_length(end_node) == 0);
         }
-        
-        // set the node ID to 0 to indicate completion
-        node_id = 0;
         return;
     }
     else {
 #ifdef debug_banded_aligner_traceback
-        cerr << "[BAMatrix::traceback_over_edge] traversed " << empty_intermediate_nodes.size() << " empty nodes before finding trace" << endl;
+        cerr << "[BAMatrix::traceback_internal] traversed " << empty_intermediate_nodes.size() << " empty nodes before finding trace" << endl;
 #endif
         // if we traversed any empty nodes before finding the traceback, add empty updates for them
         for (BAMatrix* intermediate_node : empty_intermediate_nodes) {
-            builder.update_state(graph, mat, intermediate_node->node, i + top_diag, 0, true);
+            builder.update_state(graph, curr_mat, intermediate_node->node, i + top_diag, 0, true);
         }
         
     }
@@ -1615,11 +1599,9 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_over_edge(const HandleGra
         assert(0);
     }
     
-    // set the traceback values for the next matrix
-    i = traceback_seed_row;
-    j = traceback_seed_col;
-    mat = traceback_mat;
-    node_id = graph.get_id(traceback_seed->node);
+    // continue traceback in the next node
+    traceback_seed->traceback_internal(graph, builder, traceback_stack, traceback_seed_row, traceback_seed_col, traceback_mat,
+                                       in_lead_gap, score_mat, nt_table, gap_open, gap_extend, qual_adjusted, min_inf);
 }
 
 template <class IntType>
@@ -2153,6 +2135,10 @@ void BandedGlobalAligner<IntType>::traceback(int8_t* score_mat, int8_t* nt_table
                                       gap_open, gap_extend, min_inf);
     
     while (traceback_stack.has_next()) {
+        int64_t end_node_id;
+        matrix_t end_matrix;
+        traceback_stack.get_alignment_start(end_node_id, end_matrix);
+        int64_t end_node_idx = node_id_to_idx[end_node_id];
         
         Alignment* next_alignment;
         if (!alt_alignments) {
@@ -2178,44 +2164,20 @@ void BandedGlobalAligner<IntType>::traceback(int8_t* score_mat, int8_t* nt_table
         }
         else {
             
-            // what node does the alignment start at
-            int64_t node_id;
-            matrix_t mat;
-            traceback_stack.get_alignment_start(node_id, mat);
-            
-            // start the row and column trackers
-            int64_t i, j;
-            banded_matrices[node_id_to_idx[node_id]]->init_traceback_indexes(graph, i, j);
-            
-            // we only start in a gap if the sequence if there is nothing to align
-            bool in_lead_gap = alignment.sequence().empty();
-            
 #ifdef debug_banded_aligner_traceback
-            cerr << "[BandedGlobalAligner::traceback] beginning traceback ending at node " << node_id << " in matrix " << (mat == Match ? "match" : (mat == InsertCol ? "insert column" : "insert row")) << endl;
+            cerr << "[BandedGlobalAligner::traceback] beginning traceback ending at node " << end_node_id << " in matrix " << (end_matrix == Match ? "match" : (end_matrix == InsertCol ? "insert column" : "insert row")) << endl;
 #endif
-            
+            // add score to alignment
+            next_alignment->set_score(traceback_stack.current_traceback_score());
             
             // do traceback
             BABuilder builder(*next_alignment);
-            
-            while (node_id != 0) {
-                int64_t node_idx = node_id_to_idx[node_id];
-                // trace through the matrix
-                banded_matrices[node_idx]->traceback(graph, builder, traceback_stack, i, j, mat, in_lead_gap, score_mat,
-                                                     nt_table, gap_open, gap_extend, adjust_for_base_quality, min_inf);
-                // trace over edges
-                banded_matrices[node_idx]->traceback_over_edge(graph, builder, traceback_stack, i, j, mat, in_lead_gap,
-                                                               node_id, score_mat, nt_table, gap_open, gap_extend,
-                                                               adjust_for_base_quality, min_inf);
-            }
+            banded_matrices[end_node_idx]->traceback(graph, builder, traceback_stack, end_matrix, score_mat, nt_table,
+                                                     gap_open, gap_extend, adjust_for_base_quality, min_inf);
             
             // construct the alignment path
             builder.finalize_alignment(traceback_stack.current_empty_prefix());
             
-            // add score to alignment
-            next_alignment->set_score(traceback_stack.current_traceback_score());
-            
-            // advance to the next traceback
             traceback_stack.next_traceback_alignment();
         }
         
@@ -2253,7 +2215,7 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(const HandleG
     
         if (sink_matrix->match == nullptr) {
             cerr << "error:[BandedGlobalAligner] must fill dynamic programming matrices before finding optimal score" << endl;
-            exit(1);
+            assert(0);
         }
         
         list<BAMatrix*> band_stack{sink_matrix};

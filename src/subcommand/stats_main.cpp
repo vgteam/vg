@@ -11,18 +11,16 @@
 #include <list>
 #include <fstream>
 
-#include <vg/io/vpkg.hpp>
-#include <vg/io/stream.hpp>
-
 #include "subcommand.hpp"
 #include "../algorithms/distance_to_head.hpp"
 #include "../algorithms/distance_to_tail.hpp"
 #include "../algorithms/is_acyclic.hpp"
 #include "../algorithms/strongly_connected_components.hpp"
 #include "../algorithms/weakly_connected_components.hpp"
+#include <vg/io/vpkg.hpp>
+#include <vg/io/stream.hpp>
 #include "../algorithms/copy_graph.hpp"
 #include "../handle.hpp"
-#include "../cactus_snarl_finder.hpp"
 
 #include "../path.hpp"
 #include "../statistics.hpp"

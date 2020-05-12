@@ -15,7 +15,6 @@
 #include "index_manager.hpp"
 #include "utility.hpp"
 #include "constructor.hpp"
-#include "cactus_snarl_finder.hpp"
 #include "haplotype_indexer.hpp"
 #include "io/save_handle_graph.hpp"
 
@@ -476,7 +475,7 @@ void IndexManager::ensure_minimizer() {
         // Make it
         minimizer.reset(new gbwtgraph::DefaultMinimizerIndex(minimizer_k, minimizer_w));
         gbwtgraph::index_haplotypes(*gbwtgraph.first, *minimizer, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            return MIPayload::encode(distance->get_minimizer_distances(pos));
+            return MIPayload::encode(distance->offset_in_root_chain(pos));
         });
 
         if (out.is_open()) {

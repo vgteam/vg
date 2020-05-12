@@ -166,80 +166,6 @@ namespace vg {
             view_multipath_alignment(cerr, multipath_aln, *xindex);
         }
 #endif
-        
-#ifdef mpmap_instrument_mem_statitics
-        size_t num_mems = mems.size();
-        size_t min_mem_length = numeric_limits<size_t>::max();
-        size_t max_mem_length = 0;
-        double avg_mem_length = 0.0;
-        for (const auto& mem : mems) {
-            min_mem_length = min<size_t>(min_mem_length, mem.length());
-            max_mem_length = max<size_t>(max_mem_length, mem.length());
-            avg_mem_length += mem.length();
-        }
-        avg_mem_length /= mems.size();
-        double avg_mem_overlap = 0.0;
-        for (size_t i = 1; i < mems.size(); ++i) {
-            avg_mem_overlap += max<int64_t>(mems[i - 1].end - mems[i].begin, 0);
-        }
-        avg_mem_overlap /= (mems.size() - 1);
-        
-        size_t num_clusters = clusters.size();
-        size_t winning_cluster_num_mems = clusters[cluster_idxs.front()].size();
-        size_t winning_cluster_total_bases = 0;
-        size_t winning_cluster_min_mem_length = numeric_limits<size_t>::max();
-        size_t winning_cluster_max_mem_length = 0;
-        for (const auto& hit : clusters[cluster_idxs.front()]) {
-            winning_cluster_min_mem_length = min<size_t>(winning_cluster_min_mem_length, hit.first->length());
-            winning_cluster_max_mem_length = max<size_t>(winning_cluster_max_mem_length, hit.first->length());
-            winning_cluster_total_bases += hit.first->length();
-        }
-        vector<size_t> order;
-        for (size_t i = 0; i < clusters[cluster_idxs.front()].size(); ++i) {
-            order.push_back(i);
-        }
-        sort(order.begin(), order.end(), [&](size_t i, size_t j) {
-            return clusters[cluster_idxs.front()][i].first->begin < clusters[cluster_idxs.front()][j].first->begin;
-        });
-        
-        size_t winning_cluster_tail_bases = ((clusters[cluster_idxs.front()][order.front()].first->begin - alignment.sequence().begin())
-                                             + (alignment.sequence().end() - clusters[cluster_idxs.front()][order.back()].first->end));
-        
-        double winning_cluster_avg_intermem_gap = 0.0;
-        if (clusters[cluster_idxs.front()].size() == 0) {
-            winning_cluster_avg_intermem_gap = numeric_limits<double>::quiet_NaN();
-        }
-        else {
-            for (size_t i = 1; i < order.size(); ++i) {
-                winning_cluster_avg_intermem_gap += (clusters[cluster_idxs.front()][order[i]].first->begin
-                                                     - clusters[cluster_idxs.front()][order[i - 1]].first->end);
-            }
-            winning_cluster_avg_intermem_gap /= order.size() - 1;
-        }
-        
-        int64_t max_non_winning_mem_length = 0;
-        for (size_t i = 0; i < mems.size(); ++i) {
-            bool found = false;
-            for (const auto hit : clusters[cluster_idxs.front()]) {
-                if (hit.first == &mems[i]) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                max_non_winning_mem_length = max<int64_t>(max_non_winning_mem_length, mems[i].length());
-            }
-        }
-        
-#pragma omp critical
-        {
-            if (!_wrote_mem_stats_header) {
-                _mem_stats << "name\tread_len\tnum_mems\tmin_mem_length\tmax_mem_length\tavg_mem_length\tavg_mem_overlap\tnum_clusters\twinning_cluster_num_mems\twinning_cluster_min_mem_length\twinning_cluster_max_mem_length\twinning_cluster_total_bases\twinning_cluster_tail_bases\twinning_cluster_avg_intermem_gap\tmax_non_winning_mem_length" << endl;
-                _wrote_mem_stats_header = true;
-            }
-            _mem_stats << alignment.name() << "\t" << alignment.sequence().size() << "\t" << num_mems << "\t" << min_mem_length << "\t" << max_mem_length << "\t" << avg_mem_length << "\t" << avg_mem_overlap << "\t" << num_clusters << "\t" << winning_cluster_num_mems << "\t" << winning_cluster_min_mem_length << "\t" << winning_cluster_max_mem_length << "\t" << winning_cluster_total_bases << "\t" << winning_cluster_tail_bases << "\t" << winning_cluster_avg_intermem_gap << "\t" << max_non_winning_mem_length << endl;
-        }
-#endif
     }
     
     vector<MultipathMapper::memcluster_t> MultipathMapper::get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
@@ -886,8 +812,8 @@ namespace vg {
         if (use_min_dist_clusterer || use_tvs_clusterer) {
             assert(!forward_strand);
             // measure the distance in both directions and choose the minimum (or the only) absolute distance
-            int64_t forward_dist = distance_index->min_distance(pos_1, pos_2);
-            int64_t reverse_dist = distance_index->min_distance(pos_2, pos_1);
+            int64_t forward_dist = distance_index->minDistance(pos_1, pos_2);
+            int64_t reverse_dist = distance_index->minDistance(pos_2, pos_1);
             if (forward_dist == -1 && reverse_dist == -1) {
                 // unreachable both ways, convert to the sentinel that the client code expects
                 dist = numeric_limits<int64_t>::max();
