@@ -42,6 +42,7 @@ var searchData=
   ['graph_5fstart_5fedges_5foffset',['GRAPH_START_EDGES_OFFSET',['../classbdsg_1_1PackedGraph.html#a872d174e49c91d80c8e6525559deead7',1,'bdsg::PackedGraph']]],
   ['greedy_5fmin_5fdist',['greedy_min_dist',['../classvg_1_1MultipathMapper.html#a97d02064d377122ed8cef9e53340ba90',1,'vg::MultipathMapper']]],
   ['greedy_5fpieces',['greedy_pieces',['../classvg_1_1Constructor.html#ac4dce51a25e5f773a0c53e8cd9f07628',1,'vg::Constructor']]],
+  ['greedy_5frestart_5fassume_5fsubstitution',['greedy_restart_assume_substitution',['../classvg_1_1BaseMapper.html#a5a3324ff0b1faccb4e976e0d1a369712',1,'vg::BaseMapper']]],
   ['greedy_5frestart_5fmax_5fcount',['greedy_restart_max_count',['../classvg_1_1BaseMapper.html#a5d9a1c8549138e423e1a95a40590fee6',1,'vg::BaseMapper']]],
   ['greedy_5frestart_5fmax_5flcp',['greedy_restart_max_lcp',['../classvg_1_1BaseMapper.html#a4cad1e0b9a03002f35eee233cc34ac54',1,'vg::BaseMapper']]],
   ['greedy_5frestart_5fmin_5flength',['greedy_restart_min_length',['../classvg_1_1BaseMapper.html#abe669bcb3e32a8afb3e71443bbe5076a',1,'vg::BaseMapper']]],
