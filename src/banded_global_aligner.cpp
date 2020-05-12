@@ -8,11 +8,11 @@
 #include "banded_global_aligner.hpp"
 #include "json2pb.h"
 
-#define debug_banded_aligner_objects
-#define debug_banded_aligner_graph_processing
-#define debug_banded_aligner_fill_matrix
-#define debug_banded_aligner_traceback
-#define debug_banded_aligner_print_matrices
+//#define debug_banded_aligner_objects
+//#define debug_banded_aligner_graph_processing
+//#define debug_banded_aligner_fill_matrix
+//#define debug_banded_aligner_traceback
+//#define debug_banded_aligner_print_matrices
 
 namespace vg {
 
@@ -483,7 +483,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(const HandleGraph& grap
     if (treat_as_source && ncols > 0) {
         if (cumulative_seq_len != 0) {
             cerr << "error:[BandedGlobalAligner] banded alignment has no node predecessor for node in middle of path" << endl;
-            assert(0);
+            exit(0);
         }
         
 #ifdef debug_banded_aligner_fill_matrix
@@ -2289,7 +2289,6 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(const HandleG
                 // get the coordinates of the bottom right corner
                 const handle_t& node = band_matrix->node;
                 int64_t node_id = graph.get_id(node);
-                
                 int64_t read_length = band_matrix->alignment.sequence().length();
                 int64_t ncols = graph.get_length(node);
                 

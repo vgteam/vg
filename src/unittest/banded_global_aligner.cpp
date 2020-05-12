@@ -3505,7 +3505,7 @@ namespace vg {
             }
         }
     
-        TEST_CASE( "Banded global aligner doesn't crash on a hard example",
+        TEST_CASE( "Banded global aligner doesn't crash when the worst possible score is just on the edge of needing a larger int size",
                   "[alignment][banded][mapping]" ) {
             
             bdsg::HashGraph graph;
@@ -3533,6 +3533,7 @@ namespace vg {
             aln.set_sequence(sequence);
             
             TestAligner aligner_source;
+            aligner_source.set_alignment_scores(1, 1, 1, 1, 0);
             const Aligner& aligner = *aligner_source.get_regular_aligner();
             
             aligner.align_global_banded(aln, graph, 2, true);
