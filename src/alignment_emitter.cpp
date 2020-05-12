@@ -45,6 +45,8 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
     if (format == "GAM" || format == "JSON") {
         // Make an emitter that supports VG formats
         backing = new VGAlignmentEmitter(filename, format, max_threads);
+    } else if (format == "GAF") {
+        backing = new GafAlignmentEmitter(filename, format, *splicing_graph, max_threads);
     } else if (format == "SAM" || format == "BAM" || format == "CRAM") {
         // Make an emitter that supports HTSlib formats
         if (splicing_graph) {
@@ -987,6 +989,180 @@ void VGAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_bat
         // No need to flush, we can always register a breakpoint.
         multiplexer.register_breakpoint(thread_number);
     }
+}
+
+GafAlignmentEmitter::GafAlignmentEmitter(const string& filename,
+                                         const string& format,
+                                         const PathPositionHandleGraph& _graph,
+                                         size_t max_threads):
+    out_file(filename == "-" ? nullptr : new ofstream(filename)),
+    multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads),
+    graph(_graph) {
+    
+    // We only support GAF format
+    assert(format == "GAF");
+    
+#ifdef debug
+    cerr << "Creating GafAlignmentEmitter for " << format << " format to output file " << filename << " @ " << out_file.get() << endl;
+    if (out_file.get() != nullptr) {
+        cerr << "Output stream is at " << out_file->tellp() << endl;
+    } else {
+        cerr << "Output stream is at " << cout.tellp() << endl;
+    }
+#endif
+    
+    if (filename != "-") {
+        // Check the file
+        if (!*out_file) {
+            // We couldn't get it open
+            cerr << "[vg::GafAlignmentEmitter] failed to open " << filename << " for writing " << format << " output" << endl;
+            exit(1);
+        }
+    }
+    
+    // We later infer our format and output destination from out_file and proto being empty/set.
+}
+
+GafAlignmentEmitter::~GafAlignmentEmitter() {
+#ifdef debug
+    cerr << "Destroying GafAlignmentEmitter" << endl;
+    if (out_file.get() != nullptr) {
+        cerr << "Output stream is at " << out_file->tellp() << endl;
+    } else {
+        cerr << "Output stream is at " << cout.tellp() << endl;
+    }
+#endif
+
+#ifdef debug
+    cerr << "Destroyed GafAlignmentEmitter" << endl;
+#endif
+}
+
+void GafAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
+    size_t thread_number = omp_get_thread_num();
+    // Serialize to a string in our thread
+    stringstream data;
+    for (auto& aln : aln_batch) {
+        multiplexer.get_thread_stream(thread_number) << aln2gaf(aln) << endl;
+    }
+    // No need to flush, we can always register a breakpoint.
+    multiplexer.register_breakpoint(thread_number);
+}
+
+void GafAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {
+    size_t thread_number = omp_get_thread_num();
+    // Serialize to a string in our thread
+    for (auto& alns : alns_batch) {
+        for (auto& aln : alns) {
+            multiplexer.get_thread_stream(thread_number) << aln2gaf(aln) << endl;
+        }
+    }
+    // No need to flush, we can always register a breakpoint.
+    multiplexer.register_breakpoint(thread_number);
+#ifdef debug
+    cerr << "Sent " << alns_batch.size() << " batches from thread " << thread_number << " followed by a breakpoint" << endl;
+#endif
+}
+
+void GafAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
+                                    vector<Alignment>&& aln2_batch,
+                                    vector<int64_t>&& tlen_limit_batch) {
+    // Sizes need to match up
+    assert(aln1_batch.size() == aln2_batch.size());
+    assert(aln1_batch.size() == tlen_limit_batch.size());
+    
+    size_t thread_number = omp_get_thread_num();
+    
+    // Serialize to a string in our thread in collated order
+    stringstream data;
+    for (size_t i = 0; i < aln1_batch.size(); i++) {
+        multiplexer.get_thread_stream(thread_number) << aln2gaf(aln1_batch[i]) << endl
+                                                     << aln2gaf(aln2_batch[i]) << endl;
+    }
+    // No need to flush, we can always register a breakpoint.
+    multiplexer.register_breakpoint(thread_number);
+}
+
+void GafAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+                                           vector<vector<Alignment>>&& alns2_batch,
+                                           vector<int64_t>&& tlen_limit_batch) {
+    // Sizes need to match up
+    assert(alns1_batch.size() == alns2_batch.size());
+    assert(alns1_batch.size() == tlen_limit_batch.size());
+    
+    size_t thread_number = omp_get_thread_num();
+    // Serialize to an interleaved string in our thread
+    stringstream data;
+    for (size_t i = 0; i < alns1_batch.size(); i++) {
+        assert(alns1_batch[i].size() == alns1_batch[i].size());
+        for (size_t j = 0; j < alns1_batch[i].size(); j++) {
+            multiplexer.get_thread_stream(thread_number) << aln2gaf(alns1_batch[i][j]) << endl
+                                                         << aln2gaf(alns2_batch[i][j]) << endl;
+        }
+    }
+    // No need to flush, we can always register a breakpoint.
+    multiplexer.register_breakpoint(thread_number);
+}
+
+string GafAlignmentEmitter::aln2gaf(const Alignment& aln) {
+    stringstream gaf;
+    //1 string Query sequence name
+    gaf << aln.name() << "\t"
+        //2 int Query sequence length
+        << aln.sequence().length() << "\t";
+    bool has_path = !(!aln.has_path() || aln.path().mapping_size() == 0);
+    if (!has_path) {
+        gaf << "*" << "\t" << "*" << "\t" << "*" << "\t";
+    } else {
+//3 int Query start (0-based; closed)
+        gaf << 0 << "\t" //(aln.path().mapping_size() ? first_path_position(aln.path()).offset() : "*") << "\t"
+//4 int Query end (0-based; open)
+            << aln.sequence().length() << "\t"
+//5 char Strand relative to the path: "+" or "-"
+            << "+" << "\t"; // always positive relative to the path
+    }
+//6 string Path matching /([><][^\s><]+(:\d+-\d+)?)+|([^\s><]+)/
+    if (!has_path) {
+        gaf << "*" << "\t" << "*" << "\t" << "*" << "\t" << "*" << "\t" << "*" << "\t" << "*" << "\t" << 0;
+    } else {
+        uint64_t path_length = 0;
+        uint64_t start_position = 0;
+        uint64_t end_position = 0;
+        uint64_t matched_length = 0;
+        for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
+            auto& mapping = aln.path().mapping(i);
+            for (size_t j = 0; j < mapping.edit_size(); ++j) {
+                auto& edit = mapping.edit(j);
+                if (edit_is_match(edit)) {
+                    matched_length += edit.from_length();
+                }
+            }
+            auto& position = mapping.position();
+            gaf << (position.is_reverse() ? "<" : ">") << position.node_id();
+            uint64_t node_length = graph.get_length(graph.get_handle(position.node_id()));
+            path_length += node_length;
+            if (i == 0) {
+                start_position = position.offset();
+            }
+            if (i == aln.path().mapping_size()-1) {
+                end_position = path_length - (node_length - mapping_from_length(aln.path().mapping(i)));
+            }
+        }
+        gaf << "\t"
+//7 int Path length
+            << path_length << "\t"
+//8 int Start position on the path (0-based)
+            << start_position << "\t"
+//9 int End position on the path (0-based)
+            << end_position << "\t"
+//10 int Number of residue matches
+            << matched_length << "\t"
+//11 int Alignment block length
+            << std::max(end_position - start_position, (uint64_t)aln.sequence().size()) << "\t"
+//12 int Mapping quality (0-255; 255 for missing)
+            << aln.mapping_quality();
+    }
+    return gaf.str();
 }
 
 }
