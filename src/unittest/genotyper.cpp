@@ -5,7 +5,6 @@
 #include "catch.hpp"
 #include "../genotyper.hpp"
 #include "../snarls.hpp"
-#include "../cactus_snarl_finder.hpp"
 #include "../traversal_finder.hpp"
 
 namespace vg {

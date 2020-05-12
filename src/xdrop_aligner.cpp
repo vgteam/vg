@@ -20,10 +20,6 @@ enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 #define DZ_CIGAR_OP 0x04030201
 #endif
 
-// To turn on debugging:
-//#define DEBUG
-//#define DZ_PRINT_VECTOR
-
 #include <dozeu/dozeu.h>
 
 using namespace vg;

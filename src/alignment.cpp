@@ -2027,10 +2027,8 @@ void parse_gff_regions(istream& gffstream,
         getline(ss, source, '\t');
         getline(ss, type, '\t');
         getline(ss, buf, '\t');
-        // Convert to 0-based 
-        sbuf = atoi(buf.c_str()) - 1;
+        sbuf = atoi(buf.c_str());
         getline(ss, buf, '\t');
-        // 1-based inclusive == 0-based exclusive
         ebuf = atoi(buf.c_str());
 
         if (ss.fail() || !(sbuf < ebuf)) {

@@ -10,7 +10,6 @@
 #include "catch.hpp"
 #include "../json2pb.h"
 #include "../genotypekit.hpp"
-#include "../cactus_snarl_finder.hpp"
 #include "../genome_state.hpp"
 
 namespace vg {

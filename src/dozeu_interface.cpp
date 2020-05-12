@@ -45,21 +45,6 @@ DozeuInterface::OrderedGraph::OrderedGraph(const HandleGraph& graph, const vecto
     }
 }
 
-void DozeuInterface::OrderedGraph::for_each_neighbor(const size_t i, bool go_left,
-                                                     const function<void(size_t)>& lambda) const {
-    graph.follow_edges(order[i], go_left, [&](const handle_t& pred) {
-        auto it = index_of.find(pred);
-        if (it != index_of.end()) {
-            lambda(it->second);
-        }
-        return true;
-    });
-}
-
-size_t DozeuInterface::OrderedGraph::size() const {
-    return order.size();
-}
-
 static inline char comp(char x)
 {
 	switch(x) {
@@ -140,9 +125,8 @@ DozeuInterface::graph_pos_s DozeuInterface::calculate_max_position(const Ordered
 	return pos;
 }
 
-pair<DozeuInterface::graph_pos_s, bool> DozeuInterface::scan_seed_position(const OrderedGraph& graph, const Alignment& alignment,
-                                                                           bool direction, vector<const dz_forefront_s*>& forefronts,
-                                                                           uint16_t max_gap_length)
+DozeuInterface::graph_pos_s DozeuInterface::scan_seed_position(const OrderedGraph& graph, const Alignment& alignment, bool direction,
+                                                               vector<const dz_forefront_s*>& forefronts, uint16_t max_gap_length)
 {
     const string& query_seq = alignment.sequence();
     const string& query_qual = alignment.quality();
@@ -166,14 +150,17 @@ pair<DozeuInterface::graph_pos_s, bool> DozeuInterface::scan_seed_position(const
 	int64_t inc = direction ? -1 : 1;
     int64_t max_idx  = direction ? graph.order.size() - 1 : 0;
     for (int64_t i = max_idx; i >= 0 && i < graph.order.size(); i += inc) {
-                
+        
+        handle_t handle = graph.order.at(i);
+        
         vector<const dz_forefront_s*> incoming_forefronts;
-        graph.for_each_neighbor(i, !direction, [&](size_t j){
-            const dz_forefront_s* inc_ff = forefronts[j];
+        graph.graph.follow_edges(handle, !direction, [&](const handle_t& incoming) {
+            const dz_forefront_s* inc_ff = forefronts[graph.index_of.at(incoming)];
+            assert(inc_ff != nullptr);
             incoming_forefronts.push_back(inc_ff);
         });
         
-        auto seq = graph.graph.get_sequence(graph.order[i]);
+        auto seq = graph.graph.get_sequence(handle);
         if (incoming_forefronts.empty()) {
             forefronts[i] = scan(packed_query, &aln_init.root, 1,
                                  &seq.c_str()[direction ? seq.size() : 0],
@@ -189,22 +176,14 @@ pair<DozeuInterface::graph_pos_s, bool> DozeuInterface::scan_seed_position(const
             max_idx = i;
         }
     }
-    
-    if (forefronts[max_idx]->mcap == nullptr) {
-        // the scan failed find a positive scoring seed alignment, we will return a placeholder
-        // and a flag that indicates the failure
-        return make_pair(graph_pos_s(), false);
-    }
-    else {
-        // find the maximum scoring position and return a success
-        graph_pos_s pos;
-        pos.node_index = 0;
-        pos.ref_offset = 0;
-        pos.query_offset = direction ? scan_len : qlen - scan_len;
-        graph_pos_s p = calculate_max_position(graph, pos, max_idx, direction, forefronts);
-        debug("node_index(%lu), ref_offset(%d), query_offset(%d), max(%d)", p.node_index, p.ref_offset, p.query_offset, forefronts[max_idx]->max);
-        return make_pair(p, true);
-    }
+
+	graph_pos_s pos;
+	pos.node_index = 0;
+	pos.ref_offset = 0;
+	pos.query_offset = direction ? scan_len : qlen - scan_len;
+	graph_pos_s p = calculate_max_position(graph, pos, max_idx, direction, forefronts);
+	debug("node_index(%lu), ref_offset(%d), query_offset(%d), max(%d)", p.node_index, p.ref_offset, p.query_offset, forefronts[max_idx]->max);
+	return p;
 }
 
 size_t DozeuInterface::do_poa(const OrderedGraph& graph, const dz_query_s* packed_query,
@@ -255,10 +234,12 @@ size_t DozeuInterface::do_poa(const OrderedGraph& graph, const dz_query_s* packe
     
     int64_t inc = right_to_left ? -1 : 1;
     for (int64_t i = start_idx + inc; i < graph.order.size() && i >= 0; i += inc) {
+
+        handle_t handle = graph.order.at(i);
         
         vector<const dz_forefront_s*> incoming_forefronts;
-        graph.for_each_neighbor(i, !right_to_left, [&](size_t j) {
-            const dz_forefront_s* inc_ff = forefronts[j];
+        graph.graph.follow_edges(handle, !right_to_left, [&](const handle_t& incoming) {
+            const dz_forefront_s* inc_ff = forefronts[graph.index_of.at(incoming)];
             if (inc_ff) {
                 incoming_forefronts.push_back(inc_ff);
             }
@@ -269,7 +250,7 @@ size_t DozeuInterface::do_poa(const OrderedGraph& graph, const dz_query_s* packe
             // TODO: if there were multiple seed positions and we didn't choose head nodes, we
             // can end up clobbering them here, seems like it might be fragile if anyone develops this again...
             
-            auto ref_seq = graph.graph.get_sequence(graph.order[i]);
+            auto ref_seq = graph.graph.get_sequence(handle);
             forefronts[i] = extend(packed_query, incoming_forefronts.data(), incoming_forefronts.size(),
                                    &ref_seq.c_str()[right_to_left ? ref_seq.length() : 0],
                                    right_to_left ? -ref_seq.length() : ref_seq.length(), i, aln_init.xt);
@@ -596,15 +577,9 @@ void DozeuInterface::debug_print(const Alignment& alignment, const OrderedGraph&
 void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const vector<MaximalExactMatch>& mems,
                            bool reverse_complemented, uint16_t max_gap_length)
 {
-    vector<handle_t> topological_order = algorithms::lazy_topological_order(&graph);
-    return align(alignment, graph, topological_order, mems, reverse_complemented, max_gap_length);
-}
-  
-void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const vector<handle_t>& order,
-                           const vector<MaximalExactMatch>& mems, bool reverse_complemented, uint16_t max_gap_length)
-{
 
-    const OrderedGraph ordered_graph(graph, order);
+    vector<handle_t> topological_order = algorithms::lazy_topological_order(&graph);
+    const OrderedGraph ordered_graph(graph, topological_order);
     
 	// debug_print(alignment, graph, mems[0], reverse_complemented);
 
@@ -616,7 +591,7 @@ void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const
     const string& query_qual = alignment.quality();
 
 	// construct node_id -> index mapping table
-    vector<const dz_forefront_s*> forefronts(ordered_graph.size(), nullptr);
+    vector<const dz_forefront_s*> forefronts(ordered_graph.order.size(), nullptr);
     
 	// extract seed node
 	graph_pos_s head_pos;
@@ -624,14 +599,7 @@ void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const
 		// seeds are not available here; probably called from mate_rescue
         
         // scan seed position mems is empty
-        bool scan_success;
-		tie(head_pos, scan_success) = scan_seed_position(ordered_graph, alignment, direction, forefronts, max_gap_length);
-        if (!scan_success) {
-            // we failed to find a seed, so we will not attempt an alignment
-            // clear the path just in case we're realigning a GAM
-            alignment.clear_path();
-            return;
-        }
+		head_pos = scan_seed_position(ordered_graph, alignment, direction, forefronts, max_gap_length);
 	}
     else {
 		// ordinary extension DP

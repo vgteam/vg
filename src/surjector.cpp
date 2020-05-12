@@ -446,7 +446,7 @@ using namespace std;
 #endif
             
             // perform a full length surjection within the section section
-            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, true, true, true));
+            sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, true, true));
             read_ranges.push_back(read_range);
             ref_ranges.push_back(ref_range);
             
@@ -673,8 +673,7 @@ using namespace std;
 
     Alignment Surjector::realigning_surject(const PathPositionHandleGraph* path_position_graph, const Alignment& source,
                                             const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
-                                            bool allow_negative_scores, bool preserve_N_alignments,
-                                            bool preserve_tail_indel_anchors) const {
+                                            bool allow_negative_scores, bool preserve_N_alignments) const {
         
 #ifdef debug_anchored_surject
         cerr << "using overlap chunks on path " << graph->get_path_name(path_handle) << ", performing realigning surjection" << endl;
@@ -714,8 +713,7 @@ using namespace std;
 #endif
         
         // compute the connectivity between the path chunks
-        MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans, !preserve_N_alignments,
-                                             preserve_tail_indel_anchors);
+        MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans, !preserve_N_alignments);
         
         // we don't overlap this reference path at all or we filtered out all of the path chunks, so just make a sentinel
         if (mp_aln_graph.empty()) {
@@ -732,12 +730,6 @@ using namespace std;
         mp_aln_graph.align(source, split_path_graph, get_aligner(), false, 1, false, numeric_limits<int64_t>::max(),
                            false, 1, mp_aln, allow_negative_scores);
         topologically_order_subpaths(mp_aln);
-        
-        if (preserve_tail_indel_anchors) {
-            // this code path sometimes produces subpaths that have no aligned bases, which
-            // sometimes play poorly with other parts of the code base
-            remove_empty_subpaths(mp_aln);
-        }
         
         for (size_t i = 0; i < mp_aln.subpath_size(); i++) {
             // translate back into the original ID space

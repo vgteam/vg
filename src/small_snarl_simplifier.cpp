@@ -1,7 +1,5 @@
 #include "small_snarl_simplifier.hpp"
 
-#include "cactus_snarl_finder.hpp"
-
 namespace vg {
 
 using namespace std;

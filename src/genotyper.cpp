@@ -2,7 +2,6 @@
 #include "genotyper.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "traversal_finder.hpp"
-#include "cactus_snarl_finder.hpp"
 
 //#define debug
 
