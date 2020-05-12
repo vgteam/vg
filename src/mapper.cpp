@@ -459,8 +459,11 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                         cerr << "doing greedy restart for next search iteration" << endl;
 #endif
                         
-                        // set up the search past the left end of the current MEM
-                        match.end = match.begin;
+                        // set up the search at the left end of the current MEM or one
+                        // base further (which will create one fewer noise MEM if the current
+                        // match was ended by a base substitution, but will make an artificially
+                        // short MEM if it was ended by a deletion)
+                        match.end = greedy_restart_assume_substitution ? match.begin - 1 : match.begin;
                         cursor = match.end - 1;
                         match.begin = cursor;
                         match.range = gcsa::range_type(0, gcsa->size() - 1);

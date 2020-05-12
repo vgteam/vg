@@ -285,6 +285,7 @@ public:
     int greedy_restart_min_length = 40;
     int greedy_restart_max_count = 2;
     int greedy_restart_max_lcp = 0; // 0 for no max
+    bool greedy_restart_assume_substitution = false;
     int unpaired_penalty = 17;
     bool precollapse_order_length_hits = true;
     double avg_node_length = 0;
