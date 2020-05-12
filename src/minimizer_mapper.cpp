@@ -2153,23 +2153,9 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         bdsg::HashGraph align_graph;
         this->extender.unfold_haplotypes(sub_graph, haplotype_paths, align_graph);
 
-        // TODO: The second read is flipped, so the high-quality bases are at the end.
-        // It would be better to align backward, but we don't have the functionality at
-        // the moment.
-        if (rescue_forward) {
-            reverse_complement_in_place(*(rescued_alignment.mutable_sequence()));
-        }
-
         // Align to the subgraph.
         this->get_regular_aligner()->align_xdrop(rescued_alignment, align_graph,
                                                  std::vector<MaximalExactMatch>(), false);
-
-        // TODO: And now we have to flip again.
-        if (rescue_forward) {
-            reverse_complement_alignment_in_place(&rescued_alignment, [&](id_t node_id) -> int64_t {
-                return align_graph.get_length(align_graph.get_handle(node_id));
-            });
-        }
 
         // TODO: dozeu only gives the full-length bonus once, so we have to rescore
         // the alignment at the moment.
@@ -2182,20 +2168,8 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
         if (!topological_order.empty()) {
             if (this->rescue_algorithm == rescue_dozeu) {
-                // TODO: The second read is flipped, so the high-quality bases are at the end.
-                // It would be better to align backward, but we don't have the functionality at
-                // the moment.
-                if (rescue_forward) {
-                    reverse_complement_in_place(*(rescued_alignment.mutable_sequence()));
-                }
                 get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
                                                    std::vector<MaximalExactMatch>(), false);
-                // TODO: And now we have to flip again.
-                if (rescue_forward) {
-                    reverse_complement_alignment_in_place(&rescued_alignment, [&](id_t node_id) -> int64_t {
-                        return cached_graph.get_length(cached_graph.get_handle(node_id));
-                    });
-                }
                 // TODO: dozeu only gives the full-length bonus once, so we have to rescore
                 // the alignment at the moment.
                 rescued_alignment.set_score(this->get_regular_aligner()->score_ungapped_alignment(rescued_alignment));
@@ -2219,20 +2193,8 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
 
             // Align to the subgraph.
             if (this->rescue_algorithm == rescue_dozeu) {
-                // TODO: The second read is flipped, so the high-quality bases are at the end.
-                // It would be better to align backward, but we don't have the functionality at
-                // the moment.
-                if (rescue_forward) {
-                    reverse_complement_in_place(*(rescued_alignment.mutable_sequence()));
-                }
                 get_regular_aligner()->align_xdrop(rescued_alignment, dagified,
                                                    std::vector<MaximalExactMatch>(), false);
-                // TODO: And now we have to flip again.
-                if (rescue_forward) {
-                    reverse_complement_alignment_in_place(&rescued_alignment, [&](id_t node_id) -> int64_t {
-                        return dagified.get_length(dagified.get_handle(node_id));
-                    });
-                }
                 // TODO: dozeu only gives the full-length bonus once, so we have to rescore
                 // the alignment at the moment.
                 rescued_alignment.set_score(this->get_regular_aligner()->score_ungapped_alignment(rescued_alignment));
