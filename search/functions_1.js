@@ -118,6 +118,7 @@ var searchData=
   ['allele_5fambiguity_5flog_5fprobs',['allele_ambiguity_log_probs',['../classvg_1_1Genotyper.html#aa46523cd1493686b28210136d9baf713',1,'vg::Genotyper']]],
   ['allele_5fto_5fstring',['allele_to_string',['../namespacevg.html#a3b46a0183527dc1713f3ab30ef85b185',1,'vg']]],
   ['allowsaliasing',['AllowsAliasing',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#ac30901e7d779acdfef65858e98baaf3f',1,'vg::io::BlockedGzipOutputStream']]],
+  ['aln2gaf',['aln2gaf',['../classvg_1_1GafAlignmentEmitter.html#a8c21d14d904133ba83b5024d7015efb2',1,'vg::GafAlignmentEmitter']]],
   ['aln_5fto_5fbseq',['aln_to_bseq',['../classvg_1_1SRPE.html#a8e090b6736fa63156b2769dca493ed12',1,'vg::SRPE']]],
   ['alttracebackstack',['AltTracebackStack',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#ade601513f78eb68ec75854ffe3947964',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['anchored_5ffilter',['anchored_filter',['../classvg_1_1Filter.html#a7e797bbf731c8120cf2df43e4355963a',1,'vg::Filter']]],

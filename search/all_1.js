@@ -154,6 +154,7 @@ var searchData=
   ['allowed_5fvcf_5fregions',['allowed_vcf_regions',['../classvg_1_1Constructor.html#ac152e7a5407ef743f41e301700203129',1,'vg::Constructor']]],
   ['allowsaliasing',['AllowsAliasing',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#ac30901e7d779acdfef65858e98baaf3f',1,'vg::io::BlockedGzipOutputStream']]],
   ['aln',['aln',['../classvg_1_1AlignmentChainModelVertex.html#ab49913fb60fec26e020912069d8c0103',1,'vg::AlignmentChainModelVertex']]],
+  ['aln2gaf',['aln2gaf',['../classvg_1_1GafAlignmentEmitter.html#a8c21d14d904133ba83b5024d7015efb2',1,'vg::GafAlignmentEmitter']]],
   ['aln_5fto_5fbseq',['aln_to_bseq',['../classvg_1_1SRPE.html#a8e090b6736fa63156b2769dca493ed12',1,'vg::SRPE']]],
   ['aln_5fto_5fmate',['aln_to_mate',['../classvg_1_1SRPE.html#a17b17b87964f9fb6f113cb393dee370c',1,'vg::SRPE']]],
   ['alphabet',['alphabet',['../classvg_1_1NGSSimulator.html#aa970fcca49e375093b8abf6c3b31e2c5',1,'vg::NGSSimulator']]],

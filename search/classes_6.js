@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['gafalignmentemitter',['GafAlignmentEmitter',['../classvg_1_1GafAlignmentEmitter.html',1,'vg']]],
   ['gaplessextender',['GaplessExtender',['../classvg_1_1GaplessExtender.html',1,'vg']]],
   ['gaplessextension',['GaplessExtension',['../structvg_1_1GaplessExtension.html',1,'vg']]],
   ['gbwt_5fthread_5ft',['gbwt_thread_t',['../structhaplo_1_1gbwt__thread__t.html',1,'haplo']]],

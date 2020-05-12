@@ -78,11 +78,12 @@ Inheritance diagram for vg::AlignmentEmitter:</div>
  <div class="center">
   <img src="classvg_1_1AlignmentEmitter.png" usemap="#vg::AlignmentEmitter_map" alt=""/>
   <map id="vg::AlignmentEmitter_map" name="vg::AlignmentEmitter_map">
-<area href="classvg_1_1HTSAlignmentEmitter.html" alt="vg::HTSAlignmentEmitter" shape="rect" coords="0,56,191,80"/>
-<area href="classvg_1_1NullAlignmentEmitter.html" alt="vg::NullAlignmentEmitter" shape="rect" coords="201,56,392,80"/>
-<area href="classvg_1_1TSVAlignmentEmitter.html" alt="vg::TSVAlignmentEmitter" shape="rect" coords="402,56,593,80"/>
-<area href="classvg_1_1VGAlignmentEmitter.html" alt="vg::VGAlignmentEmitter" shape="rect" coords="603,56,794,80"/>
-<area href="classvg_1_1SplicedHTSAlignmentEmitter.html" alt="vg::SplicedHTSAlignmentEmitter" shape="rect" coords="0,112,191,136"/>
+<area href="classvg_1_1GafAlignmentEmitter.html" alt="vg::GafAlignmentEmitter" shape="rect" coords="0,56,191,80"/>
+<area href="classvg_1_1HTSAlignmentEmitter.html" alt="vg::HTSAlignmentEmitter" shape="rect" coords="201,56,392,80"/>
+<area href="classvg_1_1NullAlignmentEmitter.html" alt="vg::NullAlignmentEmitter" shape="rect" coords="402,56,593,80"/>
+<area href="classvg_1_1TSVAlignmentEmitter.html" alt="vg::TSVAlignmentEmitter" shape="rect" coords="603,56,794,80"/>
+<area href="classvg_1_1VGAlignmentEmitter.html" alt="vg::VGAlignmentEmitter" shape="rect" coords="804,56,995,80"/>
+<area href="classvg_1_1SplicedHTSAlignmentEmitter.html" alt="vg::SplicedHTSAlignmentEmitter" shape="rect" coords="201,112,392,136"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -231,7 +232,7 @@ Public Member Functions</h2></td></tr>
 <p>Emit the mappings of a batch of pairs of Alignments. All secondaries must have is_secondary set already. The tlen_limit_batch, if specified, is the maximum pairing distance for each pair to flag properly paired, if the output format cares about such things. TODO: Move to a properly paired annotation that runs with the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>.</p>
 <p>Both ends of each pair must have the same number of mappings. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VGAlignmentEmitter.html#a4faf803f53e5788d682cb1b91bce4d99">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a144167b8b9b973a113beb3950d8f64e7">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a599220d5ec3b22ad3c1a624e334d274a">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1NullAlignmentEmitter.html#aba63b0073cab9fbac25999b25d1935c2">vg::NullAlignmentEmitter</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1GafAlignmentEmitter.html#a5fb15fc5dcc1a4b84de1dfc46d93ad77">vg::GafAlignmentEmitter</a>, <a class="el" href="classvg_1_1VGAlignmentEmitter.html#a4faf803f53e5788d682cb1b91bce4d99">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a144167b8b9b973a113beb3950d8f64e7">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a599220d5ec3b22ad3c1a624e334d274a">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1NullAlignmentEmitter.html#aba63b0073cab9fbac25999b25d1935c2">vg::NullAlignmentEmitter</a>.</p>
 
 </div>
 </div>
@@ -289,7 +290,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Emit batch of Alignments with secondaries. All secondaries must have is_secondary set already. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VGAlignmentEmitter.html#ad3857954f00326a23faed1011a266e7d">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a3137223a14396af5a6284830c716b943">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#af58bfa40619cff01249cff4c57baa6e9">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1NullAlignmentEmitter.html#a49584d1e4e0e1ffbee1ec109cc6f94f0">vg::NullAlignmentEmitter</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1GafAlignmentEmitter.html#a8f893f1b076dcf1a81029f5ea0529861">vg::GafAlignmentEmitter</a>, <a class="el" href="classvg_1_1VGAlignmentEmitter.html#ad3857954f00326a23faed1011a266e7d">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a3137223a14396af5a6284830c716b943">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#af58bfa40619cff01249cff4c57baa6e9">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1NullAlignmentEmitter.html#a49584d1e4e0e1ffbee1ec109cc6f94f0">vg::NullAlignmentEmitter</a>.</p>
 
 </div>
 </div>
@@ -377,7 +378,7 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Emit a batch of pairs of Alignments. The tlen_limit_batch, if specified, is the maximum pairing distance for ewch pair to flag properly paired, if the output format cares about such things. TODO: Move to a properly paired annotation that runs with the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VGAlignmentEmitter.html#a4022d4261860697af7236a529024d564">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a6c2dbcf61c25fe6646b6753d51b73771">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a6647666cf5719cf269e3dd8be5f9ae84">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1NullAlignmentEmitter.html#ab4fc6642d027e4f086cfd8eaf49e2845">vg::NullAlignmentEmitter</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1GafAlignmentEmitter.html#abfd6d8d5b9f3ceb2285791046033cd50">vg::GafAlignmentEmitter</a>, <a class="el" href="classvg_1_1VGAlignmentEmitter.html#a4022d4261860697af7236a529024d564">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a6c2dbcf61c25fe6646b6753d51b73771">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a6647666cf5719cf269e3dd8be5f9ae84">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1NullAlignmentEmitter.html#ab4fc6642d027e4f086cfd8eaf49e2845">vg::NullAlignmentEmitter</a>.</p>
 
 </div>
 </div>
@@ -435,7 +436,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Emit a batch of Alignments. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VGAlignmentEmitter.html#a6e1ecbff3f9527630e05ad11021dce6c">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a90e671da1b62eebf423f95c01a865fdd">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a6e88ca0809236dfe5f437490b9da45fd">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1NullAlignmentEmitter.html#a54b3d0a1ba2a33646ad4f1a35366ee90">vg::NullAlignmentEmitter</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1GafAlignmentEmitter.html#a632b736c156aca923aaa615bea46bc53">vg::GafAlignmentEmitter</a>, <a class="el" href="classvg_1_1VGAlignmentEmitter.html#a6e1ecbff3f9527630e05ad11021dce6c">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a90e671da1b62eebf423f95c01a865fdd">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a6e88ca0809236dfe5f437490b9da45fd">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1NullAlignmentEmitter.html#a54b3d0a1ba2a33646ad4f1a35366ee90">vg::NullAlignmentEmitter</a>.</p>
 
 </div>
 </div>

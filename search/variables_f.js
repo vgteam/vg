@@ -20,7 +20,7 @@ var searchData=
   ['os',['OS',['../classvg_1_1Version.html#a60cb5fa1efa9969bcdfa529484ea4280',1,'vg::Version']]],
   ['other_5forientation_5ftimeout',['other_orientation_timeout',['../classvg_1_1RepresentativeTraversalFinder.html#a5d5136f771fe4566506ff486fb17df49',1,'vg::RepresentativeTraversalFinder']]],
   ['other_5fsupports',['other_supports',['../structvg_1_1BREAKPOINT.html#a2f08ace3f57cff47b7f703fef1ae9792',1,'vg::BREAKPOINT']]],
-  ['out_5ffile',['out_file',['../classvg_1_1TSVAlignmentEmitter.html#afdcac9128ebbfb1edf128b660a6ad854',1,'vg::TSVAlignmentEmitter::out_file()'],['../classvg_1_1HTSAlignmentEmitter.html#af43debc963568d3ebf8008744dfc1f7b',1,'vg::HTSAlignmentEmitter::out_file()'],['../classvg_1_1VGAlignmentEmitter.html#a4f1650aff05b04dce740db0956240103',1,'vg::VGAlignmentEmitter::out_file()']]],
+  ['out_5ffile',['out_file',['../classvg_1_1TSVAlignmentEmitter.html#afdcac9128ebbfb1edf128b660a6ad854',1,'vg::TSVAlignmentEmitter::out_file()'],['../classvg_1_1HTSAlignmentEmitter.html#af43debc963568d3ebf8008744dfc1f7b',1,'vg::HTSAlignmentEmitter::out_file()'],['../classvg_1_1VGAlignmentEmitter.html#a4f1650aff05b04dce740db0956240103',1,'vg::VGAlignmentEmitter::out_file()'],['../classvg_1_1GafAlignmentEmitter.html#a3678e87b0aabd6a9142fb3e124fc0ecb',1,'vg::GafAlignmentEmitter::out_file()']]],
   ['out_5fmutex',['out_mutex',['../classvg_1_1io_1_1ProtobufEmitter.html#acb50db8c0f33135ae2e246ae26efb9d0',1,'vg::io::ProtobufEmitter']]],
   ['out_5fstream',['out_stream',['../classvg_1_1GraphCaller.html#a1bb98847383ea9bb20e3e963a3667fa6',1,'vg::GraphCaller']]],
   ['out_5fto',['out_to',['../classvg_1_1ExtraNodeGraph.html#a0f31e37f1e4398d6f8e057c1c8c92495',1,'vg::ExtraNodeGraph']]],
