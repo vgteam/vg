@@ -19,7 +19,6 @@
 #include <vg/vg.pb.h>
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/stream_multiplexer.hpp>
-
 #include "handle.hpp"
 
 namespace vg {
@@ -92,10 +91,11 @@ public:
 /// threads will be in use.
 /// If the alignments are spliced at known splice sites (i.e. edges in the graph),
 /// the graph can be provided in order to form spliced CIGAR strings for the HTSlib
-/// formats. Other output formats ignore the graph.
+/// formats. Note: it must be castable to PathPositionHandleGraph to be used for splicing
+/// Other output formats except GAF (for which it's required) ignore the graph.
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
                                                    const map<string, int64_t>& path_length, size_t max_threads,
-                                                   const PathPositionHandleGraph* splicing_graph = nullptr);
+                                                   const HandleGraph* graph = nullptr);
 
 /**
  * Discards all alignments.
@@ -350,7 +350,7 @@ public:
     /// Create a GafAlignmentEmitter writing to the given file (or "-")
     GafAlignmentEmitter(const string& filename,
                         const string& format,
-                        const PathPositionHandleGraph& _graph,
+                        const HandleGraph& _graph,
                         size_t max_threads);
     
     /// Finish and drstroy a VGAlignmentEmitter.
@@ -379,11 +379,8 @@ private:
     /// This holds a StreamMultiplexer on the output stream, for sharing it between threads.
     vg::io::StreamMultiplexer multiplexer;
 
-    /// Emit a GAF record representing an alignment
-    string aln2gaf(const Alignment& aln);
-
     /// Graph that alignments were aligned against
-    const PathPositionHandleGraph& graph;
+    const HandleGraph& graph;
 };
 
 }

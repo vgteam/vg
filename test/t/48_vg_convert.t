@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 12
+plan tests 13
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -59,3 +59,13 @@ is "$(vg convert -g -x x.gfa | vg find -n 1 -c 300 -x - | vg view - | wc -l)" "$
 rm x.vg x.gfa
 rm -f c.vg c.pg c1.vg c.info c1.info
 
+vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
+vg index x.vg -g x.gcsa
+vg sim -x x.vg -n 10 -s 23 -a > sim.gam
+vg map -x x.vg -g x.gcsa -G sim.gam > sim-rm.gam
+vg convert x.vg -G sim-rm.gam > sim-rm.gaf
+vg convert x.vg -F sim-rm.gaf | vg convert x.vg -G - > sim-rm2.gaf
+diff sim-rm.gaf sim-rm2.gaf
+is "$?" 0 "vg convert gam -> gaf -> gam -> gaf makes same gaf twice"
+
+rm -f x.vg x.gcsa sim.gam sim-rm.gam sim-rm.gaf sim-rm2.gaf

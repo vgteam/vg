@@ -7,6 +7,8 @@
 #include "../io/save_handle_graph.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include "../vg_gaf.hpp"
+#include "../alignment_emitter.hpp"
 
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
@@ -26,13 +28,18 @@ void help_convert(char** argv) {
          << "    -a, --hash-out         output in HashGraph format" << endl
          << "    -p, --packed-out       output in PackedGraph format" << endl
          << "    -x, --xg-out           output in XG format" << endl
-         << "    -o, --odgi-out         output in ODGI format" << endl;
+         << "    -o, --odgi-out         output in ODGI format" << endl
+         << "    -G, --gam-to-gaf FILE  convert GAM FILE to GAF" << endl
+         << "    -F, --gaf-to-gam FILE  convert GAF FILE to GAM" << endl;
 }
 
 int main_convert(int argc, char** argv) {
 
-    string output_format = "vg";
+    string output_format;
     bool input_gfa = false;
+    string input_aln;
+    bool gam_to_gaf = false;
+    bool gaf_to_gam = false;
 
     if (argc == 2) {
         help_convert(argv);
@@ -51,11 +58,13 @@ int main_convert(int argc, char** argv) {
             {"packed-out", no_argument, 0, 'p'},
             {"xg-out", no_argument, 0, 'x'},
             {"odgi-out", no_argument, 0, 'o'},
+            {"gam-to-gaf", required_argument, 0, 'G'},
+            {"gaf-to-gam", required_argument, 0, 'F'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hgvxapxo",
+        c = getopt_long (argc, argv, "hgvxapxoG:F:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -86,12 +95,61 @@ int main_convert(int argc, char** argv) {
         case 'o':
             output_format = "odgi";
             break;
-
+        case 'G':
+            input_aln = optarg;
+            gam_to_gaf = true;
+            break;
+        case 'F':
+            input_aln = optarg;
+            gaf_to_gam = true;
+            break;
         default:
             abort();
         }
     }
-    
+
+    // with -F or -G we convert an alignment and not a graph
+    if (!input_aln.empty()) {
+        if (gam_to_gaf && gaf_to_gam) {
+            cerr << "error [vg convert]: -F and -G options cannot be used together" << endl;
+            return 1;
+        } else if (!output_format.empty()) {
+            cerr << "error [vg convert]: Alignment conversion options (-F and -G) cannot be used "
+                 << "with any graph conversion options" << endl;
+            return 1;
+        }
+        assert(gam_to_gaf || gaf_to_gam);
+
+        unique_ptr<HandleGraph> input_graph;
+        get_input_file(optind, argc, argv, [&](istream& in) {
+            input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
+        });
+
+        unique_ptr<AlignmentEmitter> emitter = get_alignment_emitter("-", gam_to_gaf ? "GAF" : "GAM", {}, 1,
+                                                                     input_graph.get());
+        get_input_file(input_aln, [&](istream& in) {
+                if (gam_to_gaf) {
+                    std::function<void(Alignment&)> lambda = [&] (Alignment& aln) {
+                        emitter->emit_singles({aln});
+                    };
+                    vg::io::for_each(in, lambda);
+                } else {
+                    gafkluge::GafRecord gaf_record;
+                    string buffer;            
+                    while (getline(in, buffer, '\n')) {
+                        gafkluge::parse_gaf_record(buffer, gaf_record);
+                        emitter->emit_single(gaf2aln(*input_graph, gaf_record));
+                    }
+                }
+            });
+        return 0;
+    }
+
+    if (output_format.empty()) {
+        // default to vg
+        output_format = "vg";
+    }
+        
     // allocate a graph using the graph_type string to decide a class
     unique_ptr<HandleGraph> output_graph;
     if (output_format == "vg") {
