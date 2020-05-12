@@ -105,14 +105,16 @@ namespace vg {
                 vector<size_t> transitive_nexts;
                 Subpath& subpath = *multipath_aln.mutable_subpath(i);
                 for (size_t j = 0; j < subpath.next_size(); ++j) {
-                    if (is_empty[j]) {
+                    if (is_empty[subpath.next(j)]) {
                         // traverse to all nexts that can be reached by only empty subpaths
                         //
                         // technically this implementation can be exponential, but i don't
                         // think it will ever come up
-                        vector<size_t> stack(1, j);
+                        vector<size_t> stack(1, subpath.next(j));
                         while (!stack.empty()) {
-                            for (auto n : multipath_aln.subpath(j).next()) {
+                            auto k = stack.back();
+                            stack.pop_back();
+                            for (auto n : multipath_aln.subpath(k).next()) {
                                 if (is_empty[n]) {
                                     stack.push_back(n);
                                 }
@@ -165,7 +167,7 @@ namespace vg {
                         ++nexts_removed_so_far;
                     }
                     else {
-                        subpath.set_next(j - nexts_removed_so_far, subpath.next(j) - removed_so_far[j]);
+                        subpath.set_next(j - nexts_removed_so_far, subpath.next(j) - removed_so_far[subpath.next(j)]);
                     }
                     subpath.mutable_next()->Truncate(subpath.next_size() - nexts_removed_so_far);
                 }
@@ -1676,7 +1678,7 @@ namespace vg {
                     // do we need to merge the abutting edits?
                     int64_t edit_idx = 0;
                     if (final_mapping->edit_size() && first_mapping.edit_size()) {
-                        Edit* final_edit = final_mapping->mutable_edit(0);
+                        Edit* final_edit = final_mapping->mutable_edit(final_mapping->edit_size() - 1);
                         const Edit& first_edit = first_mapping.edit(0);
                         if ((first_edit.from_length() > 0) == (final_edit->from_length() > 0) &&
                             (first_edit.to_length() > 0) == (final_edit->to_length() > 0) &&

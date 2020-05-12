@@ -13,7 +13,7 @@
 #include "subcommand.hpp"
 #include "../path.hpp"
 #include "../graph_caller.hpp"
-#include "../integrated_snarl_finder.hpp"
+#include "../cactus_snarl_finder.hpp"
 #include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -295,7 +295,7 @@ int main_call(int argc, char** argv) {
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
     } else {
-        IntegratedSnarlFinder finder(*graph);
+        CactusSnarlFinder finder(*graph);
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
     
