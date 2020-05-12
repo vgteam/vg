@@ -215,7 +215,7 @@ int main_minimizer(int argc, char** argv) {
         });
     } else {
         gbwtgraph::index_haplotypes(*gbwt_graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            return MIPayload::encode(distance_index->offset_in_root_chain(pos));
+            return MIPayload::encode(distance_index->get_minimizer_distances(pos));
         });
     }
     gbwt_graph.reset(nullptr);

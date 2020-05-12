@@ -16,6 +16,7 @@
 #include "../utility.hpp"
 #include "../mcmc_genotyper.hpp"
 #include "../snarls.hpp"
+#include "../cactus_snarl_finder.hpp"
 #include "../genotypekit.hpp"
 
 #include "catch.hpp"

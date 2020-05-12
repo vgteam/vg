@@ -1,6 +1,6 @@
 #include "is_acyclic.hpp"
 
-#include <unordered_map>
+#include "../hash_map.hpp"
 
 namespace vg {
 namespace algorithms {
@@ -23,14 +23,26 @@ bool is_directed_acyclic(const HandleGraph* graph) {
     // entries from tips until either we've cleaned up all the nodes or there
     // are only directed cycles left.
 
+    size_t nodes = graph->get_node_count();
+    size_t processed = 0;
+    constexpr static int64_t PROCESSED = std::numeric_limits<int64_t>::max();
+
     // Build the degrees map
-    unordered_map<id_t, pair<int64_t, int64_t>> degrees;
+    hash_map<id_t, pair<int64_t, int64_t>> degrees;
+    degrees.reserve(nodes);
     // And also the stack of tips to start at
     vector<handle_t> stack;
     graph->for_each_handle([&](const handle_t& here) {
         size_t start_degree = graph->get_degree(here, true);
         size_t end_degree = graph->get_degree(here, false);
-    
+
+        // Singletons can be processed immediately.
+        if (start_degree == 0 && end_degree == 0) {
+            start_degree = PROCESSED;
+            end_degree = PROCESSED;
+            processed++;
+        }
+
         degrees[graph->get_id(here)] = make_pair(start_degree, end_degree);
         
         if (start_degree == 0) {
@@ -43,22 +55,23 @@ bool is_directed_acyclic(const HandleGraph* graph) {
         }
         
     });
-    
+
     while (!stack.empty()) {
         handle_t here = stack.back();
         stack.pop_back();
         
         auto iter = degrees.find(graph->get_id(here));
-        if (iter == degrees.end()) {
+        if (iter->second.first == PROCESSED) {
             // Already processed
             continue;
         }
-        
-        degrees.erase(iter);
+        iter->second.first = PROCESSED;
+        iter->second.second = PROCESSED;
+        processed++;
         
         graph->follow_edges(here, false, [&](const handle_t& next) {
             auto next_iter = degrees.find(graph->get_id(next));
-            if (next_iter != degrees.end()) {
+            if (next_iter->second.first != PROCESSED) {
                 // We have a node next that we haven't finished yet
                 
                 // Reduce its degree on the appropriate side.
@@ -73,7 +86,7 @@ bool is_directed_acyclic(const HandleGraph* graph) {
     }
     
     // If we clean up the whole graph, it must have been directed-acyclic.
-    return degrees.empty();
+    return (processed == nodes);
 }
 
 }
