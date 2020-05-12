@@ -20,6 +20,7 @@
 
 #include "catch.hpp"
 
+// #define debug
 
 namespace vg {
     namespace unittest {
@@ -34,7 +35,10 @@ namespace vg {
                 VG graph;
 				
                 Node* n1 = graph.create_node("GCA");
+#ifdef debug
                 //cerr << "this is the node address"<< &n1 << endl;
+#endif
+                
 
                 // name a path 
                 path_handle_t path_handle = graph.create_path_handle("x");
@@ -176,8 +180,11 @@ namespace vg {
                 vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
+#ifdef debug
                 //cerr << "**************" <<endl;
                 //genome->print_phased_genome();
+#endif
+                
                 // check requirements
                 REQUIRE(genome->num_haplotypes() == 2);
                 REQUIRE(multipath_aln.start_size() > 0);
@@ -444,9 +451,11 @@ namespace vg {
                 edit7b->set_sequence("G");
 
                 multipath_aln.add_start(0); //integer given is the subpath number
-
-                cerr << "Multipath mapper alignment " <<endl;
-                cerr << pb2json(multipath_aln) <<endl;
+#ifdef debug
+        cerr << "Multipath mapper alignment " <<endl;
+        cerr << pb2json(multipath_aln) <<endl;        
+#endif
+                
 				
                 // match and mismatch represent the point system used for penalty
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
@@ -861,7 +870,7 @@ namespace vg {
                     delete gcsaidx;
                     delete lcpidx;
                 }
-
+#ifdef debug
                 // cerr <<"****************************DONE TESTING****************************" << endl;
                 // cerr << count_correct << " tests" << " out of " << max <<" matched both haplotypes from the haplotype pair " <<endl;
                 // cerr << count_incorrect << " tests " << "out of " << max << " matched one haplotype from haplotype pair  " <<endl;
@@ -878,6 +887,8 @@ namespace vg {
                 //     cerr<< failed_seeds[i] << ", ";
                 // }
                 // cerr << endl;
+#endif
+    
             }
             
         }

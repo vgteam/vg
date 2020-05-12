@@ -7,7 +7,7 @@
 #include <utility>
 #include "multipath_alignment.hpp"
 
-#define debug_mcmc
+// #define debug_mcmc
 
 namespace vg {
 
@@ -36,7 +36,10 @@ namespace vg {
         
         // build markov chain using Metropolis-Hastings
         for(int i = 0; i< n_iterations; i++){
-            cerr << "iteration " << i << endl;
+#ifdef debug_mcmc
+            cerr << "iteration " << i << endl; 
+#endif
+            
             // holds the previous sample allele
             double x_prev = log_target(genome, reads);
 
@@ -58,10 +61,7 @@ namespace vg {
 
                 double likelihood_ratio = exp(log_base*(x_new - x_prev));
                 
-                
-#ifdef debug_mcmc
-                
-#endif
+            
                 if (current_likelihood > max_likelihood){
                     max_likelihood = current_likelihood;
                     optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
