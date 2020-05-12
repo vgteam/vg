@@ -2173,7 +2173,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
 
         // TODO: dozeu only gives the full-length bonus once, so we have to rescore
         // the alignment at the moment.
-        this->get_regular_aligner()->score_ungapped_alignment(rescued_alignment);
+        rescued_alignment.set_score(this->get_regular_aligner()->score_ungapped_alignment(rescued_alignment));
 
         // Get the corresponding alignment to the original graph.
         this->extender.transform_alignment(rescued_alignment, haplotype_paths);
@@ -2198,7 +2198,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
                 }
                 // TODO: dozeu only gives the full-length bonus once, so we have to rescore
                 // the alignment at the moment.
-                this->get_regular_aligner()->score_ungapped_alignment(rescued_alignment);
+                rescued_alignment.set_score(this->get_regular_aligner()->score_ungapped_alignment(rescued_alignment));
             } else {
                 get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
             }
@@ -2235,7 +2235,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
                 }
                 // TODO: dozeu only gives the full-length bonus once, so we have to rescore
                 // the alignment at the moment.
-                this->get_regular_aligner()->score_ungapped_alignment(rescued_alignment);
+                rescued_alignment.set_score(this->get_regular_aligner()->score_ungapped_alignment(rescued_alignment));
             } else {
                 get_regular_aligner()->align(rescued_alignment, dagified, true);
             }
