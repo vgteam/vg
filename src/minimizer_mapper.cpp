@@ -2156,10 +2156,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         // Align to the subgraph.
         this->get_regular_aligner()->align_xdrop(rescued_alignment, align_graph,
                                                  std::vector<MaximalExactMatch>(), false);
-
-        // TODO: dozeu only gives the full-length bonus once, so we have to rescore
-        // the alignment at the moment.
-        rescued_alignment.set_score(this->get_regular_aligner()->score_ungapped_alignment(rescued_alignment));
+        this->fix_dozeu_score(rescued_alignment, align_graph, std::vector<handle_t>());
 
         // Get the corresponding alignment to the original graph.
         this->extender.transform_alignment(rescued_alignment, haplotype_paths);
@@ -2170,9 +2167,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
             if (this->rescue_algorithm == rescue_dozeu) {
                 get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
                                                    std::vector<MaximalExactMatch>(), false);
-                // TODO: dozeu only gives the full-length bonus once, so we have to rescore
-                // the alignment at the moment.
-                rescued_alignment.set_score(this->get_regular_aligner()->score_ungapped_alignment(rescued_alignment));
+                this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
             } else {
                 get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
             }
@@ -2195,9 +2190,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
             if (this->rescue_algorithm == rescue_dozeu) {
                 get_regular_aligner()->align_xdrop(rescued_alignment, dagified,
                                                    std::vector<MaximalExactMatch>(), false);
-                // TODO: dozeu only gives the full-length bonus once, so we have to rescore
-                // the alignment at the moment.
-                rescued_alignment.set_score(this->get_regular_aligner()->score_ungapped_alignment(rescued_alignment));
+                this->fix_dozeu_score(rescued_alignment, dagified, topological_order);
             } else {
                 get_regular_aligner()->align(rescued_alignment, dagified, true);
             }
@@ -2211,6 +2204,23 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
                 pos.set_node_id(sub_graph.get_id(handle));
                 pos.set_is_reverse(sub_graph.get_is_reverse(handle));
             }
+        }
+    }
+}
+
+void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,
+                                      const std::vector<handle_t>& topological_order) const {
+
+    const Aligner* aligner = this->get_regular_aligner();
+    int32_t score = aligner->score_ungapped_alignment(rescued_alignment);
+    if (score >= 0) {
+        rescued_alignment.set_score(score);
+    } else {
+        rescued_alignment.clear_path();
+        if (topological_order.empty()) {
+            aligner->align(rescued_alignment, rescue_graph, true);
+        } else {
+            aligner->align(rescued_alignment, rescue_graph, topological_order);
         }
     }
 }
