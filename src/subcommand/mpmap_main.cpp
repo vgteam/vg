@@ -27,6 +27,10 @@
 #include <iostream>
 #endif
 
+#ifdef mpmap_instrument_mem_statitics
+#define MEM_STATS_FILE "_mem_statistics.tsv"
+#endif
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -88,7 +92,7 @@ void help_mpmap(char** argv) {
     //<< "  -W, --reseed-diff FLOAT       require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
     //<< "  -K, --clust-length INT        minimum MEM length used in clustering [automatic]" << endl
     //<< "  -F, --stripped-match          use stripped match algorithm instead of MEMs" << endl
-    << "  -c, --hit-max INT             use at most this many hits for any match seeds (0 for no limit) [1024 DNA / 256 RNA]" << endl
+    << "  -c, --hit-max INT             use at most this many hits for any match seeds (0 for no limit) [1024 DNA / 100 RNA]" << endl
     //<< "  --approx-exp FLOAT            let the approximate likelihood miscalculate likelihood ratios by this power [10.0 DNA / 5.0 RNA]" << endl
     //<< "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
     //<< "  --always-check-population     always try to population-score reads, even if there is only a single mapping" << endl
@@ -138,6 +142,8 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_SECONDARY_RESCUE_ATTEMPTS 1017
     #define OPT_SECONDARY_MAX_DIFF 1018
     #define OPT_NO_CLUSTER 1019
+    #define OPT_NO_GREEDY_MEM_RESTARTS 1020
+    #define OPT_GREEDY_MEM_RESTART_MAX_LCP 1021
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -161,6 +167,7 @@ int main_mpmap(int argc, char** argv) {
     bool synthesize_tail_anchors = false;
     int max_paired_end_map_attempts = 24;
     int max_single_end_map_attempts = 64;
+    int max_single_end_mappings_for_rescue = max_single_end_map_attempts;
     int max_rescue_attempts = 10;
     int population_max_paths = 10;
     int population_paths_hard_cap = 1000;
@@ -182,6 +189,12 @@ int main_mpmap(int argc, char** argv) {
     int stripped_match_alg_max_length = 0; // no maximum yet
     int default_strip_count = 10;
     int stripped_match_alg_target_count = default_strip_count;
+    bool use_greedy_mem_restarts = true;
+    // TODO: it would be best if these parameters responded to the size of the graph...
+    int greedy_restart_min_length = 30;
+    int greedy_restart_max_lcp = 25;
+    int greedy_restart_max_count = 2;
+    bool greedy_restart_assume_substitution = true;
     int reseed_length = 28;
     int reseed_length_arg = numeric_limits<int>::min();
     double reseed_diff = 0.45;
@@ -256,8 +269,6 @@ int main_mpmap(int argc, char** argv) {
     // logging and warning
     bool suppress_progress = false;
     int fragment_length_warning_factor = 50;
-    uint64_t progress_frequency = 100000;
-    uint64_t num_reads_mapped = 0;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -304,6 +315,8 @@ int main_mpmap(int argc, char** argv) {
             {"stripped-match", no_argument, 0, 'F'},
             {"strip-length", no_argument, 0, OPT_STRIP_LENGTH},
             {"strip-count", no_argument, 0, OPT_STRIP_COUNT},
+            {"no-greedy-restart", no_argument, 0, OPT_NO_GREEDY_MEM_RESTARTS},
+            {"greedy-max-lcp", required_argument, 0, OPT_GREEDY_MEM_RESTART_MAX_LCP},
             {"hit-max", required_argument, 0, 'c'},
             {"hard-hit-mult", required_argument, 0, OPT_HARD_HIT_MAX_MULTIPLIER},
             {"approx-exp", required_argument, 0, OPT_APPROX_EXP},
@@ -561,6 +574,14 @@ int main_mpmap(int argc, char** argv) {
                 stripped_match_alg_target_count = parse<int>(optarg);
                 break;
                 
+            case OPT_NO_GREEDY_MEM_RESTARTS:
+                use_greedy_mem_restarts = false;
+                break;
+                
+            case OPT_GREEDY_MEM_RESTART_MAX_LCP:
+                greedy_restart_max_lcp = parse<int>(optarg);
+                break;
+                
             case 'c':
                 hit_max_arg = parse<int>(optarg);
                 break;
@@ -723,11 +744,16 @@ int main_mpmap(int argc, char** argv) {
         // do less DP on tails (having a presumption that long tails with no seeds
         // will probably be soft-clipped)
         pessimistic_tail_gap_multiplier = 3.0;
+        // we won't assume that errors are likely to be substitutions
+        greedy_restart_assume_substitution = false;
     }
     
     if (read_length == "long") {
         // we don't care so much about soft-clips on long reads
         full_length_bonus = 0;
+        // long read technologies (even low error ones) don't have the same bias toward
+        // substitution variants as NGS
+        greedy_restart_assume_substitution = false;
     }
     else if (read_length == "very-short") {
         // clustering is unlikely to improve accuracy in very short data
@@ -749,10 +775,11 @@ int main_mpmap(int argc, char** argv) {
         }
         // seed finding, cluster pruning, and rescue parameters tuned for a lower repeat content
         secondary_rescue_attempts = 1;
-        hit_max = 256;
-        reseed_length = 40;
+        max_single_end_mappings_for_rescue = 32;
+        hit_max = 100;
+        reseed_length = 28; // TODO: returned to the DNA value
         reseed_diff = 0.6;
-        likelihood_approx_exp = 6.0;
+        likelihood_approx_exp = 3.5;
     }
     else if (nt_type != "dna") {
         // DNA is the default
@@ -839,6 +866,13 @@ int main_mpmap(int argc, char** argv) {
         // TODO: not so elegant
         // the full length bonus should override a mismatch unless we're in long read mode
         full_length_bonus = min<int>(mismatch_score + 1, std::numeric_limits<int8_t>::max());
+    }
+        
+    // choose either the user supplied max or the default for paired/unpaired
+    int max_map_attempts = max_map_attempts_arg ? max_map_attempts_arg : ((interleaved_input || !fastq_name_2.empty()) ?
+                                                                          max_paired_end_map_attempts : max_single_end_map_attempts);
+    if (max_map_attempts_arg) {
+        max_single_end_mappings_for_rescue = max_map_attempts_arg;
     }
     
     // hits that are much more frequent than the number of hits we sample are unlikely to produce high MAPQs, so
@@ -953,10 +987,6 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    // choose either the user supplied max or the default for paired/unpaired
-    int max_map_attempts = max_map_attempts_arg ? max_map_attempts_arg : ((interleaved_input || !fastq_name_2.empty()) ?
-                                                                          max_paired_end_map_attempts : max_single_end_map_attempts);
-    int max_single_end_mappings_for_rescue = max_map_attempts_arg ? max_map_attempts_arg : max_single_end_map_attempts;
     if (max_num_mappings > max_map_attempts && max_map_attempts != 0) {
         cerr << "warning:[vg mpmap] Reporting up to " << max_num_mappings << " mappings, but only computing up to " << max_map_attempts << " mappings." << endl;
     }
@@ -1120,6 +1150,14 @@ int main_mpmap(int argc, char** argv) {
         cerr << "error:[vg mpmap] Multipath mapping requires a GCSA2 index (-g)" << endl;
         exit(1);
     }
+    
+    
+#ifdef mpmap_instrument_mem_statitics
+    if (auto_calibrate_mismapping_detection) {
+        cerr << "error:[vg mpmap] set calibration off when profiling MEM statistics" << endl;
+        exit(1);
+    }
+#endif
     
     // create in-memory objects
     
@@ -1367,6 +1405,10 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.stripped_match_alg_strip_length = stripped_match_alg_strip_length;
     multipath_mapper.stripped_match_alg_max_length = stripped_match_alg_max_length;
     multipath_mapper.stripped_match_alg_target_count = stripped_match_alg_target_count;
+    multipath_mapper.use_greedy_mem_restarts = use_greedy_mem_restarts;
+    multipath_mapper.greedy_restart_min_length = greedy_restart_min_length;
+    multipath_mapper.greedy_restart_max_count = greedy_restart_max_count;
+    multipath_mapper.greedy_restart_max_lcp = greedy_restart_max_lcp;
     multipath_mapper.use_stripped_match_alg = use_stripped_match_alg;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
@@ -1432,6 +1474,10 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.dynamic_max_alt_alns = dynamic_max_alt_alns;
     multipath_mapper.simplify_topologies = simplify_topologies;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
+
+#ifdef mpmap_instrument_mem_statitics
+    multipath_mapper._mem_stats.open(MEM_STATS_FILE);
+#endif
     
     // if directed to, auto calibrate the mismapping detection to the graph
     if (auto_calibrate_mismapping_detection) {
@@ -1440,6 +1486,7 @@ int main_mpmap(int argc, char** argv) {
         }
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_lengths);
     }
+    
     
     // Count our threads 
     int thread_count = get_thread_count();
@@ -1470,6 +1517,31 @@ int main_mpmap(int argc, char** argv) {
 #ifdef record_read_run_times
     ofstream read_time_file(READ_TIME_FILE);
 #endif
+    
+    // a probably over-engineered way to report progress across threads with minimal contention
+    const uint64_t progress_frequency = read_length == "long" ? 250000 : 5000000;
+    const uint64_t thread_progress_frequency = 1000;
+    assert(progress_frequency % thread_progress_frequency == 0);
+    uint64_t num_reads_mapped = 0;
+    vector<uint64_t> thread_num_reads_mapped(thread_count, 0);
+    
+    function<void(int)> register_mapping = [&](int thread_num) {
+        if (!suppress_progress) {
+            uint64_t num_mapped = ++thread_num_reads_mapped[thread_num];
+            if (num_mapped == thread_progress_frequency) {
+                uint64_t n;
+#pragma omp atomic capture
+                n = num_reads_mapped += num_mapped;
+                if (n % progress_frequency == 0) {
+#pragma omp critical
+                    {
+                        cerr << "[vg mpmap] Mapped " << n << (!interleaved_input && fastq_name_2.empty() ? " reads" : " read pairs") << endl;
+                    }
+                }
+                thread_num_reads_mapped[thread_num] = 0;
+            }
+        }
+    };
     
     // a buffer to hold read pairs that can't be unambiguously mapped before the fragment length distribution
     // is estimated
@@ -1683,17 +1755,7 @@ int main_mpmap(int argc, char** argv) {
             watchdog->check_out(thread_num);
         }
         
-        if (!suppress_progress) {
-            uint64_t n;
-#pragma omp atomic capture
-            n = ++num_reads_mapped;
-            if (n % progress_frequency == 0) {
-#pragma omp critical
-                {
-                    cerr << "[vg mpmap] Mapped " << n << " reads" << endl;
-                }
-            }
-        }
+        register_mapping(thread_num);
         
 #ifdef record_read_run_times
         clock_t finish = clock();
@@ -1752,17 +1814,9 @@ int main_mpmap(int argc, char** argv) {
             watchdog->check_out(thread_num);
         }
         
-        if (!suppress_progress && num_buffered == ambiguous_pair_buffer.size()) {
+        if (num_buffered == ambiguous_pair_buffer.size()) {
             // the read didn't get buffered during the frag length estimation phase
-            uint64_t n;
-#pragma omp atomic capture
-            n = ++num_reads_mapped;
-            if (n % progress_frequency == 0) {
-#pragma omp critical
-                {
-                    cerr << "[vg mpmap] Mapped " << n << " read pairs" << endl;
-                }
-            }
+            register_mapping(thread_num);
         }
         
 #ifdef record_read_run_times
@@ -1836,17 +1890,7 @@ int main_mpmap(int argc, char** argv) {
             watchdog->check_out(thread_num);
         }
         
-        if (!suppress_progress) {
-            uint64_t n;
-#pragma omp atomic capture
-            n = ++num_reads_mapped;
-            if (n % progress_frequency == 0) {
-#pragma omp critical
-                {
-                    cerr << "[vg mpmap] Mapped " << n << " read pairs" << endl;
-                }
-            }
-        }
+        register_mapping(thread_num);
         
 #ifdef record_read_run_times
         clock_t finish = clock();
@@ -1863,7 +1907,7 @@ int main_mpmap(int argc, char** argv) {
     // FASTQ input
     if (!fastq_name_1.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << endl;
+            cerr << "[vg mpmap] Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << " using " << thread_count << " threads" << endl;
         }
         
         if (interleaved_input) {
@@ -1881,6 +1925,10 @@ int main_mpmap(int argc, char** argv) {
     
     // GAM input
     if (!gam_file_name.empty()) {
+        if (!suppress_progress) {
+            cerr << "[vg mpmap] Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << " using " << thread_count << " threads" << endl;
+        }
+        
         function<void(istream&)> execute = [&](istream& gam_in) {
             if (!gam_in) {
                 cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << endl;
@@ -1952,6 +2000,9 @@ int main_mpmap(int argc, char** argv) {
     cout.flush();
     
     if (!suppress_progress) {
+        for (auto uncounted_mappings : thread_num_reads_mapped) {
+            num_reads_mapped += uncounted_mappings;
+        }
         cerr << "[vg mpmap] Mapping finished. Mapped " << num_reads_mapped;
         if (fastq_name_2.empty() && !interleaved_input) {
             cerr << " reads.";

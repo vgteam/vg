@@ -1,6 +1,7 @@
 #include <cstdint>
 #include "variant_recall.hpp"
 #include "algorithms/topological_sort.hpp"
+#include "cactus_snarl_finder.hpp"
 #include "traversal_finder.hpp"
 #include "augment.hpp"
 #include "xg.hpp"

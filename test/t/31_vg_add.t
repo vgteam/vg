@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 9
+plan tests 11
 
 vg construct -r add/ref.fa > ref.vg
 vg add -v add/benedict.vcf ref.vg > benedict.vg
@@ -16,6 +16,13 @@ is "$?" "0" "vg add can create a graph with contig renames"
 
 diff benedict.vg benedict2.vg
 is "$?" "0" "vg add produces the same graph from VCFs with different contig names"
+
+vg convert -p ref.vg >ref.pg
+vg add -v add/benedict.vcf ref.pg > benedict3.vg
+is "$?" "0" "vg add can create a graph from a PackedGraph"
+
+diff benedict.vg benedict3.vg
+is "$?" "0" "vg add produces the same graph from the same input in different formats"
 
 vg add -v add/separated.vcf ref.vg > no-n.vg
 vg construct -r add/refN.fa > refN.vg
@@ -39,5 +46,5 @@ is "$(vg view -Jv add/backward.json | vg add -v add/benedict.vcf - | vg mod --un
 
 is "$(vg view -Jv add/backward_and_forward.json | vg add -v add/benedict.vcf - | vg mod --unchop - | vg stats -N -)" "5" "graphs with backward and forward nodes can be added to"
 
-rm -rf ref.vg benedict.vg benedict2.vg x-ref.vg x.vg refN.vg no-n.vg with-n.vg ngap.vg ngap-add.vg
+rm -rf ref.vg ref.pg benedict.vg benedict2.vg benedict3.vg x-ref.vg x.vg refN.vg no-n.vg with-n.vg ngap.vg ngap-add.vg
 

@@ -184,6 +184,9 @@ namespace vg {
 
     /// Merges non-branching paths in a multipath alignment in place
     void merge_non_branching_subpaths(MultipathAlignment& multipath_aln);
+
+    /// Removes subpaths that have no aligned bases and adds in any implied edges crossing through them
+    void remove_empty_subpaths(MultipathAlignment& multipath_aln);
     
     /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
     /// each connected component. An unmapped MultipathAlignment with no subpaths produces an empty vector.

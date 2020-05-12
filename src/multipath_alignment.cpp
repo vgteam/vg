@@ -81,6 +81,111 @@ namespace vg {
             }
         }
     }
+
+    void remove_empty_subpaths(MultipathAlignment& multipath_aln) {
+        
+        vector<bool> is_empty(multipath_aln.subpath_size(), false);
+        bool any_empty = false;
+        
+        // find subpaths that don't have any aligned bases
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+            const Subpath& subpath = multipath_aln.subpath(i);
+            if (path_from_length(subpath.path()) == 0 &&
+                path_to_length(subpath.path()) == 0) {
+                is_empty[i] = true;
+                any_empty = true;
+            }
+        }
+        
+        if (any_empty) {
+            // there's at least one empty subpath
+            
+            for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                // check if any of this subpaths nexts are empty
+                vector<size_t> transitive_nexts;
+                Subpath& subpath = *multipath_aln.mutable_subpath(i);
+                for (size_t j = 0; j < subpath.next_size(); ++j) {
+                    if (is_empty[subpath.next(j)]) {
+                        // traverse to all nexts that can be reached by only empty subpaths
+                        //
+                        // technically this implementation can be exponential, but i don't
+                        // think it will ever come up
+                        vector<size_t> stack(1, subpath.next(j));
+                        while (!stack.empty()) {
+                            auto k = stack.back();
+                            stack.pop_back();
+                            for (auto n : multipath_aln.subpath(k).next()) {
+                                if (is_empty[n]) {
+                                    stack.push_back(n);
+                                }
+                                else {
+                                    transitive_nexts.push_back(n);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // add edges for the nexts reachable through empty subpaths
+                for (size_t j : transitive_nexts) {
+                    bool found = false;
+                    for (size_t k = 0; k < subpath.next_size() && !found; ++k) {
+                        found = (subpath.next(k) == j);
+                    }
+                    if (!found) {
+                        subpath.add_next(j);
+                    }
+                }
+            }
+            
+            // relocate the subpaths we're keeping at the front of the vector
+            vector<size_t> removed_so_far(multipath_aln.subpath_size() + 1, 0);
+            for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                if (is_empty[i]) {
+                    removed_so_far[i + 1] = removed_so_far[i] + 1;
+                    continue;
+                }
+                else {
+                    removed_so_far[i + 1] = removed_so_far[i];
+                }
+                
+                if (removed_so_far[i] > 0) {
+                    *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*multipath_aln.mutable_subpath(i));
+                }
+            }
+            
+            // delete the end of the subpaths
+            multipath_aln.mutable_subpath()->DeleteSubrange(multipath_aln.subpath_size() - removed_so_far.back(),
+                                                            removed_so_far.back());
+            
+            // reassign the next indexes
+            for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                Subpath& subpath = *multipath_aln.mutable_subpath(i);
+                size_t nexts_removed_so_far = 0;
+                for (size_t j = 0; j < subpath.next_size(); ++j) {
+                    if (is_empty[subpath.next(j)]) {
+                        ++nexts_removed_so_far;
+                    }
+                    else {
+                        subpath.set_next(j - nexts_removed_so_far, subpath.next(j) - removed_so_far[subpath.next(j)]);
+                    }
+                    subpath.mutable_next()->Truncate(subpath.next_size() - nexts_removed_so_far);
+                }
+            }
+            
+            // maybe recompute the starts
+            bool found_deleted_start = false;
+            for (size_t i = 0; !found_deleted_start && i < multipath_aln.start_size(); ++i) {
+                found_deleted_start = is_empty[multipath_aln.start(i)];
+            }
+            
+            if (found_deleted_start) {
+                // recompute the edges from scratch (could be done faster, but
+                // this is easy)
+                identify_start_subpaths(multipath_aln);
+            }
+        }
+    }
     
     void identify_start_subpaths(MultipathAlignment& multipath_aln) {
         
@@ -1573,7 +1678,7 @@ namespace vg {
                     // do we need to merge the abutting edits?
                     int64_t edit_idx = 0;
                     if (final_mapping->edit_size() && first_mapping.edit_size()) {
-                        Edit* final_edit = final_mapping->mutable_edit(0);
+                        Edit* final_edit = final_mapping->mutable_edit(final_mapping->edit_size() - 1);
                         const Edit& first_edit = first_mapping.edit(0);
                         if ((first_edit.from_length() > 0) == (final_edit->from_length() > 0) &&
                             (first_edit.to_length() > 0) == (final_edit->to_length() > 0) &&
@@ -1613,7 +1718,7 @@ namespace vg {
         }
         
         // did we merge and remove any subpaths?
-        if (removed_so_far.empty() ? false : removed_so_far.back() > 0) {
+        if (!removed_so_far.empty() && removed_so_far.back() > 0) {
             // trim the vector of subpaths
             multipath_aln.mutable_subpath()->DeleteSubrange(multipath_aln.subpath_size() - removed_so_far.back(),
                                                             removed_so_far.back());

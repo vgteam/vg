@@ -5,6 +5,8 @@
 #include "catch.hpp"
 #include "../genotypekit.hpp"
 #include "../snarls.hpp"
+#include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../traversal_finder.hpp"
 #include "xg.hpp"
 #include "../haplotype_extracter.hpp"
@@ -109,7 +111,7 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
   graph.merge(chunk);
     
   // Make a CactusSnarlFinder
-  SnarlFinder* finder = new CactusSnarlFinder(graph);
+  unique_ptr<SnarlFinder> finder(new CactusSnarlFinder(graph));
     
   SECTION("CactusSnarlFinder should find two top-level sites") {
         
@@ -191,11 +193,392 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
         
   }
     
-  delete finder;
-
 }
 
-TEST_CASE("CactusSnarlFinder safely rejects a single node graph", "[genotype]") {
+TEST_CASE("sites can be found with the IntegratedSnarlFinder", "[genotype][integrated-snarl-finder]") {
+    
+  // Build a toy graph
+  const string graph_json = R"(
+    
+    {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "T"},
+            {"id": 6, "sequence": "A"},
+            {"id": 7, "sequence": "C"},
+            {"id": 8, "sequence": "A"},
+            {"id": 9, "sequence": "A"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 1, "to": 6},
+            {"from": 2, "to": 3},
+            {"from": 2, "to": 4},
+            {"from": 3, "to": 5},
+            {"from": 4, "to": 5},
+            {"from": 5, "to": 6},
+            {"from": 6, "to": 7},
+            {"from": 6, "to": 8},
+            {"from": 7, "to": 9},
+            {"from": 8, "to": 9}
+            
+        ],
+        "path": [
+            {"name": "hint", "mapping": [
+                {"position": {"node_id": 1}, "rank" : 1 },
+                {"position": {"node_id": 6}, "rank" : 2 },
+                {"position": {"node_id": 8}, "rank" : 3 },
+                {"position": {"node_id": 9}, "rank" : 4 }
+            ]}
+        ]
+    }
+    
+    )";
+    
+  // Make an actual graph
+  VG graph;
+  Graph chunk;
+  json2pb(chunk, graph_json.c_str(), graph_json.size());
+  graph.merge(chunk);
+    
+  // Make an IntegratedSnarlFinder
+  unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+    
+  SECTION("IntegratedSnarlFinder should find two top-level sites") {
+        
+    SnarlManager manager = finder->find_snarls();
+        
+    auto sites = manager.top_level_snarls();
+        
+    REQUIRE(sites.size() == 2);
+        
+    // Order them
+    const Snarl* site_1 = sites[0]->start().node_id() > sites[1]->start().node_id() ? sites[1] : sites[0];
+    const Snarl* site_2 = sites[0]->start().node_id() > sites[1]->start().node_id() ? sites[0] : sites[1];
+        
+    SECTION("the first site should be 1 fwd to 6 fwd") {
+      REQUIRE(site_1->start().node_id() == 1);
+      REQUIRE(site_1->start().backward() == false);
+      REQUIRE(site_1->end().node_id() == 6);
+      REQUIRE(site_1->end().backward() == false);
+            
+      SECTION("and should contain exactly nodes 1 through 6") {
+        auto nodes = manager.deep_contents(site_1, graph, true).first;
+        set<Node*> correct{graph.get_node(1), graph.get_node(2),
+             graph.get_node(3), graph.get_node(4),
+             graph.get_node(5), graph.get_node(6)};
+                
+        REQUIRE(nodes.size() == correct.size());
+        for (id_t node_id : nodes) {
+            REQUIRE(correct.count(graph.get_node(node_id)));
+        }
+      }
+            
+      SECTION("and should contain exactly edges 1->6, 1->2, 2->3, 2->4, 3->5, 4->5, 5->6") {
+          auto edges = manager.deep_contents(site_1, graph, true).second;
+          set<Edge*> correct{
+              graph.get_edge(NodeSide(1, true), NodeSide(6)),
+                  graph.get_edge(NodeSide(1, true), NodeSide(2)),
+                  graph.get_edge(NodeSide(2, true), NodeSide(3)),
+                  graph.get_edge(NodeSide(2, true), NodeSide(4)),
+                  graph.get_edge(NodeSide(3, true), NodeSide(5)),
+                  graph.get_edge(NodeSide(4, true), NodeSide(5)),
+                  graph.get_edge(NodeSide(5, true), NodeSide(6))
+                  };
+                
+          REQUIRE(edges.size() == correct.size());
+          for (const edge_t& edge_handle : edges) {
+              REQUIRE(correct.count(graph.get_edge(NodeTraversal(graph.get_node(graph.get_id(edge_handle.first)),
+                                                                 graph.get_is_reverse(edge_handle.first)),
+                                                   NodeTraversal(graph.get_node(graph.get_id(edge_handle.second)),
+                                                                 graph.get_is_reverse(edge_handle.second)))));
+          }
+      }
+            
+      SECTION("and should contain one child") {
+        REQUIRE(manager.children_of(site_1).size() == 1);
+                
+        auto& child = manager.children_of(site_1)[0];
+                
+        SECTION("that child should be 2 fwd to 5 fwd") {
+          REQUIRE(child->start().node_id() == 2);
+          REQUIRE(child->start().backward() == false);
+          REQUIRE(child->end().node_id() == 5);
+          REQUIRE(child->end().backward() == false);
+        }
+      }
+            
+    }
+        
+    SECTION("the second site should be 6 fwd to 9 fwd") {
+      REQUIRE(site_2->start().node_id() == 6);
+      REQUIRE(site_2->start().backward() == false);
+      REQUIRE(site_2->end().node_id() == 9);
+      REQUIRE(site_2->end().backward() == false);
+            
+      SECTION("and should contain no children") {
+        REQUIRE(manager.children_of(site_2).size() == 0);
+      }
+    }
+        
+        
+  }
+}
+
+TEST_CASE("IntegratedSnarlFinder works when cactus graph contains back-to-back cycles along root path", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GGGGG"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "C"},
+            {"id": 4, "sequence": "G"},
+            {"id": 5, "sequence": "T"},
+            {"id": 6, "sequence": "AAAAA"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 1, "to": 3},
+            {"from": 2, "to": 4},
+            {"from": 2, "to": 5},
+            {"from": 3, "to": 4},
+            {"from": 3, "to": 5},
+            {"from": 4, "to": 6},
+            {"from": 5, "to": 6}
+            
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    SnarlManager manager = finder->find_snarls();
+        
+    auto sites = manager.top_level_snarls();
+        
+    // There should just be 1 top snarl, with an internal adjacency component
+    REQUIRE(sites.size() == 1);
+}
+
+TEST_CASE("IntegratedSnarlFinder works on an all bridge edge Y graph with specific numbering", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+    {"node":[{"id":"2","sequence":"G"},{"id":"3","sequence":"G"},{"id":"4","sequence":"G"},{"id":"5","sequence":"G"},{"id":"6","sequence":"G"},{"id":"11","sequence":"G"}],
+    "edge":[{"from":"2","to":"3"},{"from":"3","to":"6"},{"from":"4","to":"5"},{"from":"5","to":"6"},{"from":"6","to":"11"}]}    
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    SnarlManager manager = finder->find_snarls();
+        
+    auto sites = manager.top_level_snarls();
+        
+    // There should be 3 snarls in a chain, and 1 nested snarl
+    REQUIRE(sites.size() == 3);
+    REQUIRE(manager.num_snarls() == 4);
+    
+    // We don't care which pair of Y branches it roots along.
+}
+
+TEST_CASE("IntegratedSnarlFinder roots correctly an all bridge edge Y graph with winning longest path", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+    {"node":[{"id":"2","sequence":"G"},{"id":"3","sequence":"G"},{"id":"4","sequence":"GG"},{"id":"5","sequence":"G"},{"id":"6","sequence":"G"},{"id":"11","sequence":"GG"}],
+    "edge":[{"from":"2","to":"3"},{"from":"3","to":"6"},{"from":"4","to":"5"},{"from":"5","to":"6"},{"from":"6","to":"11"}]}    
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    SnarlManager manager = finder->find_snarls();
+        
+    auto sites = manager.top_level_snarls();
+        
+    // There should be 3 snarls in a chain, and 1 nested snarl
+    REQUIRE(sites.size() == 3);
+    REQUIRE(manager.num_snarls() == 4);
+    
+    // We don't care which pair of Y branches it roots along.
+    
+    // Top snarls should have the right bounds
+    REQUIRE(sites[0]->start().node_id() == 6);
+    REQUIRE(sites[0]->start().backward() == false);
+    REQUIRE(sites[0]->end().node_id() == 11);
+    REQUIRE(sites[0]->end().backward() == false);
+    // These are coming out backward vs chain order
+    REQUIRE(manager.chain_rank_of(sites[0]) == 2);
+    
+    REQUIRE(sites[1]->start().node_id() == 5);
+    REQUIRE(sites[1]->start().backward() == false);
+    REQUIRE(sites[1]->end().node_id() == 6);
+    REQUIRE(sites[1]->end().backward() == false);
+    REQUIRE(manager.chain_rank_of(sites[1]) == 1);
+    
+    REQUIRE(sites[2]->start().node_id() == 4);
+    REQUIRE(sites[2]->start().backward() == false);
+    REQUIRE(sites[2]->end().node_id() == 5);
+    REQUIRE(sites[2]->end().backward() == false);
+    REQUIRE(manager.chain_rank_of(sites[2]) == 0);
+    
+}
+
+TEST_CASE("IntegratedSnarlFinder works when cactus graph contains longer back-to-back cycles along root path", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GGGGG"},
+            {"id": 2, "sequence": "A"},
+            {"id": 21, "sequence": "A"},
+            {"id": 22, "sequence": "A"},
+            {"id": 3, "sequence": "C"},
+            {"id": 31, "sequence": "C"},
+            {"id": 32, "sequence": "C"},
+            {"id": 4, "sequence": "G"},
+            {"id": 5, "sequence": "T"},
+            {"id": 6, "sequence": "AAAAA"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 1, "to": 3},
+            {"from": 2, "to": 21},
+            {"from": 21, "to": 22},
+            {"from": 22, "to": 4},
+            {"from": 22, "to": 5},
+            {"from": 3, "to": 31},
+            {"from": 31, "to": 32},
+            {"from": 32, "to": 4},
+            {"from": 32, "to": 5},
+            {"from": 4, "to": 6},
+            {"from": 5, "to": 6}
+            
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    SnarlManager manager = finder->find_snarls();
+        
+    auto sites = manager.top_level_snarls();
+        
+    // There should just be 1 top snarl, with an internal adjacency component
+    REQUIRE(sites.size() == 1);
+}
+
+TEST_CASE("IntegratedSnarlFinder works on a complex bundle-y region with a nested snarl", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+        {"edge": [{"from": "129672", "to": "129673"},
+                  {"from": "129662", "to": "129663"}, 
+                  {"from": "129662", "to": "129664"}, 
+                  {"from": "129664", "to": "129665"}, 
+                  {"from": "129664", "to": "129666"}, 
+                  {"from": "129666", "to": "129668"}, 
+                  {"from": "129666", "to": "129669"}, 
+                  {"from": "129666", "to": "129667"}, 
+                  {"from": "129667", "to": "129668"}, 
+                  {"from": "129667", "to": "129669"}, 
+                  {"from": "129669", "to": "129670"}, 
+                  {"from": "129669", "to": "129673"}, 
+                  {"from": "129671", "to": "129672"}, 
+                  {"from": "129668", "to": "129670"}, 
+                  {"from": "129668", "to": "129673"}, 
+                  {"from": "129665", "to": "129668"}, 
+                  {"from": "129665", "to": "129669"}, 
+                  {"from": "129665", "to": "129667"}, 
+                  {"from": "129670", "to": "129671"}, 
+                  {"from": "129670", "to": "129672"}, 
+                  {"from": "129663", "to": "129665"}, 
+                  {"from": "129663", "to": "129666"}], 
+        "node": [{"id": "129672", "sequence": "AT"}, 
+                 {"id": "129662", "sequence": "CAGGTCAAACTGTGAT"}, 
+                 {"id": "129664", "sequence": "T"}, 
+                 {"id": "129666", "sequence": "T"}, 
+                 {"id": "129667", "sequence": "G"}, 
+                 {"id": "129669", "sequence": "G"}, 
+                 {"id": "129671", "sequence": "T"}, 
+                 {"id": "129668", "sequence": "A"}, 
+                 {"id": "129665", "sequence": "A"}, 
+                 {"id": "129670", "sequence": "A"}, 
+                 {"id": "129673", "sequence": "ATATATATATACTTATTGTAAAAATCTTTAGA"}, 
+                 {"id": "129663", "sequence": "G"}]}
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    SnarlManager manager = finder->find_snarls();
+        
+    auto sites = manager.top_level_snarls();
+        
+    // There should just be 1 top snarl.
+    REQUIRE(sites.size() == 1);
+    
+    // It should have the right bounds
+    REQUIRE(sites[0]->start().node_id() == 129662);
+    REQUIRE(sites[0]->start().backward() == false);
+    REQUIRE(sites[0]->end().node_id() == 129673);
+    REQUIRE(sites[0]->end().backward() == false);
+           
+    // It should have one child snarl
+    REQUIRE(manager.children_of(sites[0]).size() == 1);
+    auto& child = manager.children_of(sites[0])[0];
+    
+    // And the child should have the right bounds
+    REQUIRE(child->start().node_id() == 129670);
+    REQUIRE(child->start().backward() == false);
+    REQUIRE(child->end().node_id() == 129672);
+    REQUIRE(child->end().backward() == false);
+}
+
+TEST_CASE("CactusSnarlFinder safely handles a single node graph", "[genotype][cactus-snarl-finder]") {
     
   // Build a toy graph
   const string graph_json = R"(
@@ -215,15 +598,311 @@ TEST_CASE("CactusSnarlFinder safely rejects a single node graph", "[genotype]") 
   graph.merge(chunk);
     
   // Make a CactusSnarlFinder
-  SnarlFinder* finder = new CactusSnarlFinder(graph);
+  unique_ptr<SnarlFinder> finder(new CactusSnarlFinder(graph));
     
   SECTION("CactusSnarlFinder returns empty snarl manager instead of throwing or crashing") {
     REQUIRE(finder->find_snarls().num_snarls() == 0);
   }
+  
+}
+
+TEST_CASE("IntegratedSnarlFinder safely handles a completely empty graph", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = "{}";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make a CactusSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    // There should be no snarls but the root implicit snarl.
+    REQUIRE(finder->find_snarls().num_snarls() == 0);
+}
+
+TEST_CASE("IntegratedSnarlFinder safely handles a single node graph", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GATTACA"}
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make a CactusSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    // There should be no snarls but the root implicit snarl.
+    REQUIRE(finder->find_snarls().num_snarls() == 0);
+}
+
+TEST_CASE("IntegratedSnarlFinder safely handles a path when forced to root at one end", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GATTACA"},
+            {"id": 2, "sequence": "CATTAG"},
+            {"id": 3, "sequence": "A"},
+            {"id": 4, "sequence": "A"}
+        ], "edge": [
+            {"from": 1, "to": 2},
+            {"from": 2, "to": 3},
+            {"from": 3, "to": 4},
+            {"from": 4, "to": 3}
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make a CactusSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    // There should be a snarl along the body and a snarl for the cycle at the tip.
+    REQUIRE(finder->find_snarls().num_snarls() == 2);
+}
+
+TEST_CASE("IntegratedSnarlFinder safely handles a single node conencted component in a larger graph", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GATTACA"},
+            {"id": 2, "sequence": "GAT"},
+            {"id": 3, "sequence": "TACA"}
+        ], "edge": [
+            {"from": 2, "to": 3}
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+    
+    auto manager = finder->find_snarls();
+    
+    // We expect the one trivial snarl only.
+    REQUIRE(manager.num_snarls() == 1);
+    
+    auto sites = manager.top_level_snarls();
+        
+    // There should just be 1 top snarl.
+    REQUIRE(sites.size() == 1);
+    
+    // It should have the right bounds
+    REQUIRE(sites[0]->start().node_id() == 2);
+    REQUIRE(sites[0]->start().backward() == false);
+    REQUIRE(sites[0]->end().node_id() == 3);
+    REQUIRE(sites[0]->end().backward() == false);
+}
+
+TEST_CASE("IntegratedSnarlFinder safely handles a single node cycle", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GATTACA"}
+        ], "edge": [
+            {"from": 1, "to": 1}
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+    
+    auto manager = finder->find_snarls();
+    
+    // Like other fully-connected cases we regard this as contents of the root
+    // snarl. So no snarls come out.
+    REQUIRE(manager.num_snarls() == 0);
+}
+
+TEST_CASE("IntegratedSnarlFinder safely handles a totally connected graph", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GAT"},
+            {"id": 2, "sequence": "TA"},
+            {"id": 3, "sequence": "CA"}
+        ], "edge": [
+            {"from": 1, "to": 2},
+            {"from": 1, "to": 3},
+            {"from": 2, "to": 3},
+            {"from": 2, "to": 1},
+            {"from": 3, "to": 1},
+            {"from": 3, "to": 2}
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+    
+    auto manager = finder->find_snarls();
+    
+    // There should be no snarls but the root snarl where everything is just contents.
+    REQUIRE(manager.num_snarls() == 0);
     
 }
 
-TEST_CASE("CactusSnarlFinder throws an error instead of crashing when the graph has no edges", "[genotype]") {
+TEST_CASE("IntegratedSnarlFinder prefers to root at a bridge edge path in a tie", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GATT"},
+            {"id": 2, "sequence": "GAT"},
+            {"id": 3, "sequence": "TACA"},
+            {"id": 4, "sequence": "ACA"}
+        ], "edge": [
+            {"from": 2, "to": 3},
+            {"from": 3, "to": 2},
+            {"from": 2, "to": 1},
+            {"from": 1, "to": 4}
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+    
+    auto manager = finder->find_snarls();
+    
+    // There should be 2 total snarls.
+    REQUIRE(manager.num_snarls() == 2);
+    
+    auto sites = manager.top_level_snarls();
+    
+    // Both should be top-level, with connectivity in the root snarl
+    REQUIRE(sites.size() == 2);
+    
+    // The cycle snarl should be set up so the bridge path snarl is outside it.
+    REQUIRE(sites[0]->start().node_id() == 2);
+    REQUIRE(sites[0]->start().backward() == true);
+    REQUIRE(sites[0]->end().node_id() == 3);
+    REQUIRE(sites[0]->end().backward() == true);
+    
+    // The bridge chain snarl should have the right bounds
+    REQUIRE(sites[1]->start().node_id() == 1);
+    REQUIRE(sites[1]->start().backward() == false);
+    REQUIRE(sites[1]->end().node_id() == 4);
+    REQUIRE(sites[1]->end().backward() == false);
+}
+
+TEST_CASE("IntegratedSnarlFinder prefers to root at a cycle that is 1 bp longer", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GATT"},
+            {"id": 2, "sequence": "GAT"},
+            {"id": 3, "sequence": "TAACA"},
+            {"id": 4, "sequence": "ACA"}
+        ], "edge": [
+            {"from": 2, "to": 3},
+            {"from": 3, "to": 2},
+            {"from": 2, "to": 1},
+            {"from": 1, "to": 4}
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+    
+    auto manager = finder->find_snarls();
+    
+    // There should be 3 total snarls
+    REQUIRE(manager.num_snarls() == 3);
+    
+    auto sites = manager.top_level_snarls();
+    
+    // 2 of them should be top-level
+    REQUIRE(sites.size() == 2);
+    
+    // They should both be around the cycle
+    
+    REQUIRE(sites[0]->start().node_id() == 2);
+    REQUIRE(sites[0]->start().backward() == false);
+    REQUIRE(sites[0]->end().node_id() == 3);
+    REQUIRE(sites[0]->end().backward() == false);
+    
+    REQUIRE(sites[1]->start().node_id() == 3);
+    REQUIRE(sites[1]->start().backward() == false);
+    REQUIRE(sites[1]->end().node_id() == 2);
+    REQUIRE(sites[1]->end().backward() == false);
+}
+
+TEST_CASE("CactusSnarlFinder throws an error instead of crashing when the graph has no edges", "[genotype][cactus-snarl-finder]") {
     
   // Build a toy graph
   const string graph_json = R"(
@@ -251,12 +930,12 @@ TEST_CASE("CactusSnarlFinder throws an error instead of crashing when the graph 
   graph.merge(chunk);
     
   // Make a CactusSnarlFinder
-  SnarlFinder* finder = new CactusSnarlFinder(graph);
+  unique_ptr<SnarlFinder> finder(new CactusSnarlFinder(graph));
     
   SECTION("CactusSnarlFinder should fail gracefully") {
     REQUIRE_THROWS(finder->find_snarls());
   }
-    
+  
 }
 
 TEST_CASE("fixed priors can be assigned to genotypes", "[genotype]") {
@@ -433,20 +1112,18 @@ TEST_CASE("ExhaustiveTraversalFinder finds all paths on a bubble with an inverte
   REQUIRE(found_trav_2);
 }
 
-TEST_CASE("SnarlFinder can differntiate ultrabubbles from snarls", "[genotype]") {
+TEST_CASE("CactusSnarlFinder can differentiate ultrabubbles from snarls", "[genotype][cactus-snarl-finder]") {
 
-  SECTION("Directed cycle does not count as ultrabubble") {
-    
-    // Build a toy graph
-    const string graph_json = R"(
-    
+    SECTION("Directed cycle does not count as ultrabubble") {
+        // Build a toy graph
+        const string graph_json = R"(
         {
         "node": [
-            {"id": 1, "sequence": "G"},
+            {"id": 1, "sequence": "AGGAGGG"},
             {"id": 2, "sequence": "A"},
             {"id": 3, "sequence": "T"},
             {"id": 4, "sequence": "GGG"},
-            {"id": 5, "sequence": "GT"}
+            {"id": 5, "sequence": "GTTTGTG"}
         ],
         "edge": [
             {"from": 1, "to": 2},
@@ -457,35 +1134,34 @@ TEST_CASE("SnarlFinder can differntiate ultrabubbles from snarls", "[genotype]")
         ]
         }
         )";
-    
-    // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+        
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
 
-    // Find the snarls
-    CactusSnarlFinder cubs(graph);
-    SnarlManager snarl_manager = cubs.find_snarls();
-    const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+        // Find the snarls
+        CactusSnarlFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
 
-    // Make sure we have one non-ultrabubble start at 1-5
-    REQUIRE(snarl_roots.size() == 1);
-    const Snarl* snarl = snarl_roots[0];
-    int64_t start = snarl->start().node_id();
-    int64_t end = snarl->end().node_id();
-    if (start > end) {
-      std::swap(start, end);
+        // Make sure we have one non-ultrabubble start at 1-5
+        REQUIRE(snarl_roots.size() == 1);
+        const Snarl* snarl = snarl_roots[0];
+        int64_t start = snarl->start().node_id();
+        int64_t end = snarl->end().node_id();
+        if (start > end) {
+          std::swap(start, end);
+        }
+        REQUIRE((start == 1 && end == 5) == true);
+        REQUIRE(snarl->type() != ULTRABUBBLE);
     }
-    REQUIRE((start == 1 && end == 5) == true);
-    REQUIRE(snarl->type() != ULTRABUBBLE);
-  }
 
-  SECTION("Ultrabubble flagged as ultrabubble") {
-    
-    // Build a toy graph
-    const string graph_json = R"(
-    
+    SECTION("Ultrabubble flagged as ultrabubble") {
+
+        // Build a toy graph
+        const string graph_json = R"(
         {
         "node": [
             {"id": 1, "sequence": "G"},
@@ -509,52 +1185,175 @@ TEST_CASE("SnarlFinder can differntiate ultrabubbles from snarls", "[genotype]")
         }
         )";
     
-    // Make an actual graph
-    VG graph;
-    Graph chunk;
-    json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
 
-    // Find the snarls
-    CactusSnarlFinder cubs(graph);
-    SnarlManager snarl_manager = cubs.find_snarls();
-    const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+        // Find the snarls
+        CactusSnarlFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
 
-    // Make sure we have one ultrabubble from 1 forward to 6 reverse, and
-    // another ultrabubble closing the cycle from 6 reverse to 1 forward.
-    REQUIRE(snarl_roots.size() == 2);
-    const Snarl* snarl1 = snarl_roots[0];
-    const Snarl* snarl2 = snarl_roots[1];
+        // Make sure we have one ultrabubble from 1 forward to 6 reverse, and
+        // another ultrabubble closing the cycle from 6 reverse to 1 forward.
+        REQUIRE(snarl_roots.size() == 2);
+        const Snarl* snarl1 = snarl_roots[0];
+        const Snarl* snarl2 = snarl_roots[1];
+            
+        if (snarl1->start().node_id() > snarl1->end().node_id()) {
+          // Flip it around so it goes from lower to higher numbers.
+          snarl_manager.flip(snarl1);
+        }
+            
+        if (snarl2->start().node_id() > snarl2->end().node_id()) {
+          // Flip it around so it goes from lower to higher numbers.
+          snarl_manager.flip(snarl2);
+        }
+            
+        if (snarl1->start().node_id() > snarl2->start().node_id() ||
+            (snarl1->start().node_id() == snarl2->start().node_id() &&
+             snarl1->start().backward() > snarl2->start().backward())) {
+          // Make sure to order them deterministically
+          std::swap(snarl1, snarl2);
+        }
+            
+        REQUIRE(snarl1->start().node_id() == 1);
+        REQUIRE(snarl1->start().backward() == false);
+        REQUIRE(snarl1->end().node_id() == 6);
+        REQUIRE(snarl1->end().backward() == true);
+        REQUIRE(snarl1->type() == ULTRABUBBLE);
+            
+        REQUIRE(snarl2->start().node_id() == 1);
+        REQUIRE(snarl2->start().backward() == true);
+        REQUIRE(snarl2->end().node_id() == 6);
+        REQUIRE(snarl2->end().backward() == false);
+        REQUIRE(snarl2->type() == ULTRABUBBLE);
+    }   
+
+}
+
+TEST_CASE("IntegratedSnarlFinder can differentiate ultrabubbles from snarls", "[genotype][integrated-snarl-finder]") {
+
+    SECTION("Directed cycle does not count as ultrabubble") {
+        // Build a toy graph
+        // Make sure start and end nodes are long enough to suggest the rooting we want.
+        const string graph_json = R"(
+        {
+        "node": [
+            {"id": 1, "sequence": "AGGAGGG"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "GTTTGTG"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 2, "to": 3},
+            {"from": 3, "to": 4},
+            {"from": 1, "to": 4, "to_end": true},
+            {"from": 4, "to": 5}
+        ]
+        }
+        )";
         
-    if (snarl1->start().node_id() > snarl1->end().node_id()) {
-      // Flip it around so it goes from lower to higher numbers.
-      snarl_manager.flip(snarl1);
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
+
+        // Find the snarls
+        IntegratedSnarlFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+
+        // Make sure we have one non-ultrabubble start at 1-5
+        REQUIRE(snarl_roots.size() == 1);
+        const Snarl* snarl = snarl_roots[0];
+        int64_t start = snarl->start().node_id();
+        int64_t end = snarl->end().node_id();
+        if (start > end) {
+          std::swap(start, end);
+        }
+        REQUIRE((start == 1 && end == 5) == true);
+        REQUIRE(snarl->type() != ULTRABUBBLE);
     }
-        
-    if (snarl2->start().node_id() > snarl2->end().node_id()) {
-      // Flip it around so it goes from lower to higher numbers.
-      snarl_manager.flip(snarl2);
-    }
-        
-    if (snarl1->start().node_id() > snarl2->start().node_id() ||
-        (snarl1->start().node_id() == snarl2->start().node_id() &&
-         snarl1->start().backward() > snarl2->start().backward())) {
-      // Make sure to order them deterministically
-      std::swap(snarl1, snarl2);
-    }
-        
-    REQUIRE(snarl1->start().node_id() == 1);
-    REQUIRE(snarl1->start().backward() == false);
-    REQUIRE(snarl1->end().node_id() == 6);
-    REQUIRE(snarl1->end().backward() == true);
-    REQUIRE(snarl1->type() == ULTRABUBBLE);
-        
-    REQUIRE(snarl2->start().node_id() == 1);
-    REQUIRE(snarl2->start().backward() == true);
-    REQUIRE(snarl2->end().node_id() == 6);
-    REQUIRE(snarl2->end().backward() == false);
-    REQUIRE(snarl2->type() == ULTRABUBBLE);
-  }
+
+    SECTION("Ultrabubble flagged as ultrabubble") {
+
+        // Build a toy graph
+        const string graph_json = R"(
+        {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "GT"},
+            {"id": 6, "sequence": "GT"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2, "to_end": true},
+            {"from": 2, "to": 4, "from_start": true},
+            {"from": 2, "to": 5, "from_start": true},
+            {"from": 4, "to": 6, "to_end": true},
+            {"from": 3, "to": 1, "from_start": true, "to_end": true},
+            {"from": 4, "to": 3, "from_start": true, "to_end": true},
+            {"from": 5, "to": 3, "from_start": true, "to_end": true},
+            {"from": 6, "to": 5, "to_end": true},
+            {"from": 1, "to": 6, "from_start": true}
+        ]
+        }
+        )";
+    
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
+
+        // Find the snarls
+        IntegratedSnarlFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+
+        // Make sure we have one ultrabubble from 1 forward to 6 reverse, and
+        // another ultrabubble closing the cycle from 6 reverse to 1 forward.
+        REQUIRE(snarl_roots.size() == 2);
+        const Snarl* snarl1 = snarl_roots[0];
+        const Snarl* snarl2 = snarl_roots[1];
+            
+        if (snarl1->start().node_id() > snarl1->end().node_id()) {
+          // Flip it around so it goes from lower to higher numbers.
+          snarl_manager.flip(snarl1);
+        }
+            
+        if (snarl2->start().node_id() > snarl2->end().node_id()) {
+          // Flip it around so it goes from lower to higher numbers.
+          snarl_manager.flip(snarl2);
+        }
+            
+        if (snarl1->start().node_id() > snarl2->start().node_id() ||
+            (snarl1->start().node_id() == snarl2->start().node_id() &&
+             snarl1->start().backward() > snarl2->start().backward())) {
+          // Make sure to order them deterministically
+          std::swap(snarl1, snarl2);
+        }
+            
+        REQUIRE(snarl1->start().node_id() == 1);
+        REQUIRE(snarl1->start().backward() == false);
+        REQUIRE(snarl1->end().node_id() == 6);
+        REQUIRE(snarl1->end().backward() == true);
+        REQUIRE(snarl1->type() == ULTRABUBBLE);
+            
+        REQUIRE(snarl2->start().node_id() == 1);
+        REQUIRE(snarl2->start().backward() == true);
+        REQUIRE(snarl2->end().node_id() == 6);
+        REQUIRE(snarl2->end().backward() == false);
+        REQUIRE(snarl2->type() == ULTRABUBBLE);
+    }   
 
 }
 

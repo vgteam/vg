@@ -33,6 +33,7 @@ using step_handle_t = handlegraph::step_handle_t;
 using edge_t = handlegraph::edge_t;
 
 using HandleGraph = handlegraph::HandleGraph;
+using RankedHandleGraph = handlegraph::RankedHandleGraph;
 using MutableHandleGraph = handlegraph::MutableHandleGraph;
 using PathHandleGraph = handlegraph::PathHandleGraph;
 using PathPositionHandleGraph = handlegraph::PathPositionHandleGraph;

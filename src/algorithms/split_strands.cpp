@@ -1,5 +1,7 @@
 #include "split_strands.hpp"
 
+#include "../hash_map.hpp"
+
 namespace vg {
 namespace algorithms {
 
@@ -11,25 +13,35 @@ using namespace std;
             cerr << "error:[algorithms] attempted to create strand-splitted graph in a non-empty graph" << endl;
             exit(1);
         }
-        
+
+        size_t source_nodes = source->get_node_count();
+
+        // Maybe the return value should also be a hash_map.
         unordered_map<id_t, pair<id_t, bool>> node_translation;
+        node_translation.reserve(2 * source_nodes);
         
-        unordered_map<handle_t, handle_t> forward_node;
-        unordered_map<handle_t, handle_t> reverse_node;
+        hash_map<handle_t, handle_t> forward_node;
+        forward_node.reserve(source_nodes);
+        hash_map<handle_t, handle_t> reverse_node;
+        reverse_node.reserve(source_nodes);
         
-        unordered_set<edge_t> edges;
+        hash_set<edge_t> edges;
+        edges.reserve(3 * source_nodes); // Assumes 1.5 edges/node.
         
         source->for_each_handle([&](const handle_t& handle) {            
             // create and record forward and reverse versions of each node
-            handle_t fwd_handle = into->create_handle(source->get_sequence(handle));
-            handle_t rev_handle = into->create_handle(reverse_complement(source->get_sequence(handle)));
+            std::string seq = source->get_sequence(handle);
+            handle_t fwd_handle = into->create_handle(seq);
+            reverse_complement_in_place(seq);
+            handle_t rev_handle = into->create_handle(seq);
             
             forward_node[handle] = fwd_handle;
             reverse_node[handle] = rev_handle;
-            
-            node_translation[into->get_id(fwd_handle)] = make_pair(source->get_id(handle), false);
-            node_translation[into->get_id(rev_handle)] = make_pair(source->get_id(handle), true);
-            
+
+            id_t source_id = source->get_id(handle);
+            node_translation[into->get_id(fwd_handle)] = make_pair(source_id, false);
+            node_translation[into->get_id(rev_handle)] = make_pair(source_id, true);
+
             // collect all the edges
             source->follow_edges(handle, true, [&](const handle_t& prev) {
                 edges.insert(source->edge_handle(prev, handle));

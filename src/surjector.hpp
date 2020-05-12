@@ -77,7 +77,8 @@ using namespace std;
         Alignment
         realigning_surject(const PathPositionHandleGraph* graph, const Alignment& source,
                            const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
-                           bool allow_negative_scores, bool preserve_N_alignments = false) const;
+                           bool allow_negative_scores, bool preserve_N_alignments = false,
+                           bool preserve_tail_indel_anchors = false) const;
         
         Alignment
         spliced_surject(const PathPositionHandleGraph* path_position_graph, const Alignment& source,
