@@ -421,7 +421,7 @@ namespace vg {
         for (multipath_alignment_t& multipath_aln : multipath_alns_out) {
 #ifdef debug_multipath_mapper
             cerr << "validating multipath alignment:" << endl;
-            cerr << pb2json(multipath_aln) << endl;
+            cerr << debug_string(multipath_aln) << endl;
 #endif
             if (!validate_multipath_alignment(multipath_aln, *xindex)) {
                 cerr << "### WARNING ###" << endl;
@@ -1202,8 +1202,8 @@ namespace vg {
         for (pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair : multipath_aln_pairs_out) {
 #ifdef debug_multipath_mapper
             cerr << "validating multipath alignments:" << endl;
-            cerr << pb2json(multipath_aln_pair.first) << endl;
-            cerr << pb2json(multipath_aln_pair.second) << endl;
+            cerr << debug_string(multipath_aln_pair.first) << endl;
+            cerr << debug_string(multipath_aln_pair.second) << endl;
 #endif
             if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
@@ -1390,8 +1390,8 @@ namespace vg {
         for (pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair : rescued_secondaries) {
 #ifdef debug_multipath_mapper
             cerr << "validating rescued secondary multipath alignments:" << endl;
-            cerr << pb2json(multipath_aln_pair.first) << endl;
-            cerr << pb2json(multipath_aln_pair.second) << endl;
+            cerr << debug_string(multipath_aln_pair.first) << endl;
+            cerr << debug_string(multipath_aln_pair.second) << endl;
 #endif
             if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
@@ -2698,8 +2698,8 @@ namespace vg {
         for (pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair : multipath_aln_pairs_out) {
 #ifdef debug_multipath_mapper
             cerr << "validating multipath alignments:" << endl;
-            cerr << pb2json(multipath_aln_pair.first) << endl;
-            cerr << pb2json(multipath_aln_pair.second) << endl;
+            cerr << debug_string(multipath_aln_pair.first) << endl;
+            cerr << debug_string(multipath_aln_pair.second) << endl;
 #endif
             if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
@@ -3235,14 +3235,14 @@ namespace vg {
         // connected components or whatever.
         
 #ifdef debug_multipath_mapper_alignment
-        cerr << "multipath alignment before translation: " << pb2json(multipath_aln_out) << endl;
+        cerr << "multipath alignment before translation: " << debug_string(multipath_aln_out) << endl;
 #endif
         for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
             translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);
         }
         
 #ifdef debug_multipath_mapper_alignment
-        cerr << "completed multipath alignment: " << pb2json(multipath_aln_out) << endl;
+        cerr << "completed multipath alignment: " << debug_string(multipath_aln_out) << endl;
 #endif
         
         // clean up (safe on nullptr if we didn't choose it)
@@ -3286,7 +3286,7 @@ namespace vg {
         topologically_order_subpaths(multipath_aln_out);
         
 #ifdef debug_multipath_mapper_alignment
-        cerr << "completed multipath alignment: " << pb2json(multipath_aln_out) << endl;
+        cerr << "completed multipath alignment: " << debug_string(multipath_aln_out) << endl;
 #endif
     }
     
@@ -3461,7 +3461,7 @@ namespace vg {
             cerr << "Got " << alignments.size() << " tracebacks for multipath " << i << endl;
 #endif
 #ifdef debug_multipath_mapper_alignment
-            cerr << pb2json(multipath_alns[i]) << endl;
+            cerr << debug_string(multipath_alns[i]) << endl;
 #endif
            
             // Now, we may have been fed a multipath_alignment_t where the best
