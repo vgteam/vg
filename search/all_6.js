@@ -123,6 +123,7 @@ var searchData=
   ['fit_5foffset_5fweibull',['fit_offset_weibull',['../namespacevg.html#ad9f14b8e66ba0c5c28961e8da4aba4b6',1,'vg']]],
   ['fit_5fweibull',['fit_weibull',['../namespacevg.html#aa64cff8c9c4b3c3baefb49c57614643d',1,'vg']]],
   ['fit_5fzipf',['fit_zipf',['../namespacevg.html#a9fa3b08acc22f29ea5d940317f6948ab',1,'vg']]],
+  ['fix_5fdozeu_5fscore',['fix_dozeu_score',['../classvg_1_1MinimizerMapper.html#ab6a0d266ef94fbda125ebdde64617c84',1,'vg::MinimizerMapper']]],
   ['fixed_5ffragment_5fmodel',['fixed_fragment_model',['../classvg_1_1FragmentLengthStatistics.html#a8c3c6bfb99c7cef159520adb58be271d',1,'vg::FragmentLengthStatistics']]],
   ['fixedgenotypepriorcalculator',['FixedGenotypePriorCalculator',['../classvg_1_1FixedGenotypePriorCalculator.html',1,'vg']]],
   ['flank_5frange',['flank_range',['../classvg_1_1VariantAdder.html#a1761b88c30f6fc8e9e40a99d6f66d9dd',1,'vg::VariantAdder']]],

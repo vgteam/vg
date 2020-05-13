@@ -123,6 +123,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a4ae627a418357792cd5b9f6d6b9cc19c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9605b1ef714df2c8f07b7bcd4afd0882"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a9605b1ef714df2c8f07b7bcd4afd0882">attempt_rescue</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aligned_read, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;rescued_alignment, bool rescue_forward)</td></tr>
 <tr class="separator:a9605b1ef714df2c8f07b7bcd4afd0882"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab6a0d266ef94fbda125ebdde64617c84"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab6a0d266ef94fbda125ebdde64617c84">fix_dozeu_score</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;rescued_alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;rescue_graph, const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order) const</td></tr>
+<tr class="separator:ab6a0d266ef94fbda125ebdde64617c84"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae68add551501e3b58c9329d9297d620d"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ae68add551501e3b58c9329d9297d620d">distance_between</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln2)</td></tr>
 <tr class="separator:ae68add551501e3b58c9329d9297d620d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
@@ -894,6 +896,41 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Find seeds for all minimizers passing the filters. </p>
+
+</div>
+</div>
+<a id="ab6a0d266ef94fbda125ebdde64617c84"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab6a0d266ef94fbda125ebdde64617c84">&#9670;&nbsp;</a></span>fix_dozeu_score()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::fix_dozeu_score </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>rescued_alignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>rescue_graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>topological_order</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>When we use dozeu for rescue, the reported alignment score is incorrect. 1) Dozeu only gives the full-length bonus once. 2) There is no penalty for a softclip at the edge of the subgraph. This function calculates the score correctly. If the score is incorrect, we realign the read using GSSW. TODO: This should be unnecessary. </p>
 
 </div>
 </div>
