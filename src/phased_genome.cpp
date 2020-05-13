@@ -349,6 +349,12 @@ namespace vg {
     }
 
     double PhasedGenome::read_log_likelihood(const MultipathAlignment& multipath_aln, double log_base) {
+#ifdef debug_phased_genome
+        cerr << "[PhasedGenome::read_log_likelihood] computing read likelihood with log base " << log_base << endl;
+        cerr << "read:" << endl;
+        cerr << pb2json(multipath_aln) << endl;
+        
+#endif
         
         if (multipath_aln.mapping_quality() == 0) {
             // this is the answer we'll produce anyway and handling it as an edge case
@@ -372,22 +378,30 @@ namespace vg {
         vector<vector<tuple<size_t, size_t, HaplotypeNode*, bool>>> possible_forward_links(multipath_aln.subpath_size());
         
         // for each subpath
-        //    for each copy of it in the phased genome
+        //     for each copy of it in the phased genome
         //         the (subpath index, which copy)'s that this copy links back to
         vector<vector<vector<pair<size_t, size_t>>>> backward_links(multipath_aln.subpath_size());
         
         for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+#ifdef debug_phased_genome
+            cerr << "[PhasedGenome::read_log_likelihood] looking for matches of subpath " << i << endl;
+            
+#endif
             
             const Subpath& subpath = multipath_aln.subpath(i);
             const Path& path = subpath.path();
 
             // check all of the locations of this subpath among the haplotypes
             for (HaplotypeNode* starting_haplo_node : node_locations[path.mapping(0).position().node_id()]) {
-                
+
                 // are we traversing forward or backward along the haplotype?
                 bool matches_orientation = (starting_haplo_node->node_traversal.backward == path.mapping(0).position().is_reverse());
                 auto move_forward = matches_orientation ? move_right : move_left;
        
+#ifdef debug_phased_genome
+                cerr << "[PhasedGenome::read_log_likelihood] found starting haplo node that has " << (matches_orientation ? "matching" : "reverse") << " orientation at " << starting_haplo_node << " with trav " << starting_haplo_node->node_traversal << endl;
+#endif
+                
                 // determine whether the rest of the subpath matches
                 bool full_match = true;
                 HaplotypeNode* haplo_node = starting_haplo_node;
@@ -395,6 +409,10 @@ namespace vg {
                     
                     // advance to the haplo node that we would find next
                     move_forward(haplo_node);
+                    
+#ifdef debug_phased_genome
+                    cerr << "[PhasedGenome::read_log_likelihood] moving forward to haplo node at " << haplo_node << " with trav " << haplo_node->node_traversal << endl;
+#endif
                     
                     const Position& pos = path.mapping(j).position();
                     if (haplo_node->node_traversal.node->id() != pos.node_id() ||
@@ -412,12 +430,19 @@ namespace vg {
                     continue;
                 }
                 
+#ifdef debug_phased_genome
+                cerr << "[PhasedGenome::read_log_likelihood] found a full match" << endl;
+#endif
+                
                 const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
                 size_t final_offset = mapping_from_length(final_mapping) + final_mapping.position().offset();
                 if (final_offset == haplo_node->node_traversal.node->sequence().size()) {
                     // the last mapping hits the end of its node, so we expect to find
                     // the next subpath on the following node
                     move_forward(haplo_node);
+#ifdef debug_phased_genome
+                    cerr << "[PhasedGenome::read_log_likelihood] any subsequent match is expected to be on the next haplo node at " << haplo_node << endl;
+#endif
                 }
                 
                 // we found a full match of this subpath on the phased genome, add a match
@@ -434,11 +459,17 @@ namespace vg {
                         // we started on haplo node and orientation that we would have expected
                         // if we followed this forward link
                         links.emplace_back(get<0>(possible_link), get<1>(possible_link));
+#ifdef debug_phased_genome
+                        cerr << "[PhasedGenome::read_log_likelihood] confirmed a link from subpath " << get<0>(possible_link) << ", match number " << get<1>(possible_link) << endl;
+#endif
                     }
                 }
                 
                 // add a candidate forward link from here to each subsequent subpath
                 for (size_t j : subpath.next()) {
+#ifdef debug_phased_genome
+                    cerr << "[PhasedGenome::read_log_likelihood] adding a possible link to " << j << endl;
+#endif
                     possible_forward_links[j].emplace_back(i, match_num, haplo_node, matches_orientation);
                 }
             }
@@ -466,6 +497,9 @@ namespace vg {
                     // links
                     continue;
                 }
+#ifdef debug_phased_genome
+                cerr << "[PhasedGenome::read_log_likelihood] checking backward links from " << i << ", match num " << j << endl;
+#endif
                 
                 // use DFS to generate all longest-possible alignments along
                 // the backward links
@@ -475,23 +509,39 @@ namespace vg {
                 stack.emplace_back(i, j, 0);
                 while (!stack.empty()) {
                     auto& record = stack.back();
+#ifdef debug_phased_genome
+                    cerr << "[PhasedGenome::read_log_likelihood] unstacking " << get<0>(record) << ", " << get<1>(record) << ", " << get<2>(record) << endl;
+#endif
                     
                     auto& links = backward_links[get<0>(record)][get<1>(record)];
                     if (get<2>(record) < links.size()) {
                         auto next = links[get<2>(record)++];
                         stack.emplace_back(next.first, next.second, 0);
+#ifdef debug_phased_genome
+                        cerr << "[PhasedGenome::read_log_likelihood] following link to " << next.first << ", " << next.second << endl;
+#endif
                     }
                     else {
                         // we've finished traversing this
                         traversed[get<0>(record)][get<1>(record)] = true;
+#ifdef debug_phased_genome
+                        cerr << "[PhasedGenome::read_log_likelihood] finished traversing " << get<0>(record) << ", " << get<1>(record) << endl;
+#endif
                         if (links.empty()) {
                             // this is the final subpath in the alignment, so the stack now
                             // represents a valid alignment. we can compute the highest scoring
                             // segment of the alignment with dynamic programming
-                            int32_t current_score = multipath_aln.subpath(get<2>(stack[0])).score();
+#ifdef debug_phased_genome
+                            cerr << "[PhasedGenome::read_log_likelihood] completed an alignment, current alignment is " << endl;
+                            for (auto& stack_record : stack) {
+                                cerr << "\t" << get<0>(stack_record) << ", " << get<1>(stack_record) << ", " << get<2>(stack_record) << endl;
+                            }
+#endif
+                            
+                            int32_t current_score = multipath_aln.subpath(get<0>(stack[0])).score();
                             int32_t max_score = current_score;
                             for (size_t k = 1; k < stack.size(); ++k) {
-                                int32_t subpath_score = multipath_aln.subpath(get<2>(stack[k])).score();
+                                int32_t subpath_score = multipath_aln.subpath(get<0>(stack[k])).score();
                                 current_score = max(current_score + subpath_score, subpath_score);
                                 max_score = max(max_score, current_score);
                             }
@@ -499,6 +549,9 @@ namespace vg {
                             // TODO: do i need to check if the same alignment sub sequence gets
                             // double-counted here?
                             log_likelihood = add_log(log_likelihood, max_score * log_base);
+#ifdef debug_phased_genome
+                            cerr << "[PhasedGenome::read_log_likelihood] added max score " << max_score << " to update likelihood to " << log_likelihood << endl;
+#endif
                         }
                         stack.pop_back();
                     }
@@ -506,7 +559,7 @@ namespace vg {
             }
         }
         
-        // adjust by the mapping quality
+        // adjust by the mapping quality (likelihood = (1-err)*l + err)
         double mapping_err_log_prob = phred_to_logprob(multipath_aln.mapping_quality());
         return add_log(subtract_log(0.0, mapping_err_log_prob) + log_likelihood,
                        mapping_err_log_prob);
