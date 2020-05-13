@@ -1904,7 +1904,7 @@ cerr <<  "\t\t cluster" << read_num << " " << std::get<0>(prev_snarl_cluster_by_
                     }
 
                     if (tree_state.fragment_distance_limit != 0) {
-                        fragment_combined_cluster = tree_state.fragment_union_find.find_group(cluster_head.second + tree_state.all_seeds->size());
+                        fragment_combined_cluster = tree_state.fragment_union_find.find_group(cluster_head.second + tree_state.read_index_offsets[read_num]);
                     }
                 } else if (tree_state.fragment_distance_limit != 0 &&
                    ((chain_dists.second != -1 && chain_clusters.fragment_best_left != -1 &&
