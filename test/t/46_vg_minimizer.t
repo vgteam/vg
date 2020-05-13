@@ -41,7 +41,7 @@ is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 1a9e7e953b2c921b78bb847d8019774d "co
 vg minimizer -t 1 -i x.mi -g x.gbwt -d x.dist -G x.gg
 is $? 0 "construction with payload"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) de82fc20a80206294eb9915512f77ef9 "construction is deterministic"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 41449d6fc61acefbd27fc714a7e50996 "construction is deterministic"
 
 rm -f x.vg x.xg x.gbwt x.snarls x.dist x.mi x.extracted.mi x.gg
 

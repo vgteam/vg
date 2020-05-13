@@ -6,10 +6,13 @@
 
 #include <iostream>
 #include <string>
+
 #include "../json2pb.h"
 #include <vg/vg.pb.h>
 #include "test_aligner.hpp"
 #include "catch.hpp"
+
+#include <bdsg/hash_graph.hpp>
 
 namespace vg {
 namespace unittest {
@@ -430,9 +433,70 @@ TEST_CASE("GSSWAligner mapping quality estimation is robust", "[aligner][alignme
         }
     
     }
-    
 }
-   
+
+void check_mapping(const HandleGraph& graph, const Mapping& mapping, const handle_t& handle, size_t offset, size_t length) {
+    REQUIRE(mapping.position().node_id() == graph.get_id(handle));
+    REQUIRE(mapping.position().is_reverse() == graph.get_is_reverse(handle));
+    REQUIRE(mapping.position().offset() == offset);
+    REQUIRE(mapping.edit_size() == 1);
+    REQUIRE(mapping.edit(0).from_length() == length);
+    REQUIRE(mapping.edit(0).to_length() == length);
+    REQUIRE(mapping.edit(0).sequence().empty());
+}
+
+TEST_CASE("Aligner can align to a subgraph", "[aligner][alignment][mapping]") {
+
+    // Create a graph with four nodes.
+    bdsg::HashGraph graph;
+    std::vector<handle_t> handles;
+    handles.push_back(graph.create_handle("AAAA"));
+    handles.push_back(graph.create_handle("GATT"));
+    handles.push_back(graph.create_handle("ACAT"));
+    handles.push_back(graph.create_handle("AAAA"));
+
+    // Make the graph a cycle.
+    for (size_t i = 0; i < handles.size(); i++) {
+        graph.create_edge(handles[i], handles[(i + 1) % handles.size()]);
+    }
+
+    // We want to align to the two nodes in the middle.
+    std::unordered_set<id_t> subgraph = {
+        static_cast<id_t>(graph.get_id(handles[1])),
+        static_cast<id_t>(graph.get_id(handles[2]))
+    };
+    std::vector<handle_t> topological_order = {
+        handles[1], handles[2], graph.flip(handles[2]), graph.flip(handles[1])
+    };
+
+    // Get an Aligner.
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 0);
+    const Aligner& aligner = *(aligner_source.get_regular_aligner());
+
+    SECTION("Align to forward strand") {
+        Alignment alignment;
+        alignment.set_sequence("ATTACA");
+        aligner.align(alignment, graph, topological_order);
+
+        const Path& path = alignment.path();
+        REQUIRE(path.mapping_size() == 2);
+        check_mapping(graph, path.mapping(0), topological_order[0], 1, 3);
+        check_mapping(graph, path.mapping(1), topological_order[1], 0, 3);
+    }
+
+    SECTION("Align to reverse strand") {
+        Alignment alignment;
+        alignment.set_sequence("TGTAAT");
+        aligner.align(alignment, graph, topological_order);
+
+        const Path& path = alignment.path();
+        REQUIRE(path.mapping_size() == 2);
+        check_mapping(graph, path.mapping(0), topological_order[2], 1, 3);
+        check_mapping(graph, path.mapping(1), topological_order[3], 0, 3);
+    }
+}
+
 }
 }
         

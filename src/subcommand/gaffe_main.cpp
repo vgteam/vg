@@ -7,6 +7,7 @@
 #include <getopt.h>
 #include <iostream>
 #include <cassert>
+#include <map>
 #include <vector>
 #include <unordered_set>
 #include <chrono>
@@ -319,6 +320,7 @@ void help_gaffe(char** argv) {
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [10]" << endl
+    << "  -A, --rescue-algorithm STR    use algorithm STR for rescue (none / dozeu / gssw / haplotypes) [dozeu]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
@@ -361,6 +363,8 @@ int main_gaffe(int argc, char** argv) {
     string fastq_filename_2;
     // Is the input interleaved/are we in paired-end mode?
     bool interleaved = false;
+    // True if fastq_filename_2 or interleaved is set.
+    bool paired = false;
     // How many mappings per read can we emit?
     Range<size_t> max_multimaps = 1;
     // How many clusters should we extend?
@@ -379,6 +383,8 @@ int main_gaffe(int argc, char** argv) {
     Range<int> extension_score = 1;
     //Attempt up to this many rescues of reads with no pairs
     int rescue_attempts = 10;
+    // Which rescue algorithm do we use?
+    MinimizerMapper::RescueAlgorithm rescue_algorithm = MinimizerMapper::rescue_dozeu;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -389,7 +395,7 @@ int main_gaffe(int argc, char** argv) {
     bool track_provenance = false;
     // Should we track candidate correctness?
     bool track_correctness = false;
-    
+
     // Chain all the ranges and get a function that loops over all combinations.
     auto for_each_combo = distance_limit
         .chain(hit_cap)
@@ -405,7 +411,21 @@ int main_gaffe(int argc, char** argv) {
         .chain(extension_score)
         .get_iterator();
     
-    
+
+    // Map algorithm names to rescue algorithms
+    std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
+        { "none", MinimizerMapper::rescue_none },
+        { "dozeu", MinimizerMapper::rescue_dozeu },
+        { "gssw", MinimizerMapper::rescue_gssw },
+        { "haplotypes", MinimizerMapper::rescue_haplotypes }
+    };
+    std::map<MinimizerMapper::RescueAlgorithm, std::string> algorithm_names =  {
+        { MinimizerMapper::rescue_none, "none" },
+        { MinimizerMapper::rescue_dozeu, "dozeu" },
+        { MinimizerMapper::rescue_gssw, "gssw" },
+        { MinimizerMapper::rescue_haplotypes, "haplotypes" }
+    };
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -440,6 +460,7 @@ int main_gaffe(int argc, char** argv) {
             {"score-fraction", required_argument, 0, 'F'},
             {"no-dp", no_argument, 0, 'O'},
             {"rescue-attempts", required_argument, 0, 'r'},
+            {"rescue-algorithm", required_argument, 0, 'A'},
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
             {"threads", required_argument, 0, 't'},
@@ -447,7 +468,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:nc:C:D:F:e:a:S:u:v:w:Ot:r:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:nc:C:D:F:e:a:S:u:v:w:Ot:r:A:",
                          long_options, &option_index);
 
 
@@ -525,6 +546,7 @@ int main_gaffe(int argc, char** argv) {
                         cerr << "error:[vg gaffe] Must provide FASTQ file with -f." << endl;
                         exit(1);
                     }
+                    paired = true;
                 } else {
                     cerr << "error:[vg gaffe] Cannot specify more than two FASTQ files." << endl;
                     exit(1);
@@ -533,6 +555,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 'i':
                 interleaved = true;
+                paired = true;
                 break;
                 
             case 'M':
@@ -682,13 +705,24 @@ int main_gaffe(int argc, char** argv) {
                         cerr << "error: [vg gaffe] Rescue attempts must be positive" << endl;
                         exit(1);
                     }
-                    if (!interleaved && fastq_filename_2.empty()) {
+                    if (!paired) {
                         cerr << "error: [vg gaffe] Rescue can only be done on paired-end reads" << endl;
                         exit(1);
                     }
                 }
                 break;
-                
+
+            case 'A':
+                {
+                    auto iter = rescue_algorithms.find(optarg);
+                    if (iter == rescue_algorithms.end()) {
+                        std::cerr << "error: [vg gaffe] Invalid rescue algorithm: " << optarg << std::endl;
+                        std::exit(1);
+                    }
+                    rescue_algorithm = iter->second;
+                }
+                break;
+
             case OPT_TRACK_PROVENANCE:
                 track_provenance = true;
                 break;
@@ -758,7 +792,13 @@ int main_gaffe(int argc, char** argv) {
             indexes.set_vcf_filename(vcf_filename);
         }
     }
-   
+
+    // If we don't want rescue, let the user see we don't try it.
+    if (rescue_attempts == 0 || rescue_algorithm == MinimizerMapper::rescue_none) {
+        rescue_attempts = 0;
+        rescue_algorithm = MinimizerMapper::rescue_none;
+    }
+
     // Now all the arguments are parsed, so see if they make sense
     if (!indexes.can_get_gbwtgraph() && !indexes.can_get_graph()) {
         cerr << "error:[vg gaffe] Mapping requires a normal graph (-x) or a GBWTGraph (-g)" << endl;
@@ -986,7 +1026,13 @@ int main_gaffe(int argc, char** argv) {
         }
         minimizer_mapper.track_correctness = track_correctness;
 
+        if (show_progress && paired) {
+            cerr << "--rescue-attempts " << rescue_attempts << endl;
+            cerr << "--rescue-algorithm " << algorithm_names[rescue_algorithm] << endl;
+        }
         minimizer_mapper.max_rescue_attempts = rescue_attempts;
+        minimizer_mapper.rescue_algorithm = rescue_algorithm;
+
         minimizer_mapper.sample_name = sample_name;
         minimizer_mapper.read_group = read_group;
 

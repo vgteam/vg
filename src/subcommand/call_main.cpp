@@ -13,6 +13,7 @@
 #include "subcommand.hpp"
 #include "../path.hpp"
 #include "../graph_caller.hpp"
+#include "../cactus_snarl_finder.hpp"
 #include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>

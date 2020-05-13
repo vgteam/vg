@@ -4,11 +4,18 @@
  */
 
 #include "minimizer_mapper.hpp"
+
 #include "annotation.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
+#include "split_strand_graph.hpp"
 
+#include "algorithms/dagify.hpp"
 #include "algorithms/dijkstra.hpp"
+
+#include <bdsg/overlays/strand_split_overlay.hpp>
+#include <gbwtgraph/algorithms.h>
+#include <gbwtgraph/cached_gbwtgraph.h>
 
 #include <iostream>
 #include <algorithm>
@@ -119,7 +126,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     cluster_extensions.reserve(clusters.size());
     // To compute the windows present in any extended cluster, we need to get
     // all the minimizers in any extended cluster.
-    sdsl::bit_vector present_in_any_extended_cluster(minimizers.size(), 0);
+    SmallBitset present_in_any_extended_cluster(minimizers.size());
     //For each cluster, what fraction of "equivalent" clusters did we keep?
     vector<double> probability_cluster_lost;
     //What is the score and coverage we are considering and how many reads
@@ -830,7 +837,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     vector<vector<size_t>> unextended_clusters_by_read(2);
     // To compute the windows present in any extended cluster, we need to get
     // all the minimizers in any extended cluster.
-    vector<sdsl::bit_vector> present_in_any_extended_cluster_by_read(2);
+    vector<SmallBitset> present_in_any_extended_cluster_by_read(2);
     
 
     //Now that we've scored each of the clusters, extend and align them
@@ -871,7 +878,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         //size_t curr_count = 0;
 
         unextended_clusters_by_read[read_num].reserve(clusters.size());
-        present_in_any_extended_cluster_by_read[read_num] = sdsl::bit_vector(minimizers.size(), 0);
+        present_in_any_extended_cluster_by_read[read_num] = SmallBitset(minimizers.size());
         
         //Process clusters sorted by both score and read coverage
         process_until_threshold_c<Cluster, double>(clusters, [&](size_t i) -> double {
@@ -1814,7 +1821,7 @@ double MinimizerMapper::phred_for_at_least_one(size_t p, size_t n) const {
 
 double MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
     const std::vector<Minimizer>& minimizers,
-    const sdsl::bit_vector& present_in_any_extended_cluster) {
+    const SmallBitset& present_in_any_extended_cluster) {
 
     // We need to cap MAPQ based on the likelihood of generating all the windows in the extended clusters by chance, too.
 #ifdef debug
@@ -1825,7 +1832,7 @@ double MinimizerMapper::compute_mapq_caps(const Alignment& aln,
     vector<size_t> extended_cluster_minimizers;
     extended_cluster_minimizers.reserve(minimizers.size());
     for (size_t i = 0; i < minimizers.size(); i++) {
-        if (present_in_any_extended_cluster[i]) {
+        if (present_in_any_extended_cluster.contains(i)) {
             extended_cluster_minimizers.push_back(i);
         }
     }
@@ -2117,63 +2124,85 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 
 //-----------------------------------------------------------------------------
 
-void MinimizerMapper::attempt_rescue( const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
-    
+void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
 
-    //Get the subgraph of all nodes within a reasonable range from aligned_read
-    SubHandleGraph sub_graph(&gbwt_graph);
-    //TODO: How big should the rescue subgraph be?
-    int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4*fragment_length_distr.stdev());
-    int64_t max_distance = fragment_length_distr.mean() + 4*fragment_length_distr.stdev();
-    distance_index.subgraphInRange(aligned_read.path(), &gbwt_graph, min_distance, max_distance, sub_graph, rescue_forward); 
+    if (this->rescue_algorithm == rescue_none) { return; }
 
+    // We are traversing the same small subgraph repeatedly, so it's better to use a cache.
+    gbwtgraph::CachedGBWTGraph cached_graph(this->gbwt_graph);
 
-    //Convert subgraph to directed, acyclic graph
-    //Borrowed heavily from mpmap
-    bdsg::HashGraph align_graph;
-    unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&sub_graph, &align_graph);
-    if (!algorithms::is_directed_acyclic(&sub_graph)) {
-
-        bdsg::HashGraph dagified;
-        unordered_map<id_t, id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, rescued_alignment.sequence().size());
-        align_graph = move(dagified);
-        node_trans = overlay_node_translations(dagify_trans, node_trans);
-    }
-
-    //Align to the subgraph
-    rescued_alignment.clear_path();
-    get_regular_aligner()->align(rescued_alignment, align_graph, true);
-
-    translate_oriented_node_ids(*rescued_alignment.mutable_path(), node_trans);
-
-    //TODO: mpmap also checks the score here
-    return;
-
-}
-
-void MinimizerMapper::attempt_rescue_haplotypes(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward) {
-
-    // Get the subgraph of all nodes within a reasonable range from aligned_read.
-    SubHandleGraph sub_graph(&(this->gbwt_graph));
+    // Find all nodes within a reasonable range from aligned_read.
     // TODO: How big should the rescue subgraph be?
-    int64_t min_distance = std::max(0.0, this->fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * this->fragment_length_distr.stdev());
-    int64_t max_distance = this->fragment_length_distr.mean() + 4 * this->fragment_length_distr.stdev();
-    this->distance_index.subgraphInRange(aligned_read.path(), &(this->gbwt_graph), min_distance, max_distance, sub_graph, rescue_forward); 
+    std::unordered_set<id_t> rescue_nodes;
+    int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * fragment_length_distr.stdev());
+    int64_t max_distance = fragment_length_distr.mean() + 4 * fragment_length_distr.stdev();
+    distance_index.subgraph_in_range(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
 
-    // Find and unfold the local haplotypes in the subgraph.
-    std::vector<std::vector<handle_t>> haplotype_paths;
-    bdsg::HashGraph align_graph;
-    this->extender.unfold_haplotypes(sub_graph, haplotype_paths, align_graph);
-    
-    // Align to the subgraph.
+    // Get rid of the old path.
     rescued_alignment.clear_path();
-    this->get_regular_aligner()->align(rescued_alignment, align_graph, true);
 
-    // Get the corresponding alignment to the original graph.
-    this->extender.transform_alignment(rescued_alignment, haplotype_paths);
+    if (this->rescue_algorithm == rescue_haplotypes) {
+        // FIXME Implement this using the subset of nodes.
+        SubHandleGraph sub_graph(&cached_graph);
+        for (id_t id : rescue_nodes)  {
+            sub_graph.add_handle(gbwt_graph.get_handle(id));
+        }
 
-    // TODO: mpmap also checks the score here
-    return;
+        // Find and unfold the local haplotypes in the subgraph.
+        std::vector<std::vector<handle_t>> haplotype_paths;
+        bdsg::HashGraph align_graph;
+        this->extender.unfold_haplotypes(sub_graph, haplotype_paths, align_graph);
+
+        // Align to the subgraph.
+        this->get_regular_aligner()->align_xdrop(rescued_alignment, align_graph,
+                                                 std::vector<MaximalExactMatch>(), false);
+
+        // Get the corresponding alignment to the original graph.
+        this->extender.transform_alignment(rescued_alignment, haplotype_paths);
+    } else {
+        // Check if the subgraph is acyclic. Rescue is much faster in acyclic subgraphs.
+        std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
+        if (!topological_order.empty()) {
+            if (this->rescue_algorithm == rescue_dozeu) {
+                get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
+                                                   std::vector<MaximalExactMatch>(), false);
+            } else {
+                get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
+            }
+        } else {
+            // Build a subgraph overlay.
+            SubHandleGraph sub_graph(&cached_graph);
+            for (id_t id : rescue_nodes)  {
+                sub_graph.add_handle(cached_graph.get_handle(id));
+            }
+
+            // Create an overlay where each strand is a separate node.
+            StrandSplitGraph split_graph(&sub_graph);
+
+            // Dagify the subgraph.
+            bdsg::HashGraph dagified;
+            std::unordered_map<id_t, id_t> dagify_trans =
+                algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
+
+            // Align to the subgraph.
+            if (this->rescue_algorithm == rescue_dozeu) {
+                get_regular_aligner()->align_xdrop(rescued_alignment, dagified,
+                                                   std::vector<MaximalExactMatch>(), false);
+            } else {
+                get_regular_aligner()->align(rescued_alignment, dagified, true);
+            }
+
+            // Map the alignment back to the original graph.
+            Path& path = *(rescued_alignment.mutable_path());
+            for (size_t i = 0; i < path.mapping_size(); i++) {
+                Position& pos = *(path.mutable_mapping(i)->mutable_position());
+                id_t id = dagify_trans[pos.node_id()];
+                handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(id));
+                pos.set_node_id(sub_graph.get_id(handle));
+                pos.set_is_reverse(sub_graph.get_is_reverse(handle));
+            }
+        }
+    }
 }
 
 int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment& aln2) {
@@ -2183,7 +2212,7 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
     pos_t pos1 = initial_position(aln1.path()); 
     pos_t pos2 = final_position(aln2.path());
 
-    int64_t min_dist = distance_index.minDistance(pos1, pos2);
+    int64_t min_dist = distance_index.min_distance(pos1, pos2);
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
 }
 
@@ -2293,11 +2322,14 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                     hit = reverse_base_pos(hit, node_length);
                 }
                 // Extract component id and offset in the root chain, if we have them for this seed.
-                std::pair<size_t, size_t> chain_info(MIPayload::NO_VALUE, MIPayload::NO_VALUE);
+                // TODO: Get all the seed values here
+                tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info
+                    (false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false );
                 if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
                     chain_info = MIPayload::decode(minimizer.occs[j].payload);
                 }
-                seeds.push_back({ hit, i, chain_info.first, chain_info.second });
+                seeds.push_back({ hit, i, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
+                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info) });
             }
             
             if (!(took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {
@@ -2385,11 +2417,11 @@ void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const std::vecto
     // Initialize the values.
     cluster.score = 0.0;
     cluster.coverage = 0.0;
-    cluster.present = sdsl::bit_vector(minimizers.size(), 0);
+    cluster.present = SmallBitset(minimizers.size());
 
     // Determine the minimizers that are present in the cluster.
     for (auto hit_index : cluster.seeds) {
-        cluster.present[seeds[hit_index].source] = 1;
+        cluster.present.insert(seeds[hit_index].source);
 #ifdef debug
         cerr << "Minimizer " << seeds[hit_index].source << " is present in cluster " << i << endl;
 #endif
@@ -2398,7 +2430,7 @@ void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const std::vecto
     // Compute the score and cluster coverage.
     sdsl::bit_vector covered(seq_length, 0);
     for (size_t j = 0; j < minimizers.size(); j++) {
-        if (cluster.present[j]) {
+        if (cluster.present.contains(j)) {
             const Minimizer& minimizer = minimizers[j];
             cluster.score += minimizer.score;
 

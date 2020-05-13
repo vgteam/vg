@@ -4,8 +4,8 @@
 #include "snarls.hpp"
 #include "min_distance.hpp"
 #include "hash_map.hpp"
+#include "small_bitset.hpp"
 #include <structures/union_find.hpp>
-#include <sdsl/int_vector.hpp>
 
 namespace vg{
 
@@ -17,8 +17,20 @@ class SnarlSeedClusterer {
         struct Seed {
             pos_t  pos;
             size_t source; // Source minimizer.
+
+            //For nodes on boundary nodes of top-level chain
+            bool is_top_level_node;
             size_t component; // Component id in the distance index.
             size_t offset; // Offset in the root chain.
+
+            //For nodes on top-level simple bubbles
+            bool is_top_level_snarl;
+            size_t snarl_rank; //Rank of the snarl in the chain
+            size_t start_length; //Length of the snarl start node (relative to a fd traversal of the chain)
+            size_t end_length; //Length of the snarl end node
+            size_t node_length; //Length of the node the position is on
+            bool rev_in_chain; //True if this node is traversed backward in the chain
+
         };
 
         /// Cluster information used in Giraffe.
@@ -27,7 +39,7 @@ class SnarlSeedClusterer {
             size_t fragment; // Fragment id.
             double score; // Sum of scores of distinct source minimizers of the seeds.
             double coverage; // Fraction of read covered by the seeds.
-            sdsl::bit_vector present; // Minimizers that are present in the cluster.
+            SmallBitset present; // Minimizers that are present in the cluster.
         };
 
         SnarlSeedClusterer(MinimumDistanceIndex& dist_index);
@@ -114,12 +126,12 @@ class SnarlSeedClusterer {
                 //Get the forward rank of this node in the parent's netgraph
                 //to look up distances
 
-                size_t rank = node_type == NODE ? dist_index.getPrimaryRank(id) :
-                                                  dist_index.getSecondaryRank(id);
+                size_t rank = node_type == NODE ? dist_index.get_primary_rank(id) :
+                                                  dist_index.get_secondary_rank(id);
                 if ( (node_type == SNARL && 
-                      dist_index.snarl_indexes[dist_index.getPrimaryAssignment(id)].rev_in_parent) ||
+                      dist_index.snarl_indexes[dist_index.get_primary_assignment(id)].rev_in_parent) ||
                      (node_type == CHAIN && 
-                      dist_index.chain_indexes[dist_index.getChainAssignment(id)].rev_in_parent)) {
+                      dist_index.chain_indexes[dist_index.get_chain_assignment(id)].rev_in_parent)) {
                     rank = rank % 2 == 0 ? rank + 1 : rank - 1;
                 }
                 return rank;
@@ -226,9 +238,17 @@ class SnarlSeedClusterer {
             //Indexes of seeds that occur on a top level chain, separated into components
             vector<vector<pair<size_t, size_t>>> top_level_seed_clusters;
 
-            //Set this to the cluster heads not on a top-level chain after we've finished clustering
-            //This gets clustered with top-level_seed_clusters at the very end with cluster_top_level 
-            vector<hash_set<pair<size_t, size_t>>> top_level_clusters;
+            //For each component, maps each snarl (as the rank of the snarl in the chain) to
+            //a list of nodes it contains as <node id, is rev in chain, node length, start length, end length>
+            //where start length and end length are the lengths of the start and end nodes of
+            //the snarl (relative to the orientation in the chain
+            //TODO: this is a mess
+            //Only for top-level simple snarls, instead of snarl_to_nodes
+            vector<hash_map<size_t, vector<tuple<id_t, bool, int64_t, int64_t, int64_t>>>> simple_snarl_to_nodes_by_component;
+
+
+
+            /////////////////////////////////////////////////////////
 
             //Constructor takes in a pointer to the seeds, the distance limits, and 
             //the total number of seeds in all_seeds
@@ -261,8 +281,7 @@ class SnarlSeedClusterer {
         //in the tree state as each level is processed
         void get_nodes( TreeState& tree_state,
                         vector<hash_map<size_t, 
-                                  vector<pair<NetgraphNode, NodeClusters>>>>&
-                                                       snarl_to_nodes_by_level) const;
+                                  vector<pair<NetgraphNode, NodeClusters>>>>& snarl_to_nodes_by_level) const;
 
         //Cluster all the snarls at the current level and update the tree_state
         //to add each of the snarls to the parent level
@@ -288,6 +307,12 @@ class SnarlSeedClusterer {
 
         //Given a vector of only top level seeds, cluster them
         void cluster_only_top_level_seed_clusters(TreeState& tree_state, vector<pair<size_t, size_t>>& seed_clusters) const;
+
+        //For one simple snarl (a bubble where all non-boundary nodes only connect to the boundary nodes) 
+        //cluster its seeds and return the cluster heads
+        //Nodes if taken from tree_state.simple_snarl_to_nodes_by_component and each element in it is
+        //the node id of the node
+        hash_set<pair<size_t, size_t>> cluster_simple_snarl(TreeState& tree_state, vector<tuple<id_t, bool, int64_t, int64_t, int64_t>> nodes, int64_t loop_left, int64_t loop_right, int64_t snarl_length) const;
 
 };
 }
