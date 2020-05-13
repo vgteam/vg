@@ -145,7 +145,7 @@ int main_deconstruct(int argc, char** argv){
         if (show_progress) {
             cerr << "Finding snarls" << endl;
         }
-        snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls())));
+        snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
 
     // We use this to map, for example, from chromosome to genome (eg S288C.chrXVI --> S288C)
