@@ -224,12 +224,7 @@ BandedGlobalAligner<IntType>::BAMatrix::BAMatrix(Alignment& alignment, handle_t 
 template <class IntType>
 BandedGlobalAligner<IntType>::BAMatrix::~BAMatrix() {
 #ifdef debug_banded_aligner_objects
-    if (node != nullptr) {
-        cerr << "[BAMatrix::~BAMatrix] destructing matrix for node " << as_integer(node) << endl;
-    }
-    else {
-        cerr << "[BAMatrix::~BAMatrix] destructing null matrix" << endl;
-    }
+    cerr << "[BAMatrix::~BAMatrix] destructing matrix for handle " << handlegraph::as_integer(node) << endl;
 #endif
     free(match);
     free(insert_row);
@@ -488,7 +483,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(const HandleGraph& grap
     if (treat_as_source && ncols > 0) {
         if (cumulative_seq_len != 0) {
             cerr << "error:[BandedGlobalAligner] banded alignment has no node predecessor for node in middle of path" << endl;
-            assert(0);
+            exit(0);
         }
         
 #ifdef debug_banded_aligner_fill_matrix
@@ -2294,7 +2289,6 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(const HandleG
                 // get the coordinates of the bottom right corner
                 const handle_t& node = band_matrix->node;
                 int64_t node_id = graph.get_id(node);
-                
                 int64_t read_length = band_matrix->alignment.sequence().length();
                 int64_t ncols = graph.get_length(node);
                 
