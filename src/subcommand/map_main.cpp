@@ -83,6 +83,7 @@ void help_map(char** argv) {
          << "    -R, --read-group NAME         for --reads input, add this read group" << endl
          << "output:" << endl
          << "    -j, --output-json             output JSON rather than an alignment stream (helpful for debugging)" << endl
+         << "    -%, --gaf                     output alignments in GAF format" << endl
          << "    --surject-to TYPE             surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
          << "    --buffer-size INT             buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare                 realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
@@ -91,7 +92,6 @@ void help_map(char** argv) {
          << "    -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
          << "    -Q, --mq-max INT              cap the mapping quality at INT [60]" << endl
          << "    --exclude-unaligned           exclude reads with no alignment" << endl
-
          << "    -D, --debug                   print debugging information about alignment to stderr" << endl;
 
 }
@@ -258,11 +258,12 @@ int main_map(int argc, char** argv) {
                 {"unpaired-cost", required_argument, 0, 'S'},
                 {"max-gap-length", required_argument, 0, 1},
                 {"xdrop-alignment", no_argument, 0, 2},
+                {"gaf", no_argument, 0, '%'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m:7:v5:824:3:9:0:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m:7:v5:824:3:9:0:%",
                          long_options, &option_index);
 
 
@@ -413,6 +414,10 @@ int main_map(int argc, char** argv) {
 
         case 'j':
             output_format = "JSON";
+            break;
+
+        case '%':
+            output_format = "GAF";
             break;
 
         case 'w':
@@ -732,7 +737,7 @@ int main_map(int argc, char** argv) {
         });
 
     // Set up output to an emitter that will handle serialization
-    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count);
+    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count, xgidx);
 
     // TODO: Refactor the surjection code out of surject_main and into somewhere where we can just use it here!
 
