@@ -2568,7 +2568,7 @@ tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> MinimumD
     size_t component = node_to_component[id - min_node_id]; 
 
 
-    if (component != 0 && snarl_index.depth == 0 && snarl_index.in_chain && is_boundary_node) {
+    if (component != 0 && snarl_index.depth == 0 && snarl_index.in_chain && is_boundary_node && !chain_indexes[get_chain_assignment(snarl_index.id_in_parent)].is_looping_chain ) {
         //If this node is a boundary node of a top-level chain
         int64_t node_offset = get_offset(pos);
         bool node_is_rev_in_snarl = snarl_rank% 2;

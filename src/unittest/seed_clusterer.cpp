@@ -18,6 +18,105 @@
 
 namespace vg {
 namespace unittest {
+    TEST_CASE( "looping chain of nested unary snarls",
+                   "[cluster]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n4, n5);
+        Edge* e6 = graph.create_edge(n4, n6);
+        Edge* e7 = graph.create_edge(n5, n6);
+        Edge* e8 = graph.create_edge(n6, n6, false, true);
+        Edge* e9 = graph.create_edge(n1, n1, true, false);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls();
+
+        MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+        SnarlSeedClusterer clusterer(dist_index);
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "One cluster taking loop" ) {
+ 
+            id_t seed_nodes[] = {1, 4};
+            //all are in the same cluster
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : seed_nodes) {
+                pos_t pos = make_pos_t(n, false, 0);
+                std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+            }
+
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 6); 
+            REQUIRE(clusters.size() == 1); 
+
+        }
+        SECTION( "One cluster on boundary" ) {
+ 
+            id_t seed_nodes[] = {2, 4};
+            //all are in the same cluster
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : seed_nodes) {
+                pos_t pos = make_pos_t(n, false, 0);
+                std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+            }
+
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+            REQUIRE(clusters.size() == 1); 
+
+        }
+        SECTION( "One fragment cluster on boundary" ) {
+ 
+            id_t seed_nodes[] = {2, 4};
+            //all are in the same cluster
+            vector<vector<SnarlSeedClusterer::Seed>> seeds (2);
+
+            pos_t pos = make_pos_t(2, false, 0);
+            std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
+            seeds[0].push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+               std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+
+            pos = make_pos_t(4, false, 0);
+            chain_info = dist_index.get_minimizer_distances(pos);
+            seeds[1].push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+               std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+
+            vector<vector<SnarlSeedClusterer::Cluster>> clusters = clusterer.cluster_seeds(seeds, 3, 3); 
+            REQUIRE(clusters.size() == 2); 
+            REQUIRE(clusters[0][0].fragment == clusters[1][0].fragment);
+
+        }
+        SECTION( "One cluster on boundary" ) {
+ 
+            id_t seed_nodes[] = {3, 4};
+            //all are in the same cluster
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : seed_nodes) {
+                pos_t pos = make_pos_t(n, false, 0);
+                std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+            }
+
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+            REQUIRE(clusters.size() == 1); 
+
+        }
+    }
     TEST_CASE( "chain with loop",
                    "[cluster]" ) {
         VG graph;
@@ -1648,8 +1747,9 @@ namespace unittest {
 
         vector<SnarlSeedClusterer::Seed> seeds;
         vector<pos_t> pos_ts;
-        pos_ts.emplace_back(151, true, 0);
-        pos_ts.emplace_back(119, false, 24);
+        pos_ts.emplace_back(70, false, 5);
+        pos_ts.emplace_back(9, false, 0);
+        
 
 
         for (pos_t pos : pos_ts) {
@@ -1659,6 +1759,7 @@ namespace unittest {
         }
         vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 30); 
 
+        assert(clusters.size() == 1);
         REQUIRE(false);
         */
 

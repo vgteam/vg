@@ -220,7 +220,7 @@ class SnarlSeedClusterer {
             //Map maps the rank of the snarl to the snarl and snarl's clusters
             //  Since maps are ordered, it will be in the order of traversal
             //  of the snarls in the chain
-            hash_map<size_t, std::map<size_t, pair<size_t, NodeClusters>>> chain_to_snarls;
+            hash_map<size_t, hash_map<size_t, pair<size_t, NodeClusters>>> chain_to_snarls;
 
 
             //Same structure as snarl_to_nodes but for the level of the snarl
@@ -306,7 +306,7 @@ class SnarlSeedClusterer {
         NodeClusters cluster_one_chain(TreeState& tree_state, size_t chain_i, size_t depth) const;
 
         //Given a vector of only top level seeds, cluster them
-        void cluster_only_top_level_seed_clusters(TreeState& tree_state, vector<pair<size_t, size_t>>& seed_clusters) const;
+        void cluster_only_top_level_chain_seeds(TreeState& tree_state, vector<pair<size_t, size_t>>& seed_clusters) const;
 
         //For one simple snarl (a bubble where all non-boundary nodes only connect to the boundary nodes) 
         //cluster its seeds and return the cluster heads
