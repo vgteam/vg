@@ -85,7 +85,7 @@ var searchData=
   ['cluster_5fone_5fchain',['cluster_one_chain',['../classvg_1_1SnarlSeedClusterer.html#a72110bd47c65cbee63ea8cee10b593b8',1,'vg::SnarlSeedClusterer']]],
   ['cluster_5fone_5fnode',['cluster_one_node',['../classvg_1_1SnarlSeedClusterer.html#a92e0e0dc4526592d4623e6d63686f237',1,'vg::SnarlSeedClusterer']]],
   ['cluster_5fone_5fsnarl',['cluster_one_snarl',['../classvg_1_1SnarlSeedClusterer.html#a09f69f2b3a68c1849d5e5ead70ba088f',1,'vg::SnarlSeedClusterer']]],
-  ['cluster_5fonly_5ftop_5flevel_5fseed_5fclusters',['cluster_only_top_level_seed_clusters',['../classvg_1_1SnarlSeedClusterer.html#ab9c06ce0c0d2f2be55a1081fbc0844a1',1,'vg::SnarlSeedClusterer']]],
+  ['cluster_5fonly_5ftop_5flevel_5fchain_5fseeds',['cluster_only_top_level_chain_seeds',['../classvg_1_1SnarlSeedClusterer.html#ac685bcc554323571f097f36f5519384c',1,'vg::SnarlSeedClusterer']]],
   ['cluster_5fseeds',['cluster_seeds',['../classvg_1_1SnarlSeedClusterer.html#a447f86bc24f8ffd1d419def027ff1703',1,'vg::SnarlSeedClusterer::cluster_seeds(const vector&lt; Seed &gt; &amp;seeds, int64_t read_distance_limit) const'],['../classvg_1_1SnarlSeedClusterer.html#ab5a78d7c414fd7a16018530d53f15b1c',1,'vg::SnarlSeedClusterer::cluster_seeds(const vector&lt; vector&lt; Seed &gt;&gt; &amp;all_seeds, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const']]],
   ['cluster_5fseeds_5finternal',['cluster_seeds_internal',['../classvg_1_1SnarlSeedClusterer.html#a7ae236a6550a2c0501693375905ceb3c',1,'vg::SnarlSeedClusterer']]],
   ['cluster_5fsimple_5fsnarl',['cluster_simple_snarl',['../classvg_1_1SnarlSeedClusterer.html#a78fffc01732d7dab84b9b78dc07c6aa2',1,'vg::SnarlSeedClusterer']]],

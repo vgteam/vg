@@ -15,7 +15,7 @@ var searchData=
   ['chain_5findexes',['chain_indexes',['../classvg_1_1MinimumDistanceIndex.html#a731e74eb71f9e916430360ac6295b6a5',1,'vg::MinimumDistanceIndex']]],
   ['chain_5franks',['chain_ranks',['../classvg_1_1MinimumDistanceIndex.html#a58dd9ceb1f3c0328331e91a912baefaa',1,'vg::MinimumDistanceIndex']]],
   ['chain_5fstart',['chain_start',['../structvg_1_1ChainIterator.html#a61e019f94f481b190d14bebe51264c09',1,'vg::ChainIterator']]],
-  ['chain_5fto_5fsnarls',['chain_to_snarls',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#ab425c56983b3e7c209a292917c66f5fd',1,'vg::SnarlSeedClusterer::TreeState']]],
+  ['chain_5fto_5fsnarls',['chain_to_snarls',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#ab0a3df7014ddca3b2f90fdd35a56c57f',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['char_5fassignment',['char_assignment',['../classbdsg_1_1PackedGraph.html#a9d2759df3bc044d4c70a5c5d435fb99a',1,'bdsg::PackedGraph']]],
   ['char_5fcount',['char_count',['../classvg_1_1Pictographs.html#ad19f958ce6ab190b47a0c2761923d013',1,'vg::Pictographs']]],
   ['chars',['chars',['../classvg_1_1Pictographs.html#a322a2d02ca384f0c182944bf8eebcb09',1,'vg::Pictographs']]],
