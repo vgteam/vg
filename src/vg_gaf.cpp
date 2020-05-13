@@ -74,14 +74,15 @@ gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool
                             }
                             // Substitions expressed one base at a time, preceded by *
                             for (size_t k = 0; k < edit.from_length(); ++k) {
-                                cs_cigar_str += "*" + node_seq[offset + k] + edit.sequence()[k]; 
+                                cs_cigar_str += "*" + node_seq.substr(offset + k, 1) + edit.sequence().substr(k, 1); 
                             }
                         } else if (edit_is_deletion(edit)) {
                             if (node_seq.empty()) {
                                 node_seq = graph.get_sequence(handle);
                             }
                             // Deletion is - followed by deleted sequence
-                            cs_cigar_str += "-" + node_seq.substr(offset, edit.to_length());
+                            assert(offset + edit.from_length() <= node_seq.length());
+                            cs_cigar_str += "-" + node_seq.substr(offset, edit.from_length());
                         } else if (edit_is_insertion(edit)) {
                             // Insertion is "+" followed by inserted sequence
                             cs_cigar_str += "+" + edit.sequence();
@@ -116,7 +117,7 @@ gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool
 
         // optional cs-cigar string
         if (cs_cigar) {
-            gaf.opt_fields["CS"] = make_pair("Z", std::move(cs_cigar_str));
+            gaf.opt_fields["cs"] = make_pair("Z", std::move(cs_cigar_str));
         }
     }
 
@@ -141,6 +142,7 @@ Alignment gaf2aln(const HandleGraph& graph, const gafkluge::GafRecord& gaf) {
         if (i == 0) {
             mapping->mutable_position()->set_offset(gaf.path_start);
         }
+        mapping->set_rank(i + 1);
     }
 
     if (gaf.mapq != 255) {
@@ -150,36 +152,46 @@ Alignment gaf2aln(const HandleGraph& graph, const gafkluge::GafRecord& gaf) {
     
     size_t cur_mapping = 0;
     int64_t cur_offset = gaf.path_start;
+    handle_t cur_handle = graph.get_handle(aln.path().mapping(cur_mapping).position().node_id(),
+                                           aln.path().mapping(cur_mapping).position().is_reverse());
+    size_t cur_len = graph.get_length(cur_handle);
     string& sequence = *aln.mutable_sequence();
     // Use the CS cigar string to add Edits into our Path, as well as set the sequence
     gafkluge::for_each_cs(gaf, [&] (const string& cs_cigar) {
             assert(cur_mapping < aln.path().mapping_size());
+            assert(cur_offset < cur_len);
             
             if (cs_cigar[0] == ':') {
                 int64_t match_len = stol(cs_cigar.substr(1));
                 while (match_len > 0) {
-                    handle_t cur_handle = graph.get_handle(aln.path().mapping(cur_mapping).position().node_id());
                     int64_t current_match = std::min(match_len, (int64_t)graph.get_length(cur_handle) - cur_offset);
                     Edit* edit = aln.mutable_path()->mutable_mapping(cur_mapping)->add_edit();
                     edit->set_from_length(current_match);
                     edit->set_to_length(current_match);
                     sequence += graph.get_sequence(cur_handle).substr(cur_offset, current_match);
                     match_len -= current_match;
+                    cur_offset += current_match;
                     if (match_len > 0) {
                         assert(cur_mapping < aln.path().mapping_size() - 1);
                         ++cur_mapping;
                         cur_offset = 0;
+                        cur_handle = graph.get_handle(aln.path().mapping(cur_mapping).position().node_id(),
+                                                      aln.path().mapping(cur_mapping).position().is_reverse());
+                        cur_len = graph.get_length(cur_handle);
                     }
                 }
             } else if (cs_cigar[0] == '+') {
-                Edit* edit = aln.mutable_path()->mutable_mapping(cur_mapping)->add_edit();
+                size_t tgt_mapping = cur_mapping;
+                // left-align insertions to try to be more consistent with vg
+                if (cur_offset == 0 && cur_mapping > 0 && !aln.path().mapping(cur_mapping - 1).position().is_reverse()) {
+                    --tgt_mapping;
+                }
+                Edit* edit = aln.mutable_path()->mutable_mapping(tgt_mapping)->add_edit();
                 edit->set_from_length(0);
                 edit->set_to_length(cs_cigar.length() - 1);
                 edit->set_sequence(cs_cigar.substr(1));
                 sequence += edit->sequence();
             } else if (cs_cigar[0] == '-') {
-                handle_t cur_handle = graph.get_handle(aln.path().mapping(cur_mapping).position().node_id(),
-                                                       aln.path().mapping(cur_mapping).position().is_reverse());
                 string del = cs_cigar.substr(1);
                 assert(del.length() <= graph.get_length(cur_handle) - cur_offset);
                 assert(del == graph.get_sequence(cur_handle).substr(cur_offset, del.length()));
@@ -189,16 +201,8 @@ Alignment gaf2aln(const HandleGraph& graph, const gafkluge::GafRecord& gaf) {
                 cur_offset += del.length();
                 // unlike matches, we don't allow deletions to span multiple nodes
                 assert(cur_offset <= graph.get_length(cur_handle));
-                size_t cur_len = graph.get_length(cur_handle);
-                assert(cur_offset <= cur_len);
-                if (cur_offset == cur_len) {
-                    ++cur_mapping;
-                    cur_offset = 0;
-                }
             } else if (cs_cigar[0] == '*') {
                 assert(cs_cigar.length() == 3);
-                handle_t cur_handle = graph.get_handle(aln.path().mapping(cur_mapping).position().node_id(),
-                                                       aln.path().mapping(cur_mapping).position().is_reverse());
                 char from = cs_cigar[1];
                 char to = cs_cigar[2];
                 assert(graph.get_sequence(cur_handle)[cur_offset] == from);
@@ -209,14 +213,19 @@ Alignment gaf2aln(const HandleGraph& graph, const gafkluge::GafRecord& gaf) {
                 edit->set_sequence(string(1, to));
                 sequence += edit->sequence();
                 ++cur_offset;
-                size_t cur_len = graph.get_length(cur_handle);
-                assert(cur_offset <= cur_len);
-                if (cur_offset == cur_len) {
-                    ++cur_mapping;
-                    cur_offset = 0;
+            }
+            
+            // advance to the next mapping if we've pushed the offset past the current node
+            assert(cur_offset <= cur_len);
+            if (cur_offset == cur_len) {
+                ++cur_mapping;
+                cur_offset = 0;
+                if (cur_mapping < aln.path().mapping_size()) {
+                    cur_handle = graph.get_handle(aln.path().mapping(cur_mapping).position().node_id(),
+                                                  aln.path().mapping(cur_mapping).position().is_reverse());
+                    cur_len = graph.get_length(cur_handle);
                 }
             }
-
         });
 
     return aln;

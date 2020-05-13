@@ -197,11 +197,12 @@ inline void parse_gaf_record(const std::string& gaf_line, GafRecord& gaf_record)
 }
 
 /*
- * Visit each CS cigar record as a string
+ * Visit each CS cigar record as a string.  CS cigars are described here: 
+ * https://github.com/lh3/minimap2#the-cs-optional-tag
  */
 inline void for_each_cs(const GafRecord& gaf_record, std::function<void(const std::string&)> fn) {
-    if (gaf_record.opt_fields.count("CS")) {
-        const std::string& cs_cigar = gaf_record.opt_fields.find("CS")->second.second;
+    if (gaf_record.opt_fields.count("cs")) {
+        const std::string& cs_cigar = gaf_record.opt_fields.find("cs")->second.second;
         size_t next;
         for (size_t co = 0; co != std::string::npos; co = next) {
             next = cs_cigar.find_first_of(":*-+", co + 1);

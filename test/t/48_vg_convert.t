@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 13
+plan tests 16
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -68,4 +68,22 @@ vg convert x.vg -F sim-rm.gaf | vg convert x.vg -G - > sim-rm2.gaf
 diff sim-rm.gaf sim-rm2.gaf
 is "$?" 0 "vg convert gam -> gaf -> gam -> gaf makes same gaf twice"
 
-rm -f x.vg x.gcsa sim.gam sim-rm.gam sim-rm.gaf sim-rm2.gaf
+# some snps and indels
+vg map -s "TAATGGATATGTTAAGCTTTTTTTTTCTTTGATTTATTTGAAAAGACGTTTGACAATCTATCGGGTAATGTGGGGAAA" -x x.vg -g x.gcsa > mut.gam
+# reverse complement of above
+vg map -s "TTTCCCCACATTACCCGATAGATTGTCAAACGTCTTTTCAAATAAATCAAAGAAAAAAAAAGCTTAACATATCCATTA" -x x.vg -g x.gcsa >> mut.gam
+
+vg convert small.vg -G mut.gam > mut.gaf
+vg convert small.vg -F mut.gaf > mut-back.gam
+vg view -a mut.gam | jq .path > mut.path
+vg view -a mut-back.gam | jq .path > mut-back.path
+# Json comparison that is not order dependent: https://stackoverflow.com/a/31933234
+is $(jq --argfile a mut.path --argfile b mut-back.path -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b') true "vg convert gam -> gaf -> gam produces same gam Paths with snps and indels"
+
+is "$(vg view -a mut.gam | jq .sequence)" "$(vg view -a mut-back.gam | jq .sequence)" "vg convert gam -> gaf -> gam preserves sequence"
+
+vg convert small.vg -G mut-back.gam > mut-back.gaf
+diff mut.gaf mut-back.gaf
+is "$?" 0 "vg convert gam -> gaf -> gam -> gaf makes same gaf twice in presence of indels and snps"
+
+rm -f x.vg x.gcsa sim.gam sim-rm.gam sim-rm.gaf sim-rm2.gaf mut.gam mut-back.gam mut.gaf mut-back.gaf mut.path mut-back.path 
