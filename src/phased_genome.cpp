@@ -347,6 +347,170 @@ namespace vg {
             swap_label(*child_site, haplo_1, haplo_2);
         }
     }
+
+    double PhasedGenome::read_log_likelihood(const MultipathAlignment& multipath_aln, double log_base) {
+        
+        if (multipath_aln.mapping_quality() == 0) {
+            // this is the answer we'll produce anyway and handling it as an edge case
+            // avoids numerical problems at the end
+            return 0.0;
+        }
+        
+        // an accumulator that we will sum the log-likelihood of each alignment into
+        double log_likelihood = numeric_limits<double>::lowest();
+        
+        // iteration functions to facilitate iterating on forward/reverse strands
+        auto move_right = [](HaplotypeNode*& path_node) { path_node = path_node->next; };
+        auto move_left = [](HaplotypeNode*& path_node) { path_node = path_node->prev; };
+        
+        /*
+         * STEP 1: find which subpaths are represented on the current haplotypes and which
+         * subpaths are adjacent to each order (expressed as "links")
+         */
+        
+        // records of: (subpath coming from, which match of that subpath, node the next should be on, should it be matching the orientation?)
+        vector<vector<tuple<size_t, size_t, HaplotypeNode*, bool>>> possible_forward_links(multipath_aln.subpath_size());
+        
+        // for each subpath
+        //    for each copy of it in the phased genome
+        //         the (subpath index, which copy)'s that this copy links back to
+        vector<vector<vector<pair<size_t, size_t>>>> backward_links(multipath_aln.subpath_size());
+        
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+            
+            const Subpath& subpath = multipath_aln.subpath(i);
+            const Path& path = subpath.path();
+
+            // check all of the locations of this subpath among the haplotypes
+            for (HaplotypeNode* starting_haplo_node : node_locations[path.mapping(0).position().node_id()]) {
+                
+                // are we traversing forward or backward along the haplotype?
+                bool matches_orientation = (starting_haplo_node->node_traversal.backward == path.mapping(0).position().is_reverse());
+                auto move_forward = matches_orientation ? move_right : move_left;
+       
+                // determine whether the rest of the subpath matches
+                bool full_match = true;
+                HaplotypeNode* haplo_node = starting_haplo_node;
+                for (size_t j = 1; j < path.mapping_size(); ++j) {
+                    
+                    // advance to the haplo node that we would find next
+                    move_forward(haplo_node);
+                    
+                    const Position& pos = path.mapping(j).position();
+                    if (haplo_node->node_traversal.node->id() != pos.node_id() ||
+                        (haplo_node->node_traversal.backward == pos.is_reverse()) != matches_orientation) {
+                        // the subpath doesn't match the path of the haplotype here
+                        full_match = false;
+                        break;
+                    }
+                }
+                
+                if (!full_match) {
+                    // scores aren't necessarily dynamic programmable except on full matches, so
+                    // we'll leave this alone
+                    // TODO: allow for alignments to partial subpaths?
+                    continue;
+                }
+                
+                const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
+                size_t final_offset = mapping_from_length(final_mapping) + final_mapping.position().offset();
+                if (final_offset == haplo_node->node_traversal.node->sequence().size()) {
+                    // the last mapping hits the end of its node, so we expect to find
+                    // the next subpath on the following node
+                    move_forward(haplo_node);
+                }
+                
+                // we found a full match of this subpath on the phased genome, add a match
+                size_t match_num = backward_links[i].size();
+                backward_links[i].emplace_back();
+                vector<pair<size_t, size_t>>& links = backward_links[i].back();
+                
+                // let's check if we could have extended along any of the forward links we
+                // previously identified
+                for (auto& possible_link : possible_forward_links[i]) {
+                    // TODO: make this a multimap from (node,orientation) instead?
+                    if (get<2>(possible_link) == starting_haplo_node &&
+                        get<3>(possible_link) == matches_orientation) {
+                        // we started on haplo node and orientation that we would have expected
+                        // if we followed this forward link
+                        links.emplace_back(get<0>(possible_link), get<1>(possible_link));
+                    }
+                }
+                
+                // add a candidate forward link from here to each subsequent subpath
+                for (size_t j : subpath.next()) {
+                    possible_forward_links[j].emplace_back(i, match_num, haplo_node, matches_orientation);
+                }
+            }
+        }
+        
+        /*
+         * STEP 2: follow the links we discovered in step 1 to compute the
+         * scores of the alignments consistent with the current haplotypes
+         * and add them to the log likelihood
+         */
+        
+        // to keep track of which partial alignments we've already accounted for
+        vector<vector<bool>> traversed(multipath_aln.subpath_size());
+        for (size_t i = 0; i < traversed.size(); ++i) {
+            traversed[i].resize(backward_links[i].size(), false);
+        }
+        
+        // iterate backwards over the backward facing links for each subpath
+        for (int64_t i = backward_links.size() - 1; i >= 0; --i) {
+            auto& links = backward_links[i];
+            // iterate over the links for each match we found for this subpath
+            for (size_t j = 0; j < links.size(); ++j) {
+                if (traversed[i][j]) {
+                    // we already scored the alignments corresponding to these
+                    // links
+                    continue;
+                }
+                
+                // use DFS to generate all longest-possible alignments along
+                // the backward links
+                
+                // records of (subpath idx, copy of subpath, index of next link to take)
+                vector<tuple<size_t, size_t, size_t>> stack;
+                stack.emplace_back(i, j, 0);
+                while (!stack.empty()) {
+                    auto& record = stack.back();
+                    
+                    auto& links = backward_links[get<0>(record)][get<1>(record)];
+                    if (get<2>(record) < links.size()) {
+                        auto next = links[get<2>(record)++];
+                        stack.emplace_back(next.first, next.second, 0);
+                    }
+                    else {
+                        // we've finished traversing this
+                        traversed[get<0>(record)][get<1>(record)] = true;
+                        if (links.empty()) {
+                            // this is the final subpath in the alignment, so the stack now
+                            // represents a valid alignment. we can compute the highest scoring
+                            // segment of the alignment with dynamic programming
+                            int32_t current_score = multipath_aln.subpath(get<2>(stack[0])).score();
+                            int32_t max_score = current_score;
+                            for (size_t k = 1; k < stack.size(); ++k) {
+                                int32_t subpath_score = multipath_aln.subpath(get<2>(stack[k])).score();
+                                current_score = max(current_score + subpath_score, subpath_score);
+                                max_score = max(max_score, current_score);
+                            }
+                            
+                            // TODO: do i need to check if the same alignment sub sequence gets
+                            // double-counted here?
+                            log_likelihood = add_log(log_likelihood, max_score * log_base);
+                        }
+                        stack.pop_back();
+                    }
+                }
+            }
+        }
+        
+        // adjust by the mapping quality
+        double mapping_err_log_prob = phred_to_logprob(multipath_aln.mapping_quality());
+        return add_log(subtract_log(0.0, mapping_err_log_prob) + log_likelihood,
+                       mapping_err_log_prob);
+    }
     
     int32_t PhasedGenome::optimal_score_on_genome(const MultipathAlignment& multipath_aln, VG& graph) {
         
