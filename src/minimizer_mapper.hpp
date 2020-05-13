@@ -161,6 +161,17 @@ public:
    void attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
 
     /**
+     * When we use dozeu for rescue, the reported alignment score is incorrect.
+     * 1) Dozeu only gives the full-length bonus once.
+     * 2) There is no penalty for a softclip at the edge of the subgraph.
+     * This function calculates the score correctly. If the score is incorrect,
+     * we realign the read using GSSW.
+     * TODO: This should be unnecessary.
+     */
+    void fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,
+                         const std::vector<handle_t>& topological_order) const;
+
+    /**
      * Get the distance between a pair of read alignments
      */
     int64_t distance_between(const Alignment& aln1, const Alignment& aln2);

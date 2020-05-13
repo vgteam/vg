@@ -1396,6 +1396,8 @@ void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vect
     if (!alignment.has_path() && mems.empty()) {
         // dozeu couldn't find an alignment, probably because it's seeding heuristic failed
         // we'll just fall back on GSSW
+        // TODO: This is a bit inconsistent. GSSW gives a full-length bonus at both ends, while
+        // dozeu only gives it once.
         align(alignment, g, order);
     }
 }
@@ -1969,6 +1971,8 @@ void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, con
     if (!alignment.has_path() && mems.empty()) {
         // dozeu couldn't find an alignment, probably because it's seeding heuristic failed
         // we'll just fall back on GSSW
+        // TODO: This is a bit inconsistent. GSSW gives a full-length bonus at both ends, while
+        // dozeu only gives it once.
         align(alignment, g, true);
     }
 }
