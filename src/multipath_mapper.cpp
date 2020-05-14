@@ -228,6 +228,14 @@ namespace vg {
             winning_cluster_avg_intermem_gap /= order.size() - 1;
         }
         
+        vector<size_t> secondary_lengths;
+        if (clusters.size() > 1) {
+            for (const auto& hit : clusters[cluster_idx[1]]) {
+                secondary_lengths.push_back(hit.first->length());
+            }
+        }
+        sort(secondary_lengths.begin(), secondary_lengths.end(), greater<size_t>());
+        
         int64_t max_non_winning_mem_length = 0;
         for (size_t i = 0; i < mems.size(); ++i) {
             bool found = false;
@@ -245,7 +253,7 @@ namespace vg {
 #pragma omp critical
         {
             if (!_wrote_mem_stats_header) {
-                _mem_stats << "name\tread_len\tnum_mems\tmin_mem_length\tmax_mem_length\tavg_mem_length\tavg_mem_overlap\tnum_clusters\twinning_cluster_num_mems\twinning_cluster_min_mem_length\twinning_cluster_max_mem_length\twinning_cluster_total_bases\twinning_cluster_tail_bases\twinning_cluster_avg_intermem_gap\tmax_non_winning_mem_length\thit_lengths\twinning_lengths" << endl;
+                _mem_stats << "name\tread_len\tnum_mems\tmin_mem_length\tmax_mem_length\tavg_mem_length\tavg_mem_overlap\tnum_clusters\twinning_cluster_num_mems\twinning_cluster_min_mem_length\twinning_cluster_max_mem_length\twinning_cluster_total_bases\twinning_cluster_tail_bases\twinning_cluster_avg_intermem_gap\tmax_non_winning_mem_length\thit_lengths\twinning_lengths\tsecondary_lengths" << endl;
                 _wrote_mem_stats_header = true;
             }
             _mem_stats << alignment.name() << "\t" << alignment.sequence().size() << "\t" << num_mems << "\t" << min_mem_length << "\t" << max_mem_length << "\t" << avg_mem_length << "\t" << avg_mem_overlap << "\t" << num_clusters << "\t" << winning_cluster_num_mems << "\t" << winning_cluster_min_mem_length << "\t" << winning_cluster_max_mem_length << "\t" << winning_cluster_total_bases << "\t" << winning_cluster_tail_bases << "\t" << winning_cluster_avg_intermem_gap << "\t" << max_non_winning_mem_length;
@@ -255,11 +263,24 @@ namespace vg {
                 }
                 _mem_stats << hit_lengths[i];
             }
+            _mem_stats << "\t"
             for (size_t i = 0; i < winning_lengths.size(); ++i) {
                 if (i > 0) {
                     _mem_stats << ",";
                 }
                 _mem_stats << winning_lengths[i];
+            }
+            _mem_stats << "\t"
+            if (secondary_lengths.empty()) {
+                _mem_stats << "NA";
+            }
+            else {
+                for (size_t i = 0; i < secondary_lengths.size(); ++i) {
+                    if (i > 0) {
+                        _mem_stats << ",";
+                    }
+                    _mem_stats << secondary_lengths[i];
+                }
             }
             _mem_stats << endl;
         }
