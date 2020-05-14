@@ -27,7 +27,7 @@
 #include <iostream>
 #endif
 
-#ifdef mpmap_instrument_mem_statitics
+#ifdef mpmap_instrument_mem_statistics
 #define MEM_STATS_FILE "_mem_statistics.tsv"
 #endif
 
@@ -1152,7 +1152,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     
-#ifdef mpmap_instrument_mem_statitics
+#ifdef mpmap_instrument_mem_statistics
     if (auto_calibrate_mismapping_detection) {
         cerr << "error:[vg mpmap] set calibration off when profiling MEM statistics" << endl;
         exit(1);
@@ -1475,7 +1475,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.simplify_topologies = simplify_topologies;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
 
-#ifdef mpmap_instrument_mem_statitics
+#ifdef mpmap_instrument_mem_statistics
     multipath_mapper._mem_stats.open(MEM_STATS_FILE);
 #endif
     

@@ -230,7 +230,7 @@ namespace vg {
         
         vector<size_t> secondary_lengths;
         if (clusters.size() > 1) {
-            for (const auto& hit : clusters[cluster_idx[1]]) {
+            for (const auto& hit : clusters[cluster_idxs[1]]) {
                 secondary_lengths.push_back(hit.first->length());
             }
         }
@@ -263,14 +263,14 @@ namespace vg {
                 }
                 _mem_stats << hit_lengths[i];
             }
-            _mem_stats << "\t"
+            _mem_stats << "\t";
             for (size_t i = 0; i < winning_lengths.size(); ++i) {
                 if (i > 0) {
                     _mem_stats << ",";
                 }
                 _mem_stats << winning_lengths[i];
             }
-            _mem_stats << "\t"
+            _mem_stats << "\t";
             if (secondary_lengths.empty()) {
                 _mem_stats << "NA";
             }
