@@ -122,6 +122,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a6f89ab856a31dfb7258fd7487c051a5a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aab26653dddeea64012b2629b4ebc3836"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#aab26653dddeea64012b2629b4ebc3836">optimal_score_on_genome</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph)</td></tr>
 <tr class="separator:aab26653dddeea64012b2629b4ebc3836"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a54f3234975b9f8fbe66eb8522c0f8b64"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#a54f3234975b9f8fbe66eb8522c0f8b64">read_log_likelihood</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln, double log_base)</td></tr>
+<tr class="separator:a54f3234975b9f8fbe66eb8522c0f8b64"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -536,6 +538,35 @@ template&lt;typename NodeTraversalIterator &gt; </div>
 </div><div class="memdoc">
 
 <p>Prints out the haplotypes, and node values. </p>
+
+</div>
+</div>
+<a id="a54f3234975b9f8fbe66eb8522c0f8b64"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a54f3234975b9f8fbe66eb8522c0f8b64">&#9670;&nbsp;</a></span>read_log_likelihood()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::PhasedGenome::read_log_likelihood </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>log_base</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Returns the sum of the log-likelihoods of all of the alignments expressed in a multipath alignment, given a </p>
 
 </div>
 </div>
