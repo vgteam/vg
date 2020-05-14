@@ -52,7 +52,7 @@
 #include <gbwt/gbwt.h>
 
 // note: only activated for single end mapping
-//#define mpmap_instrument_mem_statitics
+//#define mpmap_instrument_mem_statistics
 
 using namespace std;
 using namespace haplo;
@@ -439,7 +439,7 @@ namespace vg {
         // a memo for transcendental band padidng function (gets initialized at construction)
         vector<size_t> band_padding_memo;
         
-#ifdef mpmap_instrument_mem_statitics
+#ifdef mpmap_instrument_mem_statistics
     public:
         ofstream _mem_stats;
         bool _wrote_mem_stats_header = false;
