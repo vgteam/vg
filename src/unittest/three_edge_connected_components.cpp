@@ -10,6 +10,8 @@
 
 #include <structures/union_find.hpp>
 
+#include <map>
+
 
 namespace vg {
 namespace unittest {
@@ -49,6 +51,85 @@ static void component_callback(const function<void(const function<void(size_t)>&
             components.union_groups(first, member);
         }
     });
+}
+
+/// Compute 3-edge-connected-components in a slow but almost certainly right way
+static structures::UnionFind brute_force_3ecc(size_t count, const function<void(size_t, const function<void(size_t)>&)>& get_connected) {
+    // Make a big edge list
+    // Only store edges one way
+    vector<pair<size_t, size_t>> edges;
+    for (size_t i = 0; i < count; i++) {
+        get_connected(i, [&](size_t connected) {
+            if (i < connected) {
+                edges.emplace_back(i, connected);
+            }
+        });
+    }
+    
+    // We need to count how many times each node is still connected to each other node.
+    // Store by IDs in order.
+    // We could use an unordered map but then we'd have to go find the pair hash...
+    map<pair<size_t, size_t>, size_t> times_connected;
+    
+    // And we count how many subgraphs we look at
+    size_t subgraph_count = 0;
+    
+    for (size_t r1 = 0; r1 < edges.size(); r1++) {
+        // For each first edge we could remove
+        for (size_t r2 = r1 + 1; r2 < edges.size(); r2++) {
+            // For each second edge we could remove
+            
+            // Do connected components
+            structures::UnionFind cc(count, true);
+            for (size_t i = 0; i < edges.size(); i++) {
+                if (i != r1 && i != r2) {
+                    // Only count non-removed edges
+                    cc.union_groups(edges[i].first, edges[i].second);
+                }
+            }
+            
+            for (auto& group : cc.all_groups()) {
+                for (size_t i = 0; i < group.size(); i++) {
+                    for (size_t j = i + 1; j < group.size(); j++) {
+                        // For each pair of nodes in the same connected component this time, count that pair
+                        times_connected[make_pair(min(group[i], group[j]), max(group[i], group[j]))]++;
+                    }
+                }
+            }
+            
+            // Remember we did a subgraph
+            subgraph_count++;
+        }
+    }
+    
+    // Now find pairs of nodes that were connected every time no matter what 2
+    // edges we removed, and union them to get the 3eccs.
+
+    structures::UnionFind to_return(count, true);
+    for (auto& pair_and_count : times_connected) {
+        if (pair_and_count.second == subgraph_count) {
+            // This pair was connected every time
+            to_return.union_groups(pair_and_count.first.first, pair_and_count.first.second);
+        }
+    }
+    
+    return to_return;
+}
+
+/// Determine if two union-finds are equal.
+/// Can't be const because we need all_groups()
+static bool uf_equal(structures::UnionFind& a, structures::UnionFind& b) {
+    for (auto& group : a.all_groups()) {
+        for (size_t i = 0; i < group.size(); i++) {
+            if (b.group_size(group[i]) != group.size()) {
+                return false;
+            }
+            if (b.find_group(group[i]) != b.find_group(group[0])) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][algorithms]") {
