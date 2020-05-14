@@ -36,9 +36,7 @@ namespace vg {
         
         // build markov chain using Metropolis-Hastings
         for(int i = 0; i< n_iterations; i++){
-#ifdef debug_mcmc
-            cerr << "iteration " << i << endl; 
-#endif
+
             
             // holds the previous sample allele
             double x_prev = log_target(genome, reads);
