@@ -1189,5 +1189,483 @@ namespace vg {
                 
             }
         }
+    
+    
+        TEST_CASE("PhasedGenome can compute alignment likelihoods",
+                  "[phasing][mcmc]" ) {
+            
+            VG graph;
+            
+            Node* n0 = graph.create_node("CCT");
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("A");
+            Node* n3 = graph.create_node("T");
+            Node* n4 = graph.create_node("GAA");
+            Node* n5 = graph.create_node("TAT");
+            
+            graph.create_edge(n0, n1);
+            graph.create_edge(n1, n2);
+            graph.create_edge(n1, n3);
+            graph.create_edge(n2, n4);
+            graph.create_edge(n3, n4);
+            graph.create_edge(n4, n5);
+            
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            
+            PhasedGenome genome(snarl_manager);
+            
+            SECTION("The likelihood is correct for a simple alignment") {
+                
+                
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n2));
+                haplotype_1.push_back(NodeTraversal(n4));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence("GCA");
+                multipath_aln.set_mapping_quality(60);
+                
+                Subpath* subpath = multipath_aln.add_subpath();
+                Path* path = subpath->mutable_path();
+                Mapping* mapping = path->add_mapping();
+                Position* position = mapping->mutable_position();
+                position->set_node_id(n1->id());
+                position->set_is_reverse(false);
+                Edit* edit = mapping->add_edit();
+                edit->set_from_length(3);
+                edit->set_to_length(3);
+                subpath->set_score(3);
+                
+                identify_start_subpaths(multipath_aln);
+                
+                //
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - 3.0) < .001);
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 2.0) - 6.0) < .001);
+            }
+            
+            SECTION("The likelihood doubles if it is present on two haplotypes") {
+                
+                
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n2));
+                haplotype_1.push_back(NodeTraversal(n4));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                list<NodeTraversal> haplotype_2;
+                
+                haplotype_2.push_back(NodeTraversal(n1));
+                haplotype_2.push_back(NodeTraversal(n3));
+                haplotype_2.push_back(NodeTraversal(n4));
+                
+                genome.add_haplotype(haplotype_2.begin(), haplotype_2.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence("GCA");
+                multipath_aln.set_mapping_quality(60);
+                
+                Subpath* subpath = multipath_aln.add_subpath();
+                Path* path = subpath->mutable_path();
+                Mapping* mapping = path->add_mapping();
+                Position* position = mapping->mutable_position();
+                position->set_node_id(n1->id());
+                position->set_is_reverse(false);
+                Edit* edit = mapping->add_edit();
+                edit->set_from_length(3);
+                edit->set_to_length(3);
+                subpath->set_score(3);
+                
+                identify_start_subpaths(multipath_aln);
+                
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - (3.0 + log(2.0))) < .001);
+            }
+            
+            SECTION("Likelihood can be calculated with a branching multipath alignment") {
+                
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n2));
+                haplotype_1.push_back(NodeTraversal(n4));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence("GCAAGAA");
+                multipath_aln.set_mapping_quality(60);
+                
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Path* path0 = subpath0->mutable_path();
+                Mapping* mapping0 = path0->add_mapping();
+                Position* position0 = mapping0->mutable_position();
+                position0->set_node_id(n1->id());
+                position0->set_is_reverse(false);
+                Edit* edit0 = mapping0->add_edit();
+                edit0->set_from_length(3);
+                edit0->set_to_length(3);
+                subpath0->set_score(3);
+                
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                Path* path1 = subpath1->mutable_path();
+                Mapping* mapping1 = path1->add_mapping();
+                Position* position1 = mapping1->mutable_position();
+                position1->set_node_id(n2->id());
+                position1->set_is_reverse(false);
+                Edit* edit1 = mapping1->add_edit();
+                edit1->set_from_length(1);
+                edit1->set_to_length(1);
+                subpath1->set_score(1);
+                
+                Subpath* subpath2 = multipath_aln.add_subpath();
+                Path* path2 = subpath2->mutable_path();
+                Mapping* mapping2 = path2->add_mapping();
+                Position* position2 = mapping2->mutable_position();
+                position2->set_node_id(n3->id());
+                position2->set_is_reverse(false);
+                Edit* edit2 = mapping2->add_edit();
+                edit2->set_from_length(1);
+                edit2->set_to_length(1);
+                subpath2->set_score(-2);
+                
+                Subpath* subpath3 = multipath_aln.add_subpath();
+                Path* path3 = subpath3->mutable_path();
+                Mapping* mapping3 = path3->add_mapping();
+                Position* position3 = mapping3->mutable_position();
+                position3->set_node_id(n4->id());
+                position3->set_is_reverse(false);
+                Edit* edit3 = mapping3->add_edit();
+                edit3->set_from_length(3);
+                edit3->set_to_length(3);
+                subpath3->set_score(3);
+                
+                subpath0->add_next(1);
+                subpath0->add_next(2);
+                subpath1->add_next(3);
+                subpath2->add_next(3);
+                
+                identify_start_subpaths(multipath_aln);
+                
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - 7.0) < .001);
+            }
+            
+            SECTION("Log likeihood can be calculated for a read on the reverse strand") {
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n3));
+                haplotype_1.push_back(NodeTraversal(n4));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence("TTCTTGC");
+                multipath_aln.set_mapping_quality(60);
+                
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Path* path0 = subpath0->mutable_path();
+                Mapping* mapping0 = path0->add_mapping();
+                Position* position0 = mapping0->mutable_position();
+                position0->set_node_id(n4->id());
+                position0->set_is_reverse(true);
+                Edit* edit0 = mapping0->add_edit();
+                edit0->set_from_length(3);
+                edit0->set_to_length(3);
+                subpath0->set_score(3);
+                
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                Path* path1 = subpath1->mutable_path();
+                Mapping* mapping1 = path1->add_mapping();
+                Position* position1 = mapping1->mutable_position();
+                position1->set_node_id(n2->id());
+                position1->set_is_reverse(true);
+                Edit* edit1 = mapping1->add_edit();
+                edit1->set_from_length(1);
+                edit1->set_to_length(1);
+                subpath1->set_score(1);
+                
+                Subpath* subpath2 = multipath_aln.add_subpath();
+                Path* path2 = subpath2->mutable_path();
+                Mapping* mapping2 = path2->add_mapping();
+                Position* position2 = mapping2->mutable_position();
+                position2->set_node_id(n3->id());
+                position2->set_is_reverse(true);
+                Edit* edit2 = mapping2->add_edit();
+                edit2->set_from_length(1);
+                edit2->set_to_length(1);
+                subpath2->set_score(-2);
+                
+                Subpath* subpath3 = multipath_aln.add_subpath();
+                Path* path3 = subpath3->mutable_path();
+                Mapping* mapping3 = path3->add_mapping();
+                Position* position3 = mapping3->mutable_position();
+                position3->set_node_id(n1->id());
+                position3->set_is_reverse(true);
+                Edit* edit3 = mapping3->add_edit();
+                edit3->set_from_length(3);
+                edit3->set_to_length(3);
+                subpath3->set_score(3);
+                
+                subpath0->add_next(1);
+                subpath0->add_next(2);
+                subpath1->add_next(3);
+                subpath2->add_next(3);
+                
+                identify_start_subpaths(multipath_aln);
+                
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - 4.0) < .001);
+            }
+            
+            SECTION("Log likeihood can be calculated for a read with mid-node subpath adjacencies") {
+                
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n3));
+                haplotype_1.push_back(NodeTraversal(n4));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence("TTC");
+                multipath_aln.set_mapping_quality(60);
+                
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Path* path0 = subpath0->mutable_path();
+                Mapping* mapping0 = path0->add_mapping();
+                Position* position0 = mapping0->mutable_position();
+                position0->set_node_id(n4->id());
+                position0->set_is_reverse(true);
+                Edit* edit0 = mapping0->add_edit();
+                edit0->set_from_length(2);
+                edit0->set_to_length(2);
+                subpath0->set_score(2);
+                
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                Path* path1 = subpath1->mutable_path();
+                Mapping* mapping1 = path1->add_mapping();
+                Position* position1 = mapping1->mutable_position();
+                position1->set_node_id(n4->id());
+                position1->set_is_reverse(true);
+                position1->set_offset(2);
+                Edit* edit1 = mapping1->add_edit();
+                edit1->set_from_length(1);
+                edit1->set_to_length(1);
+                subpath1->set_score(1);
+                
+                subpath0->add_next(1);
+                                
+                identify_start_subpaths(multipath_aln);
+                
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - 3.0) < .001);
+            }
+            
+            SECTION("Log likeihood can be calculated for a read multiple with mappings per subpath") {
+                
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n0));
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n2));
+                haplotype_1.push_back(NodeTraversal(n4));
+                haplotype_1.push_back(NodeTraversal(n5));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence("CCTGCAAGAATAT");
+                multipath_aln.set_mapping_quality(60);
+                
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Path* path0 = subpath0->mutable_path();
+                Mapping* mapping0 = path0->add_mapping();
+                Position* position0 = mapping0->mutable_position();
+                position0->set_node_id(n0->id());
+                position0->set_is_reverse(false);
+                Edit* edit0 = mapping0->add_edit();
+                edit0->set_from_length(3);
+                edit0->set_to_length(3);
+                Mapping* mapping4 = path0->add_mapping();
+                Position* position4 = mapping4->mutable_position();
+                position4->set_node_id(n1->id());
+                position4->set_is_reverse(false);
+                Edit* edit4 = mapping4->add_edit();
+                edit4->set_from_length(3);
+                edit4->set_to_length(3);
+                subpath0->set_score(6);
+                
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                Path* path1 = subpath1->mutable_path();
+                Mapping* mapping1 = path1->add_mapping();
+                Position* position1 = mapping1->mutable_position();
+                position1->set_node_id(n2->id());
+                position1->set_is_reverse(false);
+                Edit* edit1 = mapping1->add_edit();
+                edit1->set_from_length(1);
+                edit1->set_to_length(1);
+                subpath1->set_score(1);
+                
+                Subpath* subpath2 = multipath_aln.add_subpath();
+                Path* path2 = subpath2->mutable_path();
+                Mapping* mapping2 = path2->add_mapping();
+                Position* position2 = mapping2->mutable_position();
+                position2->set_node_id(n3->id());
+                position2->set_is_reverse(false);
+                Edit* edit2 = mapping2->add_edit();
+                edit2->set_from_length(1);
+                edit2->set_to_length(1);
+                subpath2->set_score(-2);
+                
+                Subpath* subpath3 = multipath_aln.add_subpath();
+                Path* path3 = subpath3->mutable_path();
+                Mapping* mapping3 = path3->add_mapping();
+                Position* position3 = mapping3->mutable_position();
+                position3->set_node_id(n4->id());
+                position3->set_is_reverse(false);
+                Edit* edit3 = mapping3->add_edit();
+                edit3->set_from_length(3);
+                edit3->set_to_length(3);
+                Mapping* mapping5 = path3->add_mapping();
+                Position* position5 = mapping5->mutable_position();
+                position5->set_node_id(n5->id());
+                position5->set_is_reverse(false);
+                Edit* edit5 = mapping5->add_edit();
+                edit5->set_from_length(3);
+                edit5->set_to_length(3);
+                subpath3->set_score(6);
+                
+                subpath0->add_next(1);
+                subpath0->add_next(2);
+                subpath1->add_next(3);
+                subpath2->add_next(3);
+                
+                identify_start_subpaths(multipath_aln);
+                
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - 13.0) < .001);
+                
+            }
+            
+            
+            SECTION("Log likeihood can be calculated for a read multiple with mappings per subpath") {
+                
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n0));
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n2));
+                haplotype_1.push_back(NodeTraversal(n4));
+                haplotype_1.push_back(NodeTraversal(n5));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence("CCTGCAAGAATAT");
+                multipath_aln.set_mapping_quality(60);
+                
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Path* path0 = subpath0->mutable_path();
+                Mapping* mapping0 = path0->add_mapping();
+                Position* position0 = mapping0->mutable_position();
+                position0->set_node_id(n0->id());
+                position0->set_is_reverse(false);
+                Edit* edit0 = mapping0->add_edit();
+                edit0->set_from_length(3);
+                edit0->set_to_length(3);
+                Mapping* mapping4 = path0->add_mapping();
+                Position* position4 = mapping4->mutable_position();
+                position4->set_node_id(n1->id());
+                position4->set_is_reverse(false);
+                Edit* edit4 = mapping4->add_edit();
+                edit4->set_from_length(3);
+                edit4->set_to_length(3);
+                subpath0->set_score(6);
+                
+                Subpath* subpath2 = multipath_aln.add_subpath();
+                Path* path2 = subpath2->mutable_path();
+                Mapping* mapping2 = path2->add_mapping();
+                Position* position2 = mapping2->mutable_position();
+                position2->set_node_id(n3->id());
+                position2->set_is_reverse(false);
+                Edit* edit2 = mapping2->add_edit();
+                edit2->set_from_length(1);
+                edit2->set_to_length(1);
+                subpath2->set_score(-2);
+                
+                Subpath* subpath3 = multipath_aln.add_subpath();
+                Path* path3 = subpath3->mutable_path();
+                Mapping* mapping3 = path3->add_mapping();
+                Position* position3 = mapping3->mutable_position();
+                position3->set_node_id(n4->id());
+                position3->set_is_reverse(false);
+                Edit* edit3 = mapping3->add_edit();
+                edit3->set_from_length(3);
+                edit3->set_to_length(3);
+                Mapping* mapping5 = path3->add_mapping();
+                Position* position5 = mapping5->mutable_position();
+                position5->set_node_id(n5->id());
+                position5->set_is_reverse(false);
+                Edit* edit5 = mapping5->add_edit();
+                edit5->set_from_length(3);
+                edit5->set_to_length(3);
+                subpath3->set_score(6);
+                
+                subpath0->add_next(1);
+                subpath2->add_next(2);
+                
+                identify_start_subpaths(multipath_aln);
+                
+                //cerr << genome.read_log_likelihood(multipath_aln, 1.0) << endl;
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - (6.0 + log(2.0))) < .001);
+                
+            }
+        }
     }
 }

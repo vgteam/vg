@@ -38,6 +38,7 @@ TOIL_PACKAGE="toil[aws,mesos]==3.20.0"
 # What tests should we run?
 # Should be something like "vgci/vgci.py::VGCITest::test_sim_brca2_snp1kg_mpmap"
 # Must have the Python file in it or Pytest can't find the tests.
+# May contain multiple space-separated test specifiers.
 PYTEST_TEST_SPEC="vgci/vgci.py"
 # What scratch directory should we use to run the tests?
 # If unset we use vgci_work and don't persist it.
@@ -71,7 +72,7 @@ usage() {
     printf "\t-i\t\tKeep intermediate on-disk output from tests. \n"
     printf "\t-s\t\tShow test output and error streams (pass -s to pytest). \n"
     printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
-    printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run, or 'None' for no tests.\n"
+    printf "\t-t TESTSPEC\tUse the given PyTest test specifier(s), space-separated, to select tests to run, or 'None' for no tests.\n"
     printf "\t-w WORKDIR\tOutput test result data to the given absolute or ./ path (also used for scratch)\n"
     printf "\t-W WORKDIR\tLoad test result data from the given path instead of building or running tests\n"
     printf "\t-j FILE\tSave the JUnit test report XML to the given file (default: test-report.xml)\n"
@@ -409,7 +410,7 @@ then
     
     # run the tests, output the junit report 
     rm -f test-report.xml
-    pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml ${SHOW_OPT}
+    pytest -vv ${PYTEST_TEST_SPEC} --junitxml=test-report.xml ${SHOW_OPT}
     TEST_FAIL="$?"
     
     if [ ! -z "${SAVE_JUNIT}" ]
