@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 16
+plan tests 18
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -63,18 +63,27 @@ vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 vg index x.vg -g x.gcsa
 vg sim -x x.vg -n 10 -s 23 -a > sim.gam
 vg map -x x.vg -g x.gcsa -G sim.gam > sim-rm.gam
-vg convert x.vg -G sim-rm.gam > sim-rm.gaf
-vg convert x.vg -F sim-rm.gaf | vg convert x.vg -G - > sim-rm2.gaf
+vg convert x.vg -G sim-rm.gam -t 1 > sim-rm.gaf
+vg convert x.vg -F sim-rm.gaf -t 1 | vg convert x.vg -G - -t 1 > sim-rm2.gaf
 diff sim-rm.gaf sim-rm2.gaf
 is "$?" 0 "vg convert gam -> gaf -> gam -> gaf makes same gaf twice"
+
+vg convert x.vg -G sim-rm.gam | vg convert x.vg -F - | vg convert x.vg -G - | sort > sim-rm2-mt-sort.gaf
+sort sim-rm2.gaf > sim-rm2-sort.gaf
+diff sim-rm2-sort.gaf sim-rm2-mt-sort.gaf
+is "$?" 0 "vg convert gam -> gaf -> gam -> gaf gives same result multithreaded as with -t 1"
+
+vg convert x.vg -G sim-rm.gam | bgzip | vg convert x.vg -F - | vg convert x.vg -G - | sort > sim-rm2-mtbg-sort.gaf
+diff sim-rm2-sort.gaf sim-rm2-mtbg-sort.gaf
+is "$?" 0 "vg convert gam -> gaf.gz -> gam -> gaf gives same result multithreaded as with -t 1"
 
 # some snps and indels
 vg map -s "TAATGGATATGTTAAGCTTTTTTTTTCTTTGATTTATTTGAAAAGACGTTTGACAATCTATCGGGTAATGTGGGGAAA" -x x.vg -g x.gcsa > mut.gam
 # reverse complement of above
 vg map -s "TTTCCCCACATTACCCGATAGATTGTCAAACGTCTTTTCAAATAAATCAAAGAAAAAAAAAGCTTAACATATCCATTA" -x x.vg -g x.gcsa >> mut.gam
 
-vg convert small.vg -G mut.gam > mut.gaf
-vg convert small.vg -F mut.gaf > mut-back.gam
+vg convert small.vg -G mut.gam -t 1 > mut.gaf
+vg convert small.vg -F mut.gaf -t 1 > mut-back.gam
 vg view -a mut.gam | jq .path > mut.path
 vg view -a mut-back.gam | jq .path > mut-back.path
 # Json comparison that is not order dependent: https://stackoverflow.com/a/31933234
@@ -82,8 +91,10 @@ is $(jq --argfile a mut.path --argfile b mut-back.path -n 'def post_recurse(f): 
 
 is "$(vg view -a mut.gam | jq .sequence)" "$(vg view -a mut-back.gam | jq .sequence)" "vg convert gam -> gaf -> gam preserves sequence"
 
-vg convert small.vg -G mut-back.gam > mut-back.gaf
+vg convert small.vg -G mut-back.gam -t 1 > mut-back.gaf
 diff mut.gaf mut-back.gaf
 is "$?" 0 "vg convert gam -> gaf -> gam -> gaf makes same gaf twice in presence of indels and snps"
 
-rm -f x.vg x.gcsa sim.gam sim-rm.gam sim-rm.gaf sim-rm2.gaf mut.gam mut-back.gam mut.gaf mut-back.gaf mut.path mut-back.path 
+rm -f x.vg x.gcsa sim.gam sim-rm.gam sim-rm.gaf sim-rm2.gaf sim-rm2-mt-sort.gaf sim-rm2-mtbg-sort.gaf sim-rm2-sort.gaf mut.gam mut-back.gam mut.gaf mut-back.gaf mut.path mut-back.path 
+
+

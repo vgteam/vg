@@ -7,6 +7,7 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include "vg_gaf.hpp"
+#include <htslib/hts.h>
 
 namespace vg {
 using namespace std;
@@ -229,6 +230,64 @@ Alignment gaf2aln(const HandleGraph& graph, const gafkluge::GafRecord& gaf) {
         });
 
     return aln;
+}
+
+int gaf_for_each(string& filename, function<void(Alignment&)> lambda, const HandleGraph& graph) {
+
+    htsFile* in = hts_open(filename.c_str(), "r");
+    if (in == NULL) {
+        return 0;
+    }
+    
+    kstring_t k_buffer = KS_INITIALIZE;
+    Alignment aln;
+    gafkluge::GafRecord gaf;
+    while (hts_getline(in, '\n', &k_buffer) > 0) {
+        gafkluge::parse_gaf_record(ks_str(&k_buffer), gaf);
+        aln = gaf2aln(graph, gaf);
+        lambda(aln);
+    }
+    hts_close(in);
+    return 1;
+}
+
+int gaf_for_each_parallel(string& filename, function<void(Alignment&)> lambda, const HandleGraph& graph) {
+
+    // largely copied from hts_for_each_parallel in alignment.cpp
+    htsFile* in = hts_open(filename.c_str(), "r");
+    if (in == NULL) {
+        cerr << "hts open fail on " << filename << endl;
+        return 0;
+    }
+
+    bool more_data = true;    
+    #pragma omp parallel shared(in, more_data)
+    {
+        kstring_t k_buffer = KS_INITIALIZE;
+        Alignment aln;
+        gafkluge::GafRecord gaf;
+
+        while (more_data) {            
+            // We need to track our own read operation's success separate from
+            // the global flag, or someone else encountering EOF will cause us
+            // to drop our read on the floor.
+            bool got_read = false;
+#pragma omp critical (hts_input)
+            if (more_data) {
+                got_read = hts_getline(in, '\n', &k_buffer) > 0;
+                more_data &= got_read;
+            }
+            // Now we're outside the critical section so we can only rely on our own variables.
+            if (got_read) {
+                gafkluge::parse_gaf_record(ks_str(&k_buffer), gaf);
+                aln = gaf2aln(graph, gaf);
+                lambda(aln);
+            }
+        }
+    }
+
+    return 1;
+
 }
 
 }

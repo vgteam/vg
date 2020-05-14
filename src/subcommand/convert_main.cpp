@@ -30,7 +30,8 @@ void help_convert(char** argv) {
          << "    -x, --xg-out           output in XG format" << endl
          << "    -o, --odgi-out         output in ODGI format" << endl
          << "    -G, --gam-to-gaf FILE  convert GAM FILE to GAF" << endl
-         << "    -F, --gaf-to-gam FILE  convert GAF FILE to GAM" << endl;
+         << "    -F, --gaf-to-gam FILE  convert GAF FILE to GAM" << endl
+         << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;    
 }
 
 int main_convert(int argc, char** argv) {
@@ -60,11 +61,12 @@ int main_convert(int argc, char** argv) {
             {"odgi-out", no_argument, 0, 'o'},
             {"gam-to-gaf", required_argument, 0, 'G'},
             {"gaf-to-gam", required_argument, 0, 'F'},
+            {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hgvxapxoG:F:",
+        c = getopt_long (argc, argv, "hgvxapxoG:F:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -103,6 +105,16 @@ int main_convert(int argc, char** argv) {
             input_aln = optarg;
             gaf_to_gam = true;
             break;
+        case 't':
+            {
+                int num_threads = parse<int>(optarg);
+                if (num_threads <= 0) {
+                    cerr << "error:[vg mpmap] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                    exit(1);
+                }
+                omp_set_num_threads(num_threads);
+            }
+            break;
         default:
             abort();
         }
@@ -125,23 +137,18 @@ int main_convert(int argc, char** argv) {
             input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
         });
 
-        unique_ptr<AlignmentEmitter> emitter = get_alignment_emitter("-", gam_to_gaf ? "GAF" : "GAM", {}, 1,
+        unique_ptr<AlignmentEmitter> emitter = get_alignment_emitter("-", gam_to_gaf ? "GAF" : "GAM", {}, get_thread_count(),
                                                                      input_graph.get());
-        get_input_file(input_aln, [&](istream& in) {
-                if (gam_to_gaf) {
-                    std::function<void(Alignment&)> lambda = [&] (Alignment& aln) {
-                        emitter->emit_singles({aln});
-                    };
-                    vg::io::for_each(in, lambda);
-                } else {
-                    gafkluge::GafRecord gaf_record;
-                    string buffer;            
-                    while (getline(in, buffer, '\n')) {
-                        gafkluge::parse_gaf_record(buffer, gaf_record);
-                        emitter->emit_single(gaf2aln(*input_graph, gaf_record));
-                    }
-                }
+        std::function<void(Alignment&)> lambda = [&] (Alignment& aln) {
+            emitter->emit_singles({aln});
+        };                
+        if (gam_to_gaf) {
+            get_input_file(input_aln, [&](istream& in) {
+                    vg::io::for_each_parallel(in, lambda);
             });
+        } else {
+            gaf_for_each_parallel(input_aln, lambda, *input_graph);
+        }
         return 0;
     }
 
