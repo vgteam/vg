@@ -89,12 +89,15 @@ vg view -a mut-back.gam | jq .path > mut-back.path
 # Json comparison that is not order dependent: https://stackoverflow.com/a/31933234
 is $(jq --argfile a mut.path --argfile b mut-back.path -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b') true "vg convert gam -> gaf -> gam produces same gam Paths with snps and indels"
 
-is "$(vg view -a mut.gam | jq .sequence)" "$(vg view -a mut-back.gam | jq .sequence)" "vg convert gam -> gaf -> gam preserves sequence"
+vg view -a mut.gam | jq .sequence > mut.seq
+vg view -a mut-back.gam | jq .sequence > mut-back.seq
+diff mut.seq mut-back.seq
+is "$?" 0 "vg convert gam -> gaf -> gam preserves sequence"
 
 vg convert small.vg -G mut-back.gam -t 1 > mut-back.gaf
 diff mut.gaf mut-back.gaf
 is "$?" 0 "vg convert gam -> gaf -> gam -> gaf makes same gaf twice in presence of indels and snps"
 
-rm -f x.vg x.gcsa sim.gam sim-rm.gam sim-rm.gaf sim-rm2.gaf sim-rm2-mt-sort.gaf sim-rm2-mtbg-sort.gaf sim-rm2-sort.gaf mut.gam mut-back.gam mut.gaf mut-back.gaf mut.path mut-back.path 
+rm -f x.vg x.gcsa sim.gam sim-rm.gam sim-rm.gaf sim-rm2.gaf sim-rm2-mt-sort.gaf sim-rm2-mtbg-sort.gaf sim-rm2-sort.gaf mut.gam mut-back.gam mut.gaf mut-back.gaf mut.path mut-back.path mut.seq mut-back.seq
 
 

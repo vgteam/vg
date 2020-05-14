@@ -232,7 +232,9 @@ Alignment gaf2aln(const HandleGraph& graph, const gafkluge::GafRecord& gaf) {
     return aln;
 }
 
-int gaf_for_each(string& filename, function<void(Alignment&)> lambda, const HandleGraph& graph) {
+int gaf_for_each(const string& filename,
+                 function<void(Alignment&)> lambda,
+                 const HandleGraph& graph) {
 
     htsFile* in = hts_open(filename.c_str(), "r");
     if (in == NULL) {
@@ -243,6 +245,7 @@ int gaf_for_each(string& filename, function<void(Alignment&)> lambda, const Hand
     Alignment aln;
     gafkluge::GafRecord gaf;
     while (hts_getline(in, '\n', &k_buffer) > 0) {
+        
         gafkluge::parse_gaf_record(ks_str(&k_buffer), gaf);
         aln = gaf2aln(graph, gaf);
         lambda(aln);
@@ -251,9 +254,17 @@ int gaf_for_each(string& filename, function<void(Alignment&)> lambda, const Hand
     return 1;
 }
 
-int gaf_for_each_parallel(string& filename, function<void(Alignment&)> lambda, const HandleGraph& graph) {
+static int gaf_for_each_parallel_impl(const string& filename,
+                                      function<void(Alignment&, Alignment&)> lambda2,
+                                      function<void(Alignment&)> lambda1, 
+                                      const HandleGraph& graph) {
 
     // largely copied from hts_for_each_parallel in alignment.cpp
+    
+    // todo: this is a simplistic approach (all threads locking to read) that could probably be improved on by having a
+    // reader thread filling up a queue.  ideally this would be done in a general framework to allow reading gaf/gam with
+    // the same methods
+    
     htsFile* in = hts_open(filename.c_str(), "r");
     if (in == NULL) {
         cerr << "hts open fail on " << filename << endl;
@@ -263,31 +274,69 @@ int gaf_for_each_parallel(string& filename, function<void(Alignment&)> lambda, c
     bool more_data = true;    
     #pragma omp parallel shared(in, more_data)
     {
-        kstring_t k_buffer = KS_INITIALIZE;
-        Alignment aln;
+        kstring_t k_buffer1 = KS_INITIALIZE;
+        kstring_t k_buffer2 = KS_INITIALIZE;                
+        Alignment aln1;
+        Alignment aln2;
         gafkluge::GafRecord gaf;
 
         while (more_data) {            
             // We need to track our own read operation's success separate from
             // the global flag, or someone else encountering EOF will cause us
             // to drop our read on the floor.
-            bool got_read = false;
+            bool got_read1 = false;
+            bool got_read2 = false;
 #pragma omp critical (hts_input)
-            if (more_data) {
-                got_read = hts_getline(in, '\n', &k_buffer) > 0;
-                more_data &= got_read;
+            {
+                if (more_data) {
+                    got_read1 = hts_getline(in, '\n', &k_buffer1) > 0;
+                    more_data &= got_read1;
+                }
+                if (more_data) {
+                    got_read2 = hts_getline(in, '\n', &k_buffer2) > 0;
+                    more_data &= got_read2;
+                }
             }
+
             // Now we're outside the critical section so we can only rely on our own variables.
-            if (got_read) {
-                gafkluge::parse_gaf_record(ks_str(&k_buffer), gaf);
-                aln = gaf2aln(graph, gaf);
-                lambda(aln);
+            if (got_read1) {
+                gafkluge::parse_gaf_record(ks_str(&k_buffer1), gaf);
+                aln1 = gaf2aln(graph, gaf);
+
+                if (got_read2) {
+                    gafkluge::parse_gaf_record(ks_str(&k_buffer2), gaf);
+                    aln2 = gaf2aln(graph, gaf);
+                    lambda2(aln1, aln2);
+                } else {
+                    lambda1(aln1);
+                }
             }
         }
     }
-
     return 1;
-
 }
+
+int gaf_for_each_parallel(const string& filename,
+                          function<void(Alignment&)> lambda,
+                          const HandleGraph& graph) {
+
+    function<void(Alignment&, Alignment&)> lambda2 = [&](Alignment& aln1, Alignment& aln2) {
+        lambda(aln1);
+        lambda(aln2);
+    };
+
+    return gaf_for_each_parallel_impl(filename, lambda2, lambda, graph);    
+}
+
+int gaf_for_each_interleaved_pair_parallel(const string& filename,
+                                           function<void(Alignment&, Alignment&)> lambda2,
+                                           const HandleGraph& graph) {
+    function<void(Alignment&)> err1 = [](Alignment&){
+        throw runtime_error("gaf_for_each_interleaved_pair_parallel: expected input stream of interleaved pairs, but it had odd number of elements");
+    };
+    
+    return gaf_for_each_parallel_impl(filename, lambda2, err1, graph);
+}
+
 
 }

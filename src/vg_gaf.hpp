@@ -21,11 +21,15 @@ gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool
 Alignment gaf2aln(const HandleGraph& graph, const gafkluge::GafRecord& gaf);
 
 /// Stream a GAF from a file.  Can be bgzipped
-int gaf_for_each(string& filename, function<void(Alignment&)> lambda,
+int gaf_for_each(const string& filename, function<void(Alignment&)> lambda,
                  const HandleGraph& graph);
 
 /// Stream a GAF from a file... in parallel.  Can be bgzipped
-int gaf_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
+int gaf_for_each_parallel(const string& filename, function<void(Alignment&)> lambda,
                           const HandleGraph& graph);
+
+/// Stream a GAF from a file ... in pairs... in parallel.  Can be bgzipped
+int gaf_for_each_itnerleaved_pair_parallel(const string& filename, function<void(Alignment&, Alignment&)> lambda2,
+                                           const HandleGraph& graph);
 
 }
