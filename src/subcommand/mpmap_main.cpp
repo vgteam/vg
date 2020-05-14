@@ -190,9 +190,11 @@ int main_mpmap(int argc, char** argv) {
     int default_strip_count = 10;
     int stripped_match_alg_target_count = default_strip_count;
     bool use_greedy_mem_restarts = true;
-    int greedy_restart_min_length = 40;
+    // TODO: it would be best if these parameters responded to the size of the graph...
+    int greedy_restart_min_length = 30;
+    int greedy_restart_max_lcp = 25;
     int greedy_restart_max_count = 2;
-    int greedy_restart_max_lcp = 30;
+    bool greedy_restart_assume_substitution = true;
     int reseed_length = 28;
     int reseed_length_arg = numeric_limits<int>::min();
     double reseed_diff = 0.45;
@@ -742,11 +744,16 @@ int main_mpmap(int argc, char** argv) {
         // do less DP on tails (having a presumption that long tails with no seeds
         // will probably be soft-clipped)
         pessimistic_tail_gap_multiplier = 3.0;
+        // we won't assume that errors are likely to be substitutions
+        greedy_restart_assume_substitution = false;
     }
     
     if (read_length == "long") {
         // we don't care so much about soft-clips on long reads
         full_length_bonus = 0;
+        // long read technologies (even low error ones) don't have the same bias toward
+        // substitution variants as NGS
+        greedy_restart_assume_substitution = false;
     }
     else if (read_length == "very-short") {
         // clustering is unlikely to improve accuracy in very short data

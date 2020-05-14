@@ -1730,7 +1730,6 @@ namespace vg {
         to.set_name(from.name());
         to.set_sample_name(from.sample_name());
         to.set_paired_read_name(from.paired_read_name());
-        
         from.for_each_annotation([&](const string& anno_name, multipath_alignment_t::anno_type_t type, const void* value) {
             switch (type) {
                 case multipath_alignment_t::Null:
@@ -1795,7 +1794,9 @@ namespace vg {
         if (from.has_fragment_next()) {
             *to.mutable_fragment_next() = from.fragment_next();
         }
-        *to.mutable_annotation() = from.annotation();
+        if (from.has_annotation()) {
+            *to.mutable_annotation() = from.annotation();
+        }
     }
     
     void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln) {

@@ -807,11 +807,13 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                             parent_record.longest_subtree_path_length < record.longest_subtree_path_length) {
                             
 #ifdef debug
-                            cerr << "\t\tLongest path in our subtree is the new longest path in our parent's subtree." << endl;
+                            cerr << "\t\tLongest path in our subtree converging at "
+                                << graph->get_id(record.longest_subtree_path_root) << (graph->get_is_reverse(record.longest_subtree_path_root) ? "-" : "+")
+                                << " is the new longest path in our parent's subtree." << endl;
 #endif
                             
                             // No child has contributed their leaf-leaf path so far, or ours is better.
-                            parent_record.longest_subtree_path_root = frame_head;
+                            parent_record.longest_subtree_path_root = record.longest_subtree_path_root;
                             parent_record.longest_subtree_path_length = record.longest_subtree_path_length;
                         }
                     }
@@ -873,7 +875,9 @@ pair<vector<pair<size_t, vector<handle_t>>>, unordered_map<handle_t, handle_t>> 
                                 cerr << "\t\t\t\tNonempty path to distinct other leaf" << endl;
 #endif
                             
-                                // There's a nonempty path to another leaf (and we aren't just a point).
+                                // There's a nonempty path to another leaf,
+                                // other than the furthest one (and we aren't
+                                // just a point).
                                 // Trace the actual longest path from root to leaf and add it on
                                 path.push_back(deepest_child_edge[record.longest_subtree_path_root]);
                                 auto path_trace_it = deepest_child_edge.find(find(path.back()));

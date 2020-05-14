@@ -21,6 +21,7 @@
 #include "hash_map.hpp"
 #include "snarls.hpp"
 #include "multipath_alignment.hpp"
+#include "statistics.hpp"
 
 
 using namespace std;
@@ -123,6 +124,10 @@ namespace vg {
         int32_t optimal_score_on_genome(const multipath_alignment_t& multipath_aln, VG& graph);
         
         // TODO: make a local subalignment optimal score function (main obstacle is scoring partial subpaths)
+        
+        /// Returns the sum of the log-likelihoods of all of the alignments expressed in a multipath
+        /// alignment, given a
+        double read_log_likelihood(const multipath_alignment_t& multipath_aln, double log_base);
         
     private:
         
