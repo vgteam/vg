@@ -20,7 +20,7 @@ void GraphCaller::call_top_level_snarls(int ploidy, bool recurse_on_fail) {
     size_t thread_count = get_thread_count();
     vector<vector<const Snarl*>> snarl_queue(thread_count);
 
-    // Run the snarl cal#pragma omp critical (snarl_queue)ler on a snarl, and queue up the children if it fails
+    // Run the snarl caller on a snarl, and queue up the children if it fails
     auto process_snarl = [&](const Snarl* snarl) {
 
 #ifdef debug
