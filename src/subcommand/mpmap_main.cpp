@@ -144,6 +144,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_NO_CLUSTER 1019
     #define OPT_NO_GREEDY_MEM_RESTARTS 1020
     #define OPT_GREEDY_MEM_RESTART_MAX_LCP 1021
+    #define OPT_SHORT_MEM_FILTER_FACTOR 1022
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -195,6 +196,8 @@ int main_mpmap(int argc, char** argv) {
     int greedy_restart_max_lcp = 25;
     int greedy_restart_max_count = 2;
     bool greedy_restart_assume_substitution = true;
+    bool filter_short_mems = false;
+    double short_mem_filter_factor = 0.45;
     int reseed_length = 28;
     int reseed_length_arg = numeric_limits<int>::min();
     double reseed_diff = 0.45;
@@ -268,7 +271,7 @@ int main_mpmap(int argc, char** argv) {
     
     // logging and warning
     bool suppress_progress = false;
-    int fragment_length_warning_factor = 50;
+    int fragment_length_warning_factor = 25;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -317,6 +320,7 @@ int main_mpmap(int argc, char** argv) {
             {"strip-count", no_argument, 0, OPT_STRIP_COUNT},
             {"no-greedy-restart", no_argument, 0, OPT_NO_GREEDY_MEM_RESTARTS},
             {"greedy-max-lcp", required_argument, 0, OPT_GREEDY_MEM_RESTART_MAX_LCP},
+            {"filter-factor", required_argument, 0, OPT_SHORT_MEM_FILTER_FACTOR},
             {"hit-max", required_argument, 0, 'c'},
             {"hard-hit-mult", required_argument, 0, OPT_HARD_HIT_MAX_MULTIPLIER},
             {"approx-exp", required_argument, 0, OPT_APPROX_EXP},
@@ -578,6 +582,11 @@ int main_mpmap(int argc, char** argv) {
                 use_greedy_mem_restarts = false;
                 break;
                 
+            case OPT_SHORT_MEM_FILTER_FACTOR:
+                short_mem_filter_factor = parse<double>(optarg);
+                filter_short_mems = true;
+                break;
+                
             case OPT_GREEDY_MEM_RESTART_MAX_LCP:
                 greedy_restart_max_lcp = parse<int>(optarg);
                 break;
@@ -746,6 +755,11 @@ int main_mpmap(int argc, char** argv) {
         pessimistic_tail_gap_multiplier = 3.0;
         // we won't assume that errors are likely to be substitutions
         greedy_restart_assume_substitution = false;
+        // quality scores express errors well for these reads and they slow down dozeu
+        qual_adjusted = false;
+        // we generate many short MEMs that slow us down on high error reads, so we need
+        // to filter them down to stay performant
+        filter_short_mems = true;
     }
     
     if (read_length == "long") {
@@ -1125,6 +1139,10 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (filter_short_mems && (short_mem_filter_factor < 0.0 || short_mem_filter_factor > 1.0)) {
+        cerr << "error:[vg mpmap] Short MEM filtraction factor (--filter-factor) set to " << short_mem_filter_factor << ", must set to a number between 0.0 and 1.0." << endl;
+        exit(1);
+    }
     
     if ((match_score_arg != std::numeric_limits<int>::min() || mismatch_score_arg != std::numeric_limits<int>::min()) && !matrix_file_name.empty())  {
         cerr << "error:[vg mpmap] Cannot choose custom scoring matrix (-w) and custom match/mismatch score (-q/-z) simultaneously." << endl;
@@ -1410,6 +1428,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.greedy_restart_max_count = greedy_restart_max_count;
     multipath_mapper.greedy_restart_max_lcp = greedy_restart_max_lcp;
     multipath_mapper.use_stripped_match_alg = use_stripped_match_alg;
+    multipath_mapper.filter_short_mems = filter_short_mems;
+    multipath_mapper.short_mem_filter_factor = short_mem_filter_factor;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
     multipath_mapper.use_approx_sub_mem_count = false;

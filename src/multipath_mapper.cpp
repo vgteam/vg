@@ -382,7 +382,7 @@ namespace vg {
         return clusterer->pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
                                        alt_anchors_1, alt_anchors_2,
                                        fragment_length_distr.mean(),
-                                       ceil(10.0 * fragment_length_distr.stdev()));
+                                       ceil(10.0 * fragment_length_distr.std_dev()));
     }
     
     void MultipathMapper::align_to_cluster_graphs(const Alignment& alignment,
@@ -563,7 +563,7 @@ namespace vg {
         if (fragment_length_distr.is_finalized()) {
             cerr << "finalized read distribution with " << fragment_length_distr.max_sample_size() << " measurements on read pair " << alignment1.name() << ", " << alignment2.name() << endl;
             cerr << "mean: " << fragment_length_distr.mean() << endl;
-            cerr << "std dev: " << fragment_length_distr.stdev() << endl;
+            cerr << "std dev: " << fragment_length_distr.std_dev() << endl;
             cerr << "ambiguous buffer contains pairs:" << endl;
             for (pair<Alignment,Alignment>& aln_pair : ambiguous_pair_buffer) {
                 cerr << "\t" << aln_pair.first.name() << ", " << aln_pair.second.name() << endl;
@@ -610,8 +610,8 @@ namespace vg {
         
         // pull out the graph around the position(s) we jumped to
         bdsg::HashGraph rescue_graph;
-        vector<size_t> backward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev());
-        vector<size_t> forward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev() + other_aln.sequence().size());
+        vector<size_t> backward_dist(jump_positions.size(), 6 * fragment_length_distr.std_dev());
+        vector<size_t> forward_dist(jump_positions.size(), 6 * fragment_length_distr.std_dev() + other_aln.sequence().size());
         algorithms::extract_containing_graph(xindex, &rescue_graph, jump_positions, backward_dist, forward_dist,
                                              num_alt_alns > 1 ? reversing_walk_length : 0);
         
@@ -953,8 +953,8 @@ namespace vg {
     }
     
     bool MultipathMapper::is_consistent(int64_t distance) const {
-        return (distance < fragment_length_distr.mean() + 10.0 * fragment_length_distr.stdev()
-                && distance > fragment_length_distr.mean() - 10.0 * fragment_length_distr.stdev());
+        return (distance < fragment_length_distr.mean() + 10.0 * fragment_length_distr.std_dev()
+                && distance > fragment_length_distr.mean() - 10.0 * fragment_length_distr.std_dev());
     }
     
     bool MultipathMapper::are_consistent(const MultipathAlignment& multipath_aln_1,
@@ -1884,7 +1884,7 @@ namespace vg {
         
         // Compute the fragment length distribution.
         // TODO: make this machine-readable instead of a copy-able string.
-        string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.stdev());
+        string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.std_dev());
         
         for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
             // add pair names to connect the paired reads
@@ -4200,7 +4200,7 @@ namespace vg {
             
     double MultipathMapper::fragment_length_log_likelihood(int64_t length) const {
         double dev = length - fragment_length_distr.mean();
-        return -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
+        return -dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev());
     }
     
     void MultipathMapper::set_automatic_min_clustering_length(double random_mem_probability) {
