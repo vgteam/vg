@@ -98,9 +98,12 @@ namespace vg {
             
             SECTION( "The top-level NetGraph has 3 nodes" ) {
                 unordered_set<handle_t> nodes;
+                size_t node_count = 0;
                 net_graph.for_each_handle([&](const handle_t& handle) {
                     nodes.insert(handle);
+                    node_count++;
                 });
+                REQUIRE(nodes.size() == node_count);
                 
                 REQUIRE(nodes.size() == 3);
                 
@@ -195,9 +198,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -234,9 +240,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -345,9 +354,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -384,9 +396,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -496,9 +511,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -592,9 +610,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -631,9 +652,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 3 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 3);
                     
@@ -889,9 +913,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 4 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 4);
                     
@@ -949,9 +976,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 4 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 4);
                     
@@ -1116,9 +1146,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 5 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 5);
                     
@@ -1133,9 +1166,12 @@ namespace vg {
                 
                 SECTION( "The top-level NetGraph has 5 nodes" ) {
                     unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
                     net_graph.for_each_handle([&](const handle_t& handle) {
                         nodes.insert(handle);
+                        node_count++;
                     });
+                    REQUIRE(nodes.size() == node_count);
                     
                     REQUIRE(nodes.size() == 5);
                     
