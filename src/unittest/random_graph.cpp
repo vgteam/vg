@@ -243,7 +243,10 @@ vector<vector<size_t>> random_adjacency_list(size_t node_count, size_t edge_coun
     
         // Record the edge in both directions
         to_return[a].push_back(b);
-        to_return[b].push_back(a);
+        if (a != b) {
+            // Unless it's a self loop
+            to_return[b].push_back(a);
+        }
     }
     
     return to_return;

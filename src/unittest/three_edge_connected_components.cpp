@@ -3,14 +3,17 @@
 /// Unit tests for the three edge connected components algorithms
 ///
 
-#include <iostream>
-#include <vector>
-#include "../algorithms/three_edge_connected_components.hpp"
 #include "catch.hpp"
+#include "random_graph.hpp"
+
+#include "../algorithms/three_edge_connected_components.hpp"
 
 #include <structures/union_find.hpp>
 
+#include <iostream>
+#include <vector>
 #include <map>
+
 
 
 namespace vg {
@@ -500,6 +503,82 @@ TEST_CASE("Tsin 2014 handles a graph with self loops and extra-edge triangles", 
     
     // Only two things should merge.
     REQUIRE(components.all_groups().size() == 6);
+}
+
+#define debug
+TEST_CASE("Tsin 2014 works correctly on random graphs", "[3ecc][algorithms]") {
+    
+    for (size_t node_count = 2; node_count <= 20; node_count++) {
+        for (size_t edge_count = 0; edge_count <= node_count * 3; edge_count += node_count/2) {
+        
+            for (size_t repeat = 0; repeat < 10; repeat++) {
+        
+        
+#ifdef debug
+                cerr << "Making random graph with " << node_count << " nodes and " << edge_count << " edges" << endl;
+#endif
+            
+                // Make a random graph
+                adjacencies = random_adjacency_list(node_count, edge_count);
+                components = structures::UnionFind(adjacencies.size(), true);
+            
+#ifdef debug
+                cerr << "Finding 3 edge connected components..." << endl;
+#endif
+            
+                // Find 3ecc with Tsin 2014
+                algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
+                
+#ifdef debug
+                cerr << "Finding true 3 edge connected components..." << endl;
+#endif
+                
+                // Find 3ecc manually
+                structures::UnionFind truth(brute_force_3ecc(adjacencies.size(), for_each_connected_node));
+                
+                // Check
+                bool correct = uf_equal(components, truth);
+                
+                if (!correct) {
+                    // Dump instance
+                    
+#ifdef debug
+                }
+                {
+#endif
+                    
+                    cerr << "Graph:" << endl;
+                    for (size_t i = 0; i < adjacencies.size(); i++) {
+                        cerr << i << ":";
+                        for (auto& j : adjacencies[i]) {
+                            cerr << " " << j;
+                        }
+                        cerr << endl;
+                    }
+
+                    cerr << "Our algorithm:" << endl;
+                    for (auto& group : components.all_groups()) {
+                        cerr << "Group:";
+                        for (auto& member : group) {
+                            cerr << " " << member;
+                        }
+                        cerr << endl;
+                    }
+                    
+                    cerr << "Truth:" << endl;
+                    for (auto& group : truth.all_groups()) {
+                        cerr << "Group:";
+                        for (auto& member : group) {
+                            cerr << " " << member;
+                        }
+                        cerr << endl;
+                    }
+                }
+                
+                REQUIRE(correct);
+            }
+        }
+    }
 }
 
 }
