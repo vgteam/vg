@@ -181,12 +181,12 @@ inline void parse_gaf_record(const std::string& gaf_line, GafRecord& gaf_record)
         getline(in, buffer, '\t');
         if (in && !buffer.empty()) {
             size_t col1 = buffer.find_first_of(':');
-            size_t col2 = buffer.find_first_of(':', col1 + 2);
+            size_t col2 = buffer.find_first_of(':', col1 + 1);
             if (buffer.length() < 5 || col1 == std::string::npos || col2 == std::string::npos) {
                 throw std::runtime_error("Unable to parse optional tag " + buffer);
             }
             std::string tag = buffer.substr(0, col1);
-            std::string type = buffer.substr(col1, col2);
+            std::string type = buffer.substr(col1 + 1, col2 - col1 - 1);
             std::string val = buffer.substr(col2 + 1);
             if (gaf_record.opt_fields.count(tag)) {
                 throw std::runtime_error("Duplicate optional field found: " + tag);
@@ -194,6 +194,7 @@ inline void parse_gaf_record(const std::string& gaf_line, GafRecord& gaf_record)
             gaf_record.opt_fields[tag] = make_pair(type, val);
         }
     } while (bool(in));
+
 }
 
 /*

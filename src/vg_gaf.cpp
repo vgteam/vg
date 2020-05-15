@@ -41,7 +41,7 @@ gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool
         uint64_t end_position = 0;
         //10 int Number of residue matches
         gaf.matches = 0;
-        gaf.path.resize(aln.path().mapping_size());
+        gaf.path.reserve(aln.path().mapping_size());
         string cs_cigar_str;
         size_t running_match_length = 0;
         for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
@@ -90,22 +90,40 @@ gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool
                         }
                     }
                 }
-                offset += edit.to_length();                        
+                offset += edit.from_length();
             }
+
+            bool skip_step = false;
+            if (i < aln.path().mapping_size() - 1 && offset != graph.get_length(handle)) {
+                if (mapping.position().node_id() != aln.path().mapping(i + 1).position().node_id() ||
+                    mapping.position().is_reverse() != aln.path().mapping(i + 1).position().is_reverse()) {
+                    // we are hopping off the middle of a node, need to gobble it up with a deletion
+                    cs_cigar_str += "-" + node_seq.substr(offset);
+                } else {
+                    // we have a duplicate node mapping.  vg map actually produces these sometimes
+                    // where an insert gets its own mapping even though its from_length is 0
+                    // the gaf cigar format assumes nodes are fully covered, so we squish it out.
+                    skip_step = true;
+                }
+            }
+            
             //6 string Path matching /([><][^\s><]+(:\d+-\d+)?)+|([^\s><]+)/
-            auto& position = mapping.position();
-            gafkluge::GafStep& step = gaf.path[i];
-            step.name = std::to_string(position.node_id());
-            step.is_stable = false;
-            step.is_reverse = position.is_reverse();
-            step.is_interval = false;
-            uint64_t node_length = graph.get_length(graph.get_handle(position.node_id()));
-            gaf.path_length += node_length;
-            if (i == 0) {
-                gaf.path_start = position.offset();
-            }
-            if (i == aln.path().mapping_size()-1) {
-                gaf.path_end = gaf.path_length - (node_length - mapping_from_length(aln.path().mapping(i)));
+            if (!skip_step) {
+                auto& position = mapping.position();
+                gafkluge::GafStep step;
+                step.name = std::to_string(position.node_id());
+                step.is_stable = false;
+                step.is_reverse = position.is_reverse();
+                step.is_interval = false;
+                uint64_t node_length = graph.get_length(graph.get_handle(position.node_id()));
+                gaf.path_length += node_length;
+                if (i == 0) {
+                    gaf.path_start = position.offset();
+                }
+                if (i == aln.path().mapping_size()-1) {
+                    gaf.path_end = gaf.path_length - (node_length - mapping_from_length(aln.path().mapping(i)));
+                }
+                gaf.path.push_back(std::move(step));
             }
         }
         if (cs_cigar && running_match_length > 0) {
@@ -150,85 +168,86 @@ Alignment gaf2aln(const HandleGraph& graph, const gafkluge::GafRecord& gaf) {
         // We let 255 be equivalent to 0, which isn't great
         aln.set_mapping_quality(gaf.mapq);
     }
-    
-    size_t cur_mapping = 0;
-    int64_t cur_offset = gaf.path_start;
-    handle_t cur_handle = graph.get_handle(aln.path().mapping(cur_mapping).position().node_id(),
-                                           aln.path().mapping(cur_mapping).position().is_reverse());
-    size_t cur_len = graph.get_length(cur_handle);
-    string& sequence = *aln.mutable_sequence();
-    // Use the CS cigar string to add Edits into our Path, as well as set the sequence
-    gafkluge::for_each_cs(gaf, [&] (const string& cs_cigar) {
-            assert(cur_mapping < aln.path().mapping_size());
-            assert(cur_offset < cur_len);
-            
-            if (cs_cigar[0] == ':') {
-                int64_t match_len = stol(cs_cigar.substr(1));
-                while (match_len > 0) {
-                    int64_t current_match = std::min(match_len, (int64_t)graph.get_length(cur_handle) - cur_offset);
+
+    if (!gaf.path.empty()) {
+        size_t cur_mapping = 0;
+        int64_t cur_offset = gaf.path_start;
+        handle_t cur_handle = graph.get_handle(aln.path().mapping(cur_mapping).position().node_id(),
+                                               aln.path().mapping(cur_mapping).position().is_reverse());
+        size_t cur_len = graph.get_length(cur_handle);
+        string& sequence = *aln.mutable_sequence();
+        // Use the CS cigar string to add Edits into our Path, as well as set the sequence
+        gafkluge::for_each_cs(gaf, [&] (const string& cs_cigar) {
+                assert(cur_offset < cur_len);
+
+                if (cs_cigar[0] == ':') {
+                    int64_t match_len = stol(cs_cigar.substr(1));
+                    while (match_len > 0) {
+                        int64_t current_match = std::min(match_len, (int64_t)graph.get_length(cur_handle) - cur_offset);
+                        Edit* edit = aln.mutable_path()->mutable_mapping(cur_mapping)->add_edit();
+                        edit->set_from_length(current_match);
+                        edit->set_to_length(current_match);
+                        sequence += graph.get_sequence(cur_handle).substr(cur_offset, current_match);
+                        match_len -= current_match;
+                        cur_offset += current_match;
+                        if (match_len > 0) {
+                            assert(cur_mapping < aln.path().mapping_size() - 1);
+                            ++cur_mapping;
+                            cur_offset = 0;
+                            cur_handle = graph.get_handle(aln.path().mapping(cur_mapping).position().node_id(),
+                                                          aln.path().mapping(cur_mapping).position().is_reverse());
+                            cur_len = graph.get_length(cur_handle);
+                        }
+                    }
+                } else if (cs_cigar[0] == '+') {
+                    size_t tgt_mapping = cur_mapping;
+                    // left-align insertions to try to be more consistent with vg
+                    if (cur_offset == 0 && cur_mapping > 0 && (!aln.path().mapping(cur_mapping - 1).position().is_reverse()
+                                                               || cur_mapping == aln.path().mapping_size())) {
+                        --tgt_mapping;
+                    }
+                    Edit* edit = aln.mutable_path()->mutable_mapping(tgt_mapping)->add_edit();
+                    edit->set_from_length(0);
+                    edit->set_to_length(cs_cigar.length() - 1);
+                    edit->set_sequence(cs_cigar.substr(1));
+                    sequence += edit->sequence();
+                } else if (cs_cigar[0] == '-') {
+                    string del = cs_cigar.substr(1);
+                    assert(del.length() <= graph.get_length(cur_handle) - cur_offset);
+                    assert(del == graph.get_sequence(cur_handle).substr(cur_offset, del.length()));
                     Edit* edit = aln.mutable_path()->mutable_mapping(cur_mapping)->add_edit();
-                    edit->set_from_length(current_match);
-                    edit->set_to_length(current_match);
-                    sequence += graph.get_sequence(cur_handle).substr(cur_offset, current_match);
-                    match_len -= current_match;
-                    cur_offset += current_match;
-                    if (match_len > 0) {
-                        assert(cur_mapping < aln.path().mapping_size() - 1);
-                        ++cur_mapping;
-                        cur_offset = 0;
+                    edit->set_to_length(0);
+                    edit->set_from_length(del.length());
+                    cur_offset += del.length();
+                    // unlike matches, we don't allow deletions to span multiple nodes
+                    assert(cur_offset <= graph.get_length(cur_handle));
+                } else if (cs_cigar[0] == '*') {
+                    assert(cs_cigar.length() == 3);
+                    char from = cs_cigar[1];
+                    char to = cs_cigar[2];
+                    assert(graph.get_sequence(cur_handle)[cur_offset] == from);
+                    Edit* edit = aln.mutable_path()->mutable_mapping(cur_mapping)->add_edit();
+                    // todo: support multibase snps
+                    edit->set_from_length(1);
+                    edit->set_to_length(1);
+                    edit->set_sequence(string(1, to));
+                    sequence += edit->sequence();
+                    ++cur_offset;
+                }
+            
+                // advance to the next mapping if we've pushed the offset past the current node
+                assert(cur_offset <= cur_len);
+                if (cur_offset == cur_len) {
+                    ++cur_mapping;
+                    cur_offset = 0;
+                    if (cur_mapping < aln.path().mapping_size()) {
                         cur_handle = graph.get_handle(aln.path().mapping(cur_mapping).position().node_id(),
                                                       aln.path().mapping(cur_mapping).position().is_reverse());
                         cur_len = graph.get_length(cur_handle);
                     }
                 }
-            } else if (cs_cigar[0] == '+') {
-                size_t tgt_mapping = cur_mapping;
-                // left-align insertions to try to be more consistent with vg
-                if (cur_offset == 0 && cur_mapping > 0 && !aln.path().mapping(cur_mapping - 1).position().is_reverse()) {
-                    --tgt_mapping;
-                }
-                Edit* edit = aln.mutable_path()->mutable_mapping(tgt_mapping)->add_edit();
-                edit->set_from_length(0);
-                edit->set_to_length(cs_cigar.length() - 1);
-                edit->set_sequence(cs_cigar.substr(1));
-                sequence += edit->sequence();
-            } else if (cs_cigar[0] == '-') {
-                string del = cs_cigar.substr(1);
-                assert(del.length() <= graph.get_length(cur_handle) - cur_offset);
-                assert(del == graph.get_sequence(cur_handle).substr(cur_offset, del.length()));
-                Edit* edit = aln.mutable_path()->mutable_mapping(cur_mapping)->add_edit();
-                edit->set_to_length(0);
-                edit->set_from_length(del.length());
-                cur_offset += del.length();
-                // unlike matches, we don't allow deletions to span multiple nodes
-                assert(cur_offset <= graph.get_length(cur_handle));
-            } else if (cs_cigar[0] == '*') {
-                assert(cs_cigar.length() == 3);
-                char from = cs_cigar[1];
-                char to = cs_cigar[2];
-                assert(graph.get_sequence(cur_handle)[cur_offset] == from);
-                Edit* edit = aln.mutable_path()->mutable_mapping(cur_mapping)->add_edit();
-                // todo: support multibase snps
-                edit->set_from_length(1);
-                edit->set_to_length(1);
-                edit->set_sequence(string(1, to));
-                sequence += edit->sequence();
-                ++cur_offset;
-            }
-            
-            // advance to the next mapping if we've pushed the offset past the current node
-            assert(cur_offset <= cur_len);
-            if (cur_offset == cur_len) {
-                ++cur_mapping;
-                cur_offset = 0;
-                if (cur_mapping < aln.path().mapping_size()) {
-                    cur_handle = graph.get_handle(aln.path().mapping(cur_mapping).position().node_id(),
-                                                  aln.path().mapping(cur_mapping).position().is_reverse());
-                    cur_len = graph.get_length(cur_handle);
-                }
-            }
-        });
-
+            });
+    }
     return aln;
 }
 
