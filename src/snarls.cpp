@@ -2071,11 +2071,24 @@ bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& itera
     list<handle_t> queue;
     unordered_set<id_t> queued;
         
+    // We define a function to queue up nodes we could visit next
+    auto see_node = [&](const handle_t& other) {
+        // Whenever we see a new node, add it to the queue
+        auto found = queued.find(graph->get_id(other));
+        if (found == queued.end()) {
+
+#ifdef debug
+            cerr << "\t\t\tFound new contained node " << graph->get_id(other) << (graph->get_is_reverse(other) ? "-" : "+") << endl;
+#endif
+        
+            queue.push_back(other);
+            queued.emplace_hint(found, graph->get_id(other));
+        }
+    };
+        
     // Start at both the start and the end of the snarl.
-    queue.push_back(start);
-    queued.insert(graph->get_id(start));
-    queue.push_back(end);
-    queued.insert(graph->get_id(end));
+    see_node(start);
+    see_node(end);
         
     while (!queue.empty()) {
         handle_t here = queue.front();
@@ -2133,26 +2146,12 @@ bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& itera
                 
         } else {
 #ifdef debug
-            cerr << "\t\tSkip chain end but queue start at " << graph->get_id(chain_end_rewrites.at(here)) << (graph->get_is_reverse(chain_end_rewrites.at(here)) ? "-" : "+") << endl;
+            cerr << "\t\tSkip chain end but see start at " << graph->get_id(chain_end_rewrites.at(here)) << (graph->get_is_reverse(chain_end_rewrites.at(here)) ? "-" : "+") << endl;
 #endif
-            // If we reach a chain end, make sure to queue up the chain start.
+            // If we reach a chain end, make sure to eventually visit the chain start.
             // There might not be any other edges to it.
-            queue.push_back(chain_end_rewrites.at(here));
+            see_node(chain_end_rewrites.at(here));
         }
-            
-        // We define a function to queue up nodes we could visit next
-        auto handle_edge = [&](const handle_t& other) {
-            // Whenever we see a new node, add it to the queue
-            if (!queued.count(graph->get_id(other))) {
-
-#ifdef debug
-                cerr << "\t\t\tFound new contained node " << graph->get_id(other) << (graph->get_is_reverse(other) ? "-" : "+") << endl;
-#endif
-            
-                queue.push_back(other);
-                queued.insert(graph->get_id(other));
-            }
-        };
             
         // We already have flipped any backward heads or tails frontward. So
         // we don't need to check if the backward version of us is in
@@ -2168,7 +2167,7 @@ bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& itera
 #endif
                 
             // We have normal graph to our right and not the exterior of this snarl or the interior of a child.
-            graph->follow_edges(here, false, handle_edge);
+            graph->follow_edges(here, false, see_node);
         }
             
         if ((start != end && here != start && here != graph->flip(end)) ||
@@ -2179,7 +2178,7 @@ bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& itera
 #endif
              
             // We have normal graph to our left.
-            graph->follow_edges(here, true, handle_edge);
+            graph->follow_edges(here, true, see_node);
         }
             
         if (chain_end_rewrites.count(here)) {
@@ -2189,7 +2188,7 @@ bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& itera
 #endif
         
             // We need to look right off the reverse head of this child snarl.
-            graph->follow_edges(chain_end_rewrites.at(here), false, handle_edge);
+            graph->follow_edges(chain_end_rewrites.at(here), false, see_node);
         }
             
         if (chain_ends_by_start.count(here)) {
@@ -2199,7 +2198,7 @@ bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& itera
 #endif
         
             // We need to look right off the (reverse) tail of this child snarl.
-            graph->follow_edges(chain_ends_by_start.at(here), false, handle_edge);
+            graph->follow_edges(chain_ends_by_start.at(here), false, see_node);
         }
     }
     
