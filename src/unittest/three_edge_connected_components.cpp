@@ -505,7 +505,6 @@ TEST_CASE("Tsin 2014 handles a graph with self loops and extra-edge triangles", 
     REQUIRE(components.all_groups().size() == 6);
 }
 
-#define debug
 TEST_CASE("Tsin 2014 works correctly on random graphs", "[3ecc][algorithms]") {
     
     for (size_t node_count = 2; node_count <= 20; node_count++) {
