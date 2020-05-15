@@ -1494,13 +1494,19 @@ vector<Visit> SnarlManager::visits_left(const Visit& visit, const HandleGraph& g
     return to_return;
         
 }
-    
+   
 NetGraph::NetGraph(const Visit& start, const Visit& end, const HandleGraph* graph, bool use_internal_connectivity) :
     graph(graph),
     start(graph->get_handle(start.node_id(), start.backward())),
     end(graph->get_handle(end.node_id(), end.backward())),
     use_internal_connectivity(use_internal_connectivity) {
     // Nothing to do!
+    
+#ifdef debug
+    cerr << "Creating net graph of " << graph->get_id(this->start) << (graph->get_is_reverse(this->start) ? "-" : "+")
+        << "->" << graph->get_id(this->end) << (graph->get_is_reverse(this->end) ? "-" : "+") << endl;
+#endif
+    
 }
     
 NetGraph::NetGraph(const Visit& start, const Visit& end,
@@ -1538,6 +1544,10 @@ void NetGraph::add_unary_child(const Snarl* unary) {
         
     // Save it as a unary snarl
     unary_boundaries.insert(snarl_bound);
+    
+#ifdef debug
+    cerr << "\tAdd unary child snarl on " << graph->get_id(snarl_bound) << (graph->get_is_reverse(snarl_bound) ? "-" : "+") << endl;
+#endif
         
     if (use_internal_connectivity) {
         // Save its connectivity
@@ -1562,6 +1572,11 @@ void NetGraph::add_chain_child(const Chain& chain) {
     // Save the links that let us cross the chain.
     chain_ends_by_start[chain_start_handle] = chain_end_handle;
     chain_end_rewrites[graph->flip(chain_end_handle)] = graph->flip(chain_start_handle);
+    
+#ifdef debug
+    cerr << "\tAdd child chain " << graph->get_id(chain_start_handle) << (graph->get_is_reverse(chain_start_handle) ? "-" : "+")
+        << " -> " << graph->get_id(chain_end_handle) << (graph->get_is_reverse(chain_end_handle) ? "-" : "+") << endl;
+#endif
         
     if (use_internal_connectivity) {
         
@@ -1674,7 +1689,8 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
     // Now we do the real work.
         
 #ifdef debug
-    cerr << "Look for edges on " << graph->get_id(handle) << " " << graph->get_is_reverse(handle)
+    cerr << "Look for edges in net graph of " << graph->get_id(start) << (graph->get_is_reverse(start) ? "-" : "+")
+        << "->" << graph->get_id(end) << (graph->get_is_reverse(end) ? "-" : "+") << " on " << graph->get_id(handle) << (graph->get_is_reverse(handle) ? "-" : "+")
          << " going " << (go_left ? "left" : "right") << endl;
 #endif
         
@@ -1691,28 +1707,38 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
         handle_t real_handle = other;
         if (chain_end_rewrites.count(other)) {
             // We're reading into the end of a chain.
+            
+#ifdef debug
+            cerr << "\tRead into chain end; warp to start" << endl;
+#endif
+            
             // Warp to the start.
             real_handle = chain_end_rewrites.at(other);
         } else if (chain_end_rewrites.count(graph->flip(other))) {
             // We're backing into the end of a chain.
+            
+#ifdef debug
+            cerr << "\tBack into chain end; warp to start" << endl;
+#endif
+            
             // Warp to the start.
             real_handle = graph->flip(chain_end_rewrites.at(graph->flip(other)));
         }
             
 #ifdef debug
-        cerr << "Found edge " << (go_left ? "from " : "to ") << graph->get_id(other) << " " << graph->get_is_reverse(other) << endl;
+        cerr << "\tFound edge " << (go_left ? "from " : "to ") << graph->get_id(other) << (graph->get_is_reverse(other) ? "-" : "+") << endl;
 #endif
             
         if (!seen.count(real_handle)) {
             seen.insert(real_handle);
 #ifdef debug
-            cerr << "Report as " << graph->get_id(real_handle) << " " << graph->get_is_reverse(real_handle) << endl;
+            cerr << "\t\tReport as " << graph->get_id(real_handle) << (graph->get_is_reverse(real_handle) ? "-" : "+") << endl;
 #endif
                 
             return iteratee(real_handle);
         } else {
 #ifdef debug
-            cerr << "Edge has been seen" << endl;
+            cerr << "\t\tEdge has been seen" << endl;
 #endif
             return true;
         }
@@ -1724,10 +1750,18 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
         handle_t real_handle = other;
         if (chain_end_rewrites.count(other)) {
             // We're reading into the end of a chain.
+#ifdef debug
+        cerr << "\tRead into chain end; warp to start" << endl;
+#endif
             // Warp to the start.
             real_handle = chain_end_rewrites.at(other);
         } else if (chain_end_rewrites.count(graph->flip(other))) {
             // We're backing into the end of a chain.
+            
+#ifdef debug
+            cerr << "\tBack into chain end; warp to start" << endl;
+#endif
+            
             // Warp to the start.
             real_handle = graph->flip(chain_end_rewrites.at(graph->flip(other)));
         }
@@ -1735,19 +1769,19 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
         real_handle = graph->flip(real_handle);
             
 #ifdef debug
-        cerr << "Found edge " << (go_left ? "from " : "to ") << graph->get_id(other) << " " << graph->get_is_reverse(other) << endl;
+        cerr << "\tFound edge " << (go_left ? "from " : "to ") << graph->get_id(other) << (graph->get_is_reverse(other) ? "-" : "+") << endl;
 #endif
             
         if (!seen.count(real_handle)) {
             seen.insert(real_handle);
 #ifdef debug
-            cerr << "Report as " << graph->get_id(real_handle) << " " << graph->get_is_reverse(real_handle) << endl;
+            cerr << "\t\tReport as " << graph->get_id(real_handle) << (graph->get_is_reverse(real_handle) ? "-" : "+") << endl;
 #endif
                 
             return iteratee(real_handle);
         } else {
 #ifdef debug
-            cerr << "Edge has been seen" << endl;
+            cerr << "\t\tEdge has been seen" << endl;
 #endif
             return true;
         }
@@ -1762,7 +1796,7 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
         //If start and end are the same, all edges are within the net graph
             
 #ifdef debug
-        cerr << "We are at the bound of the graph so don't say anything" << endl;
+        cerr << "\tWe are at the bound of the graph so don't say anything" << endl;
 #endif
         return true;
     }
@@ -1771,7 +1805,7 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
         // If we have an associated chain end for this start, we have to use chain connectivity to decide what to do.
             
 #ifdef debug
-        cerr << "We are a chain node" << endl;
+        cerr << "\tWe are a chain node" << endl;
 #endif
             
         bool connected_start_start;
@@ -1780,14 +1814,14 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
         tie(connected_start_start, connected_end_end, connected_start_end) = connectivity.at(graph->get_id(handle));
             
 #ifdef debug
-        cerr << "Connectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
+        cerr << "\t\tConnectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
 #endif
             
         if (chain_ends_by_start.count(handle)) {
             // We visit the chain in its forward orientation
                 
 #ifdef debug
-            cerr << "We are visiting the chain forward" << endl;
+            cerr << "\t\tWe are visiting the chain forward" << endl;
 #endif
                 
             if (go_left) {
@@ -1795,13 +1829,13 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
                 // So we care about end-end connectivity (how could we have left our end?)
                     
 #ifdef debug
-                cerr << "We are going left from a forward chain" << endl;
+                cerr << "\t\t\tWe are going left from a forward chain" << endl;
 #endif
                     
                 if (connected_end_end) {
                     
 #ifdef debug
-                    cerr << "We can reverse and go back out the end" << endl;
+                    cerr << "\t\t\t\tWe can reverse and go back out the end" << endl;
 #endif
                     
                     // Anything after us but in its reverse orientation could be our predecessor
@@ -1815,7 +1849,7 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
                 if (connected_start_end) {
                     
 #ifdef debug
-                    cerr << "We can continue through and go out the start" << endl;
+                    cerr << "\t\t\t\tWe can continue through and go out the start" << endl;
 #endif
                     
                     // Look left out of the start of the chain (which is the handle we really are on)
@@ -1829,13 +1863,13 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
                 // We want our successors
                     
 #ifdef debug
-                cerr << "We are going right from a forward chain" << endl;
+                cerr << "\t\t\tWe are going right from a forward chain" << endl;
 #endif
                     
                 if (connected_start_start) {
                     
 #ifdef debug
-                    cerr << "We can reverse and go back out the start" << endl;
+                    cerr << "\t\t\t\tWe can reverse and go back out the start" << endl;
 #endif
                     
                     // Anything before us but in its reverse orientation could be our successor
@@ -1849,7 +1883,7 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
                 if (connected_start_end) {
                     
 #ifdef debug
-                    cerr << "We can continue through and go out the end" << endl;
+                    cerr << "\t\t\t\tWe can continue through and go out the end" << endl;
 #endif
                     
                     // Look right out of the end of the chain (which is the handle we really are on)
@@ -1866,20 +1900,20 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
             // Just flip the cases of above and reverse all the emitted orientations.
                 
 #ifdef debug
-            cerr << "We are visiting the chain in reverse" << endl;
+            cerr << "\t\tWe are visiting the chain in reverse" << endl;
 #endif
 
             if (go_left) {
                 // We want predecessors of the reverse version (successors, but flipped)
                     
 #ifdef debug
-                cerr << "We are going left from a reverse chain" << endl;
+                cerr << "\t\t\tWe are going left from a reverse chain" << endl;
 #endif
                     
                 if (connected_start_start) {
                     
 #ifdef debug
-                    cerr << "We can reverse and go back out the start" << endl;
+                    cerr << "\t\t\t\tWe can reverse and go back out the start" << endl;
 #endif
                     
                     if (!graph->follow_edges(handle, false, flip_and_handle_edge)) {
@@ -1891,7 +1925,7 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
                 if (connected_start_end) {
                     
 #ifdef debug
-                    cerr << "We can continue through and go out the end" << endl;
+                    cerr << "\t\t\t\tWe can continue through and go out the end" << endl;
 #endif
                     
                     if (!graph->follow_edges(chain_ends_by_start.at(graph->flip(handle)), false, flip_and_handle_edge)) {
@@ -1904,13 +1938,13 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
                 // We want successors of the reverse version (predecessors, but flipped)
                     
 #ifdef debug
-                cerr << "We are going right from a reverse chain" << endl;
+                cerr << "\t\t\tWe are going right from a reverse chain" << endl;
 #endif
                     
                 if (connected_end_end) {
                     
 #ifdef debug
-                    cerr << "We can reverse and go back out the end" << endl;
+                    cerr << "\t\t\t\tWe can reverse and go back out the end" << endl;
 #endif
                     
                     if (!graph->follow_edges(chain_ends_by_start.at(graph->flip(handle)), false, handle_edge)) {
@@ -1922,7 +1956,7 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
                 if (connected_start_end) {
                     
 #ifdef debug
-                    cerr << "We can continue through and go out the start" << endl;
+                    cerr << "\t\t\t\tWe can continue through and go out the start" << endl;
 #endif
                     
                     if (!graph->follow_edges(handle, false, handle_edge)) {
@@ -1942,7 +1976,7 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
         // We are dealign with a node representing a unary child snarl.
             
 #ifdef debug
-        cerr << "We are looking at a unary snarl" << endl;
+        cerr << "\tWe are looking at a unary snarl" << endl;
 #endif
             
         // We have to use chain connectivity to decide what to do.
@@ -2012,7 +2046,7 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
     }
         
 #ifdef debug
-    cerr << "We are an ordinary node" << endl;
+    cerr << "\tWe are an ordinary node" << endl;
 #endif
         
     // Otherwise, this is an ordinary snarl content node
@@ -2021,6 +2055,11 @@ bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const fun
     
 bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     // Find all the handles by a traversal.
+        
+#ifdef debug
+    cerr << "Look for contents of net graph of " << graph->get_id(start) << (graph->get_is_reverse(start) ? "-" : "+")
+        << "->" << graph->get_id(end) << (graph->get_is_reverse(end) ? "-" : "+") << endl;
+#endif
         
     // We have to do the traversal on the underlying backing graph, because
     // the traversal functions we implemented on the graph we present will
@@ -2032,30 +2071,66 @@ bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& itera
     list<handle_t> queue;
     unordered_set<id_t> queued;
         
+    // We define a function to queue up nodes we could visit next
+    auto see_node = [&](const handle_t& other) {
+        // Whenever we see a new node, add it to the queue
+        auto found = queued.find(graph->get_id(other));
+        if (found == queued.end()) {
+
+#ifdef debug
+            cerr << "\t\t\tFound new contained node " << graph->get_id(other) << (graph->get_is_reverse(other) ? "-" : "+") << endl;
+#endif
+        
+            queue.push_back(other);
+            queued.emplace_hint(found, graph->get_id(other));
+        }
+    };
+        
     // Start at both the start and the end of the snarl.
-    queue.push_back(start);
-    queued.insert(graph->get_id(start));
-    queue.push_back(end);
-    queued.insert(graph->get_id(end));
+    see_node(start);
+    see_node(end);
         
     while (!queue.empty()) {
         handle_t here = queue.front();
         queue.pop_front();
             
+#ifdef debug
+        cerr << "\tVisit node " << graph->get_id(here) << (graph->get_is_reverse(here) ? "-" : "+") << endl;
+#endif
+            
         if (unary_boundaries.count(graph->flip(here))) {
             // This is a backward unary child snarl head, so we need to look at it the other way around.
             here = graph->flip(here);
+            
+#ifdef debug
+            cerr << "\t\tReverse to match unary child boundary" << endl;
+#endif
+            
         } else if (chain_ends_by_start.count(graph->flip(here))) {
             // This is a backward child chain head, so we need to look at it the other way around.
             here = graph->flip(here);
+            
+#ifdef debug
+            cerr << "\t\tReverse to match child chain head" << endl;
+#endif
+            
         } else if (chain_end_rewrites.count(graph->flip(here))) {
             // This is a backward child chain tail, so we need to look at it the other way around.
             here = graph->flip(here);
+            
+#ifdef debug
+            cerr << "\t\tReverse to match child chain tail" << endl;
+#endif
+            
         }
             
         if (!chain_end_rewrites.count(here)) {
             // This is not a chain end, so it's either a real contained node or a chain head.
             // We can emit it.
+            
+#ifdef debug
+            cerr << "\t\tVisit forward version" << endl;
+#endif
                 
             if (graph->get_is_reverse(here)) {
                 if (!iteratee(graph->flip(here))) {
@@ -2069,16 +2144,14 @@ bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& itera
                 }
             }
                 
-        } 
-            
-        // We define a function to queue up nodes we could visit next
-        auto handle_edge = [&](const handle_t& other) {
-            // Whenever we see a new node, add it to the queue
-            if (!queued.count(graph->get_id(other))) {
-                queue.push_back(other);
-                queued.insert(graph->get_id(other));
-            }
-        };
+        } else {
+#ifdef debug
+            cerr << "\t\tSkip chain end but see start at " << graph->get_id(chain_end_rewrites.at(here)) << (graph->get_is_reverse(chain_end_rewrites.at(here)) ? "-" : "+") << endl;
+#endif
+            // If we reach a chain end, make sure to eventually visit the chain start.
+            // There might not be any other edges to it.
+            see_node(chain_end_rewrites.at(here));
+        }
             
         // We already have flipped any backward heads or tails frontward. So
         // we don't need to check if the backward version of us is in
@@ -2088,25 +2161,44 @@ bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& itera
                start == end)
             && !unary_boundaries.count(here) &&
             !chain_ends_by_start.count(here)  && !chain_end_rewrites.count(here)) {
+            
+#ifdef debug
+            cerr << "\t\tRight side faces into net graph" << endl;
+#endif
                 
             // We have normal graph to our right and not the exterior of this snarl or the interior of a child.
-            graph->follow_edges(here, false, handle_edge);
+            graph->follow_edges(here, false, see_node);
         }
             
         if ((start != end && here != start && here != graph->flip(end)) ||
              start == end) {
+             
+#ifdef debug
+            cerr << "\t\tLeft side faces into net graph" << endl;
+#endif
+             
             // We have normal graph to our left.
-            graph->follow_edges(here, true, handle_edge);
+            graph->follow_edges(here, true, see_node);
         }
             
         if (chain_end_rewrites.count(here)) {
+        
+#ifdef debug
+            cerr << "\t\tWe are chain end; look right off reverse start at " << graph->get_id(chain_end_rewrites.at(here)) << (graph->get_is_reverse(chain_end_rewrites.at(here)) ? "-" : "+") << endl;
+#endif
+        
             // We need to look right off the reverse head of this child snarl.
-            graph->follow_edges(chain_end_rewrites.at(here), false, handle_edge);
+            graph->follow_edges(chain_end_rewrites.at(here), false, see_node);
         }
             
         if (chain_ends_by_start.count(here)) {
+        
+#ifdef debug
+            cerr << "\t\tWe are chain start; look right off end at " << graph->get_id(chain_ends_by_start.at(here)) << (graph->get_is_reverse(chain_ends_by_start.at(here)) ? "-" : "+") << endl;
+#endif
+        
             // We need to look right off the (reverse) tail of this child snarl.
-            graph->follow_edges(chain_ends_by_start.at(here), false, handle_edge);
+            graph->follow_edges(chain_ends_by_start.at(here), false, see_node);
         }
     }
     
