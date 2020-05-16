@@ -565,8 +565,10 @@ int main_view(int argc, char** argv) {
             else if (output_type == "multipath") {
                 vector<MultipathAlignment> buf;
                 function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
+                    multipath_alignment_t mp_aln;
+                    to_multipath_alignment(aln, mp_aln);
                     buf.emplace_back();
-                    to_multipath_alignment(aln, buf.back());
+                    to_proto_multipath_alignment(mp_aln, buf.back());
                     vg::io::write_buffered(cout, buf, 1000);
                 };
                 get_input_file(file_name, [&](istream& in) {
@@ -588,8 +590,10 @@ int main_view(int argc, char** argv) {
                 vector<MultipathAlignment> buf;
                 Alignment aln;
                 while (json_helper.get_read_fn()(aln)) {
+                    multipath_alignment_t mp_aln;
+                    to_multipath_alignment(aln, mp_aln);
                     buf.emplace_back();
-                    to_multipath_alignment(aln, buf.back());
+                    to_proto_multipath_alignment(mp_aln, buf.back());
                     vg::io::write_buffered(std::cout, buf, 1000);
                 }
                 vg::io::write_buffered(cout, buf, 0);
@@ -639,8 +643,10 @@ int main_view(int argc, char** argv) {
             }
             else if (output_type == "gam") {
                 vector<Alignment> buf;
-                MultipathAlignment mp_aln;
-                while (json_helper.get_read_fn()(mp_aln)) {
+                MultipathAlignment proto_mp_aln;
+                while (json_helper.get_read_fn()(proto_mp_aln)) {
+                    multipath_alignment_t mp_aln;
+                    from_proto_multipath_alignment(proto_mp_aln, mp_aln);
                     buf.emplace_back();
                     optimal_alignment(mp_aln, buf.back());
                     vg::io::write_buffered(std::cout, buf, 1000);
@@ -685,7 +691,9 @@ int main_view(int argc, char** argv) {
             }
             else if (output_type == "gam") {
                 vector<Alignment> buf;
-                function<void(MultipathAlignment&)> lambda = [&buf](MultipathAlignment& mp_aln) {
+                function<void(MultipathAlignment&)> lambda = [&buf](MultipathAlignment& proto_mp_aln) {
+                    multipath_alignment_t mp_aln;
+                    from_proto_multipath_alignment(proto_mp_aln, mp_aln);
                     buf.emplace_back();
                     optimal_alignment(mp_aln, buf.back());
                     vg::io::write_buffered(cout, buf, 1000);

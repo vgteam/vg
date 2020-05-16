@@ -335,7 +335,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
         aln.set_sequence(read);
         
         // Have a list to fill with results
-        vector<MultipathAlignment> results;
+        vector<multipath_alignment_t> results;
         
         // Align for just one alignment
         mapper.multipath_map(aln, results);
@@ -384,7 +384,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
         read2.set_sequence("ACA");
         
         // Have a list to fill with results
-        vector<pair<MultipathAlignment, MultipathAlignment>> results;
+        vector<pair<multipath_alignment_t, multipath_alignment_t>> results;
         vector<pair<Alignment, Alignment>> buffer;
         
         // Align for just one pair of alignments
@@ -494,8 +494,10 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
         }
         )";
     
-        MultipathAlignment disordered;
-        json2pb(disordered, aln_json.c_str(), aln_json.size());
+        MultipathAlignment disordered_pb;
+        json2pb(disordered_pb, aln_json.c_str(), aln_json.size());
+        multipath_alignment_t disordered;
+        from_proto_multipath_alignment(disordered_pb, disordered);
         
         topologically_order_subpaths(disordered);
         
@@ -526,8 +528,10 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
         }
         )";
     
-        MultipathAlignment disordered;
-        json2pb(disordered, aln_json.c_str(), aln_json.size());
+        MultipathAlignment disordered_pb;
+        json2pb(disordered_pb, aln_json.c_str(), aln_json.size());
+        multipath_alignment_t disordered;
+        from_proto_multipath_alignment(disordered_pb, disordered);
         
         topologically_order_subpaths(disordered);
         
@@ -551,7 +555,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
         read2.set_sequence("TCCTT");
         
         // Have a list to fill with results
-        vector<pair<MultipathAlignment, MultipathAlignment>> results;
+        vector<pair<multipath_alignment_t, multipath_alignment_t>> results;
         vector<pair<Alignment, Alignment>> buffer;
         
         // Align for just one pair of alignments
@@ -573,7 +577,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
         read2.set_sequence("TCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCT");
         
         // Have a list to fill with results
-        vector<pair<MultipathAlignment, MultipathAlignment>> results;
+        vector<pair<multipath_alignment_t, multipath_alignment_t>> results;
         vector<pair<Alignment, Alignment>> buffer;
         
         // Align for just one pair of alignments
@@ -602,7 +606,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
         read2.set_sequence("TCCTT");
         
         // Have a list to fill with results
-        vector<pair<MultipathAlignment, MultipathAlignment>> results;
+        vector<pair<multipath_alignment_t, multipath_alignment_t>> results;
         vector<pair<Alignment, Alignment>> buffer;
         
         // Align for just one pair of alignments
