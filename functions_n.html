@@ -77,6 +77,7 @@ $(function() {
 , <a class="el" href="structvg_1_1Funnel_1_1Stage.html#a709200eef7b97eb16aaaeaad95aab6fe">vg::Funnel::Stage</a>
 , <a class="el" href="classvg_1_1Index.html#a8b5b41590a51545bd652637c7493d87b">vg::Index</a>
 , <a class="el" href="structvg_1_1Locus.html#a39e5699f029942f81777d7e0ab203189">vg::Locus</a>
+, <a class="el" href="classvg_1_1multipath__alignment__t.html#a66708dc5410331553a3dd3e0cdff620b">vg::multipath_alignment_t</a>
 , <a class="el" href="structvg_1_1MultipathAlignment.html#a9427bb485b73bc6d3e2f077ee5df303d">vg::MultipathAlignment</a>
 , <a class="el" href="structvg_1_1Node.html#a3a4827f5d3eb097a4ef9e542e56c1e2c">vg::Node</a>
 , <a class="el" href="structvg_1_1Path.html#a24e6f7ffbbe8fcbd7444937b7fcd1601">vg::Path</a>
@@ -154,6 +155,7 @@ $(function() {
 : <a class="el" href="structvg_1_1PathBranch.html#acf21b2d9bb36f687d4727c56a4b2e940">vg::PathBranch</a>
 , <a class="el" href="structvg_1_1PhasedGenome_1_1HaplotypeNode.html#ae6ca62f71e4ab5a266170af025ec97dd">vg::PhasedGenome::HaplotypeNode</a>
 , <a class="el" href="structvg_1_1Subpath.html#ae8d4a9f246eae61420b666aa0665930d">vg::Subpath</a>
+, <a class="el" href="classvg_1_1subpath__t.html#a60a4ec0114c307ae532ea307128bfe24">vg::subpath_t</a>
 , <a class="el" href="classvg_1_1WindowedVcfBuffer.html#a0d66b5a177f55cb726122577840d8911">vg::WindowedVcfBuffer</a>
 </li>
 <li>next_char
@@ -198,6 +200,9 @@ $(function() {
 </li>
 <li>next_rank()
 : <a class="el" href="structbdsg_1_1node__t_1_1step__t.html#ae31ad00932709a654fbf51f429366572">bdsg::node_t::step_t</a>
+</li>
+<li>next_size()
+: <a class="el" href="classvg_1_1subpath__t.html#aab697710ebd5e8f968bed5c5262bbe2a">vg::subpath_t</a>
 </li>
 <li>next_snarl()
 : <a class="el" href="classvg_1_1SnarlManager.html#afcca3b74e960b6931598188e0b9ae7a8">vg::SnarlManager</a>
@@ -271,6 +276,7 @@ $(function() {
 , <a class="el" href="classvg_1_1mapping__t.html#a878754e2bea167b11b7cb83af5556a6f">vg::mapping_t</a>
 , <a class="el" href="structvg_1_1NodePileup.html#a3ed5e4d46aadb0402badb75e3138dac2">vg::NodePileup</a>
 , <a class="el" href="structvg_1_1Position.html#aef891b22e577fdcce6062cf78edd2474">vg::Position</a>
+, <a class="el" href="classvg_1_1position__t.html#a241b513ec1180294fc6e43f7df1935a7">vg::position_t</a>
 , <a class="el" href="structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a90de5d4eaf56e08287cbccd0f6c97e90">vg::SnarlSeedClusterer::NetgraphNode</a>
 , <a class="el" href="structvg_1_1Visit.html#a0dc6e6745e330afc09f338fd50f7fa6c">vg::Visit</a>
 </li>
@@ -360,7 +366,7 @@ $(function() {
 : <a class="el" href="classxg_1_1XG.html#aa9b17c02171a7073eeb9d4614e619f34">xg::XG</a>
 </li>
 <li>node_starts_in_path()
-: <a class="el" href="classvg_1_1VG.html#ac27c591957478a17605c2453749f7d20">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#a093f4e4dffe0d03806df32edc33cdb9a">vg::VG</a>
 </li>
 <li>node_subset
 : <a class="el" href="classvg_1_1SubgraphOverlay.html#a68a505e96443fd85b5498cf785fc372d">vg::SubgraphOverlay</a>
@@ -420,16 +426,16 @@ $(function() {
 : <a class="el" href="classvg_1_1Viz.html#aa315096c3932839c5cf98b28da52b078">vg::Viz</a>
 </li>
 <li>nodes_next()
-: <a class="el" href="classvg_1_1VG.html#a62f1bb7fa27d4d4312017b113aab099a">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#a0b084d958fd8069839884dc3a01ed745">vg::VG</a>
 </li>
 <li>nodes_prev()
-: <a class="el" href="classvg_1_1VG.html#a0f3e69ced0c3135f3f363c14bf752aad">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#ac08e778396904ad3b3f20f605f54628d">vg::VG</a>
 </li>
 <li>NodeSide()
-: <a class="el" href="classvg_1_1NodeSide.html#a3ecb3102be6a85788a003754925c5872">vg::NodeSide</a>
+: <a class="el" href="classvg_1_1NodeSide.html#ac4bde3f59ff17ea8c7415fcd9fdd4a0b">vg::NodeSide</a>
 </li>
 <li>NodeTraversal()
-: <a class="el" href="classvg_1_1NodeTraversal.html#a795cce0d085b9113a41fc187e0669f12">vg::NodeTraversal</a>
+: <a class="el" href="classvg_1_1NodeTraversal.html#afca10c8751d4d0f0a86da02277d11513">vg::NodeTraversal</a>
 </li>
 <li>nodeType
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#a3180d362cdac21750aebf6d4fe77e0d8">haplo::linear_haplo_structure</a>
@@ -470,11 +476,14 @@ $(function() {
 <li>nth_copy_of_handle()
 : <a class="el" href="classvg_1_1DagifiedGraph.html#a716193b4f3dcecfd26de15acf83964b9">vg::DagifiedGraph</a>
 </li>
+<li>Null
+: <a class="el" href="classvg_1_1multipath__alignment__t.html#a6949ef73371981a69cc9223e44e8095ea4da67a14c941c99eb8e041314fa98640">vg::multipath_alignment_t</a>
+</li>
 <li>NullClusterer()
 : <a class="el" href="classvg_1_1NullClusterer.html#a63ae2e8bfe748f6557df52cddf4b41e8">vg::NullClusterer</a>
 </li>
 <li>NullMaskingGraph()
-: <a class="el" href="classvg_1_1NullMaskingGraph.html#a2d348fa5aa3bd9216fc4133d320575ef">vg::NullMaskingGraph</a>
+: <a class="el" href="classvg_1_1NullMaskingGraph.html#addeb1ab4002f516c686a5af59018597f">vg::NullMaskingGraph</a>
 </li>
 <li>num_alt_alns
 : <a class="el" href="classvg_1_1MultipathMapper.html#ad29e0a45fcb921023bd6479a15cfef78">vg::MultipathMapper</a>

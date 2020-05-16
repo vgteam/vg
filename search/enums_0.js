@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['childnodetype',['ChildNodeType',['../classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225',1,'vg::SnarlSeedClusterer']]],
-  ['commandcategory',['CommandCategory',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838',1,'vg::subcommand']]]
+  ['anno_5ftype_5ft',['anno_type_t',['../classvg_1_1multipath__alignment__t.html#a6949ef73371981a69cc9223e44e8095e',1,'vg::multipath_alignment_t']]]
 ];

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['chain',['CHAIN',['../classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225a93290bd86391c9891ac90e92a1683e18',1,'vg::SnarlSeedClusterer']]]
+  ['bool',['Bool',['../classvg_1_1multipath__alignment__t.html#a6949ef73371981a69cc9223e44e8095eadfc9c0789c3e775ebfc319b74d2deeb6',1,'vg::multipath_alignment_t']]]
 ];

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['loadprogress',['LoadProgress',['../classvg_1_1io_1_1VPKG.html#a8628083f85511abc137b64c80985160f',1,'vg::io::VPKG']]]
+  ['filtername',['FilterName',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388',1,'vg::ReadFilter::Counts']]]
 ];

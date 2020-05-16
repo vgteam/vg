@@ -101,6 +101,9 @@ $(function() {
 <li>add_edges()
 : <a class="el" href="classvg_1_1VG.html#ab8b025facd59ebb9e6cc71862fe8fe56">vg::VG</a>
 </li>
+<li>add_edit()
+: <a class="el" href="classvg_1_1path__mapping__t.html#a82a73553691a54453a70c4e76f35271f">vg::path_mapping_t</a>
+</li>
 <li>add_exon()
 : <a class="el" href="classvg_1_1Transcriptome.html#a00458e98fa2aa5447a1cf193c9b1c553">vg::Transcriptome</a>
 </li>
@@ -117,11 +120,17 @@ $(function() {
 <li>add_intron_splice_junctions()
 : <a class="el" href="classvg_1_1Transcriptome.html#a07063d96812ed104882cb2fbe2084a30">vg::Transcriptome</a>
 </li>
+<li>add_mapping()
+: <a class="el" href="classvg_1_1path__t.html#a8dcc03d2615b611cb3f01ccc72235f62">vg::path_t</a>
+</li>
 <li>add_name()
 : <a class="el" href="classVectorizer.html#a37c3afd6049c63e09910ca050a2f2b10">Vectorizer</a>
 </li>
 <li>add_name_mapping()
 : <a class="el" href="classvg_1_1NameMapper.html#ac2e2d25ef0f36649f33bb3386f0150b5">vg::NameMapper</a>
+</li>
+<li>add_next()
+: <a class="el" href="classvg_1_1subpath__t.html#a3ce38f3b06d1f9cf18885be6a8391570">vg::subpath_t</a>
 </li>
 <li>add_node()
 : <a class="el" href="classvg_1_1VG.html#ad3e265ee441758d81fdb7c038e2fa8cc">vg::VG</a>
@@ -144,8 +153,14 @@ $(function() {
 <li>add_splice_junction_edges()
 : <a class="el" href="classvg_1_1Transcriptome.html#afdb0ae75032057859ad882400e6c16e5">vg::Transcriptome</a>
 </li>
+<li>add_start()
+: <a class="el" href="classvg_1_1multipath__alignment__t.html#a793ba830eaa6fd21ec7af7c7fc12cfed">vg::multipath_alignment_t</a>
+</li>
 <li>add_start_end_markers()
 : <a class="el" href="classvg_1_1VG.html#a91eaa395f197ca65f38c6139bc57d161">vg::VG</a>
+</li>
+<li>add_subpath()
+: <a class="el" href="classvg_1_1multipath__alignment__t.html#ad313d9942fcd375b7b073fa2d5276fe7">vg::multipath_alignment_t</a>
 </li>
 <li>add_to_number()
 : <a class="el" href="classbdsg_1_1ODGI.html#a8db273d2507e0e7960d0b1fa2d439d1b">bdsg::ODGI</a>
@@ -231,7 +246,7 @@ $(function() {
 , <a class="el" href="classvg_1_1BaseAligner.html#a5b0ee67e18697f65aab62b40c2eb925a">vg::BaseAligner</a>
 , <a class="el" href="classvg_1_1DozeuInterface.html#a4e95898346af002096e3e9bbbf5e7ed4">vg::DozeuInterface</a>
 , <a class="el" href="classvg_1_1Mapper.html#a690d9e6f314d4b010df7e8f74f5cb9b1">vg::Mapper</a>
-, <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a14bd445a8633f19edba424b51d2c38da">vg::MultipathAlignmentGraph</a>
+, <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a52c1bb4cb82113f39ba9add321df0bd6">vg::MultipathAlignmentGraph</a>
 , <a class="el" href="classvg_1_1QualAdjAligner.html#af5a9e2e96926859e3c3deeecdf374f9d">vg::QualAdjAligner</a>
 , <a class="el" href="classvg_1_1SSWAligner.html#adc9985aac608bfb4819cd7436b969b62">vg::SSWAligner</a>
 , <a class="el" href="classvg_1_1VG.html#ac17b237e99636d20e12e4c1b94f9110b">vg::VG</a>
@@ -295,13 +310,13 @@ $(function() {
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aba2fbcf9b7fb1368cdb033d3ecc69bf0">vg::MultipathAlignmentGraph</a>
 </li>
 <li>align_to_cluster_graph_pairs()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a22e559455e46e8fc3b4e1b6850db1768">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#ab524935fc1bde81024000e1a8e3a7081">vg::MultipathMapper</a>
 </li>
 <li>align_to_cluster_graphs()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a0e10da35d46a51134c29d96ecb329fdb">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#ae5dc6ddfe859d3d235ee3c4f646e8aae">vg::MultipathMapper</a>
 </li>
 <li>align_to_cluster_graphs_with_rescue()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a3691146e78c121c0396c7d3a8e09ca57">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#aac6f9c1b285ee6294ff28a3e7717d1fd">vg::MultipathMapper</a>
 </li>
 <li>align_to_graph()
 : <a class="el" href="classvg_1_1Mapper.html#a0b3adffe0ee67feab3b7486ec0d871da">vg::Mapper</a>
@@ -309,7 +324,7 @@ $(function() {
 <li>align_xdrop()
 : <a class="el" href="classvg_1_1Aligner.html#afe034724ee09124b54e70421e0de61c7">vg::Aligner</a>
 , <a class="el" href="classvg_1_1GSSWAligner.html#a71da93203b17beaffac6d7e6bbfe7c0b">vg::GSSWAligner</a>
-, <a class="el" href="classvg_1_1QualAdjAligner.html#a02375e46df40e5163bee95a18cca0705">vg::QualAdjAligner</a>
+, <a class="el" href="classvg_1_1QualAdjAligner.html#acd4904b68a5db468672d13d095b3a298">vg::QualAdjAligner</a>
 </li>
 <li>Aligner()
 : <a class="el" href="classvg_1_1Aligner.html#ac27d5a43030aba02471bcf4660b15b36">vg::Aligner</a>
@@ -367,7 +382,7 @@ $(function() {
 : <a class="el" href="classvg_1_1AlignmentChainModel.html#a960347cf0986a4392544c22bbfdf7c0b">vg::AlignmentChainModel</a>
 </li>
 <li>AlignmentChainModelVertex()
-: <a class="el" href="classvg_1_1AlignmentChainModelVertex.html#a060f439601e7445f95e2bbd6925ddc6b">vg::AlignmentChainModelVertex</a>
+: <a class="el" href="classvg_1_1AlignmentChainModelVertex.html#a620d3e10aa7398d73985de1c1fd8adfa">vg::AlignmentChainModelVertex</a>
 </li>
 <li>alignments
 : <a class="el" href="classvg_1_1MSAConverter.html#a47c97fb19598ec7786d2497e4fb86327">vg::MSAConverter</a>
@@ -469,6 +484,9 @@ $(function() {
 <li>anchors
 : <a class="el" href="classbdsg_1_1PagedVector.html#a94fa5942f76cea9d06b4241d25a87b6c">bdsg::PagedVector</a>
 </li>
+<li>anno_type_t
+: <a class="el" href="classvg_1_1multipath__alignment__t.html#a6949ef73371981a69cc9223e44e8095e">vg::multipath_alignment_t</a>
+</li>
 <li>annotation
 : <a class="el" href="structvg_1_1Alignment.html#af531ff2b8c2b08c78a8b3095fd52c0d8">vg::Alignment</a>
 , <a class="el" href="structvg_1_1MultipathAlignment.html#acb66af5a0c0197fe49e7dfbac312bd6d">vg::MultipathAlignment</a>
@@ -494,7 +512,7 @@ $(function() {
 : <a class="el" href="classvg_1_1PhasedGenome_1_1Haplotype.html#a6eae6ee85866e8a90efd0d7d7f5de0be">vg::PhasedGenome::Haplotype</a>
 </li>
 <li>append_mapping()
-: <a class="el" href="classvg_1_1Paths.html#aec7ad289d23cf879bdefb682dc464313">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a490ae73c613867d5621e17b6ff6635dd">vg::Paths</a>
 </li>
 <li>append_path_name()
 : <a class="el" href="classbdsg_1_1PackedGraph.html#aa79bbc84f695050d95d3a53c7812fe12">bdsg::PackedGraph</a>
@@ -592,7 +610,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Paths.html#a9562c903db44e7328f82c30afea6c643">vg::Paths</a>
 </li>
 <li>are_consistent()
-: <a class="el" href="classvg_1_1MultipathMapper.html#af068b83cc0753af443f57e8419f15dab">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#a0080de005fe755313ddd6bf3b41620b4">vg::MultipathMapper</a>
 </li>
 <li>as_edge_table()
 : <a class="el" href="classvg_1_1Packer.html#a8fa7e449fc6358a1d1b13c0447027acb">vg::Packer</a>
@@ -630,16 +648,16 @@ $(function() {
 </li>
 <li>attempt_rescue()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a9605b1ef714df2c8f07b7bcd4afd0882">vg::MinimizerMapper</a>
-, <a class="el" href="classvg_1_1MultipathMapper.html#a58a6a2bccf8123914bcf4e378edcbb61">vg::MultipathMapper</a>
+, <a class="el" href="classvg_1_1MultipathMapper.html#a007fc06565e2f9b1aa084cc4cc60a55d">vg::MultipathMapper</a>
 </li>
 <li>attempt_rescue_for_secondaries()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a1751c97818eef51d83a0e8f31260822b">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#aa8650d8049f1fb61d42cdd5b62670416">vg::MultipathMapper</a>
 </li>
 <li>attempt_rescue_of_repeat_from_non_repeat()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a8d8bb2dd043e5298e72699e59c441709">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#ae6818174f05d3aa32efe990fcc2d0295">vg::MultipathMapper</a>
 </li>
 <li>attempt_unpaired_multipath_map_of_pair()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a6e6fb4cb7896a6de840b2af5b70a4fed">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#a0f43974edc215737b6c9d5f6155d64ce">vg::MultipathMapper</a>
 </li>
 <li>attributes
 : <a class="el" href="structvg_1_1GFFRecord.html#af888958f0541209b1e6c0f50285d0d92">vg::GFFRecord</a>

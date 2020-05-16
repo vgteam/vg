@@ -74,6 +74,7 @@ $(function() {
 <div class="textblock"><code>#include &lt;vector&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
 <code>#include &lt;type_traits&gt;</code><br />
+<code>#include &lt;functional&gt;</code><br />
 <code>#include &lt;google/protobuf/struct.pb.h&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
@@ -108,6 +109,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ae414970cfc37049b4dc9b308d9ed5f59"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae414970cfc37049b4dc9b308d9ed5f59">vg::clear_annotation</a> (Annotated &amp;annotated, const string &amp;name)</td></tr>
 <tr class="memdesc:ae414970cfc37049b4dc9b308d9ed5f59"><td class="mdescLeft">&#160;</td><td class="mdescRight">Clear the annotation with the given name.  <a href="namespacevg.html#ae414970cfc37049b4dc9b308d9ed5f59">More...</a><br /></td></tr>
 <tr class="separator:ae414970cfc37049b4dc9b308d9ed5f59"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8f0eee097c87cbab2bc44f096b463d8b"><td class="memTemplParams" colspan="2">template&lt;typename Annotated &gt; </td></tr>
+<tr class="memitem:a8f0eee097c87cbab2bc44f096b463d8b"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8f0eee097c87cbab2bc44f096b463d8b">vg::for_each_basic_annotation</a> (const Annotated &amp;annotated, const function&lt; void(const string &amp;)&gt; null_lambda, const function&lt; void(const string &amp;, double)&gt; double_lambda, const function&lt; void(const string &amp;, bool)&gt; bool_lambda, const function&lt; void(const string &amp;, const string &amp;)&gt; string_lambda)</td></tr>
+<tr class="separator:a8f0eee097c87cbab2bc44f096b463d8b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a76fc86953f8c080621c080cd35bc9ae0"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a76fc86953f8c080621c080cd35bc9ae0"><td class="memTemplItemLeft" align="right" valign="top">T&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a76fc86953f8c080621c080cd35bc9ae0">vg::value_cast</a> (const google::protobuf::Value &amp;value)</td></tr>
 <tr class="memdesc:a76fc86953f8c080621c080cd35bc9ae0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Cast a Protobuf generic Value to any type.  <a href="namespacevg.html#a76fc86953f8c080621c080cd35bc9ae0">More...</a><br /></td></tr>

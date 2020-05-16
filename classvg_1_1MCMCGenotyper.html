@@ -78,10 +78,10 @@ $(function() {
 Public Member Functions</h2></td></tr>
 <tr class="memitem:ab53c26538256f91bf496fb2587a96511"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#ab53c26538256f91bf496fb2587a96511">MCMCGenotyper</a> (<a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1MCMCGenotyper.html#a23913225e8b2d0d4dfbdb713ccf495c3">snarls</a>, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;<a class="el" href="classvg_1_1MCMCGenotyper.html#a63ef4fabc83c478b9ac7933ba16c5adc">graph</a>, const int <a class="el" href="classvg_1_1MCMCGenotyper.html#a1d5684e63858e5362578bc85d638a870">n_iterations</a>, const int <a class="el" href="classvg_1_1MCMCGenotyper.html#aa2399e6a45d2595e08053cdb66207b37">seed</a>)</td></tr>
 <tr class="separator:ab53c26538256f91bf496fb2587a96511"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a90154a536e4ee9a3ccb0d410e1feab6c"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#a90154a536e4ee9a3ccb0d410e1feab6c">run_genotype</a> (const vector&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt; &amp;reads, const double log_base) const</td></tr>
-<tr class="separator:a90154a536e4ee9a3ccb0d410e1feab6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afd5c0076ac348161d6a45536f5a28afa"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#afd5c0076ac348161d6a45536f5a28afa">log_target</a> (<a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;phased_genome, const vector&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt; &amp;reads) const</td></tr>
-<tr class="separator:afd5c0076ac348161d6a45536f5a28afa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3bae6f8b2947e030935d5e9cf46fb324"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#a3bae6f8b2947e030935d5e9cf46fb324">run_genotype</a> (const vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;reads, const double log_base) const</td></tr>
+<tr class="separator:a3bae6f8b2947e030935d5e9cf46fb324"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92d37640f80fabd0d65c80d8fded7f7e"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#a92d37640f80fabd0d65c80d8fded7f7e">log_target</a> (<a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;phased_genome, const vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;reads) const</td></tr>
+<tr class="separator:a92d37640f80fabd0d65c80d8fded7f7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7a6d44c18f39aef3e0205c655256e7e2"><td class="memItemLeft" align="right" valign="top">tuple&lt; int, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *, vector&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#a7a6d44c18f39aef3e0205c655256e7e2">proposal_sample</a> (<a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;current) const</td></tr>
 <tr class="separator:a7a6d44c18f39aef3e0205c655256e7e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8b76754fc9611d38463cccd3051c0589"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#a8b76754fc9611d38463cccd3051c0589">generate_discrete_uniform</a> (minstd_rand0 &amp;<a class="el" href="classvg_1_1MCMCGenotyper.html#a742e3fb0ca54f531f23d1a8f18cb4da5">random_engine</a>, int lower_bound, int upper_bound) const</td></tr>
@@ -230,8 +230,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="afd5c0076ac348161d6a45536f5a28afa"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afd5c0076ac348161d6a45536f5a28afa">&#9670;&nbsp;</a></span>log_target()</h2>
+<a id="a92d37640f80fabd0d65c80d8fded7f7e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a92d37640f80fabd0d65c80d8fded7f7e">&#9670;&nbsp;</a></span>log_target()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -245,7 +245,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>reads</em>&#160;</td>
         </tr>
         <tr>
@@ -278,8 +278,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a90154a536e4ee9a3ccb0d410e1feab6c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a90154a536e4ee9a3ccb0d410e1feab6c">&#9670;&nbsp;</a></span>run_genotype()</h2>
+<a id="a3bae6f8b2947e030935d5e9cf46fb324"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3bae6f8b2947e030935d5e9cf46fb324">&#9670;&nbsp;</a></span>run_genotype()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -287,7 +287,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">unique_ptr&lt; <a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &gt; vg::MCMCGenotyper::run_genotype </td>
           <td>(</td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>reads</em>, </td>
         </tr>
         <tr>

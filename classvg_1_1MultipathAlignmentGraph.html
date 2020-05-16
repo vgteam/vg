@@ -123,10 +123,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a1268ebdd6f7aa63390375351aeb2869c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a1268ebdd6f7aa63390375351aeb2869c">add_reachability_edges</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;vg, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;project, const unordered_multimap&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;injection_trans)</td></tr>
 <tr class="memdesc:a1268ebdd6f7aa63390375351aeb2869c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add edges between reachable nodes and split nodes at overlaps.  <a href="#a1268ebdd6f7aa63390375351aeb2869c">More...</a><br /></td></tr>
 <tr class="separator:a1268ebdd6f7aa63390375351aeb2869c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a14bd445a8633f19edba424b51d2c38da"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a14bd445a8633f19edba424b51d2c38da">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t band_padding, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out, bool allow_negative_scores=false)</td></tr>
-<tr class="separator:a14bd445a8633f19edba424b51d2c38da"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa812dafc9cfce490ae11d7aac85b7676"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aa812dafc9cfce490ae11d7aac85b7676">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; band_padding_function, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out, bool allow_negative_scores=false)</td></tr>
-<tr class="separator:aa812dafc9cfce490ae11d7aac85b7676"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a52c1bb4cb82113f39ba9add321df0bd6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a52c1bb4cb82113f39ba9add321df0bd6">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t band_padding, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, bool allow_negative_scores=false)</td></tr>
+<tr class="separator:a52c1bb4cb82113f39ba9add321df0bd6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aff97950a92d65c6a9128e1ea31f15238"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aff97950a92d65c6a9128e1ea31f15238">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; band_padding_function, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, bool allow_negative_scores=false)</td></tr>
+<tr class="separator:aff97950a92d65c6a9128e1ea31f15238"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a90ff13eb09622a6f5fa9238f6ec4950b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a90ff13eb09622a6f5fa9238f6ec4950b">to_dot</a> (ostream &amp;out, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> *alignment=nullptr) const</td></tr>
 <tr class="separator:a90ff13eb09622a6f5fa9238f6ec4950b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4fc215d24f20c5ddc3916024c7ab62b"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af4fc215d24f20c5ddc3916024c7ab62b">get_connected_components</a> () const</td></tr>
@@ -711,8 +711,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a14bd445a8633f19edba424b51d2c38da"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a14bd445a8633f19edba424b51d2c38da">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
+<a id="a52c1bb4cb82113f39ba9add321df0bd6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a52c1bb4cb82113f39ba9add321df0bd6">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -774,7 +774,7 @@ Static Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
           <td class="paramname"><em>multipath_aln_out</em>, </td>
         </tr>
         <tr>
@@ -790,13 +790,13 @@ Static Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Do intervening and tail alignments between the anchoring paths and store the result in a <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>. Reachability edges must be in the graph. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the same <a class="el" href="structvg_1_1Alignment.html">Alignment</a> that owns the sequence into which iterators were passed when the <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> was constructed! TODO: Shouldn't the class hold a reference to the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> then?</p>
-<p>Note that the output alignment may NOT be in topologically-sorted order, even if this <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> is. You MUST sort it with <a class="el" href="namespacevg.html#ae03e9d67c4a774a71895ade9f10c6d19" title="Put subpaths in topological order (assumed to be true for other algorithms) ">topologically_order_subpaths()</a> before trying to run DP on it. </p>
+<p>Do intervening and tail alignments between the anchoring paths and store the result in a <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>. Reachability edges must be in the graph. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the same <a class="el" href="structvg_1_1Alignment.html">Alignment</a> that owns the sequence into which iterators were passed when the <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> was constructed! TODO: Shouldn't the class hold a reference to the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> then?</p>
+<p>Note that the output alignment may NOT be in topologically-sorted order, even if this <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> is. You MUST sort it with <a class="el" href="namespacevg.html#a3ca9ccb5a2301ed1ce48f6334b3c4937" title="Put subpaths in topological order (assumed to be true for other algorithms) ">topologically_order_subpaths()</a> before trying to run DP on it. </p>
 
 </div>
 </div>
-<a id="aa812dafc9cfce490ae11d7aac85b7676"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa812dafc9cfce490ae11d7aac85b7676">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
+<a id="aff97950a92d65c6a9128e1ea31f15238"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aff97950a92d65c6a9128e1ea31f15238">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -858,7 +858,7 @@ Static Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
           <td class="paramname"><em>multipath_aln_out</em>, </td>
         </tr>
         <tr>
@@ -874,8 +874,8 @@ Static Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Do intervening and tail alignments between the anchoring paths and store the result in a <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>. Reachability edges must be in the graph. Also, choose the band padding dynamically as a function of the inter-MEM sequence and graph. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the same <a class="el" href="structvg_1_1Alignment.html">Alignment</a> that owns the sequence into which iterators were passed when the <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> was constructed! TODO: Shouldn't the class hold a reference to the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> then?</p>
-<p>Note that the output alignment may NOT be in topologically-sorted order, even if this <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> is. You MUST sort it with <a class="el" href="namespacevg.html#ae03e9d67c4a774a71895ade9f10c6d19" title="Put subpaths in topological order (assumed to be true for other algorithms) ">topologically_order_subpaths()</a> before trying to run DP on it. </p>
+<p>Do intervening and tail alignments between the anchoring paths and store the result in a <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>. Reachability edges must be in the graph. Also, choose the band padding dynamically as a function of the inter-MEM sequence and graph. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the same <a class="el" href="structvg_1_1Alignment.html">Alignment</a> that owns the sequence into which iterators were passed when the <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> was constructed! TODO: Shouldn't the class hold a reference to the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> then?</p>
+<p>Note that the output alignment may NOT be in topologically-sorted order, even if this <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> is. You MUST sort it with <a class="el" href="namespacevg.html#a3ca9ccb5a2301ed1ce48f6334b3c4937" title="Put subpaths in topological order (assumed to be true for other algorithms) ">topologically_order_subpaths()</a> before trying to run DP on it. </p>
 
 </div>
 </div>

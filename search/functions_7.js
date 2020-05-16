@@ -33,7 +33,7 @@ var searchData=
   ['get_5falleles',['get_alleles',['../classvg_1_1Deconstructor.html#a2cf1c19544cf2bda62934b1a016abedf',1,'vg::Deconstructor']]],
   ['get_5falt_5fpath',['get_alt_path',['../classvg_1_1VCFTraversalFinder.html#acbbbaa19966bd2a939f9fdc05b414343',1,'vg::VCFTraversalFinder']]],
   ['get_5falt_5ftraversal',['get_alt_traversal',['../classvg_1_1VCFTraversalFinder.html#a468ffc67d512bf4211bd11162fefde3e',1,'vg::VCFTraversalFinder']]],
-  ['get_5fannotation',['get_annotation',['../namespacevg.html#a1fda752e24eaed100f6c30904d2ca3e1',1,'vg::get_annotation(const Annotated &amp;annotated, const string &amp;name)'],['../namespacevg.html#a1c9f371af54160a44a44afd80c6cf71a',1,'vg::get_annotation(Annotated *annotated, const string &amp;name)']]],
+  ['get_5fannotation',['get_annotation',['../classvg_1_1multipath__alignment__t.html#a401b9ef14924b463d54be7a4ced828d6',1,'vg::multipath_alignment_t::get_annotation()'],['../namespacevg.html#a1fda752e24eaed100f6c30904d2ca3e1',1,'vg::get_annotation(const Annotated &amp;annotated, const string &amp;name)'],['../namespacevg.html#a1c9f371af54160a44a44afd80c6cf71a',1,'vg::get_annotation(Annotated *annotated, const string &amp;name)']]],
   ['get_5fassignment',['get_assignment',['../classbdsg_1_1PackedGraph.html#acb15feea2045b0f8e44893af1f4a1bdb',1,'bdsg::PackedGraph']]],
   ['get_5faverage_5ftraversal_5fsupport_5fswitch_5fthreshold',['get_average_traversal_support_switch_threshold',['../classvg_1_1TraversalSupportFinder.html#a62c1864ae422d93cba4eb248890fd3e4',1,'vg::TraversalSupportFinder']]],
   ['get_5favg_5fbaseq',['get_avg_baseq',['../namespacevg.html#a680a465e72fbddeed584f27a6c3f7b27',1,'vg']]],

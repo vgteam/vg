@@ -20,6 +20,7 @@ var searchData=
   ['minimumdistanceindex',['MinimumDistanceIndex',['../classvg_1_1MinimumDistanceIndex.html',1,'vg']]],
   ['mipayload',['MIPayload',['../structvg_1_1MIPayload.html',1,'vg']]],
   ['msaconverter',['MSAConverter',['../classvg_1_1MSAConverter.html',1,'vg']]],
+  ['multipath_5falignment_5ft',['multipath_alignment_t',['../classvg_1_1multipath__alignment__t.html',1,'vg']]],
   ['multipathalignment',['MultipathAlignment',['../structvg_1_1MultipathAlignment.html',1,'vg']]],
   ['multipathalignmentgraph',['MultipathAlignmentGraph',['../classvg_1_1MultipathAlignmentGraph.html',1,'vg']]],
   ['multipathmapper',['MultipathMapper',['../classvg_1_1MultipathMapper.html',1,'vg']]],

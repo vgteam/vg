@@ -151,10 +151,10 @@ $(function() {
 , <a class="el" href="classbdsg_1_1VectorizableOverlay.html#a8d36064f70e82b6eb418c35386853451">bdsg::VectorizableOverlay</a>
 </li>
 <li>cap_mapping_quality_by_hit_sampling_probability()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a145d633a34192fbc03266520efc4d434">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#aa016997c7b45ab4cc67a68b4e2941477">vg::MultipathMapper</a>
 </li>
 <li>cap_mapping_quality_by_rescue_probability()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a72f13a1bbee0e51b14d35b109a07e70d">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#abca88e78f51f83161df84066a68156fe">vg::MultipathMapper</a>
 </li>
 <li>chain()
 : <a class="el" href="structvg_1_1Range.html#a9e877d24ff937a7ad40da61d809ebaaf">vg::Range&lt; Number &gt;</a>
@@ -226,6 +226,9 @@ $(function() {
 , <a class="el" href="structvg_1_1SupportAugmentedGraph.html#a02bf17acd1d5deb6e3044f9807756e81">vg::SupportAugmentedGraph</a>
 , <a class="el" href="classvg_1_1VG.html#aa1eb3332c0a99a25c75681da485297e5">vg::VG</a>
 </li>
+<li>clear_annotation()
+: <a class="el" href="classvg_1_1multipath__alignment__t.html#a9d1c72d4a76dff3ac93f3185bcd3e981">vg::multipath_alignment_t</a>
+</li>
 <li>clear_edge_indexes()
 : <a class="el" href="classvg_1_1VG.html#a10d4b49633db2aef463e0070e0af64a0">vg::VG</a>
 </li>
@@ -238,8 +241,14 @@ $(function() {
 <li>clear_indexes_no_resize()
 : <a class="el" href="classvg_1_1VG.html#a103c69bad02121590779530338861374">vg::VG</a>
 </li>
+<li>clear_mapping()
+: <a class="el" href="classvg_1_1path__t.html#a4c03d698f5c00f0d4545fa78f1c615f3">vg::path_t</a>
+</li>
 <li>clear_mapping_ranks()
 : <a class="el" href="classvg_1_1Paths.html#a599d6b0652ff6f3c9bbe731136ad910a">vg::Paths</a>
+</li>
+<li>clear_next()
+: <a class="el" href="classvg_1_1subpath__t.html#a691d6adfa24ab6970ba1736212e2f276">vg::subpath_t</a>
 </li>
 <li>clear_node_indexes()
 : <a class="el" href="classvg_1_1VG.html#a212a2d1028f28046088a86e128b40559">vg::VG</a>
@@ -260,6 +269,12 @@ $(function() {
 <li>clear_scores()
 : <a class="el" href="classvg_1_1AlignmentChainModel.html#a0357717699cc97b6c5a8a164dfd424fb">vg::AlignmentChainModel</a>
 , <a class="el" href="classvg_1_1MEMChainModel.html#aef30eacf1dfd97658fbdc85ce175fad1">vg::MEMChainModel</a>
+</li>
+<li>clear_start()
+: <a class="el" href="classvg_1_1multipath__alignment__t.html#a9436c421aa0550bb65c55bd557ad97c4">vg::multipath_alignment_t</a>
+</li>
+<li>clear_subpath()
+: <a class="el" href="classvg_1_1multipath__alignment__t.html#af72f755d9dd5b4b11b379ee227997a2b">vg::multipath_alignment_t</a>
 </li>
 <li>close()
 : <a class="el" href="classvg_1_1Index.html#a7beb648b42881ffae7396186fd87b00a">vg::Index</a>
@@ -382,7 +397,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Mapper.html#ad062cafbbb49bc4960e59b3ffd499ca8">vg::Mapper</a>
 </li>
 <li>compute_mapping_quality()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a9ab75f941cc5450b8fff9b7f07507272">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1GSSWAligner.html#a74ac3cb1ec6093abfbfe92b691167dce">vg::GSSWAligner</a>
 </li>
 <li>compute_mapq_caps()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#ac861bd6bd13e84585765ca5e27dd5d0b">vg::MinimizerMapper</a>
@@ -443,7 +458,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Transcriptome.html#a04996265f450b7e47ec35cf099972ea3">vg::Transcriptome</a>
 </li>
 <li>construct_graph()
-: <a class="el" href="classvg_1_1Constructor.html#af184b354666c1ec73f43f4322120bad7">vg::Constructor</a>
+: <a class="el" href="classvg_1_1Constructor.html#a5c9a9c3adb2ddafc4d4434c689bb42ad">vg::Constructor</a>
 </li>
 <li>contains()
 : <a class="el" href="structvg_1_1GaplessExtension.html#aba7a20e9cda82fefa76322cd597530fe">vg::GaplessExtension</a>
@@ -472,7 +487,7 @@ $(function() {
 : <a class="el" href="classvg_1_1SmallBitset.html#af834de5870b38cc53768eb8ba9c60025">vg::SmallBitset</a>
 </li>
 <li>count_haplotypes()
-: <a class="el" href="classvg_1_1GenomeState.html#a07dc4168e8469c98227847c4f168cc78">vg::GenomeState</a>
+: <a class="el" href="classvg_1_1GenomeState.html#a28ad460a92c0ae35a34b9355d84bf1cf">vg::GenomeState</a>
 </li>
 <li>count_Ns()
 : <a class="el" href="classvg_1_1MaximalExactMatch.html#a63fc8de6080c763b6fd0639d1f4f8941">vg::MaximalExactMatch</a>
@@ -498,19 +513,19 @@ $(function() {
 <li>create_edge()
 : <a class="el" href="classbdsg_1_1HashGraph.html#a1048fcb2cb754c6a96622332082e967a">bdsg::HashGraph</a>
 , <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a7924235c7e3194cb629cc5191e18a313">bdsg::MutablePositionOverlay</a>
-, <a class="el" href="classbdsg_1_1ODGI.html#a34b8028afdfac4bc5f14ab58de8e4a8c">bdsg::ODGI</a>
+, <a class="el" href="classbdsg_1_1ODGI.html#a1f05c91a157684e6321a1cbcf83467e2">bdsg::ODGI</a>
 , <a class="el" href="classbdsg_1_1PackedGraph.html#a457e1feb2fcdfce59119616183ca956b">bdsg::PackedGraph</a>
-, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a34a5e01f270713ba856a93c55039faf0">handlegraph::MutableHandleGraph</a>
+, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a3ff0a0f9497da3498170fdfc2ce97797">handlegraph::MutableHandleGraph</a>
 , <a class="el" href="classvg_1_1VG.html#a8ecb9833a1b3e7d5ca41fcaa96000976">vg::VG</a>
 </li>
 <li>create_gssw_graph()
 : <a class="el" href="classvg_1_1GSSWAligner.html#a56a0a0d3962e573dc9ed372394fbd13a">vg::GSSWAligner</a>
 </li>
 <li>create_handle()
-: <a class="el" href="classbdsg_1_1HashGraph.html#a68aec3a3a8658a14d61042f5ef7ec48f">bdsg::HashGraph</a>
-, <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#a704ee604af1d1a51fa69dfe704aa15e9">bdsg::MutablePositionOverlay</a>
+: <a class="el" href="classbdsg_1_1HashGraph.html#a351600818e4092cd47a995ce5b162f38">bdsg::HashGraph</a>
+, <a class="el" href="classbdsg_1_1MutablePositionOverlay.html#ae07c4396bcf69e2274334f8cbbd3aee2">bdsg::MutablePositionOverlay</a>
 , <a class="el" href="classbdsg_1_1ODGI.html#a452b70cec271a66a9f154cfa40ed6466">bdsg::ODGI</a>
-, <a class="el" href="classbdsg_1_1PackedGraph.html#acf661f0200611fd54c465435d3002248">bdsg::PackedGraph</a>
+, <a class="el" href="classbdsg_1_1PackedGraph.html#a28bde85caccd04a4bd4a9531d9177033">bdsg::PackedGraph</a>
 , <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a8c9d8ca8160a9b94a57000eab3e97aaa">handlegraph::MutableHandleGraph</a>
 , <a class="el" href="classvg_1_1VG.html#a54ad97e46dc1297b1a65a32697e2d37e">vg::VG</a>
 </li>
@@ -534,7 +549,7 @@ $(function() {
 </li>
 <li>create_path()
 : <a class="el" href="classvg_1_1Paths.html#a55306d115aee9abbf3166505bacdb35a">vg::Paths</a>
-, <a class="el" href="classvg_1_1VG.html#adc07ec73a57485a700e621517c962b8b">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#a3195bfadb7e65e4952c4b98d51e862f1">vg::VG</a>
 </li>
 <li>create_path_chunk_nodes()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a76bb6f4da1dc7d1e00a8a40aebc59ecf">vg::MultipathAlignmentGraph</a>

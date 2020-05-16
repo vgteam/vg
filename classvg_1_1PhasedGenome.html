@@ -120,10 +120,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ad0fdafbc6cb6fbfb576be92f6f6bc17d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6f89ab856a31dfb7258fd7487c051a5a"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#a6f89ab856a31dfb7258fd7487c051a5a">get_allele</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, int which_haplotype)</td></tr>
 <tr class="separator:a6f89ab856a31dfb7258fd7487c051a5a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aab26653dddeea64012b2629b4ebc3836"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#aab26653dddeea64012b2629b4ebc3836">optimal_score_on_genome</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph)</td></tr>
-<tr class="separator:aab26653dddeea64012b2629b4ebc3836"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a54f3234975b9f8fbe66eb8522c0f8b64"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#a54f3234975b9f8fbe66eb8522c0f8b64">read_log_likelihood</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln, double log_base)</td></tr>
-<tr class="separator:a54f3234975b9f8fbe66eb8522c0f8b64"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f8838611a252e9a574a33af3965ad4c"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#a4f8838611a252e9a574a33af3965ad4c">optimal_score_on_genome</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph)</td></tr>
+<tr class="separator:a4f8838611a252e9a574a33af3965ad4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af754f8a4e9793ebd5f4aa3b673b7e442"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#af754f8a4e9793ebd5f4aa3b673b7e442">read_log_likelihood</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, double log_base)</td></tr>
+<tr class="separator:af754f8a4e9793ebd5f4aa3b673b7e442"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -492,8 +492,8 @@ template&lt;typename NodeTraversalIterator &gt; </div>
 
 </div>
 </div>
-<a id="aab26653dddeea64012b2629b4ebc3836"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aab26653dddeea64012b2629b4ebc3836">&#9670;&nbsp;</a></span>optimal_score_on_genome()</h2>
+<a id="a4f8838611a252e9a574a33af3965ad4c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4f8838611a252e9a574a33af3965ad4c">&#9670;&nbsp;</a></span>optimal_score_on_genome()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -501,7 +501,7 @@ template&lt;typename NodeTraversalIterator &gt; </div>
         <tr>
           <td class="memname">int32_t vg::PhasedGenome::optimal_score_on_genome </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
           <td class="paramname"><em>multipath_aln</em>, </td>
         </tr>
         <tr>
@@ -518,7 +518,7 @@ template&lt;typename NodeTraversalIterator &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Returns the score of the highest scoring alignment contained in the multipath alignment that is restricted to the phased genome's paths through the variation graph.</p>
-<p>Note: assumes that <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> has 'start' field filled in </p>
+<p>Note: assumes that <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> has 'start' field filled in </p>
 
 </div>
 </div>
@@ -541,8 +541,8 @@ template&lt;typename NodeTraversalIterator &gt; </div>
 
 </div>
 </div>
-<a id="a54f3234975b9f8fbe66eb8522c0f8b64"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a54f3234975b9f8fbe66eb8522c0f8b64">&#9670;&nbsp;</a></span>read_log_likelihood()</h2>
+<a id="af754f8a4e9793ebd5f4aa3b673b7e442"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af754f8a4e9793ebd5f4aa3b673b7e442">&#9670;&nbsp;</a></span>read_log_likelihood()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -550,7 +550,7 @@ template&lt;typename NodeTraversalIterator &gt; </div>
         <tr>
           <td class="memname">double vg::PhasedGenome::read_log_likelihood </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
           <td class="paramname"><em>multipath_aln</em>, </td>
         </tr>
         <tr>
