@@ -1409,6 +1409,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.greedy_restart_min_length = greedy_restart_min_length;
     multipath_mapper.greedy_restart_max_count = greedy_restart_max_count;
     multipath_mapper.greedy_restart_max_lcp = greedy_restart_max_lcp;
+    multipath_mapper.greedy_restart_assume_substitution = greedy_restart_assume_substitution;
     multipath_mapper.use_stripped_match_alg = use_stripped_match_alg;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
