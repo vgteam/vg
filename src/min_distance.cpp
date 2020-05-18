@@ -13,6 +13,8 @@
 using namespace std;
 namespace vg {
 
+//#define debugIndex
+
 /*TODO: Remove old distance index from vg index 
  * Also change how nodes are stored in chain - in case of loops/unary snarls -might not actually need this
  * Make snarls/chains represented by the node id in netgraph
@@ -129,11 +131,11 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
         }
 
         handle_t handle = graph->get_handle(id, false);
-        if ( node_length(id-min_node_id)!=  graph->get_length(handle)){
+        if ( node_length(id)!=  graph->get_length(handle)){
             cerr << id << ": predicted " <<
-                   node_length(id-min_node_id)  << " actual " << graph->get_length(handle);
+                   node_length(id)  << " actual " << graph->get_length(handle);
         }
-        assert( node_length(id-min_node_id  ==  graph->get_length(handle));
+        assert( node_length(id)  ==  graph->get_length(handle) );
         return true;
                
     };

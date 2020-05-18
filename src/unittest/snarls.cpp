@@ -11,8 +11,10 @@
 #include "../json2pb.h"
 #include <vg/vg.pb.h>
 #include "catch.hpp"
+#include "random_graph.hpp"
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../genotypekit.hpp"
 #include "../traversal_finder.hpp"
 #include <vg/io/protobuf_emitter.hpp>
@@ -3713,7 +3715,89 @@ namespace vg {
             
             
              
-        } 
+        }
+        
+        TEST_CASE( "NetGraph can traverse all the snarls in random graphs",
+                  "[snarls][netgraph][integrated-snarl-finder]" ) {
+        
+            // Each actual graph takes a fairly long time to do so we randomize sizes...
+            
+            random_device seed_source;
+            default_random_engine generator(seed_source());
+            
+            for (size_t repeat = 0; repeat < 100; repeat++) {
+            
+                uniform_int_distribution<size_t> bases_dist(100, 10000);
+                size_t bases = bases_dist(generator);
+                uniform_int_distribution<size_t> variant_bases_dist(1, bases);
+                size_t variant_bases = variant_bases_dist(generator);
+                uniform_int_distribution<size_t> variant_count_dist(1, variant_bases);
+                size_t variant_count = variant_count_dist(generator);
+                        
+#ifdef debug
+                cerr << repeat << ": Do graph of " << bases << " bp with " << variant_bases << " bp variable in " << variant_count << " events" << endl;
+#endif
+            
+                VG graph;
+                random_graph(bases, variant_bases, variant_count, &graph);
+                IntegratedSnarlFinder finder(graph); 
+                auto manager = finder.find_snarls_parallel();
+                
+                size_t snarls_seen = 0;
+                
+                manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                    snarls_seen++;
+                    // Make sure we don't follow internal-snarl edges
+                    NetGraph net_graph = manager.net_graph_of(snarl, &graph, false);
+                    
+                    // Make sure we like the nodes in this snarl
+                    unordered_set<handle_t> nodes;
+                    size_t node_count = 0;
+                    net_graph.for_each_handle([&](const handle_t& handle) {
+                        nodes.insert(handle);
+                        node_count++;
+                    });
+                    if (nodes.size() != node_count) {
+                        cerr << "Problem with graph: " << pb2json(graph.graph) << endl;
+                    }
+                    REQUIRE(nodes.size() == node_count);
+                    
+                    // Track edges as followed from, followed to
+                    unordered_set<pair<handle_t, handle_t>> edges;
+                    // And in canonical order
+                    unordered_set<pair<handle_t, handle_t>> canonical_edges;
+                    for (auto& handle : nodes) {
+                    
+                        // Save all the edges off of each node
+                        net_graph.follow_edges(handle, false, [&](const handle_t& other) {
+                            edges.emplace(handle, other);
+                            canonical_edges.insert(net_graph.edge_handle(handle, other));
+                        });
+                        net_graph.follow_edges(handle, true, [&](const handle_t& other) {
+                            edges.emplace(net_graph.flip(handle), net_graph.flip(other));
+                            canonical_edges.insert(net_graph.edge_handle(other, handle));
+                        });
+                    }
+                    if (canonical_edges.size() != net_graph.get_edge_count()) {
+                        cerr << "Problem with graph: " << pb2json(graph.graph) << endl;
+                        cerr << "In snarl: " << snarl->start().node_id() << " -> " << snarl->end().node_id() << endl;
+                        cerr << "Observed edges: " << endl;
+                        for (auto& edge : canonical_edges) {
+                            cerr << "\t" << net_graph.get_id(edge.first) << (net_graph.get_is_reverse(edge.first) ? "-" : "+")
+                                << " -> " << net_graph.get_id(edge.second) << (net_graph.get_is_reverse(edge.second) ? "-" : "+") << endl;
+                        }
+                    }
+                    REQUIRE(canonical_edges.size() == net_graph.get_edge_count());
+                    for (auto& edge : edges) {
+                        // Each edge should be seen from both directions
+                        REQUIRE(edges.count(make_pair(net_graph.flip(edge.second), net_graph.flip(edge.first))));
+                    }
+                });
+                    
+            }
+        
+            
+        }
         
         TEST_CASE( "SnarlManager IO works correctly",
                   "[sites][snarls]" ) {

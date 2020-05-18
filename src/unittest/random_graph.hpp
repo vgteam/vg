@@ -1,6 +1,5 @@
 #include "handle.hpp"
-#include <random>
-#include <time.h>
+#include <vector>
 
 namespace vg{
 namespace unittest{
@@ -10,6 +9,11 @@ namespace unittest{
 /// is the number of variations added to the graph
 void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                   MutablePathMutableHandleGraph* graph);
+                  
+              
+/// Create a random undirected graph over numbered nodes.
+/// Returns a list of adjacency lists for each node.
+std::vector<std::vector<size_t>> random_adjacency_list(size_t node_count, size_t edge_count);
 
 }
 }
