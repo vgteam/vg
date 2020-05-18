@@ -77,7 +77,7 @@ void extract_containing_graph(const HandleGraph* source,
     
     while (!queue.empty()) {
         // get the next shortest distance traversal from either the init
-        pair<handle_t, size_t> trav = queue.top();
+        pair<handle_t, int64_t> trav = queue.top();
         queue.pop();
         
         // make sure the node is in the graph
