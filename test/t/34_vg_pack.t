@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 16
+plan tests 18
 
 vg construct -m 1000 -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
@@ -93,7 +93,16 @@ vg pack -x x.vg -g sim.gam -D -t 2 | sort > edge-table.vg.t3.tsv
 diff edge-table.vg.tsv edge-table.vg.t3.tsv
 is "$?" 0 "edge packs same on vg when using 2 threads as when using 1"
 
-rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx node-table.vg.tsv node-table.xg.tsv edge-table.vg.tsv edge-table.xg.tsv edge-table.vg.t3.tsv node-table.vg.t3.tsv
+vg convert x.vg -G sim.gam | bgzip | vg pack -x x.vg -a - -o x.vg.gaf.cx
+vg pack -x x.vg -i x.vg.gaf.cx -d | awk '!($1="")' | sort > node-table.vg.gaf.tsv
+diff node-table.vg.gaf.tsv node-table.vg.tsv
+is "$?" 0 "node packs on gaf same as gam"
+
+vg pack -x x.vg -i x.vg.gaf.cx -D | sort > edge-table.vg.gaf.tsv
+diff edge-table.vg.gaf.tsv edge-table.vg.tsv
+is "$?" 0 "edge packs on gaf same as gam"
+
+rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx node-table.vg.tsv node-table.xg.tsv edge-table.vg.tsv edge-table.xg.tsv edge-table.vg.t3.tsv node-table.vg.t3.tsv x.vg.gaf.cx node-table.vg.gaf.tsv edge-table.vg.gaf.tsv
 
 vg construct -m 5 -r tiny/tiny.fa >flat.vg
 vg index flat.vg -g flat.gcsa

@@ -7,6 +7,7 @@
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/handle_graph.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
+#include "../vg_gaf.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -20,7 +21,8 @@ void help_pack(char** argv) {
          << "    -x, --xg FILE          use this basis graph (any format accepted, does not have to be xg)" << endl
          << "    -o, --packs-out FILE   write compressed coverage packs to this output file" << endl
          << "    -i, --packs-in FILE    begin by summing coverage packs from each provided FILE" << endl
-         << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
+         << "    -g, --gam FILE         read alignments from this GAM file (could be '-' for stdin)" << endl
+         << "    -a, --gaf FILE         read alignments from this GAF file (could be '-' for stdin)" << endl
          << "    -d, --as-table         write table on stdout representing packs" << endl
          << "    -D, --as-edge-table    write table on stdout representing edge coverage" << endl
          << "    -u, --as-qual-table    write table on stdout representing average node mapqs" << endl
@@ -40,6 +42,7 @@ int main_pack(int argc, char** argv) {
     vector<string> packs_in;
     string packs_out;
     string gam_in;
+    string gaf_in;
     bool write_table = false;
     bool write_edge_table = false;
     bool write_qual_table = false;
@@ -66,6 +69,7 @@ int main_pack(int argc, char** argv) {
             {"packs-out", required_argument,0, 'o'},
             {"count-in", required_argument, 0, 'i'},
             {"gam", required_argument, 0, 'g'},
+            {"gaf", required_argument, 0, 'a'},
             {"as-table", no_argument, 0, 'd'},
             {"as-edge-table", no_argument, 0, 'D'},
             {"as-qual-table", no_argument, 0, 'u'},
@@ -80,7 +84,7 @@ int main_pack(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:dDut:eb:n:N:Q:c:",
+        c = getopt_long (argc, argv, "hx:o:i:g:a:dDut:eb:n:N:Q:c:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -105,6 +109,9 @@ int main_pack(int argc, char** argv) {
             break;
         case 'g':
             gam_in = optarg;
+            break;
+        case 'a':
+            gaf_in = optarg;
             break;
         case 'd':
             write_table = true;
@@ -160,8 +167,13 @@ int main_pack(int argc, char** argv) {
     bdsg::VectorizableOverlayHelper overlay_helper;
     graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(handle_graph.get()));
 
-    if (gam_in.empty() && packs_in.empty()) {
-        cerr << "error [vg pack]: Input must be provided with -g or -i" << endl;
+    if (gam_in.empty() && packs_in.empty() && gaf_in.empty()) {
+        cerr << "error [vg pack]: Input must be provided with -g, -a or -i" << endl;
+        exit(1);
+    }
+
+    if (!gam_in.empty() && !gaf_in.empty()) {
+        cerr << "error [vg pack]: -g cannot be used with -a" << endl;
         exit(1);
     }
 
@@ -208,21 +220,16 @@ int main_pack(int argc, char** argv) {
         packer.merge_from_files(packs_in);
     }
 
-    if (!gam_in.empty()) {
-        std::function<void(Alignment&)> lambda = [&packer,&min_mapq,&min_baseq](Alignment& aln) {
+    std::function<void(Alignment&)> lambda = [&packer,&min_mapq,&min_baseq](Alignment& aln) {
             packer.add(aln, min_mapq, min_baseq);
         };
-        if (gam_in == "-") {
-            vg::io::for_each_parallel(std::cin, lambda, batch_size);
-        } else {
-            ifstream gam_stream(gam_in);
-            if (!gam_stream) {
-                cerr << "[vg pack] error reading gam file: " << gam_in << endl;
-                return 1;
-            }
-            vg::io::for_each_parallel(gam_stream, lambda, batch_size);
-            gam_stream.close();
-        }
+    
+    if (!gam_in.empty()) {
+        get_input_file(gam_in, [&](istream& in) {
+                vg::io::for_each_parallel(in, lambda, batch_size);
+            });
+    } else if (!gaf_in.empty()) {
+        gaf_for_each_parallel(gaf_in, lambda, *graph);
     }
 
     if (!packs_out.empty()) {
