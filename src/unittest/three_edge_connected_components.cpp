@@ -3,12 +3,17 @@
 /// Unit tests for the three edge connected components algorithms
 ///
 
-#include <iostream>
-#include <vector>
-#include "../algorithms/three_edge_connected_components.hpp"
 #include "catch.hpp"
+#include "random_graph.hpp"
+
+#include "../algorithms/three_edge_connected_components.hpp"
 
 #include <structures/union_find.hpp>
+
+#include <iostream>
+#include <vector>
+#include <map>
+
 
 
 namespace vg {
@@ -49,6 +54,85 @@ static void component_callback(const function<void(const function<void(size_t)>&
             components.union_groups(first, member);
         }
     });
+}
+
+/// Compute 3-edge-connected-components in a slow but almost certainly right way
+static structures::UnionFind brute_force_3ecc(size_t count, const function<void(size_t, const function<void(size_t)>&)>& get_connected) {
+    // Make a big edge list
+    // Only store edges one way
+    vector<pair<size_t, size_t>> edges;
+    for (size_t i = 0; i < count; i++) {
+        get_connected(i, [&](size_t connected) {
+            if (i < connected) {
+                edges.emplace_back(i, connected);
+            }
+        });
+    }
+    
+    // We need to count how many times each node is still connected to each other node.
+    // Store by IDs in order.
+    // We could use an unordered map but then we'd have to go find the pair hash...
+    map<pair<size_t, size_t>, size_t> times_connected;
+    
+    // And we count how many subgraphs we look at
+    size_t subgraph_count = 0;
+    
+    for (size_t r1 = 0; r1 < edges.size(); r1++) {
+        // For each first edge we could remove
+        for (size_t r2 = r1 + 1; r2 < edges.size(); r2++) {
+            // For each second edge we could remove
+            
+            // Do connected components
+            structures::UnionFind cc(count, true);
+            for (size_t i = 0; i < edges.size(); i++) {
+                if (i != r1 && i != r2) {
+                    // Only count non-removed edges
+                    cc.union_groups(edges[i].first, edges[i].second);
+                }
+            }
+            
+            for (auto& group : cc.all_groups()) {
+                for (size_t i = 0; i < group.size(); i++) {
+                    for (size_t j = i + 1; j < group.size(); j++) {
+                        // For each pair of nodes in the same connected component this time, count that pair
+                        times_connected[make_pair(min(group[i], group[j]), max(group[i], group[j]))]++;
+                    }
+                }
+            }
+            
+            // Remember we did a subgraph
+            subgraph_count++;
+        }
+    }
+    
+    // Now find pairs of nodes that were connected every time no matter what 2
+    // edges we removed, and union them to get the 3eccs.
+
+    structures::UnionFind to_return(count, true);
+    for (auto& pair_and_count : times_connected) {
+        if (pair_and_count.second == subgraph_count) {
+            // This pair was connected every time
+            to_return.union_groups(pair_and_count.first.first, pair_and_count.first.second);
+        }
+    }
+    
+    return to_return;
+}
+
+/// Determine if two union-finds are equal.
+/// Can't be const because we need all_groups()
+static bool uf_equal(structures::UnionFind& a, structures::UnionFind& b) {
+    for (auto& group : a.all_groups()) {
+        for (size_t i = 0; i < group.size(); i++) {
+            if (b.group_size(group[i]) != group.size()) {
+                return false;
+            }
+            if (b.find_group(group[i]) != b.find_group(group[0])) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 TEST_CASE("3 edge connected components algorithms handle basic cases", "[3ecc][algorithms]") {
@@ -419,6 +503,81 @@ TEST_CASE("Tsin 2014 handles a graph with self loops and extra-edge triangles", 
     
     // Only two things should merge.
     REQUIRE(components.all_groups().size() == 6);
+}
+
+TEST_CASE("Tsin 2014 works correctly on random graphs", "[3ecc][algorithms]") {
+    
+    for (size_t node_count = 2; node_count <= 20; node_count++) {
+        for (size_t edge_count = 0; edge_count <= node_count * 3; edge_count += node_count/2) {
+        
+            for (size_t repeat = 0; repeat < 10; repeat++) {
+        
+        
+#ifdef debug
+                cerr << "Making random graph with " << node_count << " nodes and " << edge_count << " edges" << endl;
+#endif
+            
+                // Make a random graph
+                adjacencies = random_adjacency_list(node_count, edge_count);
+                components = structures::UnionFind(adjacencies.size(), true);
+            
+#ifdef debug
+                cerr << "Finding 3 edge connected components..." << endl;
+#endif
+            
+                // Find 3ecc with Tsin 2014
+                algorithms::three_edge_connected_components_dense(adjacencies.size(), 0, for_each_connected_node, component_callback);
+                
+#ifdef debug
+                cerr << "Finding true 3 edge connected components..." << endl;
+#endif
+                
+                // Find 3ecc manually
+                structures::UnionFind truth(brute_force_3ecc(adjacencies.size(), for_each_connected_node));
+                
+                // Check
+                bool correct = uf_equal(components, truth);
+                
+                if (!correct) {
+                    // Dump instance
+                    
+#ifdef debug
+                }
+                {
+#endif
+                    
+                    cerr << "Graph:" << endl;
+                    for (size_t i = 0; i < adjacencies.size(); i++) {
+                        cerr << i << ":";
+                        for (auto& j : adjacencies[i]) {
+                            cerr << " " << j;
+                        }
+                        cerr << endl;
+                    }
+
+                    cerr << "Our algorithm:" << endl;
+                    for (auto& group : components.all_groups()) {
+                        cerr << "Group:";
+                        for (auto& member : group) {
+                            cerr << " " << member;
+                        }
+                        cerr << endl;
+                    }
+                    
+                    cerr << "Truth:" << endl;
+                    for (auto& group : truth.all_groups()) {
+                        cerr << "Group:";
+                        for (auto& member : group) {
+                            cerr << " " << member;
+                        }
+                        cerr << endl;
+                    }
+                }
+                
+                REQUIRE(correct);
+            }
+        }
+    }
 }
 
 }

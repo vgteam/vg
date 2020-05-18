@@ -1,7 +1,13 @@
 #include "random_graph.hpp"
 
+#include <random>
+#include <time.h>
+
+
 namespace vg {
 namespace unittest {
+
+using namespace std;
 
 void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                   MutablePathMutableHandleGraph* graph) {
@@ -215,6 +221,38 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
         }
     }
 };
+
+vector<vector<size_t>> random_adjacency_list(size_t node_count, size_t edge_count) {
+
+    // Work out how to randomly pick a node
+    random_device seed_source;
+    default_random_engine generator(seed_source());
+    uniform_int_distribution<size_t> node_distribution(0, node_count - 1);
+    
+    vector<vector<size_t>> to_return(node_count);
+    
+    if (node_count == 0) {
+        // Can't have edges without nodes
+        return to_return;
+    }
+    
+    for (size_t i = 0; i < edge_count; i++) {
+        // Pick two nodes
+        size_t a = node_distribution(generator);
+        size_t b = node_distribution(generator);
+    
+        // Record the edge in both directions
+        to_return[a].push_back(b);
+        if (a != b) {
+            // Unless it's a self loop
+            to_return[b].push_back(a);
+        }
+    }
+    
+    return to_return;
+    
+}
+    
 
 }
 }

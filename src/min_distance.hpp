@@ -457,6 +457,10 @@ class MinimumDistanceIndex {
     /// Get the index into chain_indexes/rank in chain of node i.
     /// Detects and throws an error if node i never got assigned to a snarl.
     size_t get_primary_assignment(id_t i) const {
+        if (i - min_node_id > primary_snarl_assignments.size()) {
+            throw runtime_error("Node " + std::to_string(i) + " not in any snarl. Distance index does " +
+                                "not match graph or was not generated from a snarl set including trivial snarls.");
+        }
         auto stored = primary_snarl_assignments[i - min_node_id];
         if (stored == 0) {
             // Somebody asked for a node. It should be assigned to a snarl, but it isn't.
