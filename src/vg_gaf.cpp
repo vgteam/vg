@@ -44,15 +44,24 @@ gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool
         gaf.path.reserve(aln.path().mapping_size());
         string cs_cigar_str;
         size_t running_match_length = 0;
+        size_t total_to_len = 0;
         for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
             auto& mapping = aln.path().mapping(i);
             size_t offset = mapping.position().offset();
+            string node_seq;
+            handle_t handle = graph.get_handle(mapping.position().node_id(), mapping.position().is_reverse());
             if (i == 0) {
                 // use path_start to store the offset of the first node
                 gaf.path_start = offset;
+            } else if (cs_cigar == true && offset > 0) {
+                // to support split-mappings we gobble up the beginnings
+                // of nodes using deletions since unlike GAM, we can only
+                // set the offset of the first node
+                if (node_seq.empty()) {
+                    node_seq = graph.get_sequence(handle);
+                }
+                cs_cigar_str += "-" + node_seq.substr(0, offset);
             }
-            handle_t handle = graph.get_handle(mapping.position().node_id(), mapping.position().is_reverse());
-            string node_seq;
             for (size_t j = 0; j < mapping.edit_size(); ++j) {
                 auto& edit = mapping.edit(j);
                 if (edit_is_match(edit)) {
@@ -91,6 +100,7 @@ gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool
                     }
                 }
                 offset += edit.from_length();
+                total_to_len += edit.to_length();
             }
 
             bool skip_step = false;
@@ -98,6 +108,14 @@ gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool
                 if (mapping.position().node_id() != aln.path().mapping(i + 1).position().node_id() ||
                     mapping.position().is_reverse() != aln.path().mapping(i + 1).position().is_reverse()) {
                     // we are hopping off the middle of a node, need to gobble it up with a deletion
+                    if (node_seq.empty()) {
+                        node_seq = graph.get_sequence(handle);
+                    }
+                    if (running_match_length > 0) {
+                        // Matches are : followed by the match length
+                        cs_cigar_str += ":" + std::to_string(running_match_length);
+                        running_match_length = 0;
+                    }
                     cs_cigar_str += "-" + node_seq.substr(offset);
                 } else {
                     // we have a duplicate node mapping.  vg map actually produces these sometimes
@@ -121,7 +139,7 @@ gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool
                     gaf.path_start = position.offset();
                 }
                 if (i == aln.path().mapping_size()-1) {
-                    gaf.path_end = gaf.path_length - (node_length - mapping_from_length(aln.path().mapping(i)));
+                    gaf.path_end = node_length - position.offset() - mapping_from_length(aln.path().mapping(i));
                 }
                 gaf.path.push_back(std::move(step));
             }
@@ -131,8 +149,17 @@ gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool
             running_match_length = 0;
         }
 
+        // We can support gam alignments without sequences by inferring the sequence length from edits
+        if (gaf.query_length == 0 && total_to_len > 0) {
+            gaf.query_length = total_to_len;
+            gaf.query_end = total_to_len;
+        } else if (gaf.query_length > 0 && total_to_len > 0 && gaf.query_length != total_to_len) {
+            std::cerr << "Warning [gam2gaf]: Sequence length (" << gaf.query_length 
+                      << ") not match total edit to length (" << total_to_len << " for " <<pb2json(aln) << endl;
+        }
+
         //11 int Alignment block length
-        gaf.block_length = std::max(gaf.path_end - gaf.path_start, (int64_t)aln.sequence().size());
+        gaf.block_length = std::max(gaf.path_end - gaf.path_start, gaf.query_length);
 
         // optional cs-cigar string
         if (cs_cigar) {
