@@ -9,7 +9,6 @@
 #include "json2pb.h"
 #include <vg/io/hfile_cppstream.hpp>
 #include <vg/io/stream.hpp>
-#include "vg_gaf.hpp"
 
 #include <sstream>
 
@@ -1045,7 +1044,7 @@ void GafAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
     size_t thread_number = omp_get_thread_num();
     // Serialize to a string in our thread
     for (auto& aln : aln_batch) {
-        multiplexer.get_thread_stream(thread_number) << aln2gaf(graph, aln) << endl;
+        multiplexer.get_thread_stream(thread_number) << alignment_to_gaf(graph, aln) << endl;
     }
     // No need to flush, we can always register a breakpoint.
     multiplexer.register_breakpoint(thread_number);
@@ -1056,7 +1055,7 @@ void GafAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_b
     // Serialize to a string in our thread
     for (auto& alns : alns_batch) {
         for (auto& aln : alns) {
-            multiplexer.get_thread_stream(thread_number) << aln2gaf(graph, aln) << endl;
+            multiplexer.get_thread_stream(thread_number) << alignment_to_gaf(graph, aln) << endl;
         }
     }
     // No need to flush, we can always register a breakpoint.
@@ -1077,8 +1076,8 @@ void GafAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
     
     // Serialize to a string in our thread in collated order
     for (size_t i = 0; i < aln1_batch.size(); i++) {
-        multiplexer.get_thread_stream(thread_number) << aln2gaf(graph, aln1_batch[i]) << endl
-                                                     << aln2gaf(graph, aln2_batch[i]) << endl;
+        multiplexer.get_thread_stream(thread_number) << alignment_to_gaf(graph, aln1_batch[i]) << endl
+                                                     << alignment_to_gaf(graph, aln2_batch[i]) << endl;
     }
     // No need to flush, we can always register a breakpoint.
     multiplexer.register_breakpoint(thread_number);
@@ -1096,8 +1095,8 @@ void GafAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
     for (size_t i = 0; i < alns1_batch.size(); i++) {
         assert(alns1_batch[i].size() == alns1_batch[i].size());
         for (size_t j = 0; j < alns1_batch[i].size(); j++) {
-            multiplexer.get_thread_stream(thread_number) << aln2gaf(graph, alns1_batch[i][j]) << endl
-                                                         << aln2gaf(graph, alns2_batch[i][j]) << endl;
+            multiplexer.get_thread_stream(thread_number) << alignment_to_gaf(graph, alns1_batch[i][j]) << endl
+                                                         << alignment_to_gaf(graph, alns2_batch[i][j]) << endl;
         }
     }
     // No need to flush, we can always register a breakpoint.

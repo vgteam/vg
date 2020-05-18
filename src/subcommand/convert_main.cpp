@@ -7,7 +7,6 @@
 #include "../io/save_handle_graph.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
-#include "../vg_gaf.hpp"
 #include "../alignment_emitter.hpp"
 
 #include "bdsg/packed_graph.hpp"
@@ -147,7 +146,7 @@ int main_convert(int argc, char** argv) {
                     vg::io::for_each_parallel(in, lambda);
             });
         } else {
-            gaf_for_each_parallel(input_aln, lambda, *input_graph);
+            gaf_unpaired_for_each_parallel(*input_graph, input_aln, lambda);
         }
         return 0;
     }

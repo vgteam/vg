@@ -7,7 +7,6 @@
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/handle_graph.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
-#include "../vg_gaf.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -229,7 +228,7 @@ int main_pack(int argc, char** argv) {
                 vg::io::for_each_parallel(in, lambda, batch_size);
             });
     } else if (!gaf_in.empty()) {
-        gaf_for_each_parallel(gaf_in, lambda, *graph);
+        gaf_unpaired_for_each_parallel(*graph, gaf_in, lambda);
     }
 
     if (!packs_out.empty()) {
