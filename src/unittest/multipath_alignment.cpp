@@ -38,26 +38,28 @@ namespace vg {
                 graph.create_edge(n3, n4);
                 
                 string read = string("GCATCTGA");
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
                 
                 // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
                 
-                Mapping* mapping1 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath0->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
                 
-                Mapping* mapping2 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath1->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(4);
-                
                 identify_start_subpaths(multipath_aln);
                 
                 REQUIRE(multipath_aln.start_size() == 1);
@@ -79,14 +81,18 @@ namespace vg {
                 graph.create_edge(n3, n4);
                 
                 string read = string("GCATCTGA");
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -94,16 +100,16 @@ namespace vg {
                 subpath2->add_next(3);
                 
                 // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
                 
-                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
                 
-                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
                 
-                Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(4);
                 
                 
@@ -150,12 +156,14 @@ namespace vg {
                 graph.create_edge(n3, n4);
                 
                 string read = string("T");
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
                 
                 // set edges between subpaths
                 
@@ -164,10 +172,10 @@ namespace vg {
                 subpath1->set_score(0);
                 
                 // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(2);
                 
-                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(3);
                 
                 // get optimal alignment
@@ -199,15 +207,20 @@ namespace vg {
                 graph.create_edge(n3, n5);
                 
                 string read = string("GCAGCTGA");
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
-                Subpath* subpath4 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+                subpath_t* subpath4 = multipath_aln.mutable_subpath(4);
                 
                 // set edges between subpaths
                 subpath0->add_next(2);
@@ -223,19 +236,19 @@ namespace vg {
                 subpath4->set_score(4);
                 
                 // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
                 
-                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
                 
-                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
                 
-                Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(4);
                 
-                Mapping* mapping4 = subpath4->mutable_path()->add_mapping();
+                path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
                 mapping4->mutable_position()->set_node_id(5);
                 
                 // get optimal alignment
@@ -270,16 +283,22 @@ namespace vg {
                 graph.create_edge(n3, n5);
                 
                 string read = string("GCAGTGACTGA");
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
-                Subpath* subpath4 = multipath_aln.add_subpath();
-                Subpath* subpath5 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+                subpath_t* subpath4 = multipath_aln.mutable_subpath(4);
+                subpath_t* subpath5 = multipath_aln.mutable_subpath(5);
                 
                 // set edges between subpaths
                 subpath0->add_next(2);
@@ -297,29 +316,29 @@ namespace vg {
                 subpath5->set_score(4);
                 
                 // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
                 
-                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
                 
-                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit2 = mapping2->add_edit();
+                edit_t* edit2 = mapping2->add_edit();
                 edit2->set_from_length(2);
                 edit2->set_to_length(2);
                 
-                Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(3);
                 mapping3->mutable_position()->set_offset(2);
-                Edit* edit3 = mapping3->add_edit();
+                edit_t* edit3 = mapping3->add_edit();
                 edit3->set_from_length(3);
                 edit3->set_to_length(3);
                 
-                Mapping* mapping4 = subpath4->mutable_path()->add_mapping();
+                path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
                 mapping4->mutable_position()->set_node_id(4);
                 
-                Mapping* mapping5 = subpath5->mutable_path()->add_mapping();
+                path_mapping_t* mapping5 = subpath5->mutable_path()->add_mapping();
                 mapping5->mutable_position()->set_node_id(5);
                 
                 // get optimal alignment
@@ -350,13 +369,16 @@ namespace vg {
             SECTION( "The optimal alignment can be forced to take low-scoring intervening subpaths" ) {
                 
                 string read = "GCAGTG";
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -368,22 +390,22 @@ namespace vg {
                 subpath2->set_score(2);
                 
                 // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
-                Edit* edit0 = mapping0->add_edit();
+                edit_t* edit0 = mapping0->add_edit();
                 edit0->set_from_length(3);
                 edit0->set_to_length(3);
                 
-                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
-                Edit* edit1 = mapping0->add_edit();
+                edit_t* edit1 = mapping0->add_edit();
                 edit1->set_from_length(1);
                 edit1->set_to_length(1);
                 edit1->set_sequence("T");
                 
-                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit2 = mapping2->add_edit();
+                edit_t* edit2 = mapping2->add_edit();
                 edit2->set_from_length(2);
                 edit2->set_to_length(2);
                 
@@ -425,12 +447,14 @@ namespace vg {
                 graph.create_edge(n3, n4);
                 
                 string read = string("T");
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
                 
                 // set edges between subpaths
                 
@@ -439,10 +463,10 @@ namespace vg {
                 subpath1->set_score(0);
                 
                 // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(2);
                 
-                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(3);
                 
                 // get top 10 alignments
@@ -483,16 +507,22 @@ namespace vg {
                 graph.create_edge(n3, n5);
                 
                 string read = string("GCAGTGACTGA");
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
-                Subpath* subpath4 = multipath_aln.add_subpath();
-                Subpath* subpath5 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+                subpath_t* subpath4 = multipath_aln.mutable_subpath(4);
+                subpath_t* subpath5 = multipath_aln.mutable_subpath(5);
                 
                 // set edges between subpaths
                 subpath0->add_next(2);
@@ -511,29 +541,29 @@ namespace vg {
                 
                 // designate mappings
                 // TODO: Note that these edits aren't quite realistic
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
                 
-                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
                 
-                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit2 = mapping2->add_edit();
+                edit_t* edit2 = mapping2->add_edit();
                 edit2->set_from_length(2);
                 edit2->set_to_length(2);
                 
-                Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(3);
                 mapping3->mutable_position()->set_offset(2);
-                Edit* edit3 = mapping3->add_edit();
+                edit_t* edit3 = mapping3->add_edit();
                 edit3->set_from_length(3);
                 edit3->set_to_length(3);
                 
-                Mapping* mapping4 = subpath4->mutable_path()->add_mapping();
+                path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
                 mapping4->mutable_position()->set_node_id(4);
                 
-                Mapping* mapping5 = subpath5->mutable_path()->add_mapping();
+                path_mapping_t* mapping5 = subpath5->mutable_path()->add_mapping();
                 mapping5->mutable_position()->set_node_id(5);
                 
                 // get top 10 alignments
@@ -652,14 +682,18 @@ namespace vg {
                 graph.create_edge(n3, n4);
                 
                 string read = string("GCATCTGA");
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -674,28 +708,28 @@ namespace vg {
                 subpath3->set_score(4);
                 
                 // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
-                Edit* edit0 = mapping0->add_edit();
+                edit_t* edit0 = mapping0->add_edit();
                 edit0->set_from_length(3);
                 edit0->set_to_length(3);
                 
-                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
-                Edit* edit1 = mapping1->add_edit();
+                edit_t* edit1 = mapping1->add_edit();
                 edit1->set_from_length(1);
                 edit1->set_to_length(1);
                 
-                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit2 = mapping2->add_edit();
+                edit_t* edit2 = mapping2->add_edit();
                 edit2->set_from_length(1);
                 edit2->set_to_length(1);
                 edit2->set_sequence("T");
                 
-                Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(4);
-                Edit* edit3 = mapping3->add_edit();
+                edit_t* edit3 = mapping3->add_edit();
                 edit3->set_from_length(4);
                 edit3->set_to_length(4);
                 
@@ -777,16 +811,22 @@ namespace vg {
                 graph.create_edge(n4, n6);
                 
                 string read = string("GCATCTGAAC");
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
-                Subpath* subpath4 = multipath_aln.add_subpath();
-                Subpath* subpath5 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+                subpath_t* subpath4 = multipath_aln.mutable_subpath(4);
+                subpath_t* subpath5 = multipath_aln.mutable_subpath(5);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -805,44 +845,46 @@ namespace vg {
                 subpath5->set_score(0);
                 
                 // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
-                Edit* edit0 = mapping0->add_edit();
+                edit_t* edit0 = mapping0->add_edit();
                 edit0->set_from_length(3);
                 edit0->set_to_length(3);
                 
-                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
-                Edit* edit1 = mapping1->add_edit();
+                edit_t* edit1 = mapping1->add_edit();
                 edit1->set_from_length(1);
                 edit1->set_to_length(1);
                 
-                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit2 = mapping2->add_edit();
+                edit_t* edit2 = mapping2->add_edit();
                 edit2->set_from_length(1);
                 edit2->set_to_length(1);
                 edit2->set_sequence("T");
                 
-                Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(4);
-                Edit* edit3 = mapping3->add_edit();
+                edit_t* edit3 = mapping3->add_edit();
                 edit3->set_from_length(4);
                 edit3->set_to_length(4);
                 
-                Mapping* mapping4 = subpath4->mutable_path()->add_mapping();
+                path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
                 mapping4->mutable_position()->set_node_id(5);
-                Edit* edit4 = mapping4->add_edit();
+                edit_t* edit4 = mapping4->add_edit();
                 edit4->set_from_length(2);
                 edit4->set_to_length(2);
                 
-                Mapping* mapping5 = subpath5->mutable_path()->add_mapping();
+                path_mapping_t* mapping5 = subpath5->mutable_path()->add_mapping();
                 mapping5->mutable_position()->set_node_id(6);
-                Edit* edit5a = mapping5->add_edit();
+                mapping5->add_edit();
+                mapping5->add_edit();
+                edit_t* edit5a = mapping5->mutable_edit(0);
+                edit_t* edit5b = mapping5->mutable_edit(1);
                 edit5a->set_from_length(1);
                 edit5a->set_to_length(1);
                 edit5a->set_sequence("A");
-                Edit* edit5b = mapping5->add_edit();
                 edit5b->set_from_length(1);
                 edit5b->set_to_length(1);
                 
@@ -938,16 +980,22 @@ namespace vg {
             graph.create_edge(n3, n5);
             
             string read = string("CACCCTGA");
-            MultipathAlignment multipath_aln;
+            multipath_alignment_t multipath_aln;
             multipath_aln.set_sequence(read);
             
             // add subpaths
-            Subpath* subpath0 = multipath_aln.add_subpath();
-            Subpath* subpath1 = multipath_aln.add_subpath();
-            Subpath* subpath2 = multipath_aln.add_subpath();
-            Subpath* subpath3 = multipath_aln.add_subpath();
-            Subpath* subpath4 = multipath_aln.add_subpath();
-            Subpath* subpath5 = multipath_aln.add_subpath();
+            multipath_aln.add_subpath();
+            multipath_aln.add_subpath();
+            multipath_aln.add_subpath();
+            multipath_aln.add_subpath();
+            multipath_aln.add_subpath();
+            multipath_aln.add_subpath();
+            subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+            subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+            subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+            subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+            subpath_t* subpath4 = multipath_aln.mutable_subpath(4);
+            subpath_t* subpath5 = multipath_aln.mutable_subpath(5);
             
             // set edges between subpaths
             subpath0->add_next(2);
@@ -965,47 +1013,49 @@ namespace vg {
             subpath5->set_score(0);
             
             // designate mappings
-            Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+            path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
             mapping0->mutable_position()->set_node_id(1);
             mapping0->mutable_position()->set_offset(1);
-            Edit* edit00 = mapping0->add_edit();
+            edit_t* edit00 = mapping0->add_edit();
             edit00->set_from_length(2);
             edit00->set_to_length(2);
             
-            Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+            path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
             mapping1->mutable_position()->set_node_id(2);
             mapping1->mutable_position()->set_offset(1);
-            Edit* edit10 = mapping1->add_edit();
+            edit_t* edit10 = mapping1->add_edit();
             edit10->set_from_length(0);
             edit10->set_to_length(2);
             edit10->set_sequence("CA");
             
-            Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+            path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
             mapping2->mutable_position()->set_node_id(3);
-            Edit* edit20 = mapping2->add_edit();
+            mapping2->add_edit();
+            mapping2->add_edit();
+            edit_t* edit20 = mapping2->mutable_edit(0);
+            edit_t* edit21 = mapping2->mutable_edit(1);
             edit20->set_from_length(1);
             edit20->set_to_length(0);
-            Edit* edit21 = mapping2->add_edit();
             edit21->set_from_length(2);
             edit21->set_to_length(2);
             
-            Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
+            path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
             mapping3->mutable_position()->set_node_id(4);
-            Edit* edit30 = mapping3->add_edit();
+            edit_t* edit30 = mapping3->add_edit();
             edit30->set_from_length(0);
             edit30->set_to_length(4);
             edit30->set_sequence("CTGA");
             
-            Mapping* mapping4 = subpath4->mutable_path()->add_mapping();
+            path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
             mapping4->mutable_position()->set_node_id(5);
-            Edit* edit40 = mapping4->add_edit();
+            edit_t* edit40 = mapping4->add_edit();
             edit40->set_from_length(4);
             edit40->set_to_length(4);
             
-            Mapping* mapping5 = subpath5->mutable_path()->add_mapping();
+            path_mapping_t* mapping5 = subpath5->mutable_path()->add_mapping();
             mapping5->mutable_position()->set_node_id(3);
             mapping5->mutable_position()->set_offset(3);
-            Edit* edit50 = mapping5->add_edit();
+            edit_t* edit50 = mapping5->add_edit();
             edit50->set_from_length(0);
             edit50->set_to_length(6);
             edit50->set_sequence("CCCTGA");
@@ -1014,7 +1064,7 @@ namespace vg {
             multipath_aln.add_start(0);
             multipath_aln.add_start(1);
             
-            MultipathAlignment rc_multipath_aln;
+            multipath_alignment_t rc_multipath_aln;
             
             auto node_length = [&graph](int64_t node_id) { return graph.get_node(node_id)->sequence().length(); };
             rev_comp_multipath_alignment(multipath_aln, node_length, rc_multipath_aln);
@@ -1084,19 +1134,19 @@ namespace vg {
             REQUIRE(rc_multipath_aln.subpath_size() == multipath_aln.subpath_size());
             
             for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
-                const Subpath& subpath_1 = multipath_aln.subpath(i);
-                const Subpath& subpath_2 = rc_multipath_aln.subpath(i);
+                const subpath_t& subpath_1 = multipath_aln.subpath(i);
+                const subpath_t& subpath_2 = rc_multipath_aln.subpath(i);
                 REQUIRE(subpath_1.score() == subpath_2.score());
-                const Path& path_1 = subpath_1.path();
-                const Path& path_2 = subpath_2.path();
+                const path_t& path_1 = subpath_1.path();
+                const path_t& path_2 = subpath_2.path();
                 REQUIRE(path_1.mapping_size() == path_2.mapping_size());
                 for (int64_t j = 0; j < path_1.mapping_size(); j++) {
-                    const Mapping& mapping_1 = path_1.mapping(j);
-                    const Mapping& mapping_2 = path_2.mapping(j);
+                    const path_mapping_t& mapping_1 = path_1.mapping(j);
+                    const path_mapping_t& mapping_2 = path_2.mapping(j);
                     REQUIRE(mapping_1.edit_size() == mapping_2.edit_size());
                     for (int64_t k = 0; k < mapping_1.edit_size(); k++) {
-                        const Edit& edit_1 = mapping_1.edit(k);
-                        const Edit& edit_2 = mapping_2.edit(k);
+                        const edit_t& edit_1 = mapping_1.edit(k);
+                        const edit_t& edit_2 = mapping_2.edit(k);
                         REQUIRE(edit_1.from_length() == edit_2.from_length());
                         REQUIRE(edit_1.to_length() == edit_2.to_length());
                         REQUIRE(edit_1.sequence() == edit_2.sequence());
@@ -1124,20 +1174,23 @@ namespace vg {
             }
         }
         
-        TEST_CASE( "Algorithm returns correct connected components for MultipathAlignments",
+        TEST_CASE( "Algorithm returns correct connected components for multipath_alignment_ts",
                   "[alignment][multipath]" ){
             
-            SECTION("Works for a single component MultipathAlignment") {
+            SECTION("Works for a single component multipath_alignment_t") {
                 
                 
                 string read = "CACCCTGA";
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -1171,16 +1224,19 @@ namespace vg {
                 REQUIRE(found_1);
             }
             
-            SECTION("Works for a two component MultipathAlignment") {
+            SECTION("Works for a two component multipath_alignment_t") {
                 
                 string read = "CACCCTGA";
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -1229,18 +1285,25 @@ namespace vg {
                 REQUIRE(found_2);
             }
             
-            SECTION("Works for a multi-component MultipathAlignment with complicated edge structure") {
+            SECTION("Works for a multi-component multipath_alignment_t with complicated edge structure") {
                 
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
-                Subpath* subpath4 = multipath_aln.add_subpath();
-                Subpath* subpath5 = multipath_aln.add_subpath();
-                Subpath* subpath6 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+                subpath_t* subpath4 = multipath_aln.mutable_subpath(4);
+                subpath_t* subpath5 = multipath_aln.mutable_subpath(5);
+                subpath_t* subpath6 = multipath_aln.mutable_subpath(6);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -1312,21 +1375,28 @@ namespace vg {
             }
         }
         
-        TEST_CASE("We can extract subgraphs of a MultipathAlignment",
+        TEST_CASE("We can extract subgraphs of a multipath_alignment_t",
                   "[alignment][multipath]" ) {
             
             SECTION("Works correctly when splitting by connected components") {
                 
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
-                Subpath* subpath4 = multipath_aln.add_subpath();
-                Subpath* subpath5 = multipath_aln.add_subpath();
-                Subpath* subpath6 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+                subpath_t* subpath4 = multipath_aln.mutable_subpath(4);
+                subpath_t* subpath5 = multipath_aln.mutable_subpath(5);
+                subpath_t* subpath6 = multipath_aln.mutable_subpath(6);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -1349,7 +1419,7 @@ namespace vg {
                 
                 for (size_t i = 0; i < comps.size(); i++) {
                     
-                    MultipathAlignment sub;
+                    multipath_alignment_t sub;
                     extract_sub_multipath_alignment(multipath_aln, comps[i], sub);
                                         
                     bool is_this_comp;
@@ -1472,25 +1542,26 @@ namespace vg {
         TEST_CASE( "Non-branching paths in a multipath alignment can be merged", "[alignment][multipath]") {
             SECTION("Non-branching paths can be merged across an edge") {
                 
-                MultipathAlignment mpaln;
+                multipath_alignment_t mpaln;
                 
-                Subpath* sp1 = mpaln.add_subpath();
+                mpaln.add_subpath();
+                mpaln.add_subpath();
+                subpath_t* sp1 = mpaln.mutable_subpath(0);
+                subpath_t* sp2 = mpaln.mutable_subpath(1);
                 
-                Mapping* m11 = sp1->mutable_path()->add_mapping();
-                Position* p11 = m11->mutable_position();
+                path_mapping_t* m11 = sp1->mutable_path()->add_mapping();
+                position_t* p11 = m11->mutable_position();
                 p11->set_node_id(1);
                 
-                Edit* e111 = m11->add_edit();
+                edit_t* e111 = m11->add_edit();
                 e111->set_from_length(1);
                 e111->set_to_length(1);
-                
-                Subpath* sp2 = mpaln.add_subpath();
-                
-                Mapping* m21 = sp2->mutable_path()->add_mapping();
-                Position* p21 = m21->mutable_position();
+                                
+                path_mapping_t* m21 = sp2->mutable_path()->add_mapping();
+                position_t* p21 = m21->mutable_position();
                 p21->set_node_id(2);
                 
-                Edit* e211 = m21->add_edit();
+                edit_t* e211 = m21->add_edit();
                 e211->set_from_length(2);
                 e211->set_to_length(2);
                 
@@ -1525,28 +1596,29 @@ namespace vg {
             
             SECTION("Non-branching paths can be merged within a node") {
                 
-                MultipathAlignment mpaln;
+                multipath_alignment_t mpaln;
                 
-                Subpath* sp1 = mpaln.add_subpath();
+                mpaln.add_subpath();
+                mpaln.add_subpath();
+                subpath_t* sp1 = mpaln.mutable_subpath(0);
+                subpath_t* sp2 = mpaln.mutable_subpath(1);
                 
-                Mapping* m11 = sp1->mutable_path()->add_mapping();
-                Position* p11 = m11->mutable_position();
+                path_mapping_t* m11 = sp1->mutable_path()->add_mapping();
+                position_t* p11 = m11->mutable_position();
                 p11->set_node_id(1);
                 p11->set_is_reverse(true);
                 
-                Edit* e111 = m11->add_edit();
+                edit_t* e111 = m11->add_edit();
                 e111->set_from_length(1);
                 e111->set_to_length(1);
-                
-                Subpath* sp2 = mpaln.add_subpath();
-                
-                Mapping* m21 = sp2->mutable_path()->add_mapping();
-                Position* p21 = m21->mutable_position();
+                                
+                path_mapping_t* m21 = sp2->mutable_path()->add_mapping();
+                position_t* p21 = m21->mutable_position();
                 p21->set_node_id(1);
                 p21->set_offset(1);
                 p21->set_is_reverse(true);
                 
-                Edit* e211 = m21->add_edit();
+                edit_t* e211 = m21->add_edit();
                 e211->set_from_length(0);
                 e211->set_to_length(2);
                 
@@ -1577,28 +1649,29 @@ namespace vg {
             
             SECTION("Non-branching paths can be merged within an edit") {
                 
-                MultipathAlignment mpaln;
+                multipath_alignment_t mpaln;
                 
-                Subpath* sp1 = mpaln.add_subpath();
+                mpaln.add_subpath();
+                mpaln.add_subpath();
+                subpath_t* sp1 = mpaln.mutable_subpath(0);
+                subpath_t* sp2 = mpaln.mutable_subpath(1);
                 
-                Mapping* m11 = sp1->mutable_path()->add_mapping();
-                Position* p11 = m11->mutable_position();
+                path_mapping_t* m11 = sp1->mutable_path()->add_mapping();
+                position_t* p11 = m11->mutable_position();
                 p11->set_node_id(1);
                 p11->set_is_reverse(true);
                 
-                Edit* e111 = m11->add_edit();
+                edit_t* e111 = m11->add_edit();
                 e111->set_from_length(1);
                 e111->set_to_length(1);
-                
-                Subpath* sp2 = mpaln.add_subpath();
-                
-                Mapping* m21 = sp2->mutable_path()->add_mapping();
-                Position* p21 = m21->mutable_position();
+                                
+                path_mapping_t* m21 = sp2->mutable_path()->add_mapping();
+                position_t* p21 = m21->mutable_position();
                 p21->set_node_id(1);
                 p21->set_offset(1);
                 p21->set_is_reverse(true);
                 
-                Edit* e211 = m21->add_edit();
+                edit_t* e211 = m21->add_edit();
                 e211->set_from_length(2);
                 e211->set_to_length(2);
                 
@@ -1624,54 +1697,58 @@ namespace vg {
             
             SECTION("Non-branching paths can be distinguished from branching paths") {
                 
-                MultipathAlignment mpaln;
+                multipath_alignment_t mpaln;
                 
-                Subpath* sp1 = mpaln.add_subpath();
+                mpaln.add_subpath();
+                mpaln.add_subpath();
+                mpaln.add_subpath();
+                mpaln.add_subpath();
+                subpath_t* sp1 = mpaln.mutable_subpath(0);
+                subpath_t* sp2 = mpaln.mutable_subpath(1);
+                subpath_t* sp3 = mpaln.mutable_subpath(2);
+                subpath_t* sp4 = mpaln.mutable_subpath(3);
                 
-                Mapping* m11 = sp1->mutable_path()->add_mapping();
-                Position* p11 = m11->mutable_position();
+                path_mapping_t* m11 = sp1->mutable_path()->add_mapping();
+                position_t* p11 = m11->mutable_position();
                 p11->set_node_id(1);
                 p11->set_is_reverse(true);
                 
-                Edit* e111 = m11->add_edit();
+                edit_t* e111 = m11->add_edit();
                 e111->set_from_length(1);
                 e111->set_to_length(1);
-                
-                Subpath* sp2 = mpaln.add_subpath();
-                
-                Mapping* m21 = sp2->mutable_path()->add_mapping();
-                Position* p21 = m21->mutable_position();
+                                
+                path_mapping_t* m21 = sp2->mutable_path()->add_mapping();
+                position_t* p21 = m21->mutable_position();
                 p21->set_node_id(1);
                 p21->set_offset(1);
                 p21->set_is_reverse(true);
                 
-                Edit* e211 = m21->add_edit();
+                m21->add_edit();
+                m21->add_edit();
+                edit_t* e211 = m21->mutable_edit(0);
+                edit_t* e212 = m21->mutable_edit(1);
+                
                 e211->set_from_length(2);
                 e211->set_to_length(2);
                 
-                Edit* e212 = m21->add_edit();
                 e212->set_from_length(2);
                 e212->set_to_length(0);
-                
-                Subpath* sp3 = mpaln.add_subpath();
-                
-                Mapping* m31 = sp3->mutable_path()->add_mapping();
-                Position* p31 = m31->mutable_position();
+                                
+                path_mapping_t* m31 = sp3->mutable_path()->add_mapping();
+                position_t* p31 = m31->mutable_position();
                 p31->set_node_id(2);
                 p31->set_offset(0);
                 
-                Edit* e311 = m31->add_edit();
+                edit_t* e311 = m31->add_edit();
                 e311->set_from_length(1);
                 e311->set_to_length(1);
-                
-                Subpath* sp4 = mpaln.add_subpath();
-                
-                Mapping* m41 = sp4->mutable_path()->add_mapping();
-                Position* p41 = m41->mutable_position();
+                                
+                path_mapping_t* m41 = sp4->mutable_path()->add_mapping();
+                position_t* p41 = m41->mutable_position();
                 p41->set_node_id(3);
                 p41->set_offset(0);
                 
-                Edit* e411 = m41->add_edit();
+                edit_t* e411 = m41->add_edit();
                 e411->set_from_length(1);
                 e411->set_to_length(1);
                 
@@ -1742,9 +1819,10 @@ namespace vg {
             
             )"; // vim syntax highlighting gives up unless I put "
             
-            MultipathAlignment mpaln;
-            
-            json2pb(mpaln, multipath_json);
+            MultipathAlignment mpaln_pb;
+            json2pb(mpaln_pb, multipath_json.c_str(), multipath_json.size());
+            multipath_alignment_t mpaln;
+            from_proto_multipath_alignment(mpaln_pb, mpaln);
             
             auto alns = optimal_alignments_with_disjoint_subpaths(mpaln, 5);
             
@@ -1784,11 +1862,12 @@ namespace vg {
 ],"start":[0]}
             )";
             
-            MultipathAlignment mpaln;
+            MultipathAlignment mpaln_pb;
+            json2pb(mpaln_pb, multipath_json.c_str(), multipath_json.size());
+            multipath_alignment_t mpaln;
+            from_proto_multipath_alignment(mpaln_pb, mpaln);
             
-            json2pb(mpaln, multipath_json);
-            
-            // Topologically sort the MultipathAlignment so we can linearize it.
+            // Topologically sort the multipath_alignment_t so we can linearize it.
             topologically_order_subpaths(mpaln);
             
             // Generate the best linearization with optimal_alignments

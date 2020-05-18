@@ -46,16 +46,16 @@ namespace vg {
                 SnarlManager snarl_manager; 
             
                 string read = string("GCA");
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                  // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.add_subpath();
                  
                 // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
-                Edit* edit0 = mapping0->add_edit();
+                edit_t* edit0 = mapping0->add_edit();
                 edit0->set_from_length(3); //a match 
                 edit0->set_to_length(3);
 
@@ -64,7 +64,7 @@ namespace vg {
                 multipath_aln.add_start(0);        
 
                 MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);   
-                vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
+                vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>({multipath_aln});
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
@@ -123,14 +123,18 @@ namespace vg {
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 string read = string("GCATCTGA");
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths with same topology as graph
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -145,28 +149,28 @@ namespace vg {
                 subpath3->set_score(1);
 
                 // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
-                Edit* edit0 = mapping0->add_edit();
+                edit_t* edit0 = mapping0->add_edit();
                 edit0->set_from_length(3); //a match 
                 edit0->set_to_length(3);
                 
-                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
-                Edit* edit1 = mapping1->add_edit();
+                edit_t* edit1 = mapping1->add_edit();
                 edit1->set_from_length(1); //a match 
                 edit1->set_to_length(1);
                 
-                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit2 = mapping2->add_edit();
+                edit_t* edit2 = mapping2->add_edit();
                 edit2->set_from_length(1); //a snip
                 edit2->set_to_length(1);
                 edit2->set_sequence("T"); 
 
-                Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(4);
-                Edit* edit3 = mapping3->add_edit();
+                edit_t* edit3 = mapping3->add_edit();
                 edit3->set_from_length(4); //a match 
                 edit3->set_to_length(4);
                 
@@ -174,7 +178,7 @@ namespace vg {
 
             
                 MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
-                vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
+                vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>({multipath_aln});
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
                 //cerr << "**************" <<endl;
@@ -269,9 +273,9 @@ namespace vg {
                 }
 
                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
-               vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>(); 
+               vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>();
 
-               vector<vector<MultipathAlignment>> vect = {reads.size(),vector<MultipathAlignment>() };
+               vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
                     
                     
                 // map read in alignment to graph and make multipath alignments 
@@ -350,18 +354,26 @@ namespace vg {
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 string read = string("GGGCCCAGCTGG");
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence(read);
                 
                 // add subpaths with same topology as graph
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
-                Subpath* subpath4 = multipath_aln.add_subpath();
-                Subpath* subpath5 = multipath_aln.add_subpath();
-                Subpath* subpath6 = multipath_aln.add_subpath();
-                Subpath* subpath7 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+                subpath_t* subpath4 = multipath_aln.mutable_subpath(4);
+                subpath_t* subpath5 = multipath_aln.mutable_subpath(5);
+                subpath_t* subpath6 = multipath_aln.mutable_subpath(6);
+                subpath_t* subpath7 = multipath_aln.mutable_subpath(7);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -385,61 +397,61 @@ namespace vg {
                 subpath7->set_score(-10);
                 
                 // designate mappings
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
-                Edit* edit0 = mapping0->add_edit();
+                edit_t* edit0 = mapping0->add_edit();
                 edit0->set_from_length(3); //a match 
                 edit0->set_to_length(3);
                 
-                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
-                Edit* edit1 = mapping1->add_edit();
+                edit_t* edit1 = mapping1->add_edit();
                 edit1->set_from_length(3); //a match 
                 edit1->set_to_length(3);
                 
-                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit2 = mapping2->add_edit();
+                edit_t* edit2 = mapping2->add_edit();
                 edit2->set_from_length(1); //a match 
                 edit2->set_to_length(1);
                 
-                Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(4);
-                Edit* edit3 = mapping3->add_edit();
+                edit_t* edit3 = mapping3->add_edit();
                 edit3->set_from_length(1); //a mismatch, snp
                 edit3->set_to_length(1);
                 edit3->set_sequence("A");
 
-                Mapping* mapping4 = subpath4->mutable_path()->add_mapping();
+                path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
                 mapping4->mutable_position()->set_node_id(5);
-                Edit* edit4 = mapping4->add_edit();
+                edit_t* edit4 = mapping4->add_edit();
                 edit4->set_from_length(1); //a match 
                 edit4->set_to_length(1);
 
-                Mapping* mapping5 = subpath5->mutable_path()->add_mapping();
+                path_mapping_t* mapping5 = subpath5->mutable_path()->add_mapping();
                 mapping5->mutable_position()->set_node_id(6);
-                Edit* edit5 = mapping5->add_edit();
+                edit_t* edit5 = mapping5->add_edit();
                 edit5->set_from_length(3); //a match 
                 edit5->set_to_length(3);
 
-                Mapping* mapping6 = subpath6->mutable_path()->add_mapping();
+                path_mapping_t* mapping6 = subpath6->mutable_path()->add_mapping();
                 mapping6->mutable_position()->set_node_id(7);
-                Edit* edit6 = mapping6->add_edit();
+                edit_t* edit6 = mapping6->add_edit();
                 edit6->set_from_length(2); //a mismatch 
                 edit6->set_to_length(2); // will offset 2 positions in read and graph 
                 edit6->set_sequence("CC");
-                Edit* edit6b = mapping6->add_edit();
+                edit_t* edit6b = mapping6->add_edit();
                 edit6b->set_from_length(1); // a match
                 edit6b->set_to_length(1);
                 
 
-                Mapping* mapping7 = subpath7->mutable_path()->add_mapping();
+                path_mapping_t* mapping7 = subpath7->mutable_path()->add_mapping();
                 mapping7->mutable_position()->set_node_id(8);
-                Edit* edit7 = mapping7->add_edit();
+                edit_t* edit7 = mapping7->add_edit();
                 edit7->set_from_length(1); //a mismatch 
                 edit7->set_to_length(1);
                 edit7->set_sequence("A");
-                Edit* edit7b = mapping7->add_edit(); // a deletion , gap open 
+                edit_t* edit7b = mapping7->add_edit(); // a deletion , gap open
                 edit7b->set_from_length(1); // denotes the length of the gap observed in alt seq
                 edit7b->set_to_length(0); // length in alt sequence is zero because it is a gap
                 edit7b->set_sequence("G");
@@ -450,7 +462,7 @@ namespace vg {
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
 
                 MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
-                vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>({multipath_aln}); 
+                vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>({multipath_aln});
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
                  // create a set of possible solutions
@@ -546,9 +558,9 @@ namespace vg {
                 
                 
                 MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
-                vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>(); 
+                vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>();
 
-                vector<vector<MultipathAlignment>> vect = {reads.size(),vector<MultipathAlignment>() };
+                vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
                     
                     
                 // map read in alignment to graph and make multipath alignments 
@@ -563,7 +575,7 @@ namespace vg {
 
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 
-                //pass vector with accumulated MultipathAlignment objects to run_genotype()
+                //pass vector with accumulated multipath_alignment_t objects to run_genotype()
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base); 
                 
                 // // create a set of 2 possible solutions
@@ -682,9 +694,9 @@ namespace vg {
                     }
                     
                     MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, num_iterations, seed_i);
-                    vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>(); 
+                    vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>();
 
-                    vector<vector<MultipathAlignment>> vect = {reads.size(),vector<MultipathAlignment>() };
+                    vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
                     
                     
                     // map read in alignment to graph and make multipath alignments 
@@ -699,7 +711,7 @@ namespace vg {
                     
 
                     double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
-                    //pass vector with accumulated MultipathAlignment objects to run_genotype()
+                    //pass vector with accumulated multipath_alignment_t objects to run_genotype()
                     unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base); 
                     
 
@@ -817,9 +829,9 @@ namespace vg {
                 }
 
                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
-               vector<MultipathAlignment> multipath_aln_vector = vector<MultipathAlignment>(); 
+               vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>();
 
-               vector<vector<MultipathAlignment>> vect = {reads.size(),vector<MultipathAlignment>() };
+               vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
                     
                     
                 // map read in alignment to graph and make multipath alignments 

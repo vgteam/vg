@@ -109,7 +109,7 @@ namespace vg {
         cerr << "nodes after adding, trimming, and collapsing:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& path_node = path_nodes.at(i);
-            cerr << i << " " << pb2json(path_node.path) << " ";
+            cerr << i << " " << debug_string(path_node.path) << " ";
             for (auto iter = path_node.begin; iter != path_node.end; iter++) {
                 cerr << *iter;
             }
@@ -269,11 +269,9 @@ namespace vg {
                     auto& stack_record = stack[i];
                     handle_t& trav = stack_record.second[stack_record.first - 1];
                     
-                    Mapping* new_mapping = path_node.path.add_mapping();
-                    Position* new_position = new_mapping->mutable_position();
-                    
-                    new_mapping->set_rank(path_node.path.mapping_size());
-                    
+                    path_mapping_t* new_mapping = path_node.path.add_mapping();
+                    position_t* new_position = new_mapping->mutable_position();
+                                        
                     // use the node space that we walked out in
                     new_position->set_node_id(graph.get_id(trav));
                     new_position->set_is_reverse(graph.get_is_reverse(trav));
@@ -281,12 +279,12 @@ namespace vg {
                     new_position->set_offset(position.offset());
                     
                     for (int64_t j = 0; j < mapping.edit_size(); j++) {
-                        *new_mapping->add_edit() = mapping.edit(j);
+                        from_proto_edit(mapping.edit(j), *new_mapping->add_edit());
                     }
                 }
                 
 #ifdef debug_multipath_alignment
-                cerr << "walked path: " << pb2json(path_node.path) << endl;
+                cerr << "walked path: " << debug_string(path_node.path) << endl;
 #endif
             }
         }
@@ -298,12 +296,12 @@ namespace vg {
                                                            int64_t* removed_end_from_length) {
         
 #ifdef debug_multipath_alignment
-        cerr << "trimming path node " << string(path_node.begin, path_node.end) << " " << pb2json(path_node.path) << endl;
+        cerr << "trimming path node " << string(path_node.begin, path_node.end) << " " << debug_string(path_node.path) << endl;
 #endif
         
         // Trim down the given PathNode of everything except softclips.
         // Return true if it all gets trimmed away and should be removed.
-        Path& path = path_node.path;
+        path_t& path = path_node.path;
             
         int64_t mapping_start_idx = 0;
         int64_t mapping_last_idx = path.mapping_size() - 1;
@@ -350,10 +348,10 @@ namespace vg {
         if (!softclip_start && !ignore_deletion_start) {
             bool found_start = false;
             for (; mapping_start_idx < path.mapping_size(); mapping_start_idx++) {
-                const Mapping& mapping = path.mapping(mapping_start_idx);
+                const path_mapping_t& mapping = path.mapping(mapping_start_idx);
                 removed_start_mapping_from_length = 0;
                 for (edit_start_idx = 0; edit_start_idx < mapping.edit_size(); edit_start_idx++) {
-                    const Edit& edit = mapping.edit(edit_start_idx);
+                    const edit_t& edit = mapping.edit(edit_start_idx);
                     
                     if (edit.from_length() > 0 && edit.to_length() > 0 &&
                         (edit.sequence().empty() || !trim_Ns || any_of(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}))) {
@@ -379,9 +377,9 @@ namespace vg {
         if (!softclip_end && !ignore_deletion_end) {
             bool found_last = false;
             for (; mapping_last_idx >= 0; mapping_last_idx--) {
-                const Mapping& mapping = path.mapping(mapping_last_idx);
+                const path_mapping_t& mapping = path.mapping(mapping_last_idx);
                 for (edit_last_idx = mapping.edit_size() - 1; edit_last_idx >= 0; edit_last_idx--) {
-                    const Edit& edit = mapping.edit(edit_last_idx);
+                    const edit_t& edit = mapping.edit(edit_last_idx);
                     if (edit.from_length() > 0 && edit.to_length() > 0 &&
                         (edit.sequence().empty() || !trim_Ns || any_of(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}))) {
                         found_last = true;
@@ -414,13 +412,13 @@ namespace vg {
                 path_node.end -= removed_end_to_length;
                 
                 // make a new path with the indels trimmed
-                Path trimmed_path;
+                path_t trimmed_path;
                 for (int64_t j = mapping_start_idx; j <= mapping_last_idx; j++) {
-                    const Mapping& mapping = path.mapping(j);
-                    const Position& position = mapping.position();
+                    const path_mapping_t& mapping = path.mapping(j);
+                    const position_t& position = mapping.position();
                     
-                    Mapping* new_mapping = trimmed_path.add_mapping();
-                    Position* new_position = new_mapping->mutable_position();
+                    path_mapping_t* new_mapping = trimmed_path.add_mapping();
+                    position_t* new_position = new_mapping->mutable_position();
                     
                     new_position->set_node_id(position.node_id());
                     new_position->set_is_reverse(position.is_reverse());
@@ -442,13 +440,16 @@ namespace vg {
                 path_node.end = path_node.begin;
                 
                 pos_t start_pos = initial_position(path_node.path);
-                path_node.path.Clear();
-                Mapping* mapping = path.add_mapping();
-                *mapping->mutable_position() = make_position(start_pos);
+                path.clear_mapping();
+                path_mapping_t* mapping = path.add_mapping();
+                position_t* pos = mapping->mutable_position();
+                pos->set_node_id(id(start_pos));
+                pos->set_offset(offset(start_pos));
+                pos->set_is_reverse(is_rev(start_pos));
                 mapping->add_edit();
                 
 #ifdef debug_multipath_alignment
-                cerr << "preserving start deletion path read[" << (path_node.begin - alignment.sequence().begin()) << "] " << pb2json(path_node.path) << endl;
+                cerr << "preserving start deletion path read[" << (path_node.begin - alignment.sequence().begin()) << "] " << debug_string(path_node.path) << endl;
 #endif
             }
             else if (ignore_deletion_end) {
@@ -458,13 +459,16 @@ namespace vg {
                 path_node.begin = path_node.end;
                 
                 pos_t end_pos = final_position(path_node.path);
-                path_node.path.Clear();
-                Mapping* mapping = path.add_mapping();
-                *mapping->mutable_position() = make_position(end_pos);
+                path.clear_mapping();
+                path_mapping_t* mapping = path.add_mapping();
+                position_t* pos = mapping->mutable_position();
+                pos->set_node_id(id(end_pos));
+                pos->set_offset(offset(end_pos));
+                pos->set_is_reverse(is_rev(end_pos));
                 mapping->add_edit();
                 
 #ifdef debug_multipath_alignment
-                cerr << "preserving end deletion path read[" << (path_node.begin - alignment.sequence().begin()) << "] " << pb2json(path_node.path) << endl;
+                cerr << "preserving end deletion path read[" << (path_node.begin - alignment.sequence().begin()) << "] " << debug_string(path_node.path) << endl;
 #endif
             }
             else {
@@ -649,13 +653,13 @@ namespace vg {
                         cerr << "the match on node " << j << " has an relative offset of " << relative_offset << " to the this MEM in the read" << endl;
 #endif
                         
-                        Path& path = match_node.path;
+                        path_t& path = match_node.path;
                         
                         // if this is a partial MEM, we should be able to predict its hit location by traversing the path
                         // of the parent MEM by a distance equal to the relative offset
                         
 #ifdef debug_multipath_alignment
-                        cerr << "traversing putative parent MEM with path " << pb2json(path) << endl;
+                        cerr << "traversing putative parent MEM with path " << debug_string(path) << endl;
 #endif
                         
                         int64_t prefix_length = 0;
@@ -666,7 +670,7 @@ namespace vg {
 #endif
                                 break;
                             }
-                            const Mapping& mapping = path.mapping(k);
+                            const path_mapping_t& mapping = path.mapping(k);
                             // the length through this mapping
                             int64_t prefix_through_length = prefix_length + mapping_from_length(mapping);
 #ifdef debug_multipath_alignment
@@ -749,7 +753,7 @@ namespace vg {
                         
                         path_nodes.emplace_back();
                         PathNode& match_node = path_nodes.back();
-                        Path& path = match_node.path;
+                        path_t& path = match_node.path;
                         match_node.begin = begin;
                         match_node.end = end;
                         int64_t length_remaining = end - begin;
@@ -761,15 +765,14 @@ namespace vg {
                             handle_t handle = get<3>(search_record)[get<2>(search_record) - 1];
                             int64_t length = std::min(int64_t(graph.get_length(handle)) - offset, length_remaining);
                             
-                            Mapping* mapping = path.add_mapping();
-                            mapping->set_rank(rank);
+                            path_mapping_t* mapping = path.add_mapping();
                             
-                            Edit* edit = mapping->add_edit();
+                            edit_t* edit = mapping->add_edit();
                             edit->set_from_length(length);
                             edit->set_to_length(length);
                             
                             // note: the graph is dagified and unrolled, so all hits should be on the forward strand
-                            Position* position = mapping->mutable_position();
+                            position_t* position = mapping->mutable_position();
                             position->set_node_id(graph.get_id(handle));
                             position->set_offset(offset);
                             
@@ -784,7 +787,7 @@ namespace vg {
                         }
                         
 #ifdef debug_multipath_alignment
-                        cerr << pb2json(path) << endl;
+                        cerr << debug_string(path) << endl;
 #endif
                     }
                     else if (node_idx == node_seq.size()) {
@@ -844,7 +847,7 @@ namespace vg {
                 cerr << *iter;
             }
             cerr << endl;
-            cerr << "\t" << pb2json(match_node.path) << endl;
+            cerr << "\t" << debug_string(match_node.path) << endl;
 #endif
             
             // try to find any run of MEMs that could be merged with this MEM
@@ -864,7 +867,7 @@ namespace vg {
                     cerr << *iter;
                 }
                 cerr << endl;
-                cerr << "\t" << pb2json(last_run_node.path) << endl;
+                cerr << "\t" << debug_string(last_run_node.path) << endl;
 #endif
                 
                 // do they overhang an amount on the read that indicates they overlap and could be merged?
@@ -888,7 +891,7 @@ namespace vg {
                         if (remaining - mapping_length < overhang) {
                             // we will cross the position that should line up with the initial position on this mapping
                             
-                            const Position& overhang_position = last_run_node.path.mapping(k).position();
+                            const position_t& overhang_position = last_run_node.path.mapping(k).position();
                             
                             get_id(last_run_node_internal_pos) = overhang_position.node_id();
                             get_is_rev(last_run_node_internal_pos) = overhang_position.is_reverse();
@@ -901,8 +904,8 @@ namespace vg {
                     }
                     
                     // get the final position of the node further to the left
-                    const Mapping& final_mapping = last_run_node.path.mapping(last_run_node.path.mapping_size() - 1);
-                    const Position& final_mapping_position = final_mapping.position();
+                    const path_mapping_t& final_mapping = last_run_node.path.mapping(last_run_node.path.mapping_size() - 1);
+                    const position_t& final_mapping_position = final_mapping.position();
                     pos_t last_run_node_final_pos = make_pos_t(final_mapping_position.node_id(),
                                                                final_mapping_position.is_reverse(),
                                                                final_mapping_position.offset() + mapping_from_length(final_mapping));
@@ -918,7 +921,7 @@ namespace vg {
                         if (remaining < overhang) {
                             // we will cross the position that should line up with the initial position on this mapping
                             
-                            const Position& overhang_position = match_node.path.mapping(k).position();
+                            const position_t& overhang_position = match_node.path.mapping(k).position();
                             
                             get_id(match_node_internal_pos) = overhang_position.node_id();
                             get_is_rev(match_node_internal_pos) = overhang_position.is_reverse();
@@ -1002,8 +1005,8 @@ namespace vg {
                     PathNode& merge_from_node = path_nodes.at(merge_group[i]);
                     
 #ifdef debug_multipath_alignment
-                    cerr << "merging into node " << merge_group[0] << " path " << pb2json(merge_into_node.path) << endl;
-                    cerr << "from node " << merge_group[i] << " path " << pb2json(merge_from_node.path) << endl;
+                    cerr << "merging into node " << merge_group[0] << " path " << debug_string(merge_into_node.path) << endl;
+                    cerr << "from node " << merge_group[i] << " path " << debug_string(merge_from_node.path) << endl;
 #endif
                     
                     // walk backwards until we find the first mapping to add
@@ -1023,41 +1026,39 @@ namespace vg {
 #endif
                     
                     // handle the first mapping we add as a special case
-                    const Mapping& first_mapping_to_add = merge_from_node.path.mapping(first_mapping_to_add_idx);
-                    Mapping* final_merging_mapping = merge_into_node.path.mutable_mapping(merge_into_node.path.mapping_size() - 1);
+                    const path_mapping_t& first_mapping_to_add = merge_from_node.path.mapping(first_mapping_to_add_idx);
+                    path_mapping_t* final_merging_mapping = merge_into_node.path.mutable_mapping(merge_into_node.path.mapping_size() - 1);
                     if (final_merging_mapping->position().node_id() == first_mapping_to_add.position().node_id() &&
                         final_merging_mapping->position().is_reverse() == first_mapping_to_add.position().is_reverse() &&
                         first_mapping_to_add.position().offset() - final_merging_mapping->position().offset() - remaining == mapping_from_length(*final_merging_mapping)) {
                         
                         // the mappings are on the same node, so they can be combined
                         int64_t mapping_to_add_length = mapping_from_length(first_mapping_to_add) + remaining;
-                        Edit* final_edit = final_merging_mapping->mutable_edit(final_merging_mapping->edit_size() - 1);
+                        edit_t* final_edit = final_merging_mapping->mutable_edit(final_merging_mapping->edit_size() - 1);
                         final_edit->set_from_length(final_edit->from_length() + mapping_to_add_length);
                         final_edit->set_to_length(final_edit->to_length() + mapping_to_add_length);
                         
 #ifdef debug_multipath_alignment
-                        cerr << "merged mapping is " << pb2json(*final_merging_mapping) << endl;
+                        cerr << "merged mapping is " << debug_string(*final_merging_mapping) << endl;
 #endif
                     }
                     else {
                         // we need to add this as a new mapping
-                        Mapping* new_mapping = merge_into_node.path.add_mapping();
+                        path_mapping_t* new_mapping = merge_into_node.path.add_mapping();
                         *new_mapping = first_mapping_to_add;
-                        new_mapping->set_rank(final_merging_mapping->rank() + 1);
                         
 #ifdef debug_multipath_alignment
-                        cerr << "new adjacent mapping is " << pb2json(*new_mapping) << endl;
+                        cerr << "new adjacent mapping is " << debug_string(*new_mapping) << endl;
 #endif
                     }
                     
                     // add the remaining mappings as new mappings
                     for (size_t j = first_mapping_to_add_idx + 1; j < merge_from_node.path.mapping_size(); j++) {
-                        Mapping* new_mapping = merge_into_node.path.add_mapping();
+                        path_mapping_t* new_mapping = merge_into_node.path.add_mapping();
                         *new_mapping = merge_from_node.path.mapping(j);
-                        new_mapping->set_rank(merge_into_node.path.mapping(merge_into_node.path.mapping_size() - 2).rank() + 1);
                         
 #ifdef debug_multipath_alignment
-                        cerr << "new transfer mapping is " << pb2json(*new_mapping) << endl;
+                        cerr << "new transfer mapping is " << debug_string(*new_mapping) << endl;
 #endif
                     }
                     
@@ -1065,7 +1066,7 @@ namespace vg {
                     merge_into_node.end = merge_from_node.end;
                     
 #ifdef debug_multipath_alignment
-                    cerr << "merged path is " << pb2json(merge_into_node.path) << endl;
+                    cerr << "merged path is " << debug_string(merge_into_node.path) << endl;
                     cerr << "merged substring is ";
                     for (auto iter = merge_into_node.begin; iter != merge_into_node.end; iter++) {
                         cerr << *iter;
@@ -1108,7 +1109,7 @@ namespace vg {
         for (PathNode& path_node : path_nodes) {
             
 #ifdef debug_multipath_alignment
-            cerr << "trimming to branch points within " << max_trim_length << " of ends in path " << pb2json(path_node.path) << endl;
+            cerr << "trimming to branch points within " << max_trim_length << " of ends in path " << debug_string(path_node.path) << endl;
 #endif
             
             // find the mapping where we are first pass the maximum trim length coming inward
@@ -1126,7 +1127,7 @@ namespace vg {
             
             // walk backwards to see if we passed any leftward branch points
             for (prefix_idx--; prefix_idx > 0; prefix_idx--) {
-                const Position& pos = path_node.path.mapping(prefix_idx).position();
+                const position_t& pos = path_node.path.mapping(prefix_idx).position();
                 if (graph->get_degree(graph->get_handle(pos.node_id(), pos.is_reverse()), true) > 1) {
                     // this is the inward most branch point within the trim length
                     
@@ -1153,7 +1154,7 @@ namespace vg {
             
             // walk forward to see if we passed any rightwards branch points
             for (suffix_idx++; suffix_idx + 1 < path_node.path.mapping_size(); suffix_idx++) {
-                const Position& pos = path_node.path.mapping(suffix_idx).position();
+                const position_t& pos = path_node.path.mapping(suffix_idx).position();
                 if (graph->get_degree(graph->get_handle(pos.node_id(), pos.is_reverse()), false) > 1) {
                     // this is the inward most branch point within the trim length
                     
@@ -1190,17 +1191,14 @@ namespace vg {
                 }
                 
                 // replace the path with the portion that we didn't trim
-                Path new_path;
-                int32_t rank = 1;
+                path_t new_path;
                 for (int64_t i = prefix_idx; i <= suffix_idx; i++) {
-                    Mapping* mapping = new_path.add_mapping();
+                    path_mapping_t* mapping = new_path.add_mapping();
                     *mapping = path_node.path.mapping(i);
-                    mapping->set_rank(rank);
-                    rank++;
                 }
                 path_node.path = move(new_path);
 #ifdef debug_multipath_alignment
-                cerr << "trimmed path: " << pb2json(path_node.path) << endl;
+                cerr << "trimmed path: " << debug_string(path_node.path) << endl;
 #endif
                 // update the read interval
                 path_node.begin += trimmed_prefix_to_length;
@@ -1227,10 +1225,10 @@ namespace vg {
             // first compute the segments we want to cut out
             
             PathNode* path_node = &path_nodes.at(i);
-            Path* path = &path_node->path;
+            path_t* path = &path_node->path;
             
 #ifdef debug_multipath_alignment
-            cerr << "cutting node at index " << i << " with path " << pb2json(*path) << endl;
+            cerr << "cutting node at index " << i << " with path " << debug_string(*path) << endl;
 #endif
             
             // this list holds the beginning of the current segment at each depth in the snarl hierarchy
@@ -1244,7 +1242,7 @@ namespace vg {
             auto curr_level = level_segment_begin.begin();
             size_t prefix_length = 0;
             for (size_t j = 0, last = path->mapping_size() - 1; j <= last; j++) {
-                const Position& position = path->mapping(j).position();
+                const position_t& position = path->mapping(j).position();
                 const auto& projection = project(position.node_id());
                 id_t projected_id = projection.first;
                 bool projected_rev = (projection.second != position.is_reverse());
@@ -1340,7 +1338,7 @@ namespace vg {
                 reverse(keep_segments.begin(), keep_segments.end());
                 
                 // record the data stored on the original path node
-                Path original_path = *path;
+                path_t original_path = *path;
                 string::const_iterator original_begin = path_node->begin;
                 string::const_iterator original_end = path_node->end;
                 vector<pair<size_t, size_t>> forward_edges = move(path_node->edges);
@@ -1369,9 +1367,8 @@ namespace vg {
                 // place the first keep segment into the original node
                 path_node->begin = original_begin + prefix_to_length;
                 for (int32_t rank = 1; prefix_idx < keep_segments.front().second; prefix_idx++, rank++) {
-                    Mapping* mapping = path->add_mapping();
+                    path_mapping_t* mapping = path->add_mapping();
                     *mapping = original_path.mapping(prefix_idx);
-                    mapping->set_rank(rank);
                     prefix_from_length += mapping_from_length(*mapping);
                     prefix_to_length += mapping_to_length(*mapping);
                 }
@@ -1379,7 +1376,7 @@ namespace vg {
                 
                 
 #ifdef debug_multipath_alignment
-                cerr << "new cut path: " << pb2json(path_node->path) << endl;
+                cerr << "new cut path: " << debug_string(path_node->path) << endl;
 #endif
                 
                 // keep track of the index in the node vector of the previous segment
@@ -1406,7 +1403,7 @@ namespace vg {
                     // create a new node for this keep segment
                     path_nodes.emplace_back();
                     PathNode& cut_node = path_nodes.back();
-                    Path& cut_path = cut_node.path;
+                    path_t& cut_path = cut_node.path;
                     
                     // add a connecting edge from the last keep segment
                     path_nodes.at(prev_segment_idx).edges.emplace_back(path_nodes.size() - 1, prefix_from_length - intersegment_start);
@@ -1414,16 +1411,15 @@ namespace vg {
                     // transfer over the path and the read interval
                     cut_node.begin = original_begin + prefix_to_length;
                     for (int32_t rank = 1; prefix_idx < keep_segment.second; prefix_idx++, rank++) {
-                        Mapping* mapping = cut_path.add_mapping();
+                        path_mapping_t* mapping = cut_path.add_mapping();
                         *mapping = original_path.mapping(prefix_idx);
-                        mapping->set_rank(rank);
                         prefix_from_length += mapping_from_length(*mapping);
                         prefix_to_length += mapping_to_length(*mapping);
                     }
                     cut_node.end = original_begin + prefix_to_length;
                     
 #ifdef debug_multipath_alignment
-                    cerr << "new cut path: " << pb2json(cut_path) << endl;
+                    cerr << "new cut path: " << debug_string(cut_path) << endl;
 #endif
                     
                     prev_segment_idx = path_nodes.size() - 1;
@@ -1486,7 +1482,7 @@ namespace vg {
                 
 #ifdef debug_multipath_alignment
                 cerr << "Handling " << (handling_right_tail ? "right" : "left") << " tail off of PathNode "
-                    << attached_path_node_index << " with path " << pb2json(path_nodes.at(attached_path_node_index).path) << endl;
+                    << attached_path_node_index << " with path " << debug_string(path_nodes.at(attached_path_node_index).path) << endl;
 #endif
                 
                 for (auto& aln : alns) {
@@ -1522,29 +1518,23 @@ namespace vg {
                         
                         path_nodes.emplace_back();
                         PathNode& synth_path_node = path_nodes.back();
-                        
-                        int32_t rank = 1;
-                        
+                                                
                         // copy the first mapping, paying attention to the initial position
-                        Mapping* new_mapping = synth_path_node.path.add_mapping();
-                        Position* new_position = new_mapping->mutable_position();
+                        path_mapping_t* new_mapping = synth_path_node.path.add_mapping();
+                        position_t* new_position = new_mapping->mutable_position();
                         new_position->set_node_id(path.mapping(match_start_mapping_idx).position().node_id());
                         new_position->set_is_reverse(path.mapping(match_start_mapping_idx).position().is_reverse());
                         new_position->set_offset(curr_match_start_offset);
                         
                         // we should only be able to copy one edit over from this mapping, either because the next one
                         // is a mismatch or because it's on the next node's mapping
-                        *new_mapping->add_edit() = path.mapping(match_start_mapping_idx).edit(match_start_edit_idx);
-                        
-                        new_mapping->set_rank(rank);
-                        rank++;
-                        
+                        from_proto_edit(path.mapping(match_start_mapping_idx).edit(match_start_edit_idx),
+                                        *new_mapping->add_edit());
+                                                
                         // copy any whole mappings from the middle of the anchor path
                         for (size_t copy_i = match_start_mapping_idx + 1; copy_i < i; copy_i++) {
                             assert(path.mapping(copy_i).edit_size() == 1);
-                            *synth_path_node.path.add_mapping() = path.mapping(copy_i);
-                            synth_path_node.path.mutable_mapping(synth_path_node.path.mapping_size() - 1)->set_rank(rank);
-                            rank++;
+                            from_proto_mapping(path.mapping(copy_i), *synth_path_node.path.add_mapping());
                         }
                         
                         // on the final mapping we don't need to pay special attention to the initial position, but
@@ -1553,16 +1543,19 @@ namespace vg {
                             // This condition is broken because N matches get split into separate edits
                             assert(j == 1);
                             new_mapping = synth_path_node.path.add_mapping();
-                            *new_mapping->mutable_position() = path.mapping(i).position();
-                            *new_mapping->add_edit() = path.mapping(i).edit(0);
-                            new_mapping->set_rank(rank);
+                            position_t* pos = new_mapping->mutable_position();
+                            const Position& pos_from = path.mapping(i).position();
+                            pos->set_node_id(pos_from.node_id());
+                            pos->set_offset(pos_from.offset());
+                            pos->set_is_reverse(pos_from.is_reverse());
+                            from_proto_edit(path.mapping(i).edit(0), *new_mapping->add_edit());
                         }
                         
                         synth_path_node.end = seq_begin + cumul_to_length;
                         synth_path_node.begin = synth_path_node.end - curr_match_length;
                         
 #ifdef debug_multipath_alignment
-                        cerr << "\tyielded anchor with path " << pb2json(synth_path_node.path) << " and seq ";
+                        cerr << "\tyielded anchor with path " << debug_string(synth_path_node.path) << " and seq ";
                         for (auto it = synth_path_node.begin; it != synth_path_node.end; ++it) {
                             cerr << *it;
                         }
@@ -1704,8 +1697,8 @@ namespace vg {
         /// Get the offset in the first visited graph node at which the given MEM ends (i.e. the past-the-end offset).
         /// Does not account for orientation.
         auto end_offset = [&](size_t idx) {
-            Path& path = path_nodes.at(idx).path;
-            const Mapping& mapping = path.mapping(path.mapping_size() - 1);
+            path_t& path = path_nodes.at(idx).path;
+            const path_mapping_t& mapping = path.mapping(path.mapping_size() - 1);
             return mapping.position().offset() + mapping_from_length(mapping);
         };
         
@@ -1718,7 +1711,7 @@ namespace vg {
         /// Get the ID of the last node visited in the graph along the path for a MEM.
         /// Does not account for orientation.
         auto end_node_id = [&](size_t idx) {
-            Path& path = path_nodes.at(idx).path;
+            path_t& path = path_nodes.at(idx).path;
             return path.mapping(path.mapping_size() - 1).position().node_id();
         };
         
@@ -1738,7 +1731,7 @@ namespace vg {
         // Maps from node ID to the list of MEM numbers that end on that node.
         unordered_map<id_t, vector<size_t>> path_ends;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            Path& path = path_nodes.at(i).path;
+            path_t& path = path_nodes.at(i).path;
             path_starts[path.mapping(0).position().node_id()].push_back(i);
             path_ends[path.mapping(path.mapping_size() - 1).position().node_id()].push_back(i);
         }
@@ -2633,7 +2626,7 @@ namespace vg {
                     cerr << "walking path to look for overlaps" << endl;
 #endif
                     
-                    Path& path = path_nodes.at(start).path;
+                    path_t& path = path_nodes.at(start).path;
                     
                     // update the path starts index for the paths that start at the same position
                     for (size_t colocated_start : colocated_starts) {
@@ -2831,15 +2824,15 @@ namespace vg {
             for (auto node_iter = onto_node->begin; node_iter != onto_node->end; node_iter++) {
                 cerr << *node_iter;
             }
-            cerr << endl << "\t" << pb2json(onto_node->path) << endl;
+            cerr << endl << "\t" << debug_string(onto_node->path) << endl;
 #endif
             
             // TODO: there should be a way to do this in a single pass over mappings and edits
             // rather than traversing the whole mapping twice
             
             // store the full path and remove it from the node
-            Path full_path = std::move(onto_node->path);
-            onto_node->path.Clear();
+            path_t full_path = std::move(onto_node->path);
+            onto_node->path.clear_mapping();
             
             // keep track of how the read sequence should get split up
             size_t prefix_to_length = 0;
@@ -2903,15 +2896,15 @@ namespace vg {
                 if (remaining) {
                     // the overlap point is in the middle of a node, need to split a mapping
                     
-                    const Mapping& split_mapping = full_path.mapping(mapping_idx);
+                    const path_mapping_t& split_mapping = full_path.mapping(mapping_idx);
                     
                     // add the prefix of the mapping to the original node
-                    Mapping* prefix_split = onto_node->path.add_mapping();
+                    path_mapping_t* prefix_split = onto_node->path.add_mapping();
                     prefix_split->mutable_position()->set_node_id(split_mapping.position().node_id());
                     prefix_split->mutable_position()->set_offset(split_mapping.position().offset());
                     
                     // add the suffix of the mapping to the new node
-                    Mapping* suffix_split = suffix_node.path.add_mapping();
+                    path_mapping_t* suffix_split = suffix_node.path.add_mapping();
                     suffix_split->mutable_position()->set_node_id(split_mapping.position().node_id());
                     suffix_split->mutable_position()->set_offset(split_mapping.position().offset() + remaining);
                     
@@ -2926,13 +2919,13 @@ namespace vg {
                     // do we need to split in the middle of an edit?
                     if (mapping_remaining) {
                         
-                        const Edit& split_edit = split_mapping.edit(edit_idx);
+                        const edit_t& split_edit = split_mapping.edit(edit_idx);
                         
                         // add an edit for either side of the split
-                        Edit* prefix_split_edit = prefix_split->add_edit();
+                        edit_t* prefix_split_edit = prefix_split->add_edit();
                         prefix_split_edit->set_from_length(mapping_remaining);
                         
-                        Edit* suffix_split_edit = suffix_split->add_edit();
+                        edit_t* suffix_split_edit = suffix_split->add_edit();
                         suffix_split_edit->set_from_length(split_edit.from_length() - mapping_remaining);
                         
                         if (split_edit.to_length()) {
@@ -2974,12 +2967,12 @@ namespace vg {
                 for (auto node_iter = onto_node->begin; node_iter != onto_node->end; node_iter++) {
                     cerr << *node_iter;
                 }
-                cerr << endl << "\t" << pb2json(onto_node->path) << endl;
+                cerr << endl << "\t" << debug_string(onto_node->path) << endl;
                 cerr << "suffix node:" << endl << "\t";
                 for (auto node_iter = suffix_node.begin; node_iter != suffix_node.end; node_iter++) {
                     cerr << *node_iter;
                 }
-                cerr << endl << "\t" << pb2json(suffix_node.path) << endl;
+                cerr << endl << "\t" << debug_string(suffix_node.path) << endl;
 #endif
                 
                 while (iter != iter_range_end) {
@@ -3010,7 +3003,7 @@ namespace vg {
         cerr << "final graph after adding reachability edges:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& path_node = path_nodes.at(i);
-            cerr << i << " " << pb2json(path_node.path) << " ";
+            cerr << i << " " << debug_string(path_node.path) << " ";
             for (auto iter = path_node.begin; iter != path_node.end; iter++) {
                 cerr << *iter;
             }
@@ -3159,7 +3152,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
         cerr << "removed transitive edges, topology is:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            cerr << "node " << i << ", " << pb2json(path_nodes.at(i).path.mapping(0).position()) << " ";
+            cerr << "node " << i << ", " << debug_string(path_nodes.at(i).path.mapping(0).position()) << " ";
             for (auto iter = path_nodes.at(i).begin; iter != path_nodes.at(i).end; iter++) {
                 cerr << *iter;
             }
@@ -3301,7 +3294,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
         cerr << "pruned to high scoring paths, topology is:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            cerr << "node " << i << ", " << pb2json(path_nodes.at(i).path.mapping(0).position()) << " ";
+            cerr << "node " << i << ", " << debug_string(path_nodes.at(i).path.mapping(0).position()) << " ";
             for (auto iter = path_nodes.at(i).begin; iter != path_nodes.at(i).end; iter++) {
                 cerr << *iter;
             }
@@ -3315,7 +3308,7 @@ namespace vg {
     
     void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                                         bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
-                                        double pessimistic_tail_gap_multiplier, size_t band_padding, MultipathAlignment& multipath_aln_out,
+                                        double pessimistic_tail_gap_multiplier, size_t band_padding, multipath_alignment_t& multipath_aln_out,
                                         bool allow_negative_scores) {
         
         // don't dynamically choose band padding, shim constant value into a function type
@@ -3329,7 +3322,7 @@ namespace vg {
     void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                                         bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
                                         double pessimistic_tail_gap_multiplier, function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
-                                        MultipathAlignment& multipath_aln_out, const bool allow_negative_scores) {
+                                        multipath_alignment_t& multipath_aln_out, const bool allow_negative_scores) {
         
         // Can only align if edges are present.
         assert(has_reachability_edges);
@@ -3345,7 +3338,7 @@ namespace vg {
         if (score_anchors_as_matches) {
             for (int64_t j = 0; j < path_nodes.size(); j++) {
                 PathNode& path_node = path_nodes.at(j);
-                Subpath* subpath = multipath_aln_out.add_subpath();
+                subpath_t* subpath = multipath_aln_out.add_subpath();
                 *subpath->mutable_path() = path_node.path;
                 int32_t match_score = aligner->score_exact_match(path_node.begin, path_node.end,
                                                                  alignment.quality().begin() + (path_node.begin - alignment.sequence().begin()));
@@ -3358,10 +3351,14 @@ namespace vg {
         else {
             for (size_t j = 0; j < path_nodes.size(); j++) {
                 PathNode& path_node = path_nodes.at(j);
-                Subpath* subpath = multipath_aln_out.add_subpath();
+                subpath_t* subpath = multipath_aln_out.add_subpath();
                 *subpath->mutable_path() = path_node.path;
                 
-                subpath->set_score(aligner->score_partial_alignment(alignment, align_graph, path_node.path, path_node.begin));
+                // TODO: should not leave it like this
+                Path proto_path;
+                to_proto_path(path_node.path, proto_path);
+                
+                subpath->set_score(aligner->score_partial_alignment(alignment, align_graph, proto_path, path_node.begin));
             }
         }
         
@@ -3412,7 +3409,7 @@ namespace vg {
         // perform alignment in the intervening sections
         for (int64_t j = 0; j < path_nodes.size(); j++) {
 #ifdef debug_multipath_alignment
-            cerr << "checking for intervening alignments from match node " << j << " with path " << pb2json(path_nodes.at(j).path) << " and sequence ";
+            cerr << "checking for intervening alignments from match node " << j << " with path " << debug_string(path_nodes.at(j).path) << " and sequence ";
             for (auto iter = path_nodes.at(j).begin; iter != path_nodes.at(j).end; iter++) {
                 cerr << *iter;
             }
@@ -3420,11 +3417,11 @@ namespace vg {
 #endif
             
             PathNode& src_path_node = path_nodes.at(j);
-            Subpath* src_subpath = multipath_aln_out.mutable_subpath(j);
+            subpath_t* src_subpath = multipath_aln_out.mutable_subpath(j);
             
-            const Path& path = src_subpath->path();
-            const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
-            const Position& final_mapping_position = final_mapping.position();
+            const path_t& path = src_subpath->path();
+            const path_mapping_t& final_mapping = path.mapping(path.mapping_size() - 1);
+            const position_t& final_mapping_position = final_mapping.position();
             // make a pos_t that points to the final base in the match
             pos_t src_pos = make_pos_t(final_mapping_position.node_id(),
                                        final_mapping_position.is_reverse(),
@@ -3541,39 +3538,32 @@ namespace vg {
                     }
                     
                     // create a subpath between the matches for this alignment
-                    Subpath* connecting_subpath = multipath_aln_out.add_subpath();
+                    subpath_t* connecting_subpath = multipath_aln_out.add_subpath();
                     connecting_subpath->set_score(connecting_alignment.score());
-                    Path* subpath_path = connecting_subpath->mutable_path();
+                    path_t* subpath_path = connecting_subpath->mutable_path();
                     
-                    int32_t rank = 1;
-                    
+                    // get a pointer to the subpath again in case the vector reallocated
+                    src_subpath = multipath_aln_out.mutable_subpath(j);
+                                        
                     // check to make sure the first is not an empty anchoring mapping
                     if (add_first_mapping) {
-                        Mapping* mapping = subpath_path->add_mapping();
-                        *mapping = first_mapping;
-                        mapping->set_rank(rank);
+                        from_proto_mapping(first_mapping, *subpath_path->add_mapping());
 #ifdef debug_multipath_alignment
-                        cerr << "first mapping is not empty, formed mapping: " << pb2json(*mapping) << endl;
+                        cerr << "first mapping is not empty, formed mapping: " << pb2json(first_mapping) << endl;
 #endif
-                        rank++;
                     }
                     // add all mapping in between the ends
                     for (size_t j = 1; j < aligned_path.mapping_size() - 1; j++) {
-                        Mapping* mapping = subpath_path->add_mapping();
-                        *mapping = aligned_path.mapping(j);
-                        mapping->set_rank(rank);
+                        from_proto_mapping(aligned_path.mapping(j), *subpath_path->add_mapping());
 #ifdef debug_multipath_alignment
-                        cerr << "added middle mapping: " << pb2json(*mapping) << endl;
+                        cerr << "added middle mapping: " << pb2json(aligned_path.mapping(j)) << endl;
 #endif
-                        rank++;
                     }
                     // check to make sure the last is not an empty anchoring mapping or the same as the first
                     if (add_last_mapping) {
-                        Mapping* mapping = subpath_path->add_mapping();
-                        *mapping = last_mapping;
-                        mapping->set_rank(rank);
+                        from_proto_mapping(last_mapping, *subpath_path->add_mapping());
 #ifdef debug_multipath_alignment
-                        cerr << "final mapping is not empty, formed mapping: " << pb2json(*mapping) << endl;
+                        cerr << "final mapping is not empty, formed mapping: " << pb2json(last_mapping) << endl;
 #endif
                     }
                     
@@ -3584,7 +3574,7 @@ namespace vg {
                     // translate the path into the space of the main graph unless the path is null
                     if (connecting_subpath->path().mapping_size() != 0) {
                         translate_node_ids(*connecting_subpath->mutable_path(), connect_trans);
-                        Mapping* first_subpath_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
+                        path_mapping_t* first_subpath_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
                         if (first_subpath_mapping->position().node_id() == final_mapping.position().node_id()) {
                             first_subpath_mapping->mutable_position()->set_offset(offset(src_pos));
                         }
@@ -3592,7 +3582,7 @@ namespace vg {
                     
 #ifdef debug_multipath_alignment
                     cerr << "subpath from " << j << " to " << edge.first << ":" << endl;
-                    cerr << pb2json(*connecting_subpath) << endl;
+                    cerr << debug_string(*connecting_subpath) << endl;
 #endif
                 }
             }
@@ -3628,9 +3618,9 @@ namespace vg {
         
             PathNode& path_node = path_nodes.at(j);
             
-            Subpath* sink_subpath = multipath_aln_out.mutable_subpath(j);
+            subpath_t* sink_subpath = multipath_aln_out.mutable_subpath(j);
             
-            const Mapping& final_mapping = path_node.path.mapping(path_node.path.mapping_size() - 1);
+            const path_mapping_t& final_mapping = path_node.path.mapping(path_node.path.mapping_size() - 1);
             
             pos_t end_pos = final_position(path_node.path);
             
@@ -3638,11 +3628,14 @@ namespace vg {
                 
                 sink_subpath->add_next(multipath_aln_out.subpath_size());
                 
-                Subpath* tail_subpath = multipath_aln_out.add_subpath();
-                *tail_subpath->mutable_path() = tail_alignment.path();
+                subpath_t* tail_subpath = multipath_aln_out.add_subpath();
+                from_proto_path(tail_alignment.path(), *tail_subpath->mutable_path());
                 tail_subpath->set_score(tail_alignment.score());
                 
-                Mapping* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
+                // get the pointer again in case the vector reallocated
+                sink_subpath = multipath_aln_out.mutable_subpath(j);
+                
+                path_mapping_t* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
 
                 if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
                     first_mapping->mutable_position()->set_offset(offset(end_pos));
@@ -3652,14 +3645,14 @@ namespace vg {
                          && first_mapping->position().node_id() != final_mapping.position().node_id()) {
                     // this is a pure soft-clip on the beginning of the next node, we'll move it to the end
                     // of the match node to match invariants expected by other parts of the code base
-                    Position* pos = first_mapping->mutable_position();
+                    position_t* pos = first_mapping->mutable_position();
                     pos->set_node_id(final_mapping.position().node_id());
                     pos->set_is_reverse(final_mapping.position().is_reverse());
                     pos->set_offset(final_mapping.position().offset() + mapping_from_length(final_mapping));
                 }
 #ifdef debug_multipath_alignment
                 cerr << "subpath from " << j << " to right tail:" << endl;
-                cerr << pb2json(*tail_subpath) << endl;
+                cerr << debug_string(*tail_subpath) << endl;
 #endif
             }
         }
@@ -3676,10 +3669,10 @@ namespace vg {
                 // remove alignments with the same path
                 deduplicate_alt_alns(alt_alignments);
                                 
-                const Mapping& first_mapping = path_node.path.mapping(0);
+                const path_mapping_t& first_mapping = path_node.path.mapping(0);
                 for (Alignment& tail_alignment : alt_alignments) {
-                    Subpath* tail_subpath = multipath_aln_out.add_subpath();
-                    *tail_subpath->mutable_path() = tail_alignment.path();
+                    subpath_t* tail_subpath = multipath_aln_out.add_subpath();
+                    from_proto_path(tail_alignment.path(), *tail_subpath->mutable_path());
                     tail_subpath->set_score(tail_alignment.score());
                     
                     tail_subpath->add_next(j);
@@ -3687,9 +3680,9 @@ namespace vg {
                     
 #ifdef debug_multipath_alignment
                     cerr << "subpath from " << j << " to left tail:" << endl;
-                    cerr << pb2json(*tail_subpath) << endl;
+                    cerr << debug_string(*tail_subpath) << endl;
 #endif
-                    Mapping* final_mapping = tail_subpath->mutable_path()->mutable_mapping(tail_subpath->path().mapping_size() - 1);
+                    path_mapping_t* final_mapping = tail_subpath->mutable_path()->mutable_mapping(tail_subpath->path().mapping_size() - 1);
                     if (tail_subpath->path().mapping_size() == 1 && final_mapping->edit_size() == 1
                         && final_mapping->edit(0).from_length() == 0 && final_mapping->edit(0).to_length() > 0
                         && final_mapping->position().node_id() != first_mapping.position().node_id()) {
@@ -3754,7 +3747,7 @@ namespace vg {
                 if (path_node.end != alignment.sequence().end()) {
     
 #ifdef debug_multipath_alignment
-                    cerr << "doing right end alignment from sink node " << j << " with path " << pb2json(path_node.path) << " and sequence ";
+                    cerr << "doing right end alignment from sink node " << j << " with path " << debug_string(path_node.path) << " and sequence ";
                     for (auto iter = path_node.begin; iter != path_node.end; iter++) {
                         cerr << *iter;
                     }

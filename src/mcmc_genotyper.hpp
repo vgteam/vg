@@ -10,6 +10,7 @@
 #include <vg/vg.pb.h>
 #include <vector>
 #include "phased_genome.hpp"
+#include "multipath_alignment.hpp"
 
 
 namespace vg {
@@ -36,13 +37,13 @@ public:
      * MCMC to find two optimal paths through the graph.
      * Output: phased genome 
      */    
-    unique_ptr<PhasedGenome> run_genotype(const vector<MultipathAlignment>& reads, const double log_base) const;
+    unique_ptr<PhasedGenome> run_genotype(const vector<multipath_alignment_t>& reads, const double log_base) const;
     
     /**
      * Represents the poseterior distribution function 
      * returns the posterir probability
      */ 
-     double log_target(PhasedGenome& phased_genome, const vector<MultipathAlignment>& reads) const;  
+     double log_target(PhasedGenome& phased_genome, const vector<multipath_alignment_t>& reads) const;  
 
     /**
      * Generates a proposal sample over the desired distrubution

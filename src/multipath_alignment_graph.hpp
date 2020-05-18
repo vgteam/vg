@@ -27,7 +27,7 @@ namespace vg {
     public:
         string::const_iterator begin;
         string::const_iterator end;
-        Path path;
+        path_t path;
         
         // pairs of (target index, path length)
         vector<pair<size_t, size_t>> edges;
@@ -166,7 +166,7 @@ namespace vg {
                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
                                     
         /// Do intervening and tail alignments between the anchoring paths and
-        /// store the result in a MultipathAlignment. Reachability edges must
+        /// store the result in a multipath_alignment_t. Reachability edges must
         /// be in the graph. The Alignment passed *must* be the same Alignment
         /// that owns the sequence into which iterators were passed when the
         /// MultipathAlignmentGraph was constructed! TODO: Shouldn't the class
@@ -177,10 +177,10 @@ namespace vg {
         /// with topologically_order_subpaths() before trying to run DP on it.
         void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
                    size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t band_padding,
-                   MultipathAlignment& multipath_aln_out, bool allow_negative_scores = false);
+                   multipath_alignment_t& multipath_aln_out, bool allow_negative_scores = false);
         
         /// Do intervening and tail alignments between the anchoring paths and
-        /// store the result in a MultipathAlignment. Reachability edges must
+        /// store the result in a multipath_alignment_t. Reachability edges must
         /// be in the graph. Also, choose the band padding dynamically as a
         /// function of the inter-MEM sequence and graph. The Alignment passed
         /// *must* be the same Alignment that owns the sequence into which
@@ -194,7 +194,7 @@ namespace vg {
         void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
                    size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
                    function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
-                   MultipathAlignment& multipath_aln_out, bool allow_negative_scores = false);
+                   multipath_alignment_t& multipath_aln_out, bool allow_negative_scores = false);
         
         /// Converts a MultipathAlignmentGraph to a GraphViz Dot representation, output to the given ostream.
         /// If given the Alignment query we are working on, can produce information about subpath iterators.
