@@ -114,12 +114,6 @@ $(function() {
 <li>edge_delta_to_id()
 : <a class="el" href="classbdsg_1_1ODGI.html#a2a47baa8c05034f7ea104b860f4bb500">bdsg::ODGI</a>
 </li>
-<li>edge_filter()
-: <a class="el" href="classxg_1_1XG.html#a2e25ff953ecb66b49e9240c9d543c89d">xg::XG</a>
-</li>
-<li>edge_from_encoding()
-: <a class="el" href="classxg_1_1XG.html#a6ca1e8a6122ea12d5e0bd2c34dae21ea">xg::XG</a>
-</li>
 <li>edge_handle()
 : <a class="el" href="classhandlegraph_1_1HandleGraph.html#a3766f1aca1cbdbf827f2a12aaf2078ec">handlegraph::HandleGraph</a>
 </li>
@@ -143,11 +137,17 @@ $(function() {
 <li>EDGE_NEXT_OFFSET
 : <a class="el" href="classbdsg_1_1PackedGraph.html#aac3e0c22822e51e8f722be346ce90261">bdsg::PackedGraph</a>
 </li>
+<li>edge_orientation()
+: <a class="el" href="classxg_1_1XG.html#a8b60df344ef1f990d0d6e0ed4eb77b92">xg::XG</a>
+</li>
 <li>edge_pileups
 : <a class="el" href="structvg_1_1Pileup.html#af21485035738e0f7c01912f4416138b7">vg::Pileup</a>
 </li>
 <li>EDGE_RECORD_SIZE
 : <a class="el" href="classbdsg_1_1PackedGraph.html#ab5f31a32cc1c5822533ce5b1689ab945">bdsg::PackedGraph</a>
+</li>
+<li>edge_relative_offset()
+: <a class="el" href="classxg_1_1XG.html#a3bbffb5a6cc0d70f7d20919c53af9520">xg::XG</a>
 </li>
 <li>edge_start()
 : <a class="el" href="classbdsg_1_1node__t.html#af998f2e0ee9c0d37167336d84fed8a99">bdsg::node_t</a>
@@ -166,27 +166,6 @@ $(function() {
 </li>
 <li>EDGE_TRAV_OFFSET
 : <a class="el" href="classbdsg_1_1PackedGraph.html#ace2a13720153efe904d46023ab088bca">bdsg::PackedGraph</a>
-</li>
-<li>edge_type()
-: <a class="el" href="classxg_1_1XG.html#a349148e17366b6fd823e204d52e94e04">xg::XG</a>
-</li>
-<li>EDGE_TYPE_END_END
-: <a class="el" href="classxg_1_1XG.html#a023c901a8d8f7019b95240a2211f5e51">xg::XG</a>
-</li>
-<li>EDGE_TYPE_END_START
-: <a class="el" href="classxg_1_1XG.html#a76e6a2666046e29fa56c667f9475658b">xg::XG</a>
-</li>
-<li>EDGE_TYPE_MAX
-: <a class="el" href="classxg_1_1XG.html#a63d63252f7b9668a475d416017bb1247">xg::XG</a>
-</li>
-<li>EDGE_TYPE_MIN
-: <a class="el" href="classxg_1_1XG.html#aab540505dbdd81821b12cc68dd2cc0a4">xg::XG</a>
-</li>
-<li>EDGE_TYPE_START_END
-: <a class="el" href="classxg_1_1XG.html#a6b467dda65b2e9dbd3b652fd87d58b4f">xg::XG</a>
-</li>
-<li>EDGE_TYPE_START_START
-: <a class="el" href="classxg_1_1XG.html#a117b0ef1511cecfbb9922c9e830cc874">xg::XG</a>
 </li>
 <li>edge_vector_size()
 : <a class="el" href="classvg_1_1Packer.html#a34b7060f8b021857f88bfbd598c207d0">vg::Packer</a>
@@ -375,6 +354,9 @@ $(function() {
 </li>
 <li>encode_and_assign_path_name()
 : <a class="el" href="classbdsg_1_1PackedGraph.html#a7c60e2c48e1b656edf89c2b338308871">bdsg::PackedGraph</a>
+</li>
+<li>encode_edge()
+: <a class="el" href="classxg_1_1XG.html#a9aaeb0232bdc092f1097704b8595b50a">xg::XG</a>
 </li>
 <li>encode_nucleotide()
 : <a class="el" href="classbdsg_1_1PackedGraph.html#a1016444a5f5ffd73c0cfbd3fb9375359">bdsg::PackedGraph</a>
@@ -592,9 +574,9 @@ $(function() {
 , <a class="el" href="structhaplo_1_1haplo__DP__rectangle.html#a46ffe0af953ecd6abf889315d50153a4">haplo::haplo_DP_rectangle</a>
 , <a class="el" href="classvg_1_1DozeuInterface.html#ab8102472215beaaa523c33e34be6c849">vg::DozeuInterface</a>
 , <a class="el" href="classvg_1_1GaplessExtender.html#ae9be1f3c04473e7b378c31f9cfcbfa63">vg::GaplessExtender</a>
-, <a class="el" href="classvg_1_1Paths.html#a36f713f6d40d4c42a0426b7cb932da1d">vg::Paths</a>
+, <a class="el" href="classvg_1_1Paths.html#a1b630067f63b3e4e1ef143902bbdcca1">vg::Paths</a>
 , <a class="el" href="classvg_1_1QualAdjXdropAligner.html#a3f2fec934929a0dacc2f2870755e117f">vg::QualAdjXdropAligner</a>
-, <a class="el" href="classvg_1_1VG.html#a2519c3b939f48bca226e6fdea4c91f9d">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#a5e517214b33812b16f195a1f87841c0d">vg::VG</a>
 , <a class="el" href="classvg_1_1XdropAligner.html#a9c65c36083d9f587665bf1fbcf4ba208">vg::XdropAligner</a>
 </li>
 <li>extend_dist_tree_by_buckets()

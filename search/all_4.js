@@ -131,7 +131,6 @@ var searchData=
   ['dna3bit',['dna3bit',['../namespacexg.html#a0b632a6673e7464eced03fe8bb491f97',1,'xg']]],
   ['dna_5fas_5fint',['dna_as_int',['../namespacebdsg.html#af499b20a845cac81f2e4a09ad60a0af1',1,'bdsg']]],
   ['do_5fdp',['do_dp',['../classvg_1_1MinimizerMapper.html#a80efe32334434e2121f45d9683e2b53b',1,'vg::MinimizerMapper']]],
-  ['do_5fedges',['do_edges',['../classxg_1_1XG.html#a20be59d1550f08a7a92430815234e76a',1,'xg::XG']]],
   ['do_5fpoa',['do_poa',['../classvg_1_1DozeuInterface.html#a16dfe0179c289f8138d73c09896da777',1,'vg::DozeuInterface']]],
   ['do_5fremap',['do_remap',['../classvg_1_1Filter.html#a7c02ec9d43e85148a82acf980728e9ac',1,'vg::Filter']]],
   ['do_5fsvs',['do_svs',['../classvg_1_1Constructor.html#a2e48ae756193c44a889202591a562d18',1,'vg::Constructor']]],

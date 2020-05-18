@@ -65,7 +65,6 @@ var searchData=
   ['divide_5fpath',['divide_path',['../classvg_1_1VG.html#a0466bd1a92042266f6a99aa306d387c9',1,'vg::VG']]],
   ['dna3bit',['dna3bit',['../namespacexg.html#a0b632a6673e7464eced03fe8bb491f97',1,'xg']]],
   ['dna_5fas_5fint',['dna_as_int',['../namespacebdsg.html#af499b20a845cac81f2e4a09ad60a0af1',1,'bdsg']]],
-  ['do_5fedges',['do_edges',['../classxg_1_1XG.html#a20be59d1550f08a7a92430815234e76a',1,'xg::XG']]],
   ['do_5fpoa',['do_poa',['../classvg_1_1DozeuInterface.html#a16dfe0179c289f8138d73c09896da777',1,'vg::DozeuInterface']]],
   ['dozeupinningoverlay',['DozeuPinningOverlay',['../classvg_1_1DozeuPinningOverlay.html#a2a71927eb2c877e8bad8208d804f028e',1,'vg::DozeuPinningOverlay::DozeuPinningOverlay(const HandleGraph *graph, bool preserve_sinks)'],['../classvg_1_1DozeuPinningOverlay.html#a5b86da6db2f137450aba39f1807640a1',1,'vg::DozeuPinningOverlay::DozeuPinningOverlay()=default']]],
   ['dpscorecomparator',['DPScoreComparator',['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html#aac5cf15234c5137ca426604d910340c8',1,'vg::MEMClusterer::DPScoreComparator::DPScoreComparator()=delete'],['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html#a1c6be54ddf88de294dd910d8f39427aa',1,'vg::MEMClusterer::DPScoreComparator::DPScoreComparator(const vector&lt; HitNode &gt; &amp;nodes)']]],

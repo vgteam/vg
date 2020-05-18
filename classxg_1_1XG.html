@@ -69,6 +69,7 @@ $(function() {
 <a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pri-methods">Private Member Functions</a> &#124;
+<a href="#pri-static-methods">Static Private Member Functions</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="#pri-static-attribs">Static Private Attributes</a> &#124;
 <a href="classxg_1_1XG-members.html">List of all members</a>  </div>
@@ -289,8 +290,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:abf551ac03c1db6030da1cedb81efc779"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa61897c26d2cee1e8cc8c9fc7eec540b"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#aa61897c26d2cee1e8cc8c9fc7eec540b">pos_substr</a> (<a class="el" href="namespacexg.html#a8f8752f074f0e121862f9dd3aabfbb45">nid_t</a> <a class="el" href="namespacexg.html#a7bfa373a28253072de64785adc9b1188">id</a>, bool <a class="el" href="namespacexg.html#a92c2e7f37dfa3b8b8dbb07d80e5482be">is_rev</a>, size_t off, size_t len) const</td></tr>
 <tr class="separator:aa61897c26d2cee1e8cc8c9fc7eec540b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6ca1e8a6122ea12d5e0bd2c34dae21ea"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a6ca1e8a6122ea12d5e0bd2c34dae21ea">edge_from_encoding</a> (const <a class="el" href="namespacexg.html#a8f8752f074f0e121862f9dd3aabfbb45">nid_t</a> &amp;from, const <a class="el" href="namespacexg.html#a8f8752f074f0e121862f9dd3aabfbb45">nid_t</a> &amp;to, int type) const</td></tr>
-<tr class="separator:a6ca1e8a6122ea12d5e0bd2c34dae21ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a184f3b8960859cee3ef5d929a4391e0b"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a184f3b8960859cee3ef5d929a4391e0b">edge_index</a> (const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;edge) const</td></tr>
 <tr class="memdesc:a184f3b8960859cee3ef5d929a4391e0b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a unique index among edges in the graph.  <a href="#a184f3b8960859cee3ef5d929a4391e0b">More...</a><br /></td></tr>
 <tr class="separator:a184f3b8960859cee3ef5d929a4391e0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -384,7 +383,7 @@ Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
-<tr class="memitem:aa4970917df65809c23db35d429ffe595"><td class="memItemLeft" align="right" valign="top">static const uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#aa4970917df65809c23db35d429ffe595">CURRENT_VERSION</a> = 14</td></tr>
+<tr class="memitem:aa4970917df65809c23db35d429ffe595"><td class="memItemLeft" align="right" valign="top">static const uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#aa4970917df65809c23db35d429ffe595">CURRENT_VERSION</a> = 15</td></tr>
 <tr class="separator:aa4970917df65809c23db35d429ffe595"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
@@ -400,14 +399,23 @@ Protected Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
-<tr class="memitem:a349148e17366b6fd823e204d52e94e04"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a349148e17366b6fd823e204d52e94e04">edge_type</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;from, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to) const</td></tr>
-<tr class="separator:a349148e17366b6fd823e204d52e94e04"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2e25ff953ecb66b49e9240c9d543c89d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a2e25ff953ecb66b49e9240c9d543c89d">edge_filter</a> (int type, bool is_to, bool want_left, bool is_reverse) const</td></tr>
-<tr class="separator:a2e25ff953ecb66b49e9240c9d543c89d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a20be59d1550f08a7a92430815234e76a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a20be59d1550f08a7a92430815234e76a">do_edges</a> (const size_t &amp;g, const size_t &amp;start, const size_t &amp;count, bool is_to, bool want_left, bool is_reverse, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee) const</td></tr>
-<tr class="separator:a20be59d1550f08a7a92430815234e76a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6383f68a1f2f9150a0649c6db1c43891"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a6383f68a1f2f9150a0649c6db1c43891">orientation_from_old_edge_type</a> (int type, bool &amp;from_rev, bool &amp;to_rev) const</td></tr>
+<tr class="separator:a6383f68a1f2f9150a0649c6db1c43891"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab8116bf1aaae9850887720c0451c789f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#ab8116bf1aaae9850887720c0451c789f">reencode_old_g_vector</a> (const sdsl::int_vector&lt;&gt; &amp;old_g_iv, const sdsl::bit_vector &amp;old_g_bv, const sdsl::rank_support_v&lt; 1 &gt; &amp;old_g_bv_rank)</td></tr>
+<tr class="separator:ab8116bf1aaae9850887720c0451c789f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4599310a72acd2ccfbe9d6041cc51dd1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a4599310a72acd2ccfbe9d6041cc51dd1">index_node_to_path</a> (const std::string &amp;basename)</td></tr>
 <tr class="separator:a4599310a72acd2ccfbe9d6041cc51dd1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acb2f541cd3f91783d07532d75da80b0a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#acb2f541cd3f91783d07532d75da80b0a">print_graph</a> () const</td></tr>
+<tr class="separator:acb2f541cd3f91783d07532d75da80b0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-methods"></a>
+Static Private Member Functions</h2></td></tr>
+<tr class="memitem:a8b60df344ef1f990d0d6e0ed4eb77b92"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a8b60df344ef1f990d0d6e0ed4eb77b92">edge_orientation</a> (const uint64_t &amp;raw_edge)</td></tr>
+<tr class="separator:a8b60df344ef1f990d0d6e0ed4eb77b92"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3bbffb5a6cc0d70f7d20919c53af9520"><td class="memItemLeft" align="right" valign="top">static int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a3bbffb5a6cc0d70f7d20919c53af9520">edge_relative_offset</a> (const uint64_t &amp;raw_edge)</td></tr>
+<tr class="separator:a3bbffb5a6cc0d70f7d20919c53af9520"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9aaeb0232bdc092f1097704b8595b50a"><td class="memItemLeft" align="right" valign="top">static uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a9aaeb0232bdc092f1097704b8595b50a">encode_edge</a> (const size_t &amp;offest_from, const size_t &amp;offest_to, const bool &amp;to_rev)</td></tr>
+<tr class="separator:a9aaeb0232bdc092f1097704b8595b50a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -467,30 +475,34 @@ Static Private Attributes</h2></td></tr>
 <tr class="separator:a0cd1a0386077f202340521b1a9ef5071"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5d30d50553d693fb6eb41d8b2b822c6b"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a5d30d50553d693fb6eb41d8b2b822c6b">G_NODE_LENGTH_OFFSET</a> = 2</td></tr>
 <tr class="separator:a5d30d50553d693fb6eb41d8b2b822c6b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa141c03984d0b96ff9f8e4c7175fde7b"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#aa141c03984d0b96ff9f8e4c7175fde7b">G_NODE_TO_COUNT_OFFSET</a> = 3</td></tr>
-<tr class="separator:aa141c03984d0b96ff9f8e4c7175fde7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a02110c1bb37bad97c4ecab6ae229e570"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a02110c1bb37bad97c4ecab6ae229e570">G_NODE_FROM_COUNT_OFFSET</a> = 4</td></tr>
-<tr class="separator:a02110c1bb37bad97c4ecab6ae229e570"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2d79ebc0e66391f0f5b513cddf35901e"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a2d79ebc0e66391f0f5b513cddf35901e">G_NODE_LEFT_COUNT_OFFSET</a> = 3</td></tr>
+<tr class="separator:a2d79ebc0e66391f0f5b513cddf35901e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a41b76f5c47b8a575adf496cf5fd348d3"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a41b76f5c47b8a575adf496cf5fd348d3">G_NODE_RIGHT_COUNT_OFFSET</a> = 4</td></tr>
+<tr class="separator:a41b76f5c47b8a575adf496cf5fd348d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acf04c5dc02040e15dcb9d103a91834ab"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#acf04c5dc02040e15dcb9d103a91834ab">G_NODE_HEADER_LENGTH</a> = 5</td></tr>
 <tr class="separator:acf04c5dc02040e15dcb9d103a91834ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a62293be24096663af896e3e1ec05a910"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a62293be24096663af896e3e1ec05a910">G_EDGE_OFFSET_OFFSET</a> = 0</td></tr>
-<tr class="separator:a62293be24096663af896e3e1ec05a910"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a295c6707c85941b10c5fd3cefe9127f8"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a295c6707c85941b10c5fd3cefe9127f8">G_EDGE_TYPE_OFFSET</a> = 1</td></tr>
-<tr class="separator:a295c6707c85941b10c5fd3cefe9127f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac8fdd723f475a286b3c5ebfe808614a4"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#ac8fdd723f475a286b3c5ebfe808614a4">G_EDGE_LENGTH</a> = 2</td></tr>
-<tr class="separator:ac8fdd723f475a286b3c5ebfe808614a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aab540505dbdd81821b12cc68dd2cc0a4"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#aab540505dbdd81821b12cc68dd2cc0a4">EDGE_TYPE_MIN</a> = 1</td></tr>
-<tr class="separator:aab540505dbdd81821b12cc68dd2cc0a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a76e6a2666046e29fa56c667f9475658b"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a76e6a2666046e29fa56c667f9475658b">EDGE_TYPE_END_START</a> = 1</td></tr>
-<tr class="separator:a76e6a2666046e29fa56c667f9475658b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a023c901a8d8f7019b95240a2211f5e51"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a023c901a8d8f7019b95240a2211f5e51">EDGE_TYPE_END_END</a> = 2</td></tr>
-<tr class="separator:a023c901a8d8f7019b95240a2211f5e51"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a117b0ef1511cecfbb9922c9e830cc874"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a117b0ef1511cecfbb9922c9e830cc874">EDGE_TYPE_START_START</a> = 3</td></tr>
-<tr class="separator:a117b0ef1511cecfbb9922c9e830cc874"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6b467dda65b2e9dbd3b652fd87d58b4f"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a6b467dda65b2e9dbd3b652fd87d58b4f">EDGE_TYPE_START_END</a> = 4</td></tr>
-<tr class="separator:a6b467dda65b2e9dbd3b652fd87d58b4f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a63d63252f7b9668a475d416017bb1247"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a63d63252f7b9668a475d416017bb1247">EDGE_TYPE_MAX</a> = 4</td></tr>
-<tr class="separator:a63d63252f7b9668a475d416017bb1247"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a82749adc8f5a8cc5d117ded5d67b4cb8"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a82749adc8f5a8cc5d117ded5d67b4cb8">OLD_G_NODE_TO_COUNT_OFFSET</a> = 3</td></tr>
+<tr class="separator:a82749adc8f5a8cc5d117ded5d67b4cb8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5c74b2b5d1c24465eb85c23c95bca6b7"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a5c74b2b5d1c24465eb85c23c95bca6b7">OLD_G_NODE_FROM_COUNT_OFFSET</a> = 4</td></tr>
+<tr class="separator:a5c74b2b5d1c24465eb85c23c95bca6b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaec12f27cb17b672aa3b0fd185832b1c"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#aaec12f27cb17b672aa3b0fd185832b1c">OLD_G_EDGE_OFFSET_OFFSET</a> = 0</td></tr>
+<tr class="separator:aaec12f27cb17b672aa3b0fd185832b1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9c494bf9b7931e9cea0d422a6af7d7f6"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a9c494bf9b7931e9cea0d422a6af7d7f6">OLD_G_EDGE_TYPE_OFFSET</a> = 1</td></tr>
+<tr class="separator:a9c494bf9b7931e9cea0d422a6af7d7f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8a6cd3578e52f05ec662191093732e5b"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a8a6cd3578e52f05ec662191093732e5b">OLD_G_EDGE_LENGTH</a> = 2</td></tr>
+<tr class="separator:a8a6cd3578e52f05ec662191093732e5b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4a4d137ea34a681baac250643cba2ff2"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a4a4d137ea34a681baac250643cba2ff2">OLD_EDGE_TYPE_MIN</a> = 1</td></tr>
+<tr class="separator:a4a4d137ea34a681baac250643cba2ff2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac9141c877eb46ab7408e80c588c09742"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#ac9141c877eb46ab7408e80c588c09742">OLD_EDGE_TYPE_END_START</a> = 1</td></tr>
+<tr class="separator:ac9141c877eb46ab7408e80c588c09742"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a01a5f5c3544378f246495a313802ecf2"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a01a5f5c3544378f246495a313802ecf2">OLD_EDGE_TYPE_END_END</a> = 2</td></tr>
+<tr class="separator:a01a5f5c3544378f246495a313802ecf2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8dbe9450080932858d6e40091997374d"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a8dbe9450080932858d6e40091997374d">OLD_EDGE_TYPE_START_START</a> = 3</td></tr>
+<tr class="separator:a8dbe9450080932858d6e40091997374d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a526bfb996ae87b217df867b0b1e93efb"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a526bfb996ae87b217df867b0b1e93efb">OLD_EDGE_TYPE_START_END</a> = 4</td></tr>
+<tr class="separator:a526bfb996ae87b217df867b0b1e93efb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2166c62117355e6d454a5e0c3de592f4"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a2166c62117355e6d454a5e0c3de592f4">OLD_EDGE_TYPE_MAX</a> = 4</td></tr>
+<tr class="separator:a2166c62117355e6d454a5e0c3de592f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Provides succinct storage for a graph, its positional paths, and a set of embedded threads. </p>
@@ -621,72 +633,6 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a20be59d1550f08a7a92430815234e76a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a20be59d1550f08a7a92430815234e76a">&#9670;&nbsp;</a></span>do_edges()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool xg::XG::do_edges </td>
-          <td>(</td>
-          <td class="paramtype">const size_t &amp;&#160;</td>
-          <td class="paramname"><em>g</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const size_t &amp;&#160;</td>
-          <td class="paramname"><em>start</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const size_t &amp;&#160;</td>
-          <td class="paramname"><em>count</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_to</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>want_left</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_reverse</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>iteratee</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a676a88d58aa3a9cc1cbe580472e3e083"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a676a88d58aa3a9cc1cbe580472e3e083">&#9670;&nbsp;</a></span>dump_to_stream()</h2>
 
@@ -704,89 +650,6 @@ Static Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Dump information about the <a class="el" href="classxg_1_1XG.html">XG</a> to the given stream for debugging. </p>
-
-</div>
-</div>
-<a id="a2e25ff953ecb66b49e9240c9d543c89d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2e25ff953ecb66b49e9240c9d543c89d">&#9670;&nbsp;</a></span>edge_filter()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool xg::XG::edge_filter </td>
-          <td>(</td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>type</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_to</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>want_left</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_reverse</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>This is a utility function for the edge exploration. It says whether we want to visit an edge depending on its type, whether we're the to or from node, whether we want to look left or right, and whether we're forward or reverse on the node. </p>
-
-</div>
-</div>
-<a id="a6ca1e8a6122ea12d5e0bd2c34dae21ea"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6ca1e8a6122ea12d5e0bd2c34dae21ea">&#9670;&nbsp;</a></span>edge_from_encoding()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> xg::XG::edge_from_encoding </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="namespacexg.html#a8f8752f074f0e121862f9dd3aabfbb45">nid_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>from</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="namespacexg.html#a8f8752f074f0e121862f9dd3aabfbb45">nid_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>to</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>type</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>
@@ -820,8 +683,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a349148e17366b6fd823e204d52e94e04"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a349148e17366b6fd823e204d52e94e04">&#9670;&nbsp;</a></span>edge_type()</h2>
+<a id="a8b60df344ef1f990d0d6e0ed4eb77b92"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8b60df344ef1f990d0d6e0ed4eb77b92">&#9670;&nbsp;</a></span>edge_orientation()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -830,30 +693,87 @@ Static Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int xg::XG::edge_type </td>
+          <td class="memname">bool xg::XG::edge_orientation </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>from</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
+          <td class="paramtype">const uint64_t &amp;&#160;</td>
+          <td class="paramname"><em>raw_edge</em></td><td>)</td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>to</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
         </tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Compute the type of an edge given its handles. Edge type encoding: 1: end to start 2: end to end 3: start to start 4: start to end </p>
+
+</div>
+</div>
+<a id="a3bbffb5a6cc0d70f7d20919c53af9520"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3bbffb5a6cc0d70f7d20919c53af9520">&#9670;&nbsp;</a></span>edge_relative_offset()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t xg::XG::edge_relative_offset </td>
+          <td>(</td>
+          <td class="paramtype">const uint64_t &amp;&#160;</td>
+          <td class="paramname"><em>raw_edge</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9aaeb0232bdc092f1097704b8595b50a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9aaeb0232bdc092f1097704b8595b50a">&#9670;&nbsp;</a></span>encode_edge()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint64_t xg::XG::encode_edge </td>
+          <td>(</td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
+          <td class="paramname"><em>offest_from</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
+          <td class="paramname"><em>offest_to</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const bool &amp;&#160;</td>
+          <td class="paramname"><em>to_rev</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -2638,6 +2558,48 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a6383f68a1f2f9150a0649c6db1c43891"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6383f68a1f2f9150a0649c6db1c43891">&#9670;&nbsp;</a></span>orientation_from_old_edge_type()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void xg::XG::orientation_from_old_edge_type </td>
+          <td>(</td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>type</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool &amp;&#160;</td>
+          <td class="paramname"><em>from_rev</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool &amp;&#160;</td>
+          <td class="paramname"><em>to_rev</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="aceaf4782f2fb6cbd169b6121fea8e4e8"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aceaf4782f2fb6cbd169b6121fea8e4e8">&#9670;&nbsp;</a></span>path_back()</h2>
 
@@ -2984,6 +2946,31 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="acb2f541cd3f91783d07532d75da80b0a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acb2f541cd3f91783d07532d75da80b0a">&#9670;&nbsp;</a></span>print_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void xg::XG::print_graph </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="aee052f301d8cae7b30c50c115c6b950b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aee052f301d8cae7b30c50c115c6b950b">&#9670;&nbsp;</a></span>rank_to_id()</h2>
 
@@ -3011,6 +2998,48 @@ Static Private Attributes</h2></td></tr>
 <p>rank to id helper function </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1RankedHandleGraph.html#a5bf563241454b21539effcad11406ec9">handlegraph::RankedHandleGraph</a>.</p>
+
+</div>
+</div>
+<a id="ab8116bf1aaae9850887720c0451c789f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab8116bf1aaae9850887720c0451c789f">&#9670;&nbsp;</a></span>reencode_old_g_vector()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void xg::XG::reencode_old_g_vector </td>
+          <td>(</td>
+          <td class="paramtype">const sdsl::int_vector&lt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>old_g_iv</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const sdsl::bit_vector &amp;&#160;</td>
+          <td class="paramname"><em>old_g_bv</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const sdsl::rank_support_v&lt; 1 &gt; &amp;&#160;</td>
+          <td class="paramname"><em>old_g_bv_rank</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -3153,7 +3182,7 @@ Static Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const uint32_t xg::XG::CURRENT_VERSION = 14</td>
+          <td class="memname">const uint32_t xg::XG::CURRENT_VERSION = 15</td>
         </tr>
       </table>
   </td>
@@ -3175,138 +3204,6 @@ Static Private Attributes</h2></td></tr>
           <td class="memname">size_t xg::XG::edge_count = 0</td>
         </tr>
       </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a023c901a8d8f7019b95240a2211f5e51"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a023c901a8d8f7019b95240a2211f5e51">&#9670;&nbsp;</a></span>EDGE_TYPE_END_END</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const int xg::XG::EDGE_TYPE_END_END = 2</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a76e6a2666046e29fa56c667f9475658b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a76e6a2666046e29fa56c667f9475658b">&#9670;&nbsp;</a></span>EDGE_TYPE_END_START</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const int xg::XG::EDGE_TYPE_END_START = 1</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a63d63252f7b9668a475d416017bb1247"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a63d63252f7b9668a475d416017bb1247">&#9670;&nbsp;</a></span>EDGE_TYPE_MAX</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const int xg::XG::EDGE_TYPE_MAX = 4</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="aab540505dbdd81821b12cc68dd2cc0a4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aab540505dbdd81821b12cc68dd2cc0a4">&#9670;&nbsp;</a></span>EDGE_TYPE_MIN</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const int xg::XG::EDGE_TYPE_MIN = 1</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a6b467dda65b2e9dbd3b652fd87d58b4f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6b467dda65b2e9dbd3b652fd87d58b4f">&#9670;&nbsp;</a></span>EDGE_TYPE_START_END</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const int xg::XG::EDGE_TYPE_START_END = 4</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a117b0ef1511cecfbb9922c9e830cc874"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a117b0ef1511cecfbb9922c9e830cc874">&#9670;&nbsp;</a></span>EDGE_TYPE_START_START</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const int xg::XG::EDGE_TYPE_START_START = 3</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
@@ -3393,72 +3290,6 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ac8fdd723f475a286b3c5ebfe808614a4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac8fdd723f475a286b3c5ebfe808614a4">&#9670;&nbsp;</a></span>G_EDGE_LENGTH</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const int xg::XG::G_EDGE_LENGTH = 2</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a62293be24096663af896e3e1ec05a910"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a62293be24096663af896e3e1ec05a910">&#9670;&nbsp;</a></span>G_EDGE_OFFSET_OFFSET</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const int xg::XG::G_EDGE_OFFSET_OFFSET = 0</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a295c6707c85941b10c5fd3cefe9127f8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a295c6707c85941b10c5fd3cefe9127f8">&#9670;&nbsp;</a></span>G_EDGE_TYPE_OFFSET</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const int xg::XG::G_EDGE_TYPE_OFFSET = 1</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a7b4b76e9a150ca86d54cee59a3825f4d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7b4b76e9a150ca86d54cee59a3825f4d">&#9670;&nbsp;</a></span>g_iv</h2>
 
@@ -3480,29 +3311,10 @@ Static Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 <p>locally traversable graph storage</p>
 <p>Encoding designed for efficient compression, cache locality, and relativistic traversal of the graph.</p>
-<p>node := { header, edges_to, edges_from } header := { node_id, node_start, node_length, edges_to_count, edges_from_count } node_id := integer node_start := integer (offset in s_iv) node_length := integer edges_to_count := integer edges_from_count := integer edges_to := { edge_to, ... } edges_from := { edge_from, ... } edge_to := { offset_to_previous_node, edge_type } edge_to := { offset_to_next_node, edge_type } </p>
-
-</div>
-</div>
-<a id="a02110c1bb37bad97c4ecab6ae229e570"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a02110c1bb37bad97c4ecab6ae229e570">&#9670;&nbsp;</a></span>G_NODE_FROM_COUNT_OFFSET</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const int xg::XG::G_NODE_FROM_COUNT_OFFSET = 4</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
+<p>node := { header, left_side_edges, right_side_edges } header := { node_id, node_start, node_length, edges_left_count, edges_right_count } node_id := integer node_start := integer (offset in s_iv) node_length := integer edges_left_count := integer edges_right_count := integer left_side_edges := { edge, ... } right_side_edges := { edge, ... } edge := { relative_offset | target_is_rev } (bit-packed)</p><ul>
+<li>targets are considered reverse if you should end up on their reverse strand by traversing left out of left side edges or traversing right out of right side edges (starting on the forward strand).</li>
+<li>relative offset is converted to positive numbers with this mapping 0 -1 1 -2 2 ... 0 1 2 3 4 ... TODO: most edges will be separated in increments of at least the header length, this could be exploited to have a more efficient encoding </li>
+</ul>
 
 </div>
 </div>
@@ -3550,6 +3362,28 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a2d79ebc0e66391f0f5b513cddf35901e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2d79ebc0e66391f0f5b513cddf35901e">&#9670;&nbsp;</a></span>G_NODE_LEFT_COUNT_OFFSET</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int xg::XG::G_NODE_LEFT_COUNT_OFFSET = 3</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a5d30d50553d693fb6eb41d8b2b822c6b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5d30d50553d693fb6eb41d8b2b822c6b">&#9670;&nbsp;</a></span>G_NODE_LENGTH_OFFSET</h2>
 
@@ -3572,8 +3406,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a0cd1a0386077f202340521b1a9ef5071"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0cd1a0386077f202340521b1a9ef5071">&#9670;&nbsp;</a></span>G_NODE_SEQ_START_OFFSET</h2>
+<a id="a41b76f5c47b8a575adf496cf5fd348d3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a41b76f5c47b8a575adf496cf5fd348d3">&#9670;&nbsp;</a></span>G_NODE_RIGHT_COUNT_OFFSET</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3582,7 +3416,7 @@ Static Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const int xg::XG::G_NODE_SEQ_START_OFFSET = 1</td>
+          <td class="memname">const int xg::XG::G_NODE_RIGHT_COUNT_OFFSET = 4</td>
         </tr>
       </table>
   </td>
@@ -3594,8 +3428,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aa141c03984d0b96ff9f8e4c7175fde7b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa141c03984d0b96ff9f8e4c7175fde7b">&#9670;&nbsp;</a></span>G_NODE_TO_COUNT_OFFSET</h2>
+<a id="a0cd1a0386077f202340521b1a9ef5071"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0cd1a0386077f202340521b1a9ef5071">&#9670;&nbsp;</a></span>G_NODE_SEQ_START_OFFSET</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3604,7 +3438,7 @@ Static Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const int xg::XG::G_NODE_TO_COUNT_OFFSET = 3</td>
+          <td class="memname">const int xg::XG::G_NODE_SEQ_START_OFFSET = 1</td>
         </tr>
       </table>
   </td>
@@ -3778,6 +3612,248 @@ Static Private Attributes</h2></td></tr>
   </td>
   <td class="mlabels-right">
 <span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a01a5f5c3544378f246495a313802ecf2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a01a5f5c3544378f246495a313802ecf2">&#9670;&nbsp;</a></span>OLD_EDGE_TYPE_END_END</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int xg::XG::OLD_EDGE_TYPE_END_END = 2</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac9141c877eb46ab7408e80c588c09742"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac9141c877eb46ab7408e80c588c09742">&#9670;&nbsp;</a></span>OLD_EDGE_TYPE_END_START</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int xg::XG::OLD_EDGE_TYPE_END_START = 1</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a2166c62117355e6d454a5e0c3de592f4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2166c62117355e6d454a5e0c3de592f4">&#9670;&nbsp;</a></span>OLD_EDGE_TYPE_MAX</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int xg::XG::OLD_EDGE_TYPE_MAX = 4</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a4a4d137ea34a681baac250643cba2ff2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4a4d137ea34a681baac250643cba2ff2">&#9670;&nbsp;</a></span>OLD_EDGE_TYPE_MIN</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int xg::XG::OLD_EDGE_TYPE_MIN = 1</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a526bfb996ae87b217df867b0b1e93efb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a526bfb996ae87b217df867b0b1e93efb">&#9670;&nbsp;</a></span>OLD_EDGE_TYPE_START_END</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int xg::XG::OLD_EDGE_TYPE_START_END = 4</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8dbe9450080932858d6e40091997374d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8dbe9450080932858d6e40091997374d">&#9670;&nbsp;</a></span>OLD_EDGE_TYPE_START_START</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int xg::XG::OLD_EDGE_TYPE_START_START = 3</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8a6cd3578e52f05ec662191093732e5b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8a6cd3578e52f05ec662191093732e5b">&#9670;&nbsp;</a></span>OLD_G_EDGE_LENGTH</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int xg::XG::OLD_G_EDGE_LENGTH = 2</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="aaec12f27cb17b672aa3b0fd185832b1c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaec12f27cb17b672aa3b0fd185832b1c">&#9670;&nbsp;</a></span>OLD_G_EDGE_OFFSET_OFFSET</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int xg::XG::OLD_G_EDGE_OFFSET_OFFSET = 0</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9c494bf9b7931e9cea0d422a6af7d7f6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9c494bf9b7931e9cea0d422a6af7d7f6">&#9670;&nbsp;</a></span>OLD_G_EDGE_TYPE_OFFSET</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int xg::XG::OLD_G_EDGE_TYPE_OFFSET = 1</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a5c74b2b5d1c24465eb85c23c95bca6b7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5c74b2b5d1c24465eb85c23c95bca6b7">&#9670;&nbsp;</a></span>OLD_G_NODE_FROM_COUNT_OFFSET</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int xg::XG::OLD_G_NODE_FROM_COUNT_OFFSET = 4</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a82749adc8f5a8cc5d117ded5d67b4cb8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a82749adc8f5a8cc5d117ded5d67b4cb8">&#9670;&nbsp;</a></span>OLD_G_NODE_TO_COUNT_OFFSET</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int xg::XG::OLD_G_NODE_TO_COUNT_OFFSET = 3</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">

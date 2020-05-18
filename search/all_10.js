@@ -355,6 +355,7 @@ var searchData=
   ['print_5fdefaults',['print_defaults',['../prune__main_8cpp.html#a01acca05639635d047176302793da18d',1,'prune_main.cpp']]],
   ['print_5fedges',['print_edges',['../classvg_1_1VG.html#a2b659686076f3d6b7b63ec9678d76a93',1,'vg::VG']]],
   ['print_5ffull_5fmatrices',['print_full_matrices',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a521dac0777a22cd632a45ad72f320810',1,'vg::BandedGlobalAligner::BAMatrix']]],
+  ['print_5fgraph',['print_graph',['../classxg_1_1XG.html#acb2f541cd3f91783d07532d75da80b0a',1,'xg::XG']]],
   ['print_5fhelp',['print_help',['../classvg_1_1ConfigurableParser.html#a29abcf4fbb780c4e586130b095aa0098',1,'vg::ConfigurableParser']]],
   ['print_5fmatrix',['print_matrix',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#aee399b25f2ed671ad8a17e6c55757671',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['print_5fphased_5fgenome',['print_phased_genome',['../classvg_1_1PhasedGenome.html#a4727557def28b369312b2f4a56d86a7d',1,'vg::PhasedGenome']]],
