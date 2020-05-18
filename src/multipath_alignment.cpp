@@ -1615,6 +1615,7 @@ namespace vg {
         proto_multipath_aln_out.clear_subpath();
         proto_multipath_aln_out.clear_start();
         transfer_read_metadata(multipath_aln, proto_multipath_aln_out);
+        proto_multipath_aln_out.set_mapping_quality(multipath_aln.mapping_quality());
         for (auto subpath : multipath_aln.subpath()) {
             auto subpath_copy = proto_multipath_aln_out.add_subpath();
             subpath_copy->set_score(subpath.score());
@@ -1636,6 +1637,7 @@ namespace vg {
         multipath_aln_out.clear_subpath();
         multipath_aln_out.clear_start();
         transfer_read_metadata(proto_multipath_aln, multipath_aln_out);
+        multipath_aln_out.set_mapping_quality(proto_multipath_aln.mapping_quality());
         for (auto subpath : proto_multipath_aln.subpath()) {
             auto subpath_copy = multipath_aln_out.add_subpath();
             subpath_copy->set_score(subpath.score());
