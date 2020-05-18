@@ -15,7 +15,7 @@
 namespace vg {
 
 /// Alignemnt -> GAF
-gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool cs_cigar = true);
+gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool cs_cigar = true, bool base_quals = true);
 
 /// GAF -> Alignment
 Alignment gaf2aln(const HandleGraph& graph, const gafkluge::GafRecord& gaf);

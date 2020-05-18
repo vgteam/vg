@@ -12,7 +12,7 @@
 namespace vg {
 using namespace std;
 
-gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool cs_cigar) {
+gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool cs_cigar, bool base_quals) {
 
     gafkluge::GafRecord gaf;
 
@@ -165,6 +165,26 @@ gafkluge::GafRecord aln2gaf(const HandleGraph& graph, const Alignment& aln, bool
         if (cs_cigar) {
             gaf.opt_fields["cs"] = make_pair("Z", std::move(cs_cigar_str));
         }
+
+        // convert the identity into the dv divergence field
+        // https://lh3.github.io/minimap2/minimap2.html#10
+        if (aln.identity() > 0) {
+            stringstream dv_str;
+            dv_str << std::floor((1. - aln.identity()) * 10000. + 0.5) / 10000.;
+            gaf.opt_fields["dv"] = make_pair("f", dv_str.str());
+        }
+
+        // convert the score into the AS field
+        // https://lh3.github.io/minimap2/minimap2.html#10
+        if (aln.score() > 0) {
+            gaf.opt_fields["AS"] = make_pair("i", std::to_string(aln.score()));
+        }
+
+        // optional base qualities
+        if (base_quals) { 
+            gaf.opt_fields["bq"] = make_pair("Z", string_quality_short_to_char(aln.quality()));
+        }   
+                
     }
 
     return gaf;
@@ -275,6 +295,22 @@ Alignment gaf2aln(const HandleGraph& graph, const gafkluge::GafRecord& gaf) {
                 }
             });
     }
+
+    for (auto opt_it : gaf.opt_fields) {
+        if (opt_it.first == "dv") {
+            // get the identity from the dv divergence field
+            // https://lh3.github.io/minimap2/minimap2.html#10
+            aln.set_identity(1. - std::stof(opt_it.second.second));
+        } else if (opt_it.first == "AS") {
+            // get the score from the AS field
+            // https://lh3.github.io/minimap2/minimap2.html#10
+            aln.set_score(std::stoi(opt_it.second.second));
+        } else if (opt_it.first == "bq") {
+            // get the quality from the bq field
+            aln.set_quality(string_quality_char_to_short(opt_it.second.second));
+        }
+    }
+
     return aln;
 }
 
