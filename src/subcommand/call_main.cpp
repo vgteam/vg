@@ -67,7 +67,9 @@ int main_call(int argc, char** argv) {
     // constants
     const size_t avg_trav_threshold = 50;
     const size_t avg_node_threshold = 50;
-    const size_t depth_bin_width = 50;
+    const size_t min_depth_bin_width = 50;
+    const size_t max_depth_bin_width = 50000000;
+    const double depth_scale_fac = 1.5;
     const size_t max_yens_traversals = 50;
     
     int c;
@@ -323,7 +325,8 @@ int main_call(int argc, char** argv) {
 
         if (ratio_caller == false) {
             // Make a depth index
-            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, depth_bin_width, 0, true, true);
+            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
+                                                                depth_scale_fac, 0, true, true);
             // Make a new-stype probablistic caller
             auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index,
                                                                 packer->has_qualities());
