@@ -74,7 +74,7 @@ var searchData=
   ['recursively_5femit_5fsnarls',['recursively_emit_snarls',['../classvg_1_1CactusSnarlFinder.html#aad8a90f6cd0fddf6ab908f6287e3ddf3',1,'vg::CactusSnarlFinder']]],
   ['reduce_5fto_5fsingle_5fpath',['reduce_to_single_path',['../classvg_1_1MultipathMapper.html#a0a3360fde5883dc2c0927b63be0a3bd5',1,'vg::MultipathMapper']]],
   ['redundant_5fvertexes',['redundant_vertexes',['../classvg_1_1MEMChainModel.html#a6a4132f34b8c9636e02c186ffa75a333',1,'vg::MEMChainModel::redundant_vertexes()'],['../classvg_1_1AlignmentChainModel.html#a2fd794e91dfc7ee2db7fdc9f921c5134',1,'vg::AlignmentChainModel::redundant_vertexes()']]],
-  ['reencode_5fold_5fg_5fvector',['reencode_old_g_vector',['../classxg_1_1XG.html#ab8116bf1aaae9850887720c0451c789f',1,'xg::XG']]],
+  ['reencode_5fold_5fg_5fvector',['reencode_old_g_vector',['../classxg_1_1XG.html#a8a5068e08156a861e35e62cc3fa94204',1,'xg::XG']]],
   ['reestimation_5ffrequency',['reestimation_frequency',['../classvg_1_1FragmentLengthDistribution.html#a648954fbcb1fd0295fb22a37d79ed3e7',1,'vg::FragmentLengthDistribution']]],
   ['ref_5fbase',['ref_base',['../structvg_1_1BasePileup.html#a8d68d6e5d3ce5d2a9a448f90ed6dfc09',1,'vg::BasePileup']]],
   ['ref_5fnames',['ref_names',['../classvg_1_1SRPE.html#a1b718357b963bf22f959f81ea3c1c6b5',1,'vg::SRPE']]],

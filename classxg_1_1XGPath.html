@@ -94,6 +94,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aeeb9f00d9af56f7f4aae8981f9dafe35"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac67bde23d92b8720ece6d1176e09a103"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XGPath.html#ac67bde23d92b8720ece6d1176e09a103">load_from_old_version</a> (std::istream &amp;in, uint32_t file_version, const <a class="el" href="classxg_1_1XG.html">XG</a> &amp;graph)</td></tr>
 <tr class="separator:ac67bde23d92b8720ece6d1176e09a103"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af7e2c286ed51c4422b1b615e4f327b9d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XGPath.html#af7e2c286ed51c4422b1b615e4f327b9d">sync_offsets</a> (const sdsl::rank_support_v&lt; 1 &gt; &amp;old_g_bv_rank, const sdsl::bit_vector::select_1_type &amp;g_bv_select)</td></tr>
+<tr class="separator:af7e2c286ed51c4422b1b615e4f327b9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a74e7b70ac4829545e7b48c137808d6e4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XGPath.html#a74e7b70ac4829545e7b48c137808d6e4">serialize</a> (std::ostream &amp;out, sdsl::structure_tree_node *v=NULL, std::string name=&quot;&quot;) const</td></tr>
 <tr class="separator:a74e7b70ac4829545e7b48c137808d6e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a621253a080fdb8b81eb5efe2359b93a8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacexg.html#a8f8752f074f0e121862f9dd3aabfbb45">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XGPath.html#a621253a080fdb8b81eb5efe2359b93a8">node</a> (size_t <a class="el" href="namespacexg.html#ac689f45eccbedaba6fab410913961f8c">offset</a>) const</td></tr>
@@ -550,6 +552,34 @@ Public Attributes</h2></td></tr>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>pos</em></td><td>)</td>
           <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="af7e2c286ed51c4422b1b615e4f327b9d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af7e2c286ed51c4422b1b615e4f327b9d">&#9670;&nbsp;</a></span>sync_offsets()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void xg::XGPath::sync_offsets </td>
+          <td>(</td>
+          <td class="paramtype">const sdsl::rank_support_v&lt; 1 &gt; &amp;&#160;</td>
+          <td class="paramname"><em>old_g_bv_rank</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const sdsl::bit_vector::select_1_type &amp;&#160;</td>
+          <td class="paramname"><em>g_bv_select</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
