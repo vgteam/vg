@@ -8,6 +8,7 @@
 #include <vector>
 #include <string>
 #include <type_traits>
+#include <functional>
 
 #include <google/protobuf/struct.pb.h>
 
@@ -54,6 +55,15 @@ void clear_annotation(Annotated* annotated, const string& name);
 /// Clear the annotation with the given name
 template<typename Annotated>
 void clear_annotation(Annotated& annotated, const string& name);
+
+/// Apply a lambda to all annotations, except for Struct and ListValue annotations (which cannot
+/// be easily typed without exposing ugly Protobuf internals
+template<typename Annotated>
+void for_each_basic_annotation(const Annotated& annotated,
+                               const function<void(const string&)> null_lambda,
+                               const function<void(const string&,double)> double_lambda,
+                               const function<void(const string&,bool)> bool_lambda,
+                               const function<void(const string&,const string&)> string_lambda);
 
 ////////////////////////////////////////////////////////////////////////
 // Internal Definitions
@@ -232,6 +242,34 @@ inline void clear_annotation(Annotated* annotated, const string& name) {
 template<typename Annotated>
 inline void clear_annotation(Annotated& annotated, const string& name) {
     clear_annotation(&annotated, name);
+}
+
+template<typename Annotated>
+void for_each_basic_annotation(const Annotated& annotated,
+                               const function<void(const string&)> null_lambda,
+                               const function<void(const string&,double)> double_lambda,
+                               const function<void(const string&,bool)> bool_lambda,
+                               const function<void(const string&,const string&)> string_lambda) {
+    
+    for (auto it = annotated.annotation().fields().begin(), end = annotated.annotation().fields().end(); it != end; ++it) {
+        switch (it->second.kind_case()) {
+            case google::protobuf::Value::KindCase::kBoolValue:
+                bool_lambda(it->first, it->second.bool_value());
+                break;
+            case google::protobuf::Value::KindCase::kNumberValue:
+                double_lambda(it->first, it->second.number_value());
+                break;
+            case google::protobuf::Value::KindCase::kStringValue:
+                string_lambda(it->first, it->second.string_value());
+                break;
+            case google::protobuf::Value::KindCase::kNullValue:
+                null_lambda(it->first);
+                break;
+            default:
+                // TODO: skip ListValue and Struct, how to include?
+                break;
+        }
+    }
 }
 
 }

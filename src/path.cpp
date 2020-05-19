@@ -2353,6 +2353,31 @@ void translate_oriented_node_ids(Path& path, const function<pair<id_t, bool>(id_
         position->set_is_reverse(translation.second != position->is_reverse());
     }
 }
+
+
+void translate_node_ids(path_t& path, const unordered_map<id_t, id_t>& translator) {
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        position_t* position = path.mutable_mapping(i)->mutable_position();
+        position->set_node_id(translator.at(position->node_id()));
+    }
+}
+void translate_oriented_node_ids(path_t& path, const unordered_map<id_t, pair<id_t, bool>>& translator) {
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        position_t* position = path.mutable_mapping(i)->mutable_position();
+        const pair<id_t, bool>& translation = translator.at(position->node_id());
+        position->set_node_id(translation.first);
+        position->set_is_reverse(translation.second != position->is_reverse());
+    }
+}
+
+void translate_oriented_node_ids(path_t& path, const function<pair<id_t, bool>(id_t)>& translator) {
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        position_t* position = path.mutable_mapping(i)->mutable_position();
+        const pair<id_t, bool>& translation = translator(position->node_id());
+        position->set_node_id(translation.first);
+        position->set_is_reverse(translation.second != position->is_reverse());
+    }
+}
     
 pos_t initial_position(const Path& path) {
     pos_t pos;
@@ -2448,6 +2473,236 @@ Alignment alignment_from_path(const HandleGraph& graph, const Path& path) {
     aln.set_name(aln.path().name());
     aln.set_sequence(path_sequence(graph, path));
     return aln;
+}
+
+void from_proto_edit(const Edit& proto_edit, edit_t& edit) {
+    edit.set_from_length(proto_edit.from_length());
+    edit.set_to_length(proto_edit.to_length());
+    edit.set_sequence(proto_edit.sequence());
+}
+
+void to_proto_edit(const edit_t& edit, Edit& proto_edit) {
+    proto_edit.set_from_length(edit.from_length());
+    proto_edit.set_to_length(edit.to_length());
+    proto_edit.set_sequence(edit.sequence());
+}
+
+void from_proto_mapping(const Mapping& proto_mapping, path_mapping_t& mapping) {
+    auto position = proto_mapping.position();
+    auto position_copy = mapping.mutable_position();
+    position_copy->set_node_id(position.node_id());
+    position_copy->set_offset(position.offset());
+    position_copy->set_is_reverse(position.is_reverse());
+    for (auto edit : proto_mapping.edit()) {
+        from_proto_edit(edit, *mapping.add_edit());
+    }
+}
+
+void to_proto_mapping(const path_mapping_t& mapping, Mapping& proto_mapping) {
+    auto position = mapping.position();
+    auto position_copy = proto_mapping.mutable_position();
+    position_copy->set_node_id(position.node_id());
+    position_copy->set_offset(position.offset());
+    position_copy->set_is_reverse(position.is_reverse());
+    for (auto edit : mapping.edit()) {
+        to_proto_edit(edit, *proto_mapping.add_edit());
+    }
+}
+
+void from_proto_path(const Path& proto_path, path_t& path) {
+    for (auto mapping : proto_path.mapping()) {
+        from_proto_mapping(mapping, *path.add_mapping());
+    }
+}
+void to_proto_path(const path_t& path, Path& proto_path) {
+    for (auto mapping : path.mapping()) {
+        auto mapping_copy = proto_path.add_mapping();
+        to_proto_mapping(mapping, *mapping_copy);
+        mapping_copy->set_rank(proto_path.mapping_size());
+    }
+}
+
+int mapping_from_length(const path_mapping_t& mapping) {
+    int length = 0;
+    for (auto edit : mapping.edit()) {
+        length += edit.from_length();
+    }
+    return length;
+}
+
+int path_from_length(const path_t& path) {
+    int length = 0;
+    for (auto mapping : path.mapping()) {
+        length += mapping_from_length(mapping);
+    }
+    return length;
+}
+
+int mapping_to_length(const path_mapping_t& mapping) {
+    int length = 0;
+    for (auto edit : mapping.edit()) {
+        length += edit.to_length();
+    }
+    return length;
+}
+
+int path_to_length(const path_t& path) {
+    int length = 0;
+    for (auto mapping : path.mapping()) {
+        length += mapping_to_length(mapping);
+    }
+    return length;
+}
+
+
+void reverse_complement_mapping_in_place(path_mapping_t* m,
+                                         const function<int64_t(id_t)>& node_length) {
+    
+    position_t* pos = m->mutable_position();
+    pos->set_is_reverse(!pos->is_reverse());
+    pos->set_offset(node_length(pos->node_id()) - pos->offset() - mapping_from_length(*m));
+    
+    size_t swap_size = m->edit_size() / 2;
+    for (size_t i = 0, j = m->edit_size() - 1; i < swap_size; i++, j--) {
+        edit_t* e1 = m->mutable_edit(i);
+        edit_t* e2 = m->mutable_edit(j);
+        
+        int64_t from_length_tmp = e1->from_length();
+        int64_t to_length_tmp = e1->to_length();
+        string sequence_tmp = e1->sequence();
+        
+        e1->set_from_length(e2->from_length());
+        e1->set_to_length(e2->to_length());
+        e1->set_sequence(reverse_complement(e2->sequence()));
+        
+        e2->set_from_length(from_length_tmp);
+        e2->set_to_length(to_length_tmp);
+        e2->set_sequence(reverse_complement(sequence_tmp));
+    }
+    
+    
+    if (m->edit_size() % 2) {
+        edit_t* e = m->mutable_edit(swap_size);
+        reverse_complement_in_place(*e->mutable_sequence());
+    }
+}
+
+path_mapping_t reverse_complement_mapping(const path_mapping_t& m,
+                                          const function<int64_t(id_t)>& node_length) {
+    
+    path_mapping_t reversed;
+    position_t* rev_pos = reversed.mutable_position();
+    rev_pos->set_node_id(m.position().node_id());
+    rev_pos->set_is_reverse(!m.position().is_reverse());
+    rev_pos->set_offset(node_length(m.position().node_id()) - m.position().offset() - mapping_from_length(m));
+    
+    for (int64_t i = m.edit_size() - 1; i >= 0; i--) {
+        const edit_t& e = m.edit(i);
+        edit_t* rev_edit = reversed.add_edit();
+        rev_edit->set_from_length(e.from_length());
+        rev_edit->set_to_length(e.to_length());
+        rev_edit->set_sequence(reverse_complement(e.sequence()));
+    }
+    
+    return reversed;
+}
+
+path_t reverse_complement_path(const path_t& path,
+                               const function<int64_t(id_t)>& node_length) {
+    
+    // Make a new reversed path
+    path_t reversed;
+    
+    for (int64_t i = path.mapping_size() - 1; i >= 0; i--) {
+        // For each mapping in reverse order, put it in reverse complemented and
+        // measured from the other end of the node.
+        *reversed.add_mapping() = reverse_complement_mapping(path.mapping(i), node_length);
+    }
+    
+    return reversed;
+}
+
+void reverse_complement_path_in_place(path_t* path,
+                                      const function<int64_t(id_t)>& node_length) {
+    
+    size_t swap_size = path->mapping_size() / 2;
+    for (size_t i = 0, j = path->mapping_size() - 1; i < swap_size; i++, j--) {
+        path_mapping_t* m1 = path->mutable_mapping(i);
+        path_mapping_t* m2 = path->mutable_mapping(j);
+        
+        reverse_complement_mapping_in_place(m1, node_length);
+        reverse_complement_mapping_in_place(m2, node_length);
+        
+        std::swap(*m1, *m2);
+    }
+    
+    if (path->mapping_size() % 2) {
+        reverse_complement_mapping_in_place(path->mutable_mapping(swap_size), node_length);
+    }
+}
+
+pos_t initial_position(const path_t& path) {
+    pos_t pos;
+    if (path.mapping_size()) {
+        const position_t& position = path.mapping(0).position();
+        get_id(pos) = position.node_id();
+        get_is_rev(pos) = position.is_reverse();
+        get_offset(pos) = position.offset();
+    }
+    return pos;
+}
+
+pos_t final_position(const path_t& path) {
+    pos_t pos;
+    if (path.mapping_size()) {
+        const path_mapping_t& mapping = path.mapping(path.mapping_size() - 1);
+        const position_t& position = mapping.position();
+        get_id(pos) = position.node_id();
+        get_is_rev(pos) = position.is_reverse();
+        get_offset(pos) = position.offset() + mapping_from_length(mapping);
+    }
+    return pos;
+}
+
+string debug_string(const path_t& path) {
+    string to_return = "{";
+    if (!path.mapping().empty()) {
+        to_return += "mapping: [";
+        for (size_t i = 0; i < path.mapping_size(); ++i) {
+            if (i > 0) {
+                to_return += ", ";
+            }
+            to_return += debug_string(path.mapping(i));
+        }
+        to_return += "]";
+    }
+    to_return += "}";
+    return to_return;
+}
+
+string debug_string(const path_mapping_t& mapping) {
+    string to_return = "{pos: " + debug_string(mapping.position());
+    if (!mapping.edit().empty()) {
+        to_return += ", edit: [";
+        for (size_t i = 0; i < mapping.edit_size(); ++i) {
+            if (i > 0) {
+                to_return += ", ";
+            }
+            to_return += debug_string(mapping.edit(i));
+        }
+        to_return += "]";
+    }
+    to_return += "}";
+    return to_return;
+}
+
+string debug_string(const edit_t& edit) {
+    string to_return = "{fl: " + to_string(edit.from_length()) + ", tl: " + to_string(edit.to_length());
+    if (!edit.sequence().empty()) {
+        to_return += ", seq: " + edit.sequence();
+    }
+    to_return += "}";
+    return to_return;
 }
 
 

@@ -19,7 +19,7 @@ namespace vg {
     
     }
 
-    unique_ptr<PhasedGenome> MCMCGenotyper::run_genotype(const vector<MultipathAlignment>& reads, const double log_base) const{
+    unique_ptr<PhasedGenome> MCMCGenotyper::run_genotype(const vector<multipath_alignment_t>& reads, const double log_base) const{
 
         // set a flag for invalid contents so a message is observed 
         bool invalid_contents = false;
@@ -101,14 +101,13 @@ namespace vg {
         }
 
     }   
-    double MCMCGenotyper::log_target(unique_ptr<PhasedGenome>& phased_genome, const vector<MultipathAlignment>& reads)const{
+    double MCMCGenotyper::log_target(unique_ptr<PhasedGenome>& phased_genome, const vector<multipath_alignment_t>& reads)const{
         
         // sum of scores given the reads aligned on the haplotype 
         int32_t sum_scores = 0; 
         
         // get scores for mp alignments 
-        for(MultipathAlignment mp : reads){
-            identify_start_subpaths(mp);
+        for(const multipath_alignment_t& mp : reads){
             sum_scores += phased_genome->optimal_score_on_genome(mp, graph);
             
         } 

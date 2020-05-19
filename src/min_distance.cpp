@@ -13,6 +13,8 @@
 using namespace std;
 namespace vg {
 
+//#define debugIndex
+
 /*TODO: Remove old distance index from vg index 
  * Also change how nodes are stored in chain - in case of loops/unary snarls -might not actually need this
  * Make snarls/chains represented by the node id in netgraph
@@ -129,11 +131,11 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
         }
 
         handle_t handle = graph->get_handle(id, false);
-        if ( node_length(id-min_node_id)!=  graph->get_length(handle)){
+        if ( node_length(id)!=  graph->get_length(handle)){
             cerr << id << ": predicted " <<
-                   node_length(id-min_node_id)  << " actual " << graph->get_length(handle);
+                   node_length(id)  << " actual " << graph->get_length(handle);
         }
-        assert( node_length(id-min_node_id  ==  graph->get_length(handle));
+        assert( node_length(id)  ==  graph->get_length(handle) );
         return true;
                
     };
@@ -2568,7 +2570,7 @@ tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> MinimumD
     size_t component = node_to_component[id - min_node_id]; 
 
 
-    if (component != 0 && snarl_index.depth == 0 && snarl_index.in_chain && is_boundary_node) {
+    if (component != 0 && snarl_index.depth == 0 && snarl_index.in_chain && is_boundary_node && !chain_indexes[get_chain_assignment(snarl_index.id_in_parent)].is_looping_chain ) {
         //If this node is a boundary node of a top-level chain
         int64_t node_offset = get_offset(pos);
         bool node_is_rev_in_snarl = snarl_rank% 2;
