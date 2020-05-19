@@ -20,6 +20,8 @@ namespace vg {
 
 const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 
+const uint64_t DEFAULT_PARALLEL_BATCHSIZE = 512;
+
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each(string& filename, function<void(Alignment&)> lambda,
@@ -64,12 +66,15 @@ size_t gaf_paired_interleaved_for_each(const HandleGraph& graph, const string& f
                                        function<void(Alignment&, Alignment&)> lambda);
 // parallel gaf
 size_t gaf_unpaired_for_each_parallel(const HandleGraph& graph, const string& filename,
-                                      function<void(Alignment&)> lambda);
+                                      function<void(Alignment&)> lambda,
+                                      uint64_t batch_size = DEFAULT_PARALLEL_BATCHSIZE);
 size_t gaf_paired_interleaved_for_each_parallel(const HandleGraph& graph, const string& filename,
-                                                function<void(Alignment&, Alignment&)> lambda);
+                                                function<void(Alignment&, Alignment&)> lambda,
+                                                uint64_t batch_size = DEFAULT_PARALLEL_BATCHSIZE);
 size_t gaf_paired_interleaved_for_each_parallel_after_wait(const HandleGraph& graph, const string& filename,
                                                            function<void(Alignment&, Alignment&)> lambda,
-                                                           function<bool(void)> single_threaded_until_true);
+                                                           function<bool(void)> single_threaded_until_true,
+                                                           uint64_t batch_size = DEFAULT_PARALLEL_BATCHSIZE);
 // gaf conversion
 gafkluge::GafRecord alignment_to_gaf(const HandleGraph& graph, const Alignment& aln, bool cs_cigar = true, bool base_quals = true);
 void gaf_to_alignment(const HandleGraph& graph, const gafkluge::GafRecord& gaf, Alignment& aln);

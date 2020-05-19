@@ -166,20 +166,20 @@ bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, s
     return get_next_alignment_from_fastq(fp1, buffer, len, mate1) && get_next_alignment_from_fastq(fp2, buffer, len, mate2);
 }
 
-size_t unpaired_for_each_parallel(function<bool(Alignment&)> get_read_if_available, function<void(Alignment&)> lambda) {
-
+size_t unpaired_for_each_parallel(function<bool(Alignment&)> get_read_if_available,
+                                  function<void(Alignment&)> lambda,
+                                  uint64_t batch_size = DEFAULT_PARALLEL_BATCHSIZE) {
+    assert(batch_size % 2 == 0);    
     size_t nLines = 0;
     vector<Alignment> *batch = nullptr;
     // number of batches currently being processed
     uint64_t batches_outstanding = 0;
-#pragma omp parallel default(none) shared(batches_outstanding, batch, nLines, get_read_if_available, lambda)
+#pragma omp parallel default(none) shared(batches_outstanding, batch, nLines, get_read_if_available, lambda, batch_size)
 #pragma omp single
     {
         
-        // number of reads in each batch
-        const uint64_t batch_size = 1 << 9; // 512
         // max # of such batches to be holding in memory
-        uint64_t max_batches_outstanding = 1 << 9; // 512
+        uint64_t max_batches_outstanding = batch_size;
         // max # we will ever increase the batch buffer to
         const uint64_t max_max_batches_outstanding = 1 << 13; // 8192
         
@@ -254,22 +254,21 @@ size_t unpaired_for_each_parallel(function<bool(Alignment&)> get_read_if_availab
 
 size_t paired_for_each_parallel_after_wait(function<bool(Alignment&, Alignment&)> get_pair_if_available,
                                            function<void(Alignment&, Alignment&)> lambda,
-                                           function<bool(void)> single_threaded_until_true) {
-    
-    
+                                           function<bool(void)> single_threaded_until_true,
+                                           uint64_t batch_size = DEFAULT_PARALLEL_BATCHSIZE) {
+
+    assert(batch_size % 2 == 0);
     size_t nLines = 0;
     vector<pair<Alignment, Alignment> > *batch = nullptr;
     // number of batches currently being processed
     uint64_t batches_outstanding = 0;
     
-#pragma omp parallel default(none) shared(batches_outstanding, batch, nLines, get_pair_if_available, single_threaded_until_true, lambda)
+#pragma omp parallel default(none) shared(batches_outstanding, batch, nLines, get_pair_if_available, single_threaded_until_true, lambda, batch_size)
 #pragma omp single
     {
-        
-        // number of pairs in each batch
-        const uint64_t batch_size = 1 << 9; // 512
+
         // max # of such batches to be holding in memory
-        uint64_t max_batches_outstanding = 1 << 9; // 512
+        uint64_t max_batches_outstanding = batch_size;
         // max # we will ever increase the batch buffer to
         const uint64_t max_max_batches_outstanding = 1 << 13; // 8192
         
@@ -552,7 +551,8 @@ size_t gaf_paired_interleaved_for_each(const HandleGraph& graph, const string& f
 }
 
 size_t gaf_unpaired_for_each_parallel(const HandleGraph& graph, const string& filename,
-                                      function<void(Alignment&)> lambda) {
+                                      function<void(Alignment&)> lambda,
+                                      uint64_t batch_size) {
 
     htsFile* in = hts_open(filename.c_str(), "r");
     if (in == NULL) {
@@ -567,7 +567,7 @@ size_t gaf_unpaired_for_each_parallel(const HandleGraph& graph, const string& fi
         return get_next_alignment_from_gaf(graph, in, s_buffer, gaf, aln);
     };
         
-    size_t nLines = unpaired_for_each_parallel(get_read, lambda);
+    size_t nLines = unpaired_for_each_parallel(get_read, lambda, batch_size);
     
     hts_close(in);
     return nLines;
@@ -575,13 +575,15 @@ size_t gaf_unpaired_for_each_parallel(const HandleGraph& graph, const string& fi
 }
 
 size_t gaf_paired_interleaved_for_each_parallel(const HandleGraph& graph, const string& filename,
-                                                function<void(Alignment&, Alignment&)> lambda) {
-    return gaf_paired_interleaved_for_each_parallel_after_wait(graph, filename, lambda, [](void) {return true;});
+                                                function<void(Alignment&, Alignment&)> lambda,
+                                                uint64_t batch_size) {
+    return gaf_paired_interleaved_for_each_parallel_after_wait(graph, filename, lambda, [](void) {return true;}, batch_size);
 }
 
 size_t gaf_paired_interleaved_for_each_parallel_after_wait(const HandleGraph& graph, const string& filename,
                                                            function<void(Alignment&, Alignment&)> lambda,
-                                                           function<bool(void)> single_threaded_until_true) {
+                                                           function<bool(void)> single_threaded_until_true,
+                                                           uint64_t batch_size) {
     
     htsFile* in = hts_open(filename.c_str(), "r");
     if (in == NULL) {
@@ -596,7 +598,7 @@ size_t gaf_paired_interleaved_for_each_parallel_after_wait(const HandleGraph& gr
         return get_next_interleaved_alignment_pair_from_gaf(graph, in, s_buffer, gaf, mate1, mate2);
     };
     
-    size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true);
+    size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true, batch_size);
 
     hts_close(in);
     return nLines;    
