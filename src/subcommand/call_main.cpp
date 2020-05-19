@@ -431,7 +431,7 @@ int main_call(int argc, char** argv) {
     VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
     assert(vcf_caller != nullptr);
     cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
-    vcf_caller->write_variants(cerr);
+    vcf_caller->write_variants(cout);
         
     return 0;
 }
