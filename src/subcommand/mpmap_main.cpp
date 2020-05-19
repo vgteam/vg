@@ -144,6 +144,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_NO_CLUSTER 1019
     #define OPT_NO_GREEDY_MEM_RESTARTS 1020
     #define OPT_GREEDY_MEM_RESTART_MAX_LCP 1021
+    #define OPT_NO_OUTPUT 1022
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -260,6 +261,7 @@ int main_mpmap(int argc, char** argv) {
     int gap_extension_score_arg = std::numeric_limits<int>::min();
     int full_length_bonus_arg = std::numeric_limits<int>::min();
     int reversing_walk_length = 1;
+    bool no_output = false;
 
     // default presets
     string nt_type = "dna";
@@ -343,6 +345,7 @@ int main_mpmap(int argc, char** argv) {
             {"no-qual-adjust", no_argument, 0, 'A'},
             {"threads", required_argument, 0, 't'},
             {"buffer-size", required_argument, 0, 'Z'},
+            {"no-output", no_argument, 0, OPT_NO_OUTPUT},
             {0, 0, 0, 0}
         };
 
@@ -699,6 +702,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'Z':
                 buffer_size = parse<int>(optarg);
+                break;
+                
+            case OPT_NO_OUTPUT:
+                no_output = true;
                 break;
                 
             case 'h':
@@ -1569,6 +1576,9 @@ int main_mpmap(int argc, char** argv) {
             if (!sample_name.empty()) {
                 output_buf.back().set_sample_name(sample_name);
             }
+            if (no_output) {
+                output_buf.pop_back();
+            }
         }
         
         vg::io::write_buffered(cout, output_buf, buffer_size);
@@ -1592,17 +1602,16 @@ int main_mpmap(int argc, char** argv) {
             // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
-//            if (mp_aln.has_annotation()) {
-//                // Move over annotations
-//                output_buf.back().set_allocated_annotation(mp_aln.release_annotation());
-//            }
-            
             // label with read group and sample name
             if (!read_group.empty()) {
                 output_buf.back().set_read_group(read_group);
             }
             if (!sample_name.empty()) {
                 output_buf.back().set_sample_name(sample_name);
+            }
+            
+            if (no_output) {
+                output_buf.pop_back();
             }
         }
         
@@ -1636,12 +1645,6 @@ int main_mpmap(int argc, char** argv) {
             
             output_buf.emplace_back();
             to_proto_multipath_alignment(mp_aln_pair.second, output_buf.back());
-
-            //TODO: fix annotations with the new output format
-//            if (mp_aln_pair.second.has_annotation()) {
-//                // Move over annotations
-//                output_buf.back().set_allocated_annotation(mp_aln_pair.second.release_annotation());
-//            }
             
             // label with read group and sample name
             if (!read_group.empty()) {
@@ -1649,6 +1652,11 @@ int main_mpmap(int argc, char** argv) {
             }
             if (!sample_name.empty()) {
                 output_buf.back().set_sample_name(sample_name);
+            }
+            
+            if (no_output) {
+                output_buf.pop_back();
+                output_buf.pop_back();
             }
         }
         
@@ -1669,11 +1677,6 @@ int main_mpmap(int argc, char** argv) {
             // There will always be at least one result. Use the optimal alignment.
             output_buf.emplace_back(std::move(options.front()));
             
-//            if (mp_aln_pair.first.has_annotation()) {
-//                // Move over annotations
-//                output_buf.back().set_allocated_annotation(mp_aln_pair.first.release_annotation());
-//            }
-            
             // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
@@ -1691,11 +1694,6 @@ int main_mpmap(int argc, char** argv) {
             options.clear();
             multipath_mapper.reduce_to_single_path(mp_aln_pair.second, options, localization_max_paths);
             output_buf.emplace_back(std::move(options.front()));
-            
-//            if (mp_aln_pair.second.has_annotation()) {
-//                // Move over annotations
-//                output_buf.back().set_allocated_annotation(mp_aln_pair.second.release_annotation());
-//            }
             
             // compute identity again
             output_buf.back().set_identity(identity(output_buf.back().path()));
@@ -1717,6 +1715,11 @@ int main_mpmap(int argc, char** argv) {
             }
             // arbitrarily decide that this is the "next" fragment
             output_buf.back().mutable_fragment_prev()->set_name(mp_aln_pair.first.name());
+            
+            if (no_output) {
+                output_buf.pop_back();
+                output_buf.pop_back();
+            }
         }
         vg::io::write_buffered(cout, output_buf, buffer_size);
     };
