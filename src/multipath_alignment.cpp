@@ -1616,14 +1616,14 @@ namespace vg {
         proto_multipath_aln_out.clear_start();
         transfer_read_metadata(multipath_aln, proto_multipath_aln_out);
         proto_multipath_aln_out.set_mapping_quality(multipath_aln.mapping_quality());
-        for (auto subpath : multipath_aln.subpath()) {
+        for (const auto& subpath : multipath_aln.subpath()) {
             auto subpath_copy = proto_multipath_aln_out.add_subpath();
             subpath_copy->set_score(subpath.score());
             for (auto next : subpath.next()) {
                 subpath_copy->add_next(next);
             }
             if (subpath.has_path()) {
-                auto path = subpath.path();
+                const auto& path = subpath.path();
                 auto path_copy = subpath_copy->mutable_path();
                 to_proto_path(path, *path_copy);
             }
