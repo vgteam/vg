@@ -86,8 +86,8 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
 Typedefs</h2></td></tr>
-<tr class="memitem:ae0218d4262c7c5c6836a0721c23bac34"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae0218d4262c7c5c6836a0721c23bac34">BinnedDepthIndex</a> = unordered_map&lt; string, map&lt; size_t, pair&lt; float, float &gt; &gt;&gt;</td></tr>
-<tr class="separator:ae0218d4262c7c5c6836a0721c23bac34"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acf8cb40a8f834b42f1ec89af0ef140b9"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#acf8cb40a8f834b42f1ec89af0ef140b9">BinnedDepthIndex</a> = unordered_map&lt; string, map&lt; size_t, map&lt; size_t, pair&lt; float, float &gt; &gt;&gt; &gt;</td></tr>
+<tr class="separator:acf8cb40a8f834b42f1ec89af0ef140b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
@@ -133,20 +133,16 @@ Functions</h2></td></tr>
 <tr class="separator:a62ebbcbfe1250940eb8ebf0a2dcbc19a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8fb3df22b1d7955546bbcc8c438f6efc"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; size_t, size_t, double, double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8fb3df22b1d7955546bbcc8c438f6efc">binned_packed_depth</a> (const <a class="el" href="classvg_1_1Packer.html">Packer</a> &amp;packer, const string &amp;path_name, size_t bin_size, size_t min_coverage, bool include_deletions)</td></tr>
 <tr class="separator:a8fb3df22b1d7955546bbcc8c438f6efc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a167040eda2453e21c71321b0f17f1983"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; string, map&lt; size_t, pair&lt; float, float &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a167040eda2453e21c71321b0f17f1983">binned_packed_depth_index</a> (const <a class="el" href="classvg_1_1Packer.html">Packer</a> &amp;packer, const vector&lt; string &gt; &amp;path_names, size_t bin_size, size_t min_coverage, bool include_deletions, bool std_err)</td></tr>
-<tr class="separator:a167040eda2453e21c71321b0f17f1983"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a849e37322ef5cbfcd95096c32bcd2d00"><td class="memItemLeft" align="right" valign="top">const pair&lt; float, float &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a849e37322ef5cbfcd95096c32bcd2d00">get_depth_from_index</a> (const unordered_map&lt; string, map&lt; size_t, pair&lt; float, float &gt;&gt;&gt; &amp;depth_index, const string &amp;path_name, size_t <a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>)</td></tr>
-<tr class="separator:a849e37322ef5cbfcd95096c32bcd2d00"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4152fa019243d9fd4c41c73fafce2241"><td class="memItemLeft" align="right" valign="top">pair&lt; float, float &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4152fa019243d9fd4c41c73fafce2241">get_depth_from_index</a> (const <a class="el" href="namespacevg_1_1algorithms.html#ae0218d4262c7c5c6836a0721c23bac34">BinnedDepthIndex</a> &amp;depth_index, const string &amp;path_name, size_t start_offset, size_t end_offset)</td></tr>
+<tr class="memitem:af05e00ad1e6a7b34cde8c37aa9dbbdbc"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#acf8cb40a8f834b42f1ec89af0ef140b9">BinnedDepthIndex</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#af05e00ad1e6a7b34cde8c37aa9dbbdbc">binned_packed_depth_index</a> (const <a class="el" href="classvg_1_1Packer.html">Packer</a> &amp;packer, const vector&lt; string &gt; &amp;path_names, size_t min_bin_size, size_t max_bin_size, double exp_growth_factor, size_t min_coverage, bool include_deletions, bool std_err)</td></tr>
+<tr class="separator:af05e00ad1e6a7b34cde8c37aa9dbbdbc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4152fa019243d9fd4c41c73fafce2241"><td class="memItemLeft" align="right" valign="top">pair&lt; float, float &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4152fa019243d9fd4c41c73fafce2241">get_depth_from_index</a> (const <a class="el" href="namespacevg_1_1algorithms.html#acf8cb40a8f834b42f1ec89af0ef140b9">BinnedDepthIndex</a> &amp;depth_index, const string &amp;path_name, size_t start_offset, size_t end_offset)</td></tr>
+<tr class="memdesc:a4152fa019243d9fd4c41c73fafce2241"><td class="mdescLeft">&#160;</td><td class="mdescRight">Query index created above.  <a href="#a4152fa019243d9fd4c41c73fafce2241">More...</a><br /></td></tr>
 <tr class="separator:a4152fa019243d9fd4c41c73fafce2241"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3d6345f7e5e6e13995454a8f564b7094"><td class="memItemLeft" align="right" valign="top">pair&lt; double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a3d6345f7e5e6e13995454a8f564b7094">sample_gam_depth</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, istream &amp;gam_stream, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq)</td></tr>
 <tr class="separator:a3d6345f7e5e6e13995454a8f564b7094"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aad12763831bdc88eb52df63067e11902"><td class="memItemLeft" align="right" valign="top">pair&lt; double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aad12763831bdc88eb52df63067e11902">sample_gam_depth</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alignments, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq)</td></tr>
 <tr class="memdesc:aad12763831bdc88eb52df63067e11902"><td class="mdescLeft">&#160;</td><td class="mdescRight">As above, but read a vector instead of a stream.  <a href="#aad12763831bdc88eb52df63067e11902">More...</a><br /></td></tr>
 <tr class="separator:aad12763831bdc88eb52df63067e11902"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a27fcba602157be3b18396386cb351fac"><td class="memItemLeft" align="right" valign="top">const pair&lt; float, float &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a27fcba602157be3b18396386cb351fac">get_depth_from_index</a> (const <a class="el" href="namespacevg_1_1algorithms.html#ae0218d4262c7c5c6836a0721c23bac34">BinnedDepthIndex</a> &amp;depth_index, const string &amp;path_name, size_t <a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>)</td></tr>
-<tr class="memdesc:a27fcba602157be3b18396386cb351fac"><td class="mdescLeft">&#160;</td><td class="mdescRight">Query index created above.  <a href="#a27fcba602157be3b18396386cb351fac">More...</a><br /></td></tr>
-<tr class="separator:a27fcba602157be3b18396386cb351fac"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab093cfcfbb4dddf7252823806ec60aa0"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacehandlegraph.html#a9d001e7b9d625e6b4ef53430e6a0c180">id_t</a>, <a class="el" href="namespacehandlegraph.html#a9d001e7b9d625e6b4ef53430e6a0c180">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab093cfcfbb4dddf7252823806ec60aa0">dagify</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into, size_t min_preserved_path_length)</td></tr>
 <tr class="separator:ab093cfcfbb4dddf7252823806ec60aa0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2a2ca7e29cbf4769c5f6432499a45e23"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a2a2ca7e29cbf4769c5f6432499a45e23">dfs</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const function&lt; void(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;handle_begin_fn, const function&lt; void(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;handle_end_fn, const function&lt; bool(void)&gt; &amp;break_fn, const function&lt; void(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; &amp;edge_fn, const function&lt; void(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; &amp;tree_fn, const function&lt; void(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; &amp;edge_curr_fn, const function&lt; void(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; &amp;edge_cross_fn, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;sources, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;sinks)</td></tr>
@@ -353,18 +349,18 @@ Functions</h2></td></tr>
 <tr class="separator:a4c84b28abde266a1496f63d497e02c04"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Typedef Documentation</h2>
-<a id="ae0218d4262c7c5c6836a0721c23bac34"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae0218d4262c7c5c6836a0721c23bac34">&#9670;&nbsp;</a></span>BinnedDepthIndex</h2>
+<a id="acf8cb40a8f834b42f1ec89af0ef140b9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acf8cb40a8f834b42f1ec89af0ef140b9">&#9670;&nbsp;</a></span>BinnedDepthIndex</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="namespacevg_1_1algorithms.html#ae0218d4262c7c5c6836a0721c23bac34">vg::algorithms::BinnedDepthIndex</a> = typedef unordered_map&lt;string, map&lt;size_t, pair&lt;float, float&gt; &gt;&gt;</td>
+          <td class="memname">using <a class="el" href="namespacevg_1_1algorithms.html#acf8cb40a8f834b42f1ec89af0ef140b9">vg::algorithms::BinnedDepthIndex</a> = typedef unordered_map&lt;string, map&lt;size_t, map&lt;size_t, pair&lt;float, float&gt; &gt;&gt; &gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Use the above function to retrieve the binned depths of a list of paths, and store them indexed by start coordinate. If std_err is true, store &lt;mean, stderr&gt; instead of &lt;mean, variance&gt; </p>
+<p>Use the above function to retrieve the binned depths of a list of paths, and store them indexed by start coordinate. If std_err is true, store &lt;mean, stderr&gt; instead of &lt;mean, variance&gt; For each path, a series of indexes is computed, for bin sizes from min_bin_size, min_bin_size^(exp_growth_factor), etc. </p>
 
 </div>
 </div>
@@ -908,14 +904,14 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="a167040eda2453e21c71321b0f17f1983"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a167040eda2453e21c71321b0f17f1983">&#9670;&nbsp;</a></span>binned_packed_depth_index()</h2>
+<a id="af05e00ad1e6a7b34cde8c37aa9dbbdbc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af05e00ad1e6a7b34cde8c37aa9dbbdbc">&#9670;&nbsp;</a></span>binned_packed_depth_index()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacevg_1_1algorithms.html#ae0218d4262c7c5c6836a0721c23bac34">BinnedDepthIndex</a> vg::algorithms::binned_packed_depth_index </td>
+          <td class="memname"><a class="el" href="namespacevg_1_1algorithms.html#acf8cb40a8f834b42f1ec89af0ef140b9">BinnedDepthIndex</a> vg::algorithms::binned_packed_depth_index </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classvg_1_1Packer.html">Packer</a> &amp;&#160;</td>
           <td class="paramname"><em>packer</em>, </td>
@@ -930,7 +926,19 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>bin_size</em>, </td>
+          <td class="paramname"><em>min_bin_size</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_bin_size</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>exp_growth_factor</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -2515,78 +2523,8 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="a27fcba602157be3b18396386cb351fac"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a27fcba602157be3b18396386cb351fac">&#9670;&nbsp;</a></span>get_depth_from_index() <span class="overload">[1/3]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">const pair&lt;float, float&gt;&amp; vg::algorithms::get_depth_from_index </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="namespacevg_1_1algorithms.html#ae0218d4262c7c5c6836a0721c23bac34">BinnedDepthIndex</a> &amp;&#160;</td>
-          <td class="paramname"><em>depth_index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>path_name</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>offset</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Query index created above. </p>
-
-</div>
-</div>
-<a id="a849e37322ef5cbfcd95096c32bcd2d00"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a849e37322ef5cbfcd95096c32bcd2d00">&#9670;&nbsp;</a></span>get_depth_from_index() <span class="overload">[2/3]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">const pair&lt;float, float&gt;&amp; vg::algorithms::get_depth_from_index </td>
-          <td>(</td>
-          <td class="paramtype">const unordered_map&lt; string, map&lt; size_t, pair&lt; float, float &gt;&gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>depth_index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>path_name</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>offset</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a4152fa019243d9fd4c41c73fafce2241"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4152fa019243d9fd4c41c73fafce2241">&#9670;&nbsp;</a></span>get_depth_from_index() <span class="overload">[3/3]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a4152fa019243d9fd4c41c73fafce2241">&#9670;&nbsp;</a></span>get_depth_from_index()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2594,7 +2532,7 @@ template&lt;class DistHeuristic &gt; </div>
         <tr>
           <td class="memname">pair&lt; float, float &gt; vg::algorithms::get_depth_from_index </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="namespacevg_1_1algorithms.html#ae0218d4262c7c5c6836a0721c23bac34">BinnedDepthIndex</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg_1_1algorithms.html#acf8cb40a8f834b42f1ec89af0ef140b9">BinnedDepthIndex</a> &amp;&#160;</td>
           <td class="paramname"><em>depth_index</em>, </td>
         </tr>
         <tr>
@@ -2622,6 +2560,8 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Query index created above. </p>
 
 </div>
 </div>
