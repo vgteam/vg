@@ -22,6 +22,7 @@ var searchData=
   ['msaconverter',['MSAConverter',['../classvg_1_1MSAConverter.html',1,'vg']]],
   ['multipath_5falignment_5ft',['multipath_alignment_t',['../classvg_1_1multipath__alignment__t.html',1,'vg']]],
   ['multipathalignment',['MultipathAlignment',['../structvg_1_1MultipathAlignment.html',1,'vg']]],
+  ['multipathalignmentemitter',['MultipathAlignmentEmitter',['../classvg_1_1MultipathAlignmentEmitter.html',1,'vg']]],
   ['multipathalignmentgraph',['MultipathAlignmentGraph',['../classvg_1_1MultipathAlignmentGraph.html',1,'vg']]],
   ['multipathmapper',['MultipathMapper',['../classvg_1_1MultipathMapper.html',1,'vg']]],
   ['multipathproblem',['MultipathProblem',['../structvg_1_1MultipathProblem.html',1,'vg']]],

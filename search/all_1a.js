@@ -70,6 +70,7 @@ var searchData=
   ['_7emindistanceclusterer',['~MinDistanceClusterer',['../classvg_1_1MinDistanceClusterer.html#a92349c1915d207de2c5d3b01df53ce37',1,'vg::MinDistanceClusterer']]],
   ['_7emsaconverter',['~MSAConverter',['../classvg_1_1MSAConverter.html#a3b731a1e51d01aecae26e789fe06b788',1,'vg::MSAConverter']]],
   ['_7emultipath_5falignment_5ft',['~multipath_alignment_t',['../classvg_1_1multipath__alignment__t.html#a732686b480b69ea1a261004c308510e0',1,'vg::multipath_alignment_t']]],
+  ['_7emultipathalignmentemitter',['~MultipathAlignmentEmitter',['../classvg_1_1MultipathAlignmentEmitter.html#a18c81d0a9a77020adca05f0bc5b7fbcb',1,'vg::MultipathAlignmentEmitter']]],
   ['_7emultipathalignmentgraph',['~MultipathAlignmentGraph',['../classvg_1_1MultipathAlignmentGraph.html#a85e2932360f805d5c6353cd25e377e5d',1,'vg::MultipathAlignmentGraph']]],
   ['_7emultipathmapper',['~MultipathMapper',['../classvg_1_1MultipathMapper.html#aae4b40b1c3c0668b884ae3247779f188',1,'vg::MultipathMapper']]],
   ['_7emutablehandlegraph',['~MutableHandleGraph',['../classhandlegraph_1_1MutableHandleGraph.html#ace50b9ed07cbbe94f7da963ff02d4141',1,'handlegraph::MutableHandleGraph']]],

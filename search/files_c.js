@@ -31,6 +31,8 @@ var searchData=
   ['msga_5fmain_2ecpp',['msga_main.cpp',['../msga__main_8cpp.html',1,'']]],
   ['multipath_5falignment_2ecpp',['multipath_alignment.cpp',['../multipath__alignment_8cpp.html',1,'']]],
   ['multipath_5falignment_2ehpp',['multipath_alignment.hpp',['../multipath__alignment_8hpp.html',1,'']]],
+  ['multipath_5falignment_5femitter_2ecpp',['multipath_alignment_emitter.cpp',['../multipath__alignment__emitter_8cpp.html',1,'']]],
+  ['multipath_5falignment_5femitter_2ehpp',['multipath_alignment_emitter.hpp',['../multipath__alignment__emitter_8hpp.html',1,'']]],
   ['multipath_5falignment_5fgraph_2ecpp',['multipath_alignment_graph.cpp',['../multipath__alignment__graph_8cpp.html',1,'']]],
   ['multipath_5falignment_5fgraph_2ehpp',['multipath_alignment_graph.hpp',['../multipath__alignment__graph_8hpp.html',1,'']]],
   ['multipath_5fmapper_2ecpp',['multipath_mapper.cpp',['../multipath__mapper_8cpp.html',1,'']]],

@@ -36,7 +36,7 @@ var searchData=
   ['streamindexbase',['StreamIndexBase',['../classvg_1_1StreamIndexBase.html',1,'vg']]],
   ['streammultiplexer',['StreamMultiplexer',['../classvg_1_1io_1_1StreamMultiplexer.html',1,'vg::io']]],
   ['streamsorter',['StreamSorter',['../classvg_1_1StreamSorter.html',1,'vg']]],
-  ['string_5fhash_5fmap',['string_hash_map',['../classbdsg_1_1string__hash__map.html',1,'bdsg::string_hash_map&lt; K, V &gt;'],['../classvg_1_1string__hash__map.html',1,'vg::string_hash_map&lt; K, V &gt;']]],
+  ['string_5fhash_5fmap',['string_hash_map',['../classvg_1_1string__hash__map.html',1,'vg::string_hash_map&lt; K, V &gt;'],['../classbdsg_1_1string__hash__map.html',1,'bdsg::string_hash_map&lt; K, V &gt;']]],
   ['string_5fhash_5fmap_3c_20bdsg_3a_3apackedvector_2c_20int64_5ft_20_3e',['string_hash_map&lt; bdsg::PackedVector, int64_t &gt;',['../classbdsg_1_1string__hash__map.html',1,'bdsg']]],
   ['string_5fhash_5fmap_3c_20std_3a_3astring_2c_20uint64_5ft_20_3e',['string_hash_map&lt; std::string, uint64_t &gt;',['../classbdsg_1_1string__hash__map.html',1,'bdsg']]],
   ['string_5fhash_5fmap_3c_20string_2c_20int64_5ft_20_3e',['string_hash_map&lt; string, int64_t &gt;',['../classbdsg_1_1string__hash__map.html',1,'bdsg']]],

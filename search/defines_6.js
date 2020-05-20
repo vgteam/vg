@@ -15,6 +15,7 @@ var searchData=
   ['opt_5fmin_5fdist_5fcluster',['OPT_MIN_DIST_CLUSTER',['../mpmap__main_8cpp.html#a6a4cfbe743edfb7bb7866bf370c1a85b',1,'mpmap_main.cpp']]],
   ['opt_5fno_5fcluster',['OPT_NO_CLUSTER',['../mpmap__main_8cpp.html#a819f2221fe8ecbdde55f41e801ee526f',1,'mpmap_main.cpp']]],
   ['opt_5fno_5fgreedy_5fmem_5frestarts',['OPT_NO_GREEDY_MEM_RESTARTS',['../mpmap__main_8cpp.html#a795fe85937dd7884864a324a2e4e7e9c',1,'mpmap_main.cpp']]],
+  ['opt_5fno_5foutput',['OPT_NO_OUTPUT',['../mpmap__main_8cpp.html#ab3e182a23ff8ea38e53c1170d263bb8d',1,'mpmap_main.cpp']]],
   ['opt_5foutput_5fbasename',['OPT_OUTPUT_BASENAME',['../gaffe__main_8cpp.html#a0c681930b458fe282cd216da55579963',1,'gaffe_main.cpp']]],
   ['opt_5fprune_5fexp',['OPT_PRUNE_EXP',['../mpmap__main_8cpp.html#af3b2453f1e45ffd27c3cb9a08a39153a',1,'mpmap_main.cpp']]],
   ['opt_5frecombination_5fpenalty',['OPT_RECOMBINATION_PENALTY',['../map__main_8cpp.html#aa2bc6ed2ecef5672fcbf4c1d07b8d964',1,'OPT_RECOMBINATION_PENALTY():&#160;map_main.cpp'],['../mpmap__main_8cpp.html#aa2bc6ed2ecef5672fcbf4c1d07b8d964',1,'OPT_RECOMBINATION_PENALTY():&#160;mpmap_main.cpp']]],

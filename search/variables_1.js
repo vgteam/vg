@@ -27,6 +27,7 @@ var searchData=
   ['allowed_5fvcf_5fnames',['allowed_vcf_names',['../classvg_1_1Constructor.html#a792c656b37e8b8836cd223751749d401',1,'vg::Constructor']]],
   ['allowed_5fvcf_5fregions',['allowed_vcf_regions',['../classvg_1_1Constructor.html#ac152e7a5407ef743f41e301700203129',1,'vg::Constructor']]],
   ['aln',['aln',['../classvg_1_1AlignmentChainModelVertex.html#ab49913fb60fec26e020912069d8c0103',1,'vg::AlignmentChainModelVertex']]],
+  ['aln_5femitters',['aln_emitters',['../classvg_1_1MultipathAlignmentEmitter.html#aeac99888a4e0e3d3ae79fbd7a166bb93',1,'vg::MultipathAlignmentEmitter']]],
   ['aln_5fto_5fmate',['aln_to_mate',['../classvg_1_1SRPE.html#a17b17b87964f9fb6f113cb393dee370c',1,'vg::SRPE']]],
   ['alphabet',['alphabet',['../classvg_1_1NGSSimulator.html#aa970fcca49e375093b8abf6c3b31e2c5',1,'vg::NGSSimulator']]],
   ['alt_5falignments',['alt_alignments',['../classvg_1_1BandedGlobalAligner.html#a72ad87c059fc959b0258feb87c8dd4bd',1,'vg::BandedGlobalAligner']]],
