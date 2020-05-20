@@ -130,43 +130,68 @@ vector<tuple<size_t, size_t, double, double>> binned_packed_depth(const Packer& 
     return binned_depths;
 }
 
-unordered_map<string, map<size_t, pair<float, float>>> binned_packed_depth_index(const Packer& packer,
-                                                                                   const vector<string>& path_names,
-                                                                                   size_t bin_size,
-                                                                                   size_t min_coverage,
-                                                                                   bool include_deletions,
-                                                                                   bool std_err) {
-    unordered_map<string, map<size_t, pair<float, float>>> depth_index;
+BinnedDepthIndex binned_packed_depth_index(const Packer& packer,
+                                           const vector<string>& path_names,
+                                           size_t min_bin_size,
+                                           size_t max_bin_size,
+                                           double exp_growth_factor,
+                                           size_t min_coverage,
+                                           bool include_deletions,
+                                           bool std_err) {
+    const PathHandleGraph& graph = dynamic_cast<const PathHandleGraph&>(*packer.get_graph());
+    
+    BinnedDepthIndex depth_index;
     for (const string& path_name : path_names) {
-        vector<tuple<size_t, size_t, double, double>> binned_depths = binned_packed_depth(packer, path_name, bin_size,
-                                                                                          min_coverage, include_deletions);
-        // todo: probably more efficent to just leave in sorted vector
-        map<size_t, pair<float, float>>& depth_map = depth_index[path_name];
-        for (auto& binned_depth : binned_depths) {
-            double var = get<3>(binned_depth);
-            // optionally convert variance to standard error
-            if (std_err) {
-                var = sqrt(var / (double)(get<1>(binned_depth) - get<0>(binned_depth)));
+        size_t path_max_bin = 0;
+        graph.for_each_step_in_path(graph.get_path_handle(path_name), [&] (step_handle_t step_handle) {
+                path_max_bin += graph.get_length(graph.get_handle_of_step(step_handle));
+                return path_max_bin < max_bin_size;
+            });
+        path_max_bin = std::min(max_bin_size, path_max_bin);
+
+        map<size_t, map<size_t, pair<float, float>>>& scaled_depth_map = depth_index[path_name];
+        size_t prev_bin_size = 0;
+        for (size_t bin_size = min_bin_size; bin_size != prev_bin_size;) {
+
+            map<size_t, pair<float, float>>& depth_map = scaled_depth_map[bin_size];
+            vector<tuple<size_t, size_t, double, double>> binned_depths = binned_packed_depth(packer, path_name, bin_size,
+                                                                                              min_coverage, include_deletions);
+            // todo: probably more efficent to just leave in sorted vector
+            for (auto& binned_depth : binned_depths) {
+                double var = get<3>(binned_depth);
+                // optionally convert variance to standard error
+                if (std_err) {
+                    var = sqrt(var / (double)(get<1>(binned_depth) - get<0>(binned_depth)));
+                }
+                depth_map[get<0>(binned_depth)] = make_pair(get<2>(binned_depth), var);
             }
-            depth_map[get<0>(binned_depth)] = make_pair(get<2>(binned_depth), var);
+
+            prev_bin_size = bin_size;
+            // todo: trim out useless last bins that are only a bit bigger than prev
+            bin_size = std::min(path_max_bin, (size_t)pow(bin_size, exp_growth_factor));
         }
     }
-
     return depth_index;
 }
 
-const pair<float, float>& get_depth_from_index(const unordered_map<string, map<size_t, pair<float, float>>>& depth_index,
-                                               const string& path_name, size_t offset) {
-
-    auto ub = depth_index.at(path_name).upper_bound(offset);
-    --ub;
-    return ub->second;
-}
 
 pair<float, float> get_depth_from_index(const BinnedDepthIndex& depth_index, const string& path_name, size_t start_offset, size_t end_offset) {
-    auto ub = depth_index.at(path_name).upper_bound(start_offset);
+     
+    // accept backward ranges
+    if (end_offset < start_offset) {
+        swap(start_offset, end_offset);
+    }
+    size_t bin_size = 1 + end_offset - start_offset;
+    // pad it out
+    bin_size *= 2;
+
+    auto ub1 = depth_index.at(path_name).upper_bound(bin_size);
+    if (ub1 == depth_index.at(path_name).end()) {
+        --ub1;
+    }
+    auto ub = ub1->second.upper_bound(start_offset);
     --ub;
-    auto ub_end = depth_index.at(path_name).upper_bound(end_offset);
+    auto ub_end = ub1->second.upper_bound(end_offset);
     size_t count = 0;
     pair<float, float> total = make_pair(0, 0);
     for (auto cur = ub; cur != ub_end; ++cur, ++count) {
