@@ -96,6 +96,7 @@ var searchData=
   ['bitstring',['BitString',['../classvg_1_1BitString.html',1,'vg::BitString'],['../classvg_1_1BitString.html#af4fe4f4f6514d38a1c232dd08c0c6e07',1,'vg::BitString::BitString(uint64_t bits, size_t length)'],['../classvg_1_1BitString.html#afadfcba9fa4a1589646174bb71a97823',1,'vg::BitString::BitString()'],['../classvg_1_1BitString.html#a6210ace31bcc1718b5c5bb3f2b7f5f05',1,'vg::BitString::BitString(const BitString &amp;other)=default'],['../classvg_1_1BitString.html#a67b6548484b23ab6423d894f4e23efea',1,'vg::BitString::BitString(BitString &amp;&amp;other)=default']]],
   ['bitstringtree',['BitStringTree',['../classvg_1_1BitStringTree.html',1,'vg']]],
   ['bitstringtree_3c_20bin_5ft_20_3e',['BitStringTree&lt; bin_t &gt;',['../classvg_1_1BitStringTree.html',1,'vg']]],
+  ['block_5flength',['block_length',['../structgafkluge_1_1GafRecord.html#a7db887c2322105fed3d1a6cf5251a4b8',1,'gafkluge::GafRecord']]],
   ['blocked_5fgzip_5finput_5fstream_2ecpp',['blocked_gzip_input_stream.cpp',['../blocked__gzip__input__stream_8cpp.html',1,'']]],
   ['blocked_5fgzip_5finput_5fstream_2ehpp',['blocked_gzip_input_stream.hpp',['../blocked__gzip__input__stream_8hpp.html',1,'']]],
   ['blocked_5fgzip_5foutput_5fstream_2ecpp',['blocked_gzip_output_stream.cpp',['../blocked__gzip__output__stream_8cpp.html',1,'']]],

@@ -15,8 +15,12 @@ var searchData=
   ['queried_5fcount',['queried_count',['../classvg_1_1MaximalExactMatch.html#a538bd4e79e6c025d41031bcc46b3a516',1,'vg::MaximalExactMatch']]],
   ['query',['query',['../structvg_1_1IndexedVG_1_1CacheEntry.html#a75221ee25fded8f4d4afcf7a11357413',1,'vg::IndexedVG::CacheEntry']]],
   ['query_5fcluster_5fgraphs',['query_cluster_graphs',['../classvg_1_1MultipathMapper.html#a961427b7963da3d8ba3ae3c075dcb55d',1,'vg::MultipathMapper']]],
+  ['query_5fend',['query_end',['../structgafkluge_1_1GafRecord.html#a44e865cbd6ee8693c0ecda102e7271b9',1,'gafkluge::GafRecord']]],
+  ['query_5flength',['query_length',['../structgafkluge_1_1GafRecord.html#a63f1b67e656da360cc9260005e8c0ecd',1,'gafkluge::GafRecord']]],
+  ['query_5fname',['query_name',['../structgafkluge_1_1GafRecord.html#adb0c145a0585ca84e235acb160506811',1,'gafkluge::GafRecord']]],
   ['query_5foffset',['query_offset',['../structvg_1_1DozeuInterface_1_1graph__pos__s.html#a97a6361d1ab730d37f88d27b92218d83',1,'vg::DozeuInterface::graph_pos_s']]],
   ['query_5foverlap',['query_overlap',['../namespacevg.html#acffe466a3ca83097eceac30a09b9a010',1,'vg']]],
   ['query_5fposition',['query_position',['../structvg_1_1Alignment.html#a17a81788105d3cb6a777ed6a202cd36f',1,'vg::Alignment']]],
+  ['query_5fstart',['query_start',['../structgafkluge_1_1GafRecord.html#a7a92ff5f2dcd4035bfcc661f64d863cd',1,'gafkluge::GafRecord']]],
   ['quote',['QUOTE',['../version_8cpp.html#a1e7841038b1293b9a250d8999f6c8ac8',1,'version.cpp']]]
 ];

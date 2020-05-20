@@ -19,7 +19,7 @@ var searchData=
   ['pairoverlayhelper',['PairOverlayHelper',['../classbdsg_1_1PairOverlayHelper.html',1,'bdsg']]],
   ['path',['Path',['../structvg_1_1Path.html',1,'vg']]],
   ['path_5fhandle_5ft',['path_handle_t',['../structhandlegraph_1_1path__handle__t.html',1,'handlegraph']]],
-  ['path_5fmapping_5ft',['path_mapping_t',['../structbdsg_1_1HashGraph_1_1path__mapping__t.html',1,'bdsg::HashGraph::path_mapping_t'],['../classvg_1_1path__mapping__t.html',1,'vg::path_mapping_t']]],
+  ['path_5fmapping_5ft',['path_mapping_t',['../classvg_1_1path__mapping__t.html',1,'vg::path_mapping_t'],['../structbdsg_1_1HashGraph_1_1path__mapping__t.html',1,'bdsg::HashGraph::path_mapping_t']]],
   ['path_5fmetadata_5ft',['path_metadata_t',['../structbdsg_1_1ODGI_1_1path__metadata__t.html',1,'bdsg::ODGI']]],
   ['path_5ft',['path_t',['../classvg_1_1path__t.html',1,'vg::path_t'],['../classbdsg_1_1HashGraph_1_1path__t.html',1,'bdsg::HashGraph::path_t']]],
   ['pathbasedtraversalfinder',['PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html',1,'vg']]],

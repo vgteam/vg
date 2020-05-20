@@ -250,6 +250,7 @@ var searchData=
   ['streamsorter',['StreamSorter',['../classvg_1_1StreamSorter.html#a0abd72f6a1ec534bb2071b3389231d97',1,'vg::StreamSorter']]],
   ['string_5fquality_5fchar_5fto_5fshort',['string_quality_char_to_short',['../namespacevg.html#a01985b9f56eb0f7e566bb957cf839a97',1,'vg']]],
   ['string_5fquality_5fshort_5fto_5fchar',['string_quality_short_to_char',['../namespacevg.html#ac4851c5fbea81739228502a86a0134c8',1,'vg']]],
+  ['string_5fto_5fint',['string_to_int',['../namespacegafkluge.html#a35bc1201781dd4bab3581189c777a8af',1,'gafkluge']]],
   ['strip_5ffrom_5fend',['strip_from_end',['../namespacevg.html#adbe45b79675104ebc36691774d4124c4',1,'vg']]],
   ['strip_5ffrom_5fstart',['strip_from_start',['../namespacevg.html#acd6786ea9551b426f95fba325beff138',1,'vg']]],
   ['strip_5ffull_5flength_5fbonuses',['strip_full_length_bonuses',['../classvg_1_1MultipathMapper.html#a1147b64d4c4aeffa84403f5341de52bf',1,'vg::MultipathMapper']]],

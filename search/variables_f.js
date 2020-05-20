@@ -23,6 +23,7 @@ var searchData=
   ['old_5fnode',['old_node',['../classhaplo_1_1hDP__gbwt__graph__accessor.html#ac101c3ba66f96fa569c1de71bf6c51fe',1,'haplo::hDP_gbwt_graph_accessor']]],
   ['old_5fscore',['old_score',['../structvg_1_1GaplessExtension.html#a868af12d5411848f3b8e0e682d053337',1,'vg::GaplessExtension']]],
   ['oneof_5flocation',['oneof_location',['../structvg_1_1LocationSupport.html#a9a000a5b773e07f7cc30614d77c927a0',1,'vg::LocationSupport']]],
+  ['opt_5ffields',['opt_fields',['../structgafkluge_1_1GafRecord.html#a999647c3cab6cb89fdaaae902c867b8b',1,'gafkluge::GafRecord']]],
   ['option_5foffsets',['option_offsets',['../classvg_1_1Configurable.html#a6c5fb72d68761ab4b157c817259164a5',1,'vg::Configurable']]],
   ['options_5fby_5fcode',['options_by_code',['../classvg_1_1ConfigurableParser.html#a8bdfad847167513663ef67839a574e92',1,'vg::ConfigurableParser']]],
   ['order',['order',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html#ae776df11d1881a7ac95ca8775b6f53d6',1,'vg::DozeuInterface::OrderedGraph']]],

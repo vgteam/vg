@@ -65,7 +65,6 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="classvg_1_1GafAlignmentEmitter-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -86,9 +85,9 @@ Inheritance diagram for vg::GafAlignmentEmitter:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a9e2d5333e24d8a499282c61abc597590"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GafAlignmentEmitter.html#a9e2d5333e24d8a499282c61abc597590">GafAlignmentEmitter</a> (const string &amp;filename, const string &amp;format, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;_graph, size_t max_threads)</td></tr>
-<tr class="memdesc:a9e2d5333e24d8a499282c61abc597590"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a <a class="el" href="classvg_1_1GafAlignmentEmitter.html">GafAlignmentEmitter</a> writing to the given file (or "-")  <a href="#a9e2d5333e24d8a499282c61abc597590">More...</a><br /></td></tr>
-<tr class="separator:a9e2d5333e24d8a499282c61abc597590"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afae4c88d6bc0f0e01d16bb03db024b23"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GafAlignmentEmitter.html#afae4c88d6bc0f0e01d16bb03db024b23">GafAlignmentEmitter</a> (const string &amp;filename, const string &amp;format, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;_graph, size_t max_threads)</td></tr>
+<tr class="memdesc:afae4c88d6bc0f0e01d16bb03db024b23"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a <a class="el" href="classvg_1_1GafAlignmentEmitter.html">GafAlignmentEmitter</a> writing to the given file (or "-")  <a href="#afae4c88d6bc0f0e01d16bb03db024b23">More...</a><br /></td></tr>
+<tr class="separator:afae4c88d6bc0f0e01d16bb03db024b23"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1723168590944313adb85b7ed07ebfae"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GafAlignmentEmitter.html#a1723168590944313adb85b7ed07ebfae">~GafAlignmentEmitter</a> ()</td></tr>
 <tr class="memdesc:a1723168590944313adb85b7ed07ebfae"><td class="mdescLeft">&#160;</td><td class="mdescRight">Finish and drstroy a <a class="el" href="classvg_1_1VGAlignmentEmitter.html">VGAlignmentEmitter</a>.  <a href="#a1723168590944313adb85b7ed07ebfae">More...</a><br /></td></tr>
 <tr class="separator:a1723168590944313adb85b7ed07ebfae"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -117,12 +116,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:a1d2ce6eb484199beeedf9aa2c4552a25 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allow destruction through base class pointer.  <a href="classvg_1_1AlignmentEmitter.html#a1d2ce6eb484199beeedf9aa2c4552a25">More...</a><br /></td></tr>
 <tr class="separator:a1d2ce6eb484199beeedf9aa2c4552a25 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
-Private Member Functions</h2></td></tr>
-<tr class="memitem:a8c21d14d904133ba83b5024d7015efb2"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GafAlignmentEmitter.html#a8c21d14d904133ba83b5024d7015efb2">aln2gaf</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
-<tr class="memdesc:a8c21d14d904133ba83b5024d7015efb2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a GAF record representing an alignment.  <a href="#a8c21d14d904133ba83b5024d7015efb2">More...</a><br /></td></tr>
-<tr class="separator:a8c21d14d904133ba83b5024d7015efb2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
 <tr class="memitem:a3678e87b0aabd6a9142fb3e124fc0ecb"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; ofstream &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GafAlignmentEmitter.html#a3678e87b0aabd6a9142fb3e124fc0ecb">out_file</a></td></tr>
@@ -131,15 +124,15 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:ae165b7dee33f3d3b461f4c7621452012"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html">vg::io::StreamMultiplexer</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GafAlignmentEmitter.html#ae165b7dee33f3d3b461f4c7621452012">multiplexer</a></td></tr>
 <tr class="memdesc:ae165b7dee33f3d3b461f4c7621452012"><td class="mdescLeft">&#160;</td><td class="mdescRight">This holds a StreamMultiplexer on the output stream, for sharing it between threads.  <a href="#ae165b7dee33f3d3b461f4c7621452012">More...</a><br /></td></tr>
 <tr class="separator:ae165b7dee33f3d3b461f4c7621452012"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a222059ec0c7b91c05fddc8c344ad921d"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GafAlignmentEmitter.html#a222059ec0c7b91c05fddc8c344ad921d">graph</a></td></tr>
-<tr class="memdesc:a222059ec0c7b91c05fddc8c344ad921d"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Graph.html">Graph</a> that alignments were aligned against.  <a href="#a222059ec0c7b91c05fddc8c344ad921d">More...</a><br /></td></tr>
-<tr class="separator:a222059ec0c7b91c05fddc8c344ad921d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa71535a659274892dffdf707597b16bf"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GafAlignmentEmitter.html#aa71535a659274892dffdf707597b16bf">graph</a></td></tr>
+<tr class="memdesc:aa71535a659274892dffdf707597b16bf"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Graph.html">Graph</a> that alignments were aligned against.  <a href="#aa71535a659274892dffdf707597b16bf">More...</a><br /></td></tr>
+<tr class="separator:aa71535a659274892dffdf707597b16bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Emit Alignments to a stream in GAF format Thread safe. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a9e2d5333e24d8a499282c61abc597590"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9e2d5333e24d8a499282c61abc597590">&#9670;&nbsp;</a></span>GafAlignmentEmitter()</h2>
+<a id="afae4c88d6bc0f0e01d16bb03db024b23"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afae4c88d6bc0f0e01d16bb03db024b23">&#9670;&nbsp;</a></span>GafAlignmentEmitter()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -159,7 +152,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>_graph</em>, </td>
         </tr>
         <tr>
@@ -200,34 +193,6 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a8c21d14d904133ba83b5024d7015efb2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8c21d14d904133ba83b5024d7015efb2">&#9670;&nbsp;</a></span>aln2gaf()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">string vg::GafAlignmentEmitter::aln2gaf </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>aln</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Emit a GAF record representing an alignment. </p>
-
-</div>
-</div>
 <a id="a5fb15fc5dcc1a4b84de1dfc46d93ad77"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5fb15fc5dcc1a4b84de1dfc46d93ad77">&#9670;&nbsp;</a></span>emit_mapped_pairs()</h2>
 
@@ -379,8 +344,8 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="a222059ec0c7b91c05fddc8c344ad921d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a222059ec0c7b91c05fddc8c344ad921d">&#9670;&nbsp;</a></span>graph</h2>
+<a id="aa71535a659274892dffdf707597b16bf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa71535a659274892dffdf707597b16bf">&#9670;&nbsp;</a></span>graph</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -389,7 +354,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a>&amp; vg::GafAlignmentEmitter::graph</td>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>&amp; vg::GafAlignmentEmitter::graph</td>
         </tr>
       </table>
   </td>

@@ -726,10 +726,10 @@ Functions</h2></td></tr>
 <tr class="separator:afb9108ffcadb902a9d82ca882919a38c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6e9fd0ae285f5f9dd8605c9f5343e071"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6e9fd0ae285f5f9dd8605c9f5343e071">get_next_alignment_pair_from_fastqs</a> (gzFile fp1, gzFile fp2, char *buffer, size_t len, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;mate1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;mate2)</td></tr>
 <tr class="separator:a6e9fd0ae285f5f9dd8605c9f5343e071"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad9d7a5ca192b47b922e17a717774ff66"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad9d7a5ca192b47b922e17a717774ff66">unpaired_for_each_parallel</a> (function&lt; bool(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; get_read_if_available, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
-<tr class="separator:ad9d7a5ca192b47b922e17a717774ff66"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a00797829eaa5dfe97f075716dc81e186"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a00797829eaa5dfe97f075716dc81e186">paired_for_each_parallel_after_wait</a> (function&lt; bool(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; get_pair_if_available, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda, function&lt; bool(void)&gt; single_threaded_until_true)</td></tr>
-<tr class="separator:a00797829eaa5dfe97f075716dc81e186"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab3afcd0146dabb78d5c2cc1e66a4e454"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab3afcd0146dabb78d5c2cc1e66a4e454">unpaired_for_each_parallel</a> (function&lt; bool(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; get_read_if_available, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda, uint64_t batch_size=<a class="el" href="namespacevg.html#ac313fe9e619a80c3da0392bcffafd1ad">DEFAULT_PARALLEL_BATCHSIZE</a>)</td></tr>
+<tr class="separator:ab3afcd0146dabb78d5c2cc1e66a4e454"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a977c7673e1624dcb4c6b36d69d2a670e"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a977c7673e1624dcb4c6b36d69d2a670e">paired_for_each_parallel_after_wait</a> (function&lt; bool(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; get_pair_if_available, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda, function&lt; bool(void)&gt; single_threaded_until_true, uint64_t batch_size=<a class="el" href="namespacevg.html#ac313fe9e619a80c3da0392bcffafd1ad">DEFAULT_PARALLEL_BATCHSIZE</a>)</td></tr>
+<tr class="separator:a977c7673e1624dcb4c6b36d69d2a670e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afa17f82de171af01bcc971db6f225dcf"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afa17f82de171af01bcc971db6f225dcf">fastq_unpaired_for_each_parallel</a> (const string &amp;filename, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
 <tr class="separator:afa17f82de171af01bcc971db6f225dcf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4b116363d0208d6448452a3fc0729fef"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4b116363d0208d6448452a3fc0729fef">fastq_paired_interleaved_for_each_parallel</a> (const string &amp;filename, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
@@ -746,6 +746,24 @@ Functions</h2></td></tr>
 <tr class="separator:a50976b47c0b2b13fb095a0ef92b3b027"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aedcdef25c312dba95a599ff9c1b44b50"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aedcdef25c312dba95a599ff9c1b44b50">fastq_paired_two_files_for_each</a> (const string &amp;file1, const string &amp;file2, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
 <tr class="separator:aedcdef25c312dba95a599ff9c1b44b50"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3aad650aa4ed3c4480cc425781fc899b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3aad650aa4ed3c4480cc425781fc899b">get_next_alignment_from_gaf</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;g_buffer, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
+<tr class="separator:a3aad650aa4ed3c4480cc425781fc899b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3de386bd9753c9cada0dddc4c7a6ed65"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3de386bd9753c9cada0dddc4c7a6ed65">get_next_interleaved_alignment_pair_from_gaf</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;g_buffer, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;mate1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;mate2)</td></tr>
+<tr class="separator:a3de386bd9753c9cada0dddc4c7a6ed65"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abd2bd83ea96d2553443ac8aefa772f02"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abd2bd83ea96d2553443ac8aefa772f02">gaf_unpaired_for_each</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const string &amp;filename, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
+<tr class="separator:abd2bd83ea96d2553443ac8aefa772f02"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a069205fe7b496d52b82060aaee40b291"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a069205fe7b496d52b82060aaee40b291">gaf_paired_interleaved_for_each</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const string &amp;filename, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
+<tr class="separator:a069205fe7b496d52b82060aaee40b291"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a08c0cf97fda6bf63b9d68ffdf88ef67a"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a08c0cf97fda6bf63b9d68ffdf88ef67a">gaf_unpaired_for_each_parallel</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const string &amp;filename, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda, uint64_t batch_size)</td></tr>
+<tr class="separator:a08c0cf97fda6bf63b9d68ffdf88ef67a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac158d1d837f968477899feda229cfaeb"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac158d1d837f968477899feda229cfaeb">gaf_paired_interleaved_for_each_parallel</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const string &amp;filename, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda, uint64_t batch_size)</td></tr>
+<tr class="separator:ac158d1d837f968477899feda229cfaeb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a470ca70060b16c75e45ff8c49cc0e324"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a470ca70060b16c75e45ff8c49cc0e324">gaf_paired_interleaved_for_each_parallel_after_wait</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const string &amp;filename, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda, function&lt; bool(void)&gt; single_threaded_until_true, uint64_t batch_size)</td></tr>
+<tr class="separator:a470ca70060b16c75e45ff8c49cc0e324"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a01fca8b8edbd082e3471f7a41b7e436f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a01fca8b8edbd082e3471f7a41b7e436f">alignment_to_gaf</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool cs_cigar, bool base_quals)</td></tr>
+<tr class="separator:a01fca8b8edbd082e3471f7a41b7e436f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a03a6feaf5422860299d96e30dca7d1e4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a03a6feaf5422860299d96e30dca7d1e4">gaf_to_alignment</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;gaf, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
+<tr class="separator:a03a6feaf5422860299d96e30dca7d1e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a637c855dffc0296c6575ae8a4cac6b43"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a637c855dffc0296c6575ae8a4cac6b43">parse_rg_sample_map</a> (char *hts_header, map&lt; string, string &gt; &amp;rg_sample)</td></tr>
 <tr class="separator:a637c855dffc0296c6575ae8a4cac6b43"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8dae5becf3e0669fc5143dbf1270c910"><td class="memItemLeft" align="right" valign="top">short&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8dae5becf3e0669fc5143dbf1270c910">quality_char_to_short</a> (char c)</td></tr>
@@ -909,8 +927,8 @@ Functions</h2></td></tr>
 <tr class="separator:a598379872a84d4be8ff74df6242abf10"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2b93e9e76e3e7739f30adea6c0be4a57"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2b93e9e76e3e7739f30adea6c0be4a57">mapping_against_path</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const bam1_t *b, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, bool on_reverse_strand)</td></tr>
 <tr class="separator:a2b93e9e76e3e7739f30adea6c0be4a57"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a695a803c5f2860b92e987412f4fbe859"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a695a803c5f2860b92e987412f4fbe859">get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *splicing_graph)</td></tr>
-<tr class="separator:a695a803c5f2860b92e987412f4fbe859"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6d0c51a8ddc5b3a885da7fd1733a5c5d"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6d0c51a8ddc5b3a885da7fd1733a5c5d">get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
+<tr class="separator:a6d0c51a8ddc5b3a885da7fd1733a5c5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1fda752e24eaed100f6c30904d2ca3e1"><td class="memTemplParams" colspan="2">template&lt;typename AnnotationType , typename Annotated &gt; </td></tr>
 <tr class="memitem:a1fda752e24eaed100f6c30904d2ca3e1"><td class="memTemplItemLeft" align="right" valign="top">AnnotationType&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1fda752e24eaed100f6c30904d2ca3e1">get_annotation</a> (const Annotated &amp;annotated, const string &amp;name)</td></tr>
 <tr class="separator:a1fda752e24eaed100f6c30904d2ca3e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2074,6 +2092,8 @@ Functions</h2></td></tr>
 Variables</h2></td></tr>
 <tr class="memitem:ade7204b42260155b9a98a6d18c24a0b7"><td class="memItemLeft" align="right" valign="top">const char *const&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ade7204b42260155b9a98a6d18c24a0b7">BAM_DNA_LOOKUP</a> = &quot;=ACMGRSVTWYHKDBN&quot;</td></tr>
 <tr class="separator:ade7204b42260155b9a98a6d18c24a0b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac313fe9e619a80c3da0392bcffafd1ad"><td class="memItemLeft" align="right" valign="top">const uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac313fe9e619a80c3da0392bcffafd1ad">DEFAULT_PARALLEL_BATCHSIZE</a> = 512</td></tr>
+<tr class="separator:ac313fe9e619a80c3da0392bcffafd1ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afe7fae89b379b5411189ac0ac74b2dd4"><td class="memItemLeft" align="right" valign="top">const char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4">var</a> = &quot;VG_FULL_TRACEBACK&quot;</td></tr>
 <tr class="separator:afe7fae89b379b5411189ac0ac74b2dd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd1798abb6fcee86ab5b0539fb764eb2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2">fullTrace</a> = false</td></tr>
@@ -3444,6 +3464,46 @@ template&lt;typename Iter &gt; </div>
           <td></td>
           <td class="paramtype">const int32_t&#160;</td>
           <td class="paramname"><em>tlen_max</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a01fca8b8edbd082e3471f7a41b7e436f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a01fca8b8edbd082e3471f7a41b7e436f">&#9670;&nbsp;</a></span>alignment_to_gaf()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> vg::alignment_to_gaf </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>cs_cigar</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>base_quals</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -7769,6 +7829,234 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
+<a id="a069205fe7b496d52b82060aaee40b291"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a069205fe7b496d52b82060aaee40b291">&#9670;&nbsp;</a></span>gaf_paired_interleaved_for_each()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::gaf_paired_interleaved_for_each </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt;&#160;</td>
+          <td class="paramname"><em>lambda</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac158d1d837f968477899feda229cfaeb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac158d1d837f968477899feda229cfaeb">&#9670;&nbsp;</a></span>gaf_paired_interleaved_for_each_parallel()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::gaf_paired_interleaved_for_each_parallel </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt;&#160;</td>
+          <td class="paramname"><em>lambda</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t&#160;</td>
+          <td class="paramname"><em>batch_size</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a470ca70060b16c75e45ff8c49cc0e324"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a470ca70060b16c75e45ff8c49cc0e324">&#9670;&nbsp;</a></span>gaf_paired_interleaved_for_each_parallel_after_wait()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::gaf_paired_interleaved_for_each_parallel_after_wait </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt;&#160;</td>
+          <td class="paramname"><em>lambda</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; bool(void)&gt;&#160;</td>
+          <td class="paramname"><em>single_threaded_until_true</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t&#160;</td>
+          <td class="paramname"><em>batch_size</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a03a6feaf5422860299d96e30dca7d1e4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a03a6feaf5422860299d96e30dca7d1e4">&#9670;&nbsp;</a></span>gaf_to_alignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::gaf_to_alignment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;&#160;</td>
+          <td class="paramname"><em>gaf</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="abd2bd83ea96d2553443ac8aefa772f02"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abd2bd83ea96d2553443ac8aefa772f02">&#9670;&nbsp;</a></span>gaf_unpaired_for_each()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::gaf_unpaired_for_each </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt;&#160;</td>
+          <td class="paramname"><em>lambda</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a08c0cf97fda6bf63b9d68ffdf88ef67a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a08c0cf97fda6bf63b9d68ffdf88ef67a">&#9670;&nbsp;</a></span>gaf_unpaired_for_each_parallel()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::gaf_unpaired_for_each_parallel </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt;&#160;</td>
+          <td class="paramname"><em>lambda</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t&#160;</td>
+          <td class="paramname"><em>batch_size</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a05748ab256c93e2393252aa8ebbdde3d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a05748ab256c93e2393252aa8ebbdde3d">&#9670;&nbsp;</a></span>gamma_ln()</h2>
 
@@ -7957,8 +8245,8 @@ template&lt;typename ProbIn &gt; </div>
 
 </div>
 </div>
-<a id="a695a803c5f2860b92e987412f4fbe859"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a695a803c5f2860b92e987412f4fbe859">&#9670;&nbsp;</a></span>get_alignment_emitter()</h2>
+<a id="a6d0c51a8ddc5b3a885da7fd1733a5c5d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6d0c51a8ddc5b3a885da7fd1733a5c5d">&#9670;&nbsp;</a></span>get_alignment_emitter()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -7990,8 +8278,8 @@ template&lt;typename ProbIn &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>splicing_graph</em> = <code>nullptr</code>&#160;</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -8000,7 +8288,7 @@ template&lt;typename ProbIn &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Get an <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> that can emit to the given file (or "-") in the given format. A table of contig lengths is required for HTSlib formats. Automatically applies per-thread buffering, but needs to know how many OMP threads will be in use. If the alignments are spliced at known splice sites (i.e. edges in the graph), the graph can be provided in order to form spliced CIGAR strings for the HTSlib formats. Other output formats ignore the graph. </p>
+<p>Get an <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> that can emit to the given file (or "-") in the given format. A table of contig lengths is required for HTSlib formats. Automatically applies per-thread buffering, but needs to know how many OMP threads will be in use. If the alignments are spliced at known splice sites (i.e. edges in the graph), the graph can be provided in order to form spliced CIGAR strings for the HTSlib formats. Note: it must be castable to PathPositionHandleGraph to be used for splicing Other output formats except GAF (for which it's required) ignore the graph. </p>
 
 </div>
 </div>
@@ -8433,6 +8721,52 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
 
 </div>
 </div>
+<a id="a3aad650aa4ed3c4480cc425781fc899b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3aad650aa4ed3c4480cc425781fc899b">&#9670;&nbsp;</a></span>get_next_alignment_from_gaf()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::get_next_alignment_from_gaf </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">htsFile *&#160;</td>
+          <td class="paramname"><em>fp</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">kstring_t &amp;&#160;</td>
+          <td class="paramname"><em>s_buffer</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;&#160;</td>
+          <td class="paramname"><em>g_buffer</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a6e9fd0ae285f5f9dd8605c9f5343e071"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6e9fd0ae285f5f9dd8605c9f5343e071">&#9670;&nbsp;</a></span>get_next_alignment_pair_from_fastqs()</h2>
 
@@ -8508,6 +8842,58 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>len</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>mate1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>mate2</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a3de386bd9753c9cada0dddc4c7a6ed65"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3de386bd9753c9cada0dddc4c7a6ed65">&#9670;&nbsp;</a></span>get_next_interleaved_alignment_pair_from_gaf()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::get_next_interleaved_alignment_pair_from_gaf </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">htsFile *&#160;</td>
+          <td class="paramname"><em>fp</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">kstring_t &amp;&#160;</td>
+          <td class="paramname"><em>s_buffer</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;&#160;</td>
+          <td class="paramname"><em>g_buffer</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -12683,8 +13069,38 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
+<a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[5/13]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
+          <td>(</td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1mapping__t.html">mapping_t</a>&#160;</td>
+          <td class="paramname"><em>mapping</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
+
+</div>
+</div>
 <a id="a9b4bea48392e7bb9e745b3b04e5bf223"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[5/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[6/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -12718,36 +13134,6 @@ template&lt;typename Scalar &gt; </div>
 </div><div class="memdoc">
 
 <p>Print a <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> to a stream. </p>
-
-</div>
-</div>
-<a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[6/13]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
-          <td>(</td>
-          <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1mapping__t.html">mapping_t</a>&#160;</td>
-          <td class="paramname"><em>mapping</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
 
 </div>
 </div>
@@ -13536,8 +13922,8 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
-<a id="a00797829eaa5dfe97f075716dc81e186"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a00797829eaa5dfe97f075716dc81e186">&#9670;&nbsp;</a></span>paired_for_each_parallel_after_wait()</h2>
+<a id="a977c7673e1624dcb4c6b36d69d2a670e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a977c7673e1624dcb4c6b36d69d2a670e">&#9670;&nbsp;</a></span>paired_for_each_parallel_after_wait()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13558,7 +13944,13 @@ template&lt;typename Scalar &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">function&lt; bool(void)&gt;&#160;</td>
-          <td class="paramname"><em>single_threaded_until_true</em>&#160;</td>
+          <td class="paramname"><em>single_threaded_until_true</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t&#160;</td>
+          <td class="paramname"><em>batch_size</em> = <code><a class="el" href="namespacevg.html#ac313fe9e619a80c3da0392bcffafd1ad">DEFAULT_PARALLEL_BATCHSIZE</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -18988,8 +19380,8 @@ template&lt;class ProtoAlignment &gt; </div>
 
 </div>
 </div>
-<a id="ad9d7a5ca192b47b922e17a717774ff66"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad9d7a5ca192b47b922e17a717774ff66">&#9670;&nbsp;</a></span>unpaired_for_each_parallel()</h2>
+<a id="ab3afcd0146dabb78d5c2cc1e66a4e454"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab3afcd0146dabb78d5c2cc1e66a4e454">&#9670;&nbsp;</a></span>unpaired_for_each_parallel()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -19004,7 +19396,13 @@ template&lt;class ProtoAlignment &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt;&#160;</td>
-          <td class="paramname"><em>lambda</em>&#160;</td>
+          <td class="paramname"><em>lambda</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t&#160;</td>
+          <td class="paramname"><em>batch_size</em> = <code><a class="el" href="namespacevg.html#ac313fe9e619a80c3da0392bcffafd1ad">DEFAULT_PARALLEL_BATCHSIZE</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -19997,6 +20395,20 @@ template&lt;typename T &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">const char* const vg::BAM_DNA_LOOKUP = &quot;=ACMGRSVTWYHKDBN&quot;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac313fe9e619a80c3da0392bcffafd1ad"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac313fe9e619a80c3da0392bcffafd1ad">&#9670;&nbsp;</a></span>DEFAULT_PARALLEL_BATCHSIZE</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const uint64_t vg::DEFAULT_PARALLEL_BATCHSIZE = 512</td>
         </tr>
       </table>
 </div><div class="memdoc">

@@ -1,7 +1,7 @@
 var searchData=
 [
   ['walk_5ft',['walk_t',['../structvg_1_1walk__t.html',1,'vg::walk_t'],['../structvg_1_1algorithms_1_1walk__t.html',1,'vg::algorithms::walk_t']]],
-  ['wang_5fhash',['wang_hash',['../structvg_1_1wang__hash.html',1,'vg::wang_hash&lt; T, ImplementationMatched &gt;'],['../structbdsg_1_1wang__hash.html',1,'bdsg::wang_hash&lt; T, ImplementationMatched &gt;']]],
+  ['wang_5fhash',['wang_hash',['../structbdsg_1_1wang__hash.html',1,'bdsg::wang_hash&lt; T, ImplementationMatched &gt;'],['../structvg_1_1wang__hash.html',1,'vg::wang_hash&lt; T, ImplementationMatched &gt;']]],
   ['wang_5fhash_3c_20handle_5ft_20_3e',['wang_hash&lt; handle_t &gt;',['../structvg_1_1wang__hash_3_01handle__t_01_4.html',1,'vg']]],
   ['wang_5fhash_3c_20nodeside_20_3e',['wang_hash&lt; NodeSide &gt;',['../structvg_1_1wang__hash_3_01NodeSide_01_4.html',1,'vg']]],
   ['wang_5fhash_3c_20nodetraversal_20_3e',['wang_hash&lt; NodeTraversal &gt;',['../structvg_1_1wang__hash_3_01NodeTraversal_01_4.html',1,'vg']]],

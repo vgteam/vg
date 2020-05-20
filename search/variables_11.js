@@ -7,6 +7,10 @@ var searchData=
   ['quality_5faligners',['quality_aligners',['../classvg_1_1Genotyper.html#a2705913bdfb5f6679afb5475a22ecf61',1,'vg::Genotyper']]],
   ['quality_5fcache',['quality_cache',['../classvg_1_1Packer.html#a36c50d1d60cff7036fd853b3c02b450d',1,'vg::Packer']]],
   ['queried_5fcount',['queried_count',['../classvg_1_1MaximalExactMatch.html#a538bd4e79e6c025d41031bcc46b3a516',1,'vg::MaximalExactMatch']]],
+  ['query_5fend',['query_end',['../structgafkluge_1_1GafRecord.html#a44e865cbd6ee8693c0ecda102e7271b9',1,'gafkluge::GafRecord']]],
+  ['query_5flength',['query_length',['../structgafkluge_1_1GafRecord.html#a63f1b67e656da360cc9260005e8c0ecd',1,'gafkluge::GafRecord']]],
+  ['query_5fname',['query_name',['../structgafkluge_1_1GafRecord.html#adb0c145a0585ca84e235acb160506811',1,'gafkluge::GafRecord']]],
   ['query_5foffset',['query_offset',['../structvg_1_1DozeuInterface_1_1graph__pos__s.html#a97a6361d1ab730d37f88d27b92218d83',1,'vg::DozeuInterface::graph_pos_s']]],
-  ['query_5fposition',['query_position',['../structvg_1_1Alignment.html#a17a81788105d3cb6a777ed6a202cd36f',1,'vg::Alignment']]]
+  ['query_5fposition',['query_position',['../structvg_1_1Alignment.html#a17a81788105d3cb6a777ed6a202cd36f',1,'vg::Alignment']]],
+  ['query_5fstart',['query_start',['../structgafkluge_1_1GafRecord.html#a7a92ff5f2dcd4035bfcc661f64d863cd',1,'gafkluge::GafRecord']]]
 ];

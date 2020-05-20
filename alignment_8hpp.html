@@ -84,6 +84,7 @@ $(function() {
 <code>#include &quot;htslib/sam.h&quot;</code><br />
 <code>#include &quot;htslib/vcf.h&quot;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="gafkluge_8hpp.html">gafkluge.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -124,6 +125,24 @@ Functions</h2></td></tr>
 <tr class="separator:ae8af448cba49f55b411bad975a1ecec6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a37cf7e912026ec16af129067619de796"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a37cf7e912026ec16af129067619de796">vg::fastq_paired_two_files_for_each_parallel_after_wait</a> (const string &amp;file1, const string &amp;file2, function&lt; void(Alignment &amp;, Alignment &amp;)&gt; lambda, function&lt; bool(void)&gt; single_threaded_until_true)</td></tr>
 <tr class="separator:a37cf7e912026ec16af129067619de796"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3aad650aa4ed3c4480cc425781fc899b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3aad650aa4ed3c4480cc425781fc899b">vg::get_next_alignment_from_gaf</a> (const HandleGraph &amp;graph, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;g_buffer, Alignment &amp;alignment)</td></tr>
+<tr class="separator:a3aad650aa4ed3c4480cc425781fc899b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3de386bd9753c9cada0dddc4c7a6ed65"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3de386bd9753c9cada0dddc4c7a6ed65">vg::get_next_interleaved_alignment_pair_from_gaf</a> (const HandleGraph &amp;graph, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;g_buffer, Alignment &amp;mate1, Alignment &amp;mate2)</td></tr>
+<tr class="separator:a3de386bd9753c9cada0dddc4c7a6ed65"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abd2bd83ea96d2553443ac8aefa772f02"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abd2bd83ea96d2553443ac8aefa772f02">vg::gaf_unpaired_for_each</a> (const HandleGraph &amp;graph, const string &amp;filename, function&lt; void(Alignment &amp;)&gt; lambda)</td></tr>
+<tr class="separator:abd2bd83ea96d2553443ac8aefa772f02"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a069205fe7b496d52b82060aaee40b291"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a069205fe7b496d52b82060aaee40b291">vg::gaf_paired_interleaved_for_each</a> (const HandleGraph &amp;graph, const string &amp;filename, function&lt; void(Alignment &amp;, Alignment &amp;)&gt; lambda)</td></tr>
+<tr class="separator:a069205fe7b496d52b82060aaee40b291"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a08c0cf97fda6bf63b9d68ffdf88ef67a"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a08c0cf97fda6bf63b9d68ffdf88ef67a">vg::gaf_unpaired_for_each_parallel</a> (const HandleGraph &amp;graph, const string &amp;filename, function&lt; void(Alignment &amp;)&gt; lambda, uint64_t batch_size)</td></tr>
+<tr class="separator:a08c0cf97fda6bf63b9d68ffdf88ef67a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac158d1d837f968477899feda229cfaeb"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac158d1d837f968477899feda229cfaeb">vg::gaf_paired_interleaved_for_each_parallel</a> (const HandleGraph &amp;graph, const string &amp;filename, function&lt; void(Alignment &amp;, Alignment &amp;)&gt; lambda, uint64_t batch_size)</td></tr>
+<tr class="separator:ac158d1d837f968477899feda229cfaeb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a470ca70060b16c75e45ff8c49cc0e324"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a470ca70060b16c75e45ff8c49cc0e324">vg::gaf_paired_interleaved_for_each_parallel_after_wait</a> (const HandleGraph &amp;graph, const string &amp;filename, function&lt; void(Alignment &amp;, Alignment &amp;)&gt; lambda, function&lt; bool(void)&gt; single_threaded_until_true, uint64_t batch_size)</td></tr>
+<tr class="separator:a470ca70060b16c75e45ff8c49cc0e324"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a01fca8b8edbd082e3471f7a41b7e436f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a01fca8b8edbd082e3471f7a41b7e436f">vg::alignment_to_gaf</a> (const HandleGraph &amp;graph, const Alignment &amp;aln, bool cs_cigar, bool base_quals)</td></tr>
+<tr class="separator:a01fca8b8edbd082e3471f7a41b7e436f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a03a6feaf5422860299d96e30dca7d1e4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a03a6feaf5422860299d96e30dca7d1e4">vg::gaf_to_alignment</a> (const HandleGraph &amp;graph, const <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;gaf, Alignment &amp;aln)</td></tr>
+<tr class="separator:a03a6feaf5422860299d96e30dca7d1e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0676eec9e08d9589fe286cabdd16ffb3"><td class="memItemLeft" align="right" valign="top">bam_hdr_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0676eec9e08d9589fe286cabdd16ffb3">vg::hts_file_header</a> (string &amp;filename, string &amp;header)</td></tr>
 <tr class="separator:a0676eec9e08d9589fe286cabdd16ffb3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03de4dcf9bfbc8ef1735076da3b922cc"><td class="memItemLeft" align="right" valign="top">bam_hdr_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a03de4dcf9bfbc8ef1735076da3b922cc">vg::hts_string_header</a> (string &amp;header, map&lt; string, int64_t &gt; &amp;path_length, map&lt; string, string &gt; &amp;rg_sample)</td></tr>
@@ -280,6 +299,8 @@ Functions</h2></td></tr>
 Variables</h2></td></tr>
 <tr class="memitem:ade7204b42260155b9a98a6d18c24a0b7"><td class="memItemLeft" align="right" valign="top">const char *const&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ade7204b42260155b9a98a6d18c24a0b7">vg::BAM_DNA_LOOKUP</a> = &quot;=ACMGRSVTWYHKDBN&quot;</td></tr>
 <tr class="separator:ade7204b42260155b9a98a6d18c24a0b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac313fe9e619a80c3da0392bcffafd1ad"><td class="memItemLeft" align="right" valign="top">const uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac313fe9e619a80c3da0392bcffafd1ad">vg::DEFAULT_PARALLEL_BATCHSIZE</a> = 512</td></tr>
+<tr class="separator:ac313fe9e619a80c3da0392bcffafd1ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
