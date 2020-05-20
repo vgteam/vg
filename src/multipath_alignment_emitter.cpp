@@ -128,10 +128,10 @@ void MultipathAlignmentEmitter::convert_multipath_alignment(const multipath_alig
                                                             const multipath_alignment_t* next_frag) const {
     optimal_alignment(mp_aln, aln);
     if (prev_frag) {
-        aln.mutable_fragment_prev()->set_name(prev_pair->name());
+        aln.mutable_fragment_prev()->set_name(prev_frag->name());
     }
     if (next_frag) {
-        aln.mutable_fragment_next()->set_name(next_pair->name());
+        aln.mutable_fragment_next()->set_name(next_frag->name());
     }
     // at one point vg call needed these, maybe it doesn't anymore though
     aln.set_identity(identity(aln.path()));
