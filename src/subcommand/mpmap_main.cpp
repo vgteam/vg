@@ -10,6 +10,7 @@
 
 #include <vg/io/vpkg.hpp>
 #include "../multipath_mapper.hpp"
+#include "../multipath_alignment_emitter.hpp"
 #include "../path.hpp"
 #include "../watchdog.hpp"
 #include "../watchdog.hpp"
@@ -1551,178 +1552,14 @@ int main_mpmap(int argc, char** argv) {
         }
     };
     
+    // init a writer for the output
+    MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter(cout, thread_count, single_path_alignment_mode);
+    
     // a buffer to hold read pairs that can't be unambiguously mapped before the fragment length distribution
     // is estimated
     // note: sufficient to have only one buffer because multithreading code enforces single threaded mode
     // during distribution estimation
     vector<pair<Alignment, Alignment>> ambiguous_pair_buffer;
-    
-    vector<vector<Alignment> > single_path_output_buffer(thread_count);
-    vector<vector<MultipathAlignment> > multipath_output_buffer(thread_count);
-    
-    // write unpaired multipath alignments to stdout buffer
-    auto output_multipath_alignments = [&](vector<multipath_alignment_t>& mp_alns) {
-        auto& output_buf = multipath_output_buffer[omp_get_thread_num()];
-        
-        // move all the alignments over to the output buffer
-        for (multipath_alignment_t& mp_aln : mp_alns) {
-            output_buf.emplace_back();
-            to_proto_multipath_alignment(mp_aln, output_buf.back());
-            
-            // label with read group and sample name
-            if (!read_group.empty()) {
-                output_buf.back().set_read_group(read_group);
-            }
-            if (!sample_name.empty()) {
-                output_buf.back().set_sample_name(sample_name);
-            }
-            if (no_output) {
-                output_buf.pop_back();
-            }
-        }
-        
-        vg::io::write_buffered(cout, output_buf, buffer_size);
-    };
-    
-    // convert to unpaired single path alignments and write stdout buffer
-    auto output_single_path_alignments = [&](vector<multipath_alignment_t>& mp_alns) {
-        auto& output_buf = single_path_output_buffer[omp_get_thread_num()];
-        // add optimal alignments to the output buffer
-        for (multipath_alignment_t& mp_aln : mp_alns) {
-            // TODO: why are we computing 5 alignments if we just take the first one?
-            // For each multipath alignment, get the greedy nonoverlapping
-            // single-path alignments from the top k optimal single-path
-            // alignments.
-            vector<Alignment> options;
-            multipath_mapper.reduce_to_single_path(mp_aln, options, localization_max_paths);
-            
-            // There will always be at least one result. Use the optimal alignment.
-            output_buf.emplace_back(std::move(options.front()));
-            
-            // compute the Alignment identity to make vg call happy
-            output_buf.back().set_identity(identity(output_buf.back().path()));
-            
-            // label with read group and sample name
-            if (!read_group.empty()) {
-                output_buf.back().set_read_group(read_group);
-            }
-            if (!sample_name.empty()) {
-                output_buf.back().set_sample_name(sample_name);
-            }
-            
-            if (no_output) {
-                output_buf.pop_back();
-            }
-        }
-        
-        vg::io::write_buffered(cout, output_buf, buffer_size);
-    };
-    
-    // write paired multipath alignments to stdout buffer
-    auto output_multipath_paired_alignments = [&](vector<pair<multipath_alignment_t, multipath_alignment_t>>& mp_aln_pairs) {
-        auto& output_buf = multipath_output_buffer[omp_get_thread_num()];
-        
-        // move all the alignments over to the output buffer
-        for (pair<multipath_alignment_t, multipath_alignment_t>& mp_aln_pair : mp_aln_pairs) {
-            
-            output_buf.emplace_back();
-            to_proto_multipath_alignment(mp_aln_pair.first, output_buf.back());
-            
-            // label with read group and sample name
-            if (!read_group.empty()) {
-                output_buf.back().set_read_group(read_group);
-            }
-            if (!sample_name.empty()) {
-                output_buf.back().set_sample_name(sample_name);
-            }
-            
-            // switch second read back to the opposite strand if necessary
-            if (!same_strand) {
-                rev_comp_multipath_alignment_in_place(&mp_aln_pair.second, [&](vg::id_t node_id) {
-                    return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
-                });
-            }
-            
-            output_buf.emplace_back();
-            to_proto_multipath_alignment(mp_aln_pair.second, output_buf.back());
-            
-            // label with read group and sample name
-            if (!read_group.empty()) {
-                output_buf.back().set_read_group(read_group);
-            }
-            if (!sample_name.empty()) {
-                output_buf.back().set_sample_name(sample_name);
-            }
-            
-            if (no_output) {
-                output_buf.pop_back();
-                output_buf.pop_back();
-            }
-        }
-        
-        vg::io::write_buffered(cout, output_buf, buffer_size);
-    };
-    
-    // convert to paired single path alignments and write stdout buffer
-    auto output_single_path_paired_alignments = [&](vector<pair<multipath_alignment_t, multipath_alignment_t>>& mp_aln_pairs) {
-        auto& output_buf = single_path_output_buffer[omp_get_thread_num()];
-        
-        // add optimal alignments to the output buffer
-        for (pair<multipath_alignment_t, multipath_alignment_t>& mp_aln_pair : mp_aln_pairs) {
-            
-            // Compute nonoverlapping single path alignments for each multipath alignment
-            vector<Alignment> options;
-            multipath_mapper.reduce_to_single_path(mp_aln_pair.first, options, localization_max_paths);
-            
-            // There will always be at least one result. Use the optimal alignment.
-            output_buf.emplace_back(std::move(options.front()));
-            
-            // compute the Alignment identity to make vg call happy
-            output_buf.back().set_identity(identity(output_buf.back().path()));
-            
-            // label with read group and sample name
-            if (!read_group.empty()) {
-                output_buf.back().set_read_group(read_group);
-            }
-            if (!sample_name.empty()) {
-                output_buf.back().set_sample_name(sample_name);
-            }
-            // arbitrarily decide that this is the "previous" fragment
-            output_buf.back().mutable_fragment_next()->set_name(mp_aln_pair.second.name());
-            
-            // Now do the second read
-            options.clear();
-            multipath_mapper.reduce_to_single_path(mp_aln_pair.second, options, localization_max_paths);
-            output_buf.emplace_back(std::move(options.front()));
-            
-            // compute identity again
-            output_buf.back().set_identity(identity(output_buf.back().path()));
-            
-            // switch second read back to the opposite strand if necessary
-            if (!same_strand) {
-                reverse_complement_alignment_in_place(&output_buf.back(),
-                                                      [&](vg::id_t node_id) {
-                    return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
-                });
-            }
-            
-            // label with read group and sample name
-            if (!read_group.empty()) {
-                output_buf.back().set_read_group(read_group);
-            }
-            if (!sample_name.empty()) {
-                output_buf.back().set_sample_name(sample_name);
-            }
-            // arbitrarily decide that this is the "next" fragment
-            output_buf.back().mutable_fragment_prev()->set_name(mp_aln_pair.first.name());
-            
-            if (no_output) {
-                output_buf.pop_back();
-                output_buf.pop_back();
-            }
-        }
-        vg::io::write_buffered(cout, output_buf, buffer_size);
-    };
     
     // do unpaired multipath alignment and write to buffer
     function<void(Alignment&)> do_unpaired_alignments = [&](Alignment& alignment) {
@@ -1750,11 +1587,8 @@ int main_mpmap(int argc, char** argv) {
             }
         }
         
-        if (single_path_alignment_mode) {
-            output_single_path_alignments(mp_alns);
-        }
-        else {
-            output_multipath_alignments(mp_alns);
+        if (!no_output) {
+            emitter->emit_singles(move(mp_alns));
         }
         
         if (watchdog) {
@@ -1794,13 +1628,23 @@ int main_mpmap(int argc, char** argv) {
         if (!same_strand) {
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
-            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id)); });
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) {
+                return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
+            });
         }
         
         size_t num_buffered = ambiguous_pair_buffer.size();
         
         vector<pair<multipath_alignment_t, multipath_alignment_t>> mp_aln_pairs;
         multipath_mapper.multipath_map_paired(alignment_1, alignment_2, mp_aln_pairs, ambiguous_pair_buffer);
+        
+        
+        if (!same_strand) {
+            for (auto& mp_aln_pair : mp_aln_pairs) {
+                rev_comp_multipath_alignment_in_place(&mp_aln_pair.second, [&](vg::id_t node_id) { return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id));
+                });
+            }
+        }
         
         if (is_rna) {
             for (pair<multipath_alignment_t, multipath_alignment_t>& mp_aln_pair : mp_aln_pairs) {
@@ -1809,11 +1653,8 @@ int main_mpmap(int argc, char** argv) {
             }
         }
         
-        if (single_path_alignment_mode) {
-            output_single_path_paired_alignments(mp_aln_pairs);
-        }
-        else {
-            output_multipath_paired_alignments(mp_aln_pairs);
+        if (!no_output) {
+            emitter->emit_pairs(move(mp_aln_pairs));
         }
         
         if (watchdog) {
@@ -1852,21 +1693,11 @@ int main_mpmap(int argc, char** argv) {
             convert_Us_to_Ts(alignment_1);
             convert_Us_to_Ts(alignment_2);
         }
-
-        if (!same_strand) {
-            // the algorithm expects the read pairs to be on the same strand, so we need to flip read 2
-            // (the output functions will undo the transformation)
-        
-            // remove the path so we won't try to RC it (the path may not refer to this graph)
-            alignment_2.clear_path();
-            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return path_position_handle_graph->get_length(path_position_handle_graph->get_handle(node_id)); });
-        }
         
         // Align independently
         vector<multipath_alignment_t> mp_alns_1, mp_alns_2;
         multipath_mapper.multipath_map(alignment_1, mp_alns_1);
         multipath_mapper.multipath_map(alignment_2, mp_alns_2);
-        
         
         if (is_rna) {
             for (multipath_alignment_t& mp_aln : mp_alns_1) {
@@ -1876,20 +1707,21 @@ int main_mpmap(int argc, char** argv) {
                 convert_Ts_to_Us(mp_aln);
             }
         }
-               
-        vector<pair<multipath_alignment_t, multipath_alignment_t>> mp_aln_pairs;
-        for (size_t i = 0; i < mp_alns_1.size() && i < mp_alns_2.size(); i++) {
-            // Pair arbitrarily. Stop when one side runs out of alignments.
-            mp_aln_pairs.emplace_back(mp_alns_1[i], mp_alns_2[i]);
+            
+        // keep an equal number to protect interleaving
+        mp_alns_1.resize(min(mp_alns_1.size(), mp_alns_2.size()));
+        mp_alns_2.resize(min(mp_alns_1.size(), mp_alns_2.size()));
+        
+        // combine into a single vector
+        vector<multipath_alignment_t> mp_alns_combined;
+        mp_alns_combined.reserve(mp_alns_1.size() + mp_alns_2.size());
+        for (size_t i = 0; i < mp_alns_1.size(); ++i) {
+            mp_alns_combined.emplace_back(std::move(mp_alns_1[i]));
+            mp_alns_combined.emplace_back(std::move(mp_alns_2[i]));
         }
         
-        // TODO: Set a flag or annotation or something to say we don't really believe the pairing
-       
-        if (single_path_alignment_mode) {
-            output_single_path_paired_alignments(mp_aln_pairs);
-        }
-        else {
-            output_multipath_paired_alignments(mp_aln_pairs);
+        if (!no_output) {
+            emitter->emit_singles(move(mp_alns_combined));
         }
         
         if (watchdog) {
@@ -1939,9 +1771,6 @@ int main_mpmap(int argc, char** argv) {
             if (!gam_in) {
                 cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << endl;
                 exit(1);
-            }
-            if (!suppress_progress) {
-                cerr << "[vg mpmap] Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << endl;
             }
             
             if (interleaved_input) {
@@ -1994,15 +1823,8 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
-    // flush output buffers
-    for (int i = 0; i < thread_count; i++) {
-        if (single_path_alignment_mode) {
-            vg::io::write_buffered(cout, single_path_output_buffer[i], 0);
-        }
-        else {
-            vg::io::write_buffered(cout, multipath_output_buffer[i], 0);
-        }
-    }
+    // flush output
+    delete emitter;
     cout.flush();
     
     if (!suppress_progress) {

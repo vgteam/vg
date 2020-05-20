@@ -2488,34 +2488,34 @@ void to_proto_edit(const edit_t& edit, Edit& proto_edit) {
 }
 
 void from_proto_mapping(const Mapping& proto_mapping, path_mapping_t& mapping) {
-    auto position = proto_mapping.position();
+    const auto& position = proto_mapping.position();
     auto position_copy = mapping.mutable_position();
     position_copy->set_node_id(position.node_id());
     position_copy->set_offset(position.offset());
     position_copy->set_is_reverse(position.is_reverse());
-    for (auto edit : proto_mapping.edit()) {
+    for (const auto& edit : proto_mapping.edit()) {
         from_proto_edit(edit, *mapping.add_edit());
     }
 }
 
 void to_proto_mapping(const path_mapping_t& mapping, Mapping& proto_mapping) {
-    auto position = mapping.position();
+    const auto& position = mapping.position();
     auto position_copy = proto_mapping.mutable_position();
     position_copy->set_node_id(position.node_id());
     position_copy->set_offset(position.offset());
     position_copy->set_is_reverse(position.is_reverse());
-    for (auto edit : mapping.edit()) {
+    for (const auto& edit : mapping.edit()) {
         to_proto_edit(edit, *proto_mapping.add_edit());
     }
 }
 
 void from_proto_path(const Path& proto_path, path_t& path) {
-    for (auto mapping : proto_path.mapping()) {
+    for (const auto& mapping : proto_path.mapping()) {
         from_proto_mapping(mapping, *path.add_mapping());
     }
 }
 void to_proto_path(const path_t& path, Path& proto_path) {
-    for (auto mapping : path.mapping()) {
+    for (const auto& mapping : path.mapping()) {
         auto mapping_copy = proto_path.add_mapping();
         to_proto_mapping(mapping, *mapping_copy);
         mapping_copy->set_rank(proto_path.mapping_size());
@@ -2524,7 +2524,7 @@ void to_proto_path(const path_t& path, Path& proto_path) {
 
 int mapping_from_length(const path_mapping_t& mapping) {
     int length = 0;
-    for (auto edit : mapping.edit()) {
+    for (const auto& edit : mapping.edit()) {
         length += edit.from_length();
     }
     return length;
@@ -2532,7 +2532,7 @@ int mapping_from_length(const path_mapping_t& mapping) {
 
 int path_from_length(const path_t& path) {
     int length = 0;
-    for (auto mapping : path.mapping()) {
+    for (const auto& mapping : path.mapping()) {
         length += mapping_from_length(mapping);
     }
     return length;
@@ -2540,7 +2540,7 @@ int path_from_length(const path_t& path) {
 
 int mapping_to_length(const path_mapping_t& mapping) {
     int length = 0;
-    for (auto edit : mapping.edit()) {
+    for (const auto& edit : mapping.edit()) {
         length += edit.to_length();
     }
     return length;
@@ -2548,7 +2548,7 @@ int mapping_to_length(const path_mapping_t& mapping) {
 
 int path_to_length(const path_t& path) {
     int length = 0;
-    for (auto mapping : path.mapping()) {
+    for (const auto& mapping : path.mapping()) {
         length += mapping_to_length(mapping);
     }
     return length;
