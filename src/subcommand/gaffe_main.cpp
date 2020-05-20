@@ -303,6 +303,7 @@ void help_gaffe(char** argv) {
     << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
+    << "  -o, --output-format NAME      output the alignments in format NAME (GAM / GAF / JSON / TSV) [GAM]" << endl
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
     << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
@@ -320,7 +321,7 @@ void help_gaffe(char** argv) {
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [10]" << endl
-    << "  -A, --rescue-algorithm STR    use algorithm STR for rescue (none / dozeu / gssw / haplotypes) [dozeu]" << endl
+    << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw / haplotypes) [dozeu]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
@@ -412,6 +413,10 @@ int main_gaffe(int argc, char** argv) {
         .get_iterator();
     
 
+    // Formats for alignment output.
+    std::string output_format = "GAM";
+    std::set<std::string> output_formats = { "GAM", "GAF", "JSON", "TSV" };
+
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
         { "none", MinimizerMapper::rescue_none },
@@ -444,6 +449,7 @@ int main_gaffe(int argc, char** argv) {
             {"max-multimaps", required_argument, 0, 'M'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
+            {"output-format", required_argument, 0, 'o'},
             {"discard", no_argument, 0, 'n'},
             {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
             {"report-name", required_argument, 0, OPT_REPORT_NAME},
@@ -468,7 +474,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:nc:C:D:F:e:a:S:u:v:w:Ot:r:A:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:o:nc:C:D:F:e:a:S:u:v:w:Ot:r:A:",
                          long_options, &option_index);
 
 
@@ -569,7 +575,17 @@ int main_gaffe(int argc, char** argv) {
             case 'R':
                 read_group = optarg;
                 break;
-                
+
+            case 'o':
+                {
+                    output_format = optarg;
+                    if (output_formats.find(output_format) == output_formats.end()) {
+                        std::cerr << "error: [vg gaffe] Invalid output format: " << output_format << std::endl;
+                        std::exit(1);
+                    }
+                }
+                break;
+
             case 'n':
                 discard_alignments = true;
                 break;
@@ -944,7 +960,11 @@ int main_gaffe(int argc, char** argv) {
         }
     
         if (show_progress) {
-            cerr << "Mapping reads to \"" << output_filename << "\"..." << endl;
+            if (discard_alignments) {
+                cerr << "Discarding output alignments" << endl;
+            } else {
+                cerr << "Mapping reads to \"" << output_filename << "\" (" << output_format << ")" << endl;
+            }
         }
 
         if (show_progress && interleaved) {
@@ -1048,10 +1068,10 @@ int main_gaffe(int argc, char** argv) {
         
         {
             // Set up output to an emitter that will handle serialization
-            // Discard alignments if asked to. Otherwise spit them out in GAM format.
+            // Discard alignments if asked to. Otherwise spit them out in the selected format.
             unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
                 make_unique<NullAlignmentEmitter>() :
-                get_alignment_emitter(output_filename, "GAM", {}, thread_count);
+                get_alignment_emitter(output_filename, output_format, {}, thread_count, gbwt_graph.get());
 
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.
