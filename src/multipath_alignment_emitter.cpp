@@ -123,17 +123,17 @@ void MultipathAlignmentEmitter::emit_singles(vector<multipath_alignment_t>&& mp_
     }
 }
 
-void MultipathAlignmentEmitter::convert_multipath_alignment(const multipath_alignment_t& mp_aln,
-                                                            Alignment& aln,
-                                                            const multipath_alignment_t* prev_pair,
-                                                            const multipath_alignment_t* next_pair) const {
+void MultipathAlignmentEmitter::convert_multipath_alignment(const multipath_alignment_t& mp_aln, Alignment& aln,
+                                                            const multipath_alignment_t* prev_frag,
+                                                            const multipath_alignment_t* next_frag) const {
     optimal_alignment(mp_aln, aln);
-    if (prev_pair) {
+    if (prev_frag) {
         aln.mutable_fragment_prev()->set_name(prev_pair->name());
     }
-    if (next_pair) {
+    if (next_frag) {
         aln.mutable_fragment_next()->set_name(next_pair->name());
     }
+    // at one point vg call needed these, maybe it doesn't anymore though
     aln.set_identity(identity(aln.path()));
 }
 }

@@ -31,10 +31,9 @@ public:
     
 private:
     
-    void convert_multipath_alignment(const multipath_alignment_t& mp_aln,
-                                     Alignment& aln,
-                                     const multipath_alignment_t* prev_pair = nullptr,
-                                     const multipath_alignment_t* next_pair = nullptr) const;
+    void convert_multipath_alignment(const multipath_alignment_t& mp_aln, Alignment& aln,
+                                     const multipath_alignment_t* prev_frag = nullptr,
+                                     const multipath_alignment_t* next_frag = nullptr) const;
     
     /// the stream that everything is emitted into
     ostream& out;

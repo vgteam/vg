@@ -63,7 +63,7 @@ rm -f temp_paired_alignment.json temp_distant_alignment.json temp_independent_al
 
 vg sim -x graphs/refonly-lrc_kir.vg.xg -n 1000 -p 500 -l 100 -a > input.gam
 
-vg mpmap -B -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -G input.gam -i --single-path-mode --no-qual-adjust > output.gam
+vg mpmap -B -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -G input.gam -I 500 -D 100 -i --single-path-mode --no-qual-adjust > output.gam
 is "$(vg view -aj output.gam | jq -c 'select(.fragment_next == null and .fragment_prev == null)' | wc -l)" "0" "small batches are still all paired in the output"
 
 rm -f graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp input.gam output.gam
