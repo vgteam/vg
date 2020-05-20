@@ -19,14 +19,22 @@
 namespace vg {
 using namespace std;
 
+/*
+ * Class that handles multithreaded output for multipath alignments
+ */
 class MultipathAlignmentEmitter {
 public:
     
+    /// Initialize with the intended output stream and the maximum number of threads that
+    /// will be outputting. Optionally convert to single path alignments instead of multipath
+    /// alignments.
     MultipathAlignmentEmitter(ostream& out, int num_threads, bool emit_single_path = false);
     ~MultipathAlignmentEmitter();
     
+    /// Emit paired read mappings as interleaved protobuf messages
     void emit_pairs(vector<pair<multipath_alignment_t, multipath_alignment_t>>&& mp_aln_pairs);
     
+    /// Emit read mappings as protobuf messages
     void emit_singles(vector<multipath_alignment_t>&& mp_alns);
     
 private:
