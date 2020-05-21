@@ -28,9 +28,9 @@ namespace vg {
         // generate initial value
         unique_ptr<PhasedGenome> genome = generate_initial_guess();
         
-        double max_likelihood = 0.0; 
-        double current_likelihood = 0.0; 
-        double previous_likelihood = 0.0;
+        double max_log_likelihood = 0.0; 
+        double curret_log_likelihood = 0.0; 
+        double previous_log_likelihood = 0.0;
  
         unique_ptr<PhasedGenome> optimal;
         
@@ -39,8 +39,10 @@ namespace vg {
 
             
             // holds the previous sample allele
-            double x_prev = log_target(genome, reads);
-
+            double x_prev = log_target(genome, reads, log_base);
+#ifdef debug_mcmc
+            cerr << "x_prev" << x_prev <<endl;         
+#endif  
             // get contents from proposal_sample
             tuple<int, const Snarl*, vector<NodeTraversal> > to_receive = proposal_sample(genome);
             int& modified_haplo = get<0>(to_receive);         
@@ -55,13 +57,24 @@ namespace vg {
                 vector<NodeTraversal>& old_allele = get<2>(to_receive); 
  
                 // holds new sample allele score 
-                double x_new = log_target(genome, reads);
+                double x_new = log_target(genome, reads, log_base);
+ #ifdef debug_mcmc
+                cerr << "x_new " << x_new <<endl;        
+#endif  
+                // for optimal_score_on_genome()
+                double likelihood_ratio = exp((x_new - x_prev));
+                curret_log_likelihood = previous_log_likelihood + log_base*(x_new-x_prev);
 
-                double likelihood_ratio = exp(log_base*(x_new - x_prev));
-                
-            
-                if (current_likelihood > max_likelihood){
-                    max_likelihood = current_likelihood;
+                // for read_log_likelihood()
+                // double likelihood_ratio = exp(x_new - x_prev);
+                // curret_log_likelihood = previous_log_likelihood + (x_new-x_prev);
+
+#ifdef debug_mcmc              
+                cerr << "proposal_likelihood " << curret_log_likelihood <<endl;         
+#endif                
+
+                if (curret_log_likelihood > max_log_likelihood){
+                    max_log_likelihood = curret_log_likelihood;
                     optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
                     return_optimal=true;
                 }
@@ -75,43 +88,55 @@ namespace vg {
                     genome->set_allele(modified_site, old_allele.begin(), old_allele.end(), modified_haplo); 
 #ifdef debug_mcmc
                     cerr << "Rejected new allele" <<endl;
-                    cerr << "clikelihood " << previous_likelihood <<endl;
+                    cerr << "kept_likelihood " << previous_log_likelihood <<endl;
                     genome->print_phased_genome();
 #endif                    
                 }else{     
 #ifdef debug_mcmc 
                     cerr << "Accepted new allele" <<endl;
-                    cerr << "clikelihood " << current_likelihood <<endl;
+                    cerr << "kept_likelihood " << curret_log_likelihood <<endl;
                     genome->print_phased_genome();
 #endif
-                    previous_likelihood = current_likelihood;
+                    previous_log_likelihood = curret_log_likelihood;
                     
                 }         
             }
         } 
         if(invalid_contents || !return_optimal){
             // for graphs without snarls 
+#ifdef debug_mcmc 
+            cerr<< "returned non-optimal" <<endl;
+            cerr << "invalid_contents: " << invalid_contents <<endl;
+            cerr << "!return optimal" << !return_optimal <<endl;
+#endif
+            
             return genome; 
         }else{
 #ifdef debug_mcmc 
-            cerr <<"klikelihood " << max_likelihood <<endl;
+            cerr <<"final_likelihood " << max_log_likelihood <<endl;
             optimal->print_phased_genome();
 #endif
             return optimal; 
         }
 
     }   
-    double MCMCGenotyper::log_target(unique_ptr<PhasedGenome>& phased_genome, const vector<multipath_alignment_t>& reads)const{
+    double MCMCGenotyper::log_target(unique_ptr<PhasedGenome>& phased_genome, const vector<multipath_alignment_t>& reads, const double log_base)const{
         
         // sum of scores given the reads aligned on the haplotype 
-        int32_t sum_scores = 0; 
+        double sum_scores = 0; 
         
         // get scores for mp alignments 
         for(const multipath_alignment_t& mp : reads){
             sum_scores += phased_genome->optimal_score_on_genome(mp, graph);
-            
+
+ #ifdef debug_mcmc 
+            cerr << "score: " << phased_genome->read_log_likelihood(mp, log_base) <<endl;
+#endif          
+            // sum_scores += phased_genome->read_log_likelihood(mp, log_base);       
         } 
-        
+#ifdef debug_mcmc 
+            cerr << "sum score: " << sum_scores <<endl;
+#endif        
         return sum_scores;
     }
 

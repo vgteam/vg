@@ -26,7 +26,8 @@
 namespace vg {
     namespace unittest {
         
-        const int seed = 0;
+        const int seed = 0; 
+        // const int seed = std::chrono::system_clock::now().time_since_epoch().count();
         const int n_iterations = 100;
 
         
@@ -179,6 +180,7 @@ namespace vg {
                 edit3->set_to_length(4);
                 
                 multipath_aln.add_start(0);
+
 
             
                 MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
@@ -463,12 +465,7 @@ namespace vg {
                 edit7b->set_to_length(0); // length in alt sequence is zero because it is a gap
                 edit7b->set_sequence("G");
 
-                multipath_aln.add_start(0); //integer given is the subpath number
-#ifdef debug
-        cerr << "Multipath mapper alignment " <<endl;
-        cerr << pb2json(multipath_aln) <<endl;        
-#endif
-                
+                multipath_aln.add_start(0); //integer given is the subpath number    
 				
                 // match and mismatch represent the point system used for penalty
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
@@ -667,9 +664,8 @@ namespace vg {
 
                 // Make a multipath mapper to map against the graph.
                 MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
-                
-                //vector<string> reads = {"GCATCTGAGCCC","GCATCTGAGCCC","GCAGCTGAACCC","GCAGCTGAACCC"}; //TGGA
-                vector<string> reads = {"GCATCTGAGCCC","GCATCTGAGCCC","GCATCTGAACCC", "GCATCTGAACCC"};//TGTA
+
+                vector<string> reads = {"GCATCTGAGCCC","GCATCTGAGCCC","GCATCTGAACCC", "GCATCTGAACCC"};
                 vector<Alignment> alns = {reads.size(), Alignment()};
 
                 // set alignment sequence
@@ -699,17 +695,6 @@ namespace vg {
                 //pass vector with accumulated multipath_alignment_t objects to run_genotype()
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base); 
                 
-                // // create a set of 2 possible solutions
-                // // ex 2: TG GA
-                // vector<NodeTraversal> soln1, soln2;
-                // soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
-                // soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
-
-                // set<vector<NodeTraversal>> solns_set;
-                // solns_set.insert(soln1);
-                // solns_set.insert(soln2);
-
-                //ex 1: TG, TA
                 vector<NodeTraversal> soln1, soln2;
                 soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
                 soln2 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
@@ -729,7 +714,10 @@ namespace vg {
                 set<vector<NodeTraversal>> phased_genome = {haplotype1, haplotype2};
                 set<vector<NodeTraversal>> rev_phased_genome = {haplotype2, haplotype1};
 
-
+#ifdef debug
+                
+                genome->print_phased_genome();
+#endif
 
                 // check haplotypes are indeed in optimal solution set  
                 bool pass = false; 
@@ -916,8 +904,6 @@ namespace vg {
                 double count_minus = 0.0;
                 vector<double> results = vector<double>();
                 
-                int num_iterations = 25;
-                int seed_i = std::chrono::system_clock::now().time_since_epoch().count();
                 
                 VG graph;
 
@@ -979,7 +965,7 @@ namespace vg {
                     alns[i].set_sequence(reads[i]);
                 }
                 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, num_iterations, seed_i);
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
                 vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>(); 
 
                 vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
@@ -999,22 +985,20 @@ namespace vg {
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 //pass vector with accumulated MultipathAlignment objects to run_genotype()
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base); 
+ #ifdef debug
                 
+                genome->print_phased_genome();
+#endif               
 
                 // create a set of possible solutions
-                vector<NodeTraversal> soln1, soln2, soln3;
+                vector<NodeTraversal> soln1, soln2;
                 soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
                 soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n5), NodeTraversal(n7)};
-                soln3 = {NodeTraversal(n1),NodeTraversal(n3), NodeTraversal(n4), NodeTraversal(n6), NodeTraversal(n7)};
 
                 set<vector<NodeTraversal>> solns_set1, solns_set2;
                 solns_set1.insert(soln1);
                 solns_set1.insert(soln2);
                 
-                solns_set2.insert(soln2);
-                solns_set2.insert(soln3);
-
-
                 REQUIRE(genome->num_haplotypes() == 2);
 
                 // move the genome haplotype into a vector
@@ -1026,7 +1010,7 @@ namespace vg {
                 set<vector<NodeTraversal>> rev_phased_genome = {haplotype2, haplotype1};
 
                 bool pass = false;
-                if( (phased_genome == solns_set1 || rev_phased_genome == solns_set1) || (phased_genome == solns_set2 || rev_phased_genome == solns_set2) ){
+                if( (phased_genome == solns_set1 || rev_phased_genome == solns_set1) ){
                     pass = true;
                 }
                 // check if the haplotype set is equal to solution set 

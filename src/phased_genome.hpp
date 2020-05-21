@@ -133,7 +133,7 @@ namespace vg {
         // TODO: make a local subalignment optimal score function (main obstacle is scoring partial subpaths)
         
         /// Returns the sum of the log-likelihoods of all of the alignments expressed in a multipath
-        /// alignment, given a
+        /// alignment, given a natural log of the logarithm base that the the scoring scheme corresponds to 
         double read_log_likelihood(const multipath_alignment_t& multipath_aln, double log_base);
         
     private:

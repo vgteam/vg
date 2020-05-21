@@ -177,6 +177,7 @@ int main_mcmc(int argc, char** argv) {
     **/
 
     vector<multipath_alignment_t> reads;
+    
     get_input_file(multipath_file, [&] (istream& open_file){
         io::ProtobufIterator<MultipathAlignment> iter (open_file);
         while(iter.has_current()){

@@ -34,7 +34,8 @@ public:
 
     /** 
      * Takes as input a collection of mapped reads stored as a vector of multipath alignments and uses 
-     * MCMC to find two optimal paths through the graph.
+     * MCMC to find two optimal paths through the graph. log_base is a natural log of the logarithm base 
+     * that the the scoring scheme corresponds to
      * Output: phased genome 
      */    
     unique_ptr<PhasedGenome> run_genotype(const vector<multipath_alignment_t>& reads, const double log_base) const;
@@ -43,7 +44,7 @@ public:
      * Represents the poseterior distribution function 
      * returns the posterir probability
      */ 
-     double log_target(unique_ptr<PhasedGenome>& phased_genome, const vector<multipath_alignment_t>& reads) const;  
+     double log_target(unique_ptr<PhasedGenome>& phased_genome, const vector<multipath_alignment_t>& reads,const double log_base) const;  
 
     /**
      * Generates a proposal sample over the desired distrubution

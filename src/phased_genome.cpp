@@ -4,7 +4,7 @@
 
 #include "phased_genome.hpp"
 
-//#define debug_phased_genome
+// #define debug_phased_genome
 
 using namespace std;
 
