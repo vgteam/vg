@@ -14,7 +14,7 @@ namespace vg {
 
 using namespace std;
 
-// #define transcriptome_debug
+#define transcriptome_debug
 
 
 Transcriptome::Transcriptome(const string & graph_filename, const bool show_progress) {
@@ -1192,7 +1192,6 @@ void Transcriptome::augment_splice_graph(list<EditedTranscriptPath> * edited_tra
     assert(_transcript_paths.empty());
     _splice_graph_node_updated = true;
 
-
     // Move paths to data structure compatible with augment.
     vector<Path> edited_paths;
     edited_paths.reserve(edited_transcript_paths->size());
@@ -1320,6 +1319,8 @@ void Transcriptome::update_haplotype_index(gbwt::GBWT * haplotype_index, const v
         // Insert thread bidirectionally.
         gbwt_builder.insert(new_gbwt_threads, true);
     }
+
+    delete haplotype_index;
 
     // Finish contruction and recode index.
     gbwt_builder.finish();
@@ -1461,7 +1462,7 @@ int32_t Transcriptome::embed_transcript_paths(const bool add_reference_paths, co
     return num_embedded_paths;
 }
 
-int32_t Transcriptome::construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const {
+int32_t Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const {
 
     int32_t num_added_threads = 0;
 

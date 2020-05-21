@@ -164,7 +164,7 @@ class Transcriptome {
 
         /// Add transcript paths as threads in GBWT index.
         /// Returns number of added threads.
-        int32_t construct_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const;
+        int32_t add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const;
         
         /// Writes transcript path sequences to a fasta file.  
         /// Returns number of written sequences.

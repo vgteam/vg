@@ -36,6 +36,7 @@ void help_rna(char** argv) {
          << "    -u, --out-ref-paths        output reference transcripts in GBWT, fasta and info" << endl
          << "    -b, --write-gbwt FILE      write transcripts as threads to GBWT index file" << endl
          << "    -g, --gbwt-bidirectional   add transcripts as bidirectional threads to GBWT index" << endl
+         << "    -w, --gbwt-id-interval     frequency transcripts ids are stored in GBWT index [16]" << endl
          << "    -f, --write-fasta FILE     write transcripts as sequences to fasta file" << endl
          << "    -i, --write-info FILE      write transcript origin info to tsv file" << endl
          << "    -t, --threads INT          number of compute threads to use [1]" << endl
@@ -65,6 +66,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     bool output_reference_transcript_paths = false;
     string gbwt_out_filename = "";
     bool gbwt_add_bidirectional = false;
+    int32_t gbwt_id_interval = 1024;
     string fasta_out_filename = "";
     string info_out_filename = "";
     int32_t num_threads = 1;
@@ -90,6 +92,7 @@ int32_t main_rna(int32_t argc, char** argv) {
                 {"out-ref-paths",  no_argument, 0, 'u'},           
                 {"write-gbwt",  no_argument, 0, 'b'},
                 {"gbwt-bidirectional",  no_argument, 0, 'g'},
+                {"gbwt-id-interval",  no_argument, 0, 'w'},
                 {"write-fasta",  no_argument, 0, 'f'},
                 {"write-info",  no_argument, 0, 'i'},
                 {"threads",  no_argument, 0, 't'},
@@ -99,7 +102,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             };
 
         int32_t option_index = 0;
-        c = getopt_long(argc, argv, "n:m:y:s:l:ercdoraub:gf:i:t:ph?", long_options, &option_index);
+        c = getopt_long(argc, argv, "n:m:y:s:l:ercdoraub:gw:f:i:t:ph?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -162,6 +165,10 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         case 'g':
             gbwt_add_bidirectional = true;
+            break;
+
+        case 'w':
+            gbwt_id_interval = stoi(optarg);
             break;
 
         case 'f':
@@ -340,9 +347,11 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         // Silence GBWT index construction. 
         gbwt::Verbosity::set(gbwt::Verbosity::SILENT); 
-        gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(transcriptome.splice_graph().max_node_id(), true)));
+        gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(transcriptome.splice_graph().max_node_id(), true)), gbwt::DynamicGBWT::INSERT_BATCH_SIZE, gbwt_id_interval);
 
-        auto num_added_threads = transcriptome.construct_gbwt(&gbwt_builder, output_reference_transcript_paths, gbwt_add_bidirectional);
+        cerr << gbwt_id_interval << endl;
+
+        auto num_added_threads = transcriptome.add_transcripts_to_gbwt(&gbwt_builder, output_reference_transcript_paths, gbwt_add_bidirectional);
 
         // Finish contruction and recode index.
         gbwt_builder.finish();
