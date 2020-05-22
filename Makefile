@@ -742,7 +742,24 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 	@if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi
 	@if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
 	@if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
-
+	@if [ -e $(INC_DIR)/vg/vg.pb.h ] ; then \
+		HEADER_COMBINED=$$(cat $(INC_DIR)/vg/vg.pb.h | grep VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
+		PROTOC_MAJOR=$$(protoc --version | cut -d' ' -f2 | cut -d'.' -f1); \
+		PROTOC_MINOR=$$(protoc --version | cut -d' ' -f2 | cut -d'.' -f2); \
+		PROTOC_PATCH=$$(protoc --version | cut -d' ' -f2 | cut -d'.' -f3); \
+		PROTOC_COMBINED=$$(expr '(' $${PROTOC_MAJOR} '*' 1000 '+' $${PROTOC_MINOR} ')' '*' 1000 '+' $${PROTOC_PATCH}); \
+		if [ "$${HEADER_COMBINED}" != "$${PROTOC_COMBINED}" ] ; then \
+			echo "Protobuf version has changed!"; \
+			echo "Headers are from $${HEADER_COMBINED} but we have $${PROTOC_COMBINED}"; \
+			echo "Need to rebuild libvgio"; \
+			rm -f $(LIB_DIR)/libvgio.a; \
+			rm -f $(INC_DIR)/vg/vg.pb.h; \
+		fi; \
+	fi;
+	
+	
+	
+	
 # run .pre-build before we make anything at all.
 -include .pre-build
 

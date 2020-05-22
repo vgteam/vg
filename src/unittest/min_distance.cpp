@@ -12,6 +12,7 @@
 #include "../min_distance.hpp"
 #include "../genotypekit.hpp"
 #include "random_graph.hpp"
+#include "randomness.hpp"
 #include <fstream>
 #include <random>
 #include <time.h> 
@@ -1380,8 +1381,7 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
        DistanceIndex di(&vg, snarl_manager, dist_stream);
        dist_stream.close();
 
-       random_device seed_source;
-       default_random_engine generator(seed_source());
+       default_random_engine generator(test_seed_source());
        for (size_t i = 0; i < 1000 ; i++) {
     
            size_t maxPos = xg.seq_length;

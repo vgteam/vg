@@ -10,33 +10,34 @@
 #include <set>
 #include <random>
 #include "catch.hpp"
-#include "algorithms/extract_connecting_graph.hpp"
-#include "algorithms/extract_containing_graph.hpp"
-#include "algorithms/extract_extending_graph.hpp"
-#include "algorithms/topological_sort.hpp"
-#include "algorithms/weakly_connected_components.hpp"
-#include "algorithms/is_acyclic.hpp"
-#include "algorithms/split_strands.hpp"
-#include "algorithms/is_single_stranded.hpp"
-#include "algorithms/distance_to_head.hpp"
-#include "algorithms/distance_to_tail.hpp"
-#include "algorithms/apply_bulk_modifications.hpp"
-#include "algorithms/count_walks.hpp"
-#include "algorithms/strongly_connected_components.hpp"
-#include "algorithms/a_star.hpp"
-#include "algorithms/eades_algorithm.hpp"
-#include "algorithms/shortest_cycle.hpp"
-#include "algorithms/reverse_complement.hpp"
-#include "algorithms/jump_along_path.hpp"
-#include "algorithms/expand_context.hpp"
-#include "algorithms/are_equivalent.hpp"
-#include "algorithms/simplify_siblings.hpp"
-#include "algorithms/unchop.hpp"
-#include "unittest/random_graph.hpp"
-#include "vg.hpp"
-#include "xg.hpp"
-#include "bdsg/hash_graph.hpp"
-#include "json2pb.h"
+#include "../algorithms/extract_connecting_graph.hpp"
+#include "../algorithms/extract_containing_graph.hpp"
+#include "../algorithms/extract_extending_graph.hpp"
+#include "../algorithms/topological_sort.hpp"
+#include "../algorithms/weakly_connected_components.hpp"
+#include "../algorithms/is_acyclic.hpp"
+#include "../algorithms/split_strands.hpp"
+#include "../algorithms/is_single_stranded.hpp"
+#include "../algorithms/distance_to_head.hpp"
+#include "../algorithms/distance_to_tail.hpp"
+#include "../algorithms/apply_bulk_modifications.hpp"
+#include "../algorithms/count_walks.hpp"
+#include "../algorithms/strongly_connected_components.hpp"
+#include "../algorithms/a_star.hpp"
+#include "../algorithms/eades_algorithm.hpp"
+#include "../algorithms/shortest_cycle.hpp"
+#include "../algorithms/reverse_complement.hpp"
+#include "../algorithms/jump_along_path.hpp"
+#include "../algorithms/expand_context.hpp"
+#include "../algorithms/are_equivalent.hpp"
+#include "../algorithms/simplify_siblings.hpp"
+#include "../algorithms/unchop.hpp"
+#include "random_graph.hpp"
+#include "randomness.hpp"
+#include "../vg.hpp"
+#include "../xg.hpp"
+#include <bdsg/hash_graph.hpp>
+#include "../json2pb.h"
 
 
 using namespace google::protobuf;
@@ -4255,8 +4256,7 @@ TEST_CASE("apply_orientations works as expected", "[algorithms]") {
     Node* n4 = vg.create_node("A");
     Node* n5 = vg.create_node("A");
             
-    random_device rd;
-    default_random_engine prng(rd());
+    default_random_engine prng(test_seed_source());
             
     SECTION("apply_orientations works with random orientations") {
                 
@@ -5039,8 +5039,7 @@ TEST_CASE("A* search works on random graphs","[a-star][algorithms]") {
                     all_handles.push_back(handle);
                     total_seq_len += graph.get_length(handle) * 2;
                 });
-            random_device rd;
-            default_random_engine gen(rd());
+            default_random_engine gen(test_seed_source());
                     
             function<pos_t(void)> random_pos = [&](void) {
                 handle_t h = all_handles[uniform_int_distribution<int>(0, all_handles.size() - 1)(gen)];
@@ -5130,8 +5129,7 @@ TEST_CASE("A* search works on random graphs","[a-star][algorithms]") {
                     all_handles.push_back(handle);
                     total_seq_len += graph.get_length(handle) * 2;
                 });
-            random_device rd;
-            default_random_engine gen(rd());
+            default_random_engine gen(test_seed_source());
                     
             function<pos_t(void)> random_pos = [&](void) {
                 handle_t h = all_handles[uniform_int_distribution<int>(0, all_handles.size() - 1)(gen)];
