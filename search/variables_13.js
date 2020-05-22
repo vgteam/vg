@@ -58,7 +58,7 @@ var searchData=
   ['size',['size',['../classvg_1_1DepthMap.html#acb11be955a40c316fcdd1c261bfb639e',1,'vg::DepthMap']]],
   ['skip_5falt',['skip_alt',['../classvg_1_1VCFTraversalFinder.html#acc753182667fd49d9afe5eba697c92da',1,'vg::VCFTraversalFinder']]],
   ['skip_5fstructural_5fduplications',['skip_structural_duplications',['../classvg_1_1VariantAdder.html#a0c90a9845a662358588f517e2cf91501',1,'vg::VariantAdder']]],
-  ['snarl',['snarl',['../structvg_1_1ReplaceSnarlHaplotypeCommand.html#aee85ad3c21e883f05b67c62fbf05be72',1,'vg::ReplaceSnarlHaplotypeCommand::snarl()'],['../structvg_1_1Visit.html#a7e671bbc7437a16dd3549a6fc49fd2a9',1,'vg::Visit::snarl()']]],
+  ['snarl',['snarl',['../structvg_1_1ReplaceSnarlHaplotypeCommand.html#aee85ad3c21e883f05b67c62fbf05be72',1,'vg::ReplaceSnarlHaplotypeCommand::snarl()'],['../structvg_1_1SnarlManager_1_1SnarlRecord.html#acad9926afa69d4de3d5424ac1f03582d',1,'vg::SnarlManager::SnarlRecord::snarl()'],['../structvg_1_1Visit.html#a7e671bbc7437a16dd3549a6fc49fd2a9',1,'vg::Visit::snarl()']]],
   ['snarl_5fcaller',['snarl_caller',['../classvg_1_1GraphCaller.html#a4b8c6f32019db8528bb6835fdce12ddb',1,'vg::GraphCaller']]],
   ['snarl_5findexes',['snarl_indexes',['../classvg_1_1MinimumDistanceIndex.html#af4069c481be448a5ad38cd514df04fb5',1,'vg::MinimumDistanceIndex']]],
   ['snarl_5finto',['snarl_into',['../classvg_1_1SnarlManager.html#a0f1d327aa074d59976802999d0d179d1',1,'vg::SnarlManager']]],
