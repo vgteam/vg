@@ -43,13 +43,13 @@ public:
      * Represents the poseterior distribution function 
      * returns the posterir probability
      */ 
-     double log_target(PhasedGenome& phased_genome, const vector<multipath_alignment_t>& reads) const;  
+     double log_target(unique_ptr<PhasedGenome>& phased_genome, const vector<multipath_alignment_t>& reads) const;  
 
     /**
      * Generates a proposal sample over the desired distrubution
      * returns a sample from the proposal distribution
      */
-     tuple<int, const Snarl*, vector<NodeTraversal> > proposal_sample(PhasedGenome& current) const;
+     tuple<int, const Snarl*, vector<NodeTraversal> > proposal_sample(unique_ptr<PhasedGenome>& current) const;
     /**
      * Generates a number randomly using the discrete uniform distribution
      */
