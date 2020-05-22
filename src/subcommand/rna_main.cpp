@@ -50,7 +50,7 @@ void help_rna(char** argv) {
          << "    -u, --out-ref-paths        output reference transcripts in GBWT, fasta and info" << endl
          << "    -b, --write-gbwt FILE      write transcripts as threads to GBWT index file" << endl
          << "    -g, --gbwt-bidirectional   add transcripts as bidirectional threads to GBWT index" << endl
-         << "    -w, --gbwt-id-interval     transcript id interval in GBWT index [16]" << endl
+         << "    -w, --gbwt-id-interval     transcript id interval in GBWT index [8]" << endl
          << "    -f, --write-fasta FILE     write transcripts as sequences to fasta file" << endl
          << "    -i, --write-info FILE      write transcript origin info to tsv file" << endl
 
@@ -78,7 +78,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     bool output_reference_transcript_paths = false;
     string gbwt_out_filename = "";
     bool gbwt_add_bidirectional = false;
-    int32_t gbwt_id_interval = 16;
+    int32_t gbwt_id_interval = 8;
     string fasta_out_filename = "";
     string info_out_filename = "";
     int32_t num_threads = 1;
