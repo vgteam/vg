@@ -743,7 +743,8 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 	@if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
 	@if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
 	@if [ -e $(INC_DIR)/vg/vg.pb.h ] ; then \
-		HEADER_COMBINED=$$(cat $(INC_DIR)/vg/vg.pb.h | grep GOOGLE_PROTOBUF_MIN_PROTOC_VERSION | cut -d' ' -f2); \
+		cat $(INC_DIR)/vg/vg.pb.h | head -n100 ; \
+		HEADER_COMBINED=$$(cat $(INC_DIR)/vg/vg.pb.h | grep VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
 		PROTOC_MAJOR=$$(protoc --version | cut -d' ' -f2 | cut -d'.' -f1); \
 		PROTOC_MINOR=$$(protoc --version | cut -d' ' -f2 | cut -d'.' -f2); \
 		PROTOC_PATCH=$$(protoc --version | cut -d' ' -f2 | cut -d'.' -f2); \
