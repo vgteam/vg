@@ -7,6 +7,7 @@
 #include <getopt.h>
 #include <iostream>
 #include <cassert>
+#include <cstring>
 #include <map>
 #include <vector>
 #include <unordered_set>
@@ -303,7 +304,7 @@ void help_gaffe(char** argv) {
     << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
-    << "  -o, --output-format NAME      output the alignments in format NAME (GAM / GAF / JSON / TSV) [GAM]" << endl
+    << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv) [gam]" << endl
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
     << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
@@ -579,8 +580,11 @@ int main_gaffe(int argc, char** argv) {
             case 'o':
                 {
                     output_format = optarg;
+                    for (char& c : output_format) {
+                        c = std::toupper(c);
+                    }
                     if (output_formats.find(output_format) == output_formats.end()) {
-                        std::cerr << "error: [vg gaffe] Invalid output format: " << output_format << std::endl;
+                        std::cerr << "error: [vg gaffe] Invalid output format: " << optarg << std::endl;
                         std::exit(1);
                     }
                 }
@@ -730,7 +734,11 @@ int main_gaffe(int argc, char** argv) {
 
             case 'A':
                 {
-                    auto iter = rescue_algorithms.find(optarg);
+                    std::string algo_name = optarg;
+                    for (char& c : algo_name) {
+                        c = std::tolower(c);
+                    }
+                    auto iter = rescue_algorithms.find(algo_name);
                     if (iter == rescue_algorithms.end()) {
                         std::cerr << "error: [vg gaffe] Invalid rescue algorithm: " << optarg << std::endl;
                         std::exit(1);
