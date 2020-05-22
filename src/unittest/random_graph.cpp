@@ -17,7 +17,7 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
     
             
 #ifdef debug
-    cerr << "Make random graph of " << seq_size << " bp with " << variant_count << " ~" << variant_len << "-bp variants" << endl;
+    cerr << "Make random graph of " << seq_size << " bp with " << variant_count << " ~" << variant_len << "-bp large variants" << endl;
 #endif
     
     //Create a random graph for a sequence of length seq_size
