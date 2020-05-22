@@ -46,6 +46,7 @@ var searchData=
   ['add_5fto_5fnumber',['add_to_number',['../classbdsg_1_1ODGI.html#a8db273d2507e0e7960d0b1fa2d439d1b',1,'bdsg::ODGI']]],
   ['add_5ftranscript_5fsplice_5fjunctions',['add_transcript_splice_junctions',['../classvg_1_1Transcriptome.html#ac76b37c51170732a6a15394036e235df',1,'vg::Transcriptome']]],
   ['add_5ftranscripts',['add_transcripts',['../classvg_1_1Transcriptome.html#a930c70d10c70312636dee1611a3ba645',1,'vg::Transcriptome']]],
+  ['add_5ftranscripts_5fto_5fgbwt',['add_transcripts_to_gbwt',['../classvg_1_1Transcriptome.html#a4b1ed4cced20ae158f5b68522bbb00d6',1,'vg::Transcriptome']]],
   ['add_5ftraversals',['add_traversals',['../classvg_1_1ExhaustiveTraversalFinder.html#a4d93c5f43e4be897874b2468c026c0ca',1,'vg::ExhaustiveTraversalFinder']]],
   ['add_5funary_5fchild',['add_unary_child',['../classvg_1_1NetGraph.html#a3780b053c5632c4425b7057d34bffe3a',1,'vg::NetGraph']]],
   ['add_5fvariant',['add_variant',['../classvg_1_1VCFOutputCaller.html#a7200c6586a6e4f2ceb8271c9e9635fa6',1,'vg::VCFOutputCaller']]],

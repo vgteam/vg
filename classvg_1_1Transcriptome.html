@@ -104,8 +104,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a9084366eefa5e787e3f567156ab1ef87"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae30e4b25723e1eb0a1d0cbe94ef1a94a"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ae30e4b25723e1eb0a1d0cbe94ef1a94a">embed_transcript_paths</a> (const bool add_reference_paths, const bool add_non_reference_paths)</td></tr>
 <tr class="separator:ae30e4b25723e1eb0a1d0cbe94ef1a94a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a04996265f450b7e47ec35cf099972ea3"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a04996265f450b7e47ec35cf099972ea3">construct_gbwt</a> (gbwt::GBWTBuilder *gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const</td></tr>
-<tr class="separator:a04996265f450b7e47ec35cf099972ea3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b1ed4cced20ae158f5b68522bbb00d6"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a4b1ed4cced20ae158f5b68522bbb00d6">add_transcripts_to_gbwt</a> (gbwt::GBWTBuilder *gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const</td></tr>
+<tr class="separator:a4b1ed4cced20ae158f5b68522bbb00d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a21215127ca34332cff285e93c6af6258"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a21215127ca34332cff285e93c6af6258">write_sequences</a> (ostream *fasta_ostream, const bool output_reference_transcripts) const</td></tr>
 <tr class="separator:a21215127ca34332cff285e93c6af6258"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adb6cf2529eb3015e77f99ea6061e5c7b"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#adb6cf2529eb3015e77f99ea6061e5c7b">write_info</a> (ostream *tsv_ostream, const gbwt::GBWT &amp;haplotype_index, const bool output_reference_transcripts) const</td></tr>
@@ -419,6 +419,41 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a4b1ed4cced20ae158f5b68522bbb00d6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4b1ed4cced20ae158f5b68522bbb00d6">&#9670;&nbsp;</a></span>add_transcripts_to_gbwt()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t vg::Transcriptome::add_transcripts_to_gbwt </td>
+          <td>(</td>
+          <td class="paramtype">gbwt::GBWTBuilder *&#160;</td>
+          <td class="paramname"><em>gbwt_builder</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const bool&#160;</td>
+          <td class="paramname"><em>output_reference_transcripts</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const bool&#160;</td>
+          <td class="paramname"><em>add_bidirectional</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Add transcript paths as threads in GBWT index. Returns number of added threads. </p>
+
+</div>
+</div>
 <a id="aa25df56f2f2a9853c92a14e840ac0bd0"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa25df56f2f2a9853c92a14e840ac0bd0">&#9670;&nbsp;</a></span>append_transcript_paths()</h2>
 
@@ -626,41 +661,6 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Threaded edited transcript path construction. </p>
-
-</div>
-</div>
-<a id="a04996265f450b7e47ec35cf099972ea3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a04996265f450b7e47ec35cf099972ea3">&#9670;&nbsp;</a></span>construct_gbwt()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int32_t vg::Transcriptome::construct_gbwt </td>
-          <td>(</td>
-          <td class="paramtype">gbwt::GBWTBuilder *&#160;</td>
-          <td class="paramname"><em>gbwt_builder</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const bool&#160;</td>
-          <td class="paramname"><em>output_reference_transcripts</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const bool&#160;</td>
-          <td class="paramname"><em>add_bidirectional</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Add transcript paths as threads in GBWT index. Returns number of added threads. </p>
 
 </div>
 </div>
