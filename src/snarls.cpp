@@ -775,15 +775,17 @@ void SnarlManager::flip(const Snarl* snarl) {
     // Get a non-const pointer to the SnarlRecord, which we own.
     // Allowed because we ourselves aren't const.
     SnarlRecord* to_flip = (SnarlRecord*) record(snarl);
+    // Get the Snarl of it
+    Snarl* to_flip_snarl = unrecord(to_flip);
     // swap and reverse the start and end Visits
-    int64_t start_id = to_flip->start().node_id();
-    bool start_orientation = to_flip->start().backward();
+    int64_t start_id = to_flip_snarl->start().node_id();
+    bool start_orientation = to_flip_snarl->start().backward();
         
-    to_flip->mutable_start()->set_node_id(to_flip->end().node_id());
-    to_flip->mutable_start()->set_backward(!to_flip->end().backward());
+    to_flip_snarl->mutable_start()->set_node_id(to_flip_snarl->end().node_id());
+    to_flip_snarl->mutable_start()->set_backward(!to_flip_snarl->end().backward());
         
-    to_flip->mutable_end()->set_node_id(start_id);
-    to_flip->mutable_end()->set_backward(!start_orientation);
+    to_flip_snarl->mutable_end()->set_node_id(start_id);
+    to_flip_snarl->mutable_end()->set_backward(!start_orientation);
     
     if (to_flip->parent_chain != nullptr) {
         // Work out where we keep the orientation of this snarl in its parent chain
@@ -863,7 +865,8 @@ const Snarl* SnarlManager::into_which_snarl(const Visit& visit) const {
     
 unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_boundary_index() const {
     unordered_map<pair<int64_t, bool>, const Snarl*> index;
-    for (const Snarl& snarl : snarls) {
+    for (const SnarlRecord& snarl_record : snarls) {
+        const Snarl& snarl = *unrecord(&snarl_record);
         index[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
         index[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
     }
@@ -872,7 +875,8 @@ unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_boundary_in
     
 unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_end_index() const {
     unordered_map<pair<int64_t, bool>, const Snarl*> index;
-    for (const Snarl& snarl : snarls) {
+    for (const SnarlRecord& snarl_record : snarls) {
+        const Snarl& snarl = *unrecord(&snarl_record);
         index[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
     }
     return index;
@@ -880,7 +884,8 @@ unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_end_index()
     
 unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_start_index() const {
     unordered_map<pair<int64_t, bool>, const Snarl*> index;
-    for (const Snarl& snarl : snarls) {
+    for (const SnarlRecord& snarl_record : snarls) {
+        const Snarl& snarl = *unrecord(&snarl_record);
         index[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
     }
     return index;
@@ -926,7 +931,7 @@ void SnarlManager::build_indexes() {
             parent->children.push_back(&snarl);
             
             // And that its parent is its parent
-            record(&snarl)->parent = parent;
+            rec.parent = unrecord(parent);
         }
         else {
             // record top level status
@@ -935,7 +940,7 @@ void SnarlManager::build_indexes() {
 #endif
             roots.push_back(&snarl);
             
-            record(&snarl)->parent = nullptr;
+            rec.parent = nullptr;
         }
     }
         
