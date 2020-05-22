@@ -3,6 +3,8 @@
 #include <random>
 #include <time.h>
 
+#include "randomness.hpp"
+
 
 namespace vg {
 namespace unittest {
@@ -19,8 +21,7 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                   //Index of original sequence to node that starts at that index
     
     //Get random number generator for lengths and variation types
-    random_device seed_source;
-    default_random_engine generator(seed_source());
+    default_random_engine generator(test_seed_source());
     
     uniform_int_distribution<int> base_distribution(0, 3);
     poisson_distribution<size_t> length_distribution(variant_len);
@@ -225,8 +226,7 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
 vector<vector<size_t>> random_adjacency_list(size_t node_count, size_t edge_count) {
 
     // Work out how to randomly pick a node
-    random_device seed_source;
-    default_random_engine generator(seed_source());
+    default_random_engine generator(test_seed_source());
     uniform_int_distribution<size_t> node_distribution(0, node_count - 1);
     
     vector<vector<size_t>> to_return(node_count);
