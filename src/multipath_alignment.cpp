@@ -1628,8 +1628,9 @@ namespace vg {
                 to_proto_path(path, *path_copy);
             }
         }
-        
-        
+        for (auto start : multipath_aln.start()) {
+            proto_multipath_aln_out.add_start(start);
+        }
     }
 
     void from_proto_multipath_alignment(const MultipathAlignment& proto_multipath_aln,
@@ -1651,7 +1652,9 @@ namespace vg {
             }
         }
         
-        // TODO: annotations
+        for (auto start : proto_multipath_aln.start()) {
+            multipath_aln_out.add_start(start);
+        }
     }
     
     void to_multipath_alignment(const Alignment& aln, multipath_alignment_t& multipath_aln_out) {
@@ -1670,7 +1673,7 @@ namespace vg {
             subpath->set_score(aln.score());
             from_proto_path(aln.path(), *subpath->mutable_path());
         }
-        
+        identify_start_subpaths(multipath_aln_out);
     }
 
     template<class ProtoAlignment>
