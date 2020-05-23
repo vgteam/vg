@@ -12,6 +12,7 @@
 #include <vg/vg.pb.h>
 #include "catch.hpp"
 #include "random_graph.hpp"
+#include "randomness.hpp"
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
@@ -3722,8 +3723,7 @@ namespace vg {
         
             // Each actual graph takes a fairly long time to do so we randomize sizes...
             
-            random_device seed_source;
-            default_random_engine generator(seed_source());
+            default_random_engine generator(test_seed_source());
             
             for (size_t repeat = 0; repeat < 100; repeat++) {
             

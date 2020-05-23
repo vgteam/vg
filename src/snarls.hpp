@@ -604,9 +604,11 @@ private:
     /// followed by indexing metadata, one after the other in memory. We can
     /// just cast a Snarl* to a pointer to one of these to get access to all
     /// the metadata.
-    struct SnarlRecord : public Snarl {
-        // Instead of relying on the first member being at offset 0, we inherit
-        // from the Protobuf type.
+    struct alignas(alignof(Snarl)) SnarlRecord {
+        /// With recent Protobuf, we can't inherit from Protobuf generated
+        /// classes, so we rely on the first member here being at offset 0.
+        /// This is achieved by making sure SnarlRecord is aligned like Snarl. 
+        Snarl snarl;
         
         /// This is a vector of pointers into the master snarl container at
         /// children. We know the pointers are to valid SnarlRecords. A

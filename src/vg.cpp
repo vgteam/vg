@@ -3903,7 +3903,7 @@ void VG::divide_node(Node* node, vector<int>& positions, vector<Node*>& parts) {
                 
                 cerr << " -- position (" << pos << ") is less than 0 or greater than sequence length ("
                      << node->sequence().size() << ")" << endl;
-                exit(1);
+                throw runtime_error("Unacceptable node division");
             }
         }
     }
