@@ -2138,6 +2138,17 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     int64_t max_distance = fragment_length_distr.mean() + 4 * fragment_length_distr.stdev();
     distance_index.subgraph_in_range(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
 
+    // Remove node ids that do not exist in the GBWTGraph from the subgraph.
+    // We may be using the distance index of the original graph, and nodes
+    // not visited by any thread are missing from the GBWTGraph.
+    for (auto iter = rescue_nodes.begin(); iter != rescue_nodes.end(); ) {
+        if (!cached_graph.has_node(*iter)) {
+            iter = rescue_nodes.erase(iter);
+        } else {
+            ++iter;
+        }
+    }
+
     // Get rid of the old path.
     rescued_alignment.clear_path();
 

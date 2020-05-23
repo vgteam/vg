@@ -24,6 +24,10 @@ using namespace std;
 
 namespace vg {
 
+// Numerical class constants.
+constexpr size_t IndexManager::minimizer_k;
+constexpr size_t IndexManager::minimizer_w;
+
 IndexManager::IndexManager(const string& fasta_filename, const string& vcf_filename) {
     set_fasta_filename(fasta_filename);
     set_vcf_filename(vcf_filename);
