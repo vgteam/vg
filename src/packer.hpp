@@ -192,7 +192,6 @@ private:
     bool record_qualities;
     
     // Combine the MAPQ and base quality (if available) for a given position in the read
-    int compute_quality(const Alignment& aln, size_t position_in_read) const;
     int combine_qualities(int map_quality, int base_quality) const;
     
     // Avoid recomputing qualities in above (one per thread)
