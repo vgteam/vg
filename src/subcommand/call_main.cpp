@@ -349,7 +349,11 @@ int main_call(int argc, char** argv) {
                                                                 depth_scale_fac, 0, true, true);
             // Make a new-stype probablistic caller
             auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index,
-                                                                packer->has_qualities());
+                                                                //todo: qualities need to be used better in conjunction with
+                                                                //expected depth.
+                                                                //packer->has_qualities());
+                                                                false);
+
             // Pass the errors through
             poisson_caller->set_baseline_error(baseline_error_small, baseline_error_large);
                 
