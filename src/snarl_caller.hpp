@@ -209,6 +209,9 @@ public:
         int max_trav_size;
     };
 
+    /// Set some parameters
+    void set_baseline_error(double small_variant_error, double large_variant_error);
+
     /// Get the genotype of a site
     virtual pair<vector<int>, unique_ptr<CallInfo>>  genotype(const Snarl& snarl,
                                                               const vector<SnarlTraversal>& traversals,
@@ -247,8 +250,15 @@ protected:
     /// Rank supports
     vector<int> rank_by_support(const vector<Support>& supports);
 
-    /// Baseline mapping error rate (gets added to the standard error from coverage)
-    double baseline_mapping_error = 0.01;
+    /// Error rates are different for small and large variants, which depend
+    /// more on base and mapping qualities respectively.  The switch threshold
+    /// is in TraversalSupportFinder.  Error stats from the Packer object
+    /// get added to these baselines when computing the scores. 
+    
+    /// Baseline error rate for larger variants
+    double  baseline_error_large = 0.001;
+    /// Baseline error rate for smaller variants
+    double  baseline_error_small = 0.01;
 
     /// Consider up to the top-k traversals (based on support) for genotyping
     size_t top_k = 20;
