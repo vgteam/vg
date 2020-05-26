@@ -493,14 +493,14 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
                     int direction = mapping.position().is_reverse() ? -1 : 1;
                     for (size_t j = 0; j < edit.from_length(); ++j, ++position_in_read) {
                         int64_t coverage_idx = i + direction * j;
-                        int base_quality = !aln.quality().empty() ? (int)aln.quality()[position_in_read] : -1;
+                        int base_quality = compute_quality(aln, position_in_read);
                         bq_total += base_quality;
                         ++bq_count;
                         // base quality threshold filter (only if we found some kind of quality)
                         if (base_quality < 0 || base_quality >= min_baseq) {
                             increment_coverage(coverage_idx);
-                            if (record_qualities) {
-                                total_node_quality += combine_qualities(mapping_quality, base_quality);
+                            if (record_qualities && mapping_quality > 0) {
+                                total_node_quality += mapping_quality;
                             }
                         }
                     }         
@@ -1036,6 +1036,15 @@ ostream& Packer::show_structure(ostream& out) {
     //out << " i SA ISA PSI LF BWT    T[SA[i]..SA[i]-1]" << endl;
     //csXprintf(cout, "%2I %2S %3s %3P %2p %3B   %:3T", edit_csa);
     return out;
+}
+
+int Packer::compute_quality(const Alignment& aln, size_t position_in_read) const {
+    int map_quality = (int)aln.mapping_quality();
+    int base_quality = -1;
+    if (!aln.quality().empty()) {
+        base_quality = (int)aln.quality()[position_in_read];
+    }
+    return combine_qualities(map_quality, base_quality);
 }
 
 int Packer::combine_qualities(int map_quality, int base_quality) const {
