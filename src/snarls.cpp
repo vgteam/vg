@@ -11,6 +11,8 @@
 #include "json2pb.h"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/is_acyclic.hpp"
+// TODO: This is where the head and tail finding algorithms live
+#include "algorithms/topological_sort.hpp"
 #include "algorithms/weakly_connected_components.hpp"
 #include "subgraph_overlay.hpp"
 

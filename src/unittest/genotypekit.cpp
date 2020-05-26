@@ -952,7 +952,7 @@ TEST_CASE("IntegratedSnarlFinder sees tips as disqualifying ultrabubbles", "[gen
     REQUIRE(snarl->type() == UNCLASSIFIED);
     
     // Grab some other trivial snarl
-    const Snarl snarl2 = manager.into_which_snarl(1, false);
+    const Snarl* snarl2 = manager.into_which_snarl(1, false);
     
     // Make sure it is still an ultrabubble
     REQUIRE(snarl2 != nullptr);

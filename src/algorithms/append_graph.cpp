@@ -1,6 +1,6 @@
 #include "append_graph.hpp"
 
-#include "topological_sort.hpp"
+#include "find_tips.hpp"
 #include "copy_graph.hpp"
 
 using namespace std;
