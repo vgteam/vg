@@ -258,7 +258,7 @@ protected:
     /// Baseline error rate for larger variants
     double  baseline_error_large = 0.001;
     /// Baseline error rate for smaller variants
-    double  baseline_error_small = 0.01;
+    double  baseline_error_small = 0.005;
 
     /// Consider up to the top-k traversals (based on support) for genotyping
     size_t top_k = 20;
