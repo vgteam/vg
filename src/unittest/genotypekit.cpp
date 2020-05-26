@@ -902,6 +902,56 @@ TEST_CASE("IntegratedSnarlFinder prefers to root at a cycle that is 1 bp longer"
     REQUIRE(sites[1]->end().backward() == false);
 }
 
+TEST_CASE("IntegratedSnarlFinder sees tips as disqualifying ultrabubbles", "[genotype][integrated-snarl-finder]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+
+    {
+        "node": [
+            {"id": 1, "sequence": "GGGGG"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "C"},
+            {"id": 4, "sequence": "G"},
+            {"id": 5, "sequence": "T"},
+            {"id": 6, "sequence": "AAAAA"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 2, "to": 5},
+            {"from": 5, "to": 6},
+            {"from": 3, "to": 4},
+            {"from": 4, "to": 5}
+        ]
+    }
+
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Make an IntegratedSnarlFinder
+    unique_ptr<SnarlFinder> finder(new IntegratedSnarlFinder(graph));
+
+    SnarlManager manager = finder->find_snarls();
+        
+    auto sites = manager.top_level_snarls();
+        
+    // There should just be 3 top level snarls, two trivial and the one we care about.
+    REQUIRE(sites.size() == 3);
+    
+    // Grab the snarl we care about
+    const Snarl* snarl = manager.into_which_snarl(2, false);
+    
+    REQUIRE(snarl != nullptr);
+    
+    // The snarl shouldn't be an ultrabubble because it has tips.
+    REQUIRE(snarl->type() == UNCLASSIFIED);
+}
+
 TEST_CASE("CactusSnarlFinder throws an error instead of crashing when the graph has no edges", "[genotype][cactus-snarl-finder]") {
     
   // Build a toy graph
