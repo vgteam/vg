@@ -950,6 +950,13 @@ TEST_CASE("IntegratedSnarlFinder sees tips as disqualifying ultrabubbles", "[gen
     
     // The snarl shouldn't be an ultrabubble because it has tips.
     REQUIRE(snarl->type() == UNCLASSIFIED);
+    
+    // Grab some other trivial snarl
+    const Snarl snarl2 = manager.into_which_snarl(1, false);
+    
+    // Make sure it is still an ultrabubble
+    REQUIRE(snarl2 != nullptr);
+    REQUIRE(snarl2->type() == ULTRABUBBLE);
 }
 
 TEST_CASE("CactusSnarlFinder throws an error instead of crashing when the graph has no edges", "[genotype][cactus-snarl-finder]") {
