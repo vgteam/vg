@@ -734,6 +734,7 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 
 
 .pre-build:
+	@protoc --version >/dev/null 2>/dev/null || (echo "Error: protobuf compiler (protoc) not available!" ; exit 1)
 	@if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi
 	@if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
 	@if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
@@ -743,18 +744,21 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 	@if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
 	@if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
 	@if [ -e $(INC_DIR)/vg/vg.pb.h ] ; then \
-		HEADER_COMBINED=$$(cat $(INC_DIR)/vg/vg.pb.h | grep VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
-		PROTOC_MAJOR=$$(protoc --version | cut -d' ' -f2 | cut -d'.' -f1); \
-		PROTOC_MINOR=$$(protoc --version | cut -d' ' -f2 | cut -d'.' -f2); \
-		PROTOC_PATCH=$$(protoc --version | cut -d' ' -f2 | cut -d'.' -f3); \
-		PROTOC_COMBINED=$$(expr '(' $${PROTOC_MAJOR} '*' 1000 '+' $${PROTOC_MINOR} ')' '*' 1000 '+' $${PROTOC_PATCH}); \
-		if [ "$${HEADER_COMBINED}" != "$${PROTOC_COMBINED}" ] ; then \
+		HEADER_VER=$$(cat $(INC_DIR)/vg/vg.pb.h | grep GOOGLE_PROTOBUF_VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
+		WORKDIR=$$(pwd); \
+		TESTDIR=$$(mktemp -d); \
+		echo 'syntax = "proto3";' > $${TESTDIR}/empty.proto; \
+		protoc $${TESTDIR}/empty.proto --proto_path=$${TESTDIR} --cpp_out=$${TESTDIR}; \
+		PROTOC_VER=$$(cat $${TESTDIR}/empty.pb.h | grep GOOGLE_PROTOBUF_VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
+		if [ "$${HEADER_VER}" != "$${PROTOC_VER}" ] ; then \
 			echo "Protobuf version has changed!"; \
-			echo "Headers are from $${HEADER_COMBINED} but we have $${PROTOC_COMBINED}"; \
+			echo "Headers are for $${HEADER_VER} but we make headers for $${PROTOC_VER}"; \
 			echo "Need to rebuild libvgio"; \
 			rm -f $(LIB_DIR)/libvgio.a; \
 			rm -f $(INC_DIR)/vg/vg.pb.h; \
 		fi; \
+		rm $${TESTDIR}/empty.proto $${TESTDIR}/empty.pb.h $${TESTDIR}/empty.pb.cc; \
+		rmdir $${TESTDIR}; \
 	fi;
 	
 	
