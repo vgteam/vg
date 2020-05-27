@@ -3,7 +3,7 @@
 
 
 """
-giraffe-facts.py: process a GAM file from the new minimizer-based mapper (vggiraffe) and report runtime statistics by filter.
+giraffe-facts.py: process a GAM file from the new minimizer-based mapper (vg giraffe) and report runtime statistics by filter.
 """
 
 import argparse
