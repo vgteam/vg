@@ -97,6 +97,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aebde111c1431bf4af46929d8e56c7031"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5bef85e69a8ae047888c4fb72356f215"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a5bef85e69a8ae047888c4fb72356f215">~PoissonSupportSnarlCaller</a> ()</td></tr>
 <tr class="separator:a5bef85e69a8ae047888c4fb72356f215"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a41964acba3d81c26b01f9b00cd49257a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a41964acba3d81c26b01f9b00cd49257a">set_baseline_error</a> (double small_variant_error, double large_variant_error)</td></tr>
+<tr class="memdesc:a41964acba3d81c26b01f9b00cd49257a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set some parameters.  <a href="#a41964acba3d81c26b01f9b00cd49257a">More...</a><br /></td></tr>
+<tr class="separator:a41964acba3d81c26b01f9b00cd49257a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1be3298970827475c5b96486d58fd833"><td class="memItemLeft" align="right" valign="top">virtual pair&lt; vector&lt; int &gt;, unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">CallInfo</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a1be3298970827475c5b96486d58fd833">genotype</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, int ref_trav_idx, int ploidy, const string &amp;ref_path_name, pair&lt; size_t, size_t &gt; ref_range)</td></tr>
 <tr class="memdesc:a1be3298970827475c5b96486d58fd833"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the genotype of a site.  <a href="#a1be3298970827475c5b96486d58fd833">More...</a><br /></td></tr>
 <tr class="separator:a1be3298970827475c5b96486d58fd833"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -137,9 +140,12 @@ Protected Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
-<tr class="memitem:a7101c0898101d20519f0ab538827259b"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a7101c0898101d20519f0ab538827259b">baseline_mapping_error</a> = 0.01</td></tr>
-<tr class="memdesc:a7101c0898101d20519f0ab538827259b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Baseline mapping error rate (gets added to the standard error from coverage)  <a href="#a7101c0898101d20519f0ab538827259b">More...</a><br /></td></tr>
-<tr class="separator:a7101c0898101d20519f0ab538827259b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9164191ad441f1323f4b6cd406bc4030"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a9164191ad441f1323f4b6cd406bc4030">baseline_error_large</a> = 0.001</td></tr>
+<tr class="memdesc:a9164191ad441f1323f4b6cd406bc4030"><td class="mdescLeft">&#160;</td><td class="mdescRight">Baseline error rate for larger variants.  <a href="#a9164191ad441f1323f4b6cd406bc4030">More...</a><br /></td></tr>
+<tr class="separator:a9164191ad441f1323f4b6cd406bc4030"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a68e6d4d6785bdb4eca4f57504b7dcd21"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a68e6d4d6785bdb4eca4f57504b7dcd21">baseline_error_small</a> = 0.005</td></tr>
+<tr class="memdesc:a68e6d4d6785bdb4eca4f57504b7dcd21"><td class="mdescLeft">&#160;</td><td class="mdescRight">Baseline error rate for smaller variants.  <a href="#a68e6d4d6785bdb4eca4f57504b7dcd21">More...</a><br /></td></tr>
+<tr class="separator:a68e6d4d6785bdb4eca4f57504b7dcd21"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4610e26e36319f7b2620566c7b655c63"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a4610e26e36319f7b2620566c7b655c63">top_k</a> = 20</td></tr>
 <tr class="memdesc:a4610e26e36319f7b2620566c7b655c63"><td class="mdescLeft">&#160;</td><td class="mdescRight">Consider up to the top-k traversals (based on support) for genotyping.  <a href="#a4610e26e36319f7b2620566c7b655c63">More...</a><br /></td></tr>
 <tr class="separator:a4610e26e36319f7b2620566c7b655c63"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -427,6 +433,36 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a41964acba3d81c26b01f9b00cd49257a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a41964acba3d81c26b01f9b00cd49257a">&#9670;&nbsp;</a></span>set_baseline_error()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::PoissonSupportSnarlCaller::set_baseline_error </td>
+          <td>(</td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>small_variant_error</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>large_variant_error</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Set some parameters. </p>
+
+</div>
+</div>
 <a id="a2872f6728e288de01d5403fcdb76a05b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2872f6728e288de01d5403fcdb76a05b">&#9670;&nbsp;</a></span>update_vcf_header()</h2>
 
@@ -522,8 +558,8 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="a7101c0898101d20519f0ab538827259b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7101c0898101d20519f0ab538827259b">&#9670;&nbsp;</a></span>baseline_mapping_error</h2>
+<a id="a9164191ad441f1323f4b6cd406bc4030"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9164191ad441f1323f4b6cd406bc4030">&#9670;&nbsp;</a></span>baseline_error_large</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -532,7 +568,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">double vg::PoissonSupportSnarlCaller::baseline_mapping_error = 0.01</td>
+          <td class="memname">double vg::PoissonSupportSnarlCaller::baseline_error_large = 0.001</td>
         </tr>
       </table>
   </td>
@@ -542,7 +578,32 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Baseline mapping error rate (gets added to the standard error from coverage) </p>
+<p>Baseline error rate for larger variants. </p>
+<p>Error rates are different for small and large variants, which depend more on base and mapping qualities respectively. The switch threshold is in <a class="el" href="classvg_1_1TraversalSupportFinder.html">TraversalSupportFinder</a>. Error stats from the <a class="el" href="classvg_1_1Packer.html">Packer</a> object get added to these baselines when computing the scores. </p>
+
+</div>
+</div>
+<a id="a68e6d4d6785bdb4eca4f57504b7dcd21"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a68e6d4d6785bdb4eca4f57504b7dcd21">&#9670;&nbsp;</a></span>baseline_error_small</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::PoissonSupportSnarlCaller::baseline_error_small = 0.005</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Baseline error rate for smaller variants. </p>
 
 </div>
 </div>
