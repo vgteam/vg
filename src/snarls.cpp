@@ -778,7 +778,9 @@ const Snarl* SnarlManager::discrete_uniform_sample(minstd_rand0& random_engine)c
     // unif[a,b]
     uniform_int_distribution<int> distribution(0, number_of_snarls-1);  
     int random_num = distribution(random_engine);
-    
+#ifdef debug
+    cerr << "modifying snarl num " << random_num << endl ;  
+#endif
     const Snarl* random_snarl = unrecord(&snarls[random_num]);
 
     return random_snarl;
