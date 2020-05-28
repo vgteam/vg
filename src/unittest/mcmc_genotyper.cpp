@@ -79,7 +79,7 @@ namespace vg {
                 REQUIRE(multipath_aln.start_size() > 0);
                 
             
-                // create a set of 2 possible solutions
+                // create a set of possible solutions
                 vector<NodeTraversal> soln1;
                 soln1 = {NodeTraversal(n1)};
                 
@@ -87,7 +87,7 @@ namespace vg {
                 set<vector<NodeTraversal>> solns_set;
                 solns_set.insert(soln1);
 
-                 // move the genome haplotype into a vector
+                // move the genome haplotype into a vector
                 vector<NodeTraversal> haplotype1, haplotype2;
                 copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
                 copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
@@ -1024,6 +1024,182 @@ namespace vg {
             }
             
         }
+        TEST_CASE("Test9"){
+            //The likelihood doubles if it is present on two haplotypes
+            SECTION("Test9: read-log-likelihood works"){
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("CTGA");
+
+                // picked the suboptimal path so vg can have something to do
+                path_handle_t path_handle = graph.create_path_handle("x");
+                graph.append_step(path_handle, graph.get_handle(n1->id()));
+                graph.append_step(path_handle, graph.get_handle(n3->id()));
+                graph.append_step(path_handle, graph.get_handle(n4->id()));
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n4);
+                graph.create_edge(n3, n4);
+                
+                CactusSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls();
+
+                multipath_alignment_t multipath_aln;
+                multipath_aln.set_sequence("GCA");
+                multipath_aln.set_mapping_quality(60);
+                
+                subpath_t* subpath = multipath_aln.add_subpath();
+                path_t* path = subpath->mutable_path();
+                path_mapping_t* mapping = path->add_mapping();
+                position_t* position = mapping->mutable_position();
+                position->set_node_id(n1->id());
+                position->set_is_reverse(false);
+                edit_t* edit = mapping->add_edit();
+                edit->set_from_length(3);
+                edit->set_to_length(3);
+                subpath->set_score(3);
+                
+                multipath_aln.add_start(0);  
+
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
+                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
+                vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>({multipath_aln});
+                unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
+             
+                
+                // check requirements
+                // here the optimal solution is that both haplotypes match to the read
+                REQUIRE(genome->num_haplotypes() == 2);
+                REQUIRE(multipath_aln.start_size() > 0);
+
+                vector<NodeTraversal> soln1, soln2;
+                soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4)};
+                soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4)};
+                
+
+                set<vector<NodeTraversal>> solns_set;
+                solns_set.insert(soln1);
+                solns_set.insert(soln2);
+
+                // move the genome haplotype into a vector
+                vector<NodeTraversal> haplotype1, haplotype2;
+                copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
+                copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
+                
+                // check haplotypes are indeed in optimal solution set
+                bool pass = false;
+                if(solns_set.count(haplotype1)&& solns_set.count(haplotype2)){
+                    pass = true;
+                }
+                // requires both haplotypes to match the one read
+                REQUIRE(pass);
+                cerr << "score with log_base " << genome->read_log_likelihood(multipath_aln, log_base) << endl;
+                cerr << "score with 1.0 " << genome->read_log_likelihood(multipath_aln, 1.0) <<endl;
+                cerr << "equivalent " << (3.0 + log(2.0)) <<endl;   
+                // REQUIRE(abs(genome->read_log_likelihood(multipath_aln, log_base) - (3.0 + log(2.0))) < .001);
+                genome->print_phased_genome();
+            }
+        }
+        TEST_CASE("Test10"){
+            //Returns optimal phased genome on a 8-node graph 2 nested snarls with 1 short read
+            SECTION("mcmc_genotyper works with read-log-likelihood using multipath_mapper") {   
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("CTGA");
+
+                // picked the suboptimal path so vg can have something to do
+                path_handle_t path_handle = graph.create_path_handle("x");
+                graph.append_step(path_handle, graph.get_handle(n1->id()));
+                graph.append_step(path_handle, graph.get_handle(n3->id()));
+                graph.append_step(path_handle, graph.get_handle(n4->id()));
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n4);
+                graph.create_edge(n3, n4);
+                
+
+                CactusSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                multipath_alignment_t multipath_aln;
+                multipath_aln.set_mapping_quality(60);
+
+                // Configure GCSA temp directory to the system temp directory
+                gcsa::TempFile::setDirectory(temp_file::get_dir());
+                // And make it quiet
+                gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+                
+                // Make pointers to fill in
+                gcsa::GCSA* gcsaidx = nullptr;
+                gcsa::LCPArray* lcpidx = nullptr;
+                
+                // Build the GCSA index
+                build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3); 
+                
+                // Build the xg index
+                xg::XG xg_index; 
+                xg_index.from_path_handle_graph(graph);              
+
+                // Make a multipath mapper to map against the graph.
+                MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
+                
+                vector<string> reads = {"GCA"};
+                vector<Alignment> alns = {reads.size(), Alignment()};
+
+                // set alignment sequence
+                for(int i = 0; i< reads.size(); i++){
+                    alns[i].set_sequence(reads[i]);
+                }
+
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
+                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
+                vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>({multipath_aln});
+                unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
+             
+                
+                // check requirements
+                // here the optimal solution is that both haplotypes match to the read
+                REQUIRE(genome->num_haplotypes() == 2);
+
+
+                vector<NodeTraversal> soln1, soln2;
+                soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n4)};
+                soln2 = {NodeTraversal(n1), NodeTraversal(n3), NodeTraversal(n4)};
+                
+
+                set<vector<NodeTraversal>> solns_set;
+                solns_set.insert(soln1);
+                solns_set.insert(soln2);
+
+                // move the genome haplotype into a vector
+                vector<NodeTraversal> haplotype1, haplotype2;
+                copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
+                copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
+                
+                // check haplotypes are indeed in optimal solution set
+                bool pass = false;
+                if(solns_set.count(haplotype1)&& solns_set.count(haplotype2)){
+                    pass = true;
+                }
+                // requires both haplotypes to match the one read
+                REQUIRE(pass);   
+
+                cerr << "score with log_base " << genome->read_log_likelihood(multipath_aln, log_base) << endl;
+                cerr << "score with 1.0 " << genome->read_log_likelihood(multipath_aln, 1.0) <<endl;
+                cerr << "equivalent " << (3.0 + log(2.0)) <<endl;
+                // REQUIRE(abs(genome->read_log_likelihood(multipath_aln, log_base) - (3.0 + log(2.0))) < .001);
+                genome->print_phased_genome();
+
+            
+            }
+        }    
 
     }
 

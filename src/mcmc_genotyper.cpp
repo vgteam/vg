@@ -7,7 +7,7 @@
 #include <utility>
 #include "multipath_alignment.hpp"
 
-// #define debug_mcmc
+#define debug_mcmc
 
 namespace vg {
 
@@ -62,12 +62,12 @@ namespace vg {
                 cerr << "x_new " << x_new <<endl;        
 #endif  
                 // for optimal_score_on_genome()
-                double likelihood_ratio = exp((x_new - x_prev));
-                curret_log_likelihood = previous_log_likelihood + log_base*(x_new-x_prev);
+                // double likelihood_ratio = exp((x_new - x_prev));
+                // curret_log_likelihood = previous_log_likelihood + log_base*(x_new-x_prev);
 
                 // for read_log_likelihood()
-                // double likelihood_ratio = exp(x_new - x_prev);
-                // curret_log_likelihood = previous_log_likelihood + (x_new-x_prev);
+                double likelihood_ratio = exp(x_new - x_prev);
+                curret_log_likelihood = previous_log_likelihood + (x_new-x_prev);
 
 #ifdef debug_mcmc              
                 cerr << "proposal_likelihood " << curret_log_likelihood <<endl;         
@@ -127,12 +127,12 @@ namespace vg {
         
         // get scores for mp alignments 
         for(const multipath_alignment_t& mp : reads){
-            sum_scores += phased_genome->optimal_score_on_genome(mp, graph);
+            // sum_scores += phased_genome->optimal_score_on_genome(mp, graph);
 
  #ifdef debug_mcmc 
             cerr << "score: " << phased_genome->read_log_likelihood(mp, log_base) <<endl;
 #endif          
-            // sum_scores += phased_genome->read_log_likelihood(mp, log_base);       
+            sum_scores += phased_genome->read_log_likelihood(mp, log_base);       
         } 
 #ifdef debug_mcmc 
             cerr << "sum score: " << sum_scores <<endl;
