@@ -22,7 +22,7 @@ is $? 0 "default parameters"
 vg minimizer -t 1 -i x.mi -g x.gbwt x.xg
 is $? 0 "single-threaded construction"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 1a9e7e953b2c921b78bb847d8019774d "construction is deterministic"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 4e409c662cb41fc6dcd4c8a245ee2a1d "construction is deterministic"
 
 # Minimizer parameters
 vg minimizer -t 1 -k 7 -w 3 -i x.mi -g x.gbwt x.xg
@@ -35,13 +35,13 @@ vg gbwt -x x.xg -g x.gg x.gbwt
 vg minimizer -t 1 -g x.gbwt -G -i x.mi x.gg
 is $? 0 "construction from GBWTGraph"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 1a9e7e953b2c921b78bb847d8019774d "construction is deterministic"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 4e409c662cb41fc6dcd4c8a245ee2a1d "construction is deterministic"
 
 # Store payload in the index
 vg minimizer -t 1 -i x.mi -g x.gbwt -d x.dist -G x.gg
 is $? 0 "construction with payload"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 41449d6fc61acefbd27fc714a7e50996 "construction is deterministic"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 37b3778ab99e3a751765cb84d5440f25 "construction is deterministic"
 
 rm -f x.vg x.xg x.gbwt x.snarls x.dist x.mi x.extracted.mi x.gg
 
@@ -59,7 +59,7 @@ is $? 0 "multiple graphs: first"
 vg minimizer -t 1 -l x.mi -i xy.mi -g y.gbwt y.xg
 is $? 0 "multiple graphs: second"
 vg view --extract-tag MinimizerIndex xy.mi > xy.extracted.mi
-is $(md5sum xy.extracted.mi | cut -f 1 -d\ ) 633b3965745c53aef25d8b7e42d55eb3 "construction is deterministic"
+is $(md5sum xy.extracted.mi | cut -f 1 -d\ ) 04a93695acc3b169721f4a6510cc8705 "construction is deterministic"
 
 rm -f x.vg y.vg
 rm -f x.xg y.xg

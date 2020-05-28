@@ -1,6 +1,7 @@
 #include "aligner.hpp"
 
 #include "hash_map.hpp"
+#include "algorithms/find_tips.hpp"
 
 //#define debug_print_score_matrices
 

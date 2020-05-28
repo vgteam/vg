@@ -17,6 +17,7 @@
 #include "subcommand.hpp"
 #include "../algorithms/distance_to_head.hpp"
 #include "../algorithms/distance_to_tail.hpp"
+#include "../algorithms/find_tips.hpp"
 #include "../algorithms/is_acyclic.hpp"
 #include "../algorithms/strongly_connected_components.hpp"
 #include "../algorithms/weakly_connected_components.hpp"
