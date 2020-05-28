@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['gaffe_5fmain_2ecpp',['gaffe_main.cpp',['../gaffe__main_8cpp.html',1,'']]],
   ['gafkluge_2ehpp',['gafkluge.hpp',['../gafkluge_8hpp.html',1,'']]],
   ['gamcompare_5fmain_2ecpp',['gamcompare_main.cpp',['../gamcompare__main_8cpp.html',1,'']]],
   ['gamsort_5fmain_2ecpp',['gamsort_main.cpp',['../gamsort__main_8cpp.html',1,'']]],
@@ -22,6 +21,7 @@ var searchData=
   ['gfa_5fto_5fhandle_2ehpp',['gfa_to_handle.hpp',['../gfa__to__handle_8hpp.html',1,'']]],
   ['gff_5freader_2ecpp',['gff_reader.cpp',['../gff__reader_8cpp.html',1,'']]],
   ['gff_5freader_2ehpp',['gff_reader.hpp',['../gff__reader_8hpp.html',1,'']]],
+  ['giraffe_5fmain_2ecpp',['giraffe_main.cpp',['../giraffe__main_8cpp.html',1,'']]],
   ['graph_2ecpp',['graph.cpp',['../graph_8cpp.html',1,'']]],
   ['graph_2ehpp',['graph.hpp',['../graph_8hpp.html',1,'']]],
   ['graph_5fcaller_2ecpp',['graph_caller.cpp',['../graph__caller_8cpp.html',1,'']]],
