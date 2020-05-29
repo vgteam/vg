@@ -27,18 +27,28 @@ include $(wildcard $(IO_OBJ_DIR)/*.d)
 include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 
+# What pkg-config-controlled system dependencies should we use compile and link flags from?
+# Use PKG_CONFIG_PATH to point the build system at the right versions of these, if they aren't picked up automatically.
+# We can't do this for our bundled, pkg-config-supporting dependencies (like htslib) because they won't be built yet.
+PKG_CONFIG_DEPS := cairo jansson 
+# These are like PKG_CONFIG_DEPS but we try to always link them statically, if possible.
+PKG_CONFIG_STATIC_DEPS := protobuf 
+
 # We don't ask for -fopenmp here because how we get it can depend on the compiler.
 CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g -MMD -MP $(CXXFLAGS)
 
 # Set include flags. All -I options need to go in here, so the first directory listed is genuinely searched first.
-INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell pkg-config --cflags cairo jansson)
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell pkg-config --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS))
 
-# Define libraries to link against. Make sure to always link statically against
-# htslib and libdeflate and Protobuf so that we can use position-dependent code
-# there for speed.
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lprotobuf -lsublinearLS $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lpthread -ljansson -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
-# Use pkg-config to find Cairo and all the libs it uses
-LD_LIB_FLAGS += $(shell pkg-config --libs --static cairo jansson)
+# Define libraries to link against.
+LD_LIB_FLAGS := -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lvw -lboost_program_options -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
+# We define some more libraries to link against at the end, in static linking mode if possible, so we can use faster non-PIC code.
+LD_STATIC_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lpthread -lz -lm -lbz2 -llzma
+# Use pkg-config to find dependencies.
+# Always use --static so that we have the -l flags for transitive dependencies, in case we're doing a full static build.
+# But only force static linking of the dependencies we want to use non-PIC code for, for speed.
+LD_LIB_FLAGS += $(shell pkg-config --libs --static $(PKG_CONFIG_DEPS))
+LD_STATIC_LIB_FLAGS += $(shell pkg-config --libs --static $(PKG_CONFIG_STATIC_DEPS))
 
 # Travis needs -latomic for all builds *but* GCC on Mac
 ifeq ($(strip $(shell $(CXX) -latomic /dev/null -o/dev/null 2>&1 | grep latomic | wc -l)), 0)
@@ -118,14 +128,14 @@ ifeq ($(shell uname -s),Darwin)
     # more restrictive we can have trouble inlining parts of the standard
     # library that were built for something less restrictive.
     CXXFLAGS += -march=native
-
+    
     # Note shared libraries are dylibs
     SHARED_SUFFIX = dylib
-    # Define options to start and end static linking of libraries.
-    # We don't actually do any static linking on Mac, so we leave these empty.
+    # Define options to start static linking of libraries.
+    # We don't actually do any static linking on Mac, so we leave this empty.
     START_STATIC =
     END_STATIC =
-
+    
 else
     # We are not running on OS X
     # We can also have a normal Unix rpath
@@ -142,11 +152,12 @@ else
 
     # We care about building for SSE4.2 only and not AVX, to have vaguely portable binaries
     CXXFLAGS += -msse4.2
-	
+    
     # Note shared libraries are so files
     SHARED_SUFFIX = so
-    # Define options to start and end static linking of libraries on GNU ld
+    # Define options to start static linking of libraries on GNU ld.
     START_STATIC = -Wl,-Bstatic
+    # Note that END_STATIC is only safe to use in a mostly-dynamic build, and has to appear or we will try to statically link secret trailing libraries.
     END_STATIC = -Wl,-Bdynamic
 endif
 
@@ -154,7 +165,7 @@ endif
 export CXXFLAGS
 
 # These libs need to come after libdw if used, because libdw depends on them
-LD_LIB_FLAGS += -ldl -llzma
+LD_LIB_FLAGS += -ldl -llzma -lbz2
 
 # Sometimes we need to filter the assembler output. The assembler can run during
 # ./configure scripts, compiler calls, or $(MAKE) calls (other than $(MAKE)
@@ -324,12 +335,12 @@ endif
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC)
 
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
 $(LIB_DIR)/vg_is_static: $(INC_DIR)/vg_environment_version.hpp $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+	$(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(LD_STATIC_LIB_FLAGS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
@@ -376,7 +387,7 @@ else
 endif
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
-	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(FILTER)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
 
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
