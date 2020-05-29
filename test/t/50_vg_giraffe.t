@@ -13,7 +13,7 @@ vg snarls --include-trivial x.vg > x.snarls
 vg index -s x.snarls -j x.dist x.vg
 vg minimizer -k 29 -w 11 -g x.gbwt -i x.min x.xg
 
-vg gaffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with all indexes specified without crashing"
 
 rm -f x.vg x.xg x.gbwt x.snarls x.min x.dist x.gg
@@ -22,7 +22,7 @@ cp small/x.fa .
 cp small/x.vcf.gz .
 cp small/x.vcf.gz.tbi .
 
-vg gaffe x.fa x.vcf.gz -f reads/small.middle.ref.fq > mapped2.gam
+vg giraffe x.fa x.vcf.gz -f reads/small.middle.ref.fq > mapped2.gam
 is "${?}" "0" "a read can be mapped with just FASTA and VCF without crashing"
 
 # These files can differ as serialized and still represent the same data, dur to protobuf field order not being specified.

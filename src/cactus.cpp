@@ -1,7 +1,7 @@
 #include <unordered_set>
 #include "cactus.hpp"
 #include "vg.hpp"
-#include "algorithms/topological_sort.hpp"
+#include "algorithms/find_tips.hpp"
 #include "algorithms/weakly_connected_components.hpp"
 #include "algorithms/strongly_connected_components.hpp"
 #include "algorithms/find_shortest_paths.hpp"
@@ -321,26 +321,19 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
         }
     }
        
-    // Then we find the heads and tails
-    auto all_heads = algorithms::head_nodes(&graph);
-    auto all_tails = algorithms::tail_nodes(&graph);
+    // Then we find all the tips, inward-facing
+    auto all_tips = algorithms::find_tips(&graph);
     
 #ifdef debug
-    cerr << "Found " << all_heads.size() << " heads and " << all_tails.size() << " tails in graph" << endl;
+    cerr << "Found " << all_tips.size() << " tips in graph" << endl;
 #endif
     
-    // Alot them to components. We store tips in an inward-facing direction
+    // Allot them to components. We store tips in an inward-facing direction
     vector<unordered_set<handle_t>> component_tips(weak_components.size());
-    for (auto& head : all_heads) {
-        component_tips[node_to_component[graph.get_id(head)]].insert(head);
+    for (auto& tip : all_tips) {
+        component_tips[node_to_component[graph.get_id(tip)]].insert(tip);
 #ifdef debug
-        cerr << "Found head " << graph.get_id(head) << " in component " << node_to_component[graph.get_id(head)] << endl;
-#endif
-    }
-    for (auto& tail : all_tails) {
-        component_tips[node_to_component[graph.get_id(tail)]].insert(graph.flip(tail));
-#ifdef debug
-        cerr << "Found tail " << graph.get_id(tail) << " in component " << node_to_component[graph.get_id(tail)] << endl;
+        cerr << "Found tip " << graph.get_id(tip) << (graph.get_is_reverse(tip) ? '-' : '+') << " in component " << node_to_component[graph.get_id(tip)] << endl;
 #endif
     }
     

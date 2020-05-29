@@ -629,30 +629,36 @@ gafkluge::GafRecord alignment_to_gaf(const HandleGraph& graph, const Alignment& 
         gaf.path_length = 0;
         //8 int Start position on the path (0-based)
         gaf.path_start = 0;
-        //9 int End position on the path (0-based)
-        uint64_t end_position = 0;
         //10 int Number of residue matches
         gaf.matches = 0;
         gaf.path.reserve(aln.path().mapping_size());
         string cs_cigar_str;
         size_t running_match_length = 0;
         size_t total_to_len = 0;
+        size_t prev_offset;
         for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
             auto& mapping = aln.path().mapping(i);
             size_t offset = mapping.position().offset();
             string node_seq;
             handle_t handle = graph.get_handle(mapping.position().node_id(), mapping.position().is_reverse());
+            bool skip_step = false;
             if (i == 0) {
                 // use path_start to store the offset of the first node
                 gaf.path_start = offset;
             } else if (cs_cigar == true && offset > 0) {
-                // to support split-mappings we gobble up the beginnings
-                // of nodes using deletions since unlike GAM, we can only
-                // set the offset of the first node
-                if (node_seq.empty()) {
-                    node_seq = graph.get_sequence(handle);
+                if (offset == prev_offset && mapping.position().node_id() == aln.path().mapping(i -1).position().node_id() &&
+                    mapping.position().is_reverse() == aln.path().mapping(i -1).position().is_reverse()) {
+                    // our mapping is redundant, we won't write a step for it
+                    skip_step = true;
+                } else {
+                    // to support split-mappings we gobble up the beginnings
+                    // of nodes using deletions since unlike GAM, we can only
+                    // set the offset of the first node
+                    if (node_seq.empty()) {
+                        node_seq = graph.get_sequence(handle);
+                    }
+                    cs_cigar_str += "-" + node_seq.substr(0, offset);
                 }
-                cs_cigar_str += "-" + node_seq.substr(0, offset);
             }
             for (size_t j = 0; j < mapping.edit_size(); ++j) {
                 auto& edit = mapping.edit(j);
@@ -695,7 +701,6 @@ gafkluge::GafRecord alignment_to_gaf(const HandleGraph& graph, const Alignment& 
                 total_to_len += edit.to_length();
             }
 
-            bool skip_step = false;
             if (i < aln.path().mapping_size() - 1 && offset != graph.get_length(handle)) {
                 if (mapping.position().node_id() != aln.path().mapping(i + 1).position().node_id() ||
                     mapping.position().is_reverse() != aln.path().mapping(i + 1).position().is_reverse()) {
@@ -725,16 +730,20 @@ gafkluge::GafRecord alignment_to_gaf(const HandleGraph& graph, const Alignment& 
                 step.is_stable = false;
                 step.is_reverse = position.is_reverse();
                 step.is_interval = false;
-                uint64_t node_length = graph.get_length(graph.get_handle(position.node_id()));
-                gaf.path_length += node_length;
+                gaf.path_length += graph.get_length(graph.get_handle(position.node_id()));
                 if (i == 0) {
                     gaf.path_start = position.offset();
                 }
-                if (i == aln.path().mapping_size()-1) {
-                    gaf.path_end = node_length - position.offset() - mapping_from_length(aln.path().mapping(i));
-                }
                 gaf.path.push_back(std::move(step));
             }
+            
+            if (i == aln.path().mapping_size()-1) {
+                //9 int End position on the path (0-based)
+                gaf.path_end = graph.get_length(graph.get_handle(mapping.position().node_id())) - offset;
+                assert(gaf.path_end >= 0);
+            }
+
+            prev_offset = offset;
         }
         if (cs_cigar && running_match_length > 0) {
             cs_cigar_str += ":" + std::to_string(running_match_length);
