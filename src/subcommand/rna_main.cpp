@@ -20,7 +20,7 @@ using namespace vg::subcommand;
 
 
 void help_rna(char** argv) {
-    cerr << "\nusage: " << argv[0] << " rna [options] <graph.vg> > splice_graph.vg" << endl
+    cerr << "\nusage: " << argv[0] << " rna [options] graph.[vg|pg|hg|og] > splice_graph.[vg|pg|hg|og]" << endl
 
          << "\nGeneral options:" << endl
 
@@ -38,7 +38,7 @@ void help_rna(char** argv) {
 
          << "\nConstruction options:" << endl
 
-         << "    -e, --use-embedded-paths   project transcripts onto embedded graph paths" << endl
+         << "    -e, --use-all-paths        project transcripts onto all embedded haplotype paths" << endl
          << "    -c, --do-not-collapse      do not collapse identical transcripts across haplotypes" << endl
          << "    -d, --remove-non-gene      remove intergenic and intronic regions (deletes reference paths)" << endl
          << "    -o, --do-not-sort          do not topological sort and compact splice graph (default if -l is used)" << endl
@@ -69,7 +69,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     string feature_type = "exon";
     string transcript_tag = "transcript_id";
     string haplotypes_filename;
-    bool use_embedded_paths = false;
+    bool use_all_paths = false;
     bool collapse_transcript_paths = true;
     bool remove_non_transcribed = false;
     bool sort_collapse_graph = true;
@@ -95,7 +95,7 @@ int32_t main_rna(int32_t argc, char** argv) {
                 {"feature-type",  no_argument, 0, 'y'},
                 {"transcript-tag",  no_argument, 0, 's'},
                 {"haplotypes",  no_argument, 0, 'l'},
-                {"use-embeded-paths",  no_argument, 0, 'e'},
+                {"use-all-paths",  no_argument, 0, 'e'},
                 {"do-not-collapse",  no_argument, 0, 'c'},
                 {"remove-non-gene",  no_argument, 0, 'd'},
                 {"do-not-sort",  no_argument, 0, 'o'},
@@ -144,7 +144,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             break;
 
         case 'e':
-            use_embedded_paths = true;
+            use_all_paths = true;
             break;
 
         case 'c':
@@ -221,12 +221,6 @@ int32_t main_rna(int32_t argc, char** argv) {
         return 1;       
     }
 
-    if (haplotypes_filename.empty() && !use_embedded_paths) {
-
-        cerr << "[vg rna] ERROR: No haplotypes or paths were given for transcript projection. Use --haplotypes FILE and/or --use-embeded-paths." << endl;
-        return 1;       
-    }
-
     if (remove_non_transcribed && !add_reference_transcript_paths && !add_non_reference_transcript_paths) {
 
         cerr << "[vg rna] WARNING: Reference paths are deleted when removing intergenic and intronic regions. Consider adding transcripts as embedded paths using --add-ref-paths and/or --add-non-ref-paths." << endl;
@@ -260,7 +254,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     transcriptome.num_threads = num_threads;
     transcriptome.feature_type = feature_type;
     transcriptome.transcript_tag = transcript_tag;
-    transcriptome.use_embedded_paths = use_embedded_paths;
+    transcriptome.use_all_paths = use_all_paths;
     transcriptome.use_reference_paths = (add_reference_transcript_paths || output_reference_transcript_paths);
     transcriptome.collapse_transcript_paths = collapse_transcript_paths;
 
@@ -274,7 +268,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     for (auto & filename: intron_filenames) {
 
         get_input_file(filename, [&](istream& transcript_stream) {
-            num_introns_added += transcriptome.add_intron_splice_junctions(transcript_stream, haplotype_index.get());
+            num_introns_added += transcriptome.add_intron_splice_junctions(transcript_stream, haplotype_index);
         });
     }
 
@@ -284,7 +278,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     for (auto & filename: transcript_filenames) {
 
         get_input_file(filename, [&](istream& transcript_stream) {
-            num_transcripts_added += transcriptome.add_transcript_splice_junctions(transcript_stream, haplotype_index.get());
+            num_transcripts_added += transcriptome.add_transcript_splice_junctions(transcript_stream, haplotype_index);
         });
     }
 
@@ -302,22 +296,24 @@ int32_t main_rna(int32_t argc, char** argv) {
     }
 
 
-    double time_project_start = gcsa::readTimer();
-    if (show_progress) { cerr << "[vg rna] Projecting haplotype-specfic transcripts ..." << endl; }
+    if (!haplotype_index->empty() || transcriptome.use_all_paths || transcriptome.use_reference_paths) {
 
-    int32_t num_transcripts_projected = 0;
+        double time_project_start = gcsa::readTimer();
+        if (show_progress) { cerr << "[vg rna] Projecting haplotype-specfic transcripts ..." << endl; }
 
-    // Add transcripts to transcriptome by projecting them onto embedded paths 
-    // in a graph and/or haplotypes in a GBWT index.
-    for (auto & filename: transcript_filenames) {
+        int32_t num_transcripts_projected = 0;
 
-        get_input_file(filename, [&](istream& transcript_stream) {
-            num_transcripts_projected += transcriptome.add_transcripts(transcript_stream, *haplotype_index);
-        });
+        // Add transcripts to transcriptome by projecting them onto embedded paths 
+        // in a graph and/or haplotypes in a GBWT index.
+        for (auto & filename: transcript_filenames) {
+
+            get_input_file(filename, [&](istream& transcript_stream) {
+                num_transcripts_projected += transcriptome.add_transcripts(transcript_stream, *haplotype_index);
+            });
+        }
+
+        if (show_progress) { cerr << "[vg rna] " << num_transcripts_projected <<  " haplotype-specfic transcripts projected " << "in " << gcsa::readTimer() - time_project_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
-
-    if (show_progress) { cerr << "[vg rna] " << num_transcripts_projected <<  " haplotype-specfic transcripts projected " << "in " << gcsa::readTimer() - time_project_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
-
 
     if (remove_non_transcribed) {
 
