@@ -39,7 +39,7 @@ var searchData=
   ['haplotype_5findexer_2ecpp',['haplotype_indexer.cpp',['../haplotype__indexer_8cpp.html',1,'']]],
   ['haplotype_5findexer_2ehpp',['haplotype_indexer.hpp',['../haplotype__indexer_8hpp.html',1,'']]],
   ['haplotype_5fnumber',['haplotype_number',['../classvg_1_1PhasedGenome_1_1iterator.html#a3d0bbf671bf2801e44d23fea4da0e397',1,'vg::PhasedGenome::iterator']]],
-  ['haplotype_5forigin_5fids',['haplotype_origin_ids',['../structvg_1_1TranscriptPath.html#a58ba03efe7c222cf87f864b872eb2fda',1,'vg::TranscriptPath']]],
+  ['haplotype_5forigin_5fids',['haplotype_origin_ids',['../structvg_1_1TranscriptPath.html#a904eadd3f14551563b071f9dca69ff16',1,'vg::TranscriptPath']]],
   ['haplotype_5fto_5fstring',['haplotype_to_string',['../classvg_1_1VariantAdder.html#a4c7772f6f075ffe57c3b4712d4f0d01d',1,'vg::VariantAdder']]],
   ['haplotypeindexer',['HaplotypeIndexer',['../classvg_1_1HaplotypeIndexer.html',1,'vg::HaplotypeIndexer'],['../classvg_1_1HaplotypeIndexer.html#ae0b8cbfe64f32152ceefa57daf9ece72',1,'vg::HaplotypeIndexer::HaplotypeIndexer()']]],
   ['haplotypenode',['HaplotypeNode',['../structvg_1_1PhasedGenome_1_1HaplotypeNode.html',1,'vg::PhasedGenome::HaplotypeNode'],['../classvg_1_1PhasedGenome_1_1Haplotype.html#a4f0160b2daeebec5d984b4fe1921887a',1,'vg::PhasedGenome::Haplotype::HaplotypeNode()'],['../structvg_1_1PhasedGenome_1_1HaplotypeNode.html#a584a6b469c7f9709ea7da34f867f49aa',1,'vg::PhasedGenome::HaplotypeNode::HaplotypeNode()']]],

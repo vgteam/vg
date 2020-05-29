@@ -15,7 +15,7 @@ var searchData=
   ['add_5fgroup',['add_group',['../classvg_1_1StreamIndexBase.html#ad54626f7e5eb2587d4a5d5f514c82f75',1,'vg::StreamIndexBase::add_group()'],['../classvg_1_1StreamIndex.html#a172dd150297aad85dada7ba852ec3a0c',1,'vg::StreamIndex::add_group()']]],
   ['add_5fhandle',['add_handle',['../classvg_1_1SubHandleGraph.html#a2ab52610b56f49a48262faafc7e510df',1,'vg::SubHandleGraph']]],
   ['add_5fhaplotype',['add_haplotype',['../classvg_1_1PhasedGenome.html#ad36e2c71ff5b2714d1fe1bb6af075f9c',1,'vg::PhasedGenome']]],
-  ['add_5fintron_5fsplice_5fjunctions',['add_intron_splice_junctions',['../classvg_1_1Transcriptome.html#a07063d96812ed104882cb2fbe2084a30',1,'vg::Transcriptome']]],
+  ['add_5fintron_5fsplice_5fjunctions',['add_intron_splice_junctions',['../classvg_1_1Transcriptome.html#a521e612106e179396a7f2e70907b252c',1,'vg::Transcriptome']]],
   ['add_5flog',['add_log',['../namespacevg.html#a0d4ce16064ad3986381aeead6afe317f',1,'vg']]],
   ['add_5fmapping',['add_mapping',['../classvg_1_1path__t.html#a8dcc03d2615b611cb3f01ccc72235f62',1,'vg::path_t']]],
   ['add_5fname',['add_name',['../classVectorizer.html#a37c3afd6049c63e09910ca050a2f2b10',1,'Vectorizer']]],
@@ -37,7 +37,7 @@ var searchData=
   ['add_5fthread_5fedges_5fto_5fset',['add_thread_edges_to_set',['../namespacevg.html#afe2d6096dfe672a486e44df018c713c2',1,'vg']]],
   ['add_5fthread_5fnodes_5fto_5fset',['add_thread_nodes_to_set',['../namespacevg.html#a2adfa9e81b2553fefdd5e1d6b24c7a77',1,'vg']]],
   ['add_5fto_5fnumber',['add_to_number',['../classbdsg_1_1ODGI.html#a8db273d2507e0e7960d0b1fa2d439d1b',1,'bdsg::ODGI']]],
-  ['add_5ftranscript_5fsplice_5fjunctions',['add_transcript_splice_junctions',['../classvg_1_1Transcriptome.html#ac76b37c51170732a6a15394036e235df',1,'vg::Transcriptome']]],
+  ['add_5ftranscript_5fsplice_5fjunctions',['add_transcript_splice_junctions',['../classvg_1_1Transcriptome.html#aa58b269405ff07d180b53358222792b9',1,'vg::Transcriptome']]],
   ['add_5ftranscripts',['add_transcripts',['../classvg_1_1Transcriptome.html#a930c70d10c70312636dee1611a3ba645',1,'vg::Transcriptome']]],
   ['add_5ftranscripts_5fto_5fgbwt',['add_transcripts_to_gbwt',['../classvg_1_1Transcriptome.html#a4b1ed4cced20ae158f5b68522bbb00d6',1,'vg::Transcriptome']]],
   ['add_5ftraversals',['add_traversals',['../classvg_1_1ExhaustiveTraversalFinder.html#a4d93c5f43e4be897874b2468c026c0ca',1,'vg::ExhaustiveTraversalFinder']]],
@@ -189,7 +189,7 @@ var searchData=
   ['augment',['augment',['../namespacevg.html#a838b3dbe2314e032ecb0cc94489a746e',1,'vg::augment(MutablePathMutableHandleGraph *graph, istream &amp;gam_stream, vector&lt; Translation &gt; *out_translations, ostream *gam_out_stream, bool embed_paths, bool break_at_ends, bool remove_softclips, bool filter_out_of_graph_alignments, double min_baseq, double min_mapq, Packer *packer, size_t min_bp_coverage, double max_frac_n)'],['../namespacevg.html#ade39dffec6206cda826cb16c61150394',1,'vg::augment(MutablePathMutableHandleGraph *graph, vector&lt; Path &gt; &amp;path_vector, vector&lt; Translation &gt; *out_translations, ostream *gam_out_stream, bool embed_paths, bool break_at_ends, bool remove_softclips, bool filter_out_of_graph_alignments, double min_baseq, double min_mapq, Packer *packer, size_t min_bp_coverage, double max_frac_n)']]],
   ['augment_5ffrom_5falignment_5fedits',['augment_from_alignment_edits',['../structvg_1_1AugmentedGraph.html#a56ecda832a62dd3a22424bb8720a4601',1,'vg::AugmentedGraph']]],
   ['augment_5fimpl',['augment_impl',['../namespacevg.html#a989d9fcf282f8bb3d670c815cca64c8a',1,'vg']]],
-  ['augment_5fsplice_5fgraph',['augment_splice_graph',['../classvg_1_1Transcriptome.html#a2ba1aad51046ea7ad2af88185596a9c0',1,'vg::Transcriptome']]],
+  ['augment_5fsplice_5fgraph',['augment_splice_graph',['../classvg_1_1Transcriptome.html#a0f9db75bc39360ae2bf85674a6608a9b',1,'vg::Transcriptome']]],
   ['average_5fnode_5fquality',['average_node_quality',['../classvg_1_1Packer.html#a5a5c771bdb82f53eeef987e598669566',1,'vg::Packer']]],
   ['avg_5fqual_5ffilter',['avg_qual_filter',['../classvg_1_1Filter.html#a3401568683899d1ebe2bcaf971a8374e',1,'vg::Filter']]]
 ];
