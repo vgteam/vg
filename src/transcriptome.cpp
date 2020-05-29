@@ -959,7 +959,14 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
 
         } else {
 
-            edited_transcript_paths.back().path_origin_names.emplace_back(path_origin_name);
+            if (edited_transcript_paths.back().path_origin_names.empty()) {
+
+                edited_transcript_paths.back().path_origin_names = path_origin_name;
+
+            } else {
+
+                edited_transcript_paths.back().path_origin_names.append("," + path_origin_name);
+            }
         }
 
         bool is_partial = false;
@@ -1131,7 +1138,14 @@ void Transcriptome::append_transcript_paths(list<CompletedTranscriptPath> * comp
                     completed_transcript_path.haplotype_origin_ids.insert(completed_transcript_path.haplotype_origin_ids.end(), new_completed_transcript_path.haplotype_origin_ids.begin(), new_completed_transcript_path.haplotype_origin_ids.end());
 
                     // Merge embedded path origin names.
-                    completed_transcript_path.path_origin_names.insert(completed_transcript_path.path_origin_names.end(), new_completed_transcript_path.path_origin_names.begin(), new_completed_transcript_path.path_origin_names.end());
+                    if (completed_transcript_path.path_origin_names.empty()) {
+
+                        completed_transcript_path.path_origin_names = new_completed_transcript_path.path_origin_names;
+
+                    } else {
+
+                        completed_transcript_path.path_origin_names.append("," + new_completed_transcript_path.path_origin_names);
+                    }
                     
                     new_path_unqiue = false;
                     break;
@@ -1484,7 +1498,7 @@ int32_t Transcriptome::embed_transcript_paths(const bool add_reference_paths, co
     // Add transcript paths to graph
     for (auto & transcript_path: _transcript_paths) {
 
-        assert(!transcript_path.haplotype_origin_ids.empty() || !transcript_path.reference_origin.empty());
+        assert(!transcript_path.reference_origin.empty() || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty());
 
         if ((add_reference_paths && !transcript_path.reference_origin.empty()) || (add_non_reference_paths && (!transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty()))) {
 
@@ -1516,6 +1530,7 @@ int32_t Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder,
     for (auto & transcript_path: _transcript_paths) {
 
         assert(!transcript_path.reference_origin.empty() || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty());
+
         if (output_reference_transcripts || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty()) {
 
             ++num_added_threads;
@@ -1550,6 +1565,7 @@ int32_t Transcriptome::write_sequences(ostream * fasta_ostream, const bool outpu
     for (auto & transcript_path: _transcript_paths) {
 
         assert(!transcript_path.reference_origin.empty() || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty());
+
         if (output_reference_transcripts || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty()) {
 
             ++num_written_sequences;
@@ -1578,6 +1594,7 @@ int32_t Transcriptome::write_info(ostream * tsv_ostream, const gbwt::GBWT & hapl
     for (auto & transcript_path: _transcript_paths) {
 
         assert(!transcript_path.reference_origin.empty() || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty());
+
         if (output_reference_transcripts || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty()) {
 
             ++num_written_info;
@@ -1622,16 +1639,12 @@ int32_t Transcriptome::write_info(ostream * tsv_ostream, const gbwt::GBWT & hapl
                     *tsv_ostream << thread_name(haplotype_index, id);
                 }
 
-                for (auto & name: transcript_path.path_origin_names) {
+                if (!is_first) {
 
-                    if (!is_first) {
+                    *tsv_ostream << ",";
+                } 
 
-                        *tsv_ostream << ",";
-                    } 
-
-                    is_first = false;
-                    *tsv_ostream << name;
-                }
+                *tsv_ostream << transcript_path.path_origin_names;
             }
 
             *tsv_ostream << endl;

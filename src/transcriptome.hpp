@@ -67,12 +67,13 @@ struct TranscriptPath {
     vector<uint32_t> haplotype_origin_ids;
 
     /// Embedded path origin names.
-    vector<string> path_origin_names;
+    string path_origin_names;
     
     TranscriptPath(const string & transcript_origin_in) : transcript_origin(transcript_origin_in) {
 
         name = "";
         reference_origin = "";
+        path_origin_names = "";
     }
 };
 
