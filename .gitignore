@@ -43,3 +43,4 @@ src/*.gch
 /*.svg
 /*.fa
 /*.gfa
+.vscode/*

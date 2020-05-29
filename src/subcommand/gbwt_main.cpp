@@ -12,7 +12,6 @@
 
 #include "subcommand.hpp"
 
-#include "../xg.hpp"
 #include "../gbwt_helper.hpp"
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -445,14 +444,10 @@ int main_gbwt(int argc, char** argv)
             }
             if (local_haplotypes) {
                 if (show_progress) {
-                    std::cerr << "Building temporary GBWTGraph" << std::endl;
-                }
-                gbwtgraph::GBWTGraph temp_graph(*loaded_gbwt, *handle_graph);
-                if (show_progress) {
                     std::cerr << "Finding " << num_paths << "-path cover with context length " << context_length << std::endl;
                 }
                 double start = gbwt::readTimer();
-                generated_gbwt = gbwtgraph::local_haplotypes(temp_graph, num_paths, context_length, buffer_size, id_interval, show_progress);
+                generated_gbwt = gbwtgraph::local_haplotypes(*handle_graph, *loaded_gbwt, num_paths, context_length, buffer_size, id_interval, show_progress);
                 if (show_progress) {
                     double seconds = gbwt::readTimer() - start;
                     std::cerr << "GBWT built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;

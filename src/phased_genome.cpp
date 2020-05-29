@@ -52,15 +52,21 @@ namespace vg {
         *this = rhs;
     }
     PhasedGenome& PhasedGenome::operator = (PhasedGenome& phased_genome){
-        this->~PhasedGenome();
-        
+
         snarl_manager = phased_genome.snarl_manager;
 
+        for (Haplotype* haplotype : haplotypes) {
+            delete haplotype;
+        }
+        node_locations.clear();
+        site_starts.clear();
+        site_ends.clear();
         haplotypes.clear();
         
         for(int i = 0; i < phased_genome.haplotypes.size(); i++ ){
             // build haplotypes    
             Haplotype* new_haplo = new Haplotype(phased_genome.begin(i), phased_genome.end(i)); 
+            
             haplotypes.push_back(new_haplo);
         }
                      
@@ -225,23 +231,24 @@ namespace vg {
     }
 
     vector<id_t> PhasedGenome::get_haplotypes_with_snarl(const Snarl* snarl_to_find){
-        
+
         // a vector that will hold the haplotype IDs of haplotypes found to traverse through the snarl
         vector<id_t> matched_haplotype_ids;
 
         // interate through the vector of haplotype pointers and do a lookup for snarl_to_find
         // if found then we add it to the list of matched haplotypes 
-
+        unordered_map<const Snarl*, pair<HaplotypeNode*, HaplotypeNode*> >::iterator it;
         id_t id = 0;
         for (Haplotype* haplotype : haplotypes){
             bool found = haplotype->sites.count(snarl_to_find);
+
             if(found){
                 // add the ID to the haplotype to the vector 
                 matched_haplotype_ids.push_back(id);
             }
             id++;
         }
-
+        
         return matched_haplotype_ids;
 
     }
@@ -249,22 +256,21 @@ namespace vg {
     void PhasedGenome::print_phased_genome(){
          // output number of haplotypes contained in phased genome 
         size_t haplo_num = num_haplotypes();
-        cerr << "The haplotype num is: " << haplo_num << endl;
+        //cerr << "The haplotype num is: " << haplo_num << endl;
 
         // iterate through the genome and all its haplotypes
         for(int i = 0; i < haplo_num; i++){
-            cout << "Haplotype ID is: " << i <<endl;
+            cerr << "Haplotype ID: " << i <<endl;
             // iterate through each node in the haplotype
-            for(auto iter = begin(i); iter != end(i); iter++ ){
-                //cerr << "The node is: "<< (*iter).node <<endl;
-                cerr << "The sequence is: " << (*iter).node->sequence() <<endl;
-            }   
-            
-        }
-        
+            for(auto iter = begin(i); iter != end(i); iter++ ){    
+                cerr << "node " << (*iter).node->id() << ": " <<(*iter).node->sequence() <<endl;
+            }
+            cerr<<endl;
+            cerr<<endl;
+        }     
+
 
     }
-    
     vector<NodeTraversal> PhasedGenome::get_allele(const Snarl& site, int which_haplotype) {
         
         Haplotype& haplotype = *haplotypes[which_haplotype];
