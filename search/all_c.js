@@ -86,7 +86,7 @@ var searchData=
   ['log_5fposterior',['log_posterior',['../structvg_1_1Genotype.html#a743da1ba7239bddcd6316a60f66bd307',1,'vg::Genotype']]],
   ['log_5fprior',['log_prior',['../structvg_1_1Genotype.html#a94b836b6384c02e11478b2ec18ab0ad7',1,'vg::Genotype']]],
   ['log_5frecombination_5fpenalty',['log_recombination_penalty',['../structhaplo_1_1haploMath_1_1RRMemo.html#aa33b509ee804234be1fb33061b3a9f76',1,'haplo::haploMath::RRMemo']]],
-  ['log_5ftarget',['log_target',['../classvg_1_1MCMCGenotyper.html#a92d37640f80fabd0d65c80d8fded7f7e',1,'vg::MCMCGenotyper']]],
+  ['log_5ftarget',['log_target',['../classvg_1_1MCMCGenotyper.html#a4622c5efee68d8f148b961a92a1abc62',1,'vg::MCMCGenotyper']]],
   ['logdiff',['logdiff',['../namespacehaplo_1_1haploMath.html#af0182b1e73c64ac6ef0be9d621cce576',1,'haplo::haploMath']]],
   ['logprob_5fadd',['logprob_add',['../namespacevg.html#a64b25a99232585c5e76baf01d1ef5520',1,'vg']]],
   ['logprob_5fgeometric_5fmean',['logprob_geometric_mean',['../namespacevg.html#a0f8a1a81a5402187152a97ca6293b4f1',1,'vg']]],

@@ -6,6 +6,7 @@ var searchData=
   ['markovdistribution',['MarkovDistribution',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html',1,'vg::NGSSimulator']]],
   ['markovdistribution_3c_20pair_3c_20uint8_5ft_2c_20bool_20_3e_2c_20pair_3c_20pair_3c_20uint8_5ft_2c_20bool_20_3e_2c_20pair_3c_20uint8_5ft_2c_20bool_20_3e_20_3e_20_3e',['MarkovDistribution&lt; pair&lt; uint8_t, bool &gt;, pair&lt; pair&lt; uint8_t, bool &gt;, pair&lt; uint8_t, bool &gt; &gt; &gt;',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html',1,'vg::NGSSimulator']]],
   ['maximalexactmatch',['MaximalExactMatch',['../classvg_1_1MaximalExactMatch.html',1,'vg']]],
+  ['mcmccaller',['MCMCCaller',['../classvg_1_1MCMCCaller.html',1,'vg']]],
   ['mcmcgenotyper',['MCMCGenotyper',['../classvg_1_1MCMCGenotyper.html',1,'vg']]],
   ['memchainmodel',['MEMChainModel',['../classvg_1_1MEMChainModel.html',1,'vg']]],
   ['memchainmodelvertex',['MEMChainModelVertex',['../classvg_1_1MEMChainModelVertex.html',1,'vg']]],

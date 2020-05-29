@@ -63,6 +63,7 @@ var searchData=
   ['_7elegacycaller',['~LegacyCaller',['../classvg_1_1LegacyCaller.html#a10147f341d558b896d91c2180f0361d8',1,'vg::LegacyCaller']]],
   ['_7elinear_5fhaplo_5fstructure',['~linear_haplo_structure',['../structhaplo_1_1linear__haplo__structure.html#a11b487a3f7b503ed282cd1cfee5ae2f3',1,'haplo::linear_haplo_structure']]],
   ['_7emapper',['~Mapper',['../classvg_1_1Mapper.html#a285dd133a8540553f671b7eac33f6ca0',1,'vg::Mapper']]],
+  ['_7emcmccaller',['~MCMCCaller',['../classvg_1_1MCMCCaller.html#a1bd5d1d33ec02a9b5dabcb882996d964',1,'vg::MCMCCaller']]],
   ['_7ememchainmodelvertex',['~MEMChainModelVertex',['../classvg_1_1MEMChainModelVertex.html#accc20533b5065e34208355797f373a04',1,'vg::MEMChainModelVertex']]],
   ['_7ememclusterer',['~MEMClusterer',['../classvg_1_1MEMClusterer.html#a86a3a3ccd7e416a727118f7aa763db18',1,'vg::MEMClusterer']]],
   ['_7ememoizinggraph',['~MemoizingGraph',['../classvg_1_1MemoizingGraph.html#a7b70d3665f07afcce593013fd4d27170',1,'vg::MemoizingGraph']]],

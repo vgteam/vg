@@ -51,6 +51,7 @@ var searchData=
   ['path_5fnext_5foffset',['PATH_NEXT_OFFSET',['../classbdsg_1_1PackedGraph.html#a3baa830d54746f47c0ac02abc057002a',1,'bdsg::PackedGraph']]],
   ['path_5fnodes',['path_nodes',['../classvg_1_1MultipathAlignmentGraph.html#a76f9356cd0afea7dea3003caea2526eb',1,'vg::MultipathAlignmentGraph']]],
   ['path_5foffset',['path_offset',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a58b1c09d2f45e4942afd52d975c85b9a',1,'vg::GraphSynchronizer::Lock']]],
+  ['path_5fposition_5fhandle_5fgraph',['path_position_handle_graph',['../classvg_1_1MCMCCaller.html#a240741cadefa13b2b4d472f0b6e3b8d3',1,'vg::MCMCCaller']]],
   ['path_5fprev_5foffset',['PATH_PREV_OFFSET',['../classbdsg_1_1PackedGraph.html#a977ed5f554dc950591e4cc731c3b2697',1,'bdsg::PackedGraph']]],
   ['path_5frange',['path_range',['../classbdsg_1_1PackedPositionOverlay.html#ab2a31d309367d7c34423ddeab8528658',1,'bdsg::PackedPositionOverlay']]],
   ['path_5frecord_5flength',['PATH_RECORD_LENGTH',['../namespacebdsg.html#a2f646a307a0449ab5ff7602e89625f7f',1,'bdsg']]],

@@ -111,7 +111,7 @@ var searchData=
   ['is_5fsolitary_5fref',['is_solitary_ref',['../structhaplo_1_1linear__haplo__structure.html#a5909bdd11b10437a4d70af1fda222a85',1,'haplo::linear_haplo_structure']]],
   ['is_5fsplit',['is_split',['../classvg_1_1ReadFilter.html#a07039862a8bee98803f764863b3ba0fa',1,'vg::ReadFilter']]],
   ['is_5ftail_5fnode',['is_tail_node',['../classvg_1_1VG.html#a660692b8769618259f69be25bfed0bc3',1,'vg::VG::is_tail_node(nid_t id)'],['../classvg_1_1VG.html#af58b227f21324d30be531088ed49b0f1',1,'vg::VG::is_tail_node(Node *node)'],['../namespacevg_1_1algorithms.html#ac8e4eb795d14d441c4b2944c070a1d78',1,'vg::algorithms::is_tail_node()']]],
-  ['is_5ftraversable',['is_traversable',['../classvg_1_1LegacyCaller.html#a369827412ee13857083444776aa240c7',1,'vg::LegacyCaller']]],
+  ['is_5ftraversable',['is_traversable',['../classvg_1_1LegacyCaller.html#a369827412ee13857083444776aa240c7',1,'vg::LegacyCaller::is_traversable()'],['../classvg_1_1MCMCCaller.html#a1e632e1f6e31cd559ec0a6c3cff1db7c',1,'vg::MCMCCaller::is_traversable()']]],
   ['is_5ftrivial',['is_trivial',['../classvg_1_1SnarlManager.html#a5fdc8b210fa5339485b1e0a8ab1683b6',1,'vg::SnarlManager']]],
   ['is_5fvalid',['is_valid',['../classvg_1_1Sampler.html#a6f979036816c6f3657c98193b9b1e22d',1,'vg::Sampler::is_valid()'],['../classvg_1_1VG.html#aa77d93fdf76698460ce509ea5dcde954',1,'vg::VG::is_valid()'],['../structvg_1_1Range.html#a15b962d68b5743aa9ba5f8a487007a83',1,'vg::Range::is_valid()']]],
   ['is_5fvalid_5ftag',['is_valid_tag',['../classvg_1_1io_1_1Registry.html#a4985634eed56438635dfbe0999103305',1,'vg::io::Registry']]],

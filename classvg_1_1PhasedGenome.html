@@ -93,8 +93,16 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a08609371573b24264b5f5e14af6d0139"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#a08609371573b24264b5f5e14af6d0139">~PhasedGenome</a> ()</td></tr>
 <tr class="separator:a08609371573b24264b5f5e14af6d0139"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0e96410c065eb722e527be06b710c5d7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#a0e96410c065eb722e527be06b710c5d7">PhasedGenome</a> (<a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;phased_genome)</td></tr>
+<tr class="memdesc:a0e96410c065eb722e527be06b710c5d7"><td class="mdescLeft">&#160;</td><td class="mdescRight">overloaded constructor  <a href="#a0e96410c065eb722e527be06b710c5d7">More...</a><br /></td></tr>
 <tr class="separator:a0e96410c065eb722e527be06b710c5d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ace57a61caa7e82942f94ea1e128bc3e3"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#ace57a61caa7e82942f94ea1e128bc3e3">PhasedGenome</a> (<a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;&amp;other)=delete</td></tr>
+<tr class="memdesc:ace57a61caa7e82942f94ea1e128bc3e3"><td class="mdescLeft">&#160;</td><td class="mdescRight">move assignment ctor  <a href="#ace57a61caa7e82942f94ea1e128bc3e3">More...</a><br /></td></tr>
+<tr class="separator:ace57a61caa7e82942f94ea1e128bc3e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa4f75b660fd6b1fe8528a10289621d01"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#aa4f75b660fd6b1fe8528a10289621d01">operator=</a> (<a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;&amp;phased_genome)=delete</td></tr>
+<tr class="memdesc:aa4f75b660fd6b1fe8528a10289621d01"><td class="mdescLeft">&#160;</td><td class="mdescRight">move assignment operator  <a href="#aa4f75b660fd6b1fe8528a10289621d01">More...</a><br /></td></tr>
+<tr class="separator:aa4f75b660fd6b1fe8528a10289621d01"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af2bcd75ffe10fee6c1af5456b229c752"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#af2bcd75ffe10fee6c1af5456b229c752">operator=</a> (<a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;phased_genome)</td></tr>
+<tr class="memdesc:af2bcd75ffe10fee6c1af5456b229c752"><td class="mdescLeft">&#160;</td><td class="mdescRight">copy assignment operator  <a href="#af2bcd75ffe10fee6c1af5456b229c752">More...</a><br /></td></tr>
 <tr class="separator:af2bcd75ffe10fee6c1af5456b229c752"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad36e2c71ff5b2714d1fe1bb6af075f9c"><td class="memTemplParams" colspan="2">template&lt;typename NodeTraversalIterator &gt; </td></tr>
 <tr class="memitem:ad36e2c71ff5b2714d1fe1bb6af075f9c"><td class="memTemplItemLeft" align="right" valign="top">int&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1PhasedGenome.html#ad36e2c71ff5b2714d1fe1bb6af075f9c">add_haplotype</a> (NodeTraversalIterator first, NodeTraversalIterator last)</td></tr>
@@ -163,7 +171,7 @@ Private Attributes</h2></td></tr>
 <div class="textblock"><p>A collection of haplotypes that represent all of the chromosomes of a genome (including phasing) as walks through a variation graph. Designed for fast editing at a site level, so it maintains indices of sites for that purpose. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="aa7a7cce5f88f52d20c659e64966ece28"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa7a7cce5f88f52d20c659e64966ece28">&#9670;&nbsp;</a></span>PhasedGenome() <span class="overload">[1/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#aa7a7cce5f88f52d20c659e64966ece28">&#9670;&nbsp;</a></span>PhasedGenome() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -200,7 +208,7 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <a id="a0e96410c065eb722e527be06b710c5d7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0e96410c065eb722e527be06b710c5d7">&#9670;&nbsp;</a></span>PhasedGenome() <span class="overload">[2/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a0e96410c065eb722e527be06b710c5d7">&#9670;&nbsp;</a></span>PhasedGenome() <span class="overload">[2/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -214,6 +222,36 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>overloaded constructor </p>
+
+</div>
+</div>
+<a id="ace57a61caa7e82942f94ea1e128bc3e3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ace57a61caa7e82942f94ea1e128bc3e3">&#9670;&nbsp;</a></span>PhasedGenome() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vg::PhasedGenome::PhasedGenome </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;&amp;&#160;</td>
+          <td class="paramname"><em>other</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">delete</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>move assignment ctor </p>
 
 </div>
 </div>
@@ -474,8 +512,36 @@ template&lt;typename NodeTraversalIterator &gt; </div>
 
 </div>
 </div>
+<a id="aa4f75b660fd6b1fe8528a10289621d01"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa4f75b660fd6b1fe8528a10289621d01">&#9670;&nbsp;</a></span>operator=() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a>&amp; vg::PhasedGenome::operator= </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;&amp;&#160;</td>
+          <td class="paramname"><em>phased_genome</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">delete</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>move assignment operator </p>
+
+</div>
+</div>
 <a id="af2bcd75ffe10fee6c1af5456b229c752"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af2bcd75ffe10fee6c1af5456b229c752">&#9670;&nbsp;</a></span>operator=()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#af2bcd75ffe10fee6c1af5456b229c752">&#9670;&nbsp;</a></span>operator=() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -489,6 +555,8 @@ template&lt;typename NodeTraversalIterator &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>copy assignment operator </p>
 
 </div>
 </div>
