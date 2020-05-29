@@ -1142,7 +1142,7 @@ void Transcriptome::append_transcript_paths(list<CompletedTranscriptPath> * comp
 
                         completed_transcript_path.path_origin_names = new_completed_transcript_path.path_origin_names;
 
-                    } else {
+                    } else if (!new_completed_transcript_path.path_origin_names.empty()) {
 
                         completed_transcript_path.path_origin_names.append("," + new_completed_transcript_path.path_origin_names);
                     }
@@ -1639,12 +1639,15 @@ int32_t Transcriptome::write_info(ostream * tsv_ostream, const gbwt::GBWT & hapl
                     *tsv_ostream << thread_name(haplotype_index, id);
                 }
 
-                if (!is_first) {
+                if (!transcript_path.path_origin_names.empty()) {
 
-                    *tsv_ostream << ",";
-                } 
+                    if (!is_first) {
 
-                *tsv_ostream << transcript_path.path_origin_names;
+                        *tsv_ostream << ",";
+                    } 
+
+                    *tsv_ostream << transcript_path.path_origin_names;
+                }
             }
 
             *tsv_ostream << endl;
