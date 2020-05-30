@@ -11,6 +11,7 @@ var searchData=
   ['sample_5fname',['sample_name',['../classvg_1_1VCFOutputCaller.html#a70e8288543e7facfb79f5211ce33fa7f',1,'vg::VCFOutputCaller::sample_name()'],['../classvg_1_1MCMCCaller.html#a93fa3b8d473b842f7e9d4705f2fe1fcf',1,'vg::MCMCCaller::sample_name()'],['../classvg_1_1MinimizerMapper.html#a2f47382b14baf0482c43034e6484d086',1,'vg::MinimizerMapper::sample_name()'],['../structvg_1_1Alignment.html#ad823d9ed3f413faaf35700a41cfab6e7',1,'vg::Alignment::sample_name()'],['../structvg_1_1MultipathAlignment.html#a90d675553385456c66b572a88fa88650',1,'vg::MultipathAlignment::sample_name()']]],
   ['sample_5fnames',['sample_names',['../classvg_1_1Deconstructor.html#a56f3119a427b1076d0d0d5ca7f478832',1,'vg::Deconstructor']]],
   ['sample_5frange',['sample_range',['../classvg_1_1HaplotypeIndexer.html#abbfc79b62d07a12ccc173ba953a6482d',1,'vg::HaplotypeIndexer']]],
+  ['sample_5funsheared_5fpaths',['sample_unsheared_paths',['../classvg_1_1NGSSimulator.html#af7441bd12030f0e189aca5ba2e0b47ef',1,'vg::NGSSimulator']]],
   ['samplers',['samplers',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a8d2808d7b690045d11af93fd6619fbf7',1,'vg::NGSSimulator::MarkovDistribution']]],
   ['samples_5fin_5fbatch',['samples_in_batch',['../classvg_1_1HaplotypeIndexer.html#a681bcf3fb6014ae885adb3dec25ff2fc',1,'vg::HaplotypeIndexer']]],
   ['scc_5fcopy_5fcount',['scc_copy_count',['../classvg_1_1DagifiedGraph.html#a780a2eb98c2a1ad1b106283048f95cf0',1,'vg::DagifiedGraph']]],

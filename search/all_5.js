@@ -10,7 +10,7 @@ var searchData=
   ['edge_5fallele_5flabels',['edge_allele_labels',['../classvg_1_1Genotyper.html#aae52b974044843aed34fc31152ccda77',1,'vg::Genotyper']]],
   ['edge_5fby_5fsides',['edge_by_sides',['../classvg_1_1VG.html#ab754d45647580a21216bd010b72c6815',1,'vg::VG']]],
   ['edge_5fbytes',['edge_bytes',['../classbdsg_1_1node__t.html#a9c5e2b7f3c865a96395c142cddea70ae',1,'bdsg::node_t']]],
-  ['edge_5fcache',['edge_cache',['../classvg_1_1Sampler.html#afb7efec11ad329ffaeaf4e5519b797a6',1,'vg::Sampler::edge_cache()'],['../classvg_1_1NGSSimulator.html#a5cfca82fd89f697b066b958aaa4d01ff',1,'vg::NGSSimulator::edge_cache()']]],
+  ['edge_5fcache',['edge_cache',['../classvg_1_1Sampler.html#afb7efec11ad329ffaeaf4e5519b797a6',1,'vg::Sampler']]],
   ['edge_5fcount',['edge_count',['../classxg_1_1XG.html#aa017ea1f9125608d81a752abafd188dd',1,'xg::XG::edge_count()'],['../classvg_1_1VG.html#a25ef81b910a6fc47c9a6ba4c1636cf83',1,'vg::VG::edge_count()'],['../classbdsg_1_1node__t.html#a39a9ad310a3c79be57dcfc584102a16b',1,'bdsg::node_t::edge_count()']]],
   ['edge_5fcov_5fbin_5fsize',['edge_cov_bin_size',['../classvg_1_1Packer.html#a7d637f7488a749a1f05342e2b532ef71',1,'vg::Packer']]],
   ['edge_5fcoverage',['edge_coverage',['../classvg_1_1Packer.html#a5ff601ec8eace2559df20c9b1b11e030',1,'vg::Packer::edge_coverage(Edge &amp;e) const'],['../classvg_1_1Packer.html#a241eceae29b5f183b876586e0e504a76',1,'vg::Packer::edge_coverage(size_t i) const']]],
