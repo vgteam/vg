@@ -104,6 +104,7 @@ void help_sim(char** argv) {
          << "    -p, --frag-len N            make paired end reads with given fragment length N" << endl
          << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
          << "    -N, --allow-Ns              allow reads to be sampled from the graph with Ns in them" << endl
+         << "    -u, --unsheared             sample from unsheared fragments" << endl
          << "simulate from paths:" << endl
          << "    -P, --path PATH             simulate from this path (may repeat; cannot also give -T)" << endl
          << "    -A, --any-path              simulate from any path (overrides -P)" << endl
@@ -136,6 +137,7 @@ int main_sim(int argc, char** argv) {
     bool reads_may_contain_Ns = false;
     bool strip_bonuses = false;
     bool interleaved = false;
+    bool unsheared_fragments = false;
     double indel_prop = 0.0;
     double error_scale_factor = 1.0;
     string fastq_name;
@@ -179,6 +181,7 @@ int main_sim(int argc, char** argv) {
             {"align-out", no_argument, 0, 'a'},
             {"json-out", no_argument, 0, 'J'},
             {"allow-Ns", no_argument, 0, 'N'},
+            {"unsheared", no_argument, 0, 'u'},
             {"sub-rate", required_argument, 0, 'e'},
             {"indel-rate", required_argument, 0, 'i'},
             {"indel-err-prop", required_argument, 0, 'd'},
@@ -189,7 +192,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nd:F:P:Am:g:T:H:S:I",
+        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nud:F:P:Am:g:T:H:S:I",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -296,6 +299,10 @@ int main_sim(int argc, char** argv) {
 
         case 'N':
             reads_may_contain_Ns = true;
+            break;
+                
+        case 'u':
+            unsheared_fragments = true;
             break;
 
         case 'p':
@@ -624,6 +631,7 @@ int main_sim(int argc, char** argv) {
                              fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
                              error_scale_factor,
                              !reads_may_contain_Ns,
+                             unsheared_fragments,
                              seed_val);
         
         if (fragment_length) {
