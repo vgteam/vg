@@ -167,6 +167,7 @@ public:
                  double insert_length_stdev = 50.0,
                  double error_multiplier = 1.0,
                  bool retry_on_Ns = true,
+                 bool sample_unsheared_paths = false,
                  size_t seed = 0);
     
     /// Sample an individual read and alignment
@@ -291,9 +292,6 @@ private:
     
     PathPositionHandleGraph& graph;
     
-    LRUCache<id_t, Node> node_cache;
-    LRUCache<id_t, vector<Edge> > edge_cache;
-    
     default_random_engine prng;
     vg::discrete_distribution<> path_sampler;
     vector<vg::uniform_int_distribution<size_t>> start_pos_samplers;
@@ -313,6 +311,7 @@ private:
     size_t seed;
     
     const bool retry_on_Ns;
+    const bool sample_unsheared_paths;
     
     /// Restrict reads to just these paths (path-only mode) if nonempty.
     vector<string> source_paths;

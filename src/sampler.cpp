@@ -22,7 +22,8 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
         if (haplotype_transcripts.empty()) {
             for (const pair<string, double>& transcript_expression : transcript_expressions) {
                 this->source_paths.push_back(transcript_expression.first);
-                expression_values.push_back(transcript_expression.second);
+                size_t tx_len = xgidx->get_path_length(xgidx->get_path_handle(transcript_expression.first));
+                expression_values.push_back(transcript_expression.second * tx_len);
             }
         }
         else {
@@ -37,7 +38,8 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
                 }
                 for (size_t i : haplotypes_of_transcript[transcript_expression.first]) {
                     double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
-                    expression_values.push_back(haplotype_expression);
+                    size_t hp_tx_len = xgidx->get_path_length(xgidx->get_path_handle(get<0>(haplotype_transcripts[i])));
+                    expression_values.push_back(haplotype_expression * hp_tx_len);
                     this->source_paths.push_back(get<0>(haplotype_transcripts[i]));
                 }
             }
@@ -604,10 +606,9 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                            double insert_length_stdev,
                            double error_multiplier,
                            bool retry_on_Ns,
+                           bool sample_unsheared_paths,
                            size_t seed) :
       graph(graph)
-    , node_cache(100)
-    , edge_cache(100)
     , sub_poly_rate(substition_polymorphism_rate)
     , indel_poly_rate(indel_polymorphism_rate)
     , indel_error_prop(indel_error_proportion)
@@ -623,6 +624,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     , seed(seed)
     , source_paths(source_paths_input)
     , joint_initial_distr(seed - 1)
+    , sample_unsheared_paths(sample_unsheared_paths)
 {
     if (!ngs_paired_fastq_file.empty() && interleaved_fastq) {
         cerr << "error:[NGSSimulator] cannot indicate interleaved FASTQ and paired FASTQs simultaneously" << endl;
@@ -678,7 +680,14 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         // we are sampling from a given set of source paths
         vector<size_t> path_sizes;
         for (const auto& source_path : source_paths_input) {
-            path_sizes.push_back(graph.get_path_length(graph.get_path_handle(source_path)));
+            if (sample_unsheared_paths) {
+                // sample uniformly between paths
+                path_sizes.push_back(1);
+            }
+            else {
+                // sample proportional to length
+                path_sizes.push_back(graph.get_path_length(graph.get_path_handle(source_path)));
+            }
             start_pos_samplers.emplace_back(0, path_sizes.back() - 1);
         }
         path_sampler = vg::discrete_distribution<>(path_sizes.begin(), path_sizes.end());
@@ -691,9 +700,13 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
             // no transcript name file provided, path names should match transcript names in the
             // expression file
             for (const pair<string, double>& transcript_expression : transcript_expressions) {
+                size_t tx_len = graph.get_path_length(graph.get_path_handle(transcript_expression.first));
+                if (tx_len == 0) {
+                    continue;
+                }
                 source_paths.push_back(transcript_expression.first);
-                start_pos_samplers.emplace_back(0, graph.get_path_length(graph.get_path_handle(transcript_expression.first)) - 1);
-                expression_values.push_back(transcript_expression.second);
+                start_pos_samplers.emplace_back(0, tx_len - 1);
+                expression_values.push_back(transcript_expression.second * tx_len);
             }
         }
         else {
@@ -709,14 +722,14 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                     total_haplotypes += get<2>(haplotype_transcripts[i]);
                 }
                 for (size_t i : haplotypes_of_transcript[transcript_expression.first]) {
-                    size_t path_length = graph.get_path_length(graph.get_path_handle(get<0>(haplotype_transcripts[i])));
-                    if (path_length == 0) {
+                    size_t hp_tx_len = graph.get_path_length(graph.get_path_handle(get<0>(haplotype_transcripts[i])));
+                    if (hp_tx_len == 0) {
                         continue;
                     }
                     double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
-                    expression_values.push_back(haplotype_expression);
+                    expression_values.push_back(haplotype_expression * hp_tx_len);
                     source_paths.push_back(get<0>(haplotype_transcripts[i]));
-                    start_pos_samplers.emplace_back(0, path_length - 1);
+                    start_pos_samplers.emplace_back(0, hp_tx_len - 1);
                 }
             }
         }
@@ -974,7 +987,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
     // XXX this is broken
     auto first_node_length = graph.get_length(graph.get_handle(id(curr_pos)));
     if (vg::offset(curr_pos) >= first_node_length) {
-        cerr << "somithgn wrong << " << vg::offset(curr_pos) << " " << first_node_length << endl;
+        cerr << "something wrong " << vg::offset(curr_pos) << " " << first_node_length << endl;
         cerr << vg::id(curr_pos) << ":" << vg::is_rev(curr_pos) << ":" << vg::offset(curr_pos) << endl;
     }
     assert(vg::offset(curr_pos) < first_node_length);
@@ -1074,8 +1087,13 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
     // remove the sequence and path if we hit the end the graph before finishing
     // the alignment
     if (aln.sequence().size() != aln.quality().size()) {
-        aln.clear_path();
-        aln.clear_sequence();
+        if (sample_unsheared_paths) {
+            aln.mutable_quality()->resize(aln.sequence().size());
+        }
+        else {
+            aln.clear_path();
+            aln.clear_sequence();
+        }
     }
     
 #ifdef debug_ngs_sim
@@ -1425,7 +1443,8 @@ void NGSSimulator::sample_start_pos(size_t& offset, bool& is_reverse, pos_t& pos
         offset = 0;
         is_reverse = false;
         source_path = "";
-    } else {
+    }
+    else {
         tie(offset, is_reverse, pos, source_path) = sample_start_path_pos();
     }
 }
@@ -1446,9 +1465,21 @@ tuple<size_t, bool, pos_t, string> NGSSimulator::sample_start_path_pos() {
     // choose a path
     size_t source_path_idx = path_sampler(prng);
     string source_path = source_paths[source_path_idx];
-    // The start pos sampler hasd been set up in path space, 0-based
-    size_t offset = start_pos_samplers[source_path_idx](prng);
+    
     bool rev = strand_sampler(prng);
+    size_t offset;
+    if (sample_unsheared_paths) {
+        if (rev) {
+            offset = graph.get_path_length(graph.get_path_handle(source_path)) - 1;
+        }
+        else {
+            offset = 0;
+        }
+    }
+    else {
+        // The start pos sampler has been set up in path space, 0-based
+        offset = start_pos_samplers[source_path_idx](prng);
+    }
     pos_t pos = position_at(&graph, source_path, offset, rev);
     
     return make_tuple(offset, rev, pos, source_path);
