@@ -706,7 +706,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                 }
                 source_paths.push_back(transcript_expression.first);
                 start_pos_samplers.emplace_back(0, tx_len - 1);
-                expression_values.push_back(transcript_expression.second * tx_len);
+                expression_values.push_back(transcript_expression.second * (sample_unsheared_paths ? 1 : tx_len));
             }
         }
         else {
@@ -727,7 +727,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                         continue;
                     }
                     double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
-                    expression_values.push_back(haplotype_expression * hp_tx_len);
+                    expression_values.push_back(haplotype_expression  * (sample_unsheared_paths ? 1 : hp_tx_len));
                     source_paths.push_back(get<0>(haplotype_transcripts[i]));
                     start_pos_samplers.emplace_back(0, hp_tx_len - 1);
                 }
@@ -1097,6 +1097,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
     // the alignment
     if (aln.sequence().size() != aln.quality().size()) {
         if (sample_unsheared_paths) {
+            // we simulated the whole path, so we don't use the final quality values
             aln.mutable_quality()->resize(aln.sequence().size());
         }
         else {
@@ -1581,8 +1582,8 @@ pair<string, vector<bool>> NGSSimulator::sample_read_quality_internal(pair<uint8
 }
                                               
 void NGSSimulator::apply_N_mask(string& sequence, const vector<bool>& n_mask) {
-    assert(sequence.size() == n_mask.size());
-    for (size_t i = 0; i < n_mask.size(); i++) {
+    assert(sequence.size() == n_mask.size() || sample_unsheared_paths);
+    for (size_t i = 0; i < sequence.size(); i++) {
         if (n_mask[i]) {
             sequence[i] = 'N';
         }

@@ -525,6 +525,10 @@ int main_sim(int argc, char** argv) {
     if (fastq_name.empty()) {
         // Use the fixed error rate sampler
         
+        if (unsheared_fragments) {
+            cerr << "Unsheared fragment option only available when simulating from FASTQ-trained errors" << endl;
+        }
+        
         // Make a sample to sample reads with
         Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions, haplotype_transcripts);
         
