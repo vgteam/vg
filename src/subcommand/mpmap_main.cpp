@@ -259,7 +259,7 @@ int main_mpmap(int argc, char** argv) {
     bool simplify_topologies = true;
     int max_alignment_gap = 5000;
     bool use_pessimistic_tail_alignment = false;
-    double pessimistic_gap_multiplier = 3.0; // i.e. none
+    double pessimistic_gap_multiplier = 3.0;
     bool restrained_graph_extraction = false;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
@@ -1484,6 +1484,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.max_alignment_gap = max_alignment_gap;
     multipath_mapper.use_pessimistic_tail_alignment = use_pessimistic_tail_alignment;
     multipath_mapper.pessimistic_gap_multiplier = pessimistic_gap_multiplier;
+    multipath_mapper.restrained_graph_extraction = restrained_graph_extraction;
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
