@@ -12,6 +12,7 @@
 #include <vg/vg.pb.h>
 #include "catch.hpp"
 #include "random_graph.hpp"
+#include "randomness.hpp"
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
@@ -3722,20 +3723,19 @@ namespace vg {
         
             // Each actual graph takes a fairly long time to do so we randomize sizes...
             
-            random_device seed_source;
-            default_random_engine generator(seed_source());
+            default_random_engine generator(test_seed_source());
             
             for (size_t repeat = 0; repeat < 100; repeat++) {
             
                 uniform_int_distribution<size_t> bases_dist(100, 10000);
                 size_t bases = bases_dist(generator);
-                uniform_int_distribution<size_t> variant_bases_dist(1, bases);
+                uniform_int_distribution<size_t> variant_bases_dist(1, bases/2);
                 size_t variant_bases = variant_bases_dist(generator);
-                uniform_int_distribution<size_t> variant_count_dist(1, variant_bases);
+                uniform_int_distribution<size_t> variant_count_dist(1, bases/2);
                 size_t variant_count = variant_count_dist(generator);
                         
 #ifdef debug
-                cerr << repeat << ": Do graph of " << bases << " bp with " << variant_bases << " bp variable in " << variant_count << " events" << endl;
+                cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events" << endl;
 #endif
             
                 VG graph;

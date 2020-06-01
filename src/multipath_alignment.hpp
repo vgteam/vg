@@ -47,6 +47,7 @@ namespace vg {
         inline void add_next(uint32_t n);
         inline void clear_next();
         inline size_t next_size() const;
+        inline bool has_next() const;
         inline int32_t score() const;
         inline void set_score(int32_t s);
     private:
@@ -95,6 +96,7 @@ namespace vg {
         inline void add_start(uint32_t s);
         inline void clear_start();
         inline size_t start_size() const;
+        inline bool has_start() const;
         inline const string& paired_read_name() const;
         inline string* mutable_paired_read_name();
         inline void set_paired_read_name(const string& n);
@@ -363,6 +365,9 @@ namespace vg {
     inline size_t subpath_t::next_size() const {
         return _next.size();
     }
+    inline bool subpath_t::has_next() const {
+        return !_next.empty();
+    }
     inline int32_t subpath_t::score() const {
         return _score;
     }
@@ -466,6 +471,9 @@ namespace vg {
     }
     inline size_t multipath_alignment_t::start_size() const {
         return _start.size();
+    }
+    inline bool multipath_alignment_t::has_start() const {
+        return !_start.empty();
     }
     inline const string& multipath_alignment_t::paired_read_name() const {
         return _paired_read_name;

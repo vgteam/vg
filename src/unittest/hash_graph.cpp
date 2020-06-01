@@ -9,6 +9,7 @@
 
 #include "../json2pb.h"
 #include "random_graph.hpp"
+#include "randomness.hpp"
 
 #include "algorithms/are_equivalent.hpp"
 
@@ -28,8 +29,7 @@ using namespace std;
         int num_variants = 30;
         int long_var_length = 10;
         
-        random_device rd;
-        default_random_engine gen(rd());
+        default_random_engine gen(test_seed_source());
         uniform_int_distribution<int> circ_distr(0, 1);
         
         for (int i = 0; i < num_graphs; i++) {

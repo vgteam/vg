@@ -466,6 +466,15 @@ PoissonSupportSnarlCaller::~PoissonSupportSnarlCaller() {
     
 }
 
+void PoissonSupportSnarlCaller::set_baseline_error(double small_variant_error, double large_variant_error) {
+    if (small_variant_error >= 0) {
+        baseline_error_small = small_variant_error;
+    }
+    if (large_variant_error >= 0) {
+        baseline_error_large = large_variant_error;
+    }
+}
+
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
                                                                                          const vector<SnarlTraversal>& traversals,
                                                                                          int ref_trav_idx,
@@ -671,7 +680,10 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
     // error from the binned coverage, is way too high and including it only causes trouble.
     // tldr: just use the baseline_mapping_error constant and forget about depth_err for now. 
     //double error_rate = std::min(0.05, depth_err + baseline_mapping_error);
-    double error_rate = baseline_mapping_error;
+
+    // we toggle the baseline error 
+    size_t threshold = support_finder.get_average_traversal_support_switch_threshold();
+    double error_rate = max_trav_size >= threshold ? baseline_error_large : baseline_error_small;
     
     // error rate for non-allele traversals
     double other_error_rate = error_rate;
@@ -684,8 +696,6 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
         
     }    
     double other_poisson_lambda = other_error_rate * exp_depth; //support_val(total_site_support);
-    // extremely low error rates can dominate the probability calculations later on so clamp
-    other_poisson_lambda = max(0.5, other_poisson_lambda);
 
     // and our likelihood for the unmapped reads we see:
     double other_log_likelihood = poisson_prob_ln(std::round(support_val(total_other_support)), other_poisson_lambda);

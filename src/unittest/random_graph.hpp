@@ -1,6 +1,9 @@
 #include "handle.hpp"
 #include <vector>
 
+#ifndef VG_UNITTEST_RANDOM_GRAPH_HPP_INCLUDED
+#define VG_UNITTEST_RANDOM_GRAPH_HPP_INCLUDED
+
 namespace vg{
 namespace unittest{
 
@@ -17,3 +20,5 @@ std::vector<std::vector<size_t>> random_adjacency_list(size_t node_count, size_t
 
 }
 }
+
+#endif

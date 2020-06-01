@@ -31,6 +31,8 @@
 #include <getopt.h>
 #include <omp.h>
 
+#include "../index_manager.hpp"
+
 #include <gbwtgraph/index.h>
 
 #include "../min_distance.hpp"
@@ -47,6 +49,14 @@ int get_default_threads() {
     return std::min(omp_get_max_threads(), DEFAULT_MAX_THREADS);
 }
 
+size_t get_default_k() {
+    return IndexManager::minimizer_k;
+}
+
+size_t get_default_w() {
+    return IndexManager::minimizer_w;
+}
+
 void help_minimizer(char** argv) {
     std::cerr << "usage: " << argv[0] << " minimizer -g gbwt_name -i index_name [options] graph" << std::endl;
     std::cerr << std::endl;
@@ -59,8 +69,8 @@ void help_minimizer(char** argv) {
     std::cerr << "    -i, --index-name X      store the index to file X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Minimizer options:" << std::endl;
-    std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_LENGTH << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
-    std::cerr << "    -w, --window-length N   choose the minimizer from a window of N kmers (default " << gbwtgraph::DefaultMinimizerIndex::key_type::WINDOW_LENGTH << ")" << std::endl;
+    std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << get_default_k() << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
+    std::cerr << "    -w, --window-length N   choose the minimizer from a window of N kmers (default " << get_default_w() << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -d, --distance-index X  annotate the hits with positions in this distance index" << std::endl;
@@ -81,8 +91,8 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Command-line options.
-    size_t kmer_length = gbwtgraph::DefaultMinimizerIndex::key_type::KMER_LENGTH;
-    size_t window_length = gbwtgraph::DefaultMinimizerIndex::key_type::WINDOW_LENGTH;
+    size_t kmer_length = get_default_k();
+    size_t window_length = get_default_w();
     std::string index_name, distance_name, load_index, gbwt_name, graph_name;
     bool is_gbwt_graph = false;
     bool progress = false;

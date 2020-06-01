@@ -28,10 +28,11 @@ void help_call(char** argv) {
        << "Call variants or genotype known variants" << endl
        << endl
        << "support calling options:" << endl
-       << "    -k, --pack FILE         Supports created from vg pack for given input graph" << endl
-       << "    -m, --min-support M,N   Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
-       << "    -B, --bias-mode         Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
-       << "    -b, --het-bias M,N      Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
+       << "    -k, --pack FILE          Supports created from vg pack for given input graph" << endl
+       << "    -m, --min-support M,N    Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
+       << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.001]" << endl
+       << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
+       << "    -b, --het-bias M,N       Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
@@ -59,6 +60,7 @@ int main_call(int argc, char** argv) {
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
     string min_support_string;
+    string baseline_error_string;
     string bias_string;
     bool ratio_caller = false;
     bool legacy = false;
@@ -67,7 +69,9 @@ int main_call(int argc, char** argv) {
     // constants
     const size_t avg_trav_threshold = 50;
     const size_t avg_node_threshold = 50;
-    const size_t depth_bin_width = 50;
+    const size_t min_depth_bin_width = 50;
+    const size_t max_depth_bin_width = 50000000;
+    const double depth_scale_fac = 1.5;
     const size_t max_yens_traversals = 50;
     
     int c;
@@ -77,6 +81,7 @@ int main_call(int argc, char** argv) {
         static const struct option long_options[] = {
             {"pack", required_argument, 0, 'k'},
             {"bias-mode", no_argument, 0, 'B'},
+            {"baseline-error", required_argument, 0, 'e'},
             {"het-bias", required_argument, 0, 'b'},
             {"min-support", required_argument, 0, 'm'},
             {"vcf", required_argument, 0, 'v'},
@@ -97,7 +102,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Bb:m:v:f:i:s:r:g:p:o:l:d:Lt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:f:i:s:r:g:p:o:l:d:Lt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -117,6 +122,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'm':
             min_support_string = optarg;
+            break;
+        case 'e':
+            baseline_error_string = optarg;
             break;
         case 'v':
             vcf_filename = optarg;
@@ -203,6 +211,20 @@ int main_call(int argc, char** argv) {
         ref_het_bias = parse<double>(bias_toks[1]);
     } else if (bias_toks.size() > 2) {
         cerr << "error [vg call]: -b option expects at most two comma separated numbers M,N" << endl;
+        return 1;
+    }
+    // parse the baseline errors
+    vector<string> error_toks = split_delims(baseline_error_string, ",");
+    double baseline_error_large = -1;
+    double baseline_error_small = -1;
+    if (error_toks.size() == 2) {
+        baseline_error_small = parse<double>(error_toks[0]);
+        baseline_error_large = parse<double>(error_toks[1]);
+        if (baseline_error_small < baseline_error_large) {
+            cerr << "warning [vg call]: with baseline error -e X,Y option, small variant error (X) normally less than large (Y)" << endl;
+        }
+    } else if (error_toks.size() != 0) {
+        cerr << "error [vg call]: -e option expects exactly two comma-separated numbers X,Y" << endl;
         return 1;
     }
     
@@ -323,10 +345,18 @@ int main_call(int argc, char** argv) {
 
         if (ratio_caller == false) {
             // Make a depth index
-            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, depth_bin_width, 0, true, true);
+            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
+                                                                depth_scale_fac, 0, true, true);
             // Make a new-stype probablistic caller
             auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index,
-                                                                packer->has_qualities());
+                                                                //todo: qualities need to be used better in conjunction with
+                                                                //expected depth.
+                                                                //packer->has_qualities());
+                                                                false);
+
+            // Pass the errors through
+            poisson_caller->set_baseline_error(baseline_error_small, baseline_error_large);
+                
             packed_caller = poisson_caller;
         } else {
             // Make an old-style ratio support caller

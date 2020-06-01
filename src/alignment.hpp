@@ -14,10 +14,13 @@
 #include "htslib/sam.h"
 #include "htslib/vcf.h"
 #include "handle.hpp"
+#include "gafkluge.hpp"
 
 namespace vg {
 
 const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
+
+const uint64_t DEFAULT_PARALLEL_BATCHSIZE = 512;
 
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
@@ -26,6 +29,8 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda,
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
                           const PathPositionHandleGraph* graph);
 int fastq_for_each(string& filename, function<void(Alignment&)> lambda);
+
+// fastq
 bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment);
 bool get_next_interleaved_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2);
 bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, size_t len, Alignment& mate1, Alignment& mate2);
@@ -50,6 +55,29 @@ size_t fastq_paired_two_files_for_each_parallel(const string& file1, const strin
 size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, const string& file2,
                                                            function<void(Alignment&, Alignment&)> lambda,
                                                            function<bool(void)> single_threaded_until_true);
+
+// single gaf
+bool get_next_alignment_from_gaf(const HandleGraph& graph, htsFile* fp, kstring_t& s_buffer, gafkluge::GafRecord& g_buffer,
+                                 Alignment& alignment);
+bool get_next_interleaved_alignment_pair_from_gaf(const HandleGraph& graph, htsFile* fp, kstring_t& s_buffer,
+                                                  gafkluge::GafRecord& g_buffer, Alignment& mate1, Alignment& mate2);
+size_t gaf_unpaired_for_each(const HandleGraph& graph, const string& filename, function<void(Alignment&)> lambda);
+size_t gaf_paired_interleaved_for_each(const HandleGraph& graph, const string& filename,
+                                       function<void(Alignment&, Alignment&)> lambda);
+// parallel gaf
+size_t gaf_unpaired_for_each_parallel(const HandleGraph& graph, const string& filename,
+                                      function<void(Alignment&)> lambda,
+                                      uint64_t batch_size = DEFAULT_PARALLEL_BATCHSIZE);
+size_t gaf_paired_interleaved_for_each_parallel(const HandleGraph& graph, const string& filename,
+                                                function<void(Alignment&, Alignment&)> lambda,
+                                                uint64_t batch_size = DEFAULT_PARALLEL_BATCHSIZE);
+size_t gaf_paired_interleaved_for_each_parallel_after_wait(const HandleGraph& graph, const string& filename,
+                                                           function<void(Alignment&, Alignment&)> lambda,
+                                                           function<bool(void)> single_threaded_until_true,
+                                                           uint64_t batch_size = DEFAULT_PARALLEL_BATCHSIZE);
+// gaf conversion
+gafkluge::GafRecord alignment_to_gaf(const HandleGraph& graph, const Alignment& aln, bool cs_cigar = true, bool base_quals = true);
+void gaf_to_alignment(const HandleGraph& graph, const gafkluge::GafRecord& gaf, Alignment& aln);
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
