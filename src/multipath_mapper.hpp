@@ -109,7 +109,9 @@ namespace vg {
         bool suppress_tail_anchors = false;
         size_t min_tail_anchor_length = 3;
         double band_padding_multiplier = 1.0;
-        double pessimistic_tail_gap_multiplier = 0.0;
+        bool use_pessimistic_tail_alignment = false;
+        double pessimistic_gap_multiplier = 0.0;
+        bool restrained_graph_extraction = false;
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
@@ -302,6 +304,18 @@ namespace vg {
                                                     const vector<MaximalExactMatch>& mems,
                                                     const vector<memcluster_t>& clusters);
         
+        /// Return a graph (on the heap) that contains a cluster
+        bdsg::HashGraph* extract_cluster_graph(const Alignment& alignment, const memcluster_t& cluster);
+        
+        /// Extract a graph that is guaranteed to contain all local alignments that include
+        /// the MEMs of the cluster
+        bdsg::HashGraph* extract_maximal_graph(const Alignment& alignment, const memcluster_t& cluster);
+        
+        /// Extract a graph with an algorithm that tries to extract not much more than what
+        /// is required to contain the cluster in a single connected component (can be slower
+        /// than the maximal algorithm for alignments that require large indels)
+        bdsg::HashGraph* extract_restrained_graph(const Alignment& alignment, const memcluster_t& cluster);
+        
         /// If there are any multipath_alignment_ts with multiple connected components, split them
         /// up and add them to the return vector.
         /// Properly handles multipath_alignment_ts that are unmapped.
@@ -418,12 +432,14 @@ namespace vg {
         bool share_terminal_positions(const multipath_alignment_t& multipath_aln_1, const multipath_alignment_t& multipath_aln_2) const;
         
         /// Get a thread_local RRMemo with these parameters
-        haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;;
+        haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;
         
         /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also
         /// inverts the distances in the cluster pairs vector according to the strand
         void establish_strand_consistency(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
+        
+        int64_t pessimistic_gap(int64_t length, double multiplier) const;
         
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
@@ -435,6 +451,11 @@ namespace vg {
         
         // a memo for the transcendental p-value function (thread local to maintain threadsafety)
         static thread_local unordered_map<pair<size_t, size_t>, double> p_value_memo;
+        
+        // a memo for the transcendental restrained extraction function (thread local to maintain threadsafety)
+        static thread_local unordered_map<double, vector<int64_t>> pessimistic_gap_memo;
+        
+        static const size_t gap_memo_max_size;
         
         // a memo for transcendental band padidng function (gets initialized at construction)
         vector<size_t> band_padding_memo;

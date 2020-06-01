@@ -2759,13 +2759,168 @@ namespace vg {
 #endif
         
     }
+
+    bdsg::HashGraph* MultipathMapper::extract_maximal_graph(const Alignment& alignment, const memcluster_t& cluster) {
+        
+        // Figure out the aligner to use
+        auto aligner = get_aligner(!alignment.quality().empty());
+        
+        vector<pos_t> positions;
+        vector<size_t> forward_max_dist;
+        vector<size_t> backward_max_dist;
+        
+        positions.reserve(cluster.size());
+        forward_max_dist.reserve(cluster.size());
+        backward_max_dist.reserve(cluster.size());
+        
+        for (auto& mem_hit : cluster) {
+            // get the start position of the MEM
+            positions.push_back(mem_hit.second);
+            // search far enough away to get any hit detectable without soft clipping
+            forward_max_dist.push_back(min(aligner->longest_detectable_gap(alignment, mem_hit.first->end), max_alignment_gap)
+                                       + (alignment.sequence().end() - mem_hit.first->begin));
+            backward_max_dist.push_back(min(aligner->longest_detectable_gap(alignment, mem_hit.first->begin), max_alignment_gap)
+                                        + (mem_hit.first->begin - alignment.sequence().begin()));
+        }
+        
+        // TODO: a progressive expansion of the subgraph if the MEM hit is already contained in
+        // a cluster graph somewhere?
+        
+        // extract the subgraph within the search distance
+        
+        auto cluster_graph = new bdsg::HashGraph();
+        algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_max_dist, backward_max_dist,
+                                             num_alt_alns > 1 ? reversing_walk_length : 0);
+        return cluster_graph;
+    }
+
+    // TODO: entirely duplicative with MultipathAlignmentGraph...
+    const size_t MultipathMapper::gap_memo_max_size = 1000;
+    thread_local unordered_map<double, vector<int64_t>> MultipathMapper::pessimistic_gap_memo;
+    int64_t MultipathMapper::pessimistic_gap(int64_t length, double multiplier) const {
+        int64_t gap_length;
+        if (length >= gap_memo_max_size) {
+            gap_length = multiplier * sqrt(length);
+        }
+        else {
+            vector<int64_t>& memo = pessimistic_gap_memo[multiplier];
+            while (memo.size() <= length) {
+                memo.emplace_back(multiplier * sqrt(memo.size()));
+            }
+            gap_length = memo[length];
+        }
+        return gap_length;
+    }
+
+    bdsg::HashGraph* MultipathMapper::extract_restrained_graph(const Alignment& alignment, const memcluster_t& cluster) {
+        
+        // Figure out the aligner to use
+        auto aligner = get_aligner(!alignment.quality().empty());
+        
+        vector<size_t> order(cluster.size(), 0);
+        for (size_t i = 1; i < order.size(); ++i) {
+            order[i] = i;
+        }
+        stable_sort(order.begin(), order.end(), [&](size_t i, size_t j) {
+            return cluster[i].first->begin < cluster[j].first->begin;
+        });
+        
+        // TODO: is there a way to do this in the sort?
+        vector<size_t> index(order.size());
+        for (size_t i = 0; i < index.size(); ++i) {
+            index[order[i]] = i;
+        }
+        
+        vector<pos_t> positions(cluster.size());
+        
+        // determine an initial restrained set of distances to extract from
+        vector<size_t> forward_dist(cluster.size()), backward_dist(cluster.size());
+        for (size_t i = 0; i < cluster.size(); ++i) {
+            size_t idx = index[i];
+            if (idx == 0) {
+                if (use_pessimistic_tail_alignment) {
+                    int64_t tail_length = cluster[i].first->begin - alignment.sequence().begin();
+                    backward_dist[i] = tail_length + pessimistic_gap(tail_length, pessimistic_gap_multiplier);
+                }
+                else {
+                    backward_dist[i] = aligner->longest_detectable_gap(alignment, cluster[i].first->begin);
+                }
+            }
+            else {
+                int64_t between_length = max<int64_t>(0, cluster[i].first->begin - cluster[order[idx - 1]].first->end);
+                backward_dist[i] = between_length + pessimistic_gap(between_length, pessimistic_gap_multiplier);
+            }
+            
+            if (idx + 1 == cluster.size()) {
+                if (use_pessimistic_tail_alignment) {
+                    int64_t tail_length = alignment.sequence().end() - cluster[i].first->end;
+                    forward_dist[i] = tail_length + pessimistic_gap(tail_length, pessimistic_gap_multiplier) + cluster[i].first->length();
+                }
+                else {
+                    forward_dist[i] = aligner->longest_detectable_gap(alignment, cluster[i].first->end) + cluster[i].first->length();
+                }
+            }
+            else {
+                int64_t between_length = max<int64_t>(0, cluster[order[idx + 1]].first->begin - cluster[i].first->end);
+                forward_dist[i] = between_length + pessimistic_gap(between_length, pessimistic_gap_multiplier) + cluster[i].first->length();
+            }
+            
+            positions[i] = cluster[i].second;
+        }
+        
+        bdsg::HashGraph* cluster_graph = nullptr;
+        bool do_extract = true;
+        while (do_extract) {
+            
+            // get rid of the old graph (if there is one)
+            delete cluster_graph;
+            
+            // extract according to the current search distances
+            cluster_graph = new bdsg::HashGraph();
+            algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_dist, backward_dist,
+                                                 num_alt_alns > 1 ? reversing_walk_length : 0);
+            
+            if (algorithms::is_weakly_connected(cluster_graph)) {
+                // we consider enough of the graph extracted once it is connected
+                // stop doing further exttraction
+                do_extract = false;
+            }
+            else {
+                // double the search distances, up to the maximum detectable gap
+                bool any_dists_changed = false;
+                for (size_t i = 0; i < cluster.size(); ++i) {
+                    size_t bwd_dist = min<size_t>(backward_dist[i] * 2,
+                                                  aligner->longest_detectable_gap(alignment, cluster[i].first->begin));
+                    size_t fwd_dist = min<size_t>(forward_dist[i] * 2,
+                                                  aligner->longest_detectable_gap(alignment, cluster[i].first->end) + cluster[i].first->length());
+                    if (bwd_dist > backward_dist[i]) {
+                        backward_dist[i] = bwd_dist;
+                        any_dists_changed = true;
+                    }
+                    if (fwd_dist > forward_dist[i]) {
+                        forward_dist[i] = fwd_dist;
+                        any_dists_changed = true;
+                    }
+                }
+                // do another extraction as long as we increased at least one search distance
+                do_extract = any_dists_changed;
+            }
+        }
+        return cluster_graph;
+    }
+
+    bdsg::HashGraph* MultipathMapper::extract_cluster_graph(const Alignment& alignment, const memcluster_t& cluster) {
+        if (restrained_graph_extraction) {
+            return extract_restrained_graph(alignment, cluster);
+        }
+        else {
+            return extract_maximal_graph(alignment, cluster);
+        }
+    }
     
     auto MultipathMapper::query_cluster_graphs(const Alignment& alignment,
                                                const vector<MaximalExactMatch>& mems,
                                                const vector<memcluster_t>& clusters) -> vector<clustergraph_t> {
-        
-        // Figure out the aligner to use
-        auto aligner = get_aligner(!alignment.quality().empty());
         
         // We populate this with all the cluster graphs.
         vector<clustergraph_t> cluster_graphs_out;
@@ -2791,36 +2946,9 @@ namespace vg {
 #endif
             
             // gather the parameters for subgraph extraction from the MEM hits
-            
             const memcluster_t& cluster = clusters[i];
-            vector<pos_t> positions;
-            vector<size_t> forward_max_dist;
-            vector<size_t> backward_max_dist;
+            bdsg::HashGraph* cluster_graph = extract_cluster_graph(alignment, cluster);
             
-            positions.reserve(cluster.size());
-            forward_max_dist.reserve(cluster.size());
-            backward_max_dist.reserve(cluster.size());
-            
-            for (auto& mem_hit : cluster) {
-                // get the start position of the MEM
-                positions.push_back(mem_hit.second);
-                // search far enough away to get any hit detectable without soft clipping
-                forward_max_dist.push_back(min(aligner->longest_detectable_gap(alignment, mem_hit.first->end), max_alignment_gap)
-                                           + (alignment.sequence().end() - mem_hit.first->begin));
-                backward_max_dist.push_back(min(aligner->longest_detectable_gap(alignment, mem_hit.first->begin), max_alignment_gap)
-                                            + (mem_hit.first->begin - alignment.sequence().begin()));
-            }
-            
-            
-            // TODO: a progressive expansion of the subgraph if the MEM hit is already contained in
-            // a cluster graph somewhere?
-            
-            // extract the subgraph within the search distance
-            
-            auto cluster_graph = new bdsg::HashGraph();
-            algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_max_dist, backward_max_dist,
-                                                 num_alt_alns > 1 ? reversing_walk_length : 0);
-                                                 
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
             unordered_set<size_t> overlapping_graphs;
@@ -3237,7 +3365,8 @@ namespace vg {
 
                 // Make fake anchor paths to cut the snarls out of in the tails
                 multi_aln_graph.synthesize_tail_anchors(alignment, *align_dag, aligner, min_tail_anchor_length, num_alt_alns,
-                                                        false, max_alignment_gap, pessimistic_tail_gap_multiplier);
+                                                        false, max_alignment_gap,
+                                                        use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0);
                 
             }
        
@@ -3274,7 +3403,8 @@ namespace vg {
         
         // do the connecting alignments and fill out the multipath_alignment_t object
         multi_aln_graph.align(alignment, *align_dag, aligner, true, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
-                              pessimistic_tail_gap_multiplier, choose_band_padding, multipath_aln_out);
+                              use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0,
+                              choose_band_padding, multipath_aln_out);
         
         // Note that we do NOT topologically order the multipath_alignment_t. The
         // caller has to do that, after it is finished breaking it up into
@@ -3323,7 +3453,8 @@ namespace vg {
         
         // do the connecting alignments and fill out the multipath_alignment_t object
         multi_aln_graph.align(alignment, subgraph, aligner, false, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
-                              pessimistic_tail_gap_multiplier, choose_band_padding, multipath_aln_out);
+                              use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0,
+                              choose_band_padding, multipath_aln_out);
         
         for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
             translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);

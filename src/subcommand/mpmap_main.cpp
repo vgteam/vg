@@ -258,7 +258,9 @@ int main_mpmap(int argc, char** argv) {
     bool dynamic_max_alt_alns = true;
     bool simplify_topologies = true;
     int max_alignment_gap = 5000;
-    double pessimistic_tail_gap_multiplier = 0.0; // i.e. none
+    bool use_pessimistic_tail_alignment = false;
+    double pessimistic_gap_multiplier = 3.0; // i.e. none
+    bool restrained_graph_extraction = false;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
     int gap_open_score_arg = std::numeric_limits<int>::min();
@@ -760,7 +762,7 @@ int main_mpmap(int argc, char** argv) {
         gap_open_score = 1;
         // do less DP on tails (having a presumption that long tails with no seeds
         // will probably be soft-clipped)
-        pessimistic_tail_gap_multiplier = 3.0;
+        use_pessimistic_tail_alignment = true;
         // quality scores express errors well for these reads and they slow down dozeu
         qual_adjusted = false;
         // we generate many short MEMs that slow us down on high error reads, so we need
@@ -771,6 +773,8 @@ int main_mpmap(int argc, char** argv) {
     if (read_length == "long") {
         // we don't care so much about soft-clips on long reads
         full_length_bonus = 0;
+        // we don't want to extract huge graphs every time there's an error in the read
+        restrained_graph_extraction = true;
     }
     else if (read_length == "very-short") {
         // clustering is unlikely to improve accuracy in very short data
@@ -1478,7 +1482,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.reversing_walk_length = reversing_walk_length;
     multipath_mapper.max_alt_mappings = max_num_mappings;
     multipath_mapper.max_alignment_gap = max_alignment_gap;
-    multipath_mapper.pessimistic_tail_gap_multiplier = pessimistic_tail_gap_multiplier;
+    multipath_mapper.use_pessimistic_tail_alignment = use_pessimistic_tail_alignment;
+    multipath_mapper.pessimistic_gap_multiplier = pessimistic_gap_multiplier;
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
