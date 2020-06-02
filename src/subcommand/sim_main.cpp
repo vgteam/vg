@@ -145,7 +145,6 @@ int main_sim(int argc, char** argv) {
     double error_scale_factor = 1.0;
     string fastq_name;
     string fastq_2_name;
-    int num_threads = 1;
 
     // What path should we sample from? Empty string = the whole graph.
     vector<string> path_names;
@@ -319,8 +318,7 @@ int main_sim(int argc, char** argv) {
             break;
                 
         case 't':
-            num_threads = parse<int>(optarg);
-            omp_set_num_threads(num_threads);
+            threads = parse<int>(optarg);
             break;
             
         case 'h':
@@ -333,6 +331,8 @@ int main_sim(int argc, char** argv) {
             abort ();
         }
     }
+    
+    omp_set_num_threads(threads);
 
     if (xg_name.empty()) {
         cerr << "[vg sim] error: we need a graph to sample reads from" << endl;
@@ -649,7 +649,7 @@ int main_sim(int argc, char** argv) {
                              seed_val);
         
         unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", json_out ? "JSON" : "GAM",
-                                                                               map<string, int64_t>(), num_threads);
+                                                                               map<string, int64_t>(), get_thread_count());
         
 #pragma omp parallel for
         for (size_t i = 0; i < num_reads; i++) {
