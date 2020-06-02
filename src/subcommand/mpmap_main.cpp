@@ -746,7 +746,7 @@ int main_mpmap(int argc, char** argv) {
     else if (read_length == "Very-Short" || read_length == "Very-short" || read_length == "VERY-SHORT") {
         read_length = "very-short";
     }
-    else if (read_length != "Short" || read_length != "SHORT") {
+    else if (read_length == "Short" || read_length == "SHORT") {
         read_length = "short";
     }
     
