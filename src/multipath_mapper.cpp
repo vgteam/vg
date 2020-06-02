@@ -2734,7 +2734,7 @@ namespace vg {
         
     }
 
-    bdsg::HashGraph* MultipathMapper::extract_maximal_graph(const Alignment& alignment, const memcluster_t& cluster) {
+    pair<bdsg::HashGraph*, bool> MultipathMapper::extract_maximal_graph(const Alignment& alignment, const memcluster_t& cluster) {
         
         // Figure out the aligner to use
         auto aligner = get_aligner(!alignment.quality().empty());
@@ -2765,7 +2765,8 @@ namespace vg {
         auto cluster_graph = new bdsg::HashGraph();
         algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_max_dist, backward_max_dist,
                                              num_alt_alns > 1 ? reversing_walk_length : 0);
-        return cluster_graph;
+        
+        return make_pair(cluster_graph, cluster.size() == 1);
     }
 
     // TODO: entirely duplicative with MultipathAlignmentGraph...
@@ -2786,7 +2787,7 @@ namespace vg {
         return gap_length;
     }
 
-    bdsg::HashGraph* MultipathMapper::extract_restrained_graph(const Alignment& alignment, const memcluster_t& cluster) {
+    pair<bdsg::HashGraph*, bool> MultipathMapper::extract_restrained_graph(const Alignment& alignment, const memcluster_t& cluster) {
         
         // Figure out the aligner to use
         auto aligner = get_aligner(!alignment.quality().empty());
@@ -2844,6 +2845,7 @@ namespace vg {
         
         bdsg::HashGraph* cluster_graph = nullptr;
         bool do_extract = true;
+        bool connected = false;
         while (do_extract) {
             
             // get rid of the old graph (if there is one)
@@ -2854,10 +2856,13 @@ namespace vg {
             algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_dist, backward_dist,
                                                  num_alt_alns > 1 ? reversing_walk_length : 0);
             
-            if (algorithms::is_weakly_connected(cluster_graph)) {
+            // we can avoid a costly algorithm when the cluster was extracted from one position (and therefore
+            // must be connected)
+            if (cluster.size() == 1 || algorithms::is_weakly_connected(cluster_graph)) {
                 // we consider enough of the graph extracted once it is connected
                 // stop doing further exttraction
                 do_extract = false;
+                connected = true;
             }
             else {
                 // double the search distances, up to the maximum detectable gap
@@ -2880,10 +2885,10 @@ namespace vg {
                 do_extract = any_dists_changed;
             }
         }
-        return cluster_graph;
+        return make_pair(cluster_graph, connected);
     }
 
-    bdsg::HashGraph* MultipathMapper::extract_cluster_graph(const Alignment& alignment, const memcluster_t& cluster) {
+    pair<bdsg::HashGraph*, bool> MultipathMapper::extract_cluster_graph(const Alignment& alignment, const memcluster_t& cluster) {
         if (restrained_graph_extraction) {
             return extract_restrained_graph(alignment, cluster);
         }
@@ -2903,8 +2908,9 @@ namespace vg {
         // cluster and we use this to record which one
         unordered_map<id_t, size_t> node_id_to_cluster;
         
-        // to hold the clusters as they are (possibly) merged
-        unordered_map<size_t, bdsg::HashGraph*> cluster_graphs;
+        // to hold the clusters as they are (possibly) merged, bools indicate
+        // whether we've verified that the graph is connected
+        unordered_map<size_t, pair<bdsg::HashGraph*, bool>> cluster_graphs;
         
         // to keep track of which clusters have been merged
         UnionFind union_find(clusters.size());
@@ -2921,15 +2927,15 @@ namespace vg {
             
             // gather the parameters for subgraph extraction from the MEM hits
             auto& cluster = clusters[i];
-            bdsg::HashGraph* cluster_graph = extract_cluster_graph(alignment, cluster);
+            auto cluster_graph = extract_cluster_graph(alignment, cluster);
             
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
             unordered_set<size_t> overlapping_graphs;
             
             if (!suppress_cluster_merging) {
-                cluster_graph->for_each_handle([&](const handle_t& handle) {
-                    id_t node_id = cluster_graph->get_id(handle);
+                cluster_graph.first->for_each_handle([&](const handle_t& handle) {
+                    id_t node_id = cluster_graph.first->get_id(handle);
                     if (node_id_to_cluster.count(node_id)) {
                         overlapping_graphs.insert(node_id_to_cluster[node_id]);
                     }
@@ -2975,27 +2981,32 @@ namespace vg {
 #endif
                 
                 bdsg::HashGraph* merging_graph;
+                bool all_connected;
                 if (remaining_idx == i) {
                     // the new graph was chosen to remain, so add it to the record
                     cluster_graphs[i] = cluster_graph;
-                    merging_graph = cluster_graph;
+                    merging_graph = cluster_graph.first;
+                    all_connected = cluster_graph.second;
                 }
                 else {
                     // the new graph will be merged into an existing graph
-                    merging_graph = cluster_graphs[remaining_idx];
-                    algorithms::extend(cluster_graph, merging_graph);
-                    delete cluster_graph;
+                    merging_graph = cluster_graphs[remaining_idx].first;
+                    all_connected = cluster_graphs[remaining_idx].second && cluster_graph.second;
+                    algorithms::extend(cluster_graph.first, merging_graph);
+                    delete cluster_graph.first;
                 }
                 
                 // merge any other chained graphs into the remaining graph
                 for (size_t j : overlapping_graphs) {
                     if (j != remaining_idx) {
                         auto removing_graph = cluster_graphs[j];
-                        algorithms::extend(removing_graph, merging_graph);
-                        delete removing_graph;
+                        algorithms::extend(removing_graph.first, merging_graph);
+                        all_connected = all_connected && removing_graph.second;
+                        delete removing_graph.first;
                         cluster_graphs.erase(j);
                     }
                 }
+                cluster_graphs[remaining_idx].second = all_connected;
                 
                 // update the node-to-cluster mapping
                 merging_graph->for_each_handle([&](const handle_t& handle) {
@@ -3014,9 +3025,11 @@ namespace vg {
         
         size_t max_graph_idx = 0;
         for (const auto& cluster_graph : cluster_graphs) {
-            vector<unordered_set<id_t>> connected_components = algorithms::weakly_connected_components(cluster_graph.second);
-            if (connected_components.size() > 1) {
-                multicomponent_graphs.emplace_back(cluster_graph.first, std::move(connected_components));
+            if (!cluster_graph.second.second) {
+                vector<unordered_set<id_t>> connected_components = algorithms::weakly_connected_components(cluster_graph.second.first);
+                if (connected_components.size() > 1) {
+                    multicomponent_graphs.emplace_back(cluster_graph.first, std::move(connected_components));
+                }
             }
             max_graph_idx = max(cluster_graph.first, max_graph_idx);
         }
@@ -3037,16 +3050,16 @@ namespace vg {
 #endif
             
             for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
-                cluster_graphs[max_graph_idx + i] = new bdsg::HashGraph();
+                cluster_graphs[max_graph_idx + i] = make_pair(new bdsg::HashGraph(), true);
             }
             
             // divvy up the nodes
-            auto joined_graph = cluster_graphs[multicomponent_graph.first];
+            auto joined_graph = cluster_graphs[multicomponent_graph.first].first;
             joined_graph->for_each_handle([&](const handle_t& handle) {
                 for (size_t j = 0; j < multicomponent_graph.second.size(); j++) {
                     if (multicomponent_graph.second[j].count(joined_graph->get_id(handle))) {
-                        cluster_graphs[max_graph_idx + j]->create_handle(joined_graph->get_sequence(handle),
-                                                                         joined_graph->get_id(handle));
+                        cluster_graphs[max_graph_idx + j].first->create_handle(joined_graph->get_sequence(handle),
+                                                                               joined_graph->get_id(handle));
                         // if we're suppressing cluster merging, we don't maintain this index
                         if (!suppress_cluster_merging) {
                             node_id_to_cluster[joined_graph->get_id(handle)] = max_graph_idx + j;
@@ -3061,7 +3074,7 @@ namespace vg {
             joined_graph->for_each_edge([&](const edge_t& edge) {
                 for (size_t j = 0; j < multicomponent_graph.second.size(); j++) {
                     if (multicomponent_graph.second[j].count(joined_graph->get_id(edge.first))) {
-                        auto comp_graph = cluster_graphs[max_graph_idx + j];
+                        auto comp_graph = cluster_graphs[max_graph_idx + j].first;
                         comp_graph->create_edge(comp_graph->get_handle(joined_graph->get_id(edge.first),
                                                                        joined_graph->get_is_reverse(edge.first)),
                                                 comp_graph->get_handle(joined_graph->get_id(edge.second),
@@ -3073,7 +3086,7 @@ namespace vg {
             });
             
             // remove the old graph
-            delete cluster_graphs[multicomponent_graph.first];
+            delete cluster_graphs[multicomponent_graph.first].first;
             cluster_graphs.erase(multicomponent_graph.first);
             
             if (suppress_cluster_merging) {
@@ -3100,7 +3113,7 @@ namespace vg {
             cerr << "adding cluster graph " << cluster_graph.first << " to return vector at index " << cluster_graphs_out.size() << endl;
 #endif
             cluster_to_idx[cluster_graph.first] = cluster_graphs_out.size();
-            cluster_graphs_out.emplace_back(cluster_graph.second, memcluster_t(), 0);
+            cluster_graphs_out.emplace_back(cluster_graph.second.first, memcluster_t(), 0);
         }
 
         

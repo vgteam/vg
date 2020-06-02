@@ -304,17 +304,23 @@ namespace vg {
                                                     const vector<MaximalExactMatch>& mems,
                                                     const vector<memcluster_t>& clusters);
         
-        /// Return a graph (on the heap) that contains a cluster
-        bdsg::HashGraph* extract_cluster_graph(const Alignment& alignment, const memcluster_t& cluster);
+        /// Return a graph (on the heap) that contains a cluster. The paired bool
+        /// indicates whether the graph is known to be connected (but it is possible
+        /// for the graph to be connected and have it return false)
+        pair<bdsg::HashGraph*, bool> extract_cluster_graph(const Alignment& alignment, const memcluster_t& cluster);
         
         /// Extract a graph that is guaranteed to contain all local alignments that include
-        /// the MEMs of the cluster
-        bdsg::HashGraph* extract_maximal_graph(const Alignment& alignment, const memcluster_t& cluster);
+        /// the MEMs of the cluster.  The paired bool indicates whether the graph is
+        /// known to be connected (but it is possible for the graph to be connected and have
+        /// it return false)
+        pair<bdsg::HashGraph*, bool> extract_maximal_graph(const Alignment& alignment, const memcluster_t& cluster);
         
         /// Extract a graph with an algorithm that tries to extract not much more than what
         /// is required to contain the cluster in a single connected component (can be slower
-        /// than the maximal algorithm for alignments that require large indels)
-        bdsg::HashGraph* extract_restrained_graph(const Alignment& alignment, const memcluster_t& cluster);
+        /// than the maximal algorithm for alignments that require large indels),  The paired bool
+        /// indicates whether the graph is known to be connected (but it is possible
+        /// for the graph to be connected and have it return false)
+        pair<bdsg::HashGraph*, bool> extract_restrained_graph(const Alignment& alignment, const memcluster_t& cluster);
         
         /// If there are any multipath_alignment_ts with multiple connected components, split them
         /// up and add them to the return vector.
