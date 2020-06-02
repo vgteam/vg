@@ -991,7 +991,14 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
 
 void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is_reverse, pos_t& curr_pos,
                                         const string& source_path) {
-   
+    
+    // we will accept a read that cannot be extended to the full read length if we're simulating from
+    // a path that's too small or if we are sampling unsheared paths
+    bool accept_partial = sample_unsheared_paths;
+    if (!accept_partial && !source_path.empty()) {
+        accept_partial = graph.get_path_length(graph.get_path_handle(source_path)) < transition_distrs_1.size();
+    }
+    
     // Make sure we are starting inside the node
     // XXX this is broken
     auto first_node_length = graph.get_length(graph.get_handle(id(curr_pos)));
@@ -1096,7 +1103,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
     // remove the sequence and path if we hit the end the graph before finishing
     // the alignment
     if (aln.sequence().size() != aln.quality().size()) {
-        if (sample_unsheared_paths) {
+        if (accept_partial) {
             // we simulated the whole path, so we don't use the final quality values
             aln.mutable_quality()->resize(aln.sequence().size());
         }
@@ -1475,12 +1482,12 @@ pos_t NGSSimulator::sample_start_graph_pos() {
 }
 
 tuple<size_t, bool, pos_t> NGSSimulator::sample_start_path_pos(const size_t& source_path_idx) {
-    
+    size_t path_length = graph.get_path_length(graph.get_path_handle(source_paths[source_path_idx]));
     bool rev = strand_sampler(prng);
     size_t offset;
-    if (sample_unsheared_paths) {
+    if (sample_unsheared_paths || path_length < transition_distrs_1.size()) {
         if (rev) {
-            offset = graph.get_path_length(graph.get_path_handle(source_paths[source_path_idx])) - 1;
+            offset = path_length - 1;
         }
         else {
             offset = 0;
@@ -1497,8 +1504,10 @@ tuple<size_t, bool, pos_t> NGSSimulator::sample_start_path_pos(const size_t& sou
 
 string NGSSimulator::get_read_name() {
     stringstream sstrm;
-    sstrm << "seed_" << seed << "_fragment_" << sample_counter;
-    sample_counter++;
+    size_t num;
+#pragma omp atomic capture
+    num = sample_counter++;
+    sstrm << "seed_" << seed << "_fragment_" << num;
     return sstrm.str();
 }
 
