@@ -12,6 +12,8 @@
 
 #include <sstream>
 
+//#define debug
+
 namespace vg {
 using namespace std;
 
