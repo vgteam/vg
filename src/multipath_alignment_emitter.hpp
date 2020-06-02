@@ -27,9 +27,10 @@ class MultipathAlignmentEmitter {
 public:
     
     /// Initialize with the intended output stream and the maximum number of threads that
-    /// will be outputting. Optionally converts to single path alignments in either "GAM" or "GAF"
+    /// will be outputting. Optionally converts to single path alignments in either "gam" or "gaf"
     /// format.
-    MultipathAlignmentEmitter(ostream& out, int num_threads, const HandleGraph& graph, const string out_format = "gamp");
+    MultipathAlignmentEmitter(ostream& out, int num_threads, const HandleGraph& graph,
+                              const string out_format = "gamp");
     ~MultipathAlignmentEmitter();
     
     /// Emit paired read mappings as interleaved protobuf messages

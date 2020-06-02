@@ -2792,6 +2792,8 @@ namespace vg {
         // Figure out the aligner to use
         auto aligner = get_aligner(!alignment.quality().empty());
         
+        // the MEMs are size sorted, we want to know the read order so we can
+        // use the inter-MEM distance to figure out how much to extract
         vector<size_t> order(cluster.size(), 0);
         for (size_t i = 1; i < order.size(); ++i) {
             order[i] = i;
@@ -2800,7 +2802,7 @@ namespace vg {
             return cluster[i].first->begin < cluster[j].first->begin;
         });
         
-        // TODO: is there a way to do this in the sort?
+        // and we'll also want to
         vector<size_t> index(order.size());
         for (size_t i = 0; i < index.size(); ++i) {
             index[order[i]] = i;
@@ -2813,6 +2815,7 @@ namespace vg {
         for (size_t i = 0; i < cluster.size(); ++i) {
             size_t idx = index[i];
             if (idx == 0) {
+                // this is the left tail
                 if (use_pessimistic_tail_alignment) {
                     int64_t tail_length = cluster[i].first->begin - alignment.sequence().begin();
                     backward_dist[i] = tail_length + pessimistic_gap(tail_length, pessimistic_gap_multiplier);
@@ -2822,11 +2825,13 @@ namespace vg {
                 }
             }
             else {
+                // there is another MEM leftward
                 int64_t between_length = max<int64_t>(0, cluster[i].first->begin - cluster[order[idx - 1]].first->end);
                 backward_dist[i] = between_length + pessimistic_gap(between_length, pessimistic_gap_multiplier);
             }
             
             if (idx + 1 == cluster.size()) {
+                // this is the right tail
                 if (use_pessimistic_tail_alignment) {
                     int64_t tail_length = alignment.sequence().end() - cluster[i].first->end;
                     forward_dist[i] = tail_length + pessimistic_gap(tail_length, pessimistic_gap_multiplier) + cluster[i].first->length();
@@ -2836,12 +2841,16 @@ namespace vg {
                 }
             }
             else {
+                // there is another MEM rightward
                 int64_t between_length = max<int64_t>(0, cluster[order[idx + 1]].first->begin - cluster[i].first->end);
                 forward_dist[i] = between_length + pessimistic_gap(between_length, pessimistic_gap_multiplier) + cluster[i].first->length();
             }
             
             positions[i] = cluster[i].second;
         }
+        
+        // expand the restrained search distances until we extract a connected graph or
+        // expand the distances up to the maximum detectable length
         
         bdsg::HashGraph* cluster_graph = nullptr;
         bool do_extract = true;
@@ -2901,6 +2910,11 @@ namespace vg {
                                                const vector<MaximalExactMatch>& mems,
                                                const vector<memcluster_t>& clusters) -> vector<clustergraph_t> {
         
+        // some settings want us to not merge clusters that have overlapping nodes, and
+        // we can also save some bookkeeping work if we neglect to do cluster merging
+        // when there's only one cluster anyway
+        bool do_merge_suppression = suppress_cluster_merging || clusters.size() <= 1;
+        
         // We populate this with all the cluster graphs.
         vector<clustergraph_t> cluster_graphs_out;
         
@@ -2933,7 +2947,7 @@ namespace vg {
             // one cluster was split into multiple clusters)
             unordered_set<size_t> overlapping_graphs;
             
-            if (!suppress_cluster_merging) {
+            if (!do_merge_suppression) {
                 cluster_graph.first->for_each_handle([&](const handle_t& handle) {
                     id_t node_id = cluster_graph.first->get_id(handle);
                     if (node_id_to_cluster.count(node_id)) {
@@ -3061,7 +3075,7 @@ namespace vg {
                         cluster_graphs[max_graph_idx + j].first->create_handle(joined_graph->get_sequence(handle),
                                                                                joined_graph->get_id(handle));
                         // if we're suppressing cluster merging, we don't maintain this index
-                        if (!suppress_cluster_merging) {
+                        if (!do_merge_suppression) {
                             node_id_to_cluster[joined_graph->get_id(handle)] = max_graph_idx + j;
                         }
                         break;
@@ -3089,7 +3103,7 @@ namespace vg {
             delete cluster_graphs[multicomponent_graph.first].first;
             cluster_graphs.erase(multicomponent_graph.first);
             
-            if (suppress_cluster_merging) {
+            if (do_merge_suppression) {
                 // we need to re-assign the hits to the new cluster graphs
                 for (auto& mem_hit : clusters[multicomponent_graph.first]) {
                     for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
@@ -3120,7 +3134,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "computing MEM assignments to cluster graphs" << endl;
 #endif
-        if (!suppress_cluster_merging) {
+        if (!do_merge_suppression) {
             // which MEMs are in play for which cluster?
             for (const MaximalExactMatch& mem : mems) {
                 for (gcsa::node_type hit : mem.nodes) {
