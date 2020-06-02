@@ -584,6 +584,9 @@ protected:
     /// Callbacks to get supports
     function<double(handle_t)> node_weight_callback;
     function<double(edge_t)> edge_weight_callback;
+
+    /// Heuristic for ignoring poorly supported edges connecting well-supported nodes
+    double min_edge_weight_ratio;
     
 public:
     
@@ -591,7 +594,8 @@ public:
     FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
                         size_t K,
                         function<double(handle_t)> node_weight_callback,
-                        function<double(edge_t)> edge_weight_callback);
+                        function<double(edge_t)> edge_weight_callback,
+                        double min_edge_weight_ratio = 0.);
 
     /**
      * Return the K widest (most flow) traversals through the site

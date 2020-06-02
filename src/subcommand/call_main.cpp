@@ -34,6 +34,7 @@ void help_call(char** argv) {
        << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
        << "    -b, --het-bias M,N       Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "general options:" << endl
+       << "    -a, --augmented         Graph has been augmented with reads, expect more exact breakpoints" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
        << "    -i, --ins-fasta FILE    Insertions fasta (required if VCF contains symbolic insertions)" << endl
@@ -65,6 +66,7 @@ int main_call(int argc, char** argv) {
     bool ratio_caller = false;
     bool legacy = false;
     int ploidy = 2;
+    bool augmented = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -73,6 +75,10 @@ int main_call(int argc, char** argv) {
     const size_t max_depth_bin_width = 50000000;
     const double depth_scale_fac = 1.5;
     const size_t max_yens_traversals = 50;
+    // ignore edges with less than 0.25 times the minimum support of their endpoints
+    // when in augmneted mode.  this is a heuristic to avoid jumping over obviously
+    // unsupported edges when workign with average support on longer svs. 
+    const double augmented_edge_ratio = 0.25;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -84,6 +90,7 @@ int main_call(int argc, char** argv) {
             {"baseline-error", required_argument, 0, 'e'},
             {"het-bias", required_argument, 0, 'b'},
             {"min-support", required_argument, 0, 'm'},
+            {"augmented", no_argument, 0, 'a'},
             {"vcf", required_argument, 0, 'v'},
             {"ref-fasta", required_argument, 0, 'f'},
             {"ins-fasta", required_argument, 0, 'i'},
@@ -102,7 +109,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:f:i:s:r:g:p:o:l:d:Lt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:av:f:i:s:r:g:p:o:l:d:Lt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -125,6 +132,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'e':
             baseline_error_string = optarg;
+            break;
+        case 'a':
+            augmented = true;
             break;
         case 'v':
             vcf_filename = optarg;
@@ -443,7 +453,8 @@ int main_call(int argc, char** argv) {
 
             // create the flow traversal finder
             FlowTraversalFinder* flow_traversal_finder = new FlowTraversalFinder(*graph, *snarl_manager, max_yens_traversals,
-                                                                                 node_support, edge_support);
+                                                                                 node_support, edge_support,
+                                                                                 augmented ? augmented_edge_ratio : 0.);
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
         

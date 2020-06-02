@@ -37,7 +37,10 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
                                                            size_t K,
                                                            function<double(const handle_t&)> node_weight_callback,
                                                            function<double(const edge_t&)> edge_weight_callback,
-                                                           bool greedy_avg = false);
+                                                           bool greedy_avg = false,
+                                                           // use to ignore edges with
+                                                           // weight < min_edge_weight_ratio * (min weight of endpoint nodes)
+                                                           double min_edge_weight_ratio = 0.);
 
 }
 }

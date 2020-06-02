@@ -157,7 +157,8 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
                                                            size_t K,
                                                            function<double(const handle_t&)> node_weight_callback,
                                                            function<double(const edge_t&)> edge_weight_callback,
-                                                           bool greedy_avg) {
+                                                           bool greedy_avg,
+                                                           double min_edge_weight_ratio) {
 
     vector<pair<double, vector<handle_t>>> best_paths;
     best_paths.reserve(K);
@@ -166,10 +167,21 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
     // to not bother looking at the same prefix again
     vector<size_t> best_spurs;
 
-    // get the widest path from dijkstra
+    // return true if edge should be ignored because it's weight is too low relative to its
+    // incident nodes' weights.
+    function<bool(edge_t)> check_edge_ratio = [&](edge_t edge) {
+        if (min_edge_weight_ratio <= 0.) {
+            return false;
+        } else {
+            double min_end_weight = std::min(node_weight_callback(edge.first), node_weight_callback(edge.second));
+            return min_end_weight > 0. && edge_weight_callback(edge) < min_edge_weight_ratio * min_end_weight;
+        }
+    };
+    
+    // get the widest path from dijkstra    
     best_paths.push_back(widest_dijkstra(g, source, sink, node_weight_callback,
                                          edge_weight_callback, [](handle_t) {return false;},
-                                         [](edge_t) {return false;}, greedy_avg));
+                                         check_edge_ratio, greedy_avg));
 
     best_spurs.push_back(0);
     
@@ -230,7 +242,8 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
             // find our path from the the spur_node to the sink
             pair<double, vector<handle_t>> spur_path_v = widest_dijkstra(g, spur_node, sink, node_weight_callback, edge_weight_callback,
                                                                          [&](handle_t h) {return forgotten_nodes.count(h);},
-                                                                         [&](edge_t e) {return forgotten_edges.count(e);},
+                                                                         [&](edge_t e) {return forgotten_edges.count(e) ||
+                                                                                        check_edge_ratio(e);},
                                                                          greedy_avg);
 
             if (!spur_path_v.second.empty()) {
