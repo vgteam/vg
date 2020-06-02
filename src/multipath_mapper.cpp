@@ -732,33 +732,7 @@ namespace vg {
     }
     
     size_t MultipathMapper::pseudo_length(const multipath_alignment_t& multipath_aln) const {
-        Alignment alignment;
-        optimal_alignment(multipath_aln, alignment);
-        const Path& path = alignment.path();
-        
-        int64_t net_matches = 0;
-        for (size_t i = 0; i < path.mapping_size(); i++) {
-            const Mapping& mapping = path.mapping(i);
-            for (size_t j = 0; j < mapping.edit_size(); j++) {
-                const Edit& edit = mapping.edit(j);
-                
-                // skip soft clips
-                if (((i == 0 && j == 0) || (i == path.mapping_size() - 1 && j == mapping.edit_size() - 1))
-                     && edit.from_length() == 0 && edit.to_length() > 0) {
-                    continue;
-                }
-                
-                // add matches and subtract mismatches/indels
-                if (edit.from_length() == edit.to_length() && edit.sequence().empty()) {
-                    net_matches += edit.from_length();
-                }
-                else {
-                    net_matches -= max(edit.from_length(), edit.to_length());
-                }
-            }
-        }
-        
-        return max<int64_t>(0, net_matches);
+        return optimal_alignment_score(multipath_aln);
     }
     
     // make the memo live in this .o file
@@ -2037,7 +2011,7 @@ namespace vg {
                 // put the first component into the original location
                 multipath_alignment_t last_component;
                 extract_sub_multipath_alignment(multipath_alns_out[i], comps[0], last_component);
-                multipath_alns_out[i] = last_component;
+                multipath_alns_out[i] = move(last_component);
             }
         }
     }
@@ -2946,7 +2920,7 @@ namespace vg {
 #endif
             
             // gather the parameters for subgraph extraction from the MEM hits
-            const memcluster_t& cluster = clusters[i];
+            auto& cluster = clusters[i];
             bdsg::HashGraph* cluster_graph = extract_cluster_graph(alignment, cluster);
             
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where

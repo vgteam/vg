@@ -15,6 +15,7 @@
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/stream_multiplexer.hpp>
 #include "multipath_alignment.hpp"
+#include "alignment.hpp"
 
 namespace vg {
 using namespace std;
@@ -26,9 +27,9 @@ class MultipathAlignmentEmitter {
 public:
     
     /// Initialize with the intended output stream and the maximum number of threads that
-    /// will be outputting. Optionally convert to single path alignments instead of multipath
-    /// alignments.
-    MultipathAlignmentEmitter(ostream& out, int num_threads, bool emit_single_path = false);
+    /// will be outputting. Optionally converts to single path alignments in either "GAM" or "GAF"
+    /// format.
+    MultipathAlignmentEmitter(ostream& out, int num_threads, const HandleGraph& graph, const string out_format = "gamp");
     ~MultipathAlignmentEmitter();
     
     /// Emit paired read mappings as interleaved protobuf messages
@@ -42,6 +43,9 @@ private:
     void convert_multipath_alignment(const multipath_alignment_t& mp_aln, Alignment& aln,
                                      const multipath_alignment_t* prev_frag = nullptr,
                                      const multipath_alignment_t* next_frag = nullptr) const;
+    
+    /// the graph we're aligning against
+    const HandleGraph& graph;
     
     /// the stream that everything is emitted into
     ostream& out;

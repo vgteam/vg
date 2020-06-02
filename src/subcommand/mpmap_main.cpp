@@ -58,7 +58,8 @@ void help_mpmap(char** argv) {
     << "  -l, --read-length TYPE        read length preset: 'very-short', 'short', or 'long' (approx. <50bp, 50-500bp, and >500bp) [short]" << endl
     << "  -e, --error-rate TYPE         error rate preset: 'low' or 'high' (approx. PHRED >20 and <20) [low]" << endl
     << "output:" << endl
-    << "  -S, --single-path-mode        output single-path alignments (GAM) instead of multipath alignments (GAMP)" << endl
+    << "  -S, --single-path-mode        output single-path alignments (GAM or GAF) instead of multipath alignments (GAMP)" << endl
+    << "  -F, --single-path-fmt FMT     output in either 'gam' or 'gaf' format in single path mode [gam]" << endl
     << "  -N, --sample NAME             add this sample name to output" << endl
     << "  -R, --read-group NAME         add this read group to output" << endl
     << "  -p, --suppress-progress       do not report progress to stderr (slightly reduces thread contention)" << endl
@@ -147,6 +148,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_GREEDY_MEM_RESTART_MAX_LCP 1021
     #define OPT_SHORT_MEM_FILTER_FACTOR 1022
     #define OPT_NO_OUTPUT 1023
+    #define OPT_STRIPPED_MATCH 1024
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -268,6 +270,9 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus_arg = std::numeric_limits<int>::min();
     int reversing_walk_length = 1;
     bool no_output = false;
+    string default_single_path_format = "gam";
+    string single_path_format = default_single_path_format;
+    string out_format = "gamp";
 
     // default presets
     string nt_type = "dna";
@@ -297,6 +302,7 @@ int main_mpmap(int argc, char** argv) {
             {"interleaved", no_argument, 0, 'i'},
             {"same-strand", no_argument, 0, 'T'},
             {"single-path-mode", no_argument, 0, 'S'},
+            {"single-path-fmt", required_argument, 0, 'F'},
             {"snarls", required_argument, 0, 's'},
             {"synth-tail-anchors", no_argument, 0, OPT_SUPPRESS_TAIL_ANCHORS},
             {"tvs-clusterer", no_argument, 0, 'v'},
@@ -320,7 +326,7 @@ int main_mpmap(int argc, char** argv) {
             {"reseed-length", required_argument, 0, 'r'},
             {"reseed-diff", required_argument, 0, 'W'},
             {"clustlength", required_argument, 0, 'K'},
-            {"stripped-match", no_argument, 0, 'F'},
+            {"stripped-match", no_argument, 0, OPT_STRIPPED_MATCH},
             {"strip-length", no_argument, 0, OPT_STRIP_LENGTH},
             {"strip-count", no_argument, 0, OPT_STRIP_COUNT},
             {"no-greedy-restart", no_argument, 0, OPT_NO_GREEDY_MEM_RESTARTS},
@@ -357,7 +363,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iSs:vX:u:a:b:I:D:BP:Q:UpM:r:W:K:Fc:C:R:En:l:e:q:z:w:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iSs:vX:u:a:b:I:D:BP:Q:UpM:r:W:K:F:c:C:R:En:l:e:q:z:w:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -573,6 +579,10 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'F':
+                single_path_format = optarg;
+                break;
+                
+            case OPT_STRIPPED_MATCH:
                 use_stripped_match_alg = true;
                 break;
                 
@@ -823,6 +833,18 @@ int main_mpmap(int argc, char** argv) {
     if (single_path_alignment_mode) {
         // simplifying topologies is redundant work if we're just going to take the maximum weight path anyway
         simplify_topologies = false;
+        out_format = single_path_format;
+    }
+    
+    // normalize capitalization
+    if (out_format == "GAM") {
+        out_format = "gam";
+    }
+    if (out_format == "GAMP") {
+        out_format = "gamp";
+    }
+    if (out_format == "GAF") {
+        out_format = "gaf";
     }
     
     if (single_path_alignment_mode &&
@@ -1068,6 +1090,10 @@ int main_mpmap(int argc, char** argv) {
     if (min_mem_length < 0) {
         cerr << "error:[vg mpmap] Minimum MEM length set to " << min_mem_length << ", must set to a positive integer or 0 for no maximum." << endl;
         exit(1);
+    }
+    
+    if (single_path_format != default_single_path_format && !single_path_alignment_mode) {
+        cerr << "warning:[vg mpmap] Single path output format (-F) is ignored when not using single path alignment output (-S)" << endl;
     }
     
     if (stripped_match_alg_strip_length <= 0) {
@@ -1574,7 +1600,7 @@ int main_mpmap(int argc, char** argv) {
     };
     
     // init a writer for the output
-    MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter(cout, thread_count, single_path_alignment_mode);
+    MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter(cout, thread_count, *path_position_handle_graph, out_format);
     
     // a buffer to hold read pairs that can't be unambiguously mapped before the fragment length distribution
     // is estimated
