@@ -724,7 +724,6 @@ void DozeuInterface::align_pinned(Alignment& alignment, const HandleGraph& g, bo
         handle_t handle = order[i];
         // check if this is a tip in the correct direction so that we'd want to pin on it
         bool do_pinning = g.follow_edges(handle, pin_left, [](const handle_t& neighbor) { return false; });
-        
         if (do_pinning) {
             head_positions.emplace_back();
             head_positions.back().node_index = i;
