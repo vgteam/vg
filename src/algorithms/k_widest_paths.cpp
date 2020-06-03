@@ -167,21 +167,50 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
     // to not bother looking at the same prefix again
     vector<size_t> best_spurs;
 
-    // return true if edge should be ignored because it's weight is too low relative to its
+    // return true if edge should be ignored because its weight is too low relative to its
     // incident nodes' weights.
-    function<bool(edge_t)> check_edge_ratio = [&](edge_t edge) {
+    function<bool(edge_t)> ignore_edge = [&](edge_t edge) {
         if (min_edge_weight_ratio <= 0.) {
+            // never ignore anything if we don't have a minimum ratio
             return false;
         } else {
+            // check the edge's support relative to its incident nodes
             double min_end_weight = std::min(node_weight_callback(edge.first), node_weight_callback(edge.second));
-            return min_end_weight > 0. && edge_weight_callback(edge) < min_edge_weight_ratio * min_end_weight;
+            bool edge_meets_threshold = edge_weight_callback(edge) >= min_edge_weight_ratio * min_end_weight;
+            bool other_meets_threshold = false;
+            if (!edge_meets_threshold) {
+                // if the edge fails the support check, see if there are any other edges from the
+                // start node that pass it
+                g->follow_edges(edge.first, false, [&] (handle_t next) {
+                        if (next != edge.second) {
+                            min_end_weight = std::min(node_weight_callback(edge.first), node_weight_callback(next));
+                            other_meets_threshold = edge_weight_callback(g->edge_handle(edge.first, next)) >=
+                                min_edge_weight_ratio * min_end_weight;
+                        }
+                        return !other_meets_threshold;
+                    });
+            }
+            // we'll ignore the edge if it doesn't meet the support threshold, and there's some
+            // other edge from the start that does (this is just a greedy heuristic to avoid making
+            // bad decisions at branch points)
+            return !edge_meets_threshold && other_meets_threshold;
         }
     };
     
     // get the widest path from dijkstra    
     best_paths.push_back(widest_dijkstra(g, source, sink, node_weight_callback,
                                          edge_weight_callback, [](handle_t) {return false;},
-                                         check_edge_ratio, greedy_avg));
+                                         ignore_edge, greedy_avg));
+
+    if (min_edge_weight_ratio > 0. && best_paths[0].second.empty()) {
+        // our edge support threshold heuristic prevented any path from being found
+        // turn it off and start again
+        min_edge_weight_ratio = 0.;
+        best_paths.clear();
+        best_paths.push_back(widest_dijkstra(g, source, sink, node_weight_callback,
+                                             edge_weight_callback, [](handle_t) {return false;},
+                                             ignore_edge, greedy_avg));
+    }
 
     best_spurs.push_back(0);
     
@@ -243,7 +272,7 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
             pair<double, vector<handle_t>> spur_path_v = widest_dijkstra(g, spur_node, sink, node_weight_callback, edge_weight_callback,
                                                                          [&](handle_t h) {return forgotten_nodes.count(h);},
                                                                          [&](edge_t e) {return forgotten_edges.count(e) ||
-                                                                                        check_edge_ratio(e);},
+                                                                                        ignore_edge(e);},
                                                                          greedy_avg);
 
             if (!spur_path_v.second.empty()) {
