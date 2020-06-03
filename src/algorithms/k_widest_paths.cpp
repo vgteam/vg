@@ -152,6 +152,50 @@ pair<double, vector<handle_t>> widest_dijkstra(const HandleGraph* g, handle_t so
     return make_pair(width, widest_path);
 }
 
+// return true if edge should be ignored because its weight is too low relative to its
+// incident nodes' weights.
+static bool edge_support_filter(const HandleGraph* g, const edge_t& edge,
+                                function<double(const handle_t&)> node_weight_callback,
+                                function<double(const edge_t&)> edge_weight_callback,
+                                double min_edge_weight_ratio) {
+    
+    // check the edge's support relative to its incident nodes
+    double min_end_weight = std::min(node_weight_callback(edge.first), node_weight_callback(edge.second));
+    bool edge_meets_threshold = edge_weight_callback(edge) >= min_edge_weight_ratio * min_end_weight;
+    bool start_meets_threshold = false;
+    bool end_meets_threshold = false;
+
+    if (!edge_meets_threshold) {
+        // if the edge fails the support check, see if there are any other edges from the
+        // start node that pass it
+        g->follow_edges(edge.first, false, [&] (handle_t next) {
+                if (next != edge.second) {
+                    min_end_weight = std::min(node_weight_callback(edge.first), node_weight_callback(next));
+                    start_meets_threshold = edge_weight_callback(g->edge_handle(edge.first, next)) >=
+                        min_edge_weight_ratio * min_end_weight;
+                }
+                return !start_meets_threshold;
+            });
+    }
+    if (start_meets_threshold) {
+        // if the edge fails the support check, see if there are any other edges from the
+        // end node that pass it
+        g->follow_edges(edge.second, true, [&] (handle_t next) {
+                if (next != edge.first) {
+                    min_end_weight = std::min(node_weight_callback(edge.second), node_weight_callback(next));
+                    end_meets_threshold = edge_weight_callback(g->edge_handle(next, edge.second)) >=
+                        min_edge_weight_ratio * min_end_weight;
+                }
+                return !end_meets_threshold;
+          });
+    }
+    
+    // we'll ignore the edge if it doesn't meet the support threshold, and there's some
+    // other edge out of each of its endpoints that does (this is just a greedy heuristic to avoid making
+    // bad decisions at branch points)
+    return !edge_meets_threshold && end_meets_threshold;
+}
+
 // https://en.wikipedia.org/wiki/Yen%27s_algorithm
 vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g, handle_t source, handle_t sink,
                                                            size_t K,
@@ -174,26 +218,7 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
             // never ignore anything if we don't have a minimum ratio
             return false;
         } else {
-            // check the edge's support relative to its incident nodes
-            double min_end_weight = std::min(node_weight_callback(edge.first), node_weight_callback(edge.second));
-            bool edge_meets_threshold = edge_weight_callback(edge) >= min_edge_weight_ratio * min_end_weight;
-            bool other_meets_threshold = false;
-            if (!edge_meets_threshold) {
-                // if the edge fails the support check, see if there are any other edges from the
-                // start node that pass it
-                g->follow_edges(edge.first, false, [&] (handle_t next) {
-                        if (next != edge.second) {
-                            min_end_weight = std::min(node_weight_callback(edge.first), node_weight_callback(next));
-                            other_meets_threshold = edge_weight_callback(g->edge_handle(edge.first, next)) >=
-                                min_edge_weight_ratio * min_end_weight;
-                        }
-                        return !other_meets_threshold;
-                    });
-            }
-            // we'll ignore the edge if it doesn't meet the support threshold, and there's some
-            // other edge from the start that does (this is just a greedy heuristic to avoid making
-            // bad decisions at branch points)
-            return !edge_meets_threshold && other_meets_threshold;
+            return edge_support_filter(g, edge, node_weight_callback, edge_weight_callback, min_edge_weight_ratio);
         }
     };
     
