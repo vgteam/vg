@@ -310,7 +310,7 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
                     }
                     total_path.first = total_length > 0 ? total_support / total_length : 0;
                 }                    
-                pair<map<vector<handle_t>, size_t>::iterator, bool> ins = B.insert(make_pair(total_path.second, i + 1));
+                pair<map<vector<handle_t>, size_t>::iterator, bool> ins = B.insert(make_pair(total_path.second, i));
                 if (ins.second == true) {
                     score_to_B.insert(make_pair(total_path.first, ins.first));
                 } // todo: is there any reason we'd need to update the score of an existing entry in B?
