@@ -739,7 +739,7 @@ gafkluge::GafRecord alignment_to_gaf(const HandleGraph& graph, const Alignment& 
             
             if (i == aln.path().mapping_size()-1) {
                 //9 int End position on the path (0-based)
-                gaf.path_end = graph.get_length(graph.get_handle(mapping.position().node_id())) - offset;
+                gaf.path_end = offset;
                 assert(gaf.path_end >= 0);
             }
 
@@ -823,7 +823,7 @@ void gaf_to_alignment(const HandleGraph& graph, const gafkluge::GafRecord& gaf, 
         string& sequence = *aln.mutable_sequence();
         // Use the CS cigar string to add Edits into our Path, as well as set the sequence
         gafkluge::for_each_cs(gaf, [&] (const string& cs_cigar) {
-                assert(cur_offset < cur_len);
+                assert(cur_offset < cur_len || (cs_cigar[0] == '+' && cur_offset <= cur_len));
 
                 if (cs_cigar[0] == ':') {
                     int64_t match_len = stol(cs_cigar.substr(1));
