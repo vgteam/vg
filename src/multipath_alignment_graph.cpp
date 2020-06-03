@@ -3461,7 +3461,7 @@ namespace vg {
                                                                                                dest_pos,          // beginning of later match
                                                                                                false,             // do not bother finding all cycles (it's a DAG)
                                                                                                true,              // only include nodes on connecting paths
-                                                                                               true);             // enforce max distance strictly
+                                                                                               false);            // do not enforce max distance
                 
                 
                 if (connecting_graph.get_node_count() == 0) {
