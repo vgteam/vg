@@ -415,6 +415,7 @@ int main_giraffe(int argc, char** argv) {
         .chain(minimizer_score_fraction)
         .chain(paired_distance_stdevs)
         .chain(paired_rescue_score_limit)
+        .chain(max_rescue_attempts)
         .chain(rescue_subgraph_stdevs)
         .chain(max_multimaps)
         .chain(max_extensions)
@@ -997,17 +998,10 @@ int main_giraffe(int argc, char** argv) {
             if (interleaved) {
                 s << "-i";
             }
-            s << "-D" << distance_limit;
-            s << "-c" << hit_cap;
-            s << "-C" << hard_hit_cap;
-            s << "-F" << minimizer_score_fraction;
-            s << "-M" << max_multimaps;
-            s << "-e" << max_extensions;
-            s << "-a" << max_alignments;
-            s << "-s" << cluster_score;
-            s << "-u" << cluster_coverage;
-            s << "-w" << extension_set;
-            s << "-v" << extension_score;
+            s << "-E" << paired_distance_stdevs;
+            s << "-I" << paired_rescue_score_limit;
+            s << "-J" << rescue_subgraph_stdevs;
+            s << "-r" << rescue_attempts;
             
             s << ".gam";
             
