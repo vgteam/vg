@@ -762,13 +762,19 @@ using namespace std;
         Alignment surjected;
         optimal_alignment(mp_aln, surjected, allow_negative_scores);
         
-        // transfer applicable metadata
+        // transfer applicable metadata (including data that doesn't transit through multipath_alignment_t)
+        surjected.set_name(source.name());
+        surjected.set_read_group(source.read_group());
+        surjected.set_sample_name(source.sample_name());
         surjected.set_mapping_quality(source.mapping_quality());
         if (source.has_fragment_next()) {
             *surjected.mutable_fragment_next() = source.fragment_next();
         }
         if (source.has_fragment_prev()) {
             *surjected.mutable_fragment_prev() = source.fragment_prev();
+        }
+        if (source.has_annotation()) {
+            *surjected.mutable_annotation() = source.annotation();
         }
         
 #ifdef debug_anchored_surject

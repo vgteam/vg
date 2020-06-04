@@ -531,9 +531,6 @@ namespace vg {
 #endif
                     
                     multipath_aln_pairs_out.emplace_back(move(multipath_aln_1), move(multipath_aln_2));
-                    multipath_aln_pairs_out.front().first.set_paired_read_name(multipath_aln_pairs_out.front().second.name());
-                    multipath_aln_pairs_out.front().second.set_paired_read_name(multipath_aln_pairs_out.front().first.name());
-                    
                     fragment_length_distr.register_fragment_length(fragment_length);
                     
                     is_ambiguous = false;
@@ -1861,10 +1858,6 @@ namespace vg {
         string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.std_dev());
         
         for (pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair : multipath_aln_pairs_out) {
-            // add pair names to connect the paired reads
-            multipath_aln_pair.first.set_paired_read_name(multipath_aln_pair.second.name());
-            multipath_aln_pair.second.set_paired_read_name(multipath_aln_pair.first.name());
-            
             // Annotate with paired end distribution
             multipath_aln_pair.first.set_annotation("fragment_length_distribution", distribution);
             multipath_aln_pair.second.set_annotation("fragment_length_distribution", distribution);

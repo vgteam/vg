@@ -71,15 +71,6 @@ namespace vg {
         inline const string& quality() const;
         inline string* mutable_quality();
         inline void set_quality(const string& q);
-        inline const string& name() const;
-        inline string* mutable_name();
-        inline void set_name(const string& n);
-        inline const string& sample_name() const;
-        inline string* mutable_sample_name();
-        inline void set_sample_name(const string& n);
-        inline const string& read_group() const;
-        inline string* mutable_read_group();
-        inline void set_read_group(const string& g);
         inline const vector<subpath_t>& subpath() const;
         inline const subpath_t& subpath(size_t i) const;
         inline vector<subpath_t>* mutable_subpath();
@@ -97,9 +88,6 @@ namespace vg {
         inline void clear_start();
         inline size_t start_size() const;
         inline bool has_start() const;
-        inline const string& paired_read_name() const;
-        inline string* mutable_paired_read_name();
-        inline void set_paired_read_name(const string& n);
         
         // annotation interface
         // TODO: add List and Struct from https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/struct.proto
@@ -114,13 +102,9 @@ namespace vg {
     private:
         string _sequence;
         string _quality;
-        string _name;
-        string _sample_name;
-        string _read_group;
         vector<subpath_t> _subpath;
         int32_t _mapping_quality;
         vector<uint32_t> _start;
-        string _paired_read_name;
         map<string, pair<anno_type_t, void*>> _annotation;
     };
 
@@ -396,33 +380,6 @@ namespace vg {
     inline void multipath_alignment_t::set_quality(const string& q) {
         _quality = q;
     }
-    inline const string& multipath_alignment_t::name() const {
-        return _name;
-    }
-    inline string* multipath_alignment_t::mutable_name() {
-        return &_name;
-    }
-    inline void multipath_alignment_t::set_name(const string& n) {
-        _name = n;
-    }
-    inline const string& multipath_alignment_t::sample_name() const {
-        return _sample_name;
-    }
-    inline string* multipath_alignment_t::mutable_sample_name() {
-        return &_sample_name;
-    }
-    inline void multipath_alignment_t::set_sample_name(const string& n) {
-        _sample_name = n;
-    }
-    inline const string& multipath_alignment_t::read_group() const {
-        return _read_group;
-    }
-    inline string* multipath_alignment_t::mutable_read_group() {
-        return &_read_group;
-    }
-    inline void multipath_alignment_t::set_read_group(const string& g) {
-        _read_group = g;
-    }
     inline const vector<subpath_t>& multipath_alignment_t::subpath() const {
         return _subpath;
     }
@@ -474,15 +431,6 @@ namespace vg {
     }
     inline bool multipath_alignment_t::has_start() const {
         return !_start.empty();
-    }
-    inline const string& multipath_alignment_t::paired_read_name() const {
-        return _paired_read_name;
-    }
-    inline string* multipath_alignment_t::mutable_paired_read_name() {
-        return &_paired_read_name;
-    }
-    inline void multipath_alignment_t::set_paired_read_name(const string& n) {
-        _paired_read_name = n;
     }
 }
 

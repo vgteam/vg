@@ -1601,6 +1601,9 @@ int main_mpmap(int argc, char** argv) {
     
     // init a writer for the output
     MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter(cout, thread_count, *path_position_handle_graph, out_format);
+    MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter(cout, thread_count, single_path_alignment_mode);
+    emitter->set_read_group(read_group);
+    emitter->set_sample_name(sample_name);
     
     // a buffer to hold read pairs that can't be unambiguously mapped before the fragment length distribution
     // is estimated
@@ -1635,7 +1638,7 @@ int main_mpmap(int argc, char** argv) {
         }
         
         if (!no_output) {
-            emitter->emit_singles(move(mp_alns));
+            emitter->emit_singles(alignment.name(), move(mp_alns));
         }
         
         if (watchdog) {
@@ -1701,7 +1704,7 @@ int main_mpmap(int argc, char** argv) {
         }
         
         if (!no_output) {
-            emitter->emit_pairs(move(mp_aln_pairs));
+            emitter->emit_pairs(alignment_1.name(), alignment_2.name(), move(mp_aln_pairs));
         }
         
         if (watchdog) {
@@ -1759,16 +1762,17 @@ int main_mpmap(int argc, char** argv) {
         mp_alns_1.resize(min(mp_alns_1.size(), mp_alns_2.size()));
         mp_alns_2.resize(min(mp_alns_1.size(), mp_alns_2.size()));
         
-        // combine into a single vector
-        vector<multipath_alignment_t> mp_alns_combined;
-        mp_alns_combined.reserve(mp_alns_1.size() + mp_alns_2.size());
-        for (size_t i = 0; i < mp_alns_1.size(); ++i) {
-            mp_alns_combined.emplace_back(std::move(mp_alns_1[i]));
-            mp_alns_combined.emplace_back(std::move(mp_alns_2[i]));
-        }
-        
         if (!no_output) {
-            emitter->emit_singles(move(mp_alns_combined));
+            // interface expects vectors, but we'll be doing one at a time
+            vector<multipath_alignment_t> buffer;
+            for (size_t i = 0; i < mp_alns_1.size(); ++i) {
+                buffer.emplace_back(move(mp_alns_1[i]));
+                emitter->emit_singles(alignment_1.name(), move(buffer));
+                buffer.clear();
+                buffer.emplace_back(move(mp_alns_2[i]));
+                emitter->emit_singles(alignment_2.name(), move(buffer));
+                buffer.clear();
+            }
         }
         
         if (watchdog) {
