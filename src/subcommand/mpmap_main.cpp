@@ -1601,7 +1601,6 @@ int main_mpmap(int argc, char** argv) {
     
     // init a writer for the output
     MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter(cout, thread_count, *path_position_handle_graph, out_format);
-    MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter(cout, thread_count, single_path_alignment_mode);
     emitter->set_read_group(read_group);
     emitter->set_sample_name(sample_name);
     
