@@ -185,5 +185,7 @@ void MultipathAlignmentEmitter::convert_multipath_alignment(const multipath_alig
     if (next_name) {
         aln.mutable_fragment_next()->set_name(*next_name);
     }
+    // at one point vg call needed these, maybe it doesn't anymore though
+    aln.set_identity(identity(aln.path()));
 }
 }
