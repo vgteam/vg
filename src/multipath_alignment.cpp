@@ -1442,10 +1442,6 @@ namespace vg {
         rev_comp_out.set_quality(string(multipath_aln.quality().rbegin(), multipath_aln.quality().rend()));
         
         // transfer the rest of the metadata directly
-        rev_comp_out.set_read_group(multipath_aln.read_group());
-        rev_comp_out.set_name(multipath_aln.name());
-        rev_comp_out.set_sample_name(multipath_aln.sample_name());
-        rev_comp_out.set_paired_read_name(multipath_aln.paired_read_name());
         rev_comp_out.set_mapping_quality(multipath_aln.mapping_quality());
         
         vector< vector<size_t> > reverse_edge_lists(multipath_aln.subpath_size());
@@ -1711,30 +1707,18 @@ namespace vg {
     void transfer_read_metadata(const MultipathAlignment& from, multipath_alignment_t& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
-        to.set_read_group(from.read_group());
-        to.set_name(from.name());
-        to.set_sample_name(from.sample_name());
-        to.set_paired_read_name(from.paired_read_name());
         transfer_from_proto_annotation(from, to);
     }
 
     void transfer_read_metadata(const multipath_alignment_t& from, MultipathAlignment& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
-        to.set_read_group(from.read_group());
-        to.set_name(from.name());
-        to.set_sample_name(from.sample_name());
-        to.set_paired_read_name(from.paired_read_name());
         transfer_to_proto_annotation(from, to);
     }
     
     void transfer_read_metadata(const multipath_alignment_t& from, multipath_alignment_t& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
-        to.set_read_group(from.read_group());
-        to.set_name(from.name());
-        to.set_sample_name(from.sample_name());
-        to.set_paired_read_name(from.paired_read_name());
         from.for_each_annotation([&](const string& anno_name, multipath_alignment_t::anno_type_t type, const void* value) {
             switch (type) {
                 case multipath_alignment_t::Null:
@@ -1777,12 +1761,6 @@ namespace vg {
     void transfer_read_metadata(const multipath_alignment_t& from, Alignment& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
-        to.set_read_group(from.read_group());
-        to.set_name(from.name());
-        to.set_sample_name(from.sample_name());
-        
-        // note: not transferring paired_read_name because it is unclear whether
-        // it should go into fragment_prev or fragment_next
         
         transfer_to_proto_annotation(from, to);
     }
@@ -1790,6 +1768,8 @@ namespace vg {
     void transfer_read_metadata(const Alignment& from, Alignment& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
+        // TODO: do I still care about these fields now that they're taken out
+        // of multipath_alignment_t?
         to.set_read_group(from.read_group());
         to.set_name(from.name());
         to.set_sample_name(from.sample_name());
@@ -2239,7 +2219,7 @@ namespace vg {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
                         if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) != subseq[seq_idx]) {
 #ifdef debug_verbose_validation
-                            cerr << "validation failure on match that does not match for read " << multipath_aln.name() << endl;
+                            cerr << "validation failure on match that does not match" << endl;
                             cerr << "Node sequence: " << node_seq << " orientation: "
                                 << mapping.position().is_reverse() << " offset: " << node_idx << endl;
                             cerr << "Read subsequence: " << subseq << " offset: " << seq_idx << endl;
@@ -2502,7 +2482,7 @@ namespace vg {
     }
 
     string debug_string(const multipath_alignment_t& multipath_aln) {
-        string to_return = "{name: " + multipath_aln.name() + ", seq: " + multipath_aln.sequence();
+        string to_return = "{seq: " + multipath_aln.sequence();
         if (!multipath_aln.quality().empty()) {
             to_return += ", qual: " + string_quality_short_to_char(multipath_aln.quality());
         }
