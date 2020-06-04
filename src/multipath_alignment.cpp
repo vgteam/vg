@@ -1743,25 +1743,12 @@ namespace vg {
     void transfer_read_metadata(const Alignment& from, multipath_alignment_t& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
-        to.set_read_group(from.read_group());
-        to.set_name(from.name());
-        to.set_sample_name(from.sample_name());
-        
-        // no difference in these fields for multipath_alignment_ts
-        if (from.has_fragment_prev()) {
-            to.set_paired_read_name(from.fragment_prev().name());
-        }
-        else if (from.has_fragment_next()) {
-            to.set_paired_read_name(from.fragment_next().name());
-        }
-        
         transfer_from_proto_annotation(from, to);
     }
     
     void transfer_read_metadata(const multipath_alignment_t& from, Alignment& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
-        
         transfer_to_proto_annotation(from, to);
     }
 

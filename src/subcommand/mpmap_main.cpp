@@ -1714,16 +1714,17 @@ int main_mpmap(int argc, char** argv) {
         mp_alns_1.resize(min(mp_alns_1.size(), mp_alns_2.size()));
         mp_alns_2.resize(min(mp_alns_1.size(), mp_alns_2.size()));
         
-        // combine into a single vector
-        vector<multipath_alignment_t> mp_alns_combined;
-        mp_alns_combined.reserve(mp_alns_1.size() + mp_alns_2.size());
-        for (size_t i = 0; i < mp_alns_1.size(); ++i) {
-            mp_alns_combined.emplace_back(std::move(mp_alns_1[i]));
-            mp_alns_combined.emplace_back(std::move(mp_alns_2[i]));
-        }
-        
         if (!no_output) {
-            emitter->emit_singles(move(mp_alns_combined));
+            // interface expects vectors, but we'll be doing one at a time
+            vector<multipath_alignment_t> buffer;
+            for (size_t i = 0; i < mp_alns_1.size(); ++i) {
+                buffer.emplace_back(move(mp_alns_1[i]));
+                emitter->emit_singles(alignment_1.name(), move(buffer));
+                buffer.clear();
+                buffer.emplace_back(move(mp_alns_2[i]));
+                emitter->emit_singles(alignment_2.name(), move(buffer));
+                buffer.clear();
+            }
         }
         
         if (watchdog) {
