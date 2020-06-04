@@ -45,15 +45,39 @@ MultipathAlignmentEmitter::~MultipathAlignmentEmitter() {
     }
 }
 
-void MultipathAlignmentEmitter::emit_pairs(vector<pair<multipath_alignment_t, multipath_alignment_t>>&& mp_aln_pairs) {
+void MultipathAlignmentEmitter::set_read_group(const string& read_group) {
+    this->read_group = read_group;
+}
+
+void MultipathAlignmentEmitter::set_sample_name(const string& sample_name) {
+    this->sample_name = sample_name;
+}
+
+void MultipathAlignmentEmitter::emit_pairs(const string& name_1, const string& name_2,
+                                           vector<pair<multipath_alignment_t, multipath_alignment_t>>&& mp_aln_pairs) {
     
     int thread_number = omp_get_thread_num();
     
     if (!mp_aln_emitters.empty()) {
         vector<MultipathAlignment> mp_alns_out(2 * mp_aln_pairs.size());
         for (size_t i = 0; i < mp_aln_pairs.size(); ++i) {
-            to_proto_multipath_alignment(mp_aln_pairs[i].first, mp_alns_out[2 * i]);
-            to_proto_multipath_alignment(mp_aln_pairs[i].second, mp_alns_out[2 * i + 1]);
+            MultipathAlignment& mp_aln_out_1 = mp_alns_out[2 * i];
+            MultipathAlignment& mp_aln_out_2 = mp_alns_out[2 * i + 1];
+            to_proto_multipath_alignment(mp_aln_pairs[i].first, mp_aln_out_1);
+            to_proto_multipath_alignment(mp_aln_pairs[i].second, mp_aln_out_2);
+            mp_aln_out_1.set_name(name_1);
+            mp_aln_out_2.set_name(name_2);
+            mp_aln_out_1.set_paired_read_name(name_2);
+            mp_aln_out_2.set_paired_read_name(name_1);
+            if (!sample_name.empty()) {
+                mp_aln_out_1.set_sample_name(sample_name);
+                mp_aln_out_2.set_sample_name(sample_name);
+            }
+            if (!read_group.empty()) {
+                mp_aln_out_1.set_read_group(read_group);
+                mp_aln_out_2.set_read_group(read_group);
+            }
+            
         }
         
         mp_aln_emitters[thread_number]->write_many(std::move(mp_alns_out));
@@ -68,12 +92,24 @@ void MultipathAlignmentEmitter::emit_pairs(vector<pair<multipath_alignment_t, mu
     else {
         vector<Alignment> alns_out(2 * mp_aln_pairs.size());
         for (size_t i = 0; i < mp_aln_pairs.size(); ++i) {
-            convert_multipath_alignment(mp_aln_pairs[i].first, alns_out[2 * i],
+            Alignment& aln_out_1 = alns_out[2 * i];
+            Alignment& aln_out_2 = alns_out[2 * i + 1];
+            convert_multipath_alignment(mp_aln_pairs[i].first, aln_out_1,
                                         nullptr,
-                                        &mp_aln_pairs[i].second);
-            convert_multipath_alignment(mp_aln_pairs[i].second, alns_out[2 * i + 1],
-                                        &mp_aln_pairs[i].first,
+                                        &name_2);
+            convert_multipath_alignment(mp_aln_pairs[i].second, aln_out_2,
+                                        &name_1,
                                         nullptr);
+            aln_out_1.set_name(name_1);
+            aln_out_2.set_name(name_2);
+            if (!sample_name.empty()) {
+                aln_out_1.set_sample_name(sample_name);
+                aln_out_2.set_sample_name(sample_name);
+            }
+            if (!read_group.empty()) {
+                aln_out_1.set_read_group(read_group);
+                aln_out_2.set_read_group(read_group);
+            }
         }
         
         aln_emitters[thread_number]->write_many(std::move(alns_out));
@@ -87,14 +123,22 @@ void MultipathAlignmentEmitter::emit_pairs(vector<pair<multipath_alignment_t, mu
     }
 }
 
-void MultipathAlignmentEmitter::emit_singles(vector<multipath_alignment_t>&& mp_alns) {
+void MultipathAlignmentEmitter::emit_singles(const string& name, vector<multipath_alignment_t>&& mp_alns) {
     
     int thread_number = omp_get_thread_num();
     
     if (!mp_aln_emitters.empty()) {
         vector<MultipathAlignment> mp_alns_out(mp_alns.size());
         for (size_t i = 0; i < mp_alns.size(); ++i) {
-            to_proto_multipath_alignment(mp_alns[i], mp_alns_out[i]);
+            MultipathAlignment& mp_aln_out = mp_alns_out[i];
+            to_proto_multipath_alignment(mp_alns[i], mp_aln_out);
+            mp_aln_out.set_name(name);
+            if (!sample_name.empty()) {
+                mp_aln_out.set_sample_name(sample_name);
+            }
+            if (!read_group.empty()) {
+                mp_aln_out.set_read_group(read_group);
+            }
         }
         
         mp_aln_emitters[thread_number]->write_many(std::move(mp_alns_out));
@@ -109,7 +153,15 @@ void MultipathAlignmentEmitter::emit_singles(vector<multipath_alignment_t>&& mp_
     else {
         vector<Alignment> alns_out(mp_alns.size());
         for (size_t i = 0; i < mp_alns.size(); ++i) {
-            convert_multipath_alignment(mp_alns[i], alns_out[i]);
+            Alignment& aln_out = alns_out[i];
+            convert_multipath_alignment(mp_alns[i], aln_out);
+            aln_out.set_name(name);
+            if (!sample_name.empty()) {
+                aln_out.set_sample_name(sample_name);
+            }
+            if (!read_group.empty()) {
+                aln_out.set_read_group(read_group);
+            }
         }
         
         aln_emitters[thread_number]->write_many(std::move(alns_out));
@@ -124,14 +176,14 @@ void MultipathAlignmentEmitter::emit_singles(vector<multipath_alignment_t>&& mp_
 }
 
 void MultipathAlignmentEmitter::convert_multipath_alignment(const multipath_alignment_t& mp_aln, Alignment& aln,
-                                                            const multipath_alignment_t* prev_frag,
-                                                            const multipath_alignment_t* next_frag) const {
+                                                            const string* prev_name,
+                                                            const string* next_name) const {
     optimal_alignment(mp_aln, aln);
-    if (prev_frag) {
-        aln.mutable_fragment_prev()->set_name(prev_frag->name());
+    if (prev_name) {
+        aln.mutable_fragment_prev()->set_name(*prev_name);
     }
-    if (next_frag) {
-        aln.mutable_fragment_next()->set_name(next_frag->name());
+    if (next_name) {
+        aln.mutable_fragment_next()->set_name(*next_name);
     }
     // at one point vg call needed these, maybe it doesn't anymore though
     aln.set_identity(identity(aln.path()));
