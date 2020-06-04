@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['name',['name',['../classvg_1_1multipath__alignment__t.html#a66708dc5410331553a3dd3e0cdff620b',1,'vg::multipath_alignment_t']]],
   ['nearest_5foffsets_5fin_5fpaths',['nearest_offsets_in_paths',['../classxg_1_1XG.html#ab885cecf687ffb8583fb95cce8ca34b2',1,'xg::XG::nearest_offsets_in_paths()'],['../namespacevg_1_1algorithms.html#a2a7a23da8d7ef96e1e81caa75ccd2d40',1,'vg::algorithms::nearest_offsets_in_paths()']]],
   ['nearest_5fpath_5fnode',['nearest_path_node',['../classxg_1_1XG.html#a03f2f8a4cc3d06e4f1748474082efdb9',1,'xg::XG']]],
   ['nestedtraversalfinder',['NestedTraversalFinder',['../classvg_1_1NestedTraversalFinder.html#a0ab18d1355be2772f9ca78c5eb269e6c',1,'vg::NestedTraversalFinder']]],

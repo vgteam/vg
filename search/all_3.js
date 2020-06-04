@@ -248,7 +248,7 @@ var searchData=
   ['convert_5falignment',['convert_alignment',['../classvg_1_1HTSAlignmentEmitter.html#a5cfe9918348db19fc8b8a153a953715b',1,'vg::HTSAlignmentEmitter::convert_alignment()'],['../classvg_1_1SplicedHTSAlignmentEmitter.html#ac837e6ec08c270afb4f6d231e4f58473',1,'vg::SplicedHTSAlignmentEmitter::convert_alignment()']]],
   ['convert_5falignment_5fchar',['convert_alignment_char',['../namespacevg.html#a256962a964ea02f3d4ec54c5c48d72a8',1,'vg']]],
   ['convert_5fmain_2ecpp',['convert_main.cpp',['../convert__main_8cpp.html',1,'']]],
-  ['convert_5fmultipath_5falignment',['convert_multipath_alignment',['../classvg_1_1MultipathAlignmentEmitter.html#ae812318028a770f32636780c9a77dd5e',1,'vg::MultipathAlignmentEmitter']]],
+  ['convert_5fmultipath_5falignment',['convert_multipath_alignment',['../classvg_1_1MultipathAlignmentEmitter.html#a5d64e1269afb8dc95b32f36b1a86673d',1,'vg::MultipathAlignmentEmitter']]],
   ['convert_5fmultipath_5falignment_5fchar',['convert_multipath_alignment_char',['../namespacevg.html#a1f29020dbd628bd21a9a039ee718b29b',1,'vg']]],
   ['convert_5fpaired',['convert_paired',['../classvg_1_1HTSAlignmentEmitter.html#a4f5df1805e0a893587e7e819e4c7e8f2',1,'vg::HTSAlignmentEmitter']]],
   ['convert_5fts_5fto_5fus',['convert_Ts_to_Us',['../namespacevg.html#add9a4cf274b29df3caf222d0360805f3',1,'vg::convert_Ts_to_Us(Alignment &amp;alignment)'],['../namespacevg.html#a92c7d384c096b813501b23730e308796',1,'vg::convert_Ts_to_Us(multipath_alignment_t &amp;multipath_aln)']]],
