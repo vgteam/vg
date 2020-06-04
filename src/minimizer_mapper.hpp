@@ -88,14 +88,14 @@ public:
     size_t hit_cap = 10;
 
     /// Ignore all minimizers with more than hard_hit_cap hits
-    size_t hard_hit_cap = 300;
+    size_t hard_hit_cap = 1000;
 
     /// Take minimizers between hit_cap and hard_hit_cap hits until this fraction
     /// of total score
-    double minimizer_score_fraction = 0.6;
+    double minimizer_score_fraction = 0.8;
 
     /// How many clusters should we align?
-    size_t max_extensions = 48;
+    size_t max_extensions = 1000;
 
     /// How many extended clusters should we align, max?
     size_t max_alignments = 8;
@@ -115,7 +115,7 @@ public:
 
     //If the read coverage of a cluster is less than the best coverage of any cluster
     //by more than this much, don't extend it
-    double cluster_coverage_threshold = 0.4;
+    double cluster_coverage_threshold = 0.3;
 
     //If an extension set's score is smaller than the best 
     //extension's score by more than this much, don't align it

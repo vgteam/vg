@@ -317,7 +317,7 @@ void help_giraffe(char** argv) {
     << "  -J --subgraph-stdevs INT " << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
     << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [1000]" << endl
-    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.7]" << endl
+    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.8]" << endl
     << "  -D, --distance-limit INT      cluster using this distance limit [200]" << endl
     << "  -e, --max-extensions INT      extend up to INT clusters [1000]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
@@ -359,7 +359,7 @@ int main_giraffe(int argc, char** argv) {
     // How close should two hits be to be in the same cluster?
     Range<size_t> distance_limit = 200;
     Range<size_t> hit_cap = 10, hard_hit_cap = 1000;
-    Range<double> minimizer_score_fraction = 0.7;
+    Range<double> minimizer_score_fraction = 0.8;
     Range<size_t> paired_distance_stdevs = 2;
     Range<double> paired_rescue_score_limit = 0.9;
     Range<size_t> rescue_subgraph_stdevs = 4;
@@ -415,7 +415,7 @@ int main_giraffe(int argc, char** argv) {
         .chain(minimizer_score_fraction)
         .chain(paired_distance_stdevs)
         .chain(paired_rescue_score_limit)
-        .chain(max_rescue_attempts)
+        .chain(rescue_attempts)
         .chain(rescue_subgraph_stdevs)
         .chain(max_multimaps)
         .chain(max_extensions)
