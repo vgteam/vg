@@ -739,7 +739,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         funnels[1].stage("cluster");
     }
     std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, distance_limit, 
-            fragment_length_distr.mean() + 2 * fragment_length_distr.stdev());
+            fragment_length_distr.mean() + paired_distance_stdevs * fragment_length_distr.stdev());
 
     //For each fragment cluster, determine if it has clusters from both reads
     size_t max_fragment_num = 0;
@@ -1411,7 +1411,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 Alignment rescued_aln = found_first ? aln2 : aln1;
                 rescued_aln.clear_path();
 
-                if (found_pair && (double) mapped_aln.score() < (double) (found_first ? best_alignment_scores.first : best_alignment_scores.second) * 0.9) {
+                if (found_pair && (double) mapped_aln.score() < (double) (found_first ? best_alignment_scores.first : best_alignment_scores.second) * paired_rescue_score_limit) {
                     //TODO: 0.9?
                     //If we have already found paired clusters and this unpaired alignment is not good enough, do nothing
                     return true;
@@ -2124,7 +2124,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 
 //-----------------------------------------------------------------------------
 
-void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
+void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward ) {
 
     if (this->rescue_algorithm == rescue_none) { return; }
 
@@ -2135,7 +2135,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     // TODO: How big should the rescue subgraph be?
     std::unordered_set<id_t> rescue_nodes;
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * fragment_length_distr.stdev());
-    int64_t max_distance = fragment_length_distr.mean() + 4 * fragment_length_distr.stdev();
+    int64_t max_distance = fragment_length_distr.mean() + rescue_subgraph_stdevs * fragment_length_distr.stdev();
     distance_index.subgraph_in_range(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
 
     // Remove node ids that do not exist in the GBWTGraph from the subgraph.

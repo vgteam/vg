@@ -75,6 +75,12 @@ public:
      */
     pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
 
+    //Paired end and rescue params
+    //TODO: get rid of these probably 
+    size_t paired_distance_stdevs = 2; //How many stdevs from fragment length distr mean do we cluster together?
+    size_t paired_rescue_score_limit = 0.9; //How close does an alignment have to be to the best alignment for us to rescue on it
+    size_t rescue_subgraph_stdevs = 4; //How many stdevs from the mean do we extract a subgraph from?
+
     // Mapping settings.
     // TODO: document each
 
