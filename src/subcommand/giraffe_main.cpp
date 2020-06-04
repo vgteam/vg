@@ -308,12 +308,14 @@ void help_giraffe(char** argv) {
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
     << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
+    << "algorithm presets:" << endl
+    << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
     << "computational parameters:" << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
-    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [300]" << endl
-    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.8]" << endl
+    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [1000]" << endl
+    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.7]" << endl
     << "  -D, --distance-limit INT      cluster using this distance limit [200]" << endl
-    << "  -e, --max-extensions INT      extend up to INT clusters [300]" << endl
+    << "  -e, --max-extensions INT      extend up to INT clusters [1000]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
     << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [50]" << endl
     << "  -S, --pad-cluster-score INT   also extend clusters within INT of above threshold to get a second-best cluster [0]" << endl
@@ -352,8 +354,8 @@ int main_giraffe(int argc, char** argv) {
     string report_name;
     // How close should two hits be to be in the same cluster?
     Range<size_t> distance_limit = 200;
-    Range<size_t> hit_cap = 10, hard_hit_cap = 1500;
-    Range<double> minimizer_score_fraction = 0.8;
+    Range<size_t> hit_cap = 10, hard_hit_cap = 1000;
+    Range<double> minimizer_score_fraction = 0.7;
     bool show_progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
@@ -367,18 +369,19 @@ int main_giraffe(int argc, char** argv) {
     bool interleaved = false;
     // True if fastq_filename_2 or interleaved is set.
     bool paired = false;
+    string param_preset = "default";
     // How many mappings per read can we emit?
     Range<size_t> max_multimaps = 1;
     // How many clusters should we extend?
-    Range<size_t> max_extensions = 300;
+    Range<size_t> max_extensions = 1000;
     // How many extended clusters should we align, max?
-    Range<size_t> max_alignments = 6;
+    Range<size_t> max_alignments = 8;
     //Throw away cluster with scores that are this amount below the best
     Range<double> cluster_score = 50;
     //Unless they are the second best and within this amount beyond that
     Range<double> pad_cluster_score = 0;
     //Throw away clusters with coverage this amount below the best 
-    Range<double> cluster_coverage = 0.4;
+    Range<double> cluster_coverage = 0.3;
     //Throw away extension sets with scores that are this amount below the best
     Range<double> extension_set = 20;
     //Throw away extensions with scores that are this amount below the best
@@ -454,6 +457,7 @@ int main_giraffe(int argc, char** argv) {
             {"discard", no_argument, 0, 'n'},
             {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
             {"report-name", required_argument, 0, OPT_REPORT_NAME},
+            {"fast-mode", no_argument, 0, 'b'},
             {"hit-cap", required_argument, 0, 'c'},
             {"hard-hit-cap", required_argument, 0, 'C'},
             {"distance-limit", required_argument, 0, 'D'},
@@ -475,7 +479,7 @@ int main_giraffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:o:nc:C:D:F:e:a:S:u:v:w:Ot:r:A:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:o:nbc:C:D:F:e:a:S:u:v:w:Ot:r:A:",
                          long_options, &option_index);
 
 
@@ -600,6 +604,26 @@ int main_giraffe(int argc, char** argv) {
             
             case OPT_REPORT_NAME:
                 report_name = optarg;
+                break;
+            case 'b':
+                param_preset = optarg;
+
+                if (param_preset == "fast" ) {
+
+                    hit_cap = 10;
+                    hard_hit_cap = 1000;
+                    minimizer_score_fraction = 0.5;
+                    max_multimaps = 1;
+                    max_extensions = 400;
+                    max_alignments = 8;
+                    cluster_score = 50;
+                    pad_cluster_score = 0;
+                    cluster_coverage = 0.2;
+                    extension_set = 20;
+                    extension_score = 1;
+                } else if (param_preset != "default" ) {
+                    std::cerr << "error: [vg giraffe] invalid parameter preset: " << optarg << std:: endl;
+                }
                 break;
 
             case 'c':
