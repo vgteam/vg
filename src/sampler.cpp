@@ -1591,7 +1591,6 @@ pair<string, vector<bool>> NGSSimulator::sample_read_quality_internal(pair<uint8
 }
                                               
 void NGSSimulator::apply_N_mask(string& sequence, const vector<bool>& n_mask) {
-    assert(sequence.size() == n_mask.size() || sample_unsheared_paths);
     for (size_t i = 0; i < sequence.size(); i++) {
         if (n_mask[i]) {
             sequence[i] = 'N';
