@@ -455,9 +455,17 @@ double RatioSupportSnarlCaller::get_bias(const vector<int>& traversal_sizes, int
 PoissonSupportSnarlCaller::PoissonSupportSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
                                                      TraversalSupportFinder& support_finder,
                                                      const algorithms::BinnedDepthIndex& depth_index,
+                                                     double baseline_error_small,
+                                                     double baseline_error_large,
+                                                     double insertion_bias,
+                                                     double insertion_size_factor,
                                                      bool use_mapq) :
     SupportBasedSnarlCaller(graph, snarl_manager, support_finder),
     depth_index(depth_index),
+    baseline_error_small(baseline_error_small),
+    baseline_error_large(baseline_error_large),
+    insertion_bias(insertion_bias),
+    insertion_size_factor(insertion_size_factor),
     use_mapq(use_mapq) {
     
 }
@@ -492,6 +500,10 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     
     // get the traversal sizes
     vector<int> traversal_sizes = support_finder.get_traversal_sizes(traversals);
+
+    // total length of snarl endpoints
+    size_t endpoints_length = graph.get_length(graph.get_handle(snarl.start().node_id())) +
+        graph.get_length(graph.get_handle(snarl.end().node_id()));
 
     // get the mapqs
     vector<double> traversal_mapqs;
@@ -585,7 +597,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     vector<int> best_genotype;
     for (const auto& candidate : candidates) {
         double gl = genotype_likelihood(candidate, traversals, top_traversals, traversal_sizes, traversal_mapqs,
-                                        ref_trav_idx, exp_depth, depth_err, max_trav_size);
+                                        ref_trav_idx, exp_depth, depth_err, max_trav_size, endpoints_length);
         if (gl > best_genotype_likelihood) {
             second_best_genotype_likelihood = best_genotype_likelihood;
             best_genotype_likelihood = gl;
@@ -615,6 +627,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     call_info->expected_depth = exp_depth;
     call_info->depth_err = depth_err;
     call_info->max_trav_size = max_trav_size;
+    call_info->endpoints_length = endpoints_length;
 
 #ifdef debug
     cerr << " best genotype: "; for (auto a : best_genotype) {cerr << a <<",";} cerr << " gl=" << best_genotype_likelihood << endl;
@@ -628,7 +641,8 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
                                                       const vector<int>& traversal_sizes,
                                                       const vector<double>& traversal_mapqs,
                                                       int ref_trav_idx, double exp_depth, double depth_err,
-                                                      int max_trav_size) {
+                                                      int max_trav_size,
+                                                      int endpoints_length) {
     
     assert(genotype.size() == 1 || genotype.size() == 2);
 
@@ -684,6 +698,19 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
     // we toggle the baseline error 
     size_t threshold = support_finder.get_average_traversal_support_switch_threshold();
     double error_rate = max_trav_size >= threshold ? baseline_error_large : baseline_error_small;
+
+    // insertions get a little extra help because the relative allele length is so
+    // different that different supports are expected.  in particular, we expect
+    // other_supports to be higher since it's easier to have a single read spanning
+    // that insertion edge, then say, a bunch of reads spread out over a larger allele
+    bool insertion = ref_trav_idx >=0 && traversals[ref_trav_idx].visit_size() == 2;
+    if (!insertion && ref_trav_idx >= 0) {
+        int ref_length = traversal_sizes[ref_trav_idx] - endpoints_length;
+        for (int i = 0; i < genotype.size() && !insertion; ++i) {
+            int allele_length = traversal_sizes[genotype[i]] - endpoints_length;
+            insertion = allele_length > ref_length && (double)allele_length / (double)ref_length > insertion_size_factor;
+        }
+    }
     
     // error rate for non-allele traversals
     double other_error_rate = error_rate;
@@ -694,7 +721,13 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
              << error_rate << " gives " << other_error_rate << endl;
 #endif
         
-    }    
+    }
+
+    if (insertion) {
+        cerr << "insertion bias makes other oerror go from " << other_error_rate << " to " << (other_error_rate * insertion_bias) << endl;
+        other_error_rate *= insertion_bias;
+    }
+
     double other_poisson_lambda = other_error_rate * exp_depth; //support_val(total_site_support);
 
     // and our likelihood for the unmapped reads we see:
@@ -766,6 +799,7 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     const SnarlCaller::CallInfo* s_call_info = call_info.get();
     const PoissonCallInfo* p_call_info = dynamic_cast<const PoissonCallInfo*>(call_info.get());
     int max_trav_size = p_call_info->max_trav_size;
+    int endpoints_length = p_call_info->endpoints_length;
 
     // get the genotype support
     vector<Support> genotype_supports = support_finder.get_traversal_genotype_support(traversals, genotype, {}, 0, &max_trav_size);
@@ -816,7 +850,8 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
         for (int i = 0; i < traversals.size(); ++i) {
             for (int j = i; j < traversals.size(); ++j) {
                 double gl = genotype_likelihood({i, j}, traversals, {}, traversal_sizes, traversal_mapqs,
-                                                0, p_call_info->expected_depth, depth_err, max_trav_size);
+                                                0, p_call_info->expected_depth, depth_err, max_trav_size,
+                                                endpoints_length);
                 gen_likelihoods.push_back(gl);
                 if (vector<int>({i, j}) == genotype || vector<int>({j,i}) == genotype) {
                     gen_likelihood = gl;
@@ -836,7 +871,8 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
         // todo: generalize this iteration (as is, it is copy pased from above)
         for (int i = 0; i < traversals.size(); ++i) {
             double gl = genotype_likelihood({i}, traversals, {}, traversal_sizes, traversal_mapqs,
-                                            0, p_call_info->expected_depth, depth_err, max_trav_size);
+                                            0, p_call_info->expected_depth, depth_err, max_trav_size,
+                                            endpoints_length);
             gen_likelihoods.push_back(gl);
             if (vector<int>({i}) == genotype) {
                 gen_likelihood = gl;

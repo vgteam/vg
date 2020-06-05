@@ -180,10 +180,11 @@ static bool edge_support_filter(const HandleGraph* g, const edge_t& edge,
     if (start_meets_threshold) {
         // if the edge fails the support check, see if there are any other edges from the
         // end node that pass it
-        g->follow_edges(edge.second, true, [&] (handle_t next) {
-                if (next != edge.first) {
-                    min_end_weight = std::min(node_weight_callback(edge.second), node_weight_callback(next));
-                    end_meets_threshold = edge_weight_callback(g->edge_handle(next, edge.second)) >=
+        handle_t fs = g->flip(edge.second); // going left too confusing
+        g->follow_edges(fs, false, [&] (handle_t next) {
+                if (next != g->flip(edge.first)) {
+                    min_end_weight = std::min(node_weight_callback(fs), node_weight_callback(next));
+                    end_meets_threshold = edge_weight_callback(g->edge_handle(fs, next)) >=
                         min_edge_weight_ratio * min_end_weight;
                 }
                 return !end_meets_threshold;

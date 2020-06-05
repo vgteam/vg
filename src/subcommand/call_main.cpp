@@ -31,6 +31,7 @@ void help_call(char** argv) {
        << "    -k, --pack FILE          Supports created from vg pack for given input graph" << endl
        << "    -m, --min-support M,N    Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
        << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.001]" << endl
+       << "    -I, --insertion-bias X   Increase the expected rate of non-allelic support by X in the case of insertions [default=1]" << endl
        << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
        << "    -b, --het-bias M,N       Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "general options:" << endl
@@ -75,10 +76,20 @@ int main_call(int argc, char** argv) {
     const size_t max_depth_bin_width = 50000000;
     const double depth_scale_fac = 1.5;
     const size_t max_yens_traversals = 50;
-    // ignore edges with less than 0.25 times the minimum support of their endpoints
+    // ignore edges with less than 0.1 times the minimum support of their endpoints
     // when in augmneted mode.  this is a heuristic to avoid jumping over obviously
     // unsupported edges when workign with average support on longer svs. 
-    const double augmented_edge_ratio = 0.25;
+    const double augmented_edge_ratio = 0.1;
+    /// Baseline error rate
+    double baseline_error_small = 0.005;
+    /// Lower for large variants, because there's more reads contributing
+    double baseline_error_large = 0.001;
+    /// Insertions have more chance of non-allele reads, as they need to cover a smaller area
+    /// We compensate in the model with this (1. means disabled)
+    double insertion_bias = 1.;
+    /// In order to test if an allele is an insertion, we check if it's this much bigger than
+    /// the reference path
+    double insertion_size_factor = 10.;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -88,6 +99,7 @@ int main_call(int argc, char** argv) {
             {"pack", required_argument, 0, 'k'},
             {"bias-mode", no_argument, 0, 'B'},
             {"baseline-error", required_argument, 0, 'e'},
+            {"insertion-bias", required_argument, 0, 'I'},
             {"het-bias", required_argument, 0, 'b'},
             {"min-support", required_argument, 0, 'm'},
             {"augmented", no_argument, 0, 'a'},
@@ -109,7 +121,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:av:f:i:s:r:g:p:o:l:d:Lt:h",
+        c = getopt_long (argc, argv, "k:Be:I:b:m:av:f:i:s:r:g:p:o:l:d:Lt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -132,6 +144,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'e':
             baseline_error_string = optarg;
+            break;
+        case 'I':
+            insertion_bias = parse<double>(optarg);
             break;
         case 'a':
             augmented = true;
@@ -225,8 +240,6 @@ int main_call(int argc, char** argv) {
     }
     // parse the baseline errors
     vector<string> error_toks = split_delims(baseline_error_string, ",");
-    double baseline_error_large = -1;
-    double baseline_error_small = -1;
     if (error_toks.size() == 2) {
         baseline_error_small = parse<double>(error_toks[0]);
         baseline_error_large = parse<double>(error_toks[1]);
@@ -359,6 +372,8 @@ int main_call(int argc, char** argv) {
                                                                 depth_scale_fac, 0, true, true);
             // Make a new-stype probablistic caller
             auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index,
+                                                                baseline_error_small, baseline_error_large,
+                                                                insertion_bias, insertion_size_factor,
                                                                 //todo: qualities need to be used better in conjunction with
                                                                 //expected depth.
                                                                 //packer->has_qualities());

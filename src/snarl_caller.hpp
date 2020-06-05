@@ -197,6 +197,10 @@ public:
     PoissonSupportSnarlCaller(const PathHandleGraph& graph, SnarlManager& snarl_manager,
                               TraversalSupportFinder& support_finder,
                               const algorithms::BinnedDepthIndex& depth_index,
+                              double baseline_error_small,
+                              double baseline_error_large,
+                              double insertion_bias,
+                              double insertion_size_factor,
                               bool use_mapq);
     virtual ~PoissonSupportSnarlCaller();
 
@@ -207,6 +211,7 @@ public:
         double expected_depth;
         double depth_err;
         int max_trav_size;
+        int endpoints_length;
     };
 
     /// Set some parameters
@@ -245,7 +250,7 @@ protected:
                                const vector<int>& traversal_sizes,
                                const vector<double>& traversal_mapqs,
                                int ref_trav_idx, double exp_depth, double depth_err,
-                               int max_trav_size);
+                               int max_trav_size, int endpoints_length);
 
     /// Rank supports
     vector<int> rank_by_support(const vector<Support>& supports);
@@ -256,18 +261,23 @@ protected:
     /// get added to these baselines when computing the scores. 
     
     /// Baseline error rate for larger variants
-    double  baseline_error_large = 0.001;
+    double baseline_error_large;
     /// Baseline error rate for smaller variants
-    double  baseline_error_small = 0.005;
+    double baseline_error_small;
+
+    /// Insertions have more chance of non-allele reads, as they need to cover a smaller area
+    /// We compensate in the model with this
+    double insertion_bias;
+
+    /// In order to test if an allele is an insertion, we check if it's this much bigger than
+    /// the reference path
+    double insertion_size_factor;
 
     /// Consider up to the top-k traversals (based on support) for genotyping
     size_t top_k = 20;
     /// Consider up to the tom-m secondary traversals (based on support) for each top traversal
     /// (so at most top_k * top_m considered)
     size_t top_m = 100;
-
-    /// padding to apply wrt to longest traversal to snarl ranges when looking up binned depth
-    double depth_padding_factor = 1.;
     
     /// Map path name to <mean, std_err> of depth coverage from the packer
     const algorithms::BinnedDepthIndex& depth_index;
