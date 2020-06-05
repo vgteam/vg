@@ -113,5 +113,38 @@ vector<pair<unordered_set<id_t>, vector<handle_t>>> weakly_connected_components_
     return to_return;
 }
 
+bool is_weakly_connected(const HandleGraph* graph) {
+    
+    // init a queue with an arbitrary node
+    vector<handle_t> stack;
+    unordered_set<handle_t> enqueued;
+    graph->for_each_handle([&](const handle_t& handle) {
+        stack.push_back(handle);
+        enqueued.insert(handle);
+        return false;
+    });
+    
+    // search outward in both directions
+    
+    function<bool(const handle_t&)> search = [&](const handle_t& next) {
+        handle_t fwd = graph->forward(next);
+        if (!enqueued.count(fwd)) {
+            stack.push_back(fwd);
+            enqueued.insert(fwd);
+        }
+        return true;
+    };
+    
+    while (!stack.empty()) {
+        handle_t handle = stack.back();
+        stack.pop_back();
+        graph->follow_edges(handle, false, search);
+        graph->follow_edges(handle, true, search);
+    }
+    
+    // did we hit every node?
+    return enqueued.size() == graph->get_node_count();
+}
+
 }
 }

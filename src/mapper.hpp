@@ -121,7 +121,7 @@ public:
     double mean() const;
     
     /// Robust standard deviation of the distribution observed so far
-    double stdev() const;
+    double std_dev() const;
     
     /// Returns true if the maximum sample size has been reached, which finalizes the
     /// distribution estimate
@@ -286,6 +286,8 @@ public:
     int greedy_restart_max_count = 2;
     int greedy_restart_max_lcp = 0; // 0 for no max
     bool greedy_restart_assume_substitution = false;
+    bool filter_short_mems = false;
+    double short_mem_filter_factor = 0.45;
     int unpaired_penalty = 17;
     bool precollapse_order_length_hits = true;
     double avg_node_length = 0;

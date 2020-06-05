@@ -3815,7 +3815,7 @@ namespace vg {
                         if (num_alt_alns == 1) {
                             // we can speed things up by using the dozeu pinned alignment
                             alt_alignments.emplace_back(move(right_tail_sequence));
-                            aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, target_length);
+                            aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
                         }
                         else {
                             aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
@@ -3922,7 +3922,7 @@ namespace vg {
                         if (num_alt_alns == 1) {
                             // we can speed things up by using the dozeu pinned alignment
                             alt_alignments.emplace_back(move(left_tail_sequence));
-                            aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, target_length);
+                            aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, gap);
                         }
                         else {
                             aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);

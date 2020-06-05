@@ -28,7 +28,7 @@
 #include <iostream>
 #endif
 
-#ifdef mpmap_instrument_mem_statitics
+#ifdef mpmap_instrument_mem_statistics
 #define MEM_STATS_FILE "_mem_statistics.tsv"
 #endif
 
@@ -58,7 +58,8 @@ void help_mpmap(char** argv) {
     << "  -l, --read-length TYPE        read length preset: 'very-short', 'short', or 'long' (approx. <50bp, 50-500bp, and >500bp) [short]" << endl
     << "  -e, --error-rate TYPE         error rate preset: 'low' or 'high' (approx. PHRED >20 and <20) [low]" << endl
     << "output:" << endl
-    << "  -S, --single-path-mode        output single-path alignments (GAM) instead of multipath alignments (GAMP)" << endl
+    << "  -S, --single-path-mode        output single-path alignments (GAM or GAF) instead of multipath alignments (GAMP)" << endl
+    << "  -F, --single-path-fmt FMT     output in either 'gam' or 'gaf' format in single path mode [gam]" << endl
     << "  -N, --sample NAME             add this sample name to output" << endl
     << "  -R, --read-group NAME         add this read group to output" << endl
     << "  -p, --suppress-progress       do not report progress to stderr (slightly reduces thread contention)" << endl
@@ -145,7 +146,9 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_NO_CLUSTER 1019
     #define OPT_NO_GREEDY_MEM_RESTARTS 1020
     #define OPT_GREEDY_MEM_RESTART_MAX_LCP 1021
-    #define OPT_NO_OUTPUT 1022
+    #define OPT_SHORT_MEM_FILTER_FACTOR 1022
+    #define OPT_NO_OUTPUT 1023
+    #define OPT_STRIPPED_MATCH 1024
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -196,7 +199,9 @@ int main_mpmap(int argc, char** argv) {
     int greedy_restart_min_length = 30;
     int greedy_restart_max_lcp = 25;
     int greedy_restart_max_count = 2;
-    bool greedy_restart_assume_substitution = true;
+    bool greedy_restart_assume_substitution = false;
+    bool filter_short_mems = false;
+    double short_mem_filter_factor = 0.45;
     int reseed_length = 28;
     int reseed_length_arg = numeric_limits<int>::min();
     double reseed_diff = 0.45;
@@ -255,7 +260,9 @@ int main_mpmap(int argc, char** argv) {
     bool dynamic_max_alt_alns = true;
     bool simplify_topologies = true;
     int max_alignment_gap = 5000;
-    double pessimistic_tail_gap_multiplier = 0.0; // i.e. none
+    bool use_pessimistic_tail_alignment = false;
+    double pessimistic_gap_multiplier = 3.0;
+    bool restrained_graph_extraction = false;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
     int gap_open_score_arg = std::numeric_limits<int>::min();
@@ -263,6 +270,9 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus_arg = std::numeric_limits<int>::min();
     int reversing_walk_length = 1;
     bool no_output = false;
+    string default_single_path_format = "gam";
+    string single_path_format = default_single_path_format;
+    string out_format = "gamp";
 
     // default presets
     string nt_type = "dna";
@@ -271,7 +281,7 @@ int main_mpmap(int argc, char** argv) {
     
     // logging and warning
     bool suppress_progress = false;
-    int fragment_length_warning_factor = 50;
+    int fragment_length_warning_factor = 25;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -292,6 +302,7 @@ int main_mpmap(int argc, char** argv) {
             {"interleaved", no_argument, 0, 'i'},
             {"same-strand", no_argument, 0, 'T'},
             {"single-path-mode", no_argument, 0, 'S'},
+            {"single-path-fmt", required_argument, 0, 'F'},
             {"snarls", required_argument, 0, 's'},
             {"synth-tail-anchors", no_argument, 0, OPT_SUPPRESS_TAIL_ANCHORS},
             {"tvs-clusterer", no_argument, 0, 'v'},
@@ -315,11 +326,12 @@ int main_mpmap(int argc, char** argv) {
             {"reseed-length", required_argument, 0, 'r'},
             {"reseed-diff", required_argument, 0, 'W'},
             {"clustlength", required_argument, 0, 'K'},
-            {"stripped-match", no_argument, 0, 'F'},
+            {"stripped-match", no_argument, 0, OPT_STRIPPED_MATCH},
             {"strip-length", no_argument, 0, OPT_STRIP_LENGTH},
             {"strip-count", no_argument, 0, OPT_STRIP_COUNT},
             {"no-greedy-restart", no_argument, 0, OPT_NO_GREEDY_MEM_RESTARTS},
             {"greedy-max-lcp", required_argument, 0, OPT_GREEDY_MEM_RESTART_MAX_LCP},
+            {"filter-factor", required_argument, 0, OPT_SHORT_MEM_FILTER_FACTOR},
             {"hit-max", required_argument, 0, 'c'},
             {"hard-hit-mult", required_argument, 0, OPT_HARD_HIT_MAX_MULTIPLIER},
             {"approx-exp", required_argument, 0, OPT_APPROX_EXP},
@@ -351,7 +363,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iSs:vX:u:a:b:I:D:BP:Q:UpM:r:W:K:Fc:C:R:En:l:e:q:z:w:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iSs:vX:u:a:b:I:D:BP:Q:UpM:r:W:K:F:c:C:R:En:l:e:q:z:w:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -567,6 +579,10 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'F':
+                single_path_format = optarg;
+                break;
+                
+            case OPT_STRIPPED_MATCH:
                 use_stripped_match_alg = true;
                 break;
                 
@@ -580,6 +596,11 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_NO_GREEDY_MEM_RESTARTS:
                 use_greedy_mem_restarts = false;
+                break;
+                
+            case OPT_SHORT_MEM_FILTER_FACTOR:
+                short_mem_filter_factor = parse<double>(optarg);
+                filter_short_mems = true;
                 break;
                 
             case OPT_GREEDY_MEM_RESTART_MAX_LCP:
@@ -725,7 +746,7 @@ int main_mpmap(int argc, char** argv) {
     else if (read_length == "Very-Short" || read_length == "Very-short" || read_length == "VERY-SHORT") {
         read_length = "very-short";
     }
-    else if (read_length != "Short" || read_length != "SHORT") {
+    else if (read_length == "Short" || read_length == "SHORT") {
         read_length = "short";
     }
     
@@ -751,17 +772,19 @@ int main_mpmap(int argc, char** argv) {
         gap_open_score = 1;
         // do less DP on tails (having a presumption that long tails with no seeds
         // will probably be soft-clipped)
-        pessimistic_tail_gap_multiplier = 3.0;
-        // we won't assume that errors are likely to be substitutions
-        greedy_restart_assume_substitution = false;
+        use_pessimistic_tail_alignment = true;
+        // quality scores express errors well for these reads and they slow down dozeu
+        qual_adjusted = false;
+        // we generate many short MEMs that slow us down on high error reads, so we need
+        // to filter them down to stay performant
+        filter_short_mems = true;
     }
     
     if (read_length == "long") {
         // we don't care so much about soft-clips on long reads
         full_length_bonus = 0;
-        // long read technologies (even low error ones) don't have the same bias toward
-        // substitution variants as NGS
-        greedy_restart_assume_substitution = false;
+        // we don't want to extract huge graphs every time there's an error in the read
+        restrained_graph_extraction = true;
     }
     else if (read_length == "very-short") {
         // clustering is unlikely to improve accuracy in very short data
@@ -810,6 +833,18 @@ int main_mpmap(int argc, char** argv) {
     if (single_path_alignment_mode) {
         // simplifying topologies is redundant work if we're just going to take the maximum weight path anyway
         simplify_topologies = false;
+        out_format = single_path_format;
+    }
+    
+    // normalize capitalization
+    if (out_format == "GAM") {
+        out_format = "gam";
+    }
+    if (out_format == "GAMP") {
+        out_format = "gamp";
+    }
+    if (out_format == "GAF") {
+        out_format = "gaf";
     }
     
     if (single_path_alignment_mode &&
@@ -1057,6 +1092,10 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (single_path_format != default_single_path_format && !single_path_alignment_mode) {
+        cerr << "warning:[vg mpmap] Single path output format (-F) is ignored when not using single path alignment output (-S)" << endl;
+    }
+    
     if (stripped_match_alg_strip_length <= 0) {
         cerr << "error:[vg mpmap] Match strip length (--strip-length) set to " << stripped_match_alg_strip_length << ", must set to a positive integer or 0 for no maximum." << endl;
         exit(1);
@@ -1133,6 +1172,10 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (filter_short_mems && (short_mem_filter_factor < 0.0 || short_mem_filter_factor > 1.0)) {
+        cerr << "error:[vg mpmap] Short MEM filtraction factor (--filter-factor) set to " << short_mem_filter_factor << ", must set to a number between 0.0 and 1.0." << endl;
+        exit(1);
+    }
     
     if ((match_score_arg != std::numeric_limits<int>::min() || mismatch_score_arg != std::numeric_limits<int>::min()) && !matrix_file_name.empty())  {
         cerr << "error:[vg mpmap] Cannot choose custom scoring matrix (-w) and custom match/mismatch score (-q/-z) simultaneously." << endl;
@@ -1160,7 +1203,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     
-#ifdef mpmap_instrument_mem_statitics
+#ifdef mpmap_instrument_mem_statistics
     if (auto_calibrate_mismapping_detection) {
         cerr << "error:[vg mpmap] set calibration off when profiling MEM statistics" << endl;
         exit(1);
@@ -1419,6 +1462,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.greedy_restart_max_lcp = greedy_restart_max_lcp;
     multipath_mapper.greedy_restart_assume_substitution = greedy_restart_assume_substitution;
     multipath_mapper.use_stripped_match_alg = use_stripped_match_alg;
+    multipath_mapper.filter_short_mems = filter_short_mems;
+    multipath_mapper.short_mem_filter_factor = short_mem_filter_factor;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
     multipath_mapper.use_approx_sub_mem_count = false;
@@ -1463,7 +1508,9 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.reversing_walk_length = reversing_walk_length;
     multipath_mapper.max_alt_mappings = max_num_mappings;
     multipath_mapper.max_alignment_gap = max_alignment_gap;
-    multipath_mapper.pessimistic_tail_gap_multiplier = pessimistic_tail_gap_multiplier;
+    multipath_mapper.use_pessimistic_tail_alignment = use_pessimistic_tail_alignment;
+    multipath_mapper.pessimistic_gap_multiplier = pessimistic_gap_multiplier;
+    multipath_mapper.restrained_graph_extraction = restrained_graph_extraction;
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
@@ -1484,7 +1531,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.simplify_topologies = simplify_topologies;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
 
-#ifdef mpmap_instrument_mem_statitics
+#ifdef mpmap_instrument_mem_statistics
     multipath_mapper._mem_stats.open(MEM_STATS_FILE);
 #endif
     
@@ -1553,7 +1600,7 @@ int main_mpmap(int argc, char** argv) {
     };
     
     // init a writer for the output
-    MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter(cout, thread_count, single_path_alignment_mode);
+    MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter(cout, thread_count, *path_position_handle_graph, out_format);
     emitter->set_read_group(read_group);
     emitter->set_sample_name(sample_name);
     
