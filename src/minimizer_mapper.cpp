@@ -2224,7 +2224,7 @@ void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const Handle
 
     const Aligner* aligner = this->get_regular_aligner();
     int32_t score = aligner->score_ungapped_alignment(rescued_alignment);
-    if (score >= 0) {
+    if (score > 0) {
         rescued_alignment.set_score(score);
     } else {
         rescued_alignment.clear_path();

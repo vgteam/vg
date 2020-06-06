@@ -164,7 +164,7 @@ public:
      * When we use dozeu for rescue, the reported alignment score is incorrect.
      * 1) Dozeu only gives the full-length bonus once.
      * 2) There is no penalty for a softclip at the edge of the subgraph.
-     * This function calculates the score correctly. If the score is incorrect,
+     * This function calculates the score correctly. If the score is <= 0,
      * we realign the read using GSSW.
      * TODO: This should be unnecessary.
      */
