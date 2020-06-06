@@ -13,6 +13,7 @@
 #include "traversal_finder.hpp"
 #include "snarl_caller.hpp"
 #include "region.hpp"
+#include "alignment_emitter.hpp"
 
 namespace vg {
 
@@ -24,8 +25,7 @@ using namespace std;
 class GraphCaller {
 public:
     GraphCaller(SnarlCaller& snarl_caller,
-                SnarlManager& snarl_manager,
-                ostream& out_stream = cout);
+                SnarlManager& snarl_manager);
 
     virtual ~GraphCaller();
 
@@ -44,9 +44,6 @@ protected:
 
     /// Our snarls
     SnarlManager& snarl_manager;
-
-    /// Where all output written
-    ostream& out_stream;
 };
 
 /**
@@ -105,8 +102,7 @@ public:
                  const string& sample_name,
                  const vector<string>& ref_paths = {},
                  FastaReference* ref_fasta = nullptr,
-                 FastaReference* ins_fasta = nullptr,
-                 ostream& out_stream = cout);
+                 FastaReference* ins_fasta = nullptr);
 
     virtual ~VCFGenotyper();
 
@@ -240,9 +236,9 @@ public:
                SnarlManager& snarl_manager,
                const string& sample_name,
                TraversalFinder& traversal_finder,
-               const vector<string>& ref_paths = {},
-               const vector<size_t>& ref_path_offsets = {},
-               ostream& out_stream = cout);
+               const vector<string>& ref_paths,
+               const vector<size_t>& ref_path_offsets,
+               AlignmentEmitter* aln_emitter);
    
     virtual ~FlowCaller();
 
@@ -269,6 +265,9 @@ protected:
     /// until we support nested snarls, cap snarl size we attempt to process
     size_t max_snarl_edges = 500000;
 
+    /// alignment emitter. if not null, traversals will be output here and
+    /// no genotyping will be done
+    AlignmentEmitter* alignment_emitter;
 };
 
 

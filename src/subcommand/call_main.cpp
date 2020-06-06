@@ -44,6 +44,7 @@ void help_call(char** argv) {
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
        << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
        << "    -d, --ploidy N          Ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
+       << "    -G, --gaf               Output GAF of snarl traversals instead of VCF" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
@@ -65,6 +66,7 @@ int main_call(int argc, char** argv) {
     bool ratio_caller = false;
     bool legacy = false;
     int ploidy = 2;
+    bool gam_output = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -94,6 +96,7 @@ int main_call(int argc, char** argv) {
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
             {"ploidy", required_argument, 0, 'd'},
+            {"gaf", no_argument, 0, 'G'},
             {"legacy", no_argument, 0, 'L'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
@@ -102,7 +105,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:f:i:s:r:g:p:o:l:d:Lt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:f:i:s:r:g:p:o:l:d:GLt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -155,6 +158,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'd':
             ploidy = parse<int>(optarg);
+            break;
+        case 'G':
+            gam_output = true;
             break;
         case 'L':
             legacy = true;
@@ -378,6 +384,12 @@ int main_call(int argc, char** argv) {
         return 1;
     }
 
+    unique_ptr<AlignmentEmitter> alignment_emitter;
+    if (gam_output) {
+        // this will override the caller to write traversals as GAF instead of VCF
+        alignment_emitter = get_alignment_emitter("-", "GAF", {}, get_thread_count(), graph);
+    }
+
     unique_ptr<GraphCaller> graph_caller;
     unique_ptr<TraversalFinder> traversal_finder;
     unique_ptr<gbwt::GBWT> gbwt_index;
@@ -446,23 +458,27 @@ int main_call(int argc, char** argv) {
                                                                                  node_support, edge_support);
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
-        
+
+        assert(alignment_emitter.get());
         FlowCaller* flow_caller = new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                  *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                  *snarl_manager,
-                                                 sample_name, *traversal_finder, ref_paths, ref_path_offsets);
+                                                 sample_name, *traversal_finder, ref_paths, ref_path_offsets,
+                                                 alignment_emitter.get());
         graph_caller = unique_ptr<GraphCaller>(flow_caller);
     }
 
     // Call the graph
     graph_caller->call_top_level_snarls(ploidy);
 
-    // VCF output is our only supported output
-    VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
-    assert(vcf_caller != nullptr);
-    cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
-    vcf_caller->write_variants(cout);
-        
+    if (alignment_emitter.get() == nullptr) {
+        // Output VCF unless we wrote the traversals
+        VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        assert(vcf_caller != nullptr);
+        cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+        vcf_caller->write_variants(cout);
+    }
+    
     return 0;
 }
 

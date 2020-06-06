@@ -6,9 +6,8 @@
 namespace vg {
 
 GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
-                         SnarlManager& snarl_manager,
-                         ostream& out_stream) :
-    snarl_caller(snarl_caller), snarl_manager(snarl_manager), out_stream(out_stream) {
+                         SnarlManager& snarl_manager) :
+    snarl_caller(snarl_caller), snarl_manager(snarl_manager) {
 }
 
 GraphCaller::~GraphCaller() {
@@ -321,9 +320,8 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            const string& sample_name,
                            const vector<string>& ref_paths,
                            FastaReference* ref_fasta,
-                           FastaReference* ins_fasta,
-                           ostream& out_stream) :
-    GraphCaller(snarl_caller, snarl_manager, out_stream),
+                           FastaReference* ins_fasta) :
+    GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     graph(graph),
     input_vcf(variant_file),
@@ -527,7 +525,7 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                            const string& sample_name,
                            const vector<string>& ref_paths,
                            const vector<size_t>& ref_path_offsets) :
-    GraphCaller(snarl_caller, snarl_manager, out_stream),
+    GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     graph(graph),
     ref_paths(ref_paths) {
@@ -870,13 +868,14 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        TraversalFinder& traversal_finder,
                        const vector<string>& ref_paths,
                        const vector<size_t>& ref_path_offsets,
-                       ostream& out_stream) :
-    GraphCaller(snarl_caller, snarl_manager, out_stream),
+                       AlignmentEmitter* aln_emitter) :
+    GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     graph(graph),
     traversal_finder(traversal_finder),
-    ref_paths(ref_paths) {
-    
+    ref_paths(ref_paths),
+    alignment_emitter(aln_emitter)
+{
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
         ref_path_set.insert(ref_paths[i]);
@@ -1021,22 +1020,40 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
         travs.push_back(ref_trav);
     }
 
-    // use our support caller to choose our genotype
-    vector<int> trav_genotype;
-    unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-    std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
-                                                                    make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+    bool ret_val = true;
 
-    assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
+    if (alignment_emitter != nullptr) {
+        // just dump our traversals
+        vector<Alignment> aln_batch(travs.size());
+        for (int i = 0; i < travs.size(); ++i) {
+            Path* path = aln_batch[i].mutable_path();
+            for (int j = 0; j < travs[i].visit_size(); ++j) {
+                Mapping* mapping = path->add_mapping();
+                *mapping = to_mapping(travs[i].visit(j), graph);
+            }
+        }
+        alignment_emitter->emit_singles(std::move(aln_batch)); 
+    } else {
+        // use our support caller to choose our genotype
+        vector<int> trav_genotype;
+        unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
+                                                                        make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
-    emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
-                 ref_offsets[ref_path_name]);
+        assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
 
+        emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
+                     ref_offsets[ref_path_name]);
+
+        ret_val = trav_genotype.size() == ploidy;
+    }
+    
     if (flipped) {
         // leave our snarl how we found it
         snarl_manager.flip(&snarl);
     }
-    return trav_genotype.size() == ploidy;
+    
+    return ret_val;
 }
 
 string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
