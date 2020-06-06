@@ -311,10 +311,6 @@ void help_giraffe(char** argv) {
     << "algorithm presets:" << endl
     << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
     << "computational parameters:" << endl
-    //TODO: Get rid of these
-    << "  -E --paired-dist INT " << endl
-    << "  -I --rescue-score-limit INT " << endl
-    << "  -J --subgraph-stdevs INT " << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
     << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [1000]" << endl
     << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.8]" << endl
@@ -327,7 +323,7 @@ void help_giraffe(char** argv) {
     << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
-    << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [10]" << endl
+    << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw / haplotypes) [dozeu]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
@@ -360,9 +356,6 @@ int main_giraffe(int argc, char** argv) {
     Range<size_t> distance_limit = 200;
     Range<size_t> hit_cap = 10, hard_hit_cap = 1000;
     Range<double> minimizer_score_fraction = 0.8;
-    Range<size_t> paired_distance_stdevs = 2;
-    Range<double> paired_rescue_score_limit = 0.9;
-    Range<size_t> rescue_subgraph_stdevs = 4;
     bool show_progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
@@ -394,7 +387,7 @@ int main_giraffe(int argc, char** argv) {
     //Throw away extensions with scores that are this amount below the best
     Range<int> extension_score = 1;
     //Attempt up to this many rescues of reads with no pairs
-    Range<int> rescue_attempts = 10;
+    Range<int> rescue_attempts = 15;
     // Which rescue algorithm do we use?
     MinimizerMapper::RescueAlgorithm rescue_algorithm = MinimizerMapper::rescue_dozeu;
     // What sample name if any should we apply?
@@ -413,10 +406,7 @@ int main_giraffe(int argc, char** argv) {
         .chain(hit_cap)
         .chain(hard_hit_cap)
         .chain(minimizer_score_fraction)
-        .chain(paired_distance_stdevs)
-        .chain(paired_rescue_score_limit)
         .chain(rescue_attempts)
-        .chain(rescue_subgraph_stdevs)
         .chain(max_multimaps)
         .chain(max_extensions)
         .chain(max_alignments)
@@ -469,9 +459,6 @@ int main_giraffe(int argc, char** argv) {
             {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
             {"report-name", required_argument, 0, OPT_REPORT_NAME},
             {"fast-mode", no_argument, 0, 'b'},
-            {"paired-dist", required_argument, 0, 'E'},
-            {"rescue-score-limit", required_argument, 0, 'I'},
-            {"subgraph-stdevs", required_argument, 0, 'J'},
             {"hit-cap", required_argument, 0, 'c'},
             {"hard-hit-cap", required_argument, 0, 'C'},
             {"distance-limit", required_argument, 0, 'D'},
@@ -493,7 +480,7 @@ int main_giraffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:o:nb:E:I:J:c:C:D:F:e:a:S:u:v:w:Ot:r:A:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:o:nb:c:C:D:F:e:a:S:u:v:w:Ot:r:A:",
                          long_options, &option_index);
 
 
@@ -673,16 +660,6 @@ int main_giraffe(int argc, char** argv) {
                 }
                 break;
 
-            case 'E':
-                paired_distance_stdevs = parse<Range<size_t>>(optarg);
-                break;
-            case 'I':
-                paired_rescue_score_limit = parse<Range<double>>(optarg);
-                break;
-            case 'J':
-                rescue_subgraph_stdevs = parse<Range<size_t>>(optarg);
-
-                break;
             case 'F':
                 minimizer_score_fraction = parse<Range<double>>(optarg);
                 break;
@@ -998,10 +975,17 @@ int main_giraffe(int argc, char** argv) {
             if (interleaved) {
                 s << "-i";
             }
-            s << "-E" << paired_distance_stdevs;
-            s << "-I" << paired_rescue_score_limit;
-            s << "-J" << rescue_subgraph_stdevs;
-            s << "-r" << rescue_attempts;
+            s << "-D" << distance_limit;
+            s << "-c" << hit_cap;
+            s << "-C" << hard_hit_cap;
+            s << "-F" << minimizer_score_fraction;
+            s << "-M" << max_multimaps;
+            s << "-e" << max_extensions;
+            s << "-a" << max_alignments;
+            s << "-s" << cluster_score;
+            s << "-u" << cluster_coverage;
+            s << "-w" << extension_set;
+            s << "-v" << extension_score;
             
             s << ".gam";
             
@@ -1034,9 +1018,6 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--score-fraction " << minimizer_score_fraction << endl;
         }
         minimizer_mapper.minimizer_score_fraction = minimizer_score_fraction;
-        minimizer_mapper.paired_distance_stdevs = paired_distance_stdevs;
-        minimizer_mapper.paired_rescue_score_limit = paired_rescue_score_limit;
-        minimizer_mapper.rescue_subgraph_stdevs = rescue_subgraph_stdevs;
 
         if (show_progress) {
             cerr << "--max-extensions " << max_extensions << endl;
