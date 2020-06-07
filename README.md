@@ -248,7 +248,7 @@ vg pack -x x.xg -g aln.gam -Q 5 -o aln.pack
 vg call x.xg -k aln.pack > graph_calls.vcf
 ```
 
-In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the previous example using `vg augment -A`), and specify the `-a` option to `vg call` to let it know that the graph has been augmented with the reads:
+In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the previous example using `vg augment -A`):
 
 ```sh
 # Index our augmented graph
@@ -257,8 +257,8 @@ vg index aug.vg -x aug.xg
 # Compute the read support from the augmented gam (with ignoring qualitiy < 5)
 vg pack -x aug.xg -g aug.gam -Q 5 -o aln_aug.pack
 
-# Generate a VCF from the support using the augmented graph.
-vg call aug.xg -k aln_aug.pack -a > calls.vcf
+# Generate a VCF from the support
+vg call aug.xg -k aln_aug.pack > calls.vcf
 ```
 
 A similar process can by used to *genotype* known variants from a VCF. To do this, the graph must be constructed from the VCF with `vg construct -a`:
