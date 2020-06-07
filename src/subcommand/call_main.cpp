@@ -31,11 +31,10 @@ void help_call(char** argv) {
        << "    -k, --pack FILE          Supports created from vg pack for given input graph" << endl
        << "    -m, --min-support M,N    Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
        << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.001]" << endl
-       << "    -I, --insertion-bias X   Increase the expected rate of non-allelic support by X in the case of insertions [default=1]" << endl
+       << "    -I, --insertion-bias X   Increase the expected rate of non-allelic support by X in the case of insertions [default=1.5]" << endl
        << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
        << "    -b, --het-bias M,N       Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "general options:" << endl
-       << "    -a, --augmented         Graph has been augmented with reads, expect more exact breakpoints" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
        << "    -i, --ins-fasta FILE    Insertions fasta (required if VCF contains symbolic insertions)" << endl
@@ -67,7 +66,6 @@ int main_call(int argc, char** argv) {
     bool ratio_caller = false;
     bool legacy = false;
     int ploidy = 2;
-    bool augmented = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -76,17 +74,13 @@ int main_call(int argc, char** argv) {
     const size_t max_depth_bin_width = 50000000;
     const double depth_scale_fac = 1.5;
     const size_t max_yens_traversals = 50;
-    // ignore edges with less than 0.1 times the minimum support of their endpoints
-    // when in augmneted mode.  this is a heuristic to avoid jumping over obviously
-    // unsupported edges when workign with average support on longer svs. 
-    const double augmented_edge_ratio = 0.1;
     /// Baseline error rate
     double baseline_error_small = 0.005;
     /// Lower for large variants, because there's more reads contributing
     double baseline_error_large = 0.001;
     /// Insertions have more chance of non-allele reads, as they need to cover a smaller area
     /// We compensate in the model with this (1. means disabled)
-    double insertion_bias = 1.;
+    double insertion_bias = 1.5;
     /// In order to test if an allele is an insertion, we check if it's this much bigger than
     /// the reference path
     double insertion_size_factor = 10.;
@@ -102,7 +96,6 @@ int main_call(int argc, char** argv) {
             {"insertion-bias", required_argument, 0, 'I'},
             {"het-bias", required_argument, 0, 'b'},
             {"min-support", required_argument, 0, 'm'},
-            {"augmented", no_argument, 0, 'a'},
             {"vcf", required_argument, 0, 'v'},
             {"ref-fasta", required_argument, 0, 'f'},
             {"ins-fasta", required_argument, 0, 'i'},
@@ -147,9 +140,6 @@ int main_call(int argc, char** argv) {
             break;
         case 'I':
             insertion_bias = parse<double>(optarg);
-            break;
-        case 'a':
-            augmented = true;
             break;
         case 'v':
             vcf_filename = optarg;
@@ -468,8 +458,7 @@ int main_call(int argc, char** argv) {
 
             // create the flow traversal finder
             FlowTraversalFinder* flow_traversal_finder = new FlowTraversalFinder(*graph, *snarl_manager, max_yens_traversals,
-                                                                                 node_support, edge_support,
-                                                                                 augmented ? augmented_edge_ratio : 0.);
+                                                                                 node_support, edge_support, 0.);
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
         

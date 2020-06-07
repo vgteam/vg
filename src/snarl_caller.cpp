@@ -724,7 +724,6 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
     }
 
     if (insertion) {
-        cerr << "insertion bias makes other oerror go from " << other_error_rate << " to " << (other_error_rate * insertion_bias) << endl;
         other_error_rate *= insertion_bias;
     }
 

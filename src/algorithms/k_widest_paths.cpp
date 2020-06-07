@@ -158,12 +158,15 @@ static bool edge_support_filter(const HandleGraph* g, const edge_t& edge,
                                 function<double(const handle_t&)> node_weight_callback,
                                 function<double(const edge_t&)> edge_weight_callback,
                                 double min_edge_weight_ratio) {
+    assert(min_edge_weight_ratio >= 0. && min_edge_weight_ratio <= 1.);
     
     // check the edge's support relative to its incident nodes
     double min_end_weight = std::min(node_weight_callback(edge.first), node_weight_callback(edge.second));
     bool edge_meets_threshold = edge_weight_callback(edge) >= min_edge_weight_ratio * min_end_weight;
     bool start_meets_threshold = false;
     bool end_meets_threshold = false;
+    // use stricter ratio when testing edges on incident nodes
+    double comp_ratio = max(min_edge_weight_ratio, 1. - min_edge_weight_ratio);
 
     if (!edge_meets_threshold) {
         // if the edge fails the support check, see if there are any other edges from the
@@ -172,7 +175,7 @@ static bool edge_support_filter(const HandleGraph* g, const edge_t& edge,
                 if (next != edge.second) {
                     min_end_weight = std::min(node_weight_callback(edge.first), node_weight_callback(next));
                     start_meets_threshold = edge_weight_callback(g->edge_handle(edge.first, next)) >=
-                        min_edge_weight_ratio * min_end_weight;
+                        comp_ratio * min_end_weight;
                 }
                 return !start_meets_threshold;
             });
@@ -185,7 +188,7 @@ static bool edge_support_filter(const HandleGraph* g, const edge_t& edge,
                 if (next != g->flip(edge.first)) {
                     min_end_weight = std::min(node_weight_callback(fs), node_weight_callback(next));
                     end_meets_threshold = edge_weight_callback(g->edge_handle(fs, next)) >=
-                        min_edge_weight_ratio * min_end_weight;
+                        comp_ratio * min_end_weight;
                 }
                 return !end_meets_threshold;
           });
