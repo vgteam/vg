@@ -31,17 +31,24 @@ public:
     MultipathAlignmentEmitter(ostream& out, int num_threads, bool emit_single_path = false);
     ~MultipathAlignmentEmitter();
     
+    /// Choose a read group to apply to all emitted alignments
+    void set_read_group(const string& read_group);
+    
+    /// Choose a sample name to apply to all emitted alignments
+    void set_sample_name(const string& sample_name);
+    
     /// Emit paired read mappings as interleaved protobuf messages
-    void emit_pairs(vector<pair<multipath_alignment_t, multipath_alignment_t>>&& mp_aln_pairs);
+    void emit_pairs(const string& name_1, const string& name_2,
+                    vector<pair<multipath_alignment_t, multipath_alignment_t>>&& mp_aln_pairs);
     
     /// Emit read mappings as protobuf messages
-    void emit_singles(vector<multipath_alignment_t>&& mp_alns);
+    void emit_singles(const string& name, vector<multipath_alignment_t>&& mp_alns);
     
 private:
     
     void convert_multipath_alignment(const multipath_alignment_t& mp_aln, Alignment& aln,
-                                     const multipath_alignment_t* prev_frag = nullptr,
-                                     const multipath_alignment_t* next_frag = nullptr) const;
+                                     const string* prev_name = nullptr,
+                                     const string* next_name = nullptr) const;
     
     /// the stream that everything is emitted into
     ostream& out;
@@ -54,6 +61,12 @@ private:
     
     /// a MultipathAlignment emitter for each thread
     vector<unique_ptr<vg::io::ProtobufEmitter<MultipathAlignment>>> mp_aln_emitters;
+    
+    /// read group applied to alignments
+    string read_group;
+    
+    /// sample name applied to alignments
+    string sample_name;
     
 };
 
