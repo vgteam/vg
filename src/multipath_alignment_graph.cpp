@@ -3813,7 +3813,7 @@ namespace vg {
                         auto& alt_alignments = right_alignments[j];
                         if (num_alt_alns == 1) {
 #ifdef debug_multipath_alignment
-                            cerr << "align right with dozeu" << endl;
+                            cerr << "align right with dozeu with gap " << gap << endl;
 #endif
                             // we can speed things up by using the dozeu pinned alignment
                             alt_alignments.emplace_back(move(right_tail_sequence));
@@ -3926,7 +3926,7 @@ namespace vg {
                         auto& alt_alignments = left_alignments[j];
                         if (num_alt_alns == 1) {
 #ifdef debug_multipath_alignment
-                            cerr << "align left with dozeu" << endl;
+                            cerr << "align left with dozeu using gap " << gap << endl;
 #endif
                             // we can speed things up by using the dozeu pinned alignment
                             alt_alignments.emplace_back(move(left_tail_sequence));
@@ -3934,7 +3934,7 @@ namespace vg {
                         }
                         else {
 #ifdef debug_multipath_alignment
-                            cerr << "align right with gssw" << endl;
+                            cerr << "align left with gssw" << endl;
 #endif
                             aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                         }
