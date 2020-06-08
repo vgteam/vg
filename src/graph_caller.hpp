@@ -34,9 +34,19 @@ public:
     /// Snarls are processed in parallel
     virtual void call_top_level_snarls(int ploidy, bool recurse_on_fail = true);
 
+    /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of each piece
+    /// then make a fake snarl for each chain piece and call it.  If a fake snarl fails to call,
+    /// It's child chains will be recursed on (if selected)_
+    virtual void call_top_level_chains(const HandleGraph& graph, int ploidy, size_t max_edges, size_t max_trivial, bool recurse_on_fail = true);
+
     /// Call a given snarl, and print the output to out_stream
     virtual bool call_snarl(const Snarl& snarl, int ploidy) = 0;
-   
+
+protected:
+
+    /// Break up a chain into bits that we want to call using size heuristics
+    vector<Chain> break_chain(const HandleGraph& graph, const Chain& chain, size_t max_edges, size_t max_trivial);
+    
 protected:
 
     /// Our Genotyper

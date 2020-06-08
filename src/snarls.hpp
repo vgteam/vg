@@ -576,7 +576,13 @@ public:
         
     /// Execute a function on all sites in parallel
     void for_each_snarl_parallel(const function<void(const Snarl*)>& lambda) const;
-    
+
+    /// Execute a function on all top level chains
+    void for_each_top_level_chain(const function<void(const Chain*)>& lambda) const;
+
+    /// Execute a function on all top level chains in parallel
+    void for_each_top_level_chain_parallel(const function<void(const Chain*)>& lambda) const;
+
     /// Ececute a function on all chains
     void for_each_chain(const function<void(const Chain*)>& lambda) const;
     
@@ -979,7 +985,7 @@ inline void transfer_boundary_info(const Snarl& from, Snarl& to) {
     *to.mutable_start() = from.start();
     *to.mutable_end() = from.end();
 }
-    
+
 }
 
 // note: this hash funtion is not used internally because we want the internal indices to ignore any
