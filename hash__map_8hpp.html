@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: deps/libbdsg/include/bdsg/hash_map.hpp File Reference</title>
+<title>vg: src/hash_map.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,7 +59,7 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_94a36784afa54c0b50996002372b429e.html">deps</a></li><li class="navelem"><a class="el" href="dir_9b89a87f3b73b3d47205d0c585cede8f.html">libbdsg</a></li><li class="navelem"><a class="el" href="dir_e143d2f8cd45d55e49beeb976410f522.html">include</a></li><li class="navelem"><a class="el" href="dir_d325c1f892c019c87419450334d1d362.html">bdsg</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
@@ -74,8 +74,7 @@ $(function() {
 <div class="textblock"><code>#include &lt;cstdint&gt;</code><br />
 <code>#include &lt;tuple&gt;</code><br />
 <code>#include &lt;type_traits&gt;</code><br />
-<code>#include &quot;<a class="el" href="deps_2libbdsg_2include_2bdsg_2wang__hash_8hpp.html">bdsg/wang_hash.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="packed__structs_8hpp.html">bdsg/packed_structs.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="wang__hash_8hpp.html">wang_hash.hpp</a>&quot;</code><br />
 <code>#include &lt;sparsepp/spp.h&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
@@ -84,31 +83,29 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structstd_1_1hash_3_01std_1_1tuple_3_01TT_8_8_8_01_4_01_4.html">std::hash&lt; std::tuple&lt; TT... &gt; &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structstd_1_1hash_3_01bdsg_1_1PackedVector_01_4.html">std::hash&lt; bdsg::PackedVector &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash.html">vg::wang_hash&lt; T, ImplementationMatched &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structbdsg_1_1wang__hash.html">bdsg::wang_hash&lt; T, ImplementationMatched &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash_3_01T_01_5_01_4.html">vg::wang_hash&lt; T * &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structbdsg_1_1wang__hash_3_01T_01_5_01_4.html">bdsg::wang_hash&lt; T * &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash_3_01T_00_01typename_01std_1_1enable__if_3_01std_1_1is__integral_3_01T_01_4_1_1value_01_4_1_1type_01_4.html">vg::wang_hash&lt; T, typename std::enable_if&lt; std::is_integral&lt; T &gt;::value &gt;::type &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structbdsg_1_1wang__hash_3_01T_00_01typename_01std_1_1enable__if_3_01std_1_1is__integral_3_01T_01_4_1_1value_01_4_1_1type_01_4.html">bdsg::wang_hash&lt; T, typename std::enable_if&lt; std::is_integral&lt; T &gt;::value &gt;::type &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash_3_01std_1_1pair_3_01A_00_01B_01_4_01_4.html">vg::wang_hash&lt; std::pair&lt; A, B &gt; &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structbdsg_1_1wang__hash_3_01std_1_1pair_3_01A_00_01B_01_4_01_4.html">bdsg::wang_hash&lt; std::pair&lt; A, B &gt; &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1hash__map.html">vg::hash_map&lt; K, V &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1hash__map.html">bdsg::hash_map&lt; K, V &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1string__hash__map.html">vg::string_hash_map&lt; K, V &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1string__hash__map.html">bdsg::string_hash_map&lt; K, V &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1pair__hash__map.html">vg::pair_hash_map&lt; K, V &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1pair__hash__map.html">bdsg::pair_hash_map&lt; K, V &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1hash__map_3_01K_01_5_00_01V_01_4.html">vg::hash_map&lt; K *, V &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1hash__map_3_01K_01_5_00_01V_01_4.html">bdsg::hash_map&lt; K *, V &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1hash__set.html">vg::hash_set&lt; K &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1hash__set.html">bdsg::hash_set&lt; K &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1string__hash__set.html">vg::string_hash_set&lt; K &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1string__hash__set.html">bdsg::string_hash_set&lt; K &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1pair__hash__set.html">vg::pair_hash_set&lt; K &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1pair__hash__set.html">bdsg::pair_hash_set&lt; K &gt;</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1hash__set_3_01K_01_5_01_4.html">bdsg::hash_set&lt; K * &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1hash__set_3_01K_01_5_01_4.html">vg::hash_set&lt; K * &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -116,12 +113,12 @@ Namespaces</h2></td></tr>
 <tr class="memitem:namespacestd"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacestd.html">std</a></td></tr>
 <tr class="memdesc:namespacestd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Hash functor to hash <code>NodeSide</code>s using std::hash. <br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacebdsg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacebdsg.html">bdsg</a></td></tr>
+<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
 Macros</h2></td></tr>
-<tr class="memitem:a181224ba2835ac80e940ef8505d5f119"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="deps_2libbdsg_2include_2bdsg_2hash__map_8hpp.html#a181224ba2835ac80e940ef8505d5f119">OVERLOAD_PAIR_HASH</a></td></tr>
+<tr class="memitem:a181224ba2835ac80e940ef8505d5f119"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="hash__map_8hpp.html#a181224ba2835ac80e940ef8505d5f119">OVERLOAD_PAIR_HASH</a></td></tr>
 <tr class="separator:a181224ba2835ac80e940ef8505d5f119"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Macro Definition Documentation</h2>

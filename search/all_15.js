@@ -4,9 +4,6 @@ var searchData=
   ['uf_5frank',['uf_rank',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a7d285e6a4baec754e89edd5338589f3e',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
   ['ultrabubble',['ULTRABUBBLE',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97aea6b4b85aa567a940c7434df2fcb56fb',1,'vg']]],
   ['unaligned_5fbands',['unaligned_bands',['../classvg_1_1AlignmentChainModel.html#a86bcd77b21cc9b8b9c2b9f100fb9ce71',1,'vg::AlignmentChainModel']]],
-  ['unaligned_5fload',['unaligned_load',['../namespacebdsg_1_1sqvarint.html#a818b895051d28fb80c98fd31c2a2b17c',1,'bdsg::sqvarint']]],
-  ['unaligned_5fload_5fu16',['unaligned_load_u16',['../namespacebdsg_1_1sqvarint.html#ad184da9ecc81881faf9b459ee71b98cf',1,'bdsg::sqvarint']]],
-  ['unaligned_5fload_5fu64',['unaligned_load_u64',['../namespacebdsg_1_1sqvarint.html#a203d7eb0e50cae20eba08a7e49945e30',1,'bdsg::sqvarint']]],
   ['unary',['UNARY',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97a0e62c0ff8521d5960a5cc819a7bf7230',1,'vg']]],
   ['unary_5fboundaries',['unary_boundaries',['../classvg_1_1NetGraph.html#ae573871a7c3cd0be507222751f870f72',1,'vg::NetGraph']]],
   ['unchop',['unchop',['../namespacevg_1_1algorithms.html#a0109d211ac713194397e14a1f7dc8435',1,'vg::algorithms']]],
@@ -17,9 +14,6 @@ var searchData=
   ['uncompressed_5fout_5fostream',['uncompressed_out_ostream',['../classvg_1_1io_1_1MessageEmitter.html#aeb08e36bd3266eabc11d2d27e6336812',1,'vg::io::MessageEmitter']]],
   ['uncompressed_5fout_5fwritten',['uncompressed_out_written',['../classvg_1_1io_1_1MessageEmitter.html#ae75aa23f1b6b85340f7bc586282e7c55',1,'vg::io::MessageEmitter']]],
   ['underflow',['underflow',['../classvg_1_1io_1_1fdinbuf.html#a67ea7aab3e21cacec9fb836d4a70673e',1,'vg::io::fdinbuf']]],
-  ['underlying_5fgraph',['underlying_graph',['../classbdsg_1_1VectorizableOverlay.html#ad2fd19676a480434adaa2cd44c1f4121',1,'bdsg::VectorizableOverlay']]],
-  ['underlying_5fpath_5fgraph',['underlying_path_graph',['../classbdsg_1_1PathVectorizableOverlay.html#a709c4615e0c447cd6e3e0e6bf76a2d87',1,'bdsg::PathVectorizableOverlay']]],
-  ['underlying_5fpath_5fposition_5fgraph',['underlying_path_position_graph',['../classbdsg_1_1PathPositionVectorizableOverlay.html#a35cac640c3674b1c92586cd3ee35b626',1,'bdsg::PathPositionVectorizableOverlay']]],
   ['unescape_5fdelim',['unescape_delim',['../classvg_1_1Packer.html#a32f8697cf4c222f5e207a4b15a1f0883',1,'vg::Packer']]],
   ['unescape_5fdelims',['unescape_delims',['../classvg_1_1Packer.html#a92b44e965dd5da9da72e1a9196290d94',1,'vg::Packer']]],
   ['unfold',['unfold',['../classvg_1_1PhaseUnfolder.html#a39a286ab3746a9a175a898bead3d2612',1,'vg::PhaseUnfolder::unfold()'],['../classvg_1_1VG.html#a6552b9da8cff82802ee24090064eb3a8',1,'vg::VG::unfold()']]],
@@ -78,5 +72,5 @@ var searchData=
   ['uses_5fus',['uses_Us',['../namespacevg.html#acd966c42f332957a1b9317faa3d26407',1,'vg']]],
   ['util_2ehpp',['util.hpp',['../util_8hpp.html',1,'']]],
   ['utility_2ecpp',['utility.cpp',['../src_2utility_8cpp.html',1,'(Global Namespace)'],['../deps_2libbdsg_2src_2utility_8cpp.html',1,'(Global Namespace)']]],
-  ['utility_2ehpp',['utility.hpp',['../src_2utility_8hpp.html',1,'(Global Namespace)'],['../deps_2libbdsg_2include_2bdsg_2utility_8hpp.html',1,'(Global Namespace)']]]
+  ['utility_2ehpp',['utility.hpp',['../utility_8hpp.html',1,'']]]
 ];

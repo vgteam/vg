@@ -67,5 +67,5 @@ var searchData=
   ['isforward',['isForward',['../structvg_1_1BREAKPOINT.html#a3179531d48993e05d802907b730e1631',1,'vg::BREAKPOINT']]],
   ['item_5fvo',['item_vo',['../classvg_1_1io_1_1MessageIterator.html#a1f58abce5de3c8f71a82e689c0170c49',1,'vg::io::MessageIterator']]],
   ['items',['items',['../structvg_1_1Funnel_1_1Stage.html#a787bab13fd8bd1bccb1ac8e7821688c6',1,'vg::Funnel::Stage']]],
-  ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator::iteratee()'],['../structbdsg_1_1BBHashHelper_1_1iterator.html#acad8865b2739f5c86d952d387dddb569',1,'bdsg::BBHashHelper::iterator::iteratee()']]]
+  ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator']]]
 ];

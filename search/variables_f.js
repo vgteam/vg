@@ -3,7 +3,6 @@ var searchData=
   ['occs',['occs',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a023a81e9cd9f65fe3fa45293d08f643b',1,'vg::MinimizerMapper::Minimizer']]],
   ['occurrences',['occurrences',['../structbdsg_1_1HashGraph_1_1node__t.html#a1bca8e6a29ca8adbd49777e0da6165ff',1,'bdsg::HashGraph::node_t']]],
   ['offset',['offset',['../structvg_1_1GaplessExtension.html#a713e8ef2aad7aa94ae4ef91fbe83e159',1,'vg::GaplessExtension::offset()'],['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1SnarlSeedClusterer_1_1Seed.html#a6ff78e62ecc19fcf85d06ebdca488a1f',1,'vg::SnarlSeedClusterer::Seed::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()']]],
-  ['offset_5fby_5fstep',['offset_by_step',['../classbdsg_1_1PositionOverlay.html#a2f767d5917baa329867d968bb159ae32',1,'bdsg::PositionOverlay']]],
   ['offset_5fmask',['OFFSET_MASK',['../structvg_1_1MIPayload.html#a0f8d6f2aedd4f81feed73aad8e79d1a1',1,'vg::MIPayload']]],
   ['offset_5fwidth',['OFFSET_WIDTH',['../structvg_1_1MIPayload.html#afa983c2305fb1962ad49a26b533cdfd1',1,'vg::MIPayload']]],
   ['offsets',['offsets',['../classxg_1_1XGPath.html#a062c1a4ce4f13b67a90f8b57ec57e91e',1,'xg::XGPath']]],
@@ -50,10 +49,6 @@ var searchData=
   ['output_5fversion',['OUTPUT_VERSION',['../classvg_1_1StreamIndexBase.html#ad8e4be116b6b053e08a4221da069a092',1,'vg::StreamIndexBase']]],
   ['outvcf',['outvcf',['../classvg_1_1Deconstructor.html#a2e5fb57f7e5ada44e566ce4ec1bc72c3',1,'vg::Deconstructor']]],
   ['overall_5fsupport',['overall_support',['../structvg_1_1Locus.html#a04ac3427a7318a28984c8114cd216675',1,'vg::Locus']]],
-  ['overlaid',['overlaid',['../classbdsg_1_1OverlayHelper.html#a21ec279d191de62fe4916a92bd143048',1,'bdsg::OverlayHelper']]],
   ['overlap',['overlap',['../structvg_1_1Edge.html#aafdc39a954fd8de9dc3850ad9ecb9ade',1,'vg::Edge']]],
-  ['overlapping_5frefs',['overlapping_refs',['../classvg_1_1SRPE.html#a9bc3e671b90795b69d9b9266d189f89a',1,'vg::SRPE']]],
-  ['overlay',['overlay',['../classbdsg_1_1OverlayHelper.html#a506896f6331bcc32419ded038ca480c9',1,'bdsg::OverlayHelper']]],
-  ['overlay1',['overlay1',['../classbdsg_1_1PairOverlayHelper.html#a89e705966e9309eabccd4ff950306502',1,'bdsg::PairOverlayHelper']]],
-  ['overlay2',['overlay2',['../classbdsg_1_1PairOverlayHelper.html#a4bde3a038c4e72b3362e0503585e30d2',1,'bdsg::PairOverlayHelper']]]
+  ['overlapping_5frefs',['overlapping_refs',['../classvg_1_1SRPE.html#a9bc3e671b90795b69d9b9266d189f89a',1,'vg::SRPE']]]
 ];

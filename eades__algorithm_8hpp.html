@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: bdsg::hash_map&lt; K, V &gt; Class Template Reference</title>
+<title>vg: src/algorithms/eades_algorithm.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,28 +59,39 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="namespacebdsg.html">bdsg</a></li><li class="navelem"><a class="el" href="classbdsg_1_1hash__map.html">hash_map</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
+  <div class="summary">
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">bdsg::hash_map&lt; K, V &gt; Class Template Reference</div>  </div>
+<div class="title">eades_algorithm.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-
-<p><code>#include &lt;hash_map.hpp&gt;</code></p>
-<div class="dynheader">
-Inheritance diagram for bdsg::hash_map&lt; K, V &gt;:</div>
-<div class="dyncontent">
- <div class="center">
-  <img src="classbdsg_1_1hash__map.png" usemap="#bdsg::hash_5Fmap_3C_20K_2C_20V_20_3E_map" alt=""/>
-  <map id="bdsg::hash_5Fmap_3C_20K_2C_20V_20_3E_map" name="bdsg::hash_5Fmap_3C_20K_2C_20V_20_3E_map">
-</map>
- </div></div>
-<hr/>The documentation for this class was generated from the following file:<ul>
-<li>deps/libbdsg/include/bdsg/<a class="el" href="deps_2libbdsg_2include_2bdsg_2hash__map_8hpp.html">hash_map.hpp</a></li>
-</ul>
-</div><!-- contents -->
+<div class="textblock"><code>#include &quot;<a class="el" href="handle_8hpp.html">../handle.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="is__single__stranded_8hpp.html">is_single_stranded.hpp</a>&quot;</code><br />
+<code>#include &lt;vector&gt;</code><br />
+<code>#include &lt;list&gt;</code><br />
+<code>#include &lt;unordered_map&gt;</code><br />
+<code>#include &lt;deque&gt;</code><br />
+</div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
+Namespaces</h2></td></tr>
+<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:a413477a59e8e5a64fa006e2b23e58e67"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a413477a59e8e5a64fa006e2b23e58e67">vg::algorithms::eades_algorithm</a> (const HandleGraph *graph)</td></tr>
+<tr class="separator:a413477a59e8e5a64fa006e2b23e58e67"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Implements the Eades, Lin, Smyth (1993) algorithm for computing a heuristic solution to the minimum feedback arc set. </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

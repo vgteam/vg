@@ -9,7 +9,6 @@ var searchData=
   ['next_5fpos_5fchars_2ecpp',['next_pos_chars.cpp',['../next__pos__chars_8cpp.html',1,'']]],
   ['next_5fpos_5fchars_2ehpp',['next_pos_chars.hpp',['../next__pos__chars_8hpp.html',1,'']]],
   ['node_2ecpp',['node.cpp',['../node_8cpp.html',1,'']]],
-  ['node_2ehpp',['node.hpp',['../node_8hpp.html',1,'']]],
   ['nodeside_2ehpp',['nodeside.hpp',['../nodeside_8hpp.html',1,'']]],
   ['nodetraversal_2ehpp',['nodetraversal.hpp',['../nodetraversal_8hpp.html',1,'']]],
   ['normalize_2ecpp',['normalize.cpp',['../normalize_8cpp.html',1,'']]],

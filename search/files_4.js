@@ -1,10 +1,10 @@
 var searchData=
 [
   ['eades_5falgorithm_2ecpp',['eades_algorithm.cpp',['../src_2algorithms_2eades__algorithm_8cpp.html',1,'(Global Namespace)'],['../deps_2libbdsg_2src_2eades__algorithm_8cpp.html',1,'(Global Namespace)']]],
-  ['eades_5falgorithm_2ehpp',['eades_algorithm.hpp',['../src_2algorithms_2eades__algorithm_8hpp.html',1,'(Global Namespace)'],['../deps_2libbdsg_2include_2bdsg_2eades__algorithm_8hpp.html',1,'(Global Namespace)']]],
+  ['eades_5falgorithm_2ehpp',['eades_algorithm.hpp',['../eades__algorithm_8hpp.html',1,'']]],
   ['edit_2ecpp',['edit.cpp',['../edit_8cpp.html',1,'']]],
   ['edit_2ehpp',['edit.hpp',['../edit_8hpp.html',1,'']]],
-  ['endianness_2ehpp',['endianness.hpp',['../src_2endianness_8hpp.html',1,'(Global Namespace)'],['../deps_2libbdsg_2include_2bdsg_2endianness_8hpp.html',1,'(Global Namespace)']]],
+  ['endianness_2ehpp',['endianness.hpp',['../endianness_8hpp.html',1,'']]],
   ['entropy_2ecpp',['entropy.cpp',['../entropy_8cpp.html',1,'']]],
   ['entropy_2ehpp',['entropy.hpp',['../entropy_8hpp.html',1,'']]],
   ['expand_5fcontext_2ecpp',['expand_context.cpp',['../expand__context_8cpp.html',1,'']]],

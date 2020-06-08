@@ -72,22 +72,22 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a5d654aaa1245bfed588f503828bb15a6"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacebdsg_1_1algorithms.html#a5d654aaa1245bfed588f503828bb15a6">eades_algorithm</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
-<tr class="separator:a5d654aaa1245bfed588f503828bb15a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1042fb58688debcdd311530f644bdf75"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacebdsg_1_1algorithms.html#a1042fb58688debcdd311530f644bdf75">eades_algorithm</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
+<tr class="separator:a1042fb58688debcdd311530f644bdf75"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a18fd1866c4f9f6a2c145379256a638b4"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacebdsg_1_1algorithms.html#a18fd1866c4f9f6a2c145379256a638b4">is_single_stranded</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
 <tr class="separator:a18fd1866c4f9f6a2c145379256a638b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa1460a5d42e6830e672c0104bc81bfd5"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacebdsg_1_1algorithms.html#aa1460a5d42e6830e672c0104bc81bfd5">single_stranded_orientation</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
-<tr class="separator:aa1460a5d42e6830e672c0104bc81bfd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abc89fcb9886ec3993fe0fd4c6b3b6528"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacebdsg_1_1algorithms.html#abc89fcb9886ec3993fe0fd4c6b3b6528">single_stranded_orientation</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
+<tr class="separator:abc89fcb9886ec3993fe0fd4c6b3b6528"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
-<a id="a5d654aaa1245bfed588f503828bb15a6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5d654aaa1245bfed588f503828bb15a6">&#9670;&nbsp;</a></span>eades_algorithm()</h2>
+<a id="a1042fb58688debcdd311530f644bdf75"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1042fb58688debcdd311530f644bdf75">&#9670;&nbsp;</a></span>eades_algorithm()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; bdsg::algorithms::eades_algorithm </td>
+          <td class="memname">vector&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&gt; bdsg::algorithms::eades_algorithm </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em></td><td>)</td>
@@ -95,7 +95,6 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Returns a layout of handles that has a small number of edges that point backward along the layout (i.e. feedback arcs). Only valid for graphs that have a single stranded orientation. Consider checking this property with <a class="el" href="namespacebdsg_1_1algorithms.html#aa1460a5d42e6830e672c0104bc81bfd5">algorithms::single_stranded_orientation</a>. </p>
 
 </div>
 </div>
@@ -114,18 +113,17 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Returns true if the graph contains no reversing edges (i.e. edges that connected the locally forward orientation of a node to the locally reverse orientation of of another node). </p>
 
 </div>
 </div>
-<a id="aa1460a5d42e6830e672c0104bc81bfd5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa1460a5d42e6830e672c0104bc81bfd5">&#9670;&nbsp;</a></span>single_stranded_orientation()</h2>
+<a id="abc89fcb9886ec3993fe0fd4c6b3b6528"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abc89fcb9886ec3993fe0fd4c6b3b6528">&#9670;&nbsp;</a></span>single_stranded_orientation()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; bdsg::algorithms::single_stranded_orientation </td>
+          <td class="memname">vector&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&gt; bdsg::algorithms::single_stranded_orientation </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em></td><td>)</td>
@@ -133,7 +131,6 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Returns a vector of handles where the orientation of each handle indicates an orientation that could be used to convert the graph into a single-stranded graph. That is, if all of the reverse handles (or all of the forward handles) were swapped in orientation, the graph would contain no reversing edges. Returns an empty vector if there is no such combination of node orientations (also if graph has no nodes). </p>
 
 </div>
 </div>

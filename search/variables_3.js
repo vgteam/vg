@@ -78,7 +78,5 @@ var searchData=
   ['current_5fversion',['CURRENT_VERSION',['../classxg_1_1XG.html#aa4970917df65809c23db35d429ffe595',1,'xg::XG']]],
   ['cursor_5fpool',['cursor_pool',['../classvg_1_1IndexedVG.html#a62d27a5ec1f917733604d724ab413f7f',1,'vg::IndexedVG']]],
   ['cursor_5fpool_5fmutex',['cursor_pool_mutex',['../classvg_1_1IndexedVG.html#a0e1a3526d6d76ea816b5cc579ae39227',1,'vg::IndexedVG']]],
-  ['cursor_5fstreams',['cursor_streams',['../classvg_1_1IndexedVG.html#a73bae46f21d980ec8b4f198396c8060a',1,'vg::IndexedVG']]],
-  ['cut1',['cut1',['../namespacebdsg_1_1sqvarint.html#a755a02e4e9050ce10eb9b882e469c321',1,'bdsg::sqvarint']]],
-  ['cut2',['cut2',['../namespacebdsg_1_1sqvarint.html#a0532460e46497946b8659fb1ab64b381',1,'bdsg::sqvarint']]]
+  ['cursor_5fstreams',['cursor_streams',['../classvg_1_1IndexedVG.html#a73bae46f21d980ec8b4f198396c8060a',1,'vg::IndexedVG']]]
 ];

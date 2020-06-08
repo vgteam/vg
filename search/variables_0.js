@@ -2,8 +2,7 @@ var searchData=
 [
   ['_5fannotation',['_annotation',['../classvg_1_1multipath__alignment__t.html#a2335046b7a55314644af26787ce17c57',1,'vg::multipath_alignment_t']]],
   ['_5fdeleted_5fnode_5fcount',['_deleted_node_count',['../classbdsg_1_1ODGI.html#a27ba4eff77a484fb635e6275b3294d39',1,'bdsg::ODGI']]],
-  ['_5fedge_5fbytes',['_edge_bytes',['../classbdsg_1_1node__t.html#a020171fd29854b85f4913736727584ad',1,'bdsg::node_t']]],
-  ['_5fedge_5fcount',['_edge_count',['../classbdsg_1_1node__t.html#aa68e9f17fb3f49675d1c7f1bb4a75dac',1,'bdsg::node_t::_edge_count()'],['../classbdsg_1_1ODGI.html#a8a55ac331a90b588e7f795572c4b0963',1,'bdsg::ODGI::_edge_count()']]],
+  ['_5fedge_5fcount',['_edge_count',['../classbdsg_1_1ODGI.html#a8a55ac331a90b588e7f795572c4b0963',1,'bdsg::ODGI']]],
   ['_5fedit',['_edit',['../classvg_1_1path__mapping__t.html#a034ff317401dd996ee560579944240ba',1,'vg::path_mapping_t']]],
   ['_5ferror',['_error',['../classj2pb__error.html#a6c1faa9c2a04cb41166771a03f8fe757',1,'j2pb_error']]],
   ['_5ffp',['_fp',['../classvg_1_1io_1_1JSONStreamHelper.html#a9a37ea0b07062cb1fcab096188ac5ced',1,'vg::io::JSONStreamHelper']]],
@@ -25,7 +24,6 @@ var searchData=
   ['_5fposition',['_position',['../classvg_1_1path__mapping__t.html#a0fbd0d2e397a143b0e85122705a1277c',1,'vg::path_mapping_t']]],
   ['_5fquality',['_quality',['../classvg_1_1multipath__alignment__t.html#a67f71af08e91f177fb0e7760bc7074c0',1,'vg::multipath_alignment_t']]],
   ['_5fscore',['_score',['../classvg_1_1subpath__t.html#a50fa6724cbbd23bf0ac35161d04258d3',1,'vg::subpath_t']]],
-  ['_5fseq_5fbytes',['_seq_bytes',['../classbdsg_1_1node__t.html#a82d2762785c4d11fa65106efe312ea41',1,'bdsg::node_t']]],
   ['_5fsequence',['_sequence',['../classvg_1_1multipath__alignment__t.html#ac43812cbd7b12fc8988220d5c1947eb4',1,'vg::multipath_alignment_t::_sequence()'],['../classvg_1_1edit__t.html#a2cdecadad0717701da4cd59a2b2b8648',1,'vg::edit_t::_sequence()']]],
   ['_5fsplice_5fgraph',['_splice_graph',['../classvg_1_1Transcriptome.html#a7071af495337c1f8e128e3e5dd8042db',1,'vg::Transcriptome']]],
   ['_5fsplice_5fgraph_5fnode_5fupdated',['_splice_graph_node_updated',['../classvg_1_1Transcriptome.html#a171230d85aa7f8e7fdbcb8c0b4a4e9df',1,'vg::Transcriptome']]],

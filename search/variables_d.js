@@ -143,7 +143,6 @@ var searchData=
   ['min_5fnode_5fid',['min_node_id',['../classvg_1_1MinimumDistanceIndex.html#a2fc4f001b08ca410b0dc4f7e7975662f',1,'vg::MinimumDistanceIndex']]],
   ['min_5fnode_5fsupport',['min_node_support',['../classvg_1_1SupportRestrictedTraversalFinder.html#ae0201f741f7e5cffed2577d47e8e1830',1,'vg::SupportRestrictedTraversalFinder::min_node_support()'],['../classvg_1_1RepresentativeTraversalFinder.html#a873d02fe79d020bb106879f5b478e38f',1,'vg::RepresentativeTraversalFinder::min_node_support()']]],
   ['min_5fnode_5fsupport_5fcache',['min_node_support_cache',['../classvg_1_1CachedPackedTraversalSupportFinder.html#a3a150bfc048afe50f2e006f77159bf34',1,'vg::CachedPackedTraversalSupportFinder']]],
-  ['min_5fpath_5foffset',['min_path_offset',['../classbdsg_1_1PositionOverlay.html#a31aecad86e93899a02e614935d5abfcc',1,'bdsg::PositionOverlay']]],
   ['min_5fpercent_5fidentity',['min_percent_identity',['../classvg_1_1Filter.html#afd9cc5bfa5740f71e70a601f7f0b8199',1,'vg::Filter']]],
   ['min_5fprimary',['min_primary',['../classvg_1_1ReadFilter.html#a17dbd2182c6cf4816c1fe22ae60e2a01',1,'vg::ReadFilter']]],
   ['min_5fqual',['min_qual',['../classvg_1_1Filter.html#ab3ced01093210b1379fbcd7de7709a30',1,'vg::Filter']]],

@@ -18,6 +18,6 @@ var searchData=
   ['is_5facyclic_2ecpp',['is_acyclic.cpp',['../is__acyclic_8cpp.html',1,'']]],
   ['is_5facyclic_2ehpp',['is_acyclic.hpp',['../is__acyclic_8hpp.html',1,'']]],
   ['is_5fsingle_5fstranded_2ecpp',['is_single_stranded.cpp',['../src_2algorithms_2is__single__stranded_8cpp.html',1,'(Global Namespace)'],['../deps_2libbdsg_2src_2is__single__stranded_8cpp.html',1,'(Global Namespace)']]],
-  ['is_5fsingle_5fstranded_2ehpp',['is_single_stranded.hpp',['../src_2algorithms_2is__single__stranded_8hpp.html',1,'(Global Namespace)'],['../deps_2libbdsg_2include_2bdsg_2is__single__stranded_8hpp.html',1,'(Global Namespace)']]],
+  ['is_5fsingle_5fstranded_2ehpp',['is_single_stranded.hpp',['../is__single__stranded_8hpp.html',1,'']]],
   ['iteratee_2ehpp',['iteratee.hpp',['../iteratee_8hpp.html',1,'']]]
 ];

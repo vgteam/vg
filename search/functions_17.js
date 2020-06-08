@@ -3,7 +3,7 @@ var searchData=
   ['wabbitize',['wabbitize',['../classVectorizer.html#ae4c3627b5c8ec7b066f5735ca6dfb3f1',1,'Vectorizer']]],
   ['walk_5fbackwards',['walk_backwards',['../classvg_1_1NGSSimulator.html#aff7ec570f2361e525db4363bf0e5a2d2',1,'vg::NGSSimulator']]],
   ['walk_5ft',['walk_t',['../structvg_1_1walk__t.html#ad7a131cb934419dc90103ce2483fc02b',1,'vg::walk_t::walk_t()'],['../structvg_1_1algorithms_1_1walk__t.html#af8c4463befc5bb6cec73b3e493acf545',1,'vg::algorithms::walk_t::walk_t()']]],
-  ['wang_5fhash_5f64',['wang_hash_64',['../namespacevg.html#a38d35bca25e8a6d5fe10f603cb9048c3',1,'vg::wang_hash_64()'],['../namespacebdsg.html#a10e53bdc42a868d2fa66b0aa68d37f0c',1,'bdsg::wang_hash_64()']]],
+  ['wang_5fhash_5f64',['wang_hash_64',['../namespacevg.html#a38d35bca25e8a6d5fe10f603cb9048c3',1,'vg']]],
   ['want_5fbreakpoint',['want_breakpoint',['../classvg_1_1io_1_1StreamMultiplexer.html#ac0698f3b6387ce47f4e9d5b2929d6cf4',1,'vg::io::StreamMultiplexer']]],
   ['watchdog',['Watchdog',['../classvg_1_1Watchdog.html#a87e679ecbb8461ae6a26a1958216629b',1,'vg::Watchdog::Watchdog(size_t thread_count, const duration &amp;timeout)'],['../classvg_1_1Watchdog.html#a2934cc5c1fc3b7d0ab20343e6bde1a56',1,'vg::Watchdog::Watchdog(const Watchdog &amp;other)=delete'],['../classvg_1_1Watchdog.html#a73aa9888b0017ed46053c75c085f2748',1,'vg::Watchdog::Watchdog(Watchdog &amp;&amp;other)=delete']]],
   ['watcher_5floop',['watcher_loop',['../classvg_1_1Watchdog.html#ad2e2c831258c42fdba7f2d0fa8625cc9',1,'vg::Watchdog']]],

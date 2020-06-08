@@ -6,7 +6,7 @@ var searchData=
   ['edit',['Edit',['../structvg_1_1Edit.html',1,'vg']]],
   ['edit_5ft',['edit_t',['../classvg_1_1edit__t.html',1,'vg']]],
   ['editedtranscriptpath',['EditedTranscriptPath',['../structvg_1_1EditedTranscriptPath.html',1,'vg']]],
-  ['endianness',['endianness',['../structbdsg_1_1endianness.html',1,'bdsg::endianness&lt; IntType &gt;'],['../structvg_1_1endianness.html',1,'vg::endianness&lt; IntType &gt;']]],
+  ['endianness',['endianness',['../structvg_1_1endianness.html',1,'vg']]],
   ['exhaustivetraversalfinder',['ExhaustiveTraversalFinder',['../classvg_1_1ExhaustiveTraversalFinder.html',1,'vg']]],
   ['expandingoverlaygraph',['ExpandingOverlayGraph',['../classhandlegraph_1_1ExpandingOverlayGraph.html',1,'handlegraph']]],
   ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg']]]

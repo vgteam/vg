@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['factor',['factor',['../classbdsg_1_1PackedVector.html#a2b1d6ac6cdbdb3bd6934a27bb19669a7',1,'bdsg::PackedVector::factor()'],['../classbdsg_1_1PackedDeque.html#a9848323544e7d94a814a0cc03dd6856b',1,'bdsg::PackedDeque::factor()']]],
   ['failed_5ffilter',['failed_filter',['../structvg_1_1Funnel_1_1Item.html#ac661e647007faace0ce5949268f0969d',1,'vg::Funnel::Item']]],
   ['failed_5fstatistic',['failed_statistic',['../structvg_1_1Funnel_1_1Item.html#a88e8b76d62aac942c29cfbefe38ec5ca',1,'vg::Funnel::Item']]],
   ['failing',['failing',['../structvg_1_1Funnel_1_1FilterPerformance.html#aad9ef34a13eb3d6d7e5bf5ad42beb166',1,'vg::Funnel::FilterPerformance']]],
@@ -17,11 +16,9 @@ var searchData=
   ['file',['file',['../classvg_1_1VcfBuffer.html#a6d744dafd27fb2fdea09d106b1553a55',1,'vg::VcfBuffer']]],
   ['file_5fheader',['file_header',['../classvg_1_1MinimumDistanceIndex.html#a3e515f34b0d941a0f55e15739a3e5014',1,'vg::MinimumDistanceIndex']]],
   ['filenames',['filenames',['../structvg_1_1temp__file_1_1Handler.html#a712176aeac999c1930b246fa02dc0f25',1,'vg::temp_file::Handler::filenames()'],['../classvg_1_1VGset.html#a49cf0bee988a30fb024218dd4f4eed56',1,'vg::VGset::filenames()'],['../structxg_1_1temp__file_1_1Handler.html#ad61c52d26a2feddf0770d74d4ff65754',1,'xg::temp_file::Handler::filenames()']]],
-  ['filled',['filled',['../classbdsg_1_1PackedVector.html#a9f0c37b8d00bd437411d1396a628aa6a',1,'bdsg::PackedVector::filled()'],['../classbdsg_1_1PagedVector.html#a7c3f3ed7f4851d51d4266fb08d8ca692',1,'bdsg::PagedVector::filled()'],['../classbdsg_1_1PackedDeque.html#a3b57a1f1d8dd016a2c570d6fbd40bc47',1,'bdsg::PackedDeque::filled()']]],
   ['filter_5fmatches',['filter_matches',['../classvg_1_1Filter.html#ab1a5ffa8d8e0205909a9ed33e1ff26f5',1,'vg::Filter']]],
   ['filter_5fon_5fall',['filter_on_all',['../classvg_1_1ReadFilter.html#acc075968b0c08ed7ad4f2cb0a837ef95',1,'vg::ReadFilter']]],
   ['first',['first',['../structvg_1_1FeatureSet_1_1Feature.html#ade37c17b95cc0314dc381e93b04ff7b4',1,'vg::FeatureSet::Feature::first()'],['../structbdsg_1_1ODGI_1_1path__metadata__t.html#a1c4c3353f547d55e87077b673d1f75a0',1,'bdsg::ODGI::path_metadata_t::first()']]],
-  ['first_5fpage',['first_page',['../classbdsg_1_1RobustPagedVector.html#aa68bb8ee9eaee9c03e25acdada21000d',1,'bdsg::RobustPagedVector']]],
   ['fixed_5ffragment_5fmodel',['fixed_fragment_model',['../classvg_1_1FragmentLengthStatistics.html#a8c3c6bfb99c7cef159520adb58be271d',1,'vg::FragmentLengthStatistics']]],
   ['flank_5frange',['flank_range',['../classvg_1_1VariantAdder.html#a1761b88c30f6fc8e9e40a99d6f66d9dd',1,'vg::VariantAdder']]],
   ['flat',['flat',['../classvg_1_1Constructor.html#a2def54af1f72ad07cf84ff26fbbcc398',1,'vg::Constructor']]],

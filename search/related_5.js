@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['minimumdistanceindex',['MinimumDistanceIndex',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#add2e684a8d89bece650446af2010ecdf',1,'vg::MinimumDistanceIndex::SnarlIndex::MinimumDistanceIndex()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#add2e684a8d89bece650446af2010ecdf',1,'vg::MinimumDistanceIndex::ChainIndex::MinimumDistanceIndex()']]]
+  ['operator_3c',['operator&lt;',['../classvg_1_1MaximalExactMatch.html#ace421d32490547fc94b4003484e97dcb',1,'vg::MaximalExactMatch']]],
+  ['operator_3c_3c',['operator&lt;&lt;',['../classvg_1_1MaximalExactMatch.html#a415b6e9f064006bb599e11971822669a',1,'vg::MaximalExactMatch']]],
+  ['operator_3d_3d',['operator==',['../classvg_1_1MaximalExactMatch.html#a19feb3f51f02208aa5161562991992dc',1,'vg::MaximalExactMatch']]]
 ];
