@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 24
+plan tests 26
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -151,3 +151,18 @@ diff soft.gaf soft2.gaf
 is "$?" 0 "convert gam->gaf->gam->gaf makes same gaf each time of soft clipped alignment" 
 
 rm -f soft.pg soft.gam soft.gaf gam.sequence gam2.sequence soft2.gaf
+
+printf "H\tVN:Z:1.0
+S\t91194329\tAGGAAGGAGAGGGAG\n" | vg convert -g - -p > floating-ins.pg
+printf '{"annotation": {"fragment_length": 1098, "fragment_length_distribution": "-I 542.973684 -D 141.206118", "mapq_applied_cap": 46.364361584299516, "mapq_extended_cap": "Infinity", "mapq_uncapped": 1.5051499783199018, "rescued": true, "secondary_scores": [99.415737573445895]}, "mapping_quality": 1, "name": "ERR903030.51990324", "path": {"mapping": [{"edit": [{"sequence": "GGGCACGGTGGCTCACAGCTGTCACCACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN", "to_length": 126}], "position": {"is_reverse": true, "node_id": "91194329", "offset": "15"}, "rank": "1"}]}, "quality": "ISEhICEhJCIkJiYdJiUQJSYmHyMmIxAkJiICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC", "sample_name": "HG00514_961a37c", "sequence": "GGGCACGGTGGCTCACAGCTGTCACCACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"}' | vg view -JaG - > floating-ins.gam
+vg convert floating-ins.pg -G floating-ins.gam > floating-ins.gaf
+vg view -a floating-ins.gam | jq .sequence > gam.sequence
+vg convert floating-ins.pg -F floating-ins.gaf | vg view -a - | jq .sequence > gam2.sequence
+diff gam.sequence gam2.sequence
+is "$?" 0 "convert gam->gaf->gam on read with floating insertion preserves sequence"
+
+vg convert floating-ins.pg -F floating-ins.gaf | vg convert floating-ins.pg -G - > floating-ins2.gaf
+diff floating-ins.gaf floating-ins2.gaf
+is "$?" 0 "convert gam->gaf->gam->gaf makes same gaf each time of floating insertion alignment" 
+
+rm -f floating-ins.pg floating-ins.gam floating-ins.gaf gam.sequence gam2.sequence floating-ins2.gaf

@@ -17,6 +17,7 @@
 #include "../vg.hpp"
 #include "../aligner.hpp"
 #include "../gbwt_helper.hpp"
+#include "../alignment_emitter.hpp"
 #include "../sampler.hpp"
 #include "../algorithms/copy_graph.hpp"
 #include <vg/io/protobuf_emitter.hpp>
@@ -104,13 +105,15 @@ void help_sim(char** argv) {
          << "    -p, --frag-len N            make paired end reads with given fragment length N" << endl
          << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
          << "    -N, --allow-Ns              allow reads to be sampled from the graph with Ns in them" << endl
+         << "    -t, --threads               number of compute threads (only when using FASTQ with -F) [1]" << endl
          << "simulate from paths:" << endl
          << "    -P, --path PATH             simulate from this path (may repeat; cannot also give -T)" << endl
          << "    -A, --any-path              simulate from any path (overrides -P)" << endl
          << "    -m, --sample-name NAME      simulate from this sample (may repeat; requires -g)" << endl
          << "    -g, --gbwt-name FILE        use samples from this GBWT index" << endl
          << "    -T, --tx-expr-file FILE     simulate from an expression profile formatted as RSEM output (cannot also give -P)" << endl
-         << "    -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i (required for -T on haplotype transcripts)" << endl;
+         << "    -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i (required for -T on haplotype transcripts)" << endl
+         << "    -u, --unsheared             sample from unsheared fragments" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -124,6 +127,7 @@ int main_sim(int argc, char** argv) {
     int num_reads = 1;
     int read_length = 100;
     bool progress = false;
+    int threads = 1;
 
     int seed_val = time(NULL);
     double base_error = 0;
@@ -136,6 +140,7 @@ int main_sim(int argc, char** argv) {
     bool reads_may_contain_Ns = false;
     bool strip_bonuses = false;
     bool interleaved = false;
+    bool unsheared_fragments = false;
     double indel_prop = 0.0;
     double error_scale_factor = 1.0;
     string fastq_name;
@@ -179,17 +184,19 @@ int main_sim(int argc, char** argv) {
             {"align-out", no_argument, 0, 'a'},
             {"json-out", no_argument, 0, 'J'},
             {"allow-Ns", no_argument, 0, 'N'},
+            {"unsheared", no_argument, 0, 'u'},
             {"sub-rate", required_argument, 0, 'e'},
             {"indel-rate", required_argument, 0, 'i'},
             {"indel-err-prop", required_argument, 0, 'd'},
             {"scale-err", required_argument, 0, 'S'},
             {"frag-len", required_argument, 0, 'p'},
             {"frag-std-dev", required_argument, 0, 'v'},
+            {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nd:F:P:Am:g:T:H:S:I",
+        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nud:F:P:Am:g:T:H:S:It:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -297,6 +304,10 @@ int main_sim(int argc, char** argv) {
         case 'N':
             reads_may_contain_Ns = true;
             break;
+                
+        case 'u':
+            unsheared_fragments = true;
+            break;
 
         case 'p':
             fragment_length = parse<int>(optarg);
@@ -304,6 +315,10 @@ int main_sim(int argc, char** argv) {
 
         case 'v':
             fragment_std_dev = parse<double>(optarg);
+            break;
+                
+        case 't':
+            threads = parse<int>(optarg);
             break;
             
         case 'h':
@@ -316,6 +331,8 @@ int main_sim(int argc, char** argv) {
             abort ();
         }
     }
+    
+    omp_set_num_threads(threads);
 
     if (xg_name.empty()) {
         cerr << "[vg sim] error: we need a graph to sample reads from" << endl;
@@ -518,6 +535,10 @@ int main_sim(int argc, char** argv) {
     if (fastq_name.empty()) {
         // Use the fixed error rate sampler
         
+        if (unsheared_fragments) {
+            cerr << "Unsheared fragment option only available when simulating from FASTQ-trained errors" << endl;
+        }
+        
         // Make a sample to sample reads with
         Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions, haplotype_transcripts);
         
@@ -624,43 +645,36 @@ int main_sim(int argc, char** argv) {
                              fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
                              error_scale_factor,
                              !reads_may_contain_Ns,
+                             unsheared_fragments,
                              seed_val);
         
-        if (fragment_length) {
-            for (size_t i = 0; i < num_reads; i++) {
+        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", json_out ? "JSON" : "GAM",
+                                                                               map<string, int64_t>(), get_thread_count());
+        
+#pragma omp parallel for
+        for (size_t i = 0; i < num_reads; i++) {
+            if (fragment_length) {
                 pair<Alignment, Alignment> read_pair = sampler.sample_read_pair();
                 read_pair.first.set_score(aligner.score_ungapped_alignment(read_pair.first, strip_bonuses));
                 read_pair.second.set_score(aligner.score_ungapped_alignment(read_pair.second, strip_bonuses));
                 
                 if (align_out) {
-                    if (json_out) {
-                        cout << pb2json(read_pair.first) << endl;
-                        cout << pb2json(read_pair.second) << endl;
-                    }
-                    else {
-                        aln_emitter->write_copy(read_pair.first);
-                        aln_emitter->write_copy(read_pair.second);
-                    }
+                    alignment_emitter->emit_pair(std::move(read_pair.first), std::move(read_pair.second));
                 }
                 else {
+#pragma omp critical
                     cout << read_pair.first.sequence() << "\t" << read_pair.second.sequence() << endl;
                 }
             }
-        }
-        else {
-            for (size_t i = 0; i < num_reads; i++) {
+            else {
                 Alignment read = sampler.sample_read();
                 read.set_score(aligner.score_ungapped_alignment(read, strip_bonuses));
                 
                 if (align_out) {
-                    if (json_out) {
-                        cout << pb2json(read) << endl;
-                    }
-                    else {
-                        aln_emitter->write_copy(read);
-                    }
+                    alignment_emitter->emit_single(std::move(read));
                 }
                 else {
+#pragma omp critical
                     cout << read.sequence() << endl;
                 }
             }

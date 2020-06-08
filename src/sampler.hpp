@@ -167,6 +167,7 @@ public:
                  double insert_length_stdev = 50.0,
                  double error_multiplier = 1.0,
                  bool retry_on_Ns = true,
+                 bool sample_unsheared_paths = false,
                  size_t seed = 0);
     
     /// Sample an individual read and alignment
@@ -230,13 +231,16 @@ private:
     void sample_read_internal(Alignment& aln, size_t& offset, bool& is_reverse, pos_t& curr_pos,
                               const string& source_path);
     
+    /// Return the index of a path if using source_paths or else numeric_limits<size_t>::max()
+    size_t sample_path();
+    
     /// Sample an appropriate starting position according to the mode. Updates the arguments.
-    void sample_start_pos(size_t& offset, bool& is_reverse, pos_t& pos, string& source_path);
+    void sample_start_pos(const size_t& source_path_idx, size_t& offset, bool& is_reverse, pos_t& pos);
     
     /// Get a random position in the graph
     pos_t sample_start_graph_pos();
     /// Get a random position along the source path
-    tuple<size_t, bool, pos_t, string> sample_start_path_pos();
+    tuple<size_t, bool, pos_t> sample_start_path_pos(const size_t& source_path_idx);
     
     /// Get an unclashing read name
     string get_read_name();
@@ -291,9 +295,6 @@ private:
     
     PathPositionHandleGraph& graph;
     
-    LRUCache<id_t, Node> node_cache;
-    LRUCache<id_t, vector<Edge> > edge_cache;
-    
     default_random_engine prng;
     vg::discrete_distribution<> path_sampler;
     vector<vg::uniform_int_distribution<size_t>> start_pos_samplers;
@@ -313,6 +314,7 @@ private:
     size_t seed;
     
     const bool retry_on_Ns;
+    const bool sample_unsheared_paths;
     
     /// Restrict reads to just these paths (path-only mode) if nonempty.
     vector<string> source_paths;
