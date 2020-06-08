@@ -476,12 +476,6 @@ int main_call(int argc, char** argv) {
     }
 
     // Call the graph
-    if (legacy == true) {
-
-    } else {
-        graph_caller->call_top_level_chains(*graph, ploidy, max_chain_edges, max_chain_trivial);
-    }
-
     if (alignment_emitter.get() == nullptr) {
 
         // Call each snarl
