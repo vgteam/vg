@@ -502,7 +502,7 @@ namespace vg {
             }    
 
         }
-        TEST_CASE("Test5"){
+        TEST_CASE("Test5","[genotyper][busted]"){
             //Returns optimal phased genome on a 8-node graph 2 nested snarls with 1 short read
             SECTION("Test5:Requires haplotype pair to match truth set") {   
                 VG graph;
