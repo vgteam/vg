@@ -235,12 +235,16 @@ private:
     size_t sample_path();
     
     /// Sample an appropriate starting position according to the mode. Updates the arguments.
-    void sample_start_pos(const size_t& source_path_idx, size_t& offset, bool& is_reverse, pos_t& pos);
+    /// Providing a negative number for fragment length indicates no fragment length restrictions.
+    void sample_start_pos(const size_t& source_path_idx, const int64_t& fragment_length,
+                          size_t& offset, bool& is_reverse, pos_t& pos);
     
     /// Get a random position in the graph
     pos_t sample_start_graph_pos();
-    /// Get a random position along the source path
-    tuple<size_t, bool, pos_t> sample_start_path_pos(const size_t& source_path_idx);
+    /// Get a random position along the source path. Enforce fragment length restrictions if argument
+    /// is positive.
+    tuple<size_t, bool, pos_t> sample_start_path_pos(const size_t& source_path_idx,
+                                                     const int64_t& fragment_length);
     
     /// Get an unclashing read name
     string get_read_name();

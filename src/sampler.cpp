@@ -849,7 +849,7 @@ Alignment NGSSimulator::sample_read() {
         // And our position in the graph, which we use whether there's a source path or not.
         pos_t pos;
         // Populate them
-        sample_start_pos(source_path_idx, offset, is_reverse, pos);
+        sample_start_pos(source_path_idx, -1, offset, is_reverse, pos);
         // align the first end at this position on the source path or graph
         sample_read_internal(aln, offset, is_reverse, pos, source_path);
         
@@ -936,7 +936,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         // And our position in the graph, which we use whether there's a source path or not.
         pos_t pos;
         // Populate them
-        sample_start_pos(source_path_idx, offset, is_reverse, pos);
+        sample_start_pos(source_path_idx, fragment_length, offset, is_reverse, pos);
         
 #ifdef debug_ngs_sim
         cerr << "sampled start pos " << pos << ", is reverse " << is_reverse << ", offset " << offset << endl;
@@ -1503,14 +1503,15 @@ size_t NGSSimulator::sample_path() {
     return source_paths.empty() ? numeric_limits<size_t>::max() : path_sampler(prng);
 }
 
-void NGSSimulator::sample_start_pos(const size_t& source_path_idx, size_t& offset, bool& is_reverse, pos_t& pos) {
+void NGSSimulator::sample_start_pos(const size_t& source_path_idx, const int64_t& fragment_length,
+                                    size_t& offset, bool& is_reverse, pos_t& pos) {
     if (source_paths.empty()) {
         pos = sample_start_graph_pos();
         offset = 0;
         is_reverse = false;
     }
     else {
-        tie(offset, is_reverse, pos) = sample_start_path_pos(source_path_idx);
+        tie(offset, is_reverse, pos) = sample_start_path_pos(source_path_idx, fragment_length);
     }
 }
 
@@ -1526,11 +1527,13 @@ pos_t NGSSimulator::sample_start_graph_pos() {
     return make_pos_t(id, rev, node_offset);
 }
 
-tuple<size_t, bool, pos_t> NGSSimulator::sample_start_path_pos(const size_t& source_path_idx) {
+tuple<size_t, bool, pos_t> NGSSimulator::sample_start_path_pos(const size_t& source_path_idx,
+                                                               const int64_t& fragment_length) {
     size_t path_length = graph.get_path_length(graph.get_path_handle(source_paths[source_path_idx]));
     bool rev = strand_sampler(prng);
     size_t offset;
-    if (sample_unsheared_paths || path_length < transition_distrs_1.size()) {
+    if (sample_unsheared_paths || path_length < transition_distrs_1.size() ||
+        (fragment_length > 0 && fragment_length >= path_length)) {
         if (rev) {
             offset = path_length - 1;
         }
