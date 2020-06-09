@@ -2153,16 +2153,10 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     rescued_alignment.clear_path();
 
     if (this->rescue_algorithm == rescue_haplotypes) {
-        // FIXME Implement this using the subset of nodes.
-        SubHandleGraph sub_graph(&cached_graph);
-        for (id_t id : rescue_nodes)  {
-            sub_graph.add_handle(gbwt_graph.get_handle(id));
-        }
-
         // Find and unfold the local haplotypes in the subgraph.
         std::vector<std::vector<handle_t>> haplotype_paths;
         bdsg::HashGraph align_graph;
-        this->extender.unfold_haplotypes(sub_graph, haplotype_paths, align_graph);
+        this->extender.unfold_haplotypes(rescue_nodes, haplotype_paths, align_graph);
 
         // Align to the subgraph.
         this->get_regular_aligner()->align_xdrop(rescued_alignment, align_graph,

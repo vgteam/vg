@@ -6,10 +6,9 @@
  */
 
 #include <functional>
+#include <unordered_set>
 
 #include "aligner.hpp"
-#include "hash_map.hpp"
-#include "subgraph.hpp"
 
 #include <bdsg/hash_graph.hpp>
 #include <gbwtgraph/cached_gbwtgraph.h>
@@ -157,9 +156,10 @@ public:
      * max_mismatches / 2 mismatches on each flank. Flanks may have more mismatches
      * if it does not bring the total beyond max_mismatches. Then call trim() if
      * trim_extensions i set.
+     * Use the provided CachedGBWTGraph or allocate a new one.
      * The extensions are sorted by their coordinates in the sequence.
      */
-    std::vector<GaplessExtension> extend(cluster_type& cluster, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES, bool trim_extensions = true) const;
+    std::vector<GaplessExtension> extend(cluster_type& cluster, const std::string& sequence, const gbwtgraph::CachedGBWTGraph* cache = nullptr, size_t max_mismatches = MAX_MISMATCHES, bool trim_extensions = true) const;
 
     /**
      * Try to improve the score of each extension by trimming mismatches from the flanks.
@@ -169,12 +169,13 @@ public:
      */
     void trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches = MAX_MISMATCHES, const gbwtgraph::CachedGBWTGraph* cache = nullptr) const;
 
-   /**
-    * Find the distinct local haplotypes in the given subgraph and return the corresponding paths.
-    * For each path haplotype_paths[i], the output graph will contain node 2i + 1 with sequence
-    * corresponding to the path and node 2i + 2 with the reverse complement of the sequence.
-    */
-    void unfold_haplotypes(const SubHandleGraph& subgraph, std::vector<std::vector<handle_t>>& haplotype_paths,  bdsg::HashGraph& unfolded) const;
+    /**
+     * Find the distinct local haplotypes in the given subgraph and return the corresponding paths.
+     * For each path haplotype_paths[i], the output graph will contain node 2i + 1 with sequence
+     * corresponding to the path and node 2i + 2 with the reverse complement of the sequence.
+     * Use the provided CachedGBWTGraph or allocate a new one.
+     */
+    void unfold_haplotypes(const std::unordered_set<nid_t>& subgraph, std::vector<std::vector<handle_t>>& haplotype_paths,  bdsg::HashGraph& unfolded, const gbwtgraph::CachedGBWTGraph* cache = nullptr) const;
 
     /**
      * Transform an alignment to a single node in the unfold_haplotypes() graph to an

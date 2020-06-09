@@ -11,6 +11,7 @@
 #include "catch.hpp"
 
 #include <map>
+#include <unordered_set>
 #include <vector>
 
 
@@ -189,7 +190,7 @@ void full_length_match(const std::vector<std::pair<pos_t, size_t>>& seeds, const
     for (auto seed : seeds) {
         cluster.insert(GaplessExtender::to_seed(seed.first, seed.second));
     }
-    auto result = extender.extend(cluster, read, error_bound);
+    auto result = extender.extend(cluster, read, nullptr, error_bound);
 
     // Empty correct alignment indicates that there should not be a full-length alignment.
     if (correct_alignment.empty()) {
@@ -220,7 +221,7 @@ void full_length_matches(const std::vector<std::pair<pos_t, size_t>>& seeds, con
     for (auto seed : seeds) {
         cluster.insert(GaplessExtender::to_seed(seed.first, seed.second));
     }
-    auto result = extender.extend(cluster, read, error_bound);
+    auto result = extender.extend(cluster, read, nullptr, error_bound);
 
     REQUIRE(result.size() == correct_alignments.size());
     for (size_t i = 0; i < result.size(); i++) {
@@ -237,7 +238,7 @@ void partial_matches(const std::vector<std::pair<pos_t, size_t>>& seeds, const s
     for (auto seed : seeds) {
         cluster.insert(GaplessExtender::to_seed(seed.first, seed.second));
     }
-    auto result = extender.extend(cluster, read, error_bound, false);
+    auto result = extender.extend(cluster, read, nullptr, error_bound, false);
 
     REQUIRE(result.size() == correct_extensions.size());
     for (size_t i = 0; i < result.size(); i++) {
@@ -272,16 +273,11 @@ void trimmed_extensions(std::vector<GaplessExtension>& extensions, std::vector<G
     }
 }
 
-void check_haplotypes(const GaplessExtender& extender, const std::vector<nid_t>& nodes, const std::map<std::vector<handle_t>, std::string>& correct_haplotypes) {
+void check_haplotypes(const GaplessExtender& extender, const std::unordered_set<nid_t>& nodes, const std::map<std::vector<handle_t>, std::string>& correct_haplotypes) {
     const gbwtgraph::GBWTGraph& graph = *(extender.graph);
-    SubHandleGraph subgraph(extender.graph);
-    for (nid_t node : nodes) {
-        subgraph.add_handle(graph.get_handle(node, false));
-    }
-
     std::vector<std::vector<handle_t>> haplotype_paths;
     bdsg::HashGraph unfolded;
-    extender.unfold_haplotypes(subgraph, haplotype_paths, unfolded);
+    extender.unfold_haplotypes(nodes, haplotype_paths, unfolded);
 
     // We assume that the correct paths are in canonical orientation (smaller than the reverse).
     std::vector<bool> flipped(haplotype_paths.size(), false);
@@ -936,7 +932,7 @@ TEST_CASE("Haplotype unfolding", "[gapless_extender]") {
     GaplessExtender extender(gbwt_graph, aligner);
 
     SECTION("normal subgraph") {
-        std::vector<nid_t> nodes {
+        std::unordered_set<nid_t> nodes {
             5, 6, 7, 8
         };
         std::map<std::vector<handle_t>, std::string> correct_haplotypes {
@@ -953,7 +949,7 @@ TEST_CASE("Haplotype unfolding", "[gapless_extender]") {
     }
 
     SECTION("right-maximal extensions") {
-        std::vector<nid_t> nodes {
+        std::unordered_set<nid_t> nodes {
             5, 6, 7
         };
         std::map<std::vector<handle_t>, std::string> correct_haplotypes {
@@ -970,7 +966,7 @@ TEST_CASE("Haplotype unfolding", "[gapless_extender]") {
     }
 
     SECTION("left-maximal extensions") {
-        std::vector<nid_t> nodes {
+        std::unordered_set<nid_t> nodes {
             2, 4, 5, 6, 7
         };
         std::map<std::vector<handle_t>, std::string> correct_haplotypes {
