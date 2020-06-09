@@ -116,9 +116,9 @@ public:
     
     
     /// Minimizer kmer length to use when minimizer indexing
-    size_t minimizer_k = 29;
+    constexpr static size_t minimizer_k = 29;
     /// Minimizer window size to use when minimizer indexing
-    size_t minimizer_w = 11;
+    constexpr static size_t minimizer_w = 11;
 
 protected:
 

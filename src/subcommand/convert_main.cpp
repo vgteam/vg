@@ -7,6 +7,7 @@
 #include "../io/save_handle_graph.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include "../alignment_emitter.hpp"
 
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
@@ -26,13 +27,19 @@ void help_convert(char** argv) {
          << "    -a, --hash-out         output in HashGraph format" << endl
          << "    -p, --packed-out       output in PackedGraph format" << endl
          << "    -x, --xg-out           output in XG format" << endl
-         << "    -o, --odgi-out         output in ODGI format" << endl;
+         << "    -o, --odgi-out         output in ODGI format" << endl
+         << "    -G, --gam-to-gaf FILE  convert GAM FILE to GAF" << endl
+         << "    -F, --gaf-to-gam FILE  convert GAF FILE to GAM" << endl
+         << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;    
 }
 
 int main_convert(int argc, char** argv) {
 
-    string output_format = "vg";
+    string output_format;
     bool input_gfa = false;
+    string input_aln;
+    bool gam_to_gaf = false;
+    bool gaf_to_gam = false;
 
     if (argc == 2) {
         help_convert(argv);
@@ -51,11 +58,14 @@ int main_convert(int argc, char** argv) {
             {"packed-out", no_argument, 0, 'p'},
             {"xg-out", no_argument, 0, 'x'},
             {"odgi-out", no_argument, 0, 'o'},
+            {"gam-to-gaf", required_argument, 0, 'G'},
+            {"gaf-to-gam", required_argument, 0, 'F'},
+            {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hgvxapxo",
+        c = getopt_long (argc, argv, "hgvxapxoG:F:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -86,12 +96,66 @@ int main_convert(int argc, char** argv) {
         case 'o':
             output_format = "odgi";
             break;
-
+        case 'G':
+            input_aln = optarg;
+            gam_to_gaf = true;
+            break;
+        case 'F':
+            input_aln = optarg;
+            gaf_to_gam = true;
+            break;
+        case 't':
+            {
+                int num_threads = parse<int>(optarg);
+                if (num_threads <= 0) {
+                    cerr << "error:[vg mpmap] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                    exit(1);
+                }
+                omp_set_num_threads(num_threads);
+            }
+            break;
         default:
             abort();
         }
     }
-    
+
+    // with -F or -G we convert an alignment and not a graph
+    if (!input_aln.empty()) {
+        if (gam_to_gaf && gaf_to_gam) {
+            cerr << "error [vg convert]: -F and -G options cannot be used together" << endl;
+            return 1;
+        } else if (!output_format.empty()) {
+            cerr << "error [vg convert]: Alignment conversion options (-F and -G) cannot be used "
+                 << "with any graph conversion options" << endl;
+            return 1;
+        }
+        assert(gam_to_gaf || gaf_to_gam);
+
+        unique_ptr<HandleGraph> input_graph;
+        get_input_file(optind, argc, argv, [&](istream& in) {
+            input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
+        });
+
+        unique_ptr<AlignmentEmitter> emitter = get_alignment_emitter("-", gam_to_gaf ? "GAF" : "GAM", {}, get_thread_count(),
+                                                                     input_graph.get());
+        std::function<void(Alignment&)> lambda = [&] (Alignment& aln) {
+            emitter->emit_singles({aln});
+        };                
+        if (gam_to_gaf) {
+            get_input_file(input_aln, [&](istream& in) {
+                    vg::io::for_each_parallel(in, lambda);
+            });
+        } else {
+            gaf_unpaired_for_each_parallel(*input_graph, input_aln, lambda);
+        }
+        return 0;
+    }
+
+    if (output_format.empty()) {
+        // default to vg
+        output_format = "vg";
+    }
+        
     // allocate a graph using the graph_type string to decide a class
     unique_ptr<HandleGraph> output_graph;
     if (output_format == "vg") {

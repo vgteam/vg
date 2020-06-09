@@ -1,5 +1,5 @@
 /**
- * \file gaffe_main.cpp: GAF (Graph Alignment Format) Fast Emitter: a new mapper that will be *extremely* fast once we actually write it
+ * \file giraffe_main.cpp: G(ir)AF (Graph Alignment Format) Fast Emitter: a new mapper that will be *extremely* fast once we actually write it
  */
 
 #include <omp.h>
@@ -7,6 +7,7 @@
 #include <getopt.h>
 #include <iostream>
 #include <cassert>
+#include <cstring>
 #include <map>
 #include <vector>
 #include <unordered_set>
@@ -283,9 +284,9 @@ inline bool parse(const string& arg, typename enable_if<is_instantiation_of<Resu
 
 }
 
-void help_gaffe(char** argv) {
+void help_giraffe(char** argv) {
     cerr
-    << "usage: " << argv[0] << " gaffe [options] [ref.fa [variants.vcf.gz]] > output.gam" << endl
+    << "usage: " << argv[0] << " giraffe [options] [ref.fa [variants.vcf.gz]] > output.gam" << endl
     << "Map unpaired reads using minimizers and gapless extension." << endl
     << endl
     << "basic options:" << endl
@@ -303,35 +304,38 @@ void help_gaffe(char** argv) {
     << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
+    << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv) [gam]" << endl
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
     << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
+    << "algorithm presets:" << endl
+    << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
     << "computational parameters:" << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
-    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [300]" << endl
-    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.8]" << endl
+    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [1500]" << endl
+    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.7]" << endl
     << "  -D, --distance-limit INT      cluster using this distance limit [200]" << endl
-    << "  -e, --max-extensions INT      extend up to INT clusters [300]" << endl
+    << "  -e, --max-extensions INT      extend up to INT clusters [800]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
     << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [50]" << endl
     << "  -S, --pad-cluster-score INT   also extend clusters within INT of above threshold to get a second-best cluster [0]" << endl
-    << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.4]" << endl
+    << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.3]" << endl
     << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
-    << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [10]" << endl
-    << "  -A, --rescue-algorithm STR    use algorithm STR for rescue (none / dozeu / gssw / haplotypes) [dozeu]" << endl
+    << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
+    << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw / haplotypes) [dozeu]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
-int main_gaffe(int argc, char** argv) {
+int main_giraffe(int argc, char** argv) {
 
     std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
     if (argc == 2) {
-        help_gaffe(argv);
+        help_giraffe(argv);
         return 1;
     }
 
@@ -351,7 +355,7 @@ int main_gaffe(int argc, char** argv) {
     // How close should two hits be to be in the same cluster?
     Range<size_t> distance_limit = 200;
     Range<size_t> hit_cap = 10, hard_hit_cap = 1500;
-    Range<double> minimizer_score_fraction = 0.8;
+    Range<double> minimizer_score_fraction = 0.7;
     bool show_progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
@@ -365,24 +369,25 @@ int main_gaffe(int argc, char** argv) {
     bool interleaved = false;
     // True if fastq_filename_2 or interleaved is set.
     bool paired = false;
+    string param_preset = "default";
     // How many mappings per read can we emit?
     Range<size_t> max_multimaps = 1;
     // How many clusters should we extend?
-    Range<size_t> max_extensions = 300;
+    Range<size_t> max_extensions = 1000;
     // How many extended clusters should we align, max?
-    Range<size_t> max_alignments = 6;
+    Range<size_t> max_alignments = 8;
     //Throw away cluster with scores that are this amount below the best
     Range<double> cluster_score = 50;
     //Unless they are the second best and within this amount beyond that
     Range<double> pad_cluster_score = 0;
     //Throw away clusters with coverage this amount below the best 
-    Range<double> cluster_coverage = 0.4;
+    Range<double> cluster_coverage = 0.3;
     //Throw away extension sets with scores that are this amount below the best
     Range<double> extension_set = 20;
     //Throw away extensions with scores that are this amount below the best
     Range<int> extension_score = 1;
     //Attempt up to this many rescues of reads with no pairs
-    int rescue_attempts = 10;
+    Range<int> rescue_attempts = 15;
     // Which rescue algorithm do we use?
     MinimizerMapper::RescueAlgorithm rescue_algorithm = MinimizerMapper::rescue_dozeu;
     // What sample name if any should we apply?
@@ -401,6 +406,7 @@ int main_gaffe(int argc, char** argv) {
         .chain(hit_cap)
         .chain(hard_hit_cap)
         .chain(minimizer_score_fraction)
+        .chain(rescue_attempts)
         .chain(max_multimaps)
         .chain(max_extensions)
         .chain(max_alignments)
@@ -411,6 +417,10 @@ int main_gaffe(int argc, char** argv) {
         .chain(extension_score)
         .get_iterator();
     
+
+    // Formats for alignment output.
+    std::string output_format = "GAM";
+    std::set<std::string> output_formats = { "GAM", "GAF", "JSON", "TSV" };
 
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
@@ -444,9 +454,11 @@ int main_gaffe(int argc, char** argv) {
             {"max-multimaps", required_argument, 0, 'M'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
+            {"output-format", required_argument, 0, 'o'},
             {"discard", no_argument, 0, 'n'},
             {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
             {"report-name", required_argument, 0, OPT_REPORT_NAME},
+            {"fast-mode", no_argument, 0, 'b'},
             {"hit-cap", required_argument, 0, 'c'},
             {"hard-hit-cap", required_argument, 0, 'C'},
             {"distance-limit", required_argument, 0, 'D'},
@@ -468,7 +480,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:nc:C:D:F:e:a:S:u:v:w:Ot:r:A:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:o:nb:c:C:D:F:e:a:S:u:v:w:Ot:r:A:",
                          long_options, &option_index);
 
 
@@ -480,7 +492,7 @@ int main_gaffe(int argc, char** argv) {
         {
             case 'x':
                 if (!optarg || !*optarg) {
-                    cerr << "error:[vg gaffe] Must provide graph file with -x." << endl;
+                    cerr << "error:[vg giraffe] Must provide graph file with -x." << endl;
                     exit(1);
                 }
                 indexes.set_graph_override(optarg);
@@ -488,7 +500,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 'g':
                 if (!optarg || !*optarg) {
-                    cerr << "error:[vg gaffe] Must provide GBGTGraph file with -g." << endl;
+                    cerr << "error:[vg giraffe] Must provide GBGTGraph file with -g." << endl;
                     exit(1);
                 }
                 indexes.set_gbwtgraph_override(optarg);
@@ -496,7 +508,7 @@ int main_gaffe(int argc, char** argv) {
 
             case 'H':
                 if (!optarg || !*optarg) {
-                    cerr << "error:[vg gaffe] Must provide GBWT file with -H." << endl;
+                    cerr << "error:[vg giraffe] Must provide GBWT file with -H." << endl;
                     exit(1);
                 }
                 indexes.set_gbwt_override(optarg);
@@ -504,7 +516,7 @@ int main_gaffe(int argc, char** argv) {
                 
             case 'm':
                 if (!optarg || !*optarg) {
-                    cerr << "error:[vg gaffe] Must provide minimizer file with -m." << endl;
+                    cerr << "error:[vg giraffe] Must provide minimizer file with -m." << endl;
                     exit(1);
                 }
                 indexes.set_minimizer_override(optarg);
@@ -514,7 +526,7 @@ int main_gaffe(int argc, char** argv) {
                 
             case 'd':
                 if (!optarg || !*optarg) {
-                    cerr << "error:[vg gaffe] Must provide distance index file with -d." << endl;
+                    cerr << "error:[vg giraffe] Must provide distance index file with -d." << endl;
                     exit(1);
                 }
                 indexes.set_distance_override(optarg);
@@ -527,7 +539,7 @@ int main_gaffe(int argc, char** argv) {
             case 'G':
                 gam_filename = optarg;
                 if (gam_filename.empty()) {
-                    cerr << "error:[vg gaffe] Must provide GAM file with -G." << endl;
+                    cerr << "error:[vg giraffe] Must provide GAM file with -G." << endl;
                     exit(1);
                 }
                 break;
@@ -536,19 +548,19 @@ int main_gaffe(int argc, char** argv) {
                 if (fastq_filename_1.empty()) {
                     fastq_filename_1 = optarg;
                     if (fastq_filename_1.empty()) {
-                        cerr << "error:[vg gaffe] Must provide FASTQ file with -f." << endl;
+                        cerr << "error:[vg giraffe] Must provide FASTQ file with -f." << endl;
                         exit(1);
                     }
                 }
                 else if (fastq_filename_2.empty()) {
                     fastq_filename_2 = optarg;
                     if (fastq_filename_2.empty()) {
-                        cerr << "error:[vg gaffe] Must provide FASTQ file with -f." << endl;
+                        cerr << "error:[vg giraffe] Must provide FASTQ file with -f." << endl;
                         exit(1);
                     }
                     paired = true;
                 } else {
-                    cerr << "error:[vg gaffe] Cannot specify more than two FASTQ files." << endl;
+                    cerr << "error:[vg giraffe] Cannot specify more than two FASTQ files." << endl;
                     exit(1);
                 }
                 break;
@@ -569,7 +581,20 @@ int main_gaffe(int argc, char** argv) {
             case 'R':
                 read_group = optarg;
                 break;
-                
+
+            case 'o':
+                {
+                    output_format = optarg;
+                    for (char& c : output_format) {
+                        c = std::toupper(c);
+                    }
+                    if (output_formats.find(output_format) == output_formats.end()) {
+                        std::cerr << "error: [vg giraffe] Invalid output format: " << optarg << std::endl;
+                        std::exit(1);
+                    }
+                }
+                break;
+
             case 'n':
                 discard_alignments = true;
                 break;
@@ -581,12 +606,32 @@ int main_gaffe(int argc, char** argv) {
             case OPT_REPORT_NAME:
                 report_name = optarg;
                 break;
+            case 'b':
+                param_preset = optarg;
+
+                if (param_preset == "fast" ) {
+
+                    hit_cap = 10;
+                    hard_hit_cap = 1000;
+                    minimizer_score_fraction = 0.5;
+                    max_multimaps = 1;
+                    max_extensions = 400;
+                    max_alignments = 8;
+                    cluster_score = 50;
+                    pad_cluster_score = 0;
+                    cluster_coverage = 0.2;
+                    extension_set = 20;
+                    extension_score = 1;
+                } else if (param_preset != "default" ) {
+                    std::cerr << "error: [vg giraffe] invalid parameter preset: " << optarg << std:: endl;
+                }
+                break;
 
             case 'c':
                 {
                     auto cap = parse<Range<size_t>>(optarg);
                     if (cap <= 0) {
-                        cerr << "error: [vg gaffe] Hit cap (" << cap << ") must be a positive integer" << endl;
+                        cerr << "error: [vg giraffe] Hit cap (" << cap << ") must be a positive integer" << endl;
                         exit(1);
                     }
                     hit_cap = cap;
@@ -597,7 +642,7 @@ int main_gaffe(int argc, char** argv) {
                 {
                     auto cap = parse<Range<size_t>>(optarg);
                     if (cap <= 0) {
-                        cerr << "error: [vg gaffe] Hard hit cap (" << cap << ") must be a positive integer" << endl;
+                        cerr << "error: [vg giraffe] Hard hit cap (" << cap << ") must be a positive integer" << endl;
                         exit(1);
                     }
                     hard_hit_cap = cap;
@@ -608,7 +653,7 @@ int main_gaffe(int argc, char** argv) {
                 {
                     auto limit = parse<Range<size_t>>(optarg);
                     if (limit <= 0) {
-                        cerr << "error: [vg gaffe] Distance limit (" << limit << ") must be a positive integer" << endl;
+                        cerr << "error: [vg giraffe] Distance limit (" << limit << ") must be a positive integer" << endl;
                         exit(1);
                     }
                     distance_limit = limit;
@@ -623,7 +668,7 @@ int main_gaffe(int argc, char** argv) {
                 {
                     auto extensions = parse<Range<size_t>>(optarg);
                     if (extensions <= 0) {
-                        cerr << "error: [vg gaffe] Number of extensions (" << extensions << ") must be a positive integer" << endl;
+                        cerr << "error: [vg giraffe] Number of extensions (" << extensions << ") must be a positive integer" << endl;
                         exit(1);
                     }
                     max_extensions = extensions;
@@ -634,7 +679,7 @@ int main_gaffe(int argc, char** argv) {
                 {
                     auto alignments = parse<Range<size_t>>(optarg);
                     if (alignments <= 0) {
-                        cerr << "error: [vg gaffe] Number of alignments (" << alignments << ") must be a positive integer" << endl;
+                        cerr << "error: [vg giraffe] Number of alignments (" << alignments << ") must be a positive integer" << endl;
                         exit(1);
                     }
                     max_alignments = alignments;
@@ -645,7 +690,7 @@ int main_gaffe(int argc, char** argv) {
                 {
                     auto score = parse<Range<double>>(optarg);
                     if (score < 0) {
-                        cerr << "error: [vg gaffe] Cluster score threshold (" << score << ") must be positive" << endl;
+                        cerr << "error: [vg giraffe] Cluster score threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
                     cluster_score = score;
@@ -656,7 +701,7 @@ int main_gaffe(int argc, char** argv) {
                 {
                     auto score = parse<Range<double>>(optarg);
                     if (score < 0) {
-                        cerr << "error: [vg gaffe] Second best cluster score threshold (" << score << ") must be positive" << endl;
+                        cerr << "error: [vg giraffe] Second best cluster score threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
                     pad_cluster_score = score;
@@ -667,7 +712,7 @@ int main_gaffe(int argc, char** argv) {
                 {
                     auto score = parse<Range<double>>(optarg);
                     if (score < 0) {
-                        cerr << "error: [vg gaffe] Cluster coverage threshold (" << score << ") must be positive" << endl;
+                        cerr << "error: [vg giraffe] Cluster coverage threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
                     cluster_coverage = score;
@@ -677,7 +722,7 @@ int main_gaffe(int argc, char** argv) {
                 {
                     auto score = parse<Range<int>>(optarg);
                     if (score < 0) {
-                        cerr << "error: [vg gaffe] Extension score threshold (" << score << ") must be positive" << endl;
+                        cerr << "error: [vg giraffe] Extension score threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
                     extension_score = score;
@@ -687,7 +732,7 @@ int main_gaffe(int argc, char** argv) {
                 {
                     auto score = parse<Range<double>>(optarg);
                     if (score < 0) {
-                        cerr << "error: [vg gaffe] Extension set score threshold (" << score << ") must be positive" << endl;
+                        cerr << "error: [vg giraffe] Extension set score threshold (" << score << ") must be positive" << endl;
                         exit(1);
                     }
                     extension_set = score;
@@ -700,13 +745,13 @@ int main_gaffe(int argc, char** argv) {
                 
             case 'r':
                 {
-                    rescue_attempts = parse<int>( optarg);
+                    rescue_attempts = parse<Range<int>>( optarg);
                     if (rescue_attempts < 0) {
-                        cerr << "error: [vg gaffe] Rescue attempts must be positive" << endl;
+                        cerr << "error: [vg giraffe] Rescue attempts must be positive" << endl;
                         exit(1);
                     }
                     if (!paired) {
-                        cerr << "error: [vg gaffe] Rescue can only be done on paired-end reads" << endl;
+                        cerr << "error: [vg giraffe] Rescue can only be done on paired-end reads" << endl;
                         exit(1);
                     }
                 }
@@ -714,9 +759,13 @@ int main_gaffe(int argc, char** argv) {
 
             case 'A':
                 {
-                    auto iter = rescue_algorithms.find(optarg);
+                    std::string algo_name = optarg;
+                    for (char& c : algo_name) {
+                        c = std::tolower(c);
+                    }
+                    auto iter = rescue_algorithms.find(algo_name);
                     if (iter == rescue_algorithms.end()) {
-                        std::cerr << "error: [vg gaffe] Invalid rescue algorithm: " << optarg << std::endl;
+                        std::cerr << "error: [vg giraffe] Invalid rescue algorithm: " << optarg << std::endl;
                         std::exit(1);
                     }
                     rescue_algorithm = iter->second;
@@ -736,7 +785,7 @@ int main_gaffe(int argc, char** argv) {
             {
                 int num_threads = parse<int>(optarg);
                 if (num_threads <= 0) {
-                    cerr << "error:[vg gaffe] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                    cerr << "error:[vg giraffe] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
                     exit(1);
                 }
                 omp_set_num_threads(num_threads);
@@ -746,7 +795,7 @@ int main_gaffe(int argc, char** argv) {
             case 'h':
             case '?':
             default:
-                help_gaffe(argv);
+                help_giraffe(argv);
                 exit(1);
                 break;
         }
@@ -767,7 +816,7 @@ int main_gaffe(int argc, char** argv) {
             fasta_parts = split_ext(fasta_parts.first);
         }
         if (fasta_parts.second != "fa" && fasta_parts.second != "fasta" && fasta_parts.second != "fna") {
-            cerr << "error:[vg gaffe] FASTA file " << fasta_filename << " is not named like a FASTA" << endl;
+            cerr << "error:[vg giraffe] FASTA file " << fasta_filename << " is not named like a FASTA" << endl;
             exit(1);
         }
         
@@ -785,7 +834,7 @@ int main_gaffe(int argc, char** argv) {
                 vcf_parts = split_ext(vcf_parts.first);
             }
             if (vcf_parts.second != "vcf") {
-                cerr << "error:[vg gaffe] VCF file " << vcf_filename << " is not named like a VCF" << endl;
+                cerr << "error:[vg giraffe] VCF file " << vcf_filename << " is not named like a VCF" << endl;
                 exit(1);
             }
             
@@ -801,43 +850,43 @@ int main_gaffe(int argc, char** argv) {
 
     // Now all the arguments are parsed, so see if they make sense
     if (!indexes.can_get_gbwtgraph() && !indexes.can_get_graph()) {
-        cerr << "error:[vg gaffe] Mapping requires a normal graph (-x) or a GBWTGraph (-g)" << endl;
+        cerr << "error:[vg giraffe] Mapping requires a normal graph (-x) or a GBWTGraph (-g)" << endl;
         exit(1);
     }
     
     if (track_correctness && !indexes.can_get_graph()) {
-        cerr << "error:[vg gaffe] Tracking correctness requires a normal graph (-x)" << endl;
+        cerr << "error:[vg giraffe] Tracking correctness requires a normal graph (-x)" << endl;
         exit(1);
     }
     
     if (!indexes.can_get_gbwt()) {
-        cerr << "error:[vg gaffe] Mapping requires a GBWT index (-H)" << endl;
+        cerr << "error:[vg giraffe] Mapping requires a GBWT index (-H)" << endl;
         exit(1);
     }
     
     if (!indexes.can_get_minimizer()) {
-        cerr << "error:[vg gaffe] Mapping requires a minimizer index (-m)" << endl;
+        cerr << "error:[vg giraffe] Mapping requires a minimizer index (-m)" << endl;
         exit(1);
     }
     
     if (!indexes.can_get_distance()) {
-        cerr << "error:[vg gaffe] Mapping requires a distance index (-d)" << endl;
+        cerr << "error:[vg giraffe] Mapping requires a distance index (-d)" << endl;
         exit(1);
     }
     
     if (interleaved && !fastq_filename_2.empty()) {
-        cerr << "error:[vg gaffe] Cannot designate both interleaved paired ends (-i) and separate paired end file (-f)." << endl;
+        cerr << "error:[vg giraffe] Cannot designate both interleaved paired ends (-i) and separate paired end file (-f)." << endl;
         exit(1);
     }
 
     if (!fastq_filename_1.empty() && !gam_filename.empty()) {
-        cerr << "error:[vg gaffe] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
+        cerr << "error:[vg giraffe] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
         exit(1);
     }
     
     if (have_input_file(optind, argc, argv)) {
         // TODO: work out how to interpret additional files as reads.
-        cerr << "error:[vg gaffe] Extraneous input file: " << get_input_file_name(optind, argc, argv) << endl;
+        cerr << "error:[vg giraffe] Extraneous input file: " << get_input_file_name(optind, argc, argv) << endl;
         exit(1);
     }
 
@@ -904,7 +953,7 @@ int main_gaffe(int argc, char** argv) {
         report.open(report_name);
         if (!report) {
             // Make sure it worked
-            cerr << "error[vg gaffe]: Could not open report file " << report_name << endl;
+            cerr << "error[vg giraffe]: Could not open report file " << report_name << endl;
             exit(1);
         }
         
@@ -944,7 +993,11 @@ int main_gaffe(int argc, char** argv) {
         }
     
         if (show_progress) {
-            cerr << "Mapping reads to \"" << output_filename << "\"..." << endl;
+            if (discard_alignments) {
+                cerr << "Discarding output alignments" << endl;
+            } else {
+                cerr << "Mapping reads to \"" << output_filename << "\" (" << output_format << ")" << endl;
+            }
         }
 
         if (show_progress && interleaved) {
@@ -1048,10 +1101,10 @@ int main_gaffe(int argc, char** argv) {
         
         {
             // Set up output to an emitter that will handle serialization
-            // Discard alignments if asked to. Otherwise spit them out in GAM format.
+            // Discard alignments if asked to. Otherwise spit them out in the selected format.
             unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
                 make_unique<NullAlignmentEmitter>() :
-                get_alignment_emitter(output_filename, "GAM", {}, thread_count);
+                get_alignment_emitter(output_filename, output_format, {}, thread_count, gbwt_graph.get());
 
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.
@@ -1117,7 +1170,7 @@ int main_gaffe(int argc, char** argv) {
                 //Now map all the ambiguous pairs
                 //TODO: What do we do if we haven't finalized the distribution?
                 if (!minimizer_mapper.fragment_distr_is_finalized()){
-                    cerr << "warning[vg::gaffe]: Finalizing fragment length distribution before reaching maximum sample size" << endl;
+                    cerr << "warning[vg::giraffe]: Finalizing fragment length distribution before reaching maximum sample size" << endl;
                     minimizer_mapper.finalize_fragment_length_distr();
                 }
                 for (pair<Alignment, Alignment>& alignment_pair : ambiguous_pair_buffer) {
@@ -1196,6 +1249,6 @@ int main_gaffe(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_gaffe("gaffe", "Graph Alignment Format Fast Emitter", DEVELOPMENT, main_gaffe);
+static Subcommand vg_giraffe("giraffe", "Graph Alignment Format Fast Emitter", DEVELOPMENT, main_giraffe);
 
 

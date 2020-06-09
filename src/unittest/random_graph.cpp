@@ -2,6 +2,9 @@
 
 #include <random>
 #include <time.h>
+#include <iostream>
+
+#include "randomness.hpp"
 
 
 namespace vg {
@@ -11,6 +14,12 @@ using namespace std;
 
 void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                   MutablePathMutableHandleGraph* graph) {
+    
+            
+#ifdef debug
+    cerr << "Make random graph of " << seq_size << " bp with " << variant_count << " ~" << variant_len << "-bp large variants" << endl;
+#endif
+    
     //Create a random graph for a sequence of length seq_size
     //variant_len is the mean length of a larger variation and variationCount
     //is the number of variations in the graph
@@ -19,8 +28,7 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                   //Index of original sequence to node that starts at that index
     
     //Get random number generator for lengths and variation types
-    random_device seed_source;
-    default_random_engine generator(seed_source());
+    default_random_engine generator(test_seed_source());
     
     uniform_int_distribution<int> base_distribution(0, 3);
     poisson_distribution<size_t> length_distribution(variant_len);
@@ -45,9 +53,20 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
     auto do_split = [&] (size_t index) -> pair<handle_t, handle_t> {
         //Split graph at index and update the path index
         
+#ifdef debug
+        cerr << "Split original sequence at base " << index << "/" << seq_size << endl;
+#endif
+        
+        // Make sure we aren't trying to split out of bounds
+        assert(index < seq_size);
+        
         auto n = --index_to_id.upper_bound(index); //orig node containing pos
         size_t first_index = n->first;               //Index of first node
         handle_t first_handle = graph->get_handle(n->second);    //handle of first node
+        
+#ifdef debug
+        cerr << "\tFalls in node " << graph->get_id(first_handle) << " length " << graph->get_length(first_handle) << " at " << first_index << endl;
+#endif
         
         pair<handle_t, handle_t> return_val;
         
@@ -56,7 +75,16 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
             
             size_t split_length = index - first_index;
             
+#ifdef debug
+            cerr << "\t\tSplit at " << split_length << " along node" << endl;
+#endif
+            
             return_val = graph->divide_handle(first_handle, split_length);
+            
+#ifdef debug
+            cerr << "\t\t\tCreate " << graph->get_id(return_val.first) << " at " << first_index << endl;
+            cerr << "\t\t\tCreate " << graph->get_id(return_val.second) << " at " << index << endl;
+#endif
             
             index_to_id[first_index] = graph->get_id(return_val.first);
             index_to_id[index] = graph->get_id(return_val.second);
@@ -148,8 +176,9 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                 //Copy number variation
                 size_t length = length_distribution(generator);
                 
-                if (length > 0 ) {
-                    if (start_index == 0) {
+                if (length > 0) {
+                    if (start_index == 0 && length + start_index < seq_size - 1) {
+                        // Very first base is involved, but very last base isn't (we don't handle that case)
                         pair<handle_t, handle_t> end_nodes = do_split(start_index+length);
                         
                         auto node_pair = index_to_id.begin();//first node
@@ -158,8 +187,8 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                         graph->create_edge(end_nodes.first, first_handle);
                         
                     }
-                    else if ( length + start_index < seq_size - 1) {
-                        
+                    else if (length + start_index < seq_size - 1) {
+                        // Only interior bases are involved
                         pair<handle_t, handle_t> start_nodes = do_split(start_index);
                         pair<handle_t, handle_t> end_nodes = do_split(start_index+length);
                         // hack: this won't redo the split since it's already there, but it
@@ -170,7 +199,8 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                         graph->create_edge(end_nodes.first, start_nodes.second);
                         
                     }
-                    else if ( length + start_index == seq_size - 1) {
+                    else if (length + start_index == seq_size - 1) {
+                        // Very last base is involved (but not very first)
                         pair<handle_t, handle_t> start_nodes = do_split(start_index);
                         
                         //last node
@@ -188,14 +218,15 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                 //Inversion
                 size_t length = length_distribution(generator);
                 if (length > 0) {
-                    if (start_index == 0) {
-                        
+                    if (start_index == 0 && length + start_index < seq_size - 1) {
+                        // Very first base is involved, but very last base isn't (we don't handle that case)
                         pair<handle_t, handle_t> end_nodes = do_split(start_index+length);
                         
                         graph->create_edge(graph->flip(end_nodes.first), end_nodes.second);
                         
                         
-                    } else if ( length + start_index < seq_size-1) {
+                    } else if (length + start_index < seq_size-1) {
+                        // Only interior bases are involved
                         pair<handle_t, handle_t> start_nodes = do_split(start_index);
                         pair<handle_t, handle_t> end_nodes = do_split(start_index+length);
                         // hack: this won't redo the split since it's already there, but it
@@ -207,7 +238,7 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                         graph->create_edge(graph->flip(start_nodes.second), end_nodes.second);
                         
                     } else if (length + start_index == seq_size - 1) {
-                        
+                        // Very last base is involved (but not very first)
                         pair<handle_t, handle_t> start_nodes = do_split(start_index);
                         
                         graph->create_edge(start_nodes.first, graph->flip(start_nodes.second));
@@ -225,8 +256,7 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
 vector<vector<size_t>> random_adjacency_list(size_t node_count, size_t edge_count) {
 
     // Work out how to randomly pick a node
-    random_device seed_source;
-    default_random_engine generator(seed_source());
+    default_random_engine generator(test_seed_source());
     uniform_int_distribution<size_t> node_distribution(0, node_count - 1);
     
     vector<vector<size_t>> to_return(node_count);

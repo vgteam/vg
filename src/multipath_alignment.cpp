@@ -1442,10 +1442,6 @@ namespace vg {
         rev_comp_out.set_quality(string(multipath_aln.quality().rbegin(), multipath_aln.quality().rend()));
         
         // transfer the rest of the metadata directly
-        rev_comp_out.set_read_group(multipath_aln.read_group());
-        rev_comp_out.set_name(multipath_aln.name());
-        rev_comp_out.set_sample_name(multipath_aln.sample_name());
-        rev_comp_out.set_paired_read_name(multipath_aln.paired_read_name());
         rev_comp_out.set_mapping_quality(multipath_aln.mapping_quality());
         
         vector< vector<size_t> > reverse_edge_lists(multipath_aln.subpath_size());
@@ -1616,20 +1612,21 @@ namespace vg {
         proto_multipath_aln_out.clear_start();
         transfer_read_metadata(multipath_aln, proto_multipath_aln_out);
         proto_multipath_aln_out.set_mapping_quality(multipath_aln.mapping_quality());
-        for (auto subpath : multipath_aln.subpath()) {
+        for (const auto& subpath : multipath_aln.subpath()) {
             auto subpath_copy = proto_multipath_aln_out.add_subpath();
             subpath_copy->set_score(subpath.score());
             for (auto next : subpath.next()) {
                 subpath_copy->add_next(next);
             }
             if (subpath.has_path()) {
-                auto path = subpath.path();
+                const auto& path = subpath.path();
                 auto path_copy = subpath_copy->mutable_path();
                 to_proto_path(path, *path_copy);
             }
         }
-        
-        
+        for (auto start : multipath_aln.start()) {
+            proto_multipath_aln_out.add_start(start);
+        }
     }
 
     void from_proto_multipath_alignment(const MultipathAlignment& proto_multipath_aln,
@@ -1651,7 +1648,9 @@ namespace vg {
             }
         }
         
-        // TODO: annotations
+        for (auto start : proto_multipath_aln.start()) {
+            multipath_aln_out.add_start(start);
+        }
     }
     
     void to_multipath_alignment(const Alignment& aln, multipath_alignment_t& multipath_aln_out) {
@@ -1670,7 +1669,7 @@ namespace vg {
             subpath->set_score(aln.score());
             from_proto_path(aln.path(), *subpath->mutable_path());
         }
-        
+        identify_start_subpaths(multipath_aln_out);
     }
 
     template<class ProtoAlignment>
@@ -1708,30 +1707,18 @@ namespace vg {
     void transfer_read_metadata(const MultipathAlignment& from, multipath_alignment_t& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
-        to.set_read_group(from.read_group());
-        to.set_name(from.name());
-        to.set_sample_name(from.sample_name());
-        to.set_paired_read_name(from.paired_read_name());
         transfer_from_proto_annotation(from, to);
     }
 
     void transfer_read_metadata(const multipath_alignment_t& from, MultipathAlignment& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
-        to.set_read_group(from.read_group());
-        to.set_name(from.name());
-        to.set_sample_name(from.sample_name());
-        to.set_paired_read_name(from.paired_read_name());
         transfer_to_proto_annotation(from, to);
     }
     
     void transfer_read_metadata(const multipath_alignment_t& from, multipath_alignment_t& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
-        to.set_read_group(from.read_group());
-        to.set_name(from.name());
-        to.set_sample_name(from.sample_name());
-        to.set_paired_read_name(from.paired_read_name());
         from.for_each_annotation([&](const string& anno_name, multipath_alignment_t::anno_type_t type, const void* value) {
             switch (type) {
                 case multipath_alignment_t::Null:
@@ -1756,37 +1743,20 @@ namespace vg {
     void transfer_read_metadata(const Alignment& from, multipath_alignment_t& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
-        to.set_read_group(from.read_group());
-        to.set_name(from.name());
-        to.set_sample_name(from.sample_name());
-        
-        // no difference in these fields for multipath_alignment_ts
-        if (from.has_fragment_prev()) {
-            to.set_paired_read_name(from.fragment_prev().name());
-        }
-        else if (from.has_fragment_next()) {
-            to.set_paired_read_name(from.fragment_next().name());
-        }
-        
         transfer_from_proto_annotation(from, to);
     }
     
     void transfer_read_metadata(const multipath_alignment_t& from, Alignment& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
-        to.set_read_group(from.read_group());
-        to.set_name(from.name());
-        to.set_sample_name(from.sample_name());
-        
-        // note: not transferring paired_read_name because it is unclear whether
-        // it should go into fragment_prev or fragment_next
-        
         transfer_to_proto_annotation(from, to);
     }
 
     void transfer_read_metadata(const Alignment& from, Alignment& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
+        // TODO: do I still care about these fields now that they're taken out
+        // of multipath_alignment_t?
         to.set_read_group(from.read_group());
         to.set_name(from.name());
         to.set_sample_name(from.sample_name());
@@ -2236,7 +2206,7 @@ namespace vg {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
                         if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) != subseq[seq_idx]) {
 #ifdef debug_verbose_validation
-                            cerr << "validation failure on match that does not match for read " << multipath_aln.name() << endl;
+                            cerr << "validation failure on match that does not match" << endl;
                             cerr << "Node sequence: " << node_seq << " orientation: "
                                 << mapping.position().is_reverse() << " offset: " << node_idx << endl;
                             cerr << "Read subsequence: " << subseq << " offset: " << seq_idx << endl;
@@ -2499,7 +2469,7 @@ namespace vg {
     }
 
     string debug_string(const multipath_alignment_t& multipath_aln) {
-        string to_return = "{name: " + multipath_aln.name() + ", seq: " + multipath_aln.sequence();
+        string to_return = "{seq: " + multipath_aln.sequence();
         if (!multipath_aln.quality().empty()) {
             to_return += ", qual: " + string_quality_short_to_char(multipath_aln.quality());
         }

@@ -7,6 +7,7 @@
 
 #include "banded_global_aligner.hpp"
 #include "json2pb.h"
+#include "algorithms/find_tips.hpp"
 
 //#define debug_banded_aligner_objects
 //#define debug_banded_aligner_graph_processing

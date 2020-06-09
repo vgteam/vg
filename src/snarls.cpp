@@ -9,7 +9,7 @@
 
 #include "snarls.hpp"
 #include "json2pb.h"
-#include "algorithms/topological_sort.hpp"
+#include "algorithms/find_tips.hpp"
 #include "algorithms/is_acyclic.hpp"
 #include "algorithms/weakly_connected_components.hpp"
 #include "subgraph_overlay.hpp"
@@ -201,14 +201,32 @@ SnarlManager HandleGraphSnarlFinder::find_snarls_unindexed() {
 #ifdef debug
         cerr << "Connectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
 #endif
+
+        /////
+        // Determine tip presence
+        /////
+        
+        // Make a net graph that just pretends child snarls/chains are ordinary nodes
+        NetGraph flat_net_graph(snarl.start(), snarl.end(), managed_child_chains, graph);
+        
+        // Having internal tips in the net graph disqualifies a snarl from being an ultrabubble
+        auto tips = algorithms::find_tips(&flat_net_graph);
+
+#ifdef debug
+        cerr << "Tips: " << endl;
+        for (auto& tip : tips) {
+            cerr << "\t" << flat_net_graph.get_id(tip) << (flat_net_graph.get_is_reverse(tip) ? '-' : '+') << endl;
+        }
+#endif
+
+        // We should have at least the bounding nodes.
+        assert(tips.size() >= 2);
+        bool has_internal_tips = (tips.size() > 2); 
         
         /////
         // Determine cyclicity/acyclicity
         /////
     
-        // Make a net graph that just pretends child snarls/chains are ordinary nodes
-        NetGraph flat_net_graph(snarl.start(), snarl.end(), managed_child_chains, graph);
-        
         // This definitely should be calculated based on the internal-connectivity-ignoring net graph.
         snarl.set_directed_acyclic_net_graph(algorithms::is_directed_acyclic(&flat_net_graph));
 
@@ -252,13 +270,18 @@ SnarlManager HandleGraphSnarlFinder::find_snarls_unindexed() {
                 }
             }
             
-            // Note that ultrabubbles *can* loop back on their start or end.
-            
             if (!all_ultrabubble_children) {
                 // If we have non-ultrabubble children, we can't be an ultrabubble.
                 snarl.set_type(UNCLASSIFIED);
 #ifdef debug
                 cerr << "Snarl is UNCLASSIFIED because it has non-ultrabubble children" << endl;
+#endif
+            } else if (has_internal_tips) {
+                // If we have internal tips, we can't be an ultrabubble
+                snarl.set_type(UNCLASSIFIED);
+                
+#ifdef debug
+                cerr << "Snarl is UNCLASSIFIED because it contains internal tips" << endl;
 #endif
             } else if (!snarl.directed_acyclic_net_graph()) {
                 // If all our children are ultrabubbles but we ourselves are cyclic, we can't be an ultrabubble
@@ -777,15 +800,17 @@ void SnarlManager::flip(const Snarl* snarl) {
     // Get a non-const pointer to the SnarlRecord, which we own.
     // Allowed because we ourselves aren't const.
     SnarlRecord* to_flip = (SnarlRecord*) record(snarl);
+    // Get the Snarl of it
+    Snarl* to_flip_snarl = unrecord(to_flip);
     // swap and reverse the start and end Visits
-    int64_t start_id = to_flip->start().node_id();
-    bool start_orientation = to_flip->start().backward();
+    int64_t start_id = to_flip_snarl->start().node_id();
+    bool start_orientation = to_flip_snarl->start().backward();
         
-    to_flip->mutable_start()->set_node_id(to_flip->end().node_id());
-    to_flip->mutable_start()->set_backward(!to_flip->end().backward());
+    to_flip_snarl->mutable_start()->set_node_id(to_flip_snarl->end().node_id());
+    to_flip_snarl->mutable_start()->set_backward(!to_flip_snarl->end().backward());
         
-    to_flip->mutable_end()->set_node_id(start_id);
-    to_flip->mutable_end()->set_backward(!start_orientation);
+    to_flip_snarl->mutable_end()->set_node_id(start_id);
+    to_flip_snarl->mutable_end()->set_backward(!start_orientation);
     
     if (to_flip->parent_chain != nullptr) {
         // Work out where we keep the orientation of this snarl in its parent chain
@@ -865,7 +890,8 @@ const Snarl* SnarlManager::into_which_snarl(const Visit& visit) const {
     
 unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_boundary_index() const {
     unordered_map<pair<int64_t, bool>, const Snarl*> index;
-    for (const Snarl& snarl : snarls) {
+    for (const SnarlRecord& snarl_record : snarls) {
+        const Snarl& snarl = *unrecord(&snarl_record);
         index[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
         index[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
     }
@@ -874,7 +900,8 @@ unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_boundary_in
     
 unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_end_index() const {
     unordered_map<pair<int64_t, bool>, const Snarl*> index;
-    for (const Snarl& snarl : snarls) {
+    for (const SnarlRecord& snarl_record : snarls) {
+        const Snarl& snarl = *unrecord(&snarl_record);
         index[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
     }
     return index;
@@ -882,7 +909,8 @@ unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_end_index()
     
 unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_start_index() const {
     unordered_map<pair<int64_t, bool>, const Snarl*> index;
-    for (const Snarl& snarl : snarls) {
+    for (const SnarlRecord& snarl_record : snarls) {
+        const Snarl& snarl = *unrecord(&snarl_record);
         index[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
     }
     return index;
@@ -928,7 +956,7 @@ void SnarlManager::build_indexes() {
             parent->children.push_back(&snarl);
             
             // And that its parent is its parent
-            record(&snarl)->parent = parent;
+            rec.parent = unrecord(parent);
         }
         else {
             // record top level status
@@ -937,7 +965,7 @@ void SnarlManager::build_indexes() {
 #endif
             roots.push_back(&snarl);
             
-            record(&snarl)->parent = nullptr;
+            rec.parent = nullptr;
         }
     }
         

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# giraffe-wrangler.sh: Run and profile vg gaffe and analyze the results.
+# giraffe-wrangler.sh: Run and profile vg giraffe and analyze the results.
 
 set -e
 
@@ -165,7 +165,7 @@ if [[ ! -z "${REAL_FASTQ}" ]] ; then
         # script makes take forever because the binary is huge
         strip -d bin/vg
         
-        ${NUMA_PREFIX} perf record -F 100 --call-graph dwarf -o "${WORK}/perf.data"  vg gaffe "${GIRAFFE_GRAPH[@]}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/perf.gam"
+        ${NUMA_PREFIX} perf record -F 100 --call-graph dwarf -o "${WORK}/perf.data"  vg giraffe "${GIRAFFE_GRAPH[@]}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/perf.gam"
         perf script -i "${WORK}/perf.data" >"${WORK}/out.perf"
         deps/FlameGraph/stackcollapse-perf.pl "${WORK}/out.perf" >"${WORK}/out.folded"
         deps/FlameGraph/flamegraph.pl "${WORK}/out.folded" > "${WORK}/profile.svg"
@@ -176,7 +176,7 @@ if [[ ! -z "${SIM_GAM}" ]] ; then
     # Do simulated reads
 
     # Run simulated reads, with stats
-    ${NUMA_PREFIX} vg gaffe --track-correctness -x "${XG_INDEX}" "${GIRAFFE_GRAPH[@]}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -G "${SIM_GAM}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/mapped.gam"
+    ${NUMA_PREFIX} vg giraffe --track-correctness -x "${XG_INDEX}" "${GIRAFFE_GRAPH[@]}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -G "${SIM_GAM}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/mapped.gam"
 
     # And map to compare with them
     ${NUMA_PREFIX} vg map -x "${XG_INDEX}" -g "${GCSA_INDEX}" -G "${SIM_GAM}" -t "${THREAD_COUNT}" "${MAP_OPTS[@]}" >"${WORK}/mapped-map.gam"
@@ -210,7 +210,7 @@ if [[ ! -z "${REAL_FASTQ}" ]] ; then
     ((REAL_READ_COUNT /= 4))
 
     # Get RPS for Giraffe
-    ${NUMA_PREFIX} vg gaffe -p "${GIRAFFE_GRAPH[@]}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/real.gam" 2>"${WORK}/log.txt"
+    ${NUMA_PREFIX} vg giraffe -p "${GIRAFFE_GRAPH[@]}" -m "${MINIMIZER_INDEX}" -H "${GBWT_INDEX}" -d "${DISTANCE_INDEX}" -f "${REAL_FASTQ}" -t "${THREAD_COUNT}" "${GIRAFFE_OPTS[@]}" >"${WORK}/real.gam" 2>"${WORK}/log.txt"
 
     GIRAFFE_RPS="$(cat "${WORK}/log.txt" | grep "reads per second" | sed 's/[^0-9.]//g')"
 
