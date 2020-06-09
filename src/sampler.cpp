@@ -668,12 +668,13 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
             << ") > 5 * insert length standard deviation (" << insert_length_stdev << ")" << endl;
     }
     
-    graph.for_each_handle([&](const handle_t& handle) {
-        total_seq_length += graph.get_length(handle);
-    });
+    
     
     if (source_paths_input.empty() && transcript_expressions.empty()) {
         // we are sampling from all positions
+        graph.for_each_handle([&](const handle_t& handle) {
+            total_seq_length += graph.get_length(handle);
+        });
         start_pos_samplers.emplace_back(1, total_seq_length);
     }
     else if (!source_paths_input.empty()) {
@@ -904,6 +905,9 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     string source_path;
     if (source_path_idx != numeric_limits<size_t>::max()) {
         source_path = source_paths[source_path_idx];
+#ifdef debug_ngs_sim
+        cerr << "sampling from path " << source_path << endl;
+#endif
     }
     
     // reverse the quality string so that it acts like it's reading from the opposite end
@@ -917,7 +921,9 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             // don't make reads where the insert length is shorter than one end of the read
             continue;
         }
-        
+#ifdef debug_ngs_sim
+        cerr << "sampled insert length " << insert_length << endl;
+#endif
         // This is our offset along the source path, if in use
         size_t offset;
         // And our direction to go along the source path, if in use
@@ -926,11 +932,19 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         pos_t pos;
         // Populate them
         sample_start_pos(source_path_idx, offset, is_reverse, pos);
+        
+#ifdef debug_ngs_sim
+        cerr << "sampled start pos " << pos << ", is reverse " << is_reverse << ", offset " << offset << endl;
+#endif
+        
         // align the first end at this position on the source path or graph
         sample_read_internal(aln_pair.first, offset, is_reverse, pos, source_path);
         
         if (retry_on_Ns) {
             if (aln_pair.first.sequence().find('N') != string::npos) {
+#ifdef debug_ngs_sim
+                cerr << "rejecting sample because of an N" << endl;
+#endif
                 aln_pair.first.clear_path();
                 aln_pair.first.clear_sequence();
             }
@@ -945,6 +959,9 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         if (remaining_length >= 0) {
             // we need to move forward from the end of the first read
             if (advance_by_distance(offset, is_reverse, pos, remaining_length, source_path)) {
+#ifdef debug_ngs_sim
+                cerr << "rejecting sample because insert is off of path" << endl;
+#endif
                 // we hit the end of the graph trying to walk
                 continue;
             }
