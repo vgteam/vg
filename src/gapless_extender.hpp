@@ -12,7 +12,7 @@
 #include "subgraph.hpp"
 
 #include <bdsg/hash_graph.hpp>
-#include <gbwtgraph/gbwtgraph.h>
+#include <gbwtgraph/cached_gbwtgraph.h>
 
 namespace vg {
 
@@ -67,19 +67,19 @@ struct GaplessExtension
     size_t mismatches() const { return this->mismatch_positions.size(); }
 
     /// Does the extension contain the seed?
-    bool contains(const gbwtgraph::GBWTGraph& graph, seed_type seed) const;
+    bool contains(const HandleGraph& graph, seed_type seed) const;
 
     /// Return the starting position of the extension.
-    Position starting_position(const gbwtgraph::GBWTGraph& graph) const;
+    Position starting_position(const HandleGraph& graph) const;
 
     /// Return the position after the extension.
-    Position tail_position(const gbwtgraph::GBWTGraph& graph) const;
+    Position tail_position(const HandleGraph& graph) const;
 
     /// Return the node offset after the extension.
-    size_t tail_offset(const gbwtgraph::GBWTGraph& graph) const;
+    size_t tail_offset(const HandleGraph& graph) const;
 
     /// Convert the extension into a Path.
-    Path to_path(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) const;
+    Path to_path(const HandleGraph& graph, const std::string& sequence) const;
 
     /// For priority queues.
     bool operator<(const GaplessExtension& another) const {
@@ -164,10 +164,10 @@ public:
     /**
      * Try to improve the score of each extension by trimming mismatches from the flanks.
      * Do not trim full-length alignments with <= max_mismatches mismatches.
-     * Use the provided CachedGBWT or allocate a new one.
+     * Use the provided CachedGBWTGraph or allocate a new one.
      * Note that extend() already calls this by default.
      */
-    void trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches = MAX_MISMATCHES, const gbwt::CachedGBWT* cache = nullptr) const;
+    void trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches = MAX_MISMATCHES, const gbwtgraph::CachedGBWTGraph* cache = nullptr) const;
 
    /**
     * Find the distinct local haplotypes in the given subgraph and return the corresponding paths.

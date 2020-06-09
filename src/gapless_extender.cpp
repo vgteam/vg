@@ -16,7 +16,7 @@ constexpr size_t GaplessExtender::MAX_MISMATCHES;
 
 //------------------------------------------------------------------------------
 
-bool GaplessExtension::contains(const gbwtgraph::GBWTGraph& graph, seed_type seed) const {
+bool GaplessExtension::contains(const HandleGraph& graph, seed_type seed) const {
     handle_t expected_handle = GaplessExtender::get_handle(seed);
     size_t expected_node_offset = GaplessExtender::get_node_offset(seed);
     size_t expected_read_offset = GaplessExtender::get_read_offset(seed);
@@ -36,7 +36,7 @@ bool GaplessExtension::contains(const gbwtgraph::GBWTGraph& graph, seed_type see
     return false;
 }
 
-Position GaplessExtension::starting_position(const gbwtgraph::GBWTGraph& graph) const {
+Position GaplessExtension::starting_position(const HandleGraph& graph) const {
     Position position;
     if (this->empty()) {
         return position;
@@ -49,7 +49,7 @@ Position GaplessExtension::starting_position(const gbwtgraph::GBWTGraph& graph) 
     return position;
 }
 
-Position GaplessExtension::tail_position(const gbwtgraph::GBWTGraph& graph) const {
+Position GaplessExtension::tail_position(const HandleGraph& graph) const {
     Position position;
     if (this->empty()) {
         return position;
@@ -62,7 +62,7 @@ Position GaplessExtension::tail_position(const gbwtgraph::GBWTGraph& graph) cons
     return position;
 }
 
-size_t GaplessExtension::tail_offset(const gbwtgraph::GBWTGraph& graph) const {
+size_t GaplessExtension::tail_offset(const HandleGraph& graph) const {
     size_t result = this->offset + this->length();
     for (size_t i = 0; i + 1 < this->path.size(); i++) {
         result -= graph.get_length(this->path[i]);
@@ -70,7 +70,7 @@ size_t GaplessExtension::tail_offset(const gbwtgraph::GBWTGraph& graph) const {
     return result;
 }
 
-Path GaplessExtension::to_path(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) const {
+Path GaplessExtension::to_path(const HandleGraph& graph, const std::string& sequence) const {
 
     Path result;
 
@@ -266,7 +266,7 @@ void remove_duplicates(std::vector<GaplessExtension>& result) {
 }
 
 // Realign the extensions to find the mismatching positions.
-void find_mismatches(const std::string& seq, const gbwtgraph::GBWTGraph& graph, std::vector<GaplessExtension>& result) {
+void find_mismatches(const std::string& seq, const gbwtgraph::CachedGBWTGraph& graph, std::vector<GaplessExtension>& result) {
     for (GaplessExtension& extension : result) {
         if (extension.internal_score == 0) {
             continue;
@@ -325,7 +325,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     }
 
     // Allocate a GBWT record cache.
-    gbwt::CachedGBWT cache = this->graph->get_cache();
+    gbwtgraph::CachedGBWTGraph cache(*(this->graph));
 
     // Find either the best extension for each seed or the best two full-length alignments
     // for the entire cluster. The second-best full-length alignment has full_length_mismatches
@@ -338,7 +338,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
 
         // Check if the seed is contained in an exact full-length alignment.
         if (full_length_found && best_alignment.internal_score == 0) {
-            if (best_alignment.contains(*(this->graph), seed)) {
+            if (best_alignment.contains(cache, seed)) {
                 continue;
             }
         }
@@ -357,12 +357,12 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             size_t read_offset = get_read_offset(seed);
             size_t node_offset = get_node_offset(seed);
             GaplessExtension match {
-                { seed.first }, node_offset, this->graph->get_bd_state(cache, seed.first),
+                { seed.first }, node_offset, cache.get_bd_state(seed.first),
                 { read_offset, read_offset }, { },
                 static_cast<int32_t>(0), false, false,
                 false, false, static_cast<uint32_t>(0), static_cast<uint32_t>(0)
             };
-            match_initial(match, sequence, this->graph->get_sequence_view(seed.first));
+            match_initial(match, sequence, cache.get_sequence_view(seed.first));
             if (match.internal_score >= full_length_mismatches) {
                 continue;
             }
@@ -395,7 +395,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                     static_cast<uint32_t>(max_mismatches + 1),
                     static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
                 mismatch_limit = std::min(mismatch_limit, full_length_mismatches);
-                this->graph->follow_paths(cache, curr.state, false, [&](const gbwt::BidirectionalState& next_state) -> bool {
+                cache.follow_paths(curr.state, false, [&](const gbwt::BidirectionalState& next_state) -> bool {
                     handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(next_state.forward.node);
                     GaplessExtension next {
                         { }, curr.offset, next_state,
@@ -403,7 +403,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                         curr.score, curr.left_full, curr.right_full,
                         curr.left_maximal, curr.right_maximal, curr.internal_score, curr.old_score
                     };
-                    size_t node_offset = match_forward(next, sequence, this->graph->get_sequence_view(handle), mismatch_limit);
+                    size_t node_offset = match_forward(next, sequence, cache.get_sequence_view(handle), mismatch_limit);
                     if (node_offset == 0) { // Did not match anything.
                         return true;
                     }
@@ -413,7 +413,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                         next.right_full = true;
                         next.right_maximal = true;
                         next.old_score = next.internal_score;
-                    } else if (node_offset < this->graph->get_length(handle)) {
+                    } else if (node_offset < cache.get_length(handle)) {
                         next.right_maximal = true;
                         next.old_score = next.internal_score;
                     }
@@ -438,16 +438,16 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                     static_cast<uint32_t>(max_mismatches + 1),
                     static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
                 mismatch_limit = std::min(mismatch_limit, full_length_mismatches);
-                this->graph->follow_paths(cache, curr.state, true, [&](const gbwt::BidirectionalState& next_state) -> bool {
+                cache.follow_paths(curr.state, true, [&](const gbwt::BidirectionalState& next_state) -> bool {
                     handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(gbwt::Node::reverse(next_state.backward.node));
-                    size_t node_length = this->graph->get_length(handle);
+                    size_t node_length = cache.get_length(handle);
                     GaplessExtension next {
                         { }, node_length, next_state,
                         curr.read_interval, { },
                         curr.score, curr.left_full, curr.right_full,
                         curr.left_maximal, curr.right_maximal, curr.internal_score, curr.old_score
                     };
-                    match_backward(next, sequence, this->graph->get_sequence_view(handle), mismatch_limit);
+                    match_backward(next, sequence, cache.get_sequence_view(handle), mismatch_limit);
                     if (next.offset >= node_length) { // Did not match anything.
                         return true;
                     }
@@ -516,7 +516,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     // If we have a full-length alignment with sufficiently few mismatches, we do
     // not trim it.
     remove_duplicates(result);
-    find_mismatches(sequence, *(this->graph), result);
+    find_mismatches(sequence, cache, result);
     if (trim_extensions) {
         this->trim(result, max_mismatches, &cache);
     }
@@ -528,7 +528,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
 
 // Trim mismatches from the extension to maximize the score. Returns true if the
 // extension was trimmed.
-bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::GBWTGraph& graph, const gbwt::CachedGBWT& cache, const Aligner& aligner) {
+bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::CachedGBWTGraph& graph, const Aligner& aligner) {
 
     if (extension.exact()) {
         return false;
@@ -621,7 +621,7 @@ bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::GBWTGraph& gr
     }
     if (head > 0 || tail < extension.path.size()) {
         in_place_subvector(extension.path, head, tail);
-        extension.state = graph.bd_find(cache, extension.path);
+        extension.state = graph.bd_find(extension.path);
     }
 
     // Trim the mismatches.
@@ -638,18 +638,18 @@ bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::GBWTGraph& gr
     return true;
 }
 
-void GaplessExtender::trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches, const gbwt::CachedGBWT* cache) const {
+void GaplessExtender::trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches, const gbwtgraph::CachedGBWTGraph* cache) const {
 
     // Allocate a cache if we were not provided with one.
     bool free_cache = (cache == nullptr);
     if (free_cache) {
-        cache = new gbwt::CachedGBWT(this->graph->get_cache());
+        cache = new gbwtgraph::CachedGBWTGraph(*(this->graph));
     }
 
     bool trimmed = false;
     for (GaplessExtension& extension : extensions) {
         if (!extension.full() || extension.mismatches() > max_mismatches) {
-            trimmed |= trim_mismatches(extension, *(this->graph), *cache, *(this->aligner));
+            trimmed |= trim_mismatches(extension, *cache, *(this->aligner));
         }
     }
     if (trimmed) {
@@ -691,18 +691,18 @@ void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vec
     // Find the nodes where paths start/end or enter/exit the subgraph. Extend these states
     // to the other direction. Checking for starts/enters would be enough if we are sure
     // that there are no weird orientation flips.
-    gbwt::CachedGBWT cache = this->graph->get_cache();
+    gbwtgraph::CachedGBWTGraph cache(*(this->graph));
     std::stack<std::pair<gbwt::BidirectionalState, std::vector<handle_t>>> states;
     subgraph.for_each_handle([&](const handle_t& handle) {
-        gbwt::BidirectionalState state = this->graph->get_bd_state(cache, handle);
+        gbwt::BidirectionalState state = cache.get_bd_state(handle);
         size_t forward_covered = 0, backward_covered = 0;
-        this->graph->follow_paths(cache, state, false, [&](const gbwt::BidirectionalState& next) -> bool {
+        cache.follow_paths(state, false, [&](const gbwt::BidirectionalState& next) -> bool {
             if (subgraph.has_node(gbwt::Node::id(next.forward.node))) {
                 forward_covered += next.size();
             }
             return true;
         });
-        this->graph->follow_paths(cache, state, true, [&](const gbwt::BidirectionalState& prev) -> bool {
+        cache.follow_paths(state, true, [&](const gbwt::BidirectionalState& prev) -> bool {
             if (subgraph.has_node(gbwt::Node::id(prev.backward.node))) {
                 backward_covered += prev.size();
             }
@@ -713,7 +713,7 @@ void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vec
             states.push(std::make_pair(state, path)); // Left-maximal.
         }
         if (forward_covered < state.size()) {
-            std::vector<handle_t> path = { this->graph->flip(handle) };
+            std::vector<handle_t> path = { cache.flip(handle) };
             state.flip();
             states.push(std::make_pair(state, path)); // Right-maximal.
         }
@@ -729,7 +729,7 @@ void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vec
         states.pop();
         bool found_extension = false;
         size_t covered_size = 0;
-        this->graph->follow_paths(cache, state, false, [&](const gbwt::BidirectionalState& next) -> bool {
+        cache.follow_paths(state, false, [&](const gbwt::BidirectionalState& next) -> bool {
             if (!subgraph.has_node(gbwt::Node::id(next.forward.node))) {
                 return true;
             }
@@ -745,12 +745,12 @@ void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vec
                 haplotype_paths.push_back(path);
                 size_t result_size = 0;
                 for (handle_t handle : path) {
-                    result_size += this->graph->get_length(handle);
+                    result_size += cache.get_length(handle);
                 }
                 std::string sequence;
                 sequence.reserve(result_size);
                 for (handle_t handle : path) {
-                    gbwtgraph::GBWTGraph::view_type view = this->graph->get_sequence_view(handle);
+                    gbwtgraph::GBWTGraph::view_type view = cache.get_sequence_view(handle);
                     sequence.insert(sequence.size(), view.first, view.second);
                 }
                 unfolded.create_handle(sequence, 2 * haplotype_paths.size() - 1);
@@ -847,8 +847,6 @@ void GaplessExtender::transform_alignment(Alignment& aln, const std::vector<std:
             break;
         }
     }
-
-    // FIXME tests
 
     *(aln.mutable_path()) = std::move(result);
 }
