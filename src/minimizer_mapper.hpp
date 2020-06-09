@@ -276,6 +276,15 @@ protected:
 
 //-----------------------------------------------------------------------------
 
+    /**
+     * Get the distance limit for the given read length
+     */
+
+    size_t get_distance_limit(size_t read_length) {
+        return max( distance_limit, read_length + 50);
+    }
+    
+
    /**
     * Assume that we have n <= max_k independent random events that occur with
     * probability p each (p is interpreted as a real number between 0 and 1 and
