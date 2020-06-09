@@ -220,6 +220,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:af9ff5e0a1b8c7925ccdb8a23d29872ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a421cdd65bac59fac39fd3b87cce0f3ae"><td class="memItemLeft" align="right" valign="top">std::vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a421cdd65bac59fac39fd3b87cce0f3ae">score_extensions</a> (const std::vector&lt; std::pair&lt; std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;, size_t &gt;&gt; &amp;extensions, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
 <tr class="separator:a421cdd65bac59fac39fd3b87cce0f3ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9d24e2b3f8e141e68e87800eae455b06"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a9d24e2b3f8e141e68e87800eae455b06">get_distance_limit</a> (size_t read_length)</td></tr>
+<tr class="separator:a9d24e2b3f8e141e68e87800eae455b06"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0a67380a95608145839617f3a3193a6c"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0a67380a95608145839617f3a3193a6c">phred_for_at_least_one</a> (size_t p, size_t n) const</td></tr>
 <tr class="separator:a0a67380a95608145839617f3a3193a6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac861bd6bd13e84585765ca5e27dd5d0b"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac861bd6bd13e84585765ca5e27dd5d0b">compute_mapq_caps</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;present_in_any_extended_cluster)</td></tr>
@@ -1017,6 +1019,33 @@ Additional Inherited Members</h2></td></tr>
 <p><a class="el" href="structvg_1_1Alignment.html">Alignment</a> is always pinned.</p>
 <p>If pin_left is true, pin the alignment on the left to the root of each tree. Otherwise pin it on the right to the root of each tree.</p>
 <p>Returns alingments in gbwt_graph space. </p>
+
+</div>
+</div>
+<a id="a9d24e2b3f8e141e68e87800eae455b06"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9d24e2b3f8e141e68e87800eae455b06">&#9670;&nbsp;</a></span>get_distance_limit()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::get_distance_limit </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>read_length</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Get the distance limit for the given read length </p>
 
 </div>
 </div>
