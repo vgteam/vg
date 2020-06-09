@@ -13,7 +13,7 @@ GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
 GraphCaller::~GraphCaller() {
 }
 
-void GraphCaller::call_top_level_snarls(int ploidy, bool recurse_on_fail) {
+void GraphCaller::call_top_level_snarls(const HandleGraph& graph, int ploidy, bool recurse_on_fail) {
 
     // Used to recurse on children of parents that can't be called
     size_t thread_count = get_thread_count();
@@ -22,15 +22,18 @@ void GraphCaller::call_top_level_snarls(int ploidy, bool recurse_on_fail) {
     // Run the snarl caller on a snarl, and queue up the children if it fails
     auto process_snarl = [&](const Snarl* snarl) {
 
+        if (!snarl_manager.is_trivial(snarl, graph)) {
+            
 #ifdef debug
-        cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
+            cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
 #endif
 
-        bool was_called = call_snarl(*snarl, ploidy);
-        if (!was_called && recurse_on_fail) {
-            const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
-            vector<const Snarl*>& thread_queue = snarl_queue[omp_get_thread_num()];
-            thread_queue.insert(thread_queue.end(), children.begin(), children.end());
+            bool was_called = call_snarl(*snarl, ploidy);
+            if (!was_called && recurse_on_fail) {
+                const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
+                vector<const Snarl*>& thread_queue = snarl_queue[omp_get_thread_num()];
+                thread_queue.insert(thread_queue.end(), children.begin(), children.end());
+            }
         }
     };
 

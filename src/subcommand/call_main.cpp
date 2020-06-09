@@ -483,7 +483,7 @@ int main_call(int argc, char** argv) {
 
         // Call each snarl
         // (todo: try chains in normal mode)
-        graph_caller->call_top_level_snarls(ploidy);
+        graph_caller->call_top_level_snarls(*graph, ploidy);
     } else {
         // Attempt to call chains instead of snarls so that the output traversals are longer
         // Todo: this could probably help in some cases when making VCFs too

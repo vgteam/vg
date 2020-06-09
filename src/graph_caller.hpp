@@ -32,7 +32,9 @@ public:
     /// Run call_snarl() on every top-level snarl in the manager.
     /// For any that return false, try the children, etc. (when recurse_on_fail true)
     /// Snarls are processed in parallel
-    virtual void call_top_level_snarls(int ploidy, bool recurse_on_fail = true);
+    virtual void call_top_level_snarls(const HandleGraph& graph,
+                                       int ploidy,
+                                       bool recurse_on_fail = true);
 
     /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of each piece
     /// then make a fake snarl for each chain piece and call it.  If a fake snarl fails to call,
