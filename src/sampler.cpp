@@ -1057,6 +1057,9 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
             apply_insertion(aln, curr_pos);
         }
         if (aln.sequence().size() >= aln.quality().size() || hit_end) {
+#ifdef debug_ngs_sim
+            cerr << "break 1: ending sample with seq len " << aln.sequence().size() << ", qual len " << aln.quality().size() << ", hit end? " << hit_end << endl;
+#endif
             break;
         }
         
@@ -1073,6 +1076,9 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
                 apply_insertion(aln, curr_pos);
                 
                 if (aln.sequence().size() >= aln.quality().size() || hit_end) {
+#ifdef debug_ngs_sim
+                    cerr << "break 2: ending sample with seq len " << aln.sequence().size() << ", qual len " << aln.quality().size() << ", hit end? " << hit_end << endl;
+#endif
                     break;
                 }
             }
@@ -1089,6 +1095,9 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
             err_prob = phred_prob[aln.quality()[aln.sequence().size()]];
         }
         if (aln.sequence().size() >= aln.quality().size() || hit_end) {
+#ifdef debug_ngs_sim
+            cerr << "break 3: ending sample with seq len " << aln.sequence().size() << ", qual len " << aln.quality().size() << ", hit end? " << hit_end << endl;
+#endif
             break;
         }
         
@@ -1116,6 +1125,9 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
         hit_end = advance(offset, is_reverse, curr_pos, graph_char, source_path);
         
         if (aln.sequence().size() >= aln.quality().size() || hit_end) {
+#ifdef debug_ngs_sim
+            cerr << "break 4: ending sample with seq len " << aln.sequence().size() << ", qual len " << aln.quality().size() << ", hit end? " << hit_end << endl;
+#endif
             break;
         }
         
