@@ -602,8 +602,8 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                            double substition_polymorphism_rate,
                            double indel_polymorphism_rate,
                            double indel_error_proportion,
-                           double insert_length_mean,
-                           double insert_length_stdev,
+                           double fragment_length_mean,
+                           double fragment_length_stdev,
                            double error_multiplier,
                            bool retry_on_Ns,
                            bool sample_unsheared_paths,
@@ -612,15 +612,15 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     , sub_poly_rate(substition_polymorphism_rate)
     , indel_poly_rate(indel_polymorphism_rate)
     , indel_error_prop(indel_error_proportion)
-    , insert_mean(insert_length_mean)
-    , insert_sd(insert_length_stdev)
+    , fragment_mean(fragment_length_mean)
+    , fragment_sd(fragment_length_stdev)
     , retry_on_Ns(retry_on_Ns)
     , prng(seed ? seed : random_device()())
     , strand_sampler(0, 1)
     , background_sampler(0, alphabet.size() - 1)
     , mut_sampler(0, alphabet.size() - 2)
     , prob_sampler(0.0, 1.0)
-    , insert_sampler(insert_length_mean, insert_length_stdev)
+    , fragment_sampler(fragment_length_mean, fragment_length_stdev)
     , seed(seed)
     , source_paths(source_paths_input)
     , joint_initial_distr(seed - 1)
@@ -653,19 +653,14 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         exit(1);
     }
     
-    if (insert_length_mean <= 0.0) {
-        cerr << "error:[NGSSimulator] Mean insert length must be positive" << endl;
+    if (fragment_length_mean <= 0.0) {
+        cerr << "error:[NGSSimulator] Mean fragment length must be positive" << endl;
         exit(1);
     }
     
-    if (insert_length_stdev < 0.0) {
-        cerr << "error:[NGSSimulator] Insert length standard deviation must be positive" << endl;
+    if (fragment_length_stdev < 0.0) {
+        cerr << "error:[NGSSimulator] Fragment length standard deviation must be positive" << endl;
         exit(1);
-    }
-    
-    if (insert_length_mean < 5.0 * insert_length_stdev) {
-        cerr << "warning:[NGSSimulator] Recommended that insert length mean (" << insert_length_mean
-            << ") > 5 * insert length standard deviation (" << insert_length_stdev << ")" << endl;
     }
     
     
@@ -793,8 +788,8 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         cerr << "warning:[NGSSimulator] Auto-detected read length of " << modal_length << " encompasses less than half of training reads, NGSSimulator is optimized for training data in which most reads are the same length" << endl;
     }
     
-    if (modal_length > insert_length_mean - 2.0 * insert_length_stdev) {
-        cerr << "warning:[NGSSimulator] Auto-detected read length of " << modal_length << " is long compared to mean insert length " << insert_length_mean << " and standard deviation " << insert_length_stdev << ", sampling may take additional time and statistical properties of insert length distribution may not reflect input parameters" << endl;
+    if (modal_length > fragment_length_mean - 2.0 * fragment_length_stdev) {
+        cerr << "warning:[NGSSimulator] Auto-detected read length of " << modal_length << " is long compared to mean fragment length " << fragment_length_mean << " and standard deviation " << fragment_length_stdev << ". Sampling may take additional time and the statistical properties of the fragment length distribution may not reflect input parameters." << endl;
     }
     
     // shorten the quality string samplers until they are the modal length (this determines read length later)
@@ -910,19 +905,28 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
 #endif
     }
     
+    int64_t fragment_length = -1;
+    while (fragment_length <= 0) {
+        fragment_length = (int64_t) round(fragment_sampler(prng));
+    }
+    
+    if (fragment_length < transition_distrs_1.size()) {
+        // the fragment is shorter than the sequencing length
+        qual_and_mask_pair.first.first.resize(fragment_length);
+        qual_and_mask_pair.first.second.resize(fragment_length);
+        qual_and_mask_pair.second.first.resize(fragment_length);
+        qual_and_mask_pair.second.second.resize(fragment_length);
+    }
+    
     // reverse the quality string so that it acts like it's reading from the opposite end
     // when we walk forward from the beginning of the first read
     std::reverse(aln_pair.second.mutable_quality()->begin(),
                  aln_pair.second.mutable_quality()->end());
     
     while (!aln_pair.first.has_path() || !aln_pair.second.has_path()) {
-        int64_t insert_length = (int64_t) round(insert_sampler(prng));
-        if (insert_length < (int64_t) transition_distrs_1.size()) {
-            // don't make reads where the insert length is shorter than one end of the read
-            continue;
-        }
+        
 #ifdef debug_ngs_sim
-        cerr << "sampled insert length " << insert_length << endl;
+        cerr << "sampled fragment length " << fragment_length << endl;
 #endif
         // This is our offset along the source path, if in use
         size_t offset;
@@ -954,8 +958,8 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             continue;
         }
         
-        // walk out the unsequenced part of the insert in the graph
-        int64_t remaining_length = insert_length - 2 * transition_distrs_1.size();
+        // walk out the unsequenced part of the fragment in the graph
+        int64_t remaining_length = fragment_length - 2 * transition_distrs_1.size();
         if (remaining_length >= 0) {
             // we need to move forward from the end of the first read
             if (advance_by_distance(offset, is_reverse, pos, remaining_length, source_path)) {
@@ -1232,22 +1236,27 @@ bool NGSSimulator::advance_on_path_by_distance(size_t& offset, bool& is_reverse,
     if (is_reverse) {
         // Go left on the path
         if (offset < distance) {
-            // We hit the end
-            return true;
+            // We hit the beginning
+            offset = 0;
         }
-        offset -= distance;
+        else {
+            offset -= distance;
+        }
     } else {
         // Go right on the path
         if (offset + distance >= path_length) {
             // We hit the end
-            return true;
+            offset = path_length - 1;
         }
-        offset += distance;
+        else {
+            offset += distance;
+        }
     }
     
     // Set position according to position on path
     pos = position_at(&graph, source_path, offset, is_reverse);
     
+    // TODO: the behavior has changed so that this never returns true anymore
     return false;
 }
 
@@ -1255,9 +1264,7 @@ pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
     // Starting at the past-the-end of the path, walk back to the given nonzero distance.
     // Walking back the whole path length puts you at the start of the path.
     
-    if (distance > path_to_length(path)) {
-        throw runtime_error("Cannot walk back " + to_string(distance) + " on path of length " + to_string(path_to_length(path)));
-    }
+    distance = min<size_t>(distance, path_from_length(path));
     assert(distance > 0);
 
     // walk backwards until we find the mapping it's on
