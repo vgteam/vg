@@ -37,7 +37,11 @@ public:
     /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of each piece
     /// then make a fake snarl for each chain piece and call it.  If a fake snarl fails to call,
     /// It's child chains will be recursed on (if selected)_
-    virtual void call_top_level_chains(const HandleGraph& graph, int ploidy, size_t max_edges, size_t max_trivial, bool recurse_on_fail = true);
+    virtual void call_top_level_chains(const HandleGraph& graph,
+                                       int ploidy,
+                                       size_t max_edges,
+                                       size_t max_trivial,
+                                       bool recurse_on_fail = true);
 
     /// Call a given snarl, and print the output to out_stream
     virtual bool call_snarl(const Snarl& snarl, int ploidy) = 0;
@@ -98,6 +102,28 @@ protected:
 
     /// output buffers (1/thread) (for sorting)
     mutable vector<vector<vcflib::Variant>> output_variants;
+};
+
+/**
+ * Helper class for outputing snarl traversals as GAF
+ */
+class GAFOutputCaller {
+public:
+    /// The emitter object is created and owned by external forces
+    GAFOutputCaller(AlignmentEmitter* emitter);
+    virtual ~GAFOutputCaller();
+
+    /// print the GAF traversals
+    void emit_gaf_traversals(const HandleGraph& graph, const vector<SnarlTraversal>& travs);
+
+    /// print the GAF genotype
+    void emit_gaf_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
+                          const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
+                          const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                          const string& ref_path_name, int ref_offset) const;
+protected:
+    
+    AlignmentEmitter* emitter;
 };
 
 /**
@@ -239,7 +265,7 @@ protected:
  * Designed to replace LegacyCaller, as it should miss fewer obviously
  * good traversals, and is not dependent on old protobuf-based structures. 
  */
-class FlowCaller : public GraphCaller, public VCFOutputCaller {
+class FlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
 public:
     FlowCaller(const PathPositionHandleGraph& graph,
                SupportBasedSnarlCaller& snarl_caller,
@@ -248,7 +274,9 @@ public:
                TraversalFinder& traversal_finder,
                const vector<string>& ref_paths,
                const vector<size_t>& ref_path_offsets,
-               AlignmentEmitter* aln_emitter);
+               AlignmentEmitter* aln_emitter,
+               bool traversals_only,
+               bool gaf_output);
    
     virtual ~FlowCaller();
 
@@ -278,6 +306,12 @@ protected:
     /// alignment emitter. if not null, traversals will be output here and
     /// no genotyping will be done
     AlignmentEmitter* alignment_emitter;
+
+    /// toggle whether to genotype or just output the traversals
+    bool traversals_only;
+
+    /// toggle whether to output vcf or gaf
+    bool gaf_output;
 };
 
 

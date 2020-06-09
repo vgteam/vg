@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 62
+plan tests 63
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -86,12 +86,22 @@ vg index -G empty.gbwt -v small/x.vcf.gz --exclude 1 x.vg
 is $? 0 "samples can be excluded from haplotype indexing"
 is $(vg gbwt -c empty.gbwt) 0 "excluded samples were not included in the GBWT index"
 
+# Make GBWT from GAM
+vg paths -v x.vg -X -Q _alt > x-alts.gam
+vg index x.vg -M x-alts.gam -G x-gam.gbwt
+# Make GBWT from GAF
+vg convert x.vg -G x-alts.gam > x-alts.gaf
+vg index x.vg -F x-alts.gaf -G x-gaf.gbwt
+cmp x-gaf.gbwt x-gam.gbwt
+is $? 0 "GBWT from GAF same as from GAM"
+
 rm -f x.vg
 rm -f x.xg x-ap.xg x.gbwtx.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
 rm -f x2-ap.xg x2-ap.gbwt x2-ap.gcsa x2-ap.gcsa.lcp
 rm -f parse_x parse_x_0_1 parse_x.gbwt x.bare.gbwt
 rm -f empty.gbwt
+rm -f x-alts.gam x-alts.gaf x-gam.gbwt x-gaf.gbwt
 
 
 # Subregion graph with haplotypes

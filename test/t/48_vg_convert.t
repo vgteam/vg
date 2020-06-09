@@ -119,7 +119,7 @@ is "$?" 0 "vg convert gam -> gaf -> gam ->gaf makes same gaf each time on 1mb1kg
 
 printf '{"name": "split", "path": {"mapping": [{"edit": [{"from_length": 13, "to_length": 13}], "position": {"node_id": "1", "offset": "10"}}, {"edit": [{"from_length": 2, "to_length": 2}], "position": {"node_id": "3", "offset": "5"}}]}}' | vg view -JaG - > split.gam
 vg convert zflat.vg -G split.gam > split.gaf
-is "$(awk '{print $14}' split.gaf)" "cs:Z::13-CCAGTGCTC-GCATC:2" "split alignment converted using deletions to represent internal offsets"
+is "$(awk '{print $13}' split.gaf)" "cs:Z::13-CCAGTGCTC-GCATC:2" "split alignment converted using deletions to represent internal offsets"
 vg convert zflat.vg -F split.gaf | vg convert zflat.vg -G - > split-back.gaf
 diff split.gaf split-back.gaf
 is "$?" 0 "vg convert gam -> gaf ->gam -> gaf makes same gaf each time for split alignment"

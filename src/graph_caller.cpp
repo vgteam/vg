@@ -85,9 +85,9 @@ void GraphCaller::call_top_level_chains(const HandleGraph& graph, int ploidy, si
             // it's not managed by the snarl manager so functions looking into its nesting
             // structure will not work
             Snarl fake_snarl;
-            *fake_snarl.mutable_start() = chain_piece.front().second == true ? chain_piece.front().first->end() :
+            *fake_snarl.mutable_start() = chain_piece.front().second == true ? reverse(chain_piece.front().first->end()) :
                 chain_piece.front().first->start();
-            *fake_snarl.mutable_end() = chain_piece.back().second == true ? chain_piece.back().first->start() :
+            *fake_snarl.mutable_end() = chain_piece.back().second == true ? reverse(chain_piece.back().first->start()) :
                 chain_piece.back().first->end();
 
 #ifdef debug
@@ -142,20 +142,20 @@ vector<Chain> GraphCaller::break_chain(const HandleGraph& graph, const Chain& ch
         // todo: use annotation from snarl itself?
         bool trivial = contents.second.empty();
 
-        if (!frag.empty() &&
-            (trivial && frag_triv_count >= max_trivial) ||
+        if ((trivial && frag_triv_count > max_trivial) ||
             (contents.second.size() + frag_edge_count > max_edges)) {
             // adding anything more to the chain would make it too long, so we
             // add it to the output and clear the current fragment
-            chain_frags.push_back(frag);
+            if (!frag.empty() && frag_triv_count < frag.size()) {
+                chain_frags.push_back(frag);
+            }
             frag.clear();
             frag_edge_count = 0;
             frag_triv_count = 0;
         }
 
-        if (!trivial || (trivial && !frag.empty() && frag_triv_count < max_trivial)) {
+        if (!trivial || (frag_triv_count < max_trivial)) {
             // we start a new fragment or add to an existing fragment
-            // (but never start a new fragment with a trivial snarl)
             frag.push_back(link);
             frag_edge_count += contents.second.size();
             if (trivial) {
@@ -428,6 +428,43 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
             variant.alt[i - 1] = variant.alleles[i];
         }
     }
+}
+
+GAFOutputCaller::GAFOutputCaller(AlignmentEmitter* emitter) :
+    emitter(emitter) {
+    
+}
+
+GAFOutputCaller::~GAFOutputCaller() {
+}
+
+void GAFOutputCaller::emit_gaf_traversals(const HandleGraph& graph, const vector<SnarlTraversal>& travs) {
+    assert(emitter != nullptr);
+    vector<Alignment> aln_batch;
+    aln_batch.reserve(travs.size());
+    for (int i = 0; i < travs.size(); ++i) {
+        aln_batch.push_back(to_alignment(travs[i], graph));
+    }
+    emitter->emit_singles(std::move(aln_batch)); 
+}
+
+void GAFOutputCaller::emit_gaf_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
+                                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
+                                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                                       const string& ref_path_name, int ref_offset) const {
+    assert(emitter != nullptr);
+
+    // pretty bare bones for now, just output the genotype as a pair of traversals
+    // todo: we could embed some basic information (likelihood, ploidy, sample etc) in the gaf
+    string variant_id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
+
+    vector<Alignment> aln_gt;
+    aln_gt.reserve(genotype.size());
+    for (int i = 0; i < genotype.size(); ++i) {
+        aln_gt.push_back(to_alignment(called_traversals[genotype[i]], graph));
+        aln_gt.back().set_name(variant_id + "_" + std::to_string(i));
+    }
+    emitter->emit_singles(std::move(aln_gt));
 }
 
 VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
@@ -985,13 +1022,17 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        TraversalFinder& traversal_finder,
                        const vector<string>& ref_paths,
                        const vector<size_t>& ref_path_offsets,
-                       AlignmentEmitter* aln_emitter) :
+                       AlignmentEmitter* aln_emitter,
+                       bool traversals_only,
+                       bool gaf_output) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
+    GAFOutputCaller(aln_emitter),
     graph(graph),
     traversal_finder(traversal_finder),
     ref_paths(ref_paths),
-    alignment_emitter(aln_emitter)
+    traversals_only(traversals_only),
+    gaf_output(gaf_output)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
@@ -1139,17 +1180,9 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
 
     bool ret_val = true;
 
-    if (alignment_emitter != nullptr) {
-        // just dump our traversals
-        vector<Alignment> aln_batch(travs.size());
-        for (int i = 0; i < travs.size(); ++i) {
-            Path* path = aln_batch[i].mutable_path();
-            for (int j = 0; j < travs[i].visit_size(); ++j) {
-                Mapping* mapping = path->add_mapping();
-                *mapping = to_mapping(travs[i].visit(j), graph);
-            }
-        }
-        alignment_emitter->emit_singles(std::move(aln_batch)); 
+    if (traversals_only) {
+        assert(gaf_output);
+        emit_gaf_traversals(graph, travs);
     } else {
         // use our support caller to choose our genotype
         vector<int> trav_genotype;
@@ -1159,8 +1192,13 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
 
         assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
 
-        emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
-                     ref_offsets[ref_path_name]);
+        if (!gaf_output) {
+            emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
+                         ref_offsets[ref_path_name]);
+        } else {
+            emit_gaf_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
+                             ref_offsets[ref_path_name]);
+        }
 
         ret_val = trav_genotype.size() == ploidy;
     }

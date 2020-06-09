@@ -779,7 +779,7 @@ gafkluge::GafRecord alignment_to_gaf(const HandleGraph& graph, const Alignment& 
         }
 
         // optional base qualities
-        if (base_quals) { 
+        if (base_quals && !aln.quality().empty()) { 
             gaf.opt_fields["bq"] = make_pair("Z", string_quality_short_to_char(aln.quality()));
         }   
                 

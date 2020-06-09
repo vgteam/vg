@@ -45,7 +45,7 @@ void help_call(char** argv) {
        << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
        << "    -d, --ploidy N          Ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
        << "    -G, --gaf               Output GAF genotypes instead of VCF" << endl
-       << "    -T, --traversals        Output all traversals in GAF.  No genotyping done unless -G specified" << endl
+       << "    -T, --traversals        Output all candidate traversals in GAF without doing any genotyping" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
@@ -67,8 +67,8 @@ int main_call(int argc, char** argv) {
     bool ratio_caller = false;
     bool legacy = false;
     int ploidy = 2;
-    bool gaf_genotypes = false;
-    bool gaf_traversals = false;
+    bool traversals_only = false;
+    bool gaf_output = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -76,9 +76,10 @@ int main_call(int argc, char** argv) {
     const size_t min_depth_bin_width = 50;
     const size_t max_depth_bin_width = 50000000;
     const double depth_scale_fac = 1.5;
-    const size_t max_yens_traversals = 50;
-    const size_t max_chain_edges = 5000;
-    const size_t max_chain_trivial = 5;
+    const size_t max_yens_traversals = traversals_only ? 100 : 50;
+    // used to merge up snarls from chains when generating traversals
+    const size_t max_chain_edges = 1000; 
+    const size_t max_chain_trivial_travs = 5;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -165,10 +166,11 @@ int main_call(int argc, char** argv) {
             ploidy = parse<int>(optarg);
             break;
         case 'G':
-            gaf_genotypes = true;
+            gaf_output = true;
             break;
         case 'T':
-            gaf_traversals = true;
+            traversals_only = true;
+            gaf_output = true;
             break;            
         case 'L':
             legacy = true;
@@ -393,8 +395,7 @@ int main_call(int argc, char** argv) {
     }
 
     unique_ptr<AlignmentEmitter> alignment_emitter;
-    if (gaf_genotypes || gaf_traversals) {
-        // this will override the caller to write traversals as GAF instead of VCF
+    if (gaf_output) {
         alignment_emitter = get_alignment_emitter("-", "GAF", {}, get_thread_count(), graph);
     }
 
@@ -471,28 +472,30 @@ int main_call(int argc, char** argv) {
                                                  *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                  *snarl_manager,
                                                  sample_name, *traversal_finder, ref_paths, ref_path_offsets,
-                                                 alignment_emitter.get());
+                                                 alignment_emitter.get(),
+                                                 traversals_only,
+                                                 gaf_output);
         graph_caller = unique_ptr<GraphCaller>(flow_caller);
     }
 
     // Call the graph
-    if (alignment_emitter.get() == nullptr) {
+    if (!traversals_only) {
 
         // Call each snarl
+        // (todo: try chains in normal mode)
         graph_caller->call_top_level_snarls(ploidy);
-        
+    } else {
+        // Attempt to call chains instead of snarls so that the output traversals are longer
+        // Todo: this could probably help in some cases when making VCFs too
+        graph_caller->call_top_level_chains(*graph, ploidy, max_chain_edges,  max_chain_trivial_travs);
+    }
+
+    if (!gaf_output) {
         // Output VCF
         VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         assert(vcf_caller != nullptr);
         cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
         vcf_caller->write_variants(cout);
-    } else {
-
-        // Attempt to call chains instead of snarls so that the output traversals are longer
-        // Todo: this could probably help in some cases when making VCFs too
-        graph_caller->call_top_level_chains(*graph, ploidy, max_chain_edges, max_chain_trivial);
-
-        // Note: the traversals get streamed to stdout in the above
     }
     
     return 0;
