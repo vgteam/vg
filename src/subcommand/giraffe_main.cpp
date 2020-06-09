@@ -373,7 +373,7 @@ int main_giraffe(int argc, char** argv) {
     // How many mappings per read can we emit?
     Range<size_t> max_multimaps = 1;
     // How many clusters should we extend?
-    Range<size_t> max_extensions = 1000;
+    Range<size_t> max_extensions = 800;
     // How many extended clusters should we align, max?
     Range<size_t> max_alignments = 8;
     //Throw away cluster with scores that are this amount below the best
