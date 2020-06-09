@@ -895,19 +895,20 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     aln_pair.first.set_quality(qual_and_mask_pair.first.first);
     aln_pair.second.set_quality(qual_and_mask_pair.second.first);
     
+    int64_t fragment_length = -1;
+    while (fragment_length <= 0) {
+        fragment_length = (int64_t) round(fragment_sampler(prng));
+    }
+    
     // Sample our path (if dealing with source_paths)
     size_t source_path_idx = sample_path();
     string source_path;
     if (source_path_idx != numeric_limits<size_t>::max()) {
         source_path = source_paths[source_path_idx];
 #ifdef debug_ngs_sim
-        cerr << "sampling from path " << source_path << endl;
+        cerr << "sampling from path " << source_path << " with length " << graph.get_path_length(graph.get_path_handle(source_path)) << endl;
 #endif
-    }
-    
-    int64_t fragment_length = -1;
-    while (fragment_length <= 0) {
-        fragment_length = (int64_t) round(fragment_sampler(prng));
+        fragment_length = min<int64_t>(fragment_length, graph.get_path_length(graph.get_path_handle(source_path)));
     }
     
     if (fragment_length < transition_distrs_1.size()) {
@@ -918,16 +919,16 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         qual_and_mask_pair.second.second.resize(fragment_length);
     }
     
+#ifdef debug_ngs_sim
+    cerr << "sampled fragment length " << fragment_length << endl;
+#endif
+    
     // reverse the quality string so that it acts like it's reading from the opposite end
     // when we walk forward from the beginning of the first read
     std::reverse(aln_pair.second.mutable_quality()->begin(),
                  aln_pair.second.mutable_quality()->end());
     
     while (!aln_pair.first.has_path() || !aln_pair.second.has_path()) {
-        
-#ifdef debug_ngs_sim
-        cerr << "sampled fragment length " << fragment_length << endl;
-#endif
         // This is our offset along the source path, if in use
         size_t offset;
         // And our direction to go along the source path, if in use
@@ -960,6 +961,9 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         
         // walk out the unsequenced part of the fragment in the graph
         int64_t remaining_length = fragment_length - 2 * transition_distrs_1.size();
+#ifdef debug_ngs_sim
+        cerr << "walking " << remaining_length << " to start of next read in pair" << endl;
+#endif
         if (remaining_length >= 0) {
             // we need to move forward from the end of the first read
             if (advance_by_distance(offset, is_reverse, pos, remaining_length, source_path)) {
@@ -980,7 +984,12 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         // guard against running off the end of nodes
         // XXX this should not be happening
         // it seems to occur in some graphs due to the behavior of advance_by_distance
-        if (vg::offset(pos) >= graph.get_length(graph.get_handle(id(pos)))) continue;
+        if (vg::offset(pos) >= graph.get_length(graph.get_handle(id(pos)))) {
+#ifdef debug_ngs_sim
+            cerr << "rejecting sample because of invalid walked location" << endl;
+#endif
+            continue;
+        }
 
         // align the second end starting at the walked position
         sample_read_internal(aln_pair.second, offset, is_reverse, pos, source_path); 
