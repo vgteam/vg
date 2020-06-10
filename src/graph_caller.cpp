@@ -1066,7 +1066,13 @@ FlowCaller::~FlowCaller() {
 
 }
 
-bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
+bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy) {
+
+    // todo: In order to experiment with merging consecutive snarls to make longer traversals,
+    // I am experimenting with sending "fake" snarls through this code.  So make a local
+    // copy to work on to do things like flip -- calling any snarl_manager code that
+    // wants a pointer will crash. 
+    Snarl snarl = managed_snarl;
 
     if (snarl.start().node_id() == snarl.end().node_id() ||
         !graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
@@ -1133,11 +1139,9 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
 
     // find the reference traversal and coordinates using the path position graph interface
     tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
-    bool flipped = false;
     if (get<2>(ref_interval) == true) {
         // calling code assumes snarl forward on reference
-        snarl_manager.flip(&snarl);
-        flipped = true;
+        flip_snarl(snarl);
         ref_interval = get_ref_interval(graph, snarl, ref_path_name);
     }
 
@@ -1222,12 +1226,7 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
 
         ret_val = trav_genotype.size() == ploidy;
     }
-    
-    if (flipped) {
-        // leave our snarl how we found it
-        snarl_manager.flip(&snarl);
-    }
-    
+        
     return ret_val;
 }
 
