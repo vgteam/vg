@@ -160,27 +160,6 @@ public:
         } 
     }
 
-   /**
-    * Given an aligned read, extract a subgraph of the graph within a distance range
-    * based on the fragment length distribution and attempt to align the unaligned
-    * read to it.
-    * Rescue_forward is true if the aligned read is the first and false otherwise.
-    * Assumes that both reads are facing the same direction.
-    * TODO: This should be const, but some of the function calls are not.
-    */
-   void attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
-
-    /**
-     * When we use dozeu for rescue, the reported alignment score is incorrect.
-     * 1) Dozeu only gives the full-length bonus once.
-     * 2) There is no penalty for a softclip at the edge of the subgraph.
-     * This function calculates the score correctly. If the score is <= 0,
-     * we realign the read using GSSW.
-     * TODO: This should be unnecessary.
-     */
-    void fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,
-                         const std::vector<handle_t>& topological_order) const;
-
     /**
      * Get the distance between a pair of read alignments
      */
@@ -273,6 +252,42 @@ protected:
     * Return the scores in the same order as the extensions.
     */
    std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
+
+//-----------------------------------------------------------------------------
+
+    // Rescue.
+
+    /**
+     * Given an aligned read, extract a subgraph of the graph within a distance range
+     * based on the fragment length distribution and attempt to align the unaligned
+     * read to it.
+     * Rescue_forward is true if the aligned read is the first and false otherwise.
+     * Assumes that both reads are facing the same direction.
+     * TODO: This should be const, but some of the function calls are not.
+     */
+    void attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, const std::vector<Minimizer>& minimizers, bool rescue_forward);
+
+    /**
+     * Return the all non-redundant seeds in the subgraph, including those from
+     * minimizers not used for mapping.
+     */
+    GaplessExtender::cluster_type seeds_in_subgraph(const std::vector<Minimizer>& minimizers, const std::unordered_set<id_t>& subgraph) const;
+
+    /**
+     * Rescue with GSSW or dozeu if the subgraph contains cycles.
+     */
+    void rescue_with_cycles(Alignment& rescued_alignment, const gbwtgraph::CachedGBWTGraph& graph, const std::unordered_set<id_t>& rescue_nodes) const;
+
+    /**
+     * When we use dozeu for rescue, the reported alignment score is incorrect.
+     * 1) Dozeu only gives the full-length bonus once.
+     * 2) There is no penalty for a softclip at the edge of the subgraph.
+     * This function calculates the score correctly. If the score is <= 0,
+     * we realign the read using GSSW.
+     * TODO: This should be unnecessary.
+     */
+    void fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,
+                         const std::vector<handle_t>& topological_order) const;
 
 //-----------------------------------------------------------------------------
 

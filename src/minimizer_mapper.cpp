@@ -1417,7 +1417,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     return true;
                 }
 
-                attempt_rescue(mapped_aln, rescued_aln, found_first);
+                attempt_rescue(mapped_aln, rescued_aln, minimizers_by_read[(found_first ? 1 : 0)], found_first);
 
                 int64_t fragment_dist = found_first ? distance_between(mapped_aln, rescued_aln) 
                                                       : distance_between(rescued_aln, mapped_aln);
@@ -2124,7 +2124,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 
 //-----------------------------------------------------------------------------
 
-void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward ) {
+void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, const std::vector<Minimizer>& minimizers, bool rescue_forward ) {
 
     if (this->rescue_algorithm == rescue_none) { return; }
 
@@ -2165,51 +2165,99 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
 
         // Get the corresponding alignment to the original graph.
         this->extender.transform_alignment(rescued_alignment, haplotype_paths);
-    } else {
-        // Check if the subgraph is acyclic. Rescue is much faster in acyclic subgraphs.
-        std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
-        if (!topological_order.empty()) {
-            if (this->rescue_algorithm == rescue_dozeu) {
-                get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
-                                                   std::vector<MaximalExactMatch>(), false);
-                this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
-            } else {
-                get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
+    } else if (this->rescue_algorithm == rescue_dozeu) {
+        bool need_dp = true;
+        GaplessExtender::cluster_type seeds = this->seeds_in_subgraph(minimizers, rescue_nodes);
+        if (!seeds.empty()) {
+            std::vector<GaplessExtension> extensions = this->extender.extend(seeds, rescued_alignment.sequence(), &cached_graph);
+            size_t best = extensions.size();
+            for (size_t i = 0; i < extensions.size(); i++) {
+                if (extensions[i].full() && (best >= extensions.size() || extensions[i].score > extensions[best].score)) {
+                    best = i;
+                }
             }
-        } else {
-            // Build a subgraph overlay.
-            SubHandleGraph sub_graph(&cached_graph);
-            for (id_t id : rescue_nodes)  {
-                sub_graph.add_handle(cached_graph.get_handle(id));
-            }
-
-            // Create an overlay where each strand is a separate node.
-            StrandSplitGraph split_graph(&sub_graph);
-
-            // Dagify the subgraph.
-            bdsg::HashGraph dagified;
-            std::unordered_map<id_t, id_t> dagify_trans =
-                algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
-
-            // Align to the subgraph.
-            if (this->rescue_algorithm == rescue_dozeu) {
-                get_regular_aligner()->align_xdrop(rescued_alignment, dagified,
-                                                   std::vector<MaximalExactMatch>(), false);
-                this->fix_dozeu_score(rescued_alignment, dagified, topological_order);
-            } else {
-                get_regular_aligner()->align(rescued_alignment, dagified, true);
-            }
-
-            // Map the alignment back to the original graph.
-            Path& path = *(rescued_alignment.mutable_path());
-            for (size_t i = 0; i < path.mapping_size(); i++) {
-                Position& pos = *(path.mutable_mapping(i)->mutable_position());
-                id_t id = dagify_trans[pos.node_id()];
-                handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(id));
-                pos.set_node_id(sub_graph.get_id(handle));
-                pos.set_is_reverse(sub_graph.get_is_reverse(handle));
+            // If the best extension is a full-length alignment, use it.
+            if (best < extensions.size() && extensions[best].full()) {
+                need_dp = false;
+                *(rescued_alignment.mutable_path()) = extensions[best].to_path(cached_graph, rescued_alignment.sequence());
+                rescued_alignment.set_score(extensions[best].score);
+                double identity = 0.0;
+                if (!rescued_alignment.sequence().empty()) {
+                    size_t len = rescued_alignment.sequence().length();
+                    identity = (len - extensions[best].mismatches()) / static_cast<double>(len);
+                }
+                rescued_alignment.set_identity(identity);
             }
         }
+        // Otherwise use the best extension as a seed for DP.
+        if (need_dp) {
+            // FIXME actually use the extension as a seed
+            std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
+            if (!topological_order.empty()) {
+                get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
+                                                    std::vector<MaximalExactMatch>(), false);
+                this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
+            } else {
+                this->rescue_with_cycles(rescued_alignment, cached_graph, rescue_nodes);
+            }
+        }
+    }
+    else if (this->rescue_algorithm == rescue_gssw) {
+        std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
+        if (!topological_order.empty()) {
+            get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
+        } else {
+            this->rescue_with_cycles(rescued_alignment, cached_graph, rescue_nodes);
+        }
+    }
+}
+
+GaplessExtender::cluster_type MinimizerMapper::seeds_in_subgraph(const std::vector<Minimizer>& minimizers,
+                                                                 const std::unordered_set<id_t>& subgraph) const {
+    std::vector<id_t> sorted_ids(subgraph.begin(), subgraph.end());
+    std::sort(sorted_ids.begin(), sorted_ids.end());
+    GaplessExtender::cluster_type result;
+    for (const Minimizer& minimizer : minimizers) {
+        gbwtgraph::hits_in_subgraph(minimizer.hits, minimizer.occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
+            result.insert(GaplessExtender::to_seed(pos, minimizer.value.offset));
+        });
+    }
+    return result;
+}
+
+void MinimizerMapper::rescue_with_cycles(Alignment& rescued_alignment,
+                                         const gbwtgraph::CachedGBWTGraph& graph,
+                                         const std::unordered_set<id_t>& rescue_nodes) const {
+    // Build a subgraph overlay.
+    SubHandleGraph sub_graph(&graph);
+    for (id_t id : rescue_nodes)  {
+        sub_graph.add_handle(graph.get_handle(id));
+    }
+
+    // Create an overlay where each strand is a separate node.
+    StrandSplitGraph split_graph(&sub_graph);
+
+    // Dagify the subgraph.
+    bdsg::HashGraph dagified;
+    std::unordered_map<id_t, id_t> dagify_trans =
+        algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
+
+    // Align to the subgraph.
+    if (this->rescue_algorithm == rescue_dozeu) {
+        get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false);
+        this->fix_dozeu_score(rescued_alignment, dagified, std::vector<handle_t>());
+    } else if (this->rescue_algorithm == rescue_gssw) {
+        get_regular_aligner()->align(rescued_alignment, dagified, true);
+    }
+
+    // Map the alignment back to the original graph.
+    Path& path = *(rescued_alignment.mutable_path());
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        Position& pos = *(path.mutable_mapping(i)->mutable_position());
+        id_t id = dagify_trans[pos.node_id()];
+        handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(id));
+        pos.set_node_id(sub_graph.get_id(handle));
+        pos.set_is_reverse(sub_graph.get_is_reverse(handle));
     }
 }
 

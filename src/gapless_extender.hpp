@@ -155,7 +155,7 @@ public:
      * of the seeds, allowing any number of mismatches in the seed node and
      * max_mismatches / 2 mismatches on each flank. Flanks may have more mismatches
      * if it does not bring the total beyond max_mismatches. Then call trim() if
-     * trim_extensions i set.
+     * trim_extensions is set.
      * Use the provided CachedGBWTGraph or allocate a new one.
      * The extensions are sorted by their coordinates in the sequence.
      */
