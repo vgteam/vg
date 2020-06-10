@@ -15,6 +15,7 @@ var searchData=
   ['alg2name',['alg2name',['../classvg_1_1Genotyper.html#adc250029dd72b833de1042e972b2a8d7',1,'vg::Genotyper']]],
   ['aligner',['aligner',['../classvg_1_1GaplessExtender.html#ac041ad7cec145f55b68442ac58aeaeed',1,'vg::GaplessExtender::aligner()'],['../classvg_1_1VariantAdder.html#a13027b4029d1afe257878e807b56e24f',1,'vg::VariantAdder::aligner()']]],
   ['alignment',['alignment',['../classvg_1_1BandedGlobalAligner.html#ab0cb70d08f759c4f661206b318a96bd7',1,'vg::BandedGlobalAligner::alignment()'],['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a389f62ad0c08ec025e72334c8840da9f',1,'vg::BandedGlobalAligner::BAMatrix::alignment()'],['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#aafbeded7714f362e7a4b7802fa6f77a1',1,'vg::BandedGlobalAligner::BABuilder::alignment()']]],
+  ['alignment_5femitter',['alignment_emitter',['../classvg_1_1FlowCaller.html#a0b8865c480506d6176f88f4d4e14f84c',1,'vg::FlowCaller']]],
   ['alignments',['alignments',['../classvg_1_1MSAConverter.html#a47c97fb19598ec7786d2497e4fb86327',1,'vg::MSAConverter']]],
   ['alignments_5fby_5fedge',['alignments_by_edge',['../structvg_1_1AugmentedGraph.html#ab78aba710aba7ff86e2af85b359fa162',1,'vg::AugmentedGraph']]],
   ['alignments_5fby_5fnode',['alignments_by_node',['../structvg_1_1AugmentedGraph.html#a9fed1d73cde7c2a3b0b616ca0b291d37',1,'vg::AugmentedGraph']]],

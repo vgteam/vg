@@ -33,6 +33,7 @@ var searchData=
   ['_7eflowcaller',['~FlowCaller',['../classvg_1_1FlowCaller.html#a6fc652c91844cba402eb9e143883eefa',1,'vg::FlowCaller']]],
   ['_7efragmentlengthdistribution',['~FragmentLengthDistribution',['../classvg_1_1FragmentLengthDistribution.html#a5ca105be9aca035e59985092d1a6aa79',1,'vg::FragmentLengthDistribution']]],
   ['_7egafalignmentemitter',['~GafAlignmentEmitter',['../classvg_1_1GafAlignmentEmitter.html#a1723168590944313adb85b7ed07ebfae',1,'vg::GafAlignmentEmitter']]],
+  ['_7egafoutputcaller',['~GAFOutputCaller',['../classvg_1_1GAFOutputCaller.html#af275fa29f22a94c9c4180280675a160e',1,'vg::GAFOutputCaller']]],
   ['_7egbwttraversalfinder',['~GBWTTraversalFinder',['../classvg_1_1GBWTTraversalFinder.html#aaf4b52f7a7807922daa514df94235a3a',1,'vg::GBWTTraversalFinder']]],
   ['_7egenomestatecommand',['~GenomeStateCommand',['../structvg_1_1GenomeStateCommand.html#a951ebc208c74b7ec323de6f517d02527',1,'vg::GenomeStateCommand']]],
   ['_7egenotypelikelihoodcalculator',['~GenotypeLikelihoodCalculator',['../classvg_1_1GenotypeLikelihoodCalculator.html#a295ae8723775d0481023badde359d44c',1,'vg::GenotypeLikelihoodCalculator']]],

@@ -200,6 +200,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GafAlignmentEmitter.html">GafAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GAFOutputCaller.html">GAFOutputCaller</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a></td></tr>
@@ -1752,6 +1754,9 @@ Functions</h2></td></tr>
 <tr class="separator:a28be7f9898d5ad6e075e25b81df512e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a128ffce6142542678bbbdc6e2e0b40cd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Mapping.html">Mapping</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a128ffce6142542678bbbdc6e2e0b40cd">to_mapping</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;vg)</td></tr>
 <tr class="separator:a128ffce6142542678bbbdc6e2e0b40cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a10bcb19d45af37e8a58129b939b86f21"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a10bcb19d45af37e8a58129b939b86f21">to_alignment</a> (const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;trav, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph)</td></tr>
+<tr class="memdesc:a10bcb19d45af37e8a58129b939b86f21"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a snarl traversal into an alignment.  <a href="#a10bcb19d45af37e8a58129b939b86f21">More...</a><br /></td></tr>
+<tr class="separator:a10bcb19d45af37e8a58129b939b86f21"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a82a83d7c54d733abee06d328f91ef5ee"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a82a83d7c54d733abee06d328f91ef5ee">transfer_boundary_info</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;from, <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;to)</td></tr>
 <tr class="memdesc:a82a83d7c54d733abee06d328f91ef5ee"><td class="mdescLeft">&#160;</td><td class="mdescRight">Copies the boundary Visits from one <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes. ">Snarl</a> into another.  <a href="#a82a83d7c54d733abee06d328f91ef5ee">More...</a><br /></td></tr>
 <tr class="separator:a82a83d7c54d733abee06d328f91ef5ee"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -13077,38 +13082,8 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
-<a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[5/13]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
-          <td>(</td>
-          <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1mapping__t.html">mapping_t</a>&#160;</td>
-          <td class="paramname"><em>mapping</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
-
-</div>
-</div>
 <a id="a9b4bea48392e7bb9e745b3b04e5bf223"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[6/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[5/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13142,6 +13117,36 @@ template&lt;typename Scalar &gt; </div>
 </div><div class="memdoc">
 
 <p>Print a <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> to a stream. </p>
+
+</div>
+</div>
+<a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[6/13]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
+          <td>(</td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1mapping__t.html">mapping_t</a>&#160;</td>
+          <td class="paramname"><em>mapping</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
 
 </div>
 </div>
@@ -17754,6 +17759,44 @@ template&lt;typename Collection &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a10bcb19d45af37e8a58129b939b86f21"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a10bcb19d45af37e8a58129b939b86f21">&#9670;&nbsp;</a></span>to_alignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> vg::to_alignment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;&#160;</td>
+          <td class="paramname"><em>trav</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Convert a snarl traversal into an alignment. </p>
 
 </div>
 </div>

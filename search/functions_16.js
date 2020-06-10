@@ -14,7 +14,7 @@ var searchData=
   ['vcf_5fheader',['vcf_header',['../classvg_1_1VCFOutputCaller.html#aeb9a75eed0ba2a369439abddf1ac3f65',1,'vg::VCFOutputCaller::vcf_header()'],['../classvg_1_1VCFGenotyper.html#a8dae0df9c45f88aadca9fcaa8d0e7214',1,'vg::VCFGenotyper::vcf_header()'],['../classvg_1_1LegacyCaller.html#a4536625fdb753727a7d8321cadc6946b',1,'vg::LegacyCaller::vcf_header()'],['../classvg_1_1FlowCaller.html#a2c4e7365e43593313a30d7d4ea03c4a9',1,'vg::FlowCaller::vcf_header()'],['../classvg_1_1MCMCCaller.html#af67e8bf51b99831bd5b9f67c2581d084',1,'vg::MCMCCaller::vcf_header()']]],
   ['vcf_5fto_5ffasta',['vcf_to_fasta',['../classvg_1_1NameMapper.html#a6e8c36e6207dbc905170bde6a5c396b3',1,'vg::NameMapper']]],
   ['vcfbuffer',['VcfBuffer',['../classvg_1_1VcfBuffer.html#a402d5cadd95f5725876b22b8c9bd830b',1,'vg::VcfBuffer::VcfBuffer(vcflib::VariantCallFile *file=nullptr)'],['../classvg_1_1VcfBuffer.html#ad388f47df62ebab69ab9188efd37be1e',1,'vg::VcfBuffer::VcfBuffer(const VcfBuffer &amp;other)=delete']]],
-  ['vcfgenotyper',['VCFGenotyper',['../classvg_1_1VCFGenotyper.html#a477075df158ff07f7ff903f5437d9cd0',1,'vg::VCFGenotyper']]],
+  ['vcfgenotyper',['VCFGenotyper',['../classvg_1_1VCFGenotyper.html#a706f7a390e98050f5253fcdadbdf6051',1,'vg::VCFGenotyper']]],
   ['vcfoutputcaller',['VCFOutputCaller',['../classvg_1_1VCFOutputCaller.html#ad758f9180a51784374ef044b54883f87',1,'vg::VCFOutputCaller']]],
   ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html#aaa8aa0b5cbe8a0e2ff664b6b385339da',1,'vg::VCFTraversalFinder']]],
   ['vectorizer',['Vectorizer',['../classVectorizer.html#ac6f2b56806bc2e8444492cb3d32f42be',1,'Vectorizer']]],

@@ -11,6 +11,7 @@ var searchData=
   ['g_5fnode_5flength_5foffset',['G_NODE_LENGTH_OFFSET',['../classxg_1_1XG.html#a5d30d50553d693fb6eb41d8b2b822c6b',1,'xg::XG']]],
   ['g_5fnode_5fright_5fcount_5foffset',['G_NODE_RIGHT_COUNT_OFFSET',['../classxg_1_1XG.html#a41b76f5c47b8a575adf496cf5fd348d3',1,'xg::XG']]],
   ['g_5fnode_5fseq_5fstart_5foffset',['G_NODE_SEQ_START_OFFSET',['../classxg_1_1XG.html#a0cd1a0386077f202340521b1a9ef5071',1,'xg::XG']]],
+  ['gaf_5foutput',['gaf_output',['../classvg_1_1VCFGenotyper.html#ae00bbce9945411dbab0d14e7cdb4b8c2',1,'vg::VCFGenotyper::gaf_output()'],['../classvg_1_1FlowCaller.html#a93037892a9148b952b186852f77f0fa8',1,'vg::FlowCaller::gaf_output()']]],
   ['gap_5fextension',['gap_extension',['../classvg_1_1GSSWAligner.html#afd2379af50d751eee892a10529d64ffb',1,'vg::GSSWAligner::gap_extension()'],['../classvg_1_1SSWAligner.html#a2248e3e561aab8d3b1036d51850b3c2f',1,'vg::SSWAligner::gap_extension()']]],
   ['gap_5fopen',['gap_open',['../classvg_1_1GSSWAligner.html#aa5c0a63b73ad2ff8ec8f05062c768c22',1,'vg::GSSWAligner::gap_open()'],['../classvg_1_1SSWAligner.html#a15398a23880418599e81370d485fec0f',1,'vg::SSWAligner::gap_open()']]],
   ['gbwt',['gbwt',['../classvg_1_1IndexManager.html#a66367dc3e09448c05f3439f90c74eab4',1,'vg::IndexManager::gbwt()'],['../classvg_1_1GBWTTraversalFinder.html#a7827a0ee00890a2d8cf1716017e39db7',1,'vg::GBWTTraversalFinder::gbwt()']]],

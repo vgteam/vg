@@ -100,6 +100,7 @@ var searchData=
   ['alignment',['Alignment',['../structvg_1_1Alignment.html',1,'vg::Alignment'],['../classvg_1_1BandedGlobalAligner.html#ab0cb70d08f759c4f661206b318a96bd7',1,'vg::BandedGlobalAligner::alignment()'],['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a389f62ad0c08ec025e72334c8840da9f',1,'vg::BandedGlobalAligner::BAMatrix::alignment()'],['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#aafbeded7714f362e7a4b7802fa6f77a1',1,'vg::BandedGlobalAligner::BABuilder::alignment()'],['../classvg_1_1Sampler.html#af69ed2ac1782e7991b0a22654846506f',1,'vg::Sampler::alignment()']]],
   ['alignment_2ecpp',['alignment.cpp',['../alignment_8cpp.html',1,'']]],
   ['alignment_2ehpp',['alignment.hpp',['../alignment_8hpp.html',1,'']]],
+  ['alignment_5femitter',['alignment_emitter',['../classvg_1_1FlowCaller.html#a0b8865c480506d6176f88f4d4e14f84c',1,'vg::FlowCaller']]],
   ['alignment_5femitter_2ecpp',['alignment_emitter.cpp',['../alignment__emitter_8cpp.html',1,'']]],
   ['alignment_5femitter_2ehpp',['alignment_emitter.hpp',['../alignment__emitter_8hpp.html',1,'']]],
   ['alignment_5fend',['alignment_end',['../namespacevg.html#aa63fccb24f075243da0ba145eb8d6aca',1,'vg']]],

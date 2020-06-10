@@ -36,6 +36,7 @@ var searchData=
   ['edit_5ftmpfile_5fnames',['edit_tmpfile_names',['../classvg_1_1Packer.html#ad4ccd5a38811117a363b9f69f7c45832',1,'vg::Packer']]],
   ['embedded_5falignments',['embedded_alignments',['../structvg_1_1AugmentedGraph.html#acde3270a37d6e01cfbf34ac3853e50b9',1,'vg::AugmentedGraph']]],
   ['emit_5fto',['emit_to',['../namespacevg_1_1io.html#a4547db1ae9c6b6b3cf0ba9f4aed17e14',1,'vg::io']]],
+  ['emitter',['emitter',['../classvg_1_1GAFOutputCaller.html#a57c3b9e5bbe695c83c523e59865dee86',1,'vg::GAFOutputCaller']]],
   ['empty_5fedge_5fends',['empty_edge_ends',['../classvg_1_1VG.html#a7d18d29606bbdb7875f7d8a8042dd29a',1,'vg::VG']]],
   ['empty_5ffull_5fpaths',['empty_full_paths',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a23e1eb082e5f26d87c43dfa1b7ec133d',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['empty_5fids',['empty_ids',['../classvg_1_1VG.html#a071f0034788bdcd778d5d0c76ba4f6b6',1,'vg::VG']]],

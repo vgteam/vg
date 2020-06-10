@@ -1,6 +1,7 @@
 var searchData=
 [
   ['gafalignmentemitter',['GafAlignmentEmitter',['../classvg_1_1GafAlignmentEmitter.html',1,'vg']]],
+  ['gafoutputcaller',['GAFOutputCaller',['../classvg_1_1GAFOutputCaller.html',1,'vg']]],
   ['gafrecord',['GafRecord',['../structgafkluge_1_1GafRecord.html',1,'gafkluge']]],
   ['gafstep',['GafStep',['../structgafkluge_1_1GafStep.html',1,'gafkluge']]],
   ['gaplessextender',['GaplessExtender',['../classvg_1_1GaplessExtender.html',1,'vg']]],

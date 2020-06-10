@@ -180,6 +180,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a4b1681aedec889820afa7ba06ca99523"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a4b1681aedec889820afa7ba06ca99523">for_each_snarl_parallel</a> (const function&lt; void(const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *)&gt; &amp;lambda) const</td></tr>
 <tr class="memdesc:a4b1681aedec889820afa7ba06ca99523"><td class="mdescLeft">&#160;</td><td class="mdescRight">Execute a function on all sites in parallel.  <a href="#a4b1681aedec889820afa7ba06ca99523">More...</a><br /></td></tr>
 <tr class="separator:a4b1681aedec889820afa7ba06ca99523"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4bce7b961c24e5a18c834c6a78df8d2e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a4bce7b961c24e5a18c834c6a78df8d2e">for_each_top_level_chain</a> (const function&lt; void(const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> *)&gt; &amp;lambda) const</td></tr>
+<tr class="memdesc:a4bce7b961c24e5a18c834c6a78df8d2e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Execute a function on all top level chains.  <a href="#a4bce7b961c24e5a18c834c6a78df8d2e">More...</a><br /></td></tr>
+<tr class="separator:a4bce7b961c24e5a18c834c6a78df8d2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aba6a74d03b6064e29b7ede95ddb2195d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#aba6a74d03b6064e29b7ede95ddb2195d">for_each_top_level_chain_parallel</a> (const function&lt; void(const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> *)&gt; &amp;lambda) const</td></tr>
+<tr class="memdesc:aba6a74d03b6064e29b7ede95ddb2195d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Execute a function on all top level chains in parallel.  <a href="#aba6a74d03b6064e29b7ede95ddb2195d">More...</a><br /></td></tr>
+<tr class="separator:aba6a74d03b6064e29b7ede95ddb2195d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a83a481b702deda84aadf24171a860769"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a83a481b702deda84aadf24171a860769">for_each_chain</a> (const function&lt; void(const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> *)&gt; &amp;lambda) const</td></tr>
 <tr class="memdesc:a83a481b702deda84aadf24171a860769"><td class="mdescLeft">&#160;</td><td class="mdescRight">Ececute a function on all chains.  <a href="#a83a481b702deda84aadf24171a860769">More...</a><br /></td></tr>
 <tr class="separator:a83a481b702deda84aadf24171a860769"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -832,6 +838,46 @@ template&lt;typename SnarlIterator &gt; </div>
 </div><div class="memdoc">
 
 <p>Iterate over snarls as they are stored in deque&lt;SnarlRecords&gt; </p>
+
+</div>
+</div>
+<a id="a4bce7b961c24e5a18c834c6a78df8d2e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4bce7b961c24e5a18c834c6a78df8d2e">&#9670;&nbsp;</a></span>for_each_top_level_chain()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::SnarlManager::for_each_top_level_chain </td>
+          <td>(</td>
+          <td class="paramtype">const function&lt; void(const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> *)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>lambda</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Execute a function on all top level chains. </p>
+
+</div>
+</div>
+<a id="aba6a74d03b6064e29b7ede95ddb2195d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aba6a74d03b6064e29b7ede95ddb2195d">&#9670;&nbsp;</a></span>for_each_top_level_chain_parallel()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::SnarlManager::for_each_top_level_chain_parallel </td>
+          <td>(</td>
+          <td class="paramtype">const function&lt; void(const <a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> *)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>lambda</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Execute a function on all top level chains in parallel. </p>
 
 </div>
 </div>

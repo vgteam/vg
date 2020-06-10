@@ -34,7 +34,7 @@ var searchData=
   ['out',['out',['../classvg_1_1MultipathAlignmentEmitter.html#a7ea0cf17aa42f10f6d2b417d541220d5',1,'vg::MultipathAlignmentEmitter']]],
   ['out_5ffile',['out_file',['../classvg_1_1TSVAlignmentEmitter.html#afdcac9128ebbfb1edf128b660a6ad854',1,'vg::TSVAlignmentEmitter::out_file()'],['../classvg_1_1HTSAlignmentEmitter.html#af43debc963568d3ebf8008744dfc1f7b',1,'vg::HTSAlignmentEmitter::out_file()'],['../classvg_1_1VGAlignmentEmitter.html#a4f1650aff05b04dce740db0956240103',1,'vg::VGAlignmentEmitter::out_file()'],['../classvg_1_1GafAlignmentEmitter.html#a3678e87b0aabd6a9142fb3e124fc0ecb',1,'vg::GafAlignmentEmitter::out_file()']]],
   ['out_5fmutex',['out_mutex',['../classvg_1_1io_1_1ProtobufEmitter.html#acb50db8c0f33135ae2e246ae26efb9d0',1,'vg::io::ProtobufEmitter']]],
-  ['out_5fstream',['out_stream',['../classvg_1_1GraphCaller.html#a1bb98847383ea9bb20e3e963a3667fa6',1,'vg::GraphCaller::out_stream()'],['../classvg_1_1MCMCCaller.html#a240022048423d2922858aaf9cfae0fc0',1,'vg::MCMCCaller::out_stream()']]],
+  ['out_5fstream',['out_stream',['../classvg_1_1MCMCCaller.html#a240022048423d2922858aaf9cfae0fc0',1,'vg::MCMCCaller']]],
   ['out_5fto',['out_to',['../classvg_1_1ExtraNodeGraph.html#a0f31e37f1e4398d6f8e057c1c8c92495',1,'vg::ExtraNodeGraph']]],
   ['outfile',['outfile',['../classvg_1_1Viz.html#a78a53d3a62a503ff6c29e93cb9a12a88',1,'vg::Viz']]],
   ['output',['output',['../structvg_1_1io_1_1hFILE__cppstream.html#a1b13eb012084d4b68b0f30a1cddebb41',1,'vg::io::hFILE_cppstream']]],
