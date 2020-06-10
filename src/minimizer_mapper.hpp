@@ -110,7 +110,7 @@ public:
 
     //If the read coverage of a cluster is less than the best coverage of any cluster
     //by more than this much, don't extend it
-    double cluster_coverage_threshold = 0.4;
+    double cluster_coverage_threshold = 0.3;
 
     //If an extension set's score is smaller than the best 
     //extension's score by more than this much, don't align it
