@@ -451,10 +451,10 @@ void GAFOutputCaller::emit_gaf_traversals(const HandleGraph& graph, const vector
     emitter->emit_singles(std::move(aln_batch)); 
 }
 
-void GAFOutputCaller::emit_gaf_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
-                                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
-                                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                       const string& ref_path_name, int ref_offset) const {
+void GAFOutputCaller::emit_gaf_variant(const HandleGraph& graph, 
+                                       const Snarl& snarl,
+                                       const vector<SnarlTraversal>& traversals,
+                                       const vector<int>& genotype) {
     assert(emitter != nullptr);
 
     // pretty bare bones for now, just output the genotype as a pair of traversals
@@ -464,7 +464,7 @@ void GAFOutputCaller::emit_gaf_variant(const PathPositionHandleGraph& graph, Sna
     vector<Alignment> aln_gt;
     aln_gt.reserve(genotype.size());
     for (int i = 0; i < genotype.size(); ++i) {
-        aln_gt.push_back(to_alignment(called_traversals[genotype[i]], graph));
+        aln_gt.push_back(to_alignment(traversals[genotype[i]], graph));
         aln_gt.back().set_name(variant_id + "_" + std::to_string(i));
     }
     emitter->emit_singles(std::move(aln_gt));
@@ -477,12 +477,18 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            const string& sample_name,
                            const vector<string>& ref_paths,
                            FastaReference* ref_fasta,
-                           FastaReference* ins_fasta) :
+                           FastaReference* ins_fasta,
+                           AlignmentEmitter* aln_emitter,
+                           bool traversals_only,
+                           bool gaf_output) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
+    GAFOutputCaller(aln_emitter),
     graph(graph),
     input_vcf(variant_file),
-    traversal_finder(graph, snarl_manager, variant_file, ref_paths, ref_fasta, ins_fasta, snarl_caller.get_skip_allele_fn()) {
+    traversal_finder(graph, snarl_manager, variant_file, ref_paths, ref_fasta, ins_fasta, snarl_caller.get_skip_allele_fn()),
+    traversals_only(traversals_only),
+    gaf_output(gaf_output) {
 
     scan_contig_lengths();    
 }
@@ -522,6 +528,13 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl, int ploidy) {
             }
         }
 
+        // just print the traversals if requested
+        if (traversals_only) {
+            assert(gaf_output);
+            emit_gaf_traversals(graph, travs);
+            return true;
+        }
+
         // find a path range corresponding to our snarl by way of the VCF variants.
         tuple<string, size_t, size_t> ref_positions = get_ref_positions(variants);
 
@@ -532,6 +545,11 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl, int ploidy) {
                                                                         make_pair(get<1>(ref_positions), get<2>(ref_positions)));
 
         assert(trav_genotype.size() <= 2);
+
+        if (gaf_output) {
+            emit_gaf_variant(graph, snarl, travs, trav_genotype);
+            return true;
+        }
 
         // map our genotype back to the vcf
         for (int i = 0; i < variants.size(); ++i) {
@@ -1199,8 +1217,7 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
             emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
                          ref_offsets[ref_path_name]);
         } else {
-            emit_gaf_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
-                             ref_offsets[ref_path_name]);
+            emit_gaf_variant(graph, snarl, travs, trav_genotype);
         }
 
         ret_val = trav_genotype.size() == ploidy;

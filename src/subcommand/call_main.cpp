@@ -429,7 +429,10 @@ int main_call(int argc, char** argv) {
                                                        *snarl_manager, variant_file,
                                                        sample_name, ref_paths,
                                                        ref_fasta.get(),
-                                                       ins_fasta.get());
+                                                       ins_fasta.get(),
+                                                       alignment_emitter.get(),
+                                                       traversals_only,
+                                                       gaf_output);
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
     } else if (legacy) {
         // de-novo caller (port of the old vg call code, which requires a support based caller)

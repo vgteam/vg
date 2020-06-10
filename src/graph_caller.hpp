@@ -119,10 +119,10 @@ public:
     void emit_gaf_traversals(const HandleGraph& graph, const vector<SnarlTraversal>& travs);
 
     /// print the GAF genotype
-    void emit_gaf_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
-                          const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
-                          const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                          const string& ref_path_name, int ref_offset) const;
+    void emit_gaf_variant(const HandleGraph& graph,
+                          const Snarl& snarl,
+                          const vector<SnarlTraversal>& traversals,
+                          const vector<int>& genotype);
 protected:
     
     AlignmentEmitter* emitter;
@@ -131,16 +131,19 @@ protected:
 /**
  * VCFGenotyper : Genotype variants in a given VCF file
  */
-class VCFGenotyper : public GraphCaller, public VCFOutputCaller {
+class VCFGenotyper : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
 public:
     VCFGenotyper(const PathHandleGraph& graph,
                  SnarlCaller& snarl_caller,
                  SnarlManager& snarl_manager,
                  vcflib::VariantCallFile& variant_file,
                  const string& sample_name,
-                 const vector<string>& ref_paths = {},
-                 FastaReference* ref_fasta = nullptr,
-                 FastaReference* ins_fasta = nullptr);
+                 const vector<string>& ref_paths,
+                 FastaReference* ref_fasta,
+                 FastaReference* ins_fasta,
+                 AlignmentEmitter* aln_emitter,
+                 bool traversals_only,
+                 bool gaf_output);
 
     virtual ~VCFGenotyper();
 
@@ -169,6 +172,11 @@ protected:
     /// back to traversals in the snarl
     VCFTraversalFinder traversal_finder;
 
+    /// toggle whether to genotype or just output the traversals
+    bool traversals_only;
+
+    /// toggle whether to output vcf or gaf
+    bool gaf_output;
 };
 
 
