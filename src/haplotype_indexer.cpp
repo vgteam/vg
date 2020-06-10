@@ -13,6 +13,7 @@
 #include "haplotype_indexer.hpp"
 
 #include "path.hpp"
+#include "alignment.hpp"
 
 using namespace std;
 
@@ -288,7 +289,7 @@ size_t HaplotypeIndexer::parse_vcf(const PathHandleGraph* graph, map<string, Pat
 }
 
 tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads(const PathHandleGraph* graph, map<string, Path>& alt_paths,
-    bool index_paths, const string& vcf_filename, const vector<string>& gam_filenames,
+    bool index_paths, const string& vcf_filename, const vector<string>& aln_filenames, const string& aln_format,
     const function<void(size_t)>& bit_width_ready, const function<void(const gbwt::vector_type&, const gbwt::size_type (&)[4])>& each_thread) {
     
     // GBWT metadata.
@@ -298,15 +299,15 @@ tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads
 
     // Determine node id width.
     size_t id_width;
-    if (gam_filenames.empty()) {
+    if (aln_filenames.empty()) {
         nid_t max_id = graph->max_node_id();
         if (show_progress) {
             cerr << "Maximum node id in graph: " << max_id << endl;
         }
         id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
-    } else { // indexing a GAM
+    } else { // indexing a GAM/GAF
         if (show_progress) {
-            cerr << "Finding maximum node id in GAM..." << endl;
+            cerr << "Finding maximum node id in " << aln_format << "..." << endl;
         }
         nid_t max_id = 0;
         size_t alignments_in_gam = 0;
@@ -317,10 +318,15 @@ tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads
             }
             alignments_in_gam++;
         };
-        for (auto& file_name : gam_filenames) {
-            get_input_file(file_name, [&](istream& in) {
-                vg::io::for_each(in, lambda);
-            });
+        for (auto& file_name : aln_filenames) {
+            if (aln_format == "GAM") {
+                get_input_file(file_name, [&](istream& in) {
+                    vg::io::for_each(in, lambda);
+                 });
+            } else {
+                assert(aln_format == "GAF");
+                gaf_unpaired_for_each(*graph, file_name, lambda);
+            }
         }
         id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
         sample_names.reserve(alignments_in_gam); // We store alignment names as sample names.
@@ -368,10 +374,10 @@ tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads
         true_sample_offset++;
     }
 
-    // Index GAM, using alignment names as sample names.
-    if (!gam_filenames.empty()) {
+    // Index GAM/GAF, using alignment names as sample names.
+    if (!aln_filenames.empty()) {
         if (show_progress) {
-            cerr << "Converting GAM to threads..." << endl;
+            cerr << "Converting " << aln_format << " to threads..." << endl;
         }
         function<void(Alignment&)> lambda = [&](Alignment& aln) {
             gbwt::vector_type buffer;
@@ -383,10 +389,15 @@ tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads
             haplotype_count++;
             true_sample_offset++;
         };
-        for (auto& file_name : gam_filenames) {
-            get_input_file(file_name, [&](istream& in) {
-                vg::io::for_each(in, lambda);
-            });
+        for (auto& file_name : aln_filenames) {
+            if (aln_format == "GAM") {
+                get_input_file(file_name, [&](istream& in) {
+                    vg::io::for_each(in, lambda);
+                });
+            } else {
+                assert(aln_format == "GAF");
+                gaf_unpaired_for_each(*graph, file_name, lambda);
+            }
         }
     }
 
@@ -468,7 +479,7 @@ tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads
 }
 
 unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandleGraph* graph, map<string, Path>& alt_paths,
-    bool index_paths, const string& vcf_filename, const vector<string>& gam_filenames) {
+    bool index_paths, const string& vcf_filename, const vector<string>& aln_filenames, const string& aln_format) {
     
     // GBWT metadata.
     std::vector<std::string> sample_names, contig_names;
@@ -478,7 +489,7 @@ unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandleGraph
     unique_ptr<gbwt::GBWTBuilder> gbwt_builder;
     
     std::tie(sample_names, haplotype_count, contig_names) = this->generate_threads(graph, alt_paths,
-        index_paths, vcf_filename, gam_filenames, [&](size_t id_width) {
+        index_paths, vcf_filename, aln_filenames, aln_format, [&](size_t id_width) {
         
         // Start the GBWT construction.
         if (show_progress) {

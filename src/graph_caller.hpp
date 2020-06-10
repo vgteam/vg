@@ -13,6 +13,7 @@
 #include "traversal_finder.hpp"
 #include "snarl_caller.hpp"
 #include "region.hpp"
+#include "alignment_emitter.hpp"
 
 namespace vg {
 
@@ -24,19 +25,34 @@ using namespace std;
 class GraphCaller {
 public:
     GraphCaller(SnarlCaller& snarl_caller,
-                SnarlManager& snarl_manager,
-                ostream& out_stream = cout);
+                SnarlManager& snarl_manager);
 
     virtual ~GraphCaller();
 
     /// Run call_snarl() on every top-level snarl in the manager.
     /// For any that return false, try the children, etc. (when recurse_on_fail true)
     /// Snarls are processed in parallel
-    virtual void call_top_level_snarls(int ploidy, bool recurse_on_fail = true);
+    virtual void call_top_level_snarls(const HandleGraph& graph,
+                                       int ploidy,
+                                       bool recurse_on_fail = true);
+
+    /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of each piece
+    /// then make a fake snarl for each chain piece and call it.  If a fake snarl fails to call,
+    /// It's child chains will be recursed on (if selected)_
+    virtual void call_top_level_chains(const HandleGraph& graph,
+                                       int ploidy,
+                                       size_t max_edges,
+                                       size_t max_trivial,
+                                       bool recurse_on_fail = true);
 
     /// Call a given snarl, and print the output to out_stream
     virtual bool call_snarl(const Snarl& snarl, int ploidy) = 0;
-   
+
+protected:
+
+    /// Break up a chain into bits that we want to call using size heuristics
+    vector<Chain> break_chain(const HandleGraph& graph, const Chain& chain, size_t max_edges, size_t max_trivial);
+    
 protected:
 
     /// Our Genotyper
@@ -44,9 +60,6 @@ protected:
 
     /// Our snarls
     SnarlManager& snarl_manager;
-
-    /// Where all output written
-    ostream& out_stream;
 };
 
 /**
@@ -94,19 +107,43 @@ protected:
 };
 
 /**
+ * Helper class for outputing snarl traversals as GAF
+ */
+class GAFOutputCaller {
+public:
+    /// The emitter object is created and owned by external forces
+    GAFOutputCaller(AlignmentEmitter* emitter);
+    virtual ~GAFOutputCaller();
+
+    /// print the GAF traversals
+    void emit_gaf_traversals(const HandleGraph& graph, const vector<SnarlTraversal>& travs);
+
+    /// print the GAF genotype
+    void emit_gaf_variant(const HandleGraph& graph,
+                          const Snarl& snarl,
+                          const vector<SnarlTraversal>& traversals,
+                          const vector<int>& genotype);
+protected:
+    
+    AlignmentEmitter* emitter;
+};
+
+/**
  * VCFGenotyper : Genotype variants in a given VCF file
  */
-class VCFGenotyper : public GraphCaller, public VCFOutputCaller {
+class VCFGenotyper : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
 public:
     VCFGenotyper(const PathHandleGraph& graph,
                  SnarlCaller& snarl_caller,
                  SnarlManager& snarl_manager,
                  vcflib::VariantCallFile& variant_file,
                  const string& sample_name,
-                 const vector<string>& ref_paths = {},
-                 FastaReference* ref_fasta = nullptr,
-                 FastaReference* ins_fasta = nullptr,
-                 ostream& out_stream = cout);
+                 const vector<string>& ref_paths,
+                 FastaReference* ref_fasta,
+                 FastaReference* ins_fasta,
+                 AlignmentEmitter* aln_emitter,
+                 bool traversals_only,
+                 bool gaf_output);
 
     virtual ~VCFGenotyper();
 
@@ -135,6 +172,11 @@ protected:
     /// back to traversals in the snarl
     VCFTraversalFinder traversal_finder;
 
+    /// toggle whether to genotype or just output the traversals
+    bool traversals_only;
+
+    /// toggle whether to output vcf or gaf
+    bool gaf_output;
 };
 
 
@@ -233,16 +275,18 @@ protected:
  * Designed to replace LegacyCaller, as it should miss fewer obviously
  * good traversals, and is not dependent on old protobuf-based structures. 
  */
-class FlowCaller : public GraphCaller, public VCFOutputCaller {
+class FlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
 public:
     FlowCaller(const PathPositionHandleGraph& graph,
                SupportBasedSnarlCaller& snarl_caller,
                SnarlManager& snarl_manager,
                const string& sample_name,
                TraversalFinder& traversal_finder,
-               const vector<string>& ref_paths = {},
-               const vector<size_t>& ref_path_offsets = {},
-               ostream& out_stream = cout);
+               const vector<string>& ref_paths,
+               const vector<size_t>& ref_path_offsets,
+               AlignmentEmitter* aln_emitter,
+               bool traversals_only,
+               bool gaf_output);
    
     virtual ~FlowCaller();
 
@@ -269,6 +313,15 @@ protected:
     /// until we support nested snarls, cap snarl size we attempt to process
     size_t max_snarl_edges = 500000;
 
+    /// alignment emitter. if not null, traversals will be output here and
+    /// no genotyping will be done
+    AlignmentEmitter* alignment_emitter;
+
+    /// toggle whether to genotype or just output the traversals
+    bool traversals_only;
+
+    /// toggle whether to output vcf or gaf
+    bool gaf_output;
 };
 
 

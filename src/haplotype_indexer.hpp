@@ -138,9 +138,11 @@ public:
      * batch_file_prefix is set on the object, also dumps VCF parse
      * information.
      *
-     * If gam_filenames is nonempty, includes GAM paths from those files as
+     * If aln_filenames is nonempty, includes alignment paths from those files as
      * haplotypes. In that case, index_paths must be false and vcf_filenames
      * must be empty.
+     *
+     * aln_format can be "GAM" or "GAF"
      *
      * First, determines the bit width necessary to encode the threads that
      * will be produced, and announces it to the bit_width_ready callback.
@@ -155,7 +157,7 @@ public:
      * names.
      */
     tuple<vector<string>, size_t, vector<string>> generate_threads(const PathHandleGraph* graph, map<string, Path>& alt_paths,
-        bool index_paths, const string& vcf_filename, const vector<string>& gam_filenames,
+        bool index_paths, const string& vcf_filename, const vector<string>& aln_filenames, const string& aln_format,
         const function<void(size_t)>& bit_width_ready, const function<void(const gbwt::vector_type&, const gbwt::size_type (&)[4])>& each_thread);
     
     /**
@@ -174,14 +176,16 @@ public:
      * batch_file_prefix is set on the object, also dumps VCF parse
      * information.
      *
-     * If gam_filenames is nonempty, includes GAM paths from those files as
+     * If aln_filenames is nonempty, includes alignment paths from those files as
      * haplotypes. In that case, index_paths must be false and vcf_filenames
      * must be empty.
+     *
+     * aln_format can be "GAM" or "GAF"
      *
      * Respects excluded_samples and does not produce threads for them.
      */
     unique_ptr<gbwt::DynamicGBWT> build_gbwt(const PathHandleGraph* graph, map<string, Path>& alt_paths,
-        bool index_paths, const string& vcf_filename, const vector<string>& gam_filenames);
+        bool index_paths, const string& vcf_filename, const vector<string>& aln_filenames, const string& aln_format);
 };
 
 }
