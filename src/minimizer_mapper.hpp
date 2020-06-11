@@ -160,10 +160,6 @@ public:
         } 
     }
 
-    /**
-     * Get the distance between a pair of read alignments
-     */
-    int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
 protected:
 
     /**
@@ -291,13 +287,29 @@ protected:
 
 //-----------------------------------------------------------------------------
 
-   /**
-    * Assume that we have n <= max_k independent random events that occur with
-    * probability p each (p is interpreted as a real number between 0 and 1 and
-    * max_k is the largest k in the minimizer indexes). Return an approximate
-    * probability for at least one event occurring as a phred score.
-    */
-   double phred_for_at_least_one(size_t p, size_t n) const;
+    // Helper functions.
+
+    /**
+     * Get the distance between a pair of read alignments
+     */
+    int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
+
+    /**
+     * Assume that we have n <= max_k independent random events that occur with
+     * probability p each (p is interpreted as a real number between 0 and 1 and
+     * max_k is the largest k in the minimizer indexes). Return an approximate
+     * probability for at least one event occurring as a phred score.
+     */
+    double phred_for_at_least_one(size_t p, size_t n) const;
+
+    /**
+     * Convert the GaplessExtension into an alignment. This assumes that the
+     * extension is a full-length alignment and that the sequence field of the
+     * alignment has been set.
+     */
+    void extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const;
+
+//-----------------------------------------------------------------------------
 
     /**
      * Compute MAPQ caps based on all minimizers present in extended clusters.

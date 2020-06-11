@@ -343,24 +343,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 }
 
                 //Fill in the best alignments from the extension
-                
-                *best_alignment.mutable_path() = extensions.front().to_path(gbwt_graph, best_alignment.sequence());
-                size_t mismatch_count = extensions.front().mismatches();
-                double identity = best_alignment.sequence().size() == 0 ? 0.0 : (best_alignment.sequence().size() - mismatch_count) / (double) best_alignment.sequence().size();
-                
-                // Fill in the score and identity
-                best_alignment.set_score(extensions.front().score);
-                best_alignment.set_identity(identity);
+                this->extension_to_alignment(extensions.front(), best_alignment);
 
                 if (extensions.size() > 1) {
                     //Do the same thing for the second extension, if one exists
-                    *second_best_alignment.mutable_path() = extensions.back().to_path(gbwt_graph, second_best_alignment.sequence());
-                    size_t mismatch_count = extensions.back().mismatches();
-                    double identity = second_best_alignment.sequence().size() == 0 ? 0.0 : (second_best_alignment.sequence().size() - mismatch_count) / (double) second_best_alignment.sequence().size();
-                    
-                    // Fill in the score and identity
-                    second_best_alignment.set_score(extensions.back().score);
-                    second_best_alignment.set_identity(identity);
+                    this->extension_to_alignment(extensions.back(), second_best_alignment);
                 }
 
                 if (track_provenance) {
@@ -1052,26 +1039,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     }
 
                     //Fill in the best alignments from the extension
-                    
-                    *best_alignment.mutable_path() = extensions.front().to_path(gbwt_graph, best_alignment.sequence());
-                    size_t mismatch_count = extensions.front().mismatches();
-                    double identity = best_alignment.sequence().size() == 0 ? 0.0 
-                            : (best_alignment.sequence().size() - mismatch_count) / (double) best_alignment.sequence().size();
-                    
-                    // Fill in the score and identity
-                    best_alignment.set_score(extensions.front().score);
-                    best_alignment.set_identity(identity);
+                    this->extension_to_alignment(extensions.front(), best_alignment);
 
                     if (extensions.size() > 1) {
                         //Do the same thing for the second extension, if one exists
-                        *second_best_alignment.mutable_path() = extensions.back().to_path(gbwt_graph, second_best_alignment.sequence());
-                        size_t mismatch_count = extensions.back().mismatches();
-                        double identity = second_best_alignment.sequence().size() == 0 ? 0.0 
-                                : (second_best_alignment.sequence().size() - mismatch_count) / (double) second_best_alignment.sequence().size();
-                        
-                        // Fill in the score and identity
-                        second_best_alignment.set_score(extensions.back().score);
-                        second_best_alignment.set_identity(identity);
+                        this->extension_to_alignment(extensions.back(), second_best_alignment);
                     }
 
                     if (track_provenance) {
@@ -1814,11 +1786,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
 //-----------------------------------------------------------------------------
 
-double MinimizerMapper::phred_for_at_least_one(size_t p, size_t n) const {
-    p >>= 8 * sizeof(size_t) - PRECISION;
-    return this->phred_at_least_one[(n << PRECISION) + p];
-}
-
 double MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
     const std::vector<Minimizer>& minimizers,
     const SmallBitset& present_in_any_extended_cluster) {
@@ -2179,14 +2146,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
             // If the best extension is a full-length alignment, use it.
             if (best < extensions.size() && extensions[best].full()) {
                 need_dp = false;
-                *(rescued_alignment.mutable_path()) = extensions[best].to_path(cached_graph, rescued_alignment.sequence());
-                rescued_alignment.set_score(extensions[best].score);
-                double identity = 0.0;
-                if (!rescued_alignment.sequence().empty()) {
-                    size_t len = rescued_alignment.sequence().length();
-                    identity = (len - extensions[best].mismatches()) / static_cast<double>(len);
-                }
-                rescued_alignment.set_identity(identity);
+                this->extension_to_alignment(extensions[best], rescued_alignment);
             }
         }
         // Otherwise use the best extension as a seed for DP.
@@ -2278,6 +2238,8 @@ void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const Handle
     }
 }
 
+//-----------------------------------------------------------------------------
+
 int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment& aln2) {
     assert(aln1.path().mapping_size() != 0); 
     assert(aln2.path().mapping_size() != 0); 
@@ -2287,6 +2249,23 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
 
     int64_t min_dist = distance_index.min_distance(pos1, pos2);
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
+}
+
+
+double MinimizerMapper::phred_for_at_least_one(size_t p, size_t n) const {
+    p >>= 8 * sizeof(size_t) - PRECISION;
+    return this->phred_at_least_one[(n << PRECISION) + p];
+}
+
+void MinimizerMapper::extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const {
+    *(alignment.mutable_path()) = extension.to_path(this->gbwt_graph, alignment.sequence());
+    alignment.set_score(extension.score);
+    double identity = 0.0;
+    if (!alignment.sequence().empty()) {
+        size_t len = alignment.sequence().length();
+        identity = (len - extension.mismatches()) / static_cast<double>(len);
+    }
+    alignment.set_identity(identity);
 }
 
 //-----------------------------------------------------------------------------
