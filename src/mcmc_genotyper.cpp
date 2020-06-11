@@ -59,7 +59,8 @@ namespace vg {
 
                 double likelihood_ratio = exp(log_base*(x_new - x_prev));
                 
-            
+                current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
+                
                 if (current_likelihood > max_likelihood){
                     max_likelihood = current_likelihood;
                     optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
