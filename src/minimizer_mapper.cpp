@@ -2119,6 +2119,23 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     // Get rid of the old path.
     rescued_alignment.clear_path();
 
+    // Find all seeds in the subgraph and try to get a full-length extension.
+    GaplessExtender::cluster_type seeds = this->seeds_in_subgraph(minimizers, rescue_nodes);
+    if (!seeds.empty()) {
+        std::vector<GaplessExtension> extensions = this->extender.extend(seeds, rescued_alignment.sequence(), &cached_graph);
+        size_t best = extensions.size();
+        for (size_t i = 0; i < extensions.size(); i++) {
+            if (best >= extensions.size() || extensions[i].score > extensions[best].score) {
+                best = i;
+            }
+        }
+        // If we have a full-length extension, use it as the rescued alignment.
+        if (best < extensions.size() && extensions[best].full()) {
+            this->extension_to_alignment(extensions[best], rescued_alignment);
+            return;
+        }
+    }
+
     if (this->rescue_algorithm == rescue_haplotypes) {
         // Find and unfold the local haplotypes in the subgraph.
         std::vector<std::vector<handle_t>> haplotype_paths;
@@ -2133,33 +2150,14 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         // Get the corresponding alignment to the original graph.
         this->extender.transform_alignment(rescued_alignment, haplotype_paths);
     } else if (this->rescue_algorithm == rescue_dozeu) {
-        bool need_dp = true;
-        GaplessExtender::cluster_type seeds = this->seeds_in_subgraph(minimizers, rescue_nodes);
-        if (!seeds.empty()) {
-            std::vector<GaplessExtension> extensions = this->extender.extend(seeds, rescued_alignment.sequence(), &cached_graph);
-            size_t best = extensions.size();
-            for (size_t i = 0; i < extensions.size(); i++) {
-                if (extensions[i].full() && (best >= extensions.size() || extensions[i].score > extensions[best].score)) {
-                    best = i;
-                }
-            }
-            // If the best extension is a full-length alignment, use it.
-            if (best < extensions.size() && extensions[best].full()) {
-                need_dp = false;
-                this->extension_to_alignment(extensions[best], rescued_alignment);
-            }
-        }
-        // Otherwise use the best extension as a seed for DP.
-        if (need_dp) {
-            // FIXME actually use the extension as a seed
-            std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
-            if (!topological_order.empty()) {
-                get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
-                                                    std::vector<MaximalExactMatch>(), false);
-                this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
-            } else {
-                this->rescue_with_cycles(rescued_alignment, cached_graph, rescue_nodes);
-            }
+        // FIXME: Use the best extension (extensions?) as a seed.
+        std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
+        if (!topological_order.empty()) {
+            get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
+                                                std::vector<MaximalExactMatch>(), false);
+            this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
+        } else {
+            this->rescue_with_cycles(rescued_alignment, cached_graph, rescue_nodes);
         }
     }
     else if (this->rescue_algorithm == rescue_gssw) {
