@@ -84,8 +84,8 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a5a01dee24a32448d4192355dd6d2155b"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a5a01dee24a32448d4192355dd6d2155b">NGSSimulator</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1NGSSimulator.html#a39eab8a38fd07e9f3d90a25b6830a815">graph</a>, const string &amp;ngs_fastq_file, const string &amp;ngs_paired_fastq_file=&quot;&quot;, bool interleaved_fastq=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a>={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={}, const vector&lt; tuple&lt; string, string, size_t &gt;&gt; &amp;haplotype_transcripts={}, double substition_polymorphism_rate=0.001, double indel_polymorphism_rate=0.0002, double indel_error_proportion=0.01, double insert_length_mean=300.0, double insert_length_stdev=50.0, double error_multiplier=1.0, bool <a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a>=true, bool <a class="el" href="classvg_1_1NGSSimulator.html#af7441bd12030f0e189aca5ba2e0b47ef">sample_unsheared_paths</a>=false, size_t <a class="el" href="classvg_1_1NGSSimulator.html#ae24dec0a78bc0166a7f27356632f135a">seed</a>=0)</td></tr>
-<tr class="separator:a5a01dee24a32448d4192355dd6d2155b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac5be854c23e090c6dbe917a90fa53602"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ac5be854c23e090c6dbe917a90fa53602">NGSSimulator</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1NGSSimulator.html#a39eab8a38fd07e9f3d90a25b6830a815">graph</a>, const string &amp;ngs_fastq_file, const string &amp;ngs_paired_fastq_file=&quot;&quot;, bool interleaved_fastq=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a>={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={}, const vector&lt; tuple&lt; string, string, size_t &gt;&gt; &amp;haplotype_transcripts={}, double substition_polymorphism_rate=0.001, double indel_polymorphism_rate=0.0002, double indel_error_proportion=0.01, double fragment_length_mean=300.0, double fragment_length_stdev=50.0, double error_multiplier=1.0, bool <a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a>=true, bool <a class="el" href="classvg_1_1NGSSimulator.html#af7441bd12030f0e189aca5ba2e0b47ef">sample_unsheared_paths</a>=false, size_t <a class="el" href="classvg_1_1NGSSimulator.html#ae24dec0a78bc0166a7f27356632f135a">seed</a>=0)</td></tr>
+<tr class="separator:ac5be854c23e090c6dbe917a90fa53602"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a50a20af9dd3edd86233edf1de13a5cda"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a50a20af9dd3edd86233edf1de13a5cda">sample_read</a> ()</td></tr>
 <tr class="memdesc:a50a20af9dd3edd86233edf1de13a5cda"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sample an individual read and alignment.  <a href="#a50a20af9dd3edd86233edf1de13a5cda">More...</a><br /></td></tr>
 <tr class="separator:a50a20af9dd3edd86233edf1de13a5cda"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -120,15 +120,13 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:a57ee602010b5295685556acc30e0355a"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a57ee602010b5295685556acc30e0355a">sample_path</a> ()</td></tr>
 <tr class="memdesc:a57ee602010b5295685556acc30e0355a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the index of a path if using source_paths or else numeric_limits&lt;size_t&gt;::max()  <a href="#a57ee602010b5295685556acc30e0355a">More...</a><br /></td></tr>
 <tr class="separator:a57ee602010b5295685556acc30e0355a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab12319bb5cfd2841f70291f5460128e5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ab12319bb5cfd2841f70291f5460128e5">sample_start_pos</a> (const size_t &amp;source_path_idx, size_t &amp;<a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>, bool &amp;is_reverse, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos)</td></tr>
-<tr class="memdesc:ab12319bb5cfd2841f70291f5460128e5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sample an appropriate starting position according to the mode. Updates the arguments.  <a href="#ab12319bb5cfd2841f70291f5460128e5">More...</a><br /></td></tr>
-<tr class="separator:ab12319bb5cfd2841f70291f5460128e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a714d0f7550cba7aeb52a00b51f839e82"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a714d0f7550cba7aeb52a00b51f839e82">sample_start_pos</a> (const size_t &amp;source_path_idx, const int64_t &amp;fragment_length, size_t &amp;<a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>, bool &amp;is_reverse, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos)</td></tr>
+<tr class="separator:a714d0f7550cba7aeb52a00b51f839e82"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ada5f04218c531191b20a8c28cc57d94e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ada5f04218c531191b20a8c28cc57d94e">sample_start_graph_pos</a> ()</td></tr>
 <tr class="memdesc:ada5f04218c531191b20a8c28cc57d94e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a random position in the graph.  <a href="#ada5f04218c531191b20a8c28cc57d94e">More...</a><br /></td></tr>
 <tr class="separator:ada5f04218c531191b20a8c28cc57d94e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a402454556c6656ee5c0cbb3315bcdbf0"><td class="memItemLeft" align="right" valign="top">tuple&lt; size_t, bool, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a402454556c6656ee5c0cbb3315bcdbf0">sample_start_path_pos</a> (const size_t &amp;source_path_idx)</td></tr>
-<tr class="memdesc:a402454556c6656ee5c0cbb3315bcdbf0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a random position along the source path.  <a href="#a402454556c6656ee5c0cbb3315bcdbf0">More...</a><br /></td></tr>
-<tr class="separator:a402454556c6656ee5c0cbb3315bcdbf0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abe42a16b2d74b446dc2daadec36379c2"><td class="memItemLeft" align="right" valign="top">tuple&lt; size_t, bool, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#abe42a16b2d74b446dc2daadec36379c2">sample_start_path_pos</a> (const size_t &amp;source_path_idx, const int64_t &amp;fragment_length)</td></tr>
+<tr class="separator:abe42a16b2d74b446dc2daadec36379c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a44c1fcd6a665cc7804e561a7c8700a04"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a44c1fcd6a665cc7804e561a7c8700a04">get_read_name</a> ()</td></tr>
 <tr class="memdesc:a44c1fcd6a665cc7804e561a7c8700a04"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get an unclashing read name.  <a href="#a44c1fcd6a665cc7804e561a7c8700a04">More...</a><br /></td></tr>
 <tr class="separator:a44c1fcd6a665cc7804e561a7c8700a04"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -196,18 +194,18 @@ Private Attributes</h2></td></tr>
 <tr class="separator:a9501d39b8059ad161395f2b7ba89d424"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a36ca291ed15a9a3942809d21d0574bc1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1uniform__real__distribution.html">vg::uniform_real_distribution</a>&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a36ca291ed15a9a3942809d21d0574bc1">prob_sampler</a></td></tr>
 <tr class="separator:a36ca291ed15a9a3942809d21d0574bc1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3b26c6e27c7c6bdfcdfa9c9996ae4381"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1normal__distribution.html">vg::normal_distribution</a>&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a3b26c6e27c7c6bdfcdfa9c9996ae4381">insert_sampler</a></td></tr>
-<tr class="separator:a3b26c6e27c7c6bdfcdfa9c9996ae4381"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab3d362235a51a7ee1f544019bf20726a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1normal__distribution.html">vg::normal_distribution</a>&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ab3d362235a51a7ee1f544019bf20726a">fragment_sampler</a></td></tr>
+<tr class="separator:ab3d362235a51a7ee1f544019bf20726a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2078f130a3782a67206ad9c2c20067ea"><td class="memItemLeft" align="right" valign="top">const double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a2078f130a3782a67206ad9c2c20067ea">sub_poly_rate</a></td></tr>
 <tr class="separator:a2078f130a3782a67206ad9c2c20067ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af84310145f8991c92d48684a0664ba8e"><td class="memItemLeft" align="right" valign="top">const double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#af84310145f8991c92d48684a0664ba8e">indel_poly_rate</a></td></tr>
 <tr class="separator:af84310145f8991c92d48684a0664ba8e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae16494345e539020ebd09b0998500559"><td class="memItemLeft" align="right" valign="top">const double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ae16494345e539020ebd09b0998500559">indel_error_prop</a></td></tr>
 <tr class="separator:ae16494345e539020ebd09b0998500559"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae7110e5b235c8a69f66cba73a6570660"><td class="memItemLeft" align="right" valign="top">const double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ae7110e5b235c8a69f66cba73a6570660">insert_mean</a></td></tr>
-<tr class="separator:ae7110e5b235c8a69f66cba73a6570660"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad2b7308f35efc8c934357760d65b7ef5"><td class="memItemLeft" align="right" valign="top">const double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ad2b7308f35efc8c934357760d65b7ef5">insert_sd</a></td></tr>
-<tr class="separator:ad2b7308f35efc8c934357760d65b7ef5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2a96486c1fa9a2c4ebf4167139898afc"><td class="memItemLeft" align="right" valign="top">const double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a2a96486c1fa9a2c4ebf4167139898afc">fragment_mean</a></td></tr>
+<tr class="separator:a2a96486c1fa9a2c4ebf4167139898afc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a62d1cb98ae226228eaa9fabc05cf6f47"><td class="memItemLeft" align="right" valign="top">const double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a62d1cb98ae226228eaa9fabc05cf6f47">fragment_sd</a></td></tr>
+<tr class="separator:a62d1cb98ae226228eaa9fabc05cf6f47"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab162ca660d69f66c18c41516a1a69d24"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ab162ca660d69f66c18c41516a1a69d24">sample_counter</a> = 0</td></tr>
 <tr class="separator:ab162ca660d69f66c18c41516a1a69d24"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae24dec0a78bc0166a7f27356632f135a"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ae24dec0a78bc0166a7f27356632f135a">seed</a></td></tr>
@@ -229,8 +227,8 @@ Static Private Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Class that simulates reads with alignments to a graph that mimic the error profile of NGS sequencing data. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a5a01dee24a32448d4192355dd6d2155b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5a01dee24a32448d4192355dd6d2155b">&#9670;&nbsp;</a></span>NGSSimulator() <span class="overload">[1/2]</span></h2>
+<a id="ac5be854c23e090c6dbe917a90fa53602"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac5be854c23e090c6dbe917a90fa53602">&#9670;&nbsp;</a></span>NGSSimulator() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -299,13 +297,13 @@ Static Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>insert_length_mean</em> = <code>300.0</code>, </td>
+          <td class="paramname"><em>fragment_length_mean</em> = <code>300.0</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>insert_length_stdev</em> = <code>50.0</code>, </td>
+          <td class="paramname"><em>fragment_length_stdev</em> = <code>50.0</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1196,8 +1194,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a402454556c6656ee5c0cbb3315bcdbf0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a402454556c6656ee5c0cbb3315bcdbf0">&#9670;&nbsp;</a></span>sample_start_path_pos()</h2>
+<a id="abe42a16b2d74b446dc2daadec36379c2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abe42a16b2d74b446dc2daadec36379c2">&#9670;&nbsp;</a></span>sample_start_path_pos()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1209,8 +1207,18 @@ Static Private Attributes</h2></td></tr>
           <td class="memname">tuple&lt; size_t, bool, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; vg::NGSSimulator::sample_start_path_pos </td>
           <td>(</td>
           <td class="paramtype">const size_t &amp;&#160;</td>
-          <td class="paramname"><em>source_path_idx</em></td><td>)</td>
+          <td class="paramname"><em>source_path_idx</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const int64_t &amp;&#160;</td>
+          <td class="paramname"><em>fragment_length</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -1219,13 +1227,12 @@ Static Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Get a random position along the source path. </p>
+<p>Get a random position along the source path. Enforce fragment length restrictions if argument is positive. </p>
 
 </div>
 </div>
-<a id="ab12319bb5cfd2841f70291f5460128e5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab12319bb5cfd2841f70291f5460128e5">&#9670;&nbsp;</a></span>sample_start_pos()</h2>
+<a id="a714d0f7550cba7aeb52a00b51f839e82"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a714d0f7550cba7aeb52a00b51f839e82">&#9670;&nbsp;</a></span>sample_start_pos()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1238,6 +1245,12 @@ Static Private Attributes</h2></td></tr>
           <td>(</td>
           <td class="paramtype">const size_t &amp;&#160;</td>
           <td class="paramname"><em>source_path_idx</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const int64_t &amp;&#160;</td>
+          <td class="paramname"><em>fragment_length</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1269,8 +1282,7 @@ Static Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Sample an appropriate starting position according to the mode. Updates the arguments. </p>
+<p>Sample an appropriate starting position according to the mode. Updates the arguments. Providing a negative number for fragment length indicates no fragment length restrictions. </p>
 
 </div>
 </div>
@@ -1359,6 +1371,72 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a2a96486c1fa9a2c4ebf4167139898afc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2a96486c1fa9a2c4ebf4167139898afc">&#9670;&nbsp;</a></span>fragment_mean</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const double vg::NGSSimulator::fragment_mean</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ab3d362235a51a7ee1f544019bf20726a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab3d362235a51a7ee1f544019bf20726a">&#9670;&nbsp;</a></span>fragment_sampler</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1normal__distribution.html">vg::normal_distribution</a>&lt;double&gt; vg::NGSSimulator::fragment_sampler</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a62d1cb98ae226228eaa9fabc05cf6f47"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a62d1cb98ae226228eaa9fabc05cf6f47">&#9670;&nbsp;</a></span>fragment_sd</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const double vg::NGSSimulator::fragment_sd</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a39eab8a38fd07e9f3d90a25b6830a815"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a39eab8a38fd07e9f3d90a25b6830a815">&#9670;&nbsp;</a></span>graph</h2>
 
@@ -1414,72 +1492,6 @@ Static Private Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">const double vg::NGSSimulator::indel_poly_rate</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ae7110e5b235c8a69f66cba73a6570660"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae7110e5b235c8a69f66cba73a6570660">&#9670;&nbsp;</a></span>insert_mean</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const double vg::NGSSimulator::insert_mean</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a3b26c6e27c7c6bdfcdfa9c9996ae4381"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3b26c6e27c7c6bdfcdfa9c9996ae4381">&#9670;&nbsp;</a></span>insert_sampler</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1normal__distribution.html">vg::normal_distribution</a>&lt;double&gt; vg::NGSSimulator::insert_sampler</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ad2b7308f35efc8c934357760d65b7ef5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad2b7308f35efc8c934357760d65b7ef5">&#9670;&nbsp;</a></span>insert_sd</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const double vg::NGSSimulator::insert_sd</td>
         </tr>
       </table>
   </td>
