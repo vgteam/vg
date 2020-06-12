@@ -814,8 +814,10 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
 
 Alignment NGSSimulator::sample_read() {
     
-    
     Alignment aln;
+    
+    aln.set_name(get_read_name());
+    
     // sample a quality string based on the trained distribution
     pair<string, vector<bool>> qual_and_masks = sample_read_quality();
     
@@ -865,13 +867,17 @@ Alignment NGSSimulator::sample_read() {
     // mask out any of the sequence that we sampled to be an 'N'
     apply_N_mask(*aln.mutable_sequence(), qual_and_masks.second);
     
-    aln.set_name(get_read_name());
     algorithms::annotate_with_initial_path_positions(graph, aln);
     return aln;
 }
 
 pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     pair<Alignment, Alignment> aln_pair;
+    
+    string name = get_read_name();
+    aln_pair.first.set_name(name + "_1");
+    aln_pair.second.set_name(name + "_2");
+        
     pair<pair<string, vector<bool>>, pair<string, vector<bool>>> qual_and_mask_pair = sample_read_quality_pair();
     
 #ifdef debug_ngs_sim
@@ -891,9 +897,6 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     
     assert(qual_and_mask_pair.first.first.size() == qual_and_mask_pair.first.second.size());
     assert(qual_and_mask_pair.second.first.size() == qual_and_mask_pair.second.second.size());
-    
-    aln_pair.first.set_quality(qual_and_mask_pair.first.first);
-    aln_pair.second.set_quality(qual_and_mask_pair.second.first);
     
     int64_t fragment_length = -1;
     while (fragment_length <= 0) {
@@ -918,6 +921,9 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         qual_and_mask_pair.second.first.resize(fragment_length);
         qual_and_mask_pair.second.second.resize(fragment_length);
     }
+    
+    aln_pair.first.set_quality(qual_and_mask_pair.first.first);
+    aln_pair.second.set_quality(qual_and_mask_pair.second.first);
     
 #ifdef debug_ngs_sim
     cerr << "sampled fragment length " << fragment_length << endl;
@@ -960,7 +966,8 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         }
         
         // walk out the unsequenced part of the fragment in the graph
-        int64_t remaining_length = fragment_length - 2 * transition_distrs_1.size();
+        int64_t remaining_length = fragment_length - (aln_pair.first.quality().size() +
+                                                      aln_pair.second.quality().size());
 #ifdef debug_ngs_sim
         cerr << "walking " << remaining_length << " to start of next read in pair" << endl;
 #endif
@@ -975,11 +982,12 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             }
         } else {
             // we need to walk backwards from the end of the first read
-            pos = walk_backwards(aln_pair.first.path(), -remaining_length);
+            int64_t walk_length = min<int64_t>(-remaining_length, path_from_length(aln_pair.first.path()));
+            pos = walk_backwards(aln_pair.first.path(), walk_length);
             // Make sure to update the offset along the path as well. If offset
             // and is_reverse aren't being used (becasue we aren't in path
             // mode), the result won't be used either.
-            offset += is_reverse ? -remaining_length : remaining_length;
+            offset += is_reverse ? walk_length : -walk_length;
         }
         // guard against running off the end of nodes
         // XXX this should not be happening
@@ -1010,10 +1018,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     // mask out any of the sequence that we sampled to be an 'N'
     apply_N_mask(*aln_pair.first.mutable_sequence(), qual_and_mask_pair.first.second);
     apply_N_mask(*aln_pair.second.mutable_sequence(), qual_and_mask_pair.second.second);
-    
-    string name = get_read_name();
-    aln_pair.first.set_name(name + "_1");
-    aln_pair.second.set_name(name + "_2");
+        
     algorithms::annotate_with_initial_path_positions(graph, aln_pair.first);
     algorithms::annotate_with_initial_path_positions(graph, aln_pair.second);
     return aln_pair;
