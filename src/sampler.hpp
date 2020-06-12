@@ -163,8 +163,8 @@ public:
                  double substition_polymorphism_rate = 0.001,
                  double indel_polymorphism_rate = 0.0002,
                  double indel_error_proportion = 0.01,
-                 double insert_length_mean = 300.0,
-                 double insert_length_stdev = 50.0,
+                 double fragment_length_mean = 300.0,
+                 double fragment_length_stdev = 50.0,
                  double error_multiplier = 1.0,
                  bool retry_on_Ns = true,
                  bool sample_unsheared_paths = false,
@@ -235,12 +235,16 @@ private:
     size_t sample_path();
     
     /// Sample an appropriate starting position according to the mode. Updates the arguments.
-    void sample_start_pos(const size_t& source_path_idx, size_t& offset, bool& is_reverse, pos_t& pos);
+    /// Providing a negative number for fragment length indicates no fragment length restrictions.
+    void sample_start_pos(const size_t& source_path_idx, const int64_t& fragment_length,
+                          size_t& offset, bool& is_reverse, pos_t& pos);
     
     /// Get a random position in the graph
     pos_t sample_start_graph_pos();
-    /// Get a random position along the source path
-    tuple<size_t, bool, pos_t> sample_start_path_pos(const size_t& source_path_idx);
+    /// Get a random position along the source path. Enforce fragment length restrictions if argument
+    /// is positive.
+    tuple<size_t, bool, pos_t> sample_start_path_pos(const size_t& source_path_idx,
+                                                     const int64_t& fragment_length);
     
     /// Get an unclashing read name
     string get_read_name();
@@ -302,13 +306,13 @@ private:
     vg::uniform_int_distribution<size_t> background_sampler;
     vg::uniform_int_distribution<size_t> mut_sampler;
     vg::uniform_real_distribution<double> prob_sampler;
-    vg::normal_distribution<double> insert_sampler;
+    vg::normal_distribution<double> fragment_sampler;
     
     const double sub_poly_rate;
     const double indel_poly_rate;
     const double indel_error_prop;
-    const double insert_mean;
-    const double insert_sd;
+    const double fragment_mean;
+    const double fragment_sd;
     
     size_t sample_counter = 0;
     size_t seed;
