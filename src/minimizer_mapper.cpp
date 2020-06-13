@@ -37,7 +37,6 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index),
     fragment_length_distr(1000,1000,0.95),
     phred_at_least_one() {
-        //TODO: Picked fragment_length_distr params from mpmap
 
     // Initialize phred_at_least_one.
     size_t max_k = 0, values = static_cast<size_t>(1) << PRECISION;
@@ -720,7 +719,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // Cluster the seeds. Get sets of input seed indexes that go together.
     // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
     // then everything will be in the same cluster and the best pair will be the two best independent mappings
-    // TODO: Choose a good distance for the fragment distance limit.
     if (track_provenance) {
         funnels[0].stage("cluster");
         funnels[1].stage("cluster");
