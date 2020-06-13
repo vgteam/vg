@@ -270,11 +270,6 @@ protected:
     GaplessExtender::cluster_type seeds_in_subgraph(const std::vector<Minimizer>& minimizers, const std::unordered_set<id_t>& subgraph) const;
 
     /**
-     * Rescue with GSSW or dozeu if the subgraph contains cycles.
-     */
-    void rescue_with_cycles(Alignment& rescued_alignment, const gbwtgraph::CachedGBWTGraph& graph, const std::unordered_set<id_t>& rescue_nodes) const;
-
-    /**
      * When we use dozeu for rescue, the reported alignment score is incorrect.
      * 1) Dozeu only gives the full-length bonus once.
      * 2) There is no penalty for a softclip at the edge of the subgraph.

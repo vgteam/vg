@@ -1384,7 +1384,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 rescued_aln.clear_path();
 
                 if (found_pair && (double) mapped_aln.score() < (double) (found_first ? best_alignment_scores.first : best_alignment_scores.second) * paired_rescue_score_limit) {
-                    //TODO: 0.9?
                     //If we have already found paired clusters and this unpaired alignment is not good enough, do nothing
                     return true;
                 }
@@ -2099,7 +2098,6 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     gbwtgraph::CachedGBWTGraph cached_graph(this->gbwt_graph);
 
     // Find all nodes within a reasonable range from aligned_read.
-    // TODO: How big should the rescue subgraph be?
     std::unordered_set<id_t> rescue_nodes;
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * fragment_length_distr.stdev());
     int64_t max_distance = fragment_length_distr.mean() + rescue_subgraph_stdevs * fragment_length_distr.stdev();
@@ -2121,21 +2119,21 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
 
     // Find all seeds in the subgraph and try to get a full-length extension.
     GaplessExtender::cluster_type seeds = this->seeds_in_subgraph(minimizers, rescue_nodes);
-    if (!seeds.empty()) {
-        std::vector<GaplessExtension> extensions = this->extender.extend(seeds, rescued_alignment.sequence(), &cached_graph);
-        size_t best = extensions.size();
-        for (size_t i = 0; i < extensions.size(); i++) {
-            if (best >= extensions.size() || extensions[i].score > extensions[best].score) {
-                best = i;
-            }
-        }
-        // If we have a full-length extension, use it as the rescued alignment.
-        if (best < extensions.size() && extensions[best].full()) {
-            this->extension_to_alignment(extensions[best], rescued_alignment);
-            return;
+    std::vector<GaplessExtension> extensions = this->extender.extend(seeds, rescued_alignment.sequence(), &cached_graph);
+    size_t best = extensions.size();
+    for (size_t i = 0; i < extensions.size(); i++) {
+        if (best >= extensions.size() || extensions[i].score > extensions[best].score) {
+            best = i;
         }
     }
 
+    // If we have a full-length extension, use it as the rescued alignment.
+    if (best < extensions.size() && extensions[best].full()) {
+        this->extension_to_alignment(extensions[best], rescued_alignment);
+        return;
+    }
+
+    // The haplotype-based algorithm is a special case.
     if (this->rescue_algorithm == rescue_haplotypes) {
         // Find and unfold the local haplotypes in the subgraph.
         std::vector<std::vector<handle_t>> haplotype_paths;
@@ -2149,47 +2147,43 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
 
         // Get the corresponding alignment to the original graph.
         this->extender.transform_alignment(rescued_alignment, haplotype_paths);
-    } else if (this->rescue_algorithm == rescue_dozeu) {
-        // FIXME: Use the best extension (extensions?) as a seed.
-        std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
-        if (!topological_order.empty()) {
+        return;
+    }
+
+    // Use the best extension as a seed for dozeu.
+    // Also ensure that the entire extension is in the subgraph.
+    std::vector<MaximalExactMatch> dozeu_seed;
+    if (best < extensions.size()) {
+        const GaplessExtension& extension = extensions[best];
+        for (handle_t handle : extension.path) {
+            rescue_nodes.insert(cached_graph.get_id(handle));
+        }
+        dozeu_seed.emplace_back();
+        dozeu_seed.back().begin = rescued_alignment.sequence().begin() + extension.read_interval.first;
+        dozeu_seed.back().end = rescued_alignment.sequence().begin() + extension.read_interval.second;
+        nid_t id = cached_graph.get_id(extension.path.front());
+        bool is_reverse = cached_graph.get_is_reverse(extension.path.front());
+        gcsa::node_type node = gcsa::Node::encode(id, extension.offset, is_reverse);
+        dozeu_seed.back().nodes.push_back(node);
+    }
+
+    // GSSW and dozeu assume that the graph is a DAG.
+    std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
+    if (!topological_order.empty()) {
+        if (rescue_algorithm == rescue_dozeu) {
             get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
-                                                std::vector<MaximalExactMatch>(), false);
+                                               dozeu_seed, false);
             this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
         } else {
-            this->rescue_with_cycles(rescued_alignment, cached_graph, rescue_nodes);
-        }
-    }
-    else if (this->rescue_algorithm == rescue_gssw) {
-        std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
-        if (!topological_order.empty()) {
             get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
-        } else {
-            this->rescue_with_cycles(rescued_alignment, cached_graph, rescue_nodes);
         }
+        return;
     }
-}
 
-GaplessExtender::cluster_type MinimizerMapper::seeds_in_subgraph(const std::vector<Minimizer>& minimizers,
-                                                                 const std::unordered_set<id_t>& subgraph) const {
-    std::vector<id_t> sorted_ids(subgraph.begin(), subgraph.end());
-    std::sort(sorted_ids.begin(), sorted_ids.end());
-    GaplessExtender::cluster_type result;
-    for (const Minimizer& minimizer : minimizers) {
-        gbwtgraph::hits_in_subgraph(minimizer.hits, minimizer.occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
-            result.insert(GaplessExtender::to_seed(pos, minimizer.value.offset));
-        });
-    }
-    return result;
-}
-
-void MinimizerMapper::rescue_with_cycles(Alignment& rescued_alignment,
-                                         const gbwtgraph::CachedGBWTGraph& graph,
-                                         const std::unordered_set<id_t>& rescue_nodes) const {
     // Build a subgraph overlay.
-    SubHandleGraph sub_graph(&graph);
-    for (id_t id : rescue_nodes)  {
-        sub_graph.add_handle(graph.get_handle(id));
+    SubHandleGraph sub_graph(&cached_graph);
+    for (id_t id : rescue_nodes) {
+        sub_graph.add_handle(cached_graph.get_handle(id));
     }
 
     // Create an overlay where each strand is a separate node.
@@ -2201,6 +2195,7 @@ void MinimizerMapper::rescue_with_cycles(Alignment& rescued_alignment,
         algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
 
     // Align to the subgraph.
+    // TODO: Map the seed to the dagified subgraph.
     if (this->rescue_algorithm == rescue_dozeu) {
         get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false);
         this->fix_dozeu_score(rescued_alignment, dagified, std::vector<handle_t>());
@@ -2217,6 +2212,19 @@ void MinimizerMapper::rescue_with_cycles(Alignment& rescued_alignment,
         pos.set_node_id(sub_graph.get_id(handle));
         pos.set_is_reverse(sub_graph.get_is_reverse(handle));
     }
+}
+
+GaplessExtender::cluster_type MinimizerMapper::seeds_in_subgraph(const std::vector<Minimizer>& minimizers,
+                                                                 const std::unordered_set<id_t>& subgraph) const {
+    std::vector<id_t> sorted_ids(subgraph.begin(), subgraph.end());
+    std::sort(sorted_ids.begin(), sorted_ids.end());
+    GaplessExtender::cluster_type result;
+    for (const Minimizer& minimizer : minimizers) {
+        gbwtgraph::hits_in_subgraph(minimizer.hits, minimizer.occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
+            result.insert(GaplessExtender::to_seed(pos, minimizer.value.offset));
+        });
+    }
+    return result;
 }
 
 void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,

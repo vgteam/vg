@@ -320,7 +320,7 @@ std::vector<handle_t> get_path(gbwt::node_type reverse_first, const std::vector<
 std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, const std::string& sequence, const gbwtgraph::CachedGBWTGraph* cache, size_t max_mismatches, bool trim_extensions) const {
 
     std::vector<GaplessExtension> result;
-    if (this->graph == nullptr || this->aligner == nullptr || sequence.empty()) {
+    if (this->graph == nullptr || this->aligner == nullptr || cluster.empty() || sequence.empty()) {
         return result;
     }
 
