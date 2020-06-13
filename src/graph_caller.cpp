@@ -6,15 +6,14 @@
 namespace vg {
 
 GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
-                         SnarlManager& snarl_manager,
-                         ostream& out_stream) :
-    snarl_caller(snarl_caller), snarl_manager(snarl_manager), out_stream(out_stream) {
+                         SnarlManager& snarl_manager) :
+    snarl_caller(snarl_caller), snarl_manager(snarl_manager) {
 }
 
 GraphCaller::~GraphCaller() {
 }
 
-void GraphCaller::call_top_level_snarls(int ploidy, bool recurse_on_fail) {
+void GraphCaller::call_top_level_snarls(const HandleGraph& graph, int ploidy, bool recurse_on_fail) {
 
     // Used to recurse on children of parents that can't be called
     size_t thread_count = get_thread_count();
@@ -23,15 +22,18 @@ void GraphCaller::call_top_level_snarls(int ploidy, bool recurse_on_fail) {
     // Run the snarl caller on a snarl, and queue up the children if it fails
     auto process_snarl = [&](const Snarl* snarl) {
 
+        if (!snarl_manager.is_trivial(snarl, graph)) {
+            
 #ifdef debug
-        cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
+            cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
 #endif
 
-        bool was_called = call_snarl(*snarl, ploidy);
-        if (!was_called && recurse_on_fail) {
-            const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
-            vector<const Snarl*>& thread_queue = snarl_queue[omp_get_thread_num()];
-            thread_queue.insert(thread_queue.end(), children.begin(), children.end());
+            bool was_called = call_snarl(*snarl, ploidy);
+            if (!was_called && recurse_on_fail) {
+                const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
+                vector<const Snarl*>& thread_queue = snarl_queue[omp_get_thread_num()];
+                thread_queue.insert(thread_queue.end(), children.begin(), children.end());
+            }
         }
     };
 
@@ -56,6 +58,123 @@ void GraphCaller::call_top_level_snarls(int ploidy, bool recurse_on_fail) {
   
 }
 
+static void flip_snarl(Snarl& snarl) {
+    Visit v = snarl.start();
+    *snarl.mutable_start() = reverse(snarl.end());
+    *snarl.mutable_end() = reverse(v);
+}
+
+void GraphCaller::call_top_level_chains(const HandleGraph& graph, int ploidy, size_t max_edges, size_t max_trivial, bool recurse_on_fail) {
+    // Used to recurse on children of parents that can't be called
+    size_t thread_count = get_thread_count();
+    vector<vector<Chain>> chain_queue(thread_count);
+
+    // Run the snarl caller on a chain. queue up the children if it fails
+    auto process_chain = [&](const Chain* chain) {
+
+#ifdef debug
+        cerr << "calling top level chain ";
+        for (const auto& i : *chain) {
+            cerr << pb2json(*i.first) << "," << i.second << ",";
+        }
+        cerr << endl;
+#endif
+        // Break up the chain
+        vector<Chain> chain_pieces = break_chain(graph, *chain, max_edges, max_trivial);
+
+        for (Chain& chain_piece : chain_pieces) {
+            // Make a fake snarl spanning the chain
+            // It is important to remember that along with not actually being a snarl,
+            // it's not managed by the snarl manager so functions looking into its nesting
+            // structure will not work
+            Snarl fake_snarl;
+            *fake_snarl.mutable_start() = chain_piece.front().second == true ? reverse(chain_piece.front().first->end()) :
+                chain_piece.front().first->start();
+            *fake_snarl.mutable_end() = chain_piece.back().second == true ? reverse(chain_piece.back().first->start()) :
+                chain_piece.back().first->end();
+
+#ifdef debug
+            cerr << "calling fake snarl " << pb2json(fake_snarl) << endl;
+#endif
+            
+            bool was_called = call_snarl(fake_snarl, ploidy);
+            if (!was_called && recurse_on_fail) {
+                vector<Chain>& thread_queue = chain_queue[omp_get_thread_num()];                
+                for (pair<const Snarl*, bool> chain_link : chain_piece) {
+                    const deque<Chain>& child_chains = snarl_manager.chains_of(chain_link.first);
+                    thread_queue.insert(thread_queue.end(), child_chains.begin(), child_chains.end());
+                }
+            }
+        }
+    };
+
+    // Start with the top level snarls
+    snarl_manager.for_each_top_level_chain_parallel(process_chain);
+
+    // Then recurse on any children the snarl caller failed to handle
+    while (!std::all_of(chain_queue.begin(), chain_queue.end(),
+                        [](const vector<Chain>& chain_vec) {return chain_vec.empty();})) {
+        vector<Chain> cur_queue;
+        for (vector<Chain>& thread_queue : chain_queue) {
+            cur_queue.reserve(cur_queue.size() + thread_queue.size());
+            std::move(thread_queue.begin(), thread_queue.end(), std::back_inserter(cur_queue));
+            thread_queue.clear();
+        }
+
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int i = 0; i < cur_queue.size(); ++i) {
+            process_chain(&cur_queue[i]);
+        }
+    
+    }
+}
+
+vector<Chain> GraphCaller::break_chain(const HandleGraph& graph, const Chain& chain, size_t max_edges, size_t max_trivial) {
+    
+    vector<Chain> chain_frags;
+
+    // keep track of the current fragment and add it to chain_frags as soon as it gets too big
+    Chain frag;
+    size_t frag_edge_count = 0;
+    size_t frag_triv_count = 0;
+    
+    for (const pair<const Snarl*, bool>& link : chain) {
+        // todo: we're getting the contents here as well as within the caller.
+        auto contents = snarl_manager.deep_contents(link.first, graph, false);
+
+        // todo: use annotation from snarl itself?
+        bool trivial = contents.second.empty();
+
+        if ((trivial && frag_triv_count > max_trivial) ||
+            (contents.second.size() + frag_edge_count > max_edges)) {
+            // adding anything more to the chain would make it too long, so we
+            // add it to the output and clear the current fragment
+            if (!frag.empty() && frag_triv_count < frag.size()) {
+                chain_frags.push_back(frag);
+            }
+            frag.clear();
+            frag_edge_count = 0;
+            frag_triv_count = 0;
+        }
+
+        if (!trivial || (frag_triv_count < max_trivial)) {
+            // we start a new fragment or add to an existing fragment
+            frag.push_back(link);
+            frag_edge_count += contents.second.size();
+            if (trivial) {
+                ++frag_triv_count;
+            }
+        }
+    }
+
+    // and the last one
+    if (!frag.empty()) {
+        chain_frags.push_back(frag);
+    }
+
+    return chain_frags;
+}
+    
 VCFOutputCaller::VCFOutputCaller(const string& sample_name) : sample_name(sample_name) {
     output_variants.resize(get_thread_count());
 }
@@ -314,6 +433,43 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
     }
 }
 
+GAFOutputCaller::GAFOutputCaller(AlignmentEmitter* emitter) :
+    emitter(emitter) {
+    
+}
+
+GAFOutputCaller::~GAFOutputCaller() {
+}
+
+void GAFOutputCaller::emit_gaf_traversals(const HandleGraph& graph, const vector<SnarlTraversal>& travs) {
+    assert(emitter != nullptr);
+    vector<Alignment> aln_batch;
+    aln_batch.reserve(travs.size());
+    for (int i = 0; i < travs.size(); ++i) {
+        aln_batch.push_back(to_alignment(travs[i], graph));
+    }
+    emitter->emit_singles(std::move(aln_batch)); 
+}
+
+void GAFOutputCaller::emit_gaf_variant(const HandleGraph& graph, 
+                                       const Snarl& snarl,
+                                       const vector<SnarlTraversal>& traversals,
+                                       const vector<int>& genotype) {
+    assert(emitter != nullptr);
+
+    // pretty bare bones for now, just output the genotype as a pair of traversals
+    // todo: we could embed some basic information (likelihood, ploidy, sample etc) in the gaf
+    string variant_id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
+
+    vector<Alignment> aln_gt;
+    aln_gt.reserve(genotype.size());
+    for (int i = 0; i < genotype.size(); ++i) {
+        aln_gt.push_back(to_alignment(traversals[genotype[i]], graph));
+        aln_gt.back().set_name(variant_id + "_" + std::to_string(i));
+    }
+    emitter->emit_singles(std::move(aln_gt));
+}
+
 VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            SnarlCaller& snarl_caller,
                            SnarlManager& snarl_manager,
@@ -322,12 +478,17 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            const vector<string>& ref_paths,
                            FastaReference* ref_fasta,
                            FastaReference* ins_fasta,
-                           ostream& out_stream) :
-    GraphCaller(snarl_caller, snarl_manager, out_stream),
+                           AlignmentEmitter* aln_emitter,
+                           bool traversals_only,
+                           bool gaf_output) :
+    GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
+    GAFOutputCaller(aln_emitter),
     graph(graph),
     input_vcf(variant_file),
-    traversal_finder(graph, snarl_manager, variant_file, ref_paths, ref_fasta, ins_fasta, snarl_caller.get_skip_allele_fn()) {
+    traversal_finder(graph, snarl_manager, variant_file, ref_paths, ref_fasta, ins_fasta, snarl_caller.get_skip_allele_fn()),
+    traversals_only(traversals_only),
+    gaf_output(gaf_output) {
 
     scan_contig_lengths();    
 }
@@ -367,6 +528,13 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl, int ploidy) {
             }
         }
 
+        // just print the traversals if requested
+        if (traversals_only) {
+            assert(gaf_output);
+            emit_gaf_traversals(graph, travs);
+            return true;
+        }
+
         // find a path range corresponding to our snarl by way of the VCF variants.
         tuple<string, size_t, size_t> ref_positions = get_ref_positions(variants);
 
@@ -377,6 +545,11 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl, int ploidy) {
                                                                         make_pair(get<1>(ref_positions), get<2>(ref_positions)));
 
         assert(trav_genotype.size() <= 2);
+
+        if (gaf_output) {
+            emit_gaf_variant(graph, snarl, travs, trav_genotype);
+            return true;
+        }
 
         // map our genotype back to the vcf
         for (int i = 0; i < variants.size(); ++i) {
@@ -527,7 +700,7 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                            const string& sample_name,
                            const vector<string>& ref_paths,
                            const vector<size_t>& ref_path_offsets) :
-    GraphCaller(snarl_caller, snarl_manager, out_stream),
+    GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     graph(graph),
     ref_paths(ref_paths) {
@@ -870,13 +1043,18 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        TraversalFinder& traversal_finder,
                        const vector<string>& ref_paths,
                        const vector<size_t>& ref_path_offsets,
-                       ostream& out_stream) :
-    GraphCaller(snarl_caller, snarl_manager, out_stream),
+                       AlignmentEmitter* aln_emitter,
+                       bool traversals_only,
+                       bool gaf_output) :
+    GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
+    GAFOutputCaller(aln_emitter),
     graph(graph),
     traversal_finder(traversal_finder),
-    ref_paths(ref_paths) {
-    
+    ref_paths(ref_paths),
+    traversals_only(traversals_only),
+    gaf_output(gaf_output)
+{
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
         ref_path_set.insert(ref_paths[i]);
@@ -888,7 +1066,13 @@ FlowCaller::~FlowCaller() {
 
 }
 
-bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
+bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy) {
+
+    // todo: In order to experiment with merging consecutive snarls to make longer traversals,
+    // I am experimenting with sending "fake" snarls through this code.  So make a local
+    // copy to work on to do things like flip -- calling any snarl_manager code that
+    // wants a pointer will crash. 
+    Snarl snarl = managed_snarl;
 
     if (snarl.start().node_id() == snarl.end().node_id() ||
         !graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
@@ -955,11 +1139,9 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
 
     // find the reference traversal and coordinates using the path position graph interface
     tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
-    bool flipped = false;
     if (get<2>(ref_interval) == true) {
         // calling code assumes snarl forward on reference
-        snarl_manager.flip(&snarl);
-        flipped = true;
+        flip_snarl(snarl);
         ref_interval = get_ref_interval(graph, snarl, ref_path_name);
     }
 
@@ -1021,22 +1203,31 @@ bool FlowCaller::call_snarl(const Snarl& snarl, int ploidy) {
         travs.push_back(ref_trav);
     }
 
-    // use our support caller to choose our genotype
-    vector<int> trav_genotype;
-    unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-    std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
-                                                                    make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+    bool ret_val = true;
 
-    assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
+    if (traversals_only) {
+        assert(gaf_output);
+        emit_gaf_traversals(graph, travs);
+    } else {
+        // use our support caller to choose our genotype
+        vector<int> trav_genotype;
+        unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
+                                                                        make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
-    emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
-                 ref_offsets[ref_path_name]);
+        assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
 
-    if (flipped) {
-        // leave our snarl how we found it
-        snarl_manager.flip(&snarl);
+        if (!gaf_output) {
+            emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
+                         ref_offsets[ref_path_name]);
+        } else {
+            emit_gaf_variant(graph, snarl, travs, trav_genotype);
+        }
+
+        ret_val = trav_genotype.size() == ploidy;
     }
-    return trav_genotype.size() == ploidy;
+        
+    return ret_val;
 }
 
 string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,

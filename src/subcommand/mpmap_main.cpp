@@ -230,6 +230,7 @@ int main_mpmap(int argc, char** argv) {
     double frag_length_mean = NAN;
     double frag_length_stddev = NAN;
     bool same_strand = false;
+    bool suppress_mismapping_detection = false;
     bool auto_calibrate_mismapping_detection = true;
     double max_mapping_p_value = 0.00001;
     size_t num_calibration_simulations = 100;
@@ -769,6 +770,8 @@ int main_mpmap(int argc, char** argv) {
         no_clustering = true;
         // we don't want to throw away short matches a priori in very short data
         min_clustering_mem_length = 1;
+        // we don't want to automatically distrust short mappings
+        suppress_mismapping_detection = true;
     }
     else if (read_length != "short") {
         // short is the default
@@ -1426,6 +1429,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.precollapse_order_length_hits = precollapse_order_length_hits;
     multipath_mapper.max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
     multipath_mapper.max_mapping_p_value = max_mapping_p_value;
+    multipath_mapper.suppress_mismapping_detection = suppress_mismapping_detection;
     if (min_clustering_mem_length) {
         multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
     }

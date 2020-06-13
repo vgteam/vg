@@ -304,6 +304,13 @@ protected:
      */
     void extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const;
 
+    /**
+     * Get the distance limit for the given read length
+     */
+    size_t get_distance_limit(size_t read_length) {
+        return max(distance_limit, read_length + 50);
+    }
+
 //-----------------------------------------------------------------------------
 
     /**
