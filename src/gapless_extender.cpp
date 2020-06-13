@@ -580,7 +580,7 @@ bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::CachedGBWTGra
         }
 
         // Update the best interval.
-        if (current_score > best_score || (current_score == best_score && interval_length(current_interval) > interval_length(best_interval))) {
+        if (current_score > best_score || (current_score > 0 && current_score == best_score && interval_length(current_interval) > interval_length(best_interval))) {
             best_interval = current_interval;
             best_score = current_score;
         }

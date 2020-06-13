@@ -2219,6 +2219,10 @@ GaplessExtender::cluster_type MinimizerMapper::seeds_in_subgraph(const std::vect
     GaplessExtender::cluster_type result;
     for (const Minimizer& minimizer : minimizers) {
         gbwtgraph::hits_in_subgraph(minimizer.hits, minimizer.occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
+            if (minimizer.value.is_reverse) {
+                size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos)));
+                pos = reverse_base_pos(pos, node_length);
+            }
             result.insert(GaplessExtender::to_seed(pos, minimizer.value.offset));
         });
     }
