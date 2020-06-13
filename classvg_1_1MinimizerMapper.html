@@ -121,12 +121,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a692470c7551c4966126aa7bf357e60a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4ae627a418357792cd5b9f6d6b9cc19c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4ae627a418357792cd5b9f6d6b9cc19c">finalize_fragment_length_distr</a> ()</td></tr>
 <tr class="separator:a4ae627a418357792cd5b9f6d6b9cc19c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9605b1ef714df2c8f07b7bcd4afd0882"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a9605b1ef714df2c8f07b7bcd4afd0882">attempt_rescue</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aligned_read, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;rescued_alignment, bool rescue_forward)</td></tr>
-<tr class="separator:a9605b1ef714df2c8f07b7bcd4afd0882"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab6a0d266ef94fbda125ebdde64617c84"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab6a0d266ef94fbda125ebdde64617c84">fix_dozeu_score</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;rescued_alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;rescue_graph, const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order) const</td></tr>
-<tr class="separator:ab6a0d266ef94fbda125ebdde64617c84"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae68add551501e3b58c9329d9297d620d"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ae68add551501e3b58c9329d9297d620d">distance_between</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln2)</td></tr>
-<tr class="separator:ae68add551501e3b58c9329d9297d620d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:ab74784d7320b1c33c7bf6e75259d4cea inherit pub_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#ab74784d7320b1c33c7bf6e75259d4cea">set_alignment_scores</a> (int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
 <tr class="memdesc:ab74784d7320b1c33c7bf6e75259d4cea inherit pub_methods_classvg_1_1AlignerClient"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set all the aligner scoring parameters and create the stored aligner instances.  <a href="classvg_1_1AlignerClient.html#ab74784d7320b1c33c7bf6e75259d4cea">More...</a><br /></td></tr>
@@ -220,10 +214,20 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:af9ff5e0a1b8c7925ccdb8a23d29872ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a421cdd65bac59fac39fd3b87cce0f3ae"><td class="memItemLeft" align="right" valign="top">std::vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a421cdd65bac59fac39fd3b87cce0f3ae">score_extensions</a> (const std::vector&lt; std::pair&lt; std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;, size_t &gt;&gt; &amp;extensions, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
 <tr class="separator:a421cdd65bac59fac39fd3b87cce0f3ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9d24e2b3f8e141e68e87800eae455b06"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a9d24e2b3f8e141e68e87800eae455b06">get_distance_limit</a> (size_t read_length)</td></tr>
-<tr class="separator:a9d24e2b3f8e141e68e87800eae455b06"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a79aa2191150ce4c8d2fe5aef039d95f8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a79aa2191150ce4c8d2fe5aef039d95f8">attempt_rescue</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aligned_read, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;rescued_alignment, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, bool rescue_forward)</td></tr>
+<tr class="separator:a79aa2191150ce4c8d2fe5aef039d95f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af5c2e6c910517b41a6613994dbba89dd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04">GaplessExtender::cluster_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af5c2e6c910517b41a6613994dbba89dd">seeds_in_subgraph</a> (const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;subgraph) const</td></tr>
+<tr class="separator:af5c2e6c910517b41a6613994dbba89dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab6a0d266ef94fbda125ebdde64617c84"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab6a0d266ef94fbda125ebdde64617c84">fix_dozeu_score</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;rescued_alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;rescue_graph, const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order) const</td></tr>
+<tr class="separator:ab6a0d266ef94fbda125ebdde64617c84"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae68add551501e3b58c9329d9297d620d"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ae68add551501e3b58c9329d9297d620d">distance_between</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln2)</td></tr>
+<tr class="separator:ae68add551501e3b58c9329d9297d620d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0a67380a95608145839617f3a3193a6c"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0a67380a95608145839617f3a3193a6c">phred_for_at_least_one</a> (size_t p, size_t n) const</td></tr>
 <tr class="separator:a0a67380a95608145839617f3a3193a6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a33fac2713ca1929fc6f870f4bb9e82b8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a33fac2713ca1929fc6f870f4bb9e82b8">extension_to_alignment</a> (const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;extension, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment) const</td></tr>
+<tr class="separator:a33fac2713ca1929fc6f870f4bb9e82b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9d24e2b3f8e141e68e87800eae455b06"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a9d24e2b3f8e141e68e87800eae455b06">get_distance_limit</a> (size_t read_length)</td></tr>
+<tr class="separator:a9d24e2b3f8e141e68e87800eae455b06"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac861bd6bd13e84585765ca5e27dd5d0b"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac861bd6bd13e84585765ca5e27dd5d0b">compute_mapq_caps</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;present_in_any_extended_cluster)</td></tr>
 <tr class="separator:ac861bd6bd13e84585765ca5e27dd5d0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa19502481af491af1d623da3ed16a766"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aa19502481af491af1d623da3ed16a766">window_breaking_quality</a> (const vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, vector&lt; size_t &gt; &amp;broken, const string &amp;sequence, const string &amp;quality_bytes) const</td></tr>
@@ -443,11 +447,14 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a9605b1ef714df2c8f07b7bcd4afd0882"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9605b1ef714df2c8f07b7bcd4afd0882">&#9670;&nbsp;</a></span>attempt_rescue()</h2>
+<a id="a79aa2191150ce4c8d2fe5aef039d95f8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a79aa2191150ce4c8d2fe5aef039d95f8">&#9670;&nbsp;</a></span>attempt_rescue()</h2>
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">void vg::MinimizerMapper::attempt_rescue </td>
@@ -464,6 +471,12 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">bool&#160;</td>
           <td class="paramname"><em>rescue_forward</em>&#160;</td>
         </tr>
@@ -473,6 +486,11 @@ Additional Inherited Members</h2></td></tr>
           <td></td><td></td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 <p>Given an aligned read, extract a subgraph of the graph within a distance range based on the fragment length distribution and attempt to align the unaligned read to it. Rescue_forward is true if the aligned read is the first and false otherwise. Assumes that both reads are facing the same direction. TODO: This should be const, but some of the function calls are not. </p>
 
@@ -690,6 +708,9 @@ Additional Inherited Members</h2></td></tr>
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">int64_t vg::MinimizerMapper::distance_between </td>
@@ -709,8 +730,50 @@ Additional Inherited Members</h2></td></tr>
           <td></td><td></td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 <p>Get the distance between a pair of read alignments </p>
+
+</div>
+</div>
+<a id="a33fac2713ca1929fc6f870f4bb9e82b8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a33fac2713ca1929fc6f870f4bb9e82b8">&#9670;&nbsp;</a></span>extension_to_alignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::extension_to_alignment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;&#160;</td>
+          <td class="paramname"><em>extension</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Convert the <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> into an alignment. This assumes that the extension is a full-length alignment and that the sequence field of the alignment has been set. </p>
 
 </div>
 </div>
@@ -914,6 +977,9 @@ Additional Inherited Members</h2></td></tr>
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">void vg::MinimizerMapper::fix_dozeu_score </td>
@@ -939,8 +1005,13 @@ Additional Inherited Members</h2></td></tr>
           <td></td><td> const</td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
-<p>When we use dozeu for rescue, the reported alignment score is incorrect. 1) Dozeu only gives the full-length bonus once. 2) There is no penalty for a softclip at the edge of the subgraph. This function calculates the score correctly. If the score is incorrect, we realign the read using GSSW. TODO: This should be unnecessary. </p>
+<p>When we use dozeu for rescue, the reported alignment score is incorrect. 1) Dozeu only gives the full-length bonus once. 2) There is no penalty for a softclip at the edge of the subgraph. This function calculates the score correctly. If the score is &lt;= 0, we realign the read using GSSW. TODO: This should be unnecessary. </p>
 
 </div>
 </div>
@@ -1705,6 +1776,43 @@ template&lt;typename Item , typename Score &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Score the set of extensions for each cluster using <a class="el" href="classvg_1_1MinimizerMapper.html#a2c8ab02743227cb2550fcfd295043253">score_extension_group()</a>. Return the scores in the same order as the extensions. </p>
+
+</div>
+</div>
+<a id="af5c2e6c910517b41a6613994dbba89dd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af5c2e6c910517b41a6613994dbba89dd">&#9670;&nbsp;</a></span>seeds_in_subgraph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04">GaplessExtender::cluster_type</a> vg::MinimizerMapper::seeds_in_subgraph </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>subgraph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return the all non-redundant seeds in the subgraph, including those from minimizers not used for mapping. </p>
 
 </div>
 </div>

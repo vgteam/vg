@@ -235,7 +235,7 @@ var searchData=
   ['constructor',['Constructor',['../classvg_1_1Constructor.html',1,'vg']]],
   ['constructor_2ecpp',['constructor.cpp',['../constructor_8cpp.html',1,'']]],
   ['constructor_2ehpp',['constructor.hpp',['../constructor_8hpp.html',1,'']]],
-  ['contains',['contains',['../structvg_1_1GaplessExtension.html#aba7a20e9cda82fefa76322cd597530fe',1,'vg::GaplessExtension::contains()'],['../classvg_1_1SmallBitset.html#a58b8cbb133801d25d76785eb54bf6247',1,'vg::SmallBitset::contains()']]],
+  ['contains',['contains',['../structvg_1_1GaplessExtension.html#abfa77e71c6b3b5193a57dd13b42ecf40',1,'vg::GaplessExtension::contains()'],['../classvg_1_1SmallBitset.html#a58b8cbb133801d25d76785eb54bf6247',1,'vg::SmallBitset::contains()']]],
   ['content',['content',['../structvg_1_1BitStringTree_1_1TreeNode.html#a654e2ccb451511ff925aa9d66e290fbe',1,'vg::BitStringTree::TreeNode']]],
   ['contents',['contents',['../classvg_1_1SubHandleGraph.html#a6d06eff177c6d87feadd561675c11b73',1,'vg::SubHandleGraph']]],
   ['context_5fbases',['context_bases',['../classvg_1_1GraphSynchronizer_1_1Lock.html#ae4a5790fef0070239e02d0f14bab68c3',1,'vg::GraphSynchronizer::Lock']]],

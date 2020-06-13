@@ -54,7 +54,7 @@ var searchData=
   ['find_5fmems_5fdeep',['find_mems_deep',['../classvg_1_1BaseMapper.html#af64a7b36c1880606372d0849842708b0',1,'vg::BaseMapper']]],
   ['find_5fmems_5fsimple',['find_mems_simple',['../classvg_1_1BaseMapper.html#a4dd3272837211543ba461472833734a9',1,'vg::BaseMapper']]],
   ['find_5fminimizers',['find_minimizers',['../classvg_1_1MinimizerMapper.html#af3e5c53b0250173b6d0eb097cf884986',1,'vg::MinimizerMapper']]],
-  ['find_5fmismatches',['find_mismatches',['../namespacevg.html#a26bf49f79287eca58277d2562e9fe957',1,'vg']]],
+  ['find_5fmismatches',['find_mismatches',['../namespacevg.html#a050aedf4b2e047e04f31a6e8b7ad55ce',1,'vg']]],
   ['find_5fnamed_5ftraversals',['find_named_traversals',['../classvg_1_1PathRestrictedTraversalFinder.html#ab046472d6a0a26a52c91574e7a09373d',1,'vg::PathRestrictedTraversalFinder']]],
   ['find_5fnode_5fby_5fname_5for_5fadd_5fnew',['find_node_by_name_or_add_new',['../classvg_1_1VG.html#a04774a86b07508e9e5955abfba2171ff',1,'vg::VG']]],
   ['find_5fnon_5fref_5ftips',['find_non_ref_tips',['../classvg_1_1Homogenizer.html#a8b6ba61dfa468727d090ed7ba9b8b490',1,'vg::Homogenizer']]],
