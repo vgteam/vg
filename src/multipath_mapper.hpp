@@ -180,6 +180,7 @@ namespace vg {
         bool suppress_p_value_memoization = false;
         size_t fragment_length_warning_factor = 0;
         size_t max_alignment_gap = 5000;
+        bool suppress_mismapping_detection = false;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;

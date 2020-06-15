@@ -6,13 +6,12 @@
  */
 
 #include <functional>
+#include <unordered_set>
 
 #include "aligner.hpp"
-#include "hash_map.hpp"
-#include "subgraph.hpp"
 
 #include <bdsg/hash_graph.hpp>
-#include <gbwtgraph/gbwtgraph.h>
+#include <gbwtgraph/cached_gbwtgraph.h>
 
 namespace vg {
 
@@ -67,19 +66,19 @@ struct GaplessExtension
     size_t mismatches() const { return this->mismatch_positions.size(); }
 
     /// Does the extension contain the seed?
-    bool contains(const gbwtgraph::GBWTGraph& graph, seed_type seed) const;
+    bool contains(const HandleGraph& graph, seed_type seed) const;
 
     /// Return the starting position of the extension.
-    Position starting_position(const gbwtgraph::GBWTGraph& graph) const;
+    Position starting_position(const HandleGraph& graph) const;
 
     /// Return the position after the extension.
-    Position tail_position(const gbwtgraph::GBWTGraph& graph) const;
+    Position tail_position(const HandleGraph& graph) const;
 
     /// Return the node offset after the extension.
-    size_t tail_offset(const gbwtgraph::GBWTGraph& graph) const;
+    size_t tail_offset(const HandleGraph& graph) const;
 
     /// Convert the extension into a Path.
-    Path to_path(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) const;
+    Path to_path(const HandleGraph& graph, const std::string& sequence) const;
 
     /// For priority queues.
     bool operator<(const GaplessExtension& another) const {
@@ -156,25 +155,27 @@ public:
      * of the seeds, allowing any number of mismatches in the seed node and
      * max_mismatches / 2 mismatches on each flank. Flanks may have more mismatches
      * if it does not bring the total beyond max_mismatches. Then call trim() if
-     * trim_extensions i set.
+     * trim_extensions is set.
+     * Use the provided CachedGBWTGraph or allocate a new one.
      * The extensions are sorted by their coordinates in the sequence.
      */
-    std::vector<GaplessExtension> extend(cluster_type& cluster, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES, bool trim_extensions = true) const;
+    std::vector<GaplessExtension> extend(cluster_type& cluster, const std::string& sequence, const gbwtgraph::CachedGBWTGraph* cache = nullptr, size_t max_mismatches = MAX_MISMATCHES, bool trim_extensions = true) const;
 
     /**
      * Try to improve the score of each extension by trimming mismatches from the flanks.
      * Do not trim full-length alignments with <= max_mismatches mismatches.
-     * Use the provided CachedGBWT or allocate a new one.
+     * Use the provided CachedGBWTGraph or allocate a new one.
      * Note that extend() already calls this by default.
      */
-    void trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches = MAX_MISMATCHES, const gbwt::CachedGBWT* cache = nullptr) const;
+    void trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches = MAX_MISMATCHES, const gbwtgraph::CachedGBWTGraph* cache = nullptr) const;
 
-   /**
-    * Find the distinct local haplotypes in the given subgraph and return the corresponding paths.
-    * For each path haplotype_paths[i], the output graph will contain node 2i + 1 with sequence
-    * corresponding to the path and node 2i + 2 with the reverse complement of the sequence.
-    */
-    void unfold_haplotypes(const SubHandleGraph& subgraph, std::vector<std::vector<handle_t>>& haplotype_paths,  bdsg::HashGraph& unfolded) const;
+    /**
+     * Find the distinct local haplotypes in the given subgraph and return the corresponding paths.
+     * For each path haplotype_paths[i], the output graph will contain node 2i + 1 with sequence
+     * corresponding to the path and node 2i + 2 with the reverse complement of the sequence.
+     * Use the provided CachedGBWTGraph or allocate a new one.
+     */
+    void unfold_haplotypes(const std::unordered_set<nid_t>& subgraph, std::vector<std::vector<handle_t>>& haplotype_paths,  bdsg::HashGraph& unfolded, const gbwtgraph::CachedGBWTGraph* cache = nullptr) const;
 
     /**
      * Transform an alignment to a single node in the unfold_haplotypes() graph to an

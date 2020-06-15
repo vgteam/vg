@@ -37,7 +37,6 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index),
     fragment_length_distr(1000,1000,0.95),
     phred_at_least_one() {
-        //TODO: Picked fragment_length_distr params from mpmap
 
     // Initialize phred_at_least_one.
     size_t max_k = 0, values = static_cast<size_t>(1) << PRECISION;
@@ -83,7 +82,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     if (track_provenance) {
         funnel.stage("cluster");
     }
-    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, distance_limit);
+    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, get_distance_limit(aln.sequence().size()));
 
     // Determine the scores and read coverages for each cluster.
     // Also find the best and second-best cluster scores.
@@ -343,24 +342,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 }
 
                 //Fill in the best alignments from the extension
-                
-                *best_alignment.mutable_path() = extensions.front().to_path(gbwt_graph, best_alignment.sequence());
-                size_t mismatch_count = extensions.front().mismatches();
-                double identity = best_alignment.sequence().size() == 0 ? 0.0 : (best_alignment.sequence().size() - mismatch_count) / (double) best_alignment.sequence().size();
-                
-                // Fill in the score and identity
-                best_alignment.set_score(extensions.front().score);
-                best_alignment.set_identity(identity);
+                this->extension_to_alignment(extensions.front(), best_alignment);
 
                 if (extensions.size() > 1) {
                     //Do the same thing for the second extension, if one exists
-                    *second_best_alignment.mutable_path() = extensions.back().to_path(gbwt_graph, second_best_alignment.sequence());
-                    size_t mismatch_count = extensions.back().mismatches();
-                    double identity = second_best_alignment.sequence().size() == 0 ? 0.0 : (second_best_alignment.sequence().size() - mismatch_count) / (double) second_best_alignment.sequence().size();
-                    
-                    // Fill in the score and identity
-                    second_best_alignment.set_score(extensions.back().score);
-                    second_best_alignment.set_identity(identity);
+                    this->extension_to_alignment(extensions.back(), second_best_alignment);
                 }
 
                 if (track_provenance) {
@@ -733,13 +719,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // Cluster the seeds. Get sets of input seed indexes that go together.
     // If the fragment length distribution hasn't been fixed yet (if the expected fragment length = 0),
     // then everything will be in the same cluster and the best pair will be the two best independent mappings
-    // TODO: Choose a good distance for the fragment distance limit.
     if (track_provenance) {
         funnels[0].stage("cluster");
         funnels[1].stage("cluster");
     }
-    std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, distance_limit, 
-            fragment_length_distr.mean() + 2 * fragment_length_distr.std_dev());
+    std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, get_distance_limit(aln1.sequence().size()), 
+            fragment_length_distr.mean() + paired_distance_stdevs * fragment_length_distr.std_dev());
 
     //For each fragment cluster, determine if it has clusters from both reads
     size_t max_fragment_num = 0;
@@ -1052,26 +1037,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     }
 
                     //Fill in the best alignments from the extension
-                    
-                    *best_alignment.mutable_path() = extensions.front().to_path(gbwt_graph, best_alignment.sequence());
-                    size_t mismatch_count = extensions.front().mismatches();
-                    double identity = best_alignment.sequence().size() == 0 ? 0.0 
-                            : (best_alignment.sequence().size() - mismatch_count) / (double) best_alignment.sequence().size();
-                    
-                    // Fill in the score and identity
-                    best_alignment.set_score(extensions.front().score);
-                    best_alignment.set_identity(identity);
+                    this->extension_to_alignment(extensions.front(), best_alignment);
 
                     if (extensions.size() > 1) {
                         //Do the same thing for the second extension, if one exists
-                        *second_best_alignment.mutable_path() = extensions.back().to_path(gbwt_graph, second_best_alignment.sequence());
-                        size_t mismatch_count = extensions.back().mismatches();
-                        double identity = second_best_alignment.sequence().size() == 0 ? 0.0 
-                                : (second_best_alignment.sequence().size() - mismatch_count) / (double) second_best_alignment.sequence().size();
-                        
-                        // Fill in the score and identity
-                        second_best_alignment.set_score(extensions.back().score);
-                        second_best_alignment.set_identity(identity);
+                        this->extension_to_alignment(extensions.back(), second_best_alignment);
                     }
 
                     if (track_provenance) {
@@ -1411,13 +1381,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 Alignment rescued_aln = found_first ? aln2 : aln1;
                 rescued_aln.clear_path();
 
-                if (found_pair && (double) mapped_aln.score() < (double) (found_first ? best_alignment_scores.first : best_alignment_scores.second) * 0.9) {
-                    //TODO: 0.9?
+                if (found_pair && (double) mapped_aln.score() < (double) (found_first ? best_alignment_scores.first : best_alignment_scores.second) * paired_rescue_score_limit) {
                     //If we have already found paired clusters and this unpaired alignment is not good enough, do nothing
                     return true;
                 }
 
-                attempt_rescue(mapped_aln, rescued_aln, found_first);
+                attempt_rescue(mapped_aln, rescued_aln, minimizers_by_read[(found_first ? 1 : 0)], found_first);
 
                 int64_t fragment_dist = found_first ? distance_between(mapped_aln, rescued_aln) 
                                                       : distance_between(rescued_aln, mapped_aln);
@@ -1814,11 +1783,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
 //-----------------------------------------------------------------------------
 
-double MinimizerMapper::phred_for_at_least_one(size_t p, size_t n) const {
-    p >>= 8 * sizeof(size_t) - PRECISION;
-    return this->phred_at_least_one[(n << PRECISION) + p];
-}
-
 double MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
     const std::vector<Minimizer>& minimizers,
     const SmallBitset& present_in_any_extended_cluster) {
@@ -2124,7 +2088,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 
 //-----------------------------------------------------------------------------
 
-void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment,  bool rescue_forward) {
+void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, const std::vector<Minimizer>& minimizers, bool rescue_forward ) {
 
     if (this->rescue_algorithm == rescue_none) { return; }
 
@@ -2132,10 +2096,9 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     gbwtgraph::CachedGBWTGraph cached_graph(this->gbwt_graph);
 
     // Find all nodes within a reasonable range from aligned_read.
-    // TODO: How big should the rescue subgraph be?
     std::unordered_set<id_t> rescue_nodes;
-    int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - 4 * fragment_length_distr.std_dev());
-    int64_t max_distance = fragment_length_distr.mean() + 4 * fragment_length_distr.std_dev();
+    int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - rescue_subgraph_stdevs * fragment_length_distr.stdev());
+    int64_t max_distance = fragment_length_distr.mean() + rescue_subgraph_stdevs * fragment_length_distr.std_dev();
     distance_index.subgraph_in_range(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
 
     // Remove node ids that do not exist in the GBWTGraph from the subgraph.
@@ -2152,17 +2115,28 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     // Get rid of the old path.
     rescued_alignment.clear_path();
 
-    if (this->rescue_algorithm == rescue_haplotypes) {
-        // FIXME Implement this using the subset of nodes.
-        SubHandleGraph sub_graph(&cached_graph);
-        for (id_t id : rescue_nodes)  {
-            sub_graph.add_handle(gbwt_graph.get_handle(id));
+    // Find all seeds in the subgraph and try to get a full-length extension.
+    GaplessExtender::cluster_type seeds = this->seeds_in_subgraph(minimizers, rescue_nodes);
+    std::vector<GaplessExtension> extensions = this->extender.extend(seeds, rescued_alignment.sequence(), &cached_graph);
+    size_t best = extensions.size();
+    for (size_t i = 0; i < extensions.size(); i++) {
+        if (best >= extensions.size() || extensions[i].score > extensions[best].score) {
+            best = i;
         }
+    }
 
+    // If we have a full-length extension, use it as the rescued alignment.
+    if (best < extensions.size() && extensions[best].full()) {
+        this->extension_to_alignment(extensions[best], rescued_alignment);
+        return;
+    }
+
+    // The haplotype-based algorithm is a special case.
+    if (this->rescue_algorithm == rescue_haplotypes) {
         // Find and unfold the local haplotypes in the subgraph.
         std::vector<std::vector<handle_t>> haplotype_paths;
         bdsg::HashGraph align_graph;
-        this->extender.unfold_haplotypes(sub_graph, haplotype_paths, align_graph);
+        this->extender.unfold_haplotypes(rescue_nodes, haplotype_paths, align_graph);
 
         // Align to the subgraph.
         this->get_regular_aligner()->align_xdrop(rescued_alignment, align_graph,
@@ -2171,52 +2145,88 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
 
         // Get the corresponding alignment to the original graph.
         this->extender.transform_alignment(rescued_alignment, haplotype_paths);
-    } else {
-        // Check if the subgraph is acyclic. Rescue is much faster in acyclic subgraphs.
-        std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
-        if (!topological_order.empty()) {
-            if (this->rescue_algorithm == rescue_dozeu) {
-                get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
-                                                   std::vector<MaximalExactMatch>(), false);
-                this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
-            } else {
-                get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
-            }
-        } else {
-            // Build a subgraph overlay.
-            SubHandleGraph sub_graph(&cached_graph);
-            for (id_t id : rescue_nodes)  {
-                sub_graph.add_handle(cached_graph.get_handle(id));
-            }
-
-            // Create an overlay where each strand is a separate node.
-            StrandSplitGraph split_graph(&sub_graph);
-
-            // Dagify the subgraph.
-            bdsg::HashGraph dagified;
-            std::unordered_map<id_t, id_t> dagify_trans =
-                algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
-
-            // Align to the subgraph.
-            if (this->rescue_algorithm == rescue_dozeu) {
-                get_regular_aligner()->align_xdrop(rescued_alignment, dagified,
-                                                   std::vector<MaximalExactMatch>(), false);
-                this->fix_dozeu_score(rescued_alignment, dagified, topological_order);
-            } else {
-                get_regular_aligner()->align(rescued_alignment, dagified, true);
-            }
-
-            // Map the alignment back to the original graph.
-            Path& path = *(rescued_alignment.mutable_path());
-            for (size_t i = 0; i < path.mapping_size(); i++) {
-                Position& pos = *(path.mutable_mapping(i)->mutable_position());
-                id_t id = dagify_trans[pos.node_id()];
-                handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(id));
-                pos.set_node_id(sub_graph.get_id(handle));
-                pos.set_is_reverse(sub_graph.get_is_reverse(handle));
-            }
-        }
+        return;
     }
+
+    // Use the best extension as a seed for dozeu.
+    // Also ensure that the entire extension is in the subgraph.
+    std::vector<MaximalExactMatch> dozeu_seed;
+    if (best < extensions.size()) {
+        const GaplessExtension& extension = extensions[best];
+        for (handle_t handle : extension.path) {
+            rescue_nodes.insert(cached_graph.get_id(handle));
+        }
+        dozeu_seed.emplace_back();
+        dozeu_seed.back().begin = rescued_alignment.sequence().begin() + extension.read_interval.first;
+        dozeu_seed.back().end = rescued_alignment.sequence().begin() + extension.read_interval.second;
+        nid_t id = cached_graph.get_id(extension.path.front());
+        bool is_reverse = cached_graph.get_is_reverse(extension.path.front());
+        gcsa::node_type node = gcsa::Node::encode(id, extension.offset, is_reverse);
+        dozeu_seed.back().nodes.push_back(node);
+    }
+
+    // GSSW and dozeu assume that the graph is a DAG.
+    std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
+    if (!topological_order.empty()) {
+        if (rescue_algorithm == rescue_dozeu) {
+            get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
+                                               dozeu_seed, false);
+            this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
+        } else {
+            get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
+        }
+        return;
+    }
+
+    // Build a subgraph overlay.
+    SubHandleGraph sub_graph(&cached_graph);
+    for (id_t id : rescue_nodes) {
+        sub_graph.add_handle(cached_graph.get_handle(id));
+    }
+
+    // Create an overlay where each strand is a separate node.
+    StrandSplitGraph split_graph(&sub_graph);
+
+    // Dagify the subgraph.
+    bdsg::HashGraph dagified;
+    std::unordered_map<id_t, id_t> dagify_trans =
+        algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
+
+    // Align to the subgraph.
+    // TODO: Map the seed to the dagified subgraph.
+    if (this->rescue_algorithm == rescue_dozeu) {
+        get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false);
+        this->fix_dozeu_score(rescued_alignment, dagified, std::vector<handle_t>());
+    } else if (this->rescue_algorithm == rescue_gssw) {
+        get_regular_aligner()->align(rescued_alignment, dagified, true);
+    }
+
+    // Map the alignment back to the original graph.
+    Path& path = *(rescued_alignment.mutable_path());
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        Position& pos = *(path.mutable_mapping(i)->mutable_position());
+        id_t id = dagify_trans[pos.node_id()];
+        handle_t handle = split_graph.get_underlying_handle(split_graph.get_handle(id));
+        pos.set_node_id(sub_graph.get_id(handle));
+        pos.set_is_reverse(sub_graph.get_is_reverse(handle));
+    }
+}
+
+GaplessExtender::cluster_type MinimizerMapper::seeds_in_subgraph(const std::vector<Minimizer>& minimizers,
+                                                                 const std::unordered_set<id_t>& subgraph) const {
+    std::vector<id_t> sorted_ids(subgraph.begin(), subgraph.end());
+    std::sort(sorted_ids.begin(), sorted_ids.end());
+    GaplessExtender::cluster_type result;
+    for (const Minimizer& minimizer : minimizers) {
+        gbwtgraph::hits_in_subgraph(minimizer.hits, minimizer.occs, sorted_ids, [&](pos_t pos, gbwtgraph::payload_type) {
+            if (minimizer.value.is_reverse) {
+                size_t node_length = this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos)));
+                pos = reverse_base_pos(pos, node_length);
+            }
+            result.insert(GaplessExtender::to_seed(pos, minimizer.value.offset));
+        });
+    }
+    return result;
 }
 
 void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,
@@ -2224,7 +2234,7 @@ void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const Handle
 
     const Aligner* aligner = this->get_regular_aligner();
     int32_t score = aligner->score_ungapped_alignment(rescued_alignment);
-    if (score >= 0) {
+    if (score > 0) {
         rescued_alignment.set_score(score);
     } else {
         rescued_alignment.clear_path();
@@ -2236,6 +2246,8 @@ void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const Handle
     }
 }
 
+//-----------------------------------------------------------------------------
+
 int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment& aln2) {
     assert(aln1.path().mapping_size() != 0); 
     assert(aln2.path().mapping_size() != 0); 
@@ -2245,6 +2257,23 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
 
     int64_t min_dist = distance_index.min_distance(pos1, pos2);
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
+}
+
+
+double MinimizerMapper::phred_for_at_least_one(size_t p, size_t n) const {
+    p >>= 8 * sizeof(size_t) - PRECISION;
+    return this->phred_at_least_one[(n << PRECISION) + p];
+}
+
+void MinimizerMapper::extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const {
+    *(alignment.mutable_path()) = extension.to_path(this->gbwt_graph, alignment.sequence());
+    alignment.set_score(extension.score);
+    double identity = 0.0;
+    if (!alignment.sequence().empty()) {
+        size_t len = alignment.sequence().length();
+        identity = (len - extension.mismatches()) / static_cast<double>(len);
+    }
+    alignment.set_identity(identity);
 }
 
 //-----------------------------------------------------------------------------

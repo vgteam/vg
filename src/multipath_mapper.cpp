@@ -717,15 +717,19 @@ namespace vg {
     }
     
     bool MultipathMapper::likely_mismapping(const multipath_alignment_t& multipath_aln) {
-    
-        // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
-        auto p_val = random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size());
-    
+        if (!suppress_mismapping_detection) {
+            // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
+            auto p_val = random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size());
+            
 #ifdef debug_multipath_mapper
-        cerr << "effective match length of read " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << p_val << endl;
+            cerr << "effective match length of read " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << p_val << endl;
 #endif
-        
-        return p_val > max_mapping_p_value;
+            
+            return p_val > max_mapping_p_value;
+        }
+        else {
+            return false;
+        }
     }
     
     size_t MultipathMapper::pseudo_length(const multipath_alignment_t& multipath_aln) const {

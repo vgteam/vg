@@ -96,7 +96,7 @@ DozeuInterface::graph_pos_s DozeuInterface::calculate_seed_position(const Ordere
     graph_pos_s pos;
     
     // get node index
-	pos.node_index = graph.index_of.at(graph.graph.get_handle(gcsa::Node::id(seed_pos)));
+	pos.node_index = graph.index_of.at(graph.graph.get_handle(gcsa::Node::id(seed_pos), gcsa::Node::rc(seed_pos)));
     
 	// calc ref_offset
 	pos.ref_offset = direction ? (graph.graph.get_length(graph.order[pos.node_index]) - gcsa::Node::offset(seed_pos))
@@ -646,7 +646,7 @@ void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const
         
         // we need seed to build edge table (for semi-global extension)
 		graph_pos_s seed_pos = calculate_seed_position(ordered_graph, mems, query_seq.size(), direction);
- 
+
         const char* pack_seq = direction ? query_seq.c_str() : query_seq.c_str() + seed_pos.query_offset;
         const uint8_t* pack_qual = nullptr;
         if (!alignment.quality().empty()) {

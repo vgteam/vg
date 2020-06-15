@@ -49,7 +49,8 @@ void help_index(char** argv) {
          << "    -W, --ignore-missing   don't warn when variants in the VCF are missing from the graph; silently skip them" << endl
          << "    -e, --parse-only FILE  store the VCF parsing with prefix FILE without generating threads" << endl
          << "    -T, --store-threads    generate threads from the embedded paths" << endl
-         << "    -M, --store-gam FILE   generate threads from the alignments in FILE (many allowed)" << endl
+         << "    -M, --store-gam FILE   generate threads from the alignments in gam FILE (many allowed)" << endl
+         << "    -F, --store-gaf FILE   generate threads from the alignments in gaf FILE (many allowed)" << endl
          << "    -G, --gbwt-name FILE   store the threads as GBWT in FILE" << endl
          << "    -H, --write-haps FILE  store the threads as sequences in FILE" << endl
          << "    -z, --actual-phasing   do not make unphased homozygous genotypes phased"<< endl
@@ -116,8 +117,8 @@ int main_index(int argc, char** argv) {
     // GBWT
     HaplotypeIndexer haplotype_indexer;
     
-    bool index_haplotypes = false, index_gam = false;
-    vector<string> gam_file_names;
+    bool index_haplotypes = false, index_gam = false, index_gaf = false;
+    vector<string> aln_file_names;
 
     // GCSA
     gcsa::size_type kmer_size = gcsa::Key::MAX_LENGTH;
@@ -168,6 +169,7 @@ int main_index(int argc, char** argv) {
             {"parse-only", required_argument, 0, 'e'},
             {"store-threads", no_argument, 0, 'T'},
             {"store-gam", required_argument, 0, 'M'},
+            {"store-gaf", required_argument, 0, 'F'},
             {"gbwt-name", required_argument, 0, 'G'},
             {"write-haps", required_argument, 0, 'H'},
             {"actual-phasing", no_argument, 0, 'z'},
@@ -214,7 +216,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:Lv:We:TM:G:H:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:w:h",
+        c = getopt_long (argc, argv, "b:t:px:Lv:We:TM:F:G:H:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:w:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -262,7 +264,12 @@ int main_index(int argc, char** argv) {
         case 'M':
             index_gam = true;
             build_gbwt = true;
-            gam_file_names.push_back(optarg);
+            aln_file_names.push_back(optarg);
+            break;
+        case 'F':
+            index_gaf = true;
+            build_gbwt = true;
+            aln_file_names.push_back(optarg);
             break;
         case 'G':
             build_gbwt = true;
@@ -437,7 +444,7 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    if ((build_gbwt || write_threads) && !(index_haplotypes || haplotype_indexer.index_paths || index_gam)) {
+    if ((build_gbwt || write_threads) && !(index_haplotypes || haplotype_indexer.index_paths || index_gam || index_gaf)) {
         cerr << "error: [vg index] cannot build GBWT without threads" << endl;
         return 1;
     }
@@ -447,18 +454,41 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    if (!haplotype_indexer.batch_file_prefix.empty() && (!index_haplotypes || haplotype_indexer.index_paths || index_gam)) {
+    if (!haplotype_indexer.batch_file_prefix.empty() && (!index_haplotypes || haplotype_indexer.index_paths || index_gam || index_gaf)) {
         cerr << "error: [vg index] --parse-only works with --vcf-phasing only" << endl;
         return 1;
     }
 
-    if ((index_haplotypes || haplotype_indexer.index_paths || index_gam) && !(build_gbwt || !haplotype_indexer.batch_file_prefix.empty() || write_threads)) {
+    if ((index_haplotypes || haplotype_indexer.index_paths || index_gam || index_gaf) && !(build_gbwt || !haplotype_indexer.batch_file_prefix.empty() || write_threads)) {
         cerr << "error: [vg index] no output format specified for the threads" << endl;
         return 1;
     }
 
     if (index_gam && (index_haplotypes || haplotype_indexer.index_paths)) {
         cerr << "error: [vg index] GAM threads are incompatible with haplotype/path threads" << endl;
+        return 1;
+    }
+
+    if (index_gaf && (index_haplotypes || haplotype_indexer.index_paths)) {
+        cerr << "error: [vg index] GAF threads are incompatible with haplotype/path threads" << endl;
+        return 1;
+    }
+
+    if (index_gaf && index_gam) {
+        cerr << "error: [vg index] GAM (-M) and GAF (-F) input files cannot be combined" << endl;
+        return 1;
+    }
+    if (index_gaf || index_gam) {
+        for (const auto& name : aln_file_names) {
+            if (name == "-") {
+                cerr << "error: [vg index] GAM (-M) and GAF (-F) input files cannot be read from stdin (-)" << endl;
+                return 1;
+            }
+        }
+    }
+
+    if (index_gaf && !build_xg && file_names.size() != 1) {
+        cerr << "error: [vg index] exactly one graph required for GAF input (-F) when not building xg (-x). " << file_names.size() << " given.";
         return 1;
     }
 
@@ -534,10 +564,20 @@ int main_index(int argc, char** argv) {
     
 
     // Generate threads
-    if (index_haplotypes || haplotype_indexer.index_paths || index_gam) {
+    if (index_haplotypes || haplotype_indexer.index_paths || index_gam || index_gaf) {
     
         // Set progress flag
         haplotype_indexer.show_progress = show_progress;
+
+        // GAF input needs a graph.  If we didn't build one, then we load one
+        PathHandleGraph* input_graph = xg_index;
+        unique_ptr<PathHandleGraph> path_handle_graph;
+        if (index_gaf && !build_xg) {
+            get_input_file(file_names[0], [&](istream& in) {
+                    path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
+                });
+            input_graph = path_handle_graph.get();
+        }
     
         if (!haplotype_indexer.batch_file_prefix.empty()) {
             // Only generate parse files for the VCF. Don't do anything else.
@@ -575,8 +615,8 @@ int main_index(int argc, char** argv) {
             // File to write out haplotypes to.
             gbwt::text_buffer_type binary_file;
             
-            haplotype_indexer.generate_threads(xg_index, alt_paths,
-                haplotype_indexer.index_paths, vcf_name, gam_file_names, [&](size_t id_width) {
+            haplotype_indexer.generate_threads(input_graph, alt_paths,
+                haplotype_indexer.index_paths, vcf_name, aln_file_names, index_gaf ? "GAF" : "GAM", [&](size_t id_width) {
                 
                 // We got the ID width
                 if (show_progress) { cerr << "Writing the threads to " << threads_name << endl; }
@@ -591,7 +631,8 @@ int main_index(int argc, char** argv) {
         } else {
             // Do actual GBWT indexing.
             
-            unique_ptr<gbwt::DynamicGBWT> gbwt = haplotype_indexer.build_gbwt(xg_index, alt_paths, haplotype_indexer.index_paths, vcf_name, gam_file_names);
+            unique_ptr<gbwt::DynamicGBWT> gbwt = haplotype_indexer.build_gbwt(input_graph, alt_paths, haplotype_indexer.index_paths, vcf_name,
+                                                                              aln_file_names, index_gaf ? "GAF" : "GAM");
             
             if (show_progress) {
                 cerr << "Saving GBWT to disk..." << endl;

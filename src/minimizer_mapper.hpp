@@ -75,6 +75,7 @@ public:
      */
     pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
 
+
     // Mapping settings.
     // TODO: document each
 
@@ -82,14 +83,14 @@ public:
     size_t hit_cap = 10;
 
     /// Ignore all minimizers with more than hard_hit_cap hits
-    size_t hard_hit_cap = 300;
+    size_t hard_hit_cap = 1500;
 
     /// Take minimizers between hit_cap and hard_hit_cap hits until this fraction
     /// of total score
-    double minimizer_score_fraction = 0.6;
+    double minimizer_score_fraction = 0.7;
 
     /// How many clusters should we align?
-    size_t max_extensions = 48;
+    size_t max_extensions = 800;
 
     /// How many extended clusters should we align, max?
     size_t max_alignments = 8;
@@ -134,8 +135,17 @@ public:
     /// algorithm. Only works if track_provenance is true.
     bool track_correctness = false;
 
+    ////How many stdevs from fragment length distr mean do we cluster together?
+    size_t paired_distance_stdevs = 2; 
+
+    ///How close does an alignment have to be to the best alignment for us to rescue on it
+    size_t paired_rescue_score_limit = 0.9;
+
+    ///How many stdevs from the mean do we extract a subgraph from?
+    size_t rescue_subgraph_stdevs = 3;
+
     /// For paired end mapping, how many times should we attempt rescue (per read)?
-    size_t max_rescue_attempts = 0;
+    size_t max_rescue_attempts = 15;
 
     /// Implemented rescue algorithms: no rescue, dozeu, GSSW, dozeu on local haplotypes.
     enum RescueAlgorithm { rescue_none, rescue_dozeu, rescue_gssw, rescue_haplotypes };
@@ -150,31 +160,6 @@ public:
         } 
     }
 
-   /**
-    * Given an aligned read, extract a subgraph of the graph within a distance range
-    * based on the fragment length distribution and attempt to align the unaligned
-    * read to it.
-    * Rescue_forward is true if the aligned read is the first and false otherwise.
-    * Assumes that both reads are facing the same direction.
-    * TODO: This should be const, but some of the function calls are not.
-    */
-   void attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
-
-    /**
-     * When we use dozeu for rescue, the reported alignment score is incorrect.
-     * 1) Dozeu only gives the full-length bonus once.
-     * 2) There is no penalty for a softclip at the edge of the subgraph.
-     * This function calculates the score correctly. If the score is incorrect,
-     * we realign the read using GSSW.
-     * TODO: This should be unnecessary.
-     */
-    void fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,
-                         const std::vector<handle_t>& topological_order) const;
-
-    /**
-     * Get the distance between a pair of read alignments
-     */
-    int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
 protected:
 
     /**
@@ -266,13 +251,67 @@ protected:
 
 //-----------------------------------------------------------------------------
 
-   /**
-    * Assume that we have n <= max_k independent random events that occur with
-    * probability p each (p is interpreted as a real number between 0 and 1 and
-    * max_k is the largest k in the minimizer indexes). Return an approximate
-    * probability for at least one event occurring as a phred score.
-    */
-   double phred_for_at_least_one(size_t p, size_t n) const;
+    // Rescue.
+
+    /**
+     * Given an aligned read, extract a subgraph of the graph within a distance range
+     * based on the fragment length distribution and attempt to align the unaligned
+     * read to it.
+     * Rescue_forward is true if the aligned read is the first and false otherwise.
+     * Assumes that both reads are facing the same direction.
+     * TODO: This should be const, but some of the function calls are not.
+     */
+    void attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, const std::vector<Minimizer>& minimizers, bool rescue_forward);
+
+    /**
+     * Return the all non-redundant seeds in the subgraph, including those from
+     * minimizers not used for mapping.
+     */
+    GaplessExtender::cluster_type seeds_in_subgraph(const std::vector<Minimizer>& minimizers, const std::unordered_set<id_t>& subgraph) const;
+
+    /**
+     * When we use dozeu for rescue, the reported alignment score is incorrect.
+     * 1) Dozeu only gives the full-length bonus once.
+     * 2) There is no penalty for a softclip at the edge of the subgraph.
+     * This function calculates the score correctly. If the score is <= 0,
+     * we realign the read using GSSW.
+     * TODO: This should be unnecessary.
+     */
+    void fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,
+                         const std::vector<handle_t>& topological_order) const;
+
+//-----------------------------------------------------------------------------
+
+    // Helper functions.
+
+    /**
+     * Get the distance between a pair of read alignments
+     */
+    int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
+
+    /**
+     * Assume that we have n <= max_k independent random events that occur with
+     * probability p each (p is interpreted as a real number between 0 and 1 and
+     * max_k is the largest k in the minimizer indexes). Return an approximate
+     * probability for at least one event occurring as a phred score.
+     */
+    double phred_for_at_least_one(size_t p, size_t n) const;
+
+    /**
+     * Convert the GaplessExtension into an alignment. This assumes that the
+     * extension is a full-length alignment and that the sequence field of the
+     * alignment has been set.
+     */
+    void extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const;
+
+    /**
+     * Get the distance limit for the given read length
+     */
+    size_t get_distance_limit(size_t read_length) {
+        return max(distance_limit, read_length + 50);
+    }
+
+//-----------------------------------------------------------------------------
 
     /**
      * Compute MAPQ caps based on all minimizers present in extended clusters.
