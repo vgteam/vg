@@ -545,8 +545,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     cerr << "MAPQ is " << mapq << endl;
 #endif
         
-    // Make sure to clamp 0-60.
-    mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
+    // Make sure to clamp 0-60 and round as output is integer.
+    mappings.front().set_mapping_quality(round(max(min(mapq, 60.0), 0.0)));
    
     
     if (track_provenance) {
@@ -1691,8 +1691,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         cerr << "MAPQ is " << mapq << ", capped group MAPQ scores are " << mapq_group1 << " and " << mapq_group2 << endl;
 #endif
 
-        mappings.first.front().set_mapping_quality(max(min(mapq_group1, 60.0), 0.0)) ;
-        mappings.second.front().set_mapping_quality(max(min(mapq_group2, 60.0), 0.0)) ;
+        mappings.first.front().set_mapping_quality(round(max(min(mapq_group1, 60.0), 0.0)));
+        mappings.second.front().set_mapping_quality(round(max(min(mapq_group2, 60.0), 0.0)));
     
         //Annotate top pair with its fragment distance, fragment length distrubution, and secondary scores
         set_annotation(mappings.first.front(), "fragment_length", (double) distances.front());
