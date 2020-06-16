@@ -433,8 +433,9 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
     }
 }
 
-GAFOutputCaller::GAFOutputCaller(AlignmentEmitter* emitter) :
-    emitter(emitter) {
+GAFOutputCaller::GAFOutputCaller(AlignmentEmitter* emitter, const string& sample_name) :
+    emitter(emitter),
+    gaf_sample_name(sample_name) {
     
 }
 
@@ -445,8 +446,16 @@ void GAFOutputCaller::emit_gaf_traversals(const HandleGraph& graph, const vector
     assert(emitter != nullptr);
     vector<Alignment> aln_batch;
     aln_batch.reserve(travs.size());
+
+    string variant_id = gaf_sample_name;
+    if (!travs.empty() && travs[0].visit_size() > 0) {
+        variant_id += + "_" + std::to_string(travs[0].visit(0).node_id()) + "_" +
+            std::to_string(travs[0].visit(travs[0].visit_size() - 1).node_id());
+    }
+    
     for (int i = 0; i < travs.size(); ++i) {
         aln_batch.push_back(to_alignment(travs[i], graph));
+        aln_batch.back().set_name(variant_id + std::to_string(i));
     }
     emitter->emit_singles(std::move(aln_batch)); 
 }
@@ -459,7 +468,7 @@ void GAFOutputCaller::emit_gaf_variant(const HandleGraph& graph,
 
     // pretty bare bones for now, just output the genotype as a pair of traversals
     // todo: we could embed some basic information (likelihood, ploidy, sample etc) in the gaf
-    string variant_id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
+    string variant_id = gaf_sample_name + "_" + std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
 
     vector<Alignment> aln_gt;
     aln_gt.reserve(genotype.size());
@@ -483,7 +492,7 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            bool gaf_output) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
-    GAFOutputCaller(aln_emitter),
+    GAFOutputCaller(aln_emitter, sample_name),
     graph(graph),
     input_vcf(variant_file),
     traversal_finder(graph, snarl_manager, variant_file, ref_paths, ref_fasta, ins_fasta, snarl_caller.get_skip_allele_fn()),
@@ -1048,7 +1057,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        bool gaf_output) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
-    GAFOutputCaller(aln_emitter),
+    GAFOutputCaller(aln_emitter, sample_name),
     graph(graph),
     traversal_finder(traversal_finder),
     ref_paths(ref_paths),
