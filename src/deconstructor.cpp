@@ -197,7 +197,7 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const vector<int>& trav
     
     // find the <ploidy> most frequent traversals
     vector<int> most_frequent_travs;
-    for (int i = sorted_travs.size() - 1; i >= 0; --i) {
+    for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < ploidy; --i) {
         most_frequent_travs.push_back(sorted_travs[i]);
     }
 
