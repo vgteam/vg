@@ -19,9 +19,11 @@
 
 #include <iostream>
 #include <algorithm>
+#include <type_traits>
 #include <cmath>
+#include <cassert>
 
-//#define debug
+#define debug
 
 namespace vg {
 
@@ -1815,8 +1817,20 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 //-----------------------------------------------------------------------------
 
 double MinimizerMapper::phred_for_at_least_one(size_t p, size_t n) const {
-    p >>= 8 * sizeof(size_t) - PRECISION;
-    return this->phred_at_least_one[(n << PRECISION) + p];
+    if (use_exact_probabilities) {  
+        // Exact mode
+        // Work out the probability each attempt failed
+        double each_not_beat = 1.0 - p / (double) numeric_limits<decltype(p)>::max();
+        // And then we AND
+        double all_not_beat = pow(each_not_beat, n);
+        // And then we invert and convert to phred 
+        double any_beat_phred = prob_to_phred(1.0 - all_not_beat);
+        return any_beat_phred;
+    } else {
+        // Approximate mode
+        p >>= 8 * sizeof(size_t) - PRECISION;
+        return this->phred_at_least_one[(n << PRECISION) + p];
+    }
 }
 
 double MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
@@ -1998,6 +2012,9 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 // We approximate this as constant across the possible minimizers.
                 // And since we want to OR together beating, we actually AND together not-beating and then not it.
                 // So we track the probability of not beating.
+                // Make sure types match so the exact version can work.
+                bool type_match = std::is_same<decltype(active.value.hash), size_t>::value;
+                assert(type_match);
                 double any_beat_phred = this->phred_for_at_least_one(active.value.hash, possible_minimizers);
 
 #ifdef debug

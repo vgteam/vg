@@ -134,6 +134,11 @@ public:
     /// and track if/when their descendants make it through stages of the
     /// algorithm. Only works if track_provenance is true.
     bool track_correctness = false;
+    
+    /// Should we use exact probabilities (true) or a faster approximation
+    /// (false) when thinking about disrupting minimizers and capping mapping
+    /// quality?
+    bool use_exact_probabilities = false;
 
     ////How many stdevs from fragment length distr mean do we cluster together?
     size_t paired_distance_stdevs = 2; 
@@ -286,10 +291,11 @@ protected:
     
 
    /**
-    * Assume that we have n <= max_k independent random events that occur with
-    * probability p each (p is interpreted as a real number between 0 and 1 and
-    * max_k is the largest k in the minimizer indexes). Return an approximate
-    * probability for at least one event occurring as a phred score.
+    * Takes a minimizer hash value p, which is between 0 the max value for its
+    * type, and is interpreted as a probability from 0 to 1. Given n
+    * independent chances to get a hash lower than that (for n <= max_k, the
+    * maximum minimizer length in any index in use), return a phred score for
+    * the probability that we beat it and get a lower hash at least once.
     */
    double phred_for_at_least_one(size_t p, size_t n) const;
 

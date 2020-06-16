@@ -327,6 +327,7 @@ void help_giraffe(char** argv) {
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw / haplotypes) [dozeu]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
+    << "  --use-exact-probabilities     bypass approximation for MAPQ capping" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
@@ -343,6 +344,7 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_REPORT_NAME 1002
     #define OPT_TRACK_PROVENANCE 1003
     #define OPT_TRACK_CORRECTNESS 1004
+    #define OPT_USE_EXACT_PROBABILITIES 1005
     
 
     // initialize parameters with their default options
@@ -400,6 +402,8 @@ int main_giraffe(int argc, char** argv) {
     bool track_provenance = false;
     // Should we track candidate correctness?
     bool track_correctness = false;
+    // Should we skip the MAPQ cap approximation?
+    bool use_exact_probabilities = false;
 
     // Chain all the ranges and get a function that loops over all combinations.
     auto for_each_combo = distance_limit
@@ -475,6 +479,7 @@ int main_giraffe(int argc, char** argv) {
             {"rescue-algorithm", required_argument, 0, 'A'},
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
+            {"use-exact-probabilities", no_argument, 0, OPT_USE_EXACT_PROBABILITIES},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
@@ -781,6 +786,10 @@ int main_giraffe(int argc, char** argv) {
                 track_correctness = true;
                 break;
                 
+            case OPT_USE_EXACT_PROBABILITIES:
+                use_exact_probabilities = true;
+                break;
+                
             case 't':
             {
                 int num_threads = parse<int>(optarg);
@@ -1078,6 +1087,11 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--track-correctness " << endl;
         }
         minimizer_mapper.track_correctness = track_correctness;
+        
+        if (show_progress && use_exact_probabilities) {
+            cerr << "--use-exact-probabilities " << endl;
+        }
+        minimizer_mapper.use_exact_probabilities = use_exact_probabilities;
 
         if (show_progress && paired) {
             cerr << "--rescue-attempts " << rescue_attempts << endl;
