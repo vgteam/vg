@@ -58,7 +58,7 @@ var searchData=
   ['children_5fof',['children_of',['../classvg_1_1SnarlManager.html#abeae275f106a85cca72817c02fd132b2',1,'vg::SnarlManager']]],
   ['choose_5fgood_5fthread_5fcount',['choose_good_thread_count',['../namespacevg.html#acfe23dc452245bf901fee2ed698afe7d',1,'vg']]],
   ['choose_5fln',['choose_ln',['../namespacevg.html#abf777e701e331bb422d91135a13408d2',1,'vg']]],
-  ['choose_5ftraversal',['choose_traversal',['../classvg_1_1Deconstructor.html#a1c3d9bfac17e3943d59ba3aac648c5de',1,'vg::Deconstructor']]],
+  ['choose_5ftraversals',['choose_traversals',['../classvg_1_1Deconstructor.html#a53198cf2319bf5f53ef22f0b65136b79',1,'vg::Deconstructor']]],
   ['chunk_5fto_5femitter',['chunk_to_emitter',['../paths__main_8cpp.html#a94d4a4abb97cdbaf3e5564d60d4ce07c',1,'paths_main.cpp']]],
   ['cigar_5fagainst_5fpath',['cigar_against_path',['../namespacevg.html#a43ac2d1903fa51a20a2366a865f5f0a4',1,'vg']]],
   ['cigar_5fmapping',['cigar_mapping',['../namespacevg.html#a81755bb87928f81a864e4a752973bd69',1,'vg::cigar_mapping(const bam1_t *b, Mapping *mapping)'],['../namespacevg.html#a598379872a84d4be8ff74df6242abf10',1,'vg::cigar_mapping(const bam1_t *b, Mapping &amp;mapping)']]],

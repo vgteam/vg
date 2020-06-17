@@ -80,6 +80,10 @@ Functions</h2></td></tr>
 <tr class="separator:ad9c7bb306be39ddca425533a3583d71e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a35bc1201781dd4bab3581189c777a8af"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#a35bc1201781dd4bab3581189c777a8af">string_to_int</a> (const std::string &amp;s)</td></tr>
 <tr class="separator:a35bc1201781dd4bab3581189c777a8af"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a190e58cca553fe5b7b67dac6f7aad7d4"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#a190e58cca553fe5b7b67dac6f7aad7d4">is_missing</a> (const std::string &amp;s)</td></tr>
+<tr class="separator:a190e58cca553fe5b7b67dac6f7aad7d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae093534cbdd3fda37e3a75ea91a0f6b2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#ae093534cbdd3fda37e3a75ea91a0f6b2">is_missing</a> (int64_t i)</td></tr>
+<tr class="separator:ae093534cbdd3fda37e3a75ea91a0f6b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab8a6f72dddac182a6d8d74a52a6fc92d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#ab8a6f72dddac182a6d8d74a52a6fc92d">parse_gaf_record</a> (const std::string &amp;gaf_line, <a class="el" href="structgafkluge_1_1GafRecord.html">GafRecord</a> &amp;gaf_record)</td></tr>
 <tr class="separator:ab8a6f72dddac182a6d8d74a52a6fc92d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a97dfb71592c41879c5d3a5abdd4f3276"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#a97dfb71592c41879c5d3a5abdd4f3276">for_each_cs</a> (const <a class="el" href="structgafkluge_1_1GafRecord.html">GafRecord</a> &amp;gaf_record, std::function&lt; void(const std::string &amp;)&gt; fn)</td></tr>
@@ -137,6 +141,58 @@ Functions</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">std::string gafkluge::int_to_string </td>
+          <td>(</td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>i</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a190e58cca553fe5b7b67dac6f7aad7d4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a190e58cca553fe5b7b67dac6f7aad7d4">&#9670;&nbsp;</a></span>is_missing() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool gafkluge::is_missing </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>s</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ae093534cbdd3fda37e3a75ea91a0f6b2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae093534cbdd3fda37e3a75ea91a0f6b2">&#9670;&nbsp;</a></span>is_missing() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool gafkluge::is_missing </td>
           <td>(</td>
           <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>i</em></td><td>)</td>

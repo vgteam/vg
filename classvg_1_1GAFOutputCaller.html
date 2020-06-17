@@ -86,9 +86,9 @@ Inheritance diagram for vg::GAFOutputCaller:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a39828c83adcac19c5af937f0665617c8"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GAFOutputCaller.html#a39828c83adcac19c5af937f0665617c8">GAFOutputCaller</a> (<a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> *<a class="el" href="classvg_1_1GAFOutputCaller.html#a57c3b9e5bbe695c83c523e59865dee86">emitter</a>)</td></tr>
-<tr class="memdesc:a39828c83adcac19c5af937f0665617c8"><td class="mdescLeft">&#160;</td><td class="mdescRight">The emitter object is created and owned by external forces.  <a href="#a39828c83adcac19c5af937f0665617c8">More...</a><br /></td></tr>
-<tr class="separator:a39828c83adcac19c5af937f0665617c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa3a87e118658f5f5417047dbadcd342f"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GAFOutputCaller.html#aa3a87e118658f5f5417047dbadcd342f">GAFOutputCaller</a> (<a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> *<a class="el" href="classvg_1_1GAFOutputCaller.html#a57c3b9e5bbe695c83c523e59865dee86">emitter</a>, const string &amp;sample_name)</td></tr>
+<tr class="memdesc:aa3a87e118658f5f5417047dbadcd342f"><td class="mdescLeft">&#160;</td><td class="mdescRight">The emitter object is created and owned by external forces.  <a href="#aa3a87e118658f5f5417047dbadcd342f">More...</a><br /></td></tr>
+<tr class="separator:aa3a87e118658f5f5417047dbadcd342f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af275fa29f22a94c9c4180280675a160e"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GAFOutputCaller.html#af275fa29f22a94c9c4180280675a160e">~GAFOutputCaller</a> ()</td></tr>
 <tr class="separator:af275fa29f22a94c9c4180280675a160e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad59348a9abc412b86505baedf0f2a57f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GAFOutputCaller.html#ad59348a9abc412b86505baedf0f2a57f">emit_gaf_traversals</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;travs)</td></tr>
@@ -102,12 +102,15 @@ Public Member Functions</h2></td></tr>
 Protected Attributes</h2></td></tr>
 <tr class="memitem:a57c3b9e5bbe695c83c523e59865dee86"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GAFOutputCaller.html#a57c3b9e5bbe695c83c523e59865dee86">emitter</a></td></tr>
 <tr class="separator:a57c3b9e5bbe695c83c523e59865dee86"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a23554330b3cf641645fe7b3070c6d203"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GAFOutputCaller.html#a23554330b3cf641645fe7b3070c6d203">gaf_sample_name</a></td></tr>
+<tr class="memdesc:a23554330b3cf641645fe7b3070c6d203"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sample name.  <a href="#a23554330b3cf641645fe7b3070c6d203">More...</a><br /></td></tr>
+<tr class="separator:a23554330b3cf641645fe7b3070c6d203"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Helper class for outputing snarl traversals as GAF </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a39828c83adcac19c5af937f0665617c8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a39828c83adcac19c5af937f0665617c8">&#9670;&nbsp;</a></span>GAFOutputCaller()</h2>
+<a id="aa3a87e118658f5f5417047dbadcd342f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa3a87e118658f5f5417047dbadcd342f">&#9670;&nbsp;</a></span>GAFOutputCaller()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -116,8 +119,18 @@ Protected Attributes</h2></td></tr>
           <td class="memname">vg::GAFOutputCaller::GAFOutputCaller </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> *&#160;</td>
-          <td class="paramname"><em>emitter</em></td><td>)</td>
+          <td class="paramname"><em>emitter</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>sample_name</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -244,6 +257,30 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a23554330b3cf641645fe7b3070c6d203"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a23554330b3cf641645fe7b3070c6d203">&#9670;&nbsp;</a></span>gaf_sample_name</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::GAFOutputCaller::gaf_sample_name</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Sample name. </p>
 
 </div>
 </div>

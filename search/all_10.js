@@ -250,6 +250,7 @@ var searchData=
   ['pipeline',['PIPELINE',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838a797a289a67a7dd20502b2436f0c9d305',1,'vg::subcommand']]],
   ['plan',['Plan',['../structvg_1_1VG_1_1Plan.html',1,'vg::VG::Plan'],['../structvg_1_1VG_1_1Plan.html#aa757327a3bf40e1828d8aacc5cf5dec5',1,'vg::VG::Plan::Plan()']]],
   ['plausible_5frescue_5fcluster_5fcoverage_5fdiff',['plausible_rescue_cluster_coverage_diff',['../classvg_1_1MultipathMapper.html#aea5ee453023a73c3d7c02b929d9ef073',1,'vg::MultipathMapper']]],
+  ['ploidy',['ploidy',['../classvg_1_1Deconstructor.html#ac722e25e3c28ad1644948394876654af',1,'vg::Deconstructor']]],
   ['pmax',['pmax',['../namespacevg.html#ac7f5da8e25414026729f0c4d09243f6d',1,'vg']]],
   ['pn_5fbv',['pn_bv',['../classxg_1_1XG.html#a50b600c6e29135f595459d447fb1e6bb',1,'xg::XG']]],
   ['pn_5fbv_5frank',['pn_bv_rank',['../classxg_1_1XG.html#a9e24932d14efdf5ab53dce331d424093',1,'xg::XG']]],

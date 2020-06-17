@@ -81,6 +81,7 @@ var searchData=
   ['pindexes',['pindexes',['../classvg_1_1SRPE.html#acfaef35346e986c1c0ad3172acaa488e',1,'vg::SRPE']]],
   ['pinned_5ftail_5fsize',['pinned_tail_size',['../classvg_1_1VariantAdder.html#ab5dea4bb3c4143e8fb4e28205a4d2cd6',1,'vg::VariantAdder']]],
   ['plausible_5frescue_5fcluster_5fcoverage_5fdiff',['plausible_rescue_cluster_coverage_diff',['../classvg_1_1MultipathMapper.html#aea5ee453023a73c3d7c02b929d9ef073',1,'vg::MultipathMapper']]],
+  ['ploidy',['ploidy',['../classvg_1_1Deconstructor.html#ac722e25e3c28ad1644948394876654af',1,'vg::Deconstructor']]],
   ['pn_5fbv',['pn_bv',['../classxg_1_1XG.html#a50b600c6e29135f595459d447fb1e6bb',1,'xg::XG']]],
   ['pn_5fbv_5frank',['pn_bv_rank',['../classxg_1_1XG.html#a9e24932d14efdf5ab53dce331d424093',1,'xg::XG']]],
   ['pn_5fbv_5fselect',['pn_bv_select',['../classxg_1_1XG.html#a541462516fe4a54499c0b42e4cc95a28',1,'xg::XG']]],

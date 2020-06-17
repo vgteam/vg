@@ -167,6 +167,7 @@ var searchData=
   ['is_5fleft_5fclipped',['is_left_clipped',['../classvg_1_1Filter.html#a08ace85cd60850045415e5e6640b0038',1,'vg::Filter']]],
   ['is_5flooping_5fchain',['is_looping_chain',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#ade623db4d9bdac0f47674b6f4e838cf5',1,'vg::MinimumDistanceIndex::ChainIndex']]],
   ['is_5fmatch',['is_match',['../namespacevg.html#a52292dfd3869a811170f7c5c0d9da564',1,'vg']]],
+  ['is_5fmissing',['is_missing',['../namespacegafkluge.html#a190e58cca553fe5b7b67dac6f7aad7d4',1,'gafkluge::is_missing(const std::string &amp;s)'],['../namespacegafkluge.html#ae093534cbdd3fda37e3a75ea91a0f6b2',1,'gafkluge::is_missing(int64_t i)']]],
   ['is_5fnew',['is_new',['../structhaplo_1_1haplo__DP__rectangle.html#a509976d09905bfe9312bc855641a7a59',1,'haplo::haplo_DP_rectangle']]],
   ['is_5fnovel_5fedge',['is_novel_edge',['../structvg_1_1AugmentedGraph.html#ab0dd61392dacbee763cea6297d95f876',1,'vg::AugmentedGraph']]],
   ['is_5fnovel_5fnode',['is_novel_node',['../structvg_1_1AugmentedGraph.html#ac6f4df5e0f80b0509ff3ec26b685d5c9',1,'vg::AugmentedGraph']]],
