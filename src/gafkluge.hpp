@@ -30,6 +30,12 @@ inline std::string int_to_string(int64_t i) {
 inline int64_t string_to_int(const std::string& s) {
     return s == missing_string ? missing_int : std::stol(s);
 }
+inline bool is_missing(const std::string& s) {
+    return s == missing_string;
+}
+inline bool is_missing(int64_t i) {
+    return i == missing_int;
+}
 
 /**
  * One step of a GAF path

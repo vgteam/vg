@@ -112,7 +112,7 @@ protected:
 class GAFOutputCaller {
 public:
     /// The emitter object is created and owned by external forces
-    GAFOutputCaller(AlignmentEmitter* emitter);
+    GAFOutputCaller(AlignmentEmitter* emitter, const string& sample_name);
     virtual ~GAFOutputCaller();
 
     /// print the GAF traversals
@@ -126,6 +126,9 @@ public:
 protected:
     
     AlignmentEmitter* emitter;
+
+    /// Sample name
+    string gaf_sample_name;
 };
 
 /**
