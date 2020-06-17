@@ -17,7 +17,7 @@ var searchData=
   ['add_5fedge',['add_edge',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a9ea6a73a76afd51e8e3faee8d76575a2',1,'vg::MEMClusterer::HitGraph::add_edge()'],['../classvg_1_1VG.html#a613c931c81518212917053d07e9bf8a8',1,'vg::VG::add_edge()']]],
   ['add_5fedges',['add_edges',['../classvg_1_1VG.html#a7f23cdd532ca7b8d3c0bb9cceff3d378',1,'vg::VG::add_edges(const vector&lt; Edge &gt; &amp;edges)'],['../classvg_1_1VG.html#ab8b025facd59ebb9e6cc71862fe8fe56',1,'vg::VG::add_edges(const vector&lt; Edge *&gt; &amp;edges)'],['../classvg_1_1VG.html#aa2c4229dcebcc7060739fe4ee0d17744',1,'vg::VG::add_edges(const set&lt; Edge *&gt; &amp;edges)']]],
   ['add_5fedit',['add_edit',['../classvg_1_1path__mapping__t.html#a82a73553691a54453a70c4e76f35271f',1,'vg::path_mapping_t']]],
-  ['add_5fexon',['add_exon',['../classvg_1_1Transcriptome.html#a00458e98fa2aa5447a1cf193c9b1c553',1,'vg::Transcriptome']]],
+  ['add_5fexon',['add_exon',['../classvg_1_1Transcriptome.html#af764ab28d6d866807d09a4482dd96523',1,'vg::Transcriptome']]],
   ['add_5fgroup',['add_group',['../classvg_1_1StreamIndexBase.html#ad54626f7e5eb2587d4a5d5f514c82f75',1,'vg::StreamIndexBase::add_group()'],['../classvg_1_1StreamIndex.html#a172dd150297aad85dada7ba852ec3a0c',1,'vg::StreamIndex::add_group()']]],
   ['add_5fhandle',['add_handle',['../classvg_1_1SubHandleGraph.html#a2ab52610b56f49a48262faafc7e510df',1,'vg::SubHandleGraph']]],
   ['add_5fhaplotype',['add_haplotype',['../classvg_1_1PhasedGenome.html#ad36e2c71ff5b2714d1fe1bb6af075f9c',1,'vg::PhasedGenome']]],

@@ -76,8 +76,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a4288cce67676bd01f7c32a578fb4e75c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html#a4288cce67676bd01f7c32a578fb4e75c">Transcript</a> (const string &amp;name_in, const bool is_reverse_in, const string &amp;chrom_in)</td></tr>
-<tr class="separator:a4288cce67676bd01f7c32a578fb4e75c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a151337b8595bb8b0041ed64a325a7650"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html#a151337b8595bb8b0041ed64a325a7650">Transcript</a> (const string &amp;name_in, const bool is_reverse_in, const string &amp;chrom_in, const uint32_t &amp;chrom_length_in)</td></tr>
+<tr class="separator:a151337b8595bb8b0041ed64a325a7650"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -90,6 +90,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:ad79bd4743b079f2de3156970344ba689"><td class="memItemLeft" align="right" valign="top">const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html#ad79bd4743b079f2de3156970344ba689">chrom</a></td></tr>
 <tr class="memdesc:ad79bd4743b079f2de3156970344ba689"><td class="mdescLeft">&#160;</td><td class="mdescRight">Name of chromosome/contig where transcript exist.  <a href="#ad79bd4743b079f2de3156970344ba689">More...</a><br /></td></tr>
 <tr class="separator:ad79bd4743b079f2de3156970344ba689"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5f9b9e50b5889f072172a61cca23b43b"><td class="memItemLeft" align="right" valign="top">const uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html#a5f9b9e50b5889f072172a61cca23b43b">chrom_length</a></td></tr>
+<tr class="memdesc:a5f9b9e50b5889f072172a61cca23b43b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Length of chromosome/contig where transcript exist.  <a href="#a5f9b9e50b5889f072172a61cca23b43b">More...</a><br /></td></tr>
+<tr class="separator:a5f9b9e50b5889f072172a61cca23b43b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad2b25d65d35571935300b296eac6bf2c"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int32_t, int32_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html#ad2b25d65d35571935300b296eac6bf2c">exons</a></td></tr>
 <tr class="memdesc:ad2b25d65d35571935300b296eac6bf2c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Exon coordinates (start and end) on the chromosome/contig.  <a href="#ad2b25d65d35571935300b296eac6bf2c">More...</a><br /></td></tr>
 <tr class="separator:ad2b25d65d35571935300b296eac6bf2c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -99,8 +102,8 @@ Public Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Data structure that defines a transcript annotation. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a4288cce67676bd01f7c32a578fb4e75c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4288cce67676bd01f7c32a578fb4e75c">&#9670;&nbsp;</a></span>Transcript()</h2>
+<a id="a151337b8595bb8b0041ed64a325a7650"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a151337b8595bb8b0041ed64a325a7650">&#9670;&nbsp;</a></span>Transcript()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -124,7 +127,13 @@ Public Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>chrom_in</em>&#160;</td>
+          <td class="paramname"><em>chrom_in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const uint32_t &amp;&#160;</td>
+          <td class="paramname"><em>chrom_length_in</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -155,6 +164,22 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Name of chromosome/contig where transcript exist. </p>
+
+</div>
+</div>
+<a id="a5f9b9e50b5889f072172a61cca23b43b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5f9b9e50b5889f072172a61cca23b43b">&#9670;&nbsp;</a></span>chrom_length</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const uint32_t vg::Transcript::chrom_length</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Length of chromosome/contig where transcript exist. </p>
 
 </div>
 </div>

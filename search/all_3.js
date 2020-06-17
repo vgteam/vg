@@ -91,6 +91,7 @@ var searchData=
   ['choose_5fln',['choose_ln',['../namespacevg.html#abf777e701e331bb422d91135a13408d2',1,'vg']]],
   ['choose_5ftraversals',['choose_traversals',['../classvg_1_1Deconstructor.html#a53198cf2319bf5f53ef22f0b65136b79',1,'vg::Deconstructor']]],
   ['chrom',['chrom',['../structvg_1_1Transcript.html#ad79bd4743b079f2de3156970344ba689',1,'vg::Transcript']]],
+  ['chrom_5flength',['chrom_length',['../structvg_1_1Transcript.html#a5f9b9e50b5889f072172a61cca23b43b',1,'vg::Transcript']]],
   ['chunk_5fmain_2ecpp',['chunk_main.cpp',['../chunk__main_8cpp.html',1,'']]],
   ['chunk_5fto_5femitter',['chunk_to_emitter',['../paths__main_8cpp.html#a94d4a4abb97cdbaf3e5564d60d4ce07c',1,'paths_main.cpp']]],
   ['chunker_2ecpp',['chunker.cpp',['../chunker_8cpp.html',1,'']]],

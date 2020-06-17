@@ -146,8 +146,8 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:af173c32d4ccfa7f94f68220e7e564895"><td class="memItemLeft" align="right" valign="top">float&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#af173c32d4ccfa7f94f68220e7e564895">mean_node_length</a> () const</td></tr>
 <tr class="memdesc:af173c32d4ccfa7f94f68220e7e564895"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the mean node length of the graph.  <a href="#af173c32d4ccfa7f94f68220e7e564895">More...</a><br /></td></tr>
 <tr class="separator:af173c32d4ccfa7f94f68220e7e564895"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a00458e98fa2aa5447a1cf193c9b1c553"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a00458e98fa2aa5447a1cf193c9b1c553">add_exon</a> (<a class="el" href="structvg_1_1Transcript.html">Transcript</a> *transcript, const pair&lt; int32_t, int32_t &gt; &amp;exon_pos, const <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> &amp;chrom_path_index) const</td></tr>
-<tr class="separator:a00458e98fa2aa5447a1cf193c9b1c553"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af764ab28d6d866807d09a4482dd96523"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#af764ab28d6d866807d09a4482dd96523">add_exon</a> (<a class="el" href="structvg_1_1Transcript.html">Transcript</a> *transcript, const pair&lt; int32_t, int32_t &gt; &amp;exon_pos, const bdsg::PositionOverlay &amp;graph_path_pos_overlay) const</td></tr>
+<tr class="separator:af764ab28d6d866807d09a4482dd96523"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae6f600db9b276fe332d4f14919bba983"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ae6f600db9b276fe332d4f14919bba983">reorder_exons</a> (<a class="el" href="structvg_1_1Transcript.html">Transcript</a> *transcript) const</td></tr>
 <tr class="separator:ae6f600db9b276fe332d4f14919bba983"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae9d93f002486b6708ebb2fc3e8674f89"><td class="memItemLeft" align="right" valign="top">list&lt; <a class="el" href="structvg_1_1EditedTranscriptPath.html">EditedTranscriptPath</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ae9d93f002486b6708ebb2fc3e8674f89">construct_edited_transcript_paths</a> (const vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; &amp;transcripts) const</td></tr>
@@ -235,8 +235,8 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a00458e98fa2aa5447a1cf193c9b1c553"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a00458e98fa2aa5447a1cf193c9b1c553">&#9670;&nbsp;</a></span>add_exon()</h2>
+<a id="af764ab28d6d866807d09a4482dd96523"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af764ab28d6d866807d09a4482dd96523">&#9670;&nbsp;</a></span>add_exon()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -259,8 +259,8 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> &amp;&#160;</td>
-          <td class="paramname"><em>chrom_path_index</em>&#160;</td>
+          <td class="paramtype">const bdsg::PositionOverlay &amp;&#160;</td>
+          <td class="paramname"><em>graph_path_pos_overlay</em>&#160;</td>
         </tr>
         <tr>
           <td></td>

@@ -80,7 +80,7 @@ var searchData=
   ['trace_5fhaplotypes_5fand_5fpaths',['trace_haplotypes_and_paths',['../namespacevg.html#a2d9774c4df98285526a427ba54e970ba',1,'vg']]],
   ['traceback',['traceback',['../classvg_1_1BandedGlobalAligner.html#a2a2b4909d5eb88633680ea071c5551f4',1,'vg::BandedGlobalAligner::traceback()'],['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a1366942f6ff4eecbebad9b29e9ef2c94',1,'vg::BandedGlobalAligner::BAMatrix::traceback()'],['../classvg_1_1MEMChainModel.html#ae142b05be3a27922e9387108bb052706',1,'vg::MEMChainModel::traceback()'],['../classvg_1_1AlignmentChainModel.html#ac774ed2018837e64c7ef88ae28c2794a',1,'vg::AlignmentChainModel::traceback()']]],
   ['traceback_5fover_5fedge',['traceback_over_edge',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a0210e1c9a9da04e28e253e2963dd96ad',1,'vg::BandedGlobalAligner::BAMatrix']]],
-  ['transcript',['Transcript',['../structvg_1_1Transcript.html#a4288cce67676bd01f7c32a578fb4e75c',1,'vg::Transcript']]],
+  ['transcript',['Transcript',['../structvg_1_1Transcript.html#a151337b8595bb8b0041ed64a325a7650',1,'vg::Transcript']]],
   ['transcript_5fpaths',['transcript_paths',['../classvg_1_1Transcriptome.html#a52ca431b737b92befedebee4e71b0f0c',1,'vg::Transcriptome']]],
   ['transcriptome',['Transcriptome',['../classvg_1_1Transcriptome.html#adf99e1739f5c150ad4c96b5b947a920d',1,'vg::Transcriptome']]],
   ['transcriptpath',['TranscriptPath',['../structvg_1_1TranscriptPath.html#a94a5ceb6d352a94e6401b3ed0342a834',1,'vg::TranscriptPath']]],
