@@ -172,14 +172,15 @@ vector<Transcript> Transcriptome::parse_introns(istream & intron_stream) const {
 
     vector<Transcript> introns;
 
-    pair<string, PathIndex *> chrom_path_index("", nullptr);
-
     int32_t line_number = 0;
 
     string chrom;
     string pos;
     string end;
     string strand;
+
+    // Create path position overlay of splice graph
+    bdsg::PositionOverlay graph_path_pos_overlay(_splice_graph.get());
 
     while (intron_stream.good()) {
 
@@ -197,17 +198,7 @@ vector<Transcript> Transcriptome::parse_introns(istream & intron_stream) const {
         
             cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
             exit(1);
-
-        } else if (chrom_path_index.first != chrom) {
-
-            delete chrom_path_index.second;
-            chrom_path_index.first = chrom;
-
-            // Construct path index for chromosome/contig.
-            chrom_path_index.second = new PathIndex(*_splice_graph, chrom_path_index.first);
-        }
-
-        assert(chrom_path_index.second);
+        } 
 
         // Parse start and end intron position and convert end to inclusive.
         assert(getline(intron_stream, pos, '\t'));
@@ -232,11 +223,11 @@ vector<Transcript> Transcriptome::parse_introns(istream & intron_stream) const {
         }
 
         // Create "intron" transcript.
-        introns.emplace_back(Transcript("", is_reverse, chrom));
+        introns.emplace_back(Transcript("", is_reverse, chrom, graph_path_pos_overlay.get_path_length(_splice_graph->get_path_handle(chrom))));
 
         // Add intron boundaries as flanking exons to current "intron" transcript.
-        add_exon(&(introns.back()), make_pair(spos - 1, spos - 1), *chrom_path_index.second);
-        add_exon(&(introns.back()), make_pair(epos + 1, epos + 1), *chrom_path_index.second);
+        add_exon(&(introns.back()), make_pair(spos - 1, spos - 1), graph_path_pos_overlay);
+        add_exon(&(introns.back()), make_pair(epos + 1, epos + 1), graph_path_pos_overlay);
     }
 
     if (introns.empty()) {
@@ -245,16 +236,12 @@ vector<Transcript> Transcriptome::parse_introns(istream & intron_stream) const {
         exit(1);        
     }
 
-    delete chrom_path_index.second;
-
     return introns;
 }
 
 vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream) const {
 
     vector<Transcript> transcripts;
-
-    pair<string, PathIndex *> chrom_path_index("", nullptr);
 
     int32_t line_number = 0;
 
@@ -272,6 +259,9 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream)
     // Regex used to extract transcript name/id from gff file.
     regex regex_id_exp_gff(transcript_tag + "={1}([^;]*);?");
 
+    // Create path position overlay of splice graph
+    bdsg::PositionOverlay graph_path_pos_overlay(_splice_graph.get());
+
     while (transcript_stream.good()) {
 
         line_number += 1;
@@ -288,17 +278,7 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream)
         
             cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
             exit(1);
-
-        } else if (chrom_path_index.first != chrom) {
-
-            delete chrom_path_index.second;
-            chrom_path_index.first = chrom;
-
-            // Construct path index for chromosome/contig.
-            chrom_path_index.second = new PathIndex(*_splice_graph, chrom_path_index.first);
-        }
-
-        assert(chrom_path_index.second);
+        } 
 
         transcript_stream.ignore(numeric_limits<streamsize>::max(), '\t');         
         assert(getline(transcript_stream, feature, '\t'));
@@ -356,20 +336,20 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream)
         // Is this a new transcript.
         if (transcripts.empty()) {
 
-            transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom));
+            transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom, graph_path_pos_overlay.get_path_length(_splice_graph->get_path_handle(chrom))));
         
         // Is this a new transcript.
         } else if (transcripts.back().name != transcript_id) {
 
             // Reorder reversed order exons.
             reorder_exons(&transcripts.back());
-            transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom));
+            transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom, graph_path_pos_overlay.get_path_length(_splice_graph->get_path_handle(chrom))));
         }
 
         assert(transcripts.back().is_reverse == is_reverse);
 
         // Add exon to current transcript.
-        add_exon(&(transcripts.back()), make_pair(spos, epos), *chrom_path_index.second);
+        add_exon(&(transcripts.back()), make_pair(spos, epos), graph_path_pos_overlay);
     }
 
     if (transcripts.empty()) {
@@ -377,8 +357,6 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream)
         cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\")" << endl;
         exit(1);        
     }
-
-    delete chrom_path_index.second;
 
     reorder_exons(&transcripts.back());
 
@@ -390,34 +368,43 @@ float Transcriptome::mean_node_length() const {
     return static_cast<float>(_splice_graph->get_total_length()) / _splice_graph->get_node_count();
 }
 
-void Transcriptome::add_exon(Transcript * transcript, const pair<int32_t, int32_t> & exon_pos, const PathIndex & chrom_path_index) const {
+void Transcriptome::add_exon(Transcript * transcript, const pair<int32_t, int32_t> & exon_pos, const bdsg::PositionOverlay & graph_path_pos_overlay) const {
 
     transcript->exons.emplace_back(exon_pos);
 
+    assert(exon_pos.first >= 0);
+    assert(exon_pos.second < transcript->chrom_length);
+
     // Exon border positions (last position in upstream intron and 
-    // first position in downstream intron).
-    const pair<int32_t, int32_t> exon_border_pos = make_pair(exon_pos.first - 1, exon_pos.second + 1);
+    // first position in downstream intron). The positions are not 
+    // offset if it is the first or last on the path.
+    const pair<uint32_t, uint32_t> exon_border_pos = make_pair(max(0, exon_pos.first - 1), min(static_cast<int32_t>(transcript->chrom_length) - 1, exon_pos.second + 1));
 
-    // Find path positions (node start position and id) of exon node 
-    // borders (start - 1 and end + 1) using path index.
-    auto chrom_path_index_start_it = chrom_path_index.find_position(exon_border_pos.first);
-    auto chrom_path_index_end_it = chrom_path_index.find_position(exon_border_pos.second);
+    auto path_handle = _splice_graph->get_path_handle(transcript->chrom);
 
-    assert(chrom_path_index_start_it != chrom_path_index.end());
-    assert(chrom_path_index_end_it != chrom_path_index.end());
+    // Find path positions of exon node borders (start - 1 and end + 1).
+    auto chrom_path_start_step = graph_path_pos_overlay.get_step_at_position(path_handle, exon_border_pos.first);
+    auto chrom_path_end_step = graph_path_pos_overlay.get_step_at_position(path_handle, exon_border_pos.second);
 
-    assert(chrom_path_index_start_it->first <= exon_border_pos.first);
-    assert(chrom_path_index_end_it->first <= exon_border_pos.second);
+    assert(chrom_path_start_step != graph_path_pos_overlay.path_end(path_handle));
+    assert(chrom_path_end_step != graph_path_pos_overlay.path_end(path_handle));
+
+    // Find the start position of the exon border nodes.
+    auto chrom_path_start_node_pos = graph_path_pos_overlay.get_position_of_step(chrom_path_start_step);
+    auto chrom_path_end_node_pos = graph_path_pos_overlay.get_position_of_step(chrom_path_end_step);
+
+    assert(chrom_path_start_node_pos <= exon_border_pos.first);
+    assert(chrom_path_end_node_pos <= exon_border_pos.second);
 
     transcript->exon_border_nodes.emplace_back(Position(), Position());
 
     // Set node id of exon border boundaries.
-    transcript->exon_border_nodes.back().first.set_node_id(chrom_path_index_start_it->second.node);
-    transcript->exon_border_nodes.back().second.set_node_id(chrom_path_index_end_it->second.node);
+    transcript->exon_border_nodes.back().first.set_node_id(_splice_graph->get_id(_splice_graph->get_handle_of_step(chrom_path_start_step)));
+    transcript->exon_border_nodes.back().second.set_node_id(_splice_graph->get_id(_splice_graph->get_handle_of_step(chrom_path_end_step)));
 
     // Set node offset of exon border boundaries. 
-    transcript->exon_border_nodes.back().first.set_offset(exon_border_pos.first - chrom_path_index_start_it->first);
-    transcript->exon_border_nodes.back().second.set_offset(exon_border_pos.second  - chrom_path_index_end_it->first);
+    transcript->exon_border_nodes.back().first.set_offset(exon_border_pos.first - chrom_path_start_node_pos);
+    transcript->exon_border_nodes.back().second.set_offset(exon_border_pos.second  - chrom_path_end_node_pos);
 
     // Set whether exon node border boundaries are reverse.
     transcript->exon_border_nodes.back().first.set_is_reverse(transcript->is_reverse);
@@ -704,7 +691,9 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
 
                 int32_t offset = 0;
 
-                if (node_id == exon_border_start_node.node_id()) {
+                // Adjust start position from exon border (last position in upstream intron)
+                // to first position in exon. Do not adjust if first position in path.
+                if ((cur_transcript.exons.at(exon_idx).first > 0) && (node_id == exon_border_start_node.node_id())) {
 
                     if (exon_border_start_node.offset() + 1 == node_length) {
 
@@ -722,8 +711,8 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
                 int32_t edit_length = node_length - offset;
 
                 // Adjust end position from exon border (first position in downstream intron)
-                // to last position in exon.
-                if (node_id == exon_border_end_nodes.node_id()) {
+                // to last position in exon. Do not adjust if last position in path.
+                if ((cur_transcript.exons.at(exon_idx).second < cur_transcript.chrom_length - 1) && (node_id == exon_border_end_nodes.node_id())) {
 
                     if (exon_border_end_nodes.offset() == 0) {
 
@@ -1011,8 +1000,8 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                 int32_t offset = 0;
 
                 // Adjust start position from exon border (last position in upstream intron)
-                // to first position in exon.
-                if (is_first_step) {
+                // to first position in exon. Do not adjust if first position in path.
+                if ((cur_transcript.exons.at(exon_idx).first > 0) && is_first_step) {
 
                     if (cur_transcript.exon_border_nodes.at(exon_idx).first.offset() + 1 == node_length) {
 
@@ -1039,8 +1028,8 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                 int32_t edit_length = node_length - offset;
 
                 // Adjust end position from exon border (first position in downstream intron)
-                // to last position in exon.
-                if (haplotype_path_start_step == haplotype_path_end_step) {
+                // to last position in exon. Do not adjust if last position in path.
+                if ((cur_transcript.exons.at(exon_idx).second < cur_transcript.chrom_length - 1) && (haplotype_path_start_step == haplotype_path_end_step)) {
 
                     if (cur_transcript.exon_border_nodes.at(exon_idx).second.offset() == 0) {
 
