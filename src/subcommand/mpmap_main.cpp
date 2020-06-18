@@ -191,6 +191,8 @@ int main_mpmap(int argc, char** argv) {
     int stripped_match_alg_max_length = 0; // no maximum yet
     int default_strip_count = 10;
     int stripped_match_alg_target_count = default_strip_count;
+    bool use_fanout_match_alg = false;
+    int max_fanout_base_quality = 20;
     bool use_greedy_mem_restarts = true;
     // TODO: it would be best if these parameters responded to the size of the graph...
     int greedy_restart_min_length = 30;
@@ -773,6 +775,8 @@ int main_mpmap(int argc, char** argv) {
         suppress_mismapping_detection = true;
         // we want to look for short MEMs even on small reads
         reseed_length = 20;
+        // but actually only use this other MEM algorithm if we have base qualities
+        use_fanout_match_alg = true;
     }
     else if (read_length != "short") {
         // short is the default
@@ -1082,6 +1086,12 @@ int main_mpmap(int argc, char** argv) {
     if (stripped_match_alg_strip_length != default_strip_length && !use_stripped_match_alg) {
         cerr << "warning:[vg mpmap] Strip length (--strip-length) set to " << stripped_match_alg_strip_length << ", but stripped algorithm (--stripped-match) was not selected. Ignoring strip length." << endl;
     }
+    
+    // people shouldn't really be setting these anyway, but there may be combinations of presets that do this
+//    if (use_fanout_match_alg && use_stripped_match_alg) {
+//        cerr << "error:[vg mpmap] Cannot perform both stripped and fan-out match algorithms." << endl;
+//        exit(1);
+//    }
     
     if (likelihood_approx_exp < 1.0) {
         cerr << "error:[vg mpmap] Likelihood approximation exponent (--approx-exp) set to " << likelihood_approx_exp << ", must set to at least 1.0." << endl;
@@ -1422,6 +1432,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.greedy_restart_max_lcp = greedy_restart_max_lcp;
     multipath_mapper.greedy_restart_assume_substitution = greedy_restart_assume_substitution;
     multipath_mapper.use_stripped_match_alg = use_stripped_match_alg;
+    multipath_mapper.use_fanout_match_alg = use_fanout_match_alg;
+    multipath_mapper.max_fanout_base_quality = max_fanout_base_quality;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
     multipath_mapper.use_approx_sub_mem_count = false;

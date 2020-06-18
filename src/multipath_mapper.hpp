@@ -121,6 +121,8 @@ namespace vg {
         size_t stripped_match_alg_strip_length = 16;
         size_t stripped_match_alg_max_length = 0;
         size_t stripped_match_alg_target_count = 5;
+        bool use_fanout_match_alg = false;
+        int max_fanout_base_quality = 20;
         size_t max_p_value_memo_size = 500;
         size_t band_padding_memo_size = 2000;
         bool use_weibull_calibration = false;
@@ -425,6 +427,9 @@ namespace vg {
         /// inverts the distances in the cluster pairs vector according to the strand
         void establish_strand_consistency(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
+        
+        /// Return exact matches according to the object's parameters
+        vector<MaximalExactMatch> find_mems(const Alignment& alignment);
         
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;

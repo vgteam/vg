@@ -258,7 +258,6 @@ BaseMapper::find_mems_simple(string::const_iterator seq_begin,
 vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator seq_begin,
                                                        string::const_iterator seq_end,
                                                        string::const_iterator qual_begin,
-                                                       int reseed_length,
                                                        char max_fanout_base_quality) {
 
 

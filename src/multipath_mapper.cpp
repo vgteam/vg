@@ -52,19 +52,7 @@ namespace vg {
         cerr << "querying MEMs..." << endl;
 #endif
         
-        vector<MaximalExactMatch> mems;
-        if (use_stripped_match_alg) {
-            mems = find_stripped_matches(alignment.sequence().begin(), alignment.sequence().end(),
-                                         stripped_match_alg_strip_length, stripped_match_alg_max_length,
-                                         stripped_match_alg_target_count);
-        }
-        else {
-            // query MEMs using GCSA2
-            double dummy1; double dummy2;
-            mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(), dummy1, dummy2,
-                                  0, min_mem_length, mem_reseed_length, false, true, true, false);
-        }
-        
+        auto mems = find_mems(alignment);
         
 #ifdef debug_multipath_mapper
         cerr << "obtained MEMs:" << endl;
@@ -277,6 +265,24 @@ namespace vg {
                                    min_median_mem_coverage_for_split);;
     }
     
+    vector<MaximalExactMatch> MultipathMapper::find_mems(const Alignment& alignment) {
+        if (!use_stripped_match_alg &&
+            (!use_fanout_match_alg || (use_fanout_match_alg && alignment.quality().empty()))) {
+            double dummy1, dummy2;
+            return find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(), dummy1, dummy2,
+                                  0, min_mem_length, mem_reseed_length, false, true, true, false);
+        }
+        else if (use_fanout_match_alg) {
+            return find_fanout_mems(alignment.sequence().begin(), alignment.sequence().end(),
+                                    alignment.quality().begin(), max_fanout_base_quality);
+        }
+        else {
+            return find_stripped_matches(alignment.sequence().begin(), alignment.sequence().end(),
+                                         stripped_match_alg_strip_length, stripped_match_alg_max_length,
+                                         stripped_match_alg_target_count);
+        }
+    }
+
     vector<pair<pair<size_t, size_t>, int64_t>> MultipathMapper::get_cluster_pairs(const Alignment& alignment1,
                                                                                    const Alignment& alignment2,
                                                                                    vector<clustergraph_t>& cluster_graphs1,
@@ -1484,27 +1490,9 @@ namespace vg {
         }
         
         // the fragment length distribution has been estimated, so we can do full-fledged paired mode
-        vector<MaximalExactMatch> mems1, mems2;
-        if (use_stripped_match_alg) {
-            // query matches along strips of the read
-            mems1 = find_stripped_matches(alignment1.sequence().begin(), alignment1.sequence().end(),
-                                          stripped_match_alg_strip_length, stripped_match_alg_max_length,
-                                          stripped_match_alg_target_count);
-            mems2 = find_stripped_matches(alignment2.sequence().begin(), alignment2.sequence().end(),
-                                          stripped_match_alg_strip_length, stripped_match_alg_max_length,
-                                          stripped_match_alg_target_count);
-        }
-        else {
-            // query MEMs
-            double dummy1, dummy2;
-            mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(), dummy1, dummy2,
-                                   0, min_mem_length, mem_reseed_length, false, true, true, false);
-            mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(), dummy1, dummy2,
-                                   0, min_mem_length, mem_reseed_length, false, true, true, false);
-        }
-        
-        
-        
+        auto mems1 = find_mems(alignment1);
+        auto mems2 = find_mems(alignment2);
+                
 #ifdef debug_multipath_mapper
         cerr << "obtained read1 MEMs:" << endl;
         for (MaximalExactMatch mem : mems1) {

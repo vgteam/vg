@@ -256,7 +256,6 @@ public:
     find_fanout_mems(string::const_iterator seq_begin,
                      string::const_iterator seq_end,
                      string::const_iterator qual_begin,
-                     int reseed_length,
                      char max_fanout_base_quality);
     
     vector<pos_t> walk_fanout_path(string::const_iterator begin,
