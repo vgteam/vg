@@ -333,8 +333,14 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             // Get an Alignments best_ and second_best_alignment of it somehow, and throw it in.
             Alignment best_alignment = aln;
             Alignment second_best_alignment = aln;
-            
-            if (extensions[0].full()) {
+
+            // Determine if we got full-length alignments or local alignments.
+            bool full_length_extensions = (extensions.size() <= 2);
+            for (auto& extension : extensions) {
+                full_length_extensions &= extension.full();
+            }
+
+            if (full_length_extensions) {
                 // We got full-length extensions, so directly convert to an Alignment.
                 
                 if (track_provenance) {
@@ -1029,7 +1035,14 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 Alignment best_alignment = aln;
                 Alignment second_best_alignment = aln;
                 
-                if (extensions[0].full()) {
+
+                // Determine if we got full-length alignments or local alignments.
+                bool full_length_extensions = (extensions.size() <= 2);
+                for (auto& extension : extensions) {
+                    full_length_extensions &= extension.full();
+                }
+
+                if (full_length_extensions) {
                     // We got full-length extensions, so directly convert to an Alignment.
                     
                     if (track_provenance) {
