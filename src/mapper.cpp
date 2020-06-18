@@ -223,7 +223,6 @@ BaseMapper::find_mems_simple(string::const_iterator seq_begin,
                 int reseeds = 0;
                 while (reseeds == 0 && reseed_to >= min_mem_length) {
 #ifdef debug_mapper
-#pragma omp critical
                     cerr << "reseeding " << mem.sequence() << " with " << reseed_to << endl;
 #endif
                     vector<MaximalExactMatch> remems = find_mems_simple(mem.begin,
@@ -528,53 +527,51 @@ vector<pos_t> BaseMapper::walk_fanout_path(string::const_iterator begin,
                                            string::const_iterator end,
                                            const list<pair<string::const_iterator, char>>& fanout_breaks,
                                            gcsa::node_type pos) {
-    
+#ifdef debug_mapper
+    cerr << "beginning walk of fan-out path for sequence " << string(begin, end) << endl;
+#endif
     vector<pos_t> path;
     
     pos_t start_pos = make_pos_t(pos);
     handle_t start_handle = xindex->get_handle(id(start_pos), is_rev(start_pos));
     
-    // records of (read pos, (node-offset records), next record to check)
-    vector<tuple<string::const_iterator, vector<pair<handle_t, size_t>>, size_t>> stack;
+    // records of (read pos, break pos, (node-offset records), next record to check)
+    vector<tuple<string::const_iterator,
+           list<pair<string::const_iterator, char>>::const_iterator,
+           vector<pair<handle_t, size_t>>,
+           size_t>> stack;
     stack.emplace_back(begin,
+                       fanout_breaks.begin(),
                        vector<pair<handle_t, size_t>>(1, make_pair(start_handle, offset(start_pos))),
                        0);
-    auto next_break = fanout_breaks.begin();
     
     while (!stack.empty()) {
         
         auto& stack_record = stack.back();
         
-        if (get<2>(stack_record) == get<1>(stack_record).size()) {
+#ifdef debug_mapper
+        cerr << "dequeueing stack record at relative idx " << (get<0>(stack_record) - begin) << ", option idx " << get<3>(stack_record) << " of " << get<2>(stack_record).size() << endl;
+#endif
+        
+        if (get<3>(stack_record) == get<2>(stack_record).size()) {
+#ifdef debug_mapper
+            cerr << "popping stack record" << endl;
+#endif
+            
             // we've already traversed all of this nodes edges without finding a match
             stack.pop_back();
-            
-            // if the most recent fan out break occurred on this node we should move it backward
-            // as part of the backtrack
-            if (next_break != fanout_breaks.begin()) {
-                auto prev_break = next_break;
-                --prev_break;
-                while (prev_break->first >= get<0>(stack_record)) {
-                    // the previous fan out break occurred on this node
-                    next_break = prev_break;
-                    if (prev_break == fanout_breaks.begin()) {
-                        break;
-                    }
-                    else {
-                        --prev_break;
-                    }
-                }
-            }
             
             continue;
         }
         
+        
         // get the next position we're searching from
         handle_t handle;
         size_t off;
-        tie(handle, off) = get<1>(stack_record)[get<2>(stack_record)++];
+        tie(handle, off) = get<2>(stack_record)[get<3>(stack_record)++];
         
         auto read_it = get<0>(stack_record);
+        auto next_break = get<1>(stack_record);
         
         size_t node_len = xindex->get_length(handle);
         
@@ -589,7 +586,14 @@ vector<pos_t> BaseMapper::walk_fanout_path(string::const_iterator begin,
             else {
                 rch = *read_it;
             }
+#ifdef debug_mapper
+            cerr << "\tlooking for match of " << rch << " to " << xindex->get_base(handle, off) << " at offset " << off << " on node length " << node_len << endl;
+#endif
+            
             if (rch != xindex->get_base(handle, off)) {
+#ifdef debug_mapper
+                cerr << "\tdoes not match" << endl;
+#endif
                 // this isn't a matching path
                 break;
             }
@@ -600,20 +604,26 @@ vector<pos_t> BaseMapper::walk_fanout_path(string::const_iterator begin,
         if (read_it == end) {
             // we've finished walking out the match, the stack encodes
             // the path we took to get here
+#ifdef debug_mapper
+            cerr << "\tfound full length match" << endl;
+#endif
             path.reserve(stack.size());
             for (const auto& search_record : stack) {
                 handle_t h;
                 size_t o;
-                tie(h, o) = get<1>(search_record)[get<2>(search_record) - 1];
+                tie(h, o) = get<2>(search_record)[get<3>(search_record) - 1];
                 path.emplace_back(xindex->get_id(h), xindex->get_is_reverse(h), o);
             }
             break;
         }
         else if (off == node_len) {
             // we walked to the end of the node, queue up the next nodes
-            stack.emplace_back(read_it, vector<pair<handle_t, size_t>>(), 0);
+#ifdef debug_mapper
+            cerr << "\treached end of node" << endl;
+#endif
+            stack.emplace_back(read_it, next_break, vector<pair<handle_t, size_t>>(), 0);
             xindex->follow_edges(handle, false, [&](const handle_t& next) {
-                get<1>(stack.back()).emplace_back(next, 0);
+                get<2>(stack.back()).emplace_back(next, 0);
             });
         }
     }
