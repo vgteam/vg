@@ -431,7 +431,7 @@ namespace vg {
 #endif
             if (!validate_multipath_alignment(multipath_aln, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln.sequence() << " failed to validate" << endl;
             }
         }
 #endif
@@ -682,7 +682,7 @@ namespace vg {
             auto p_val = random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size());
             
 #ifdef debug_multipath_mapper
-            cerr << "effective match length of read " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << p_val << endl;
+            cerr << "effective match length of read " << multipath_aln.sequence() << " is " << pseudo_length(multipath_aln) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << p_val << endl;
 #endif
             
             return p_val > max_mapping_p_value;
@@ -1214,11 +1214,11 @@ namespace vg {
 #endif
             if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.first.sequence() << " failed to validate" << endl;
             }
             if (!validate_multipath_alignment(multipath_aln_pair.second, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.second.sequence() << " failed to validate" << endl;
             }
         }
 #endif
@@ -1402,11 +1402,11 @@ namespace vg {
 #endif
             if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.first.sequence() << " failed to validate" << endl;
             }
             if (!validate_multipath_alignment(multipath_aln_pair.second, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.second.sequence() << " failed to validate" << endl;
             }
         }
 #endif
@@ -2688,11 +2688,11 @@ namespace vg {
 #endif
             if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.first.sequence() << " failed to validate" << endl;
             }
             if (!validate_multipath_alignment(multipath_aln_pair.second, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.second.sequence() << " failed to validate" << endl;
             }
         }
 #endif

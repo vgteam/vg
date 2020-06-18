@@ -260,6 +260,9 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                                                        string::const_iterator qual_begin,
                                                        char max_fanout_base_quality) {
 
+#ifdef debug_mapper
+    cerr << "find_fanout_mems: sequence " << string(seq_begin, seq_end) << ", max fan-out quality" << max_fanout_base_quality << endl;
+#endif
 
     struct FanOutSearch {
         // the SA range going into the  search
@@ -307,7 +310,11 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                      gcsa::range_type range,
                      const list<pair<string::const_iterator, char>>& fanout_breaks)
             : range(range), begin(begin), end(end), fanout_breaks(fanout_breaks) {
-            
+                cerr << "adding search result with seq " << string(begin, end) << endl;
+                cerr << "fan out breaks:" << endl;
+                for (auto r : fanout_breaks) {
+                    cerr << "\t" << (r.first - begin) << " -> " << r.second << endl;
+                }
         }
     };
     
@@ -338,6 +345,15 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         auto fanout_char = stack.back().fanout_char;
         auto fanout_breaks = move(stack.back().fanout_breaks);
         
+#ifdef debug_mapper
+        cerr << "starting a fanout search with cursor at " << (cursor - seq_begin) << " and fanout char of " << fanout_char << endl;
+        cerr << "current suffix: " << string(cursor, match_end) << endl;
+        cerr << "breaks: " << endl;
+        for (auto r : fanout_breaks) {
+            cerr << "\t" << (r.first - seq_begin) << " -> " << r.second << endl;
+        }
+#endif
+        
         stack.pop_back();
         
         bool prev_iter_jumped_lcp = false;
@@ -347,9 +363,15 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             
             // we only use the fan out character on the first iteration of a fan out search
             char ch = use_fanout_char ? fanout_char : *cursor;
-            use_fanout_char = false;
             
-            if (ch == 'N' || *(qual_begin + (cursor - seq_begin)) <= max_fanout_base_quality) {
+#ifdef debug_mapper
+            cerr << "LF iter at cursor " << (cursor - seq_begin) << " char " << ch << ", fanout? " << use_fanout_char << endl;
+#endif
+            
+            if (!use_fanout_char && (ch == 'N' || *(qual_begin + (cursor - seq_begin)) <= max_fanout_base_quality)) {
+#ifdef debug_mapper
+                cerr << "aborting to search to queue up fan-out searches" << endl;
+#endif
                 // fan out at into all possiblities
                 for (char nt : {'A', 'C', 'G', 'T'}) {
                     stack.emplace_back(range, seq_begin, match_end, cursor, nt, fanout_breaks);
@@ -358,6 +380,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                 break;
             }
             
+            use_fanout_char = false;
             
             // hold onto our previous range
             auto prev_range = range;
@@ -367,10 +390,23 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             
             if (gcsa::Range::empty(range) || match_end - cursor > gcsa->order()) {
                 
+#ifdef debug_mapper
+                cerr << "terminating search at end of a MEM" << endl;
+#endif
+                
+                if (!fanout_breaks.empty() && fanout_breaks.begin()->first == cursor) {
+                    // the match ended on the fan-out character, so we don't want to include
+                    // that final break in the search result
+                    fanout_breaks.pop_front();
+                }
+                
                 // we've exhausted our BWT range, so the last match range was maximal
                 // or we have exceeded the order of the graph (FPs if we go further)
                 
                 if (cursor + 1 == match_end) {
+#ifdef debug_mapper
+                    cerr << "skipping past a full index mismatch" << endl;
+#endif
                     // avoid getting caught in infinite loop when a single character mismatches
                     // entire index (b/c then advancing the LCP doesn't move the search forward
                     // at all, need to move the cursor instead)
@@ -385,6 +421,9 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                     prev_iter_jumped_lcp = false;
                 }
                 else {
+#ifdef debug_mapper
+                    cerr << "emitting a search result" << endl;
+#endif
                     auto match_begin = cursor + 1;
                     
                     // record the last MEM, but check to make sure were not actually still searching
@@ -415,6 +454,13 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                 --cursor;
             }
         }
+        
+        if (cursor < seq_begin) {
+#ifdef debug_mapper
+            cerr << "terminating search at start of the read" << endl;
+#endif
+            search_results.emplace_back(seq_begin, match_end, range, fanout_breaks);
+        }
     }
     
     vector<MaximalExactMatch> mems;
@@ -435,11 +481,21 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             }
         }
         
+#ifdef debug_mapper
+        cerr << "created MEM " << mems.back().sequence() << endl;
+        for (auto n : mems.back().nodes) {
+            cerr << "\t" << make_pos_t(n) << endl;
+        }
+#endif
+        
         // keep track of the initial number of hits we query in case the nodes vector is
         // modified later (e.g. by prefiltering)
         mems.back().queried_count =  mems.back().nodes.size();
         
         if (!search_result.fanout_breaks.empty()) {
+#ifdef debug_mapper
+            cerr << "need to break apart fanout MEM" << endl;
+#endif
             
             // find the paths that each hit took
             vector<vector<pos_t>> paths;
@@ -455,6 +511,10 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             vector<pair<size_t, size_t>> path_positions(paths.size(), pair<size_t, size_t>(0, 0));
             
             for (auto fanout_break : search_result.fanout_breaks) {
+#ifdef debug_mapper
+                cerr << "breaking fanout mems at " << (fanout_break.first - seq_begin) << " -> " << fanout_break.second << endl;
+#endif
+                
                 // split up the match into two segments
                 mems.back().end = fanout_break.first;
                 if (fanout_break.first + 1 == seq_end) {
@@ -466,6 +526,9 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                 
                 // walk forward the specified length along each of the match paths
                 size_t dist_to_walk = mems.back().begin - mems[mems.size() - 2].begin;
+#ifdef debug_mapper
+                cerr << "need to walk " << dist_to_walk << " from previous match positions" << endl;
+#endif
                 for (size_t i = 0; i < paths.size(); ++i) {
                     
                     pair<size_t, size_t>& path_pos = path_positions[i];
@@ -473,16 +536,25 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                     size_t left_to_walk = dist_to_walk;
                     
                     pos_t path_step = paths[i][path_pos.first];
+#ifdef debug_mapper
+                    cerr << "starting a walk " << path_pos.second << " past " << path_step << endl;
+#endif
                     size_t node_len = xindex->get_length(xindex->get_handle(id(path_step)));
                     size_t remain_len = node_len - offset(path_step) - path_pos.second;
-                    while (remain_len <= left_to_walk) {
+                    cerr << "node len " << node_len << " remain len " << remain_len << " left to walk " << left_to_walk << " pp.first " << path_pos.first << endl;
+                    while (remain_len < left_to_walk) {
                         left_to_walk -= remain_len;
+                        cerr << "remain len " << remain_len << " left to walk " << left_to_walk << " pp.first " << path_pos.first << endl;
                         ++path_pos.first;
                         remain_len = xindex->get_length(xindex->get_handle(id(paths[i][path_pos.first])));
                     }
                     
                     path_pos.second = left_to_walk;
                     path_step = paths[i][path_pos.first];
+                    
+#ifdef debug_mapper
+                    cerr << "\tadvance " << paths[i].front() << " to " << pos_t(id(path_step), is_rev(path_step), offset(path_step) + path_pos.second) << endl;
+#endif
                     
                     // add the result as a position for this MEM
                     mems.back().nodes.emplace_back(gcsa::Node::encode(id(path_step),
@@ -513,7 +585,9 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
     if (!is_sorted(mems.begin(), mems.end(), cmp)) {
         sort(mems.begin(), mems.end(), cmp);
     }
-    auto uniq_end = unique(mems.begin(), mems.end());
+    auto non_null_end = remove_if(mems.begin(), mems.end(),
+                                  [](const MaximalExactMatch& m) { return m.end == m.begin; });
+    auto uniq_end = unique(mems.begin(), non_null_end);
     if (uniq_end != mems.end()) {
         // non unique matches can occur from different fan out searches
         mems.resize(uniq_end - mems.begin());
@@ -528,6 +602,10 @@ vector<pos_t> BaseMapper::walk_fanout_path(string::const_iterator begin,
                                            gcsa::node_type pos) {
 #ifdef debug_mapper
     cerr << "beginning walk of fan-out path for sequence " << string(begin, end) << endl;
+    cerr << "breaks:" << endl;
+    for (auto b : fanout_breaks) {
+        cerr << (b.first - begin) << " -> " << b.second << endl;
+    }
 #endif
     vector<pos_t> path;
     
@@ -626,6 +704,14 @@ vector<pos_t> BaseMapper::walk_fanout_path(string::const_iterator begin,
             });
         }
     }
+    
+#ifdef debug_mapper
+    cerr << "walked path:";
+    for (auto p : path) {
+        cerr << " " << p;
+    }
+    cerr << endl;
+#endif
     
     return path;
 }

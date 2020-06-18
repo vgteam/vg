@@ -768,7 +768,7 @@ int main_mpmap(int argc, char** argv) {
     }
     else if (read_length == "very-short") {
         // clustering is unlikely to improve accuracy in very short data
-        no_clustering = false; // might actually be important?
+        no_clustering = false;//true; might actually be important?
         // we don't want to throw away short matches a priori in very short data
         min_clustering_mem_length = 1;
         // we don't want to automatically distrust short mappings
