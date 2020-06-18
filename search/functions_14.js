@@ -118,7 +118,6 @@ var searchData=
   ['treenode',['TreeNode',['../structvg_1_1TreeNode.html#a386f7b2ec0948165140022155dda8c04',1,'vg::TreeNode']]],
   ['treestate',['TreeState',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a2bd56a9b007c34196348887dd1f5ced7',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['treesubgraph',['TreeSubgraph',['../classvg_1_1TreeSubgraph.html#aa43b054cfbc6f2f96fbc8fcef42887c5',1,'vg::TreeSubgraph']]],
-  ['trim',['trim',['../classvg_1_1GaplessExtender.html#a0be1e348a96a8212f2ee80e3dd6a0875',1,'vg::GaplessExtender']]],
   ['trim_5falignment',['trim_alignment',['../namespacevg.html#ad83da8607e104967dd51d9230f4b51bb',1,'vg']]],
   ['trim_5fambiguous_5fend',['trim_ambiguous_end',['../classvg_1_1ReadFilter.html#a35f5b827c01ca762dbe3707034d42d25',1,'vg::ReadFilter']]],
   ['trim_5fambiguous_5fends',['trim_ambiguous_ends',['../classvg_1_1ReadFilter.html#a31011cb29962d3510bb50b315409a025',1,'vg::ReadFilter']]],

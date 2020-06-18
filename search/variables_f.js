@@ -50,5 +50,6 @@ var searchData=
   ['outvcf',['outvcf',['../classvg_1_1Deconstructor.html#a2e5fb57f7e5ada44e566ce4ec1bc72c3',1,'vg::Deconstructor']]],
   ['overall_5fsupport',['overall_support',['../structvg_1_1Locus.html#a04ac3427a7318a28984c8114cd216675',1,'vg::Locus']]],
   ['overlap',['overlap',['../structvg_1_1Edge.html#aafdc39a954fd8de9dc3850ad9ecb9ade',1,'vg::Edge']]],
+  ['overlap_5fthreshold',['OVERLAP_THRESHOLD',['../classvg_1_1GaplessExtender.html#a3d436577897604304729afc521928ee8',1,'vg::GaplessExtender']]],
   ['overlapping_5frefs',['overlapping_refs',['../classvg_1_1SRPE.html#a9bc3e671b90795b69d9b9266d189f89a',1,'vg::SRPE']]]
 ];

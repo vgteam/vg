@@ -4,6 +4,7 @@ var searchData=
   ['handle_5fat_5fpath_5fposition',['handle_at_path_position',['../classxg_1_1XG.html#a63e8b7be4676a9fb4c77e16f0c76b5a8',1,'xg::XG']]],
   ['handle_5fat_5fposition',['handle_at_position',['../classxg_1_1XGPath.html#ac3dac0fefe450c561f44dadd3ac00487',1,'xg::XGPath']]],
   ['handle_5fbuffer',['handle_buffer',['../classvg_1_1VcfBuffer.html#a1d8968beb2952113ea8a724dad1e1752',1,'vg::VcfBuffer']]],
+  ['handle_5ffull_5flength',['handle_full_length',['../namespacevg.html#a536dfd4326c17ad4d072d2c9021e4b7c',1,'vg']]],
   ['handle_5fgraph_5fto_5fcactus',['handle_graph_to_cactus',['../namespacevg.html#a3d4e7ee3d7394e2318e874dc98dd8320',1,'vg']]],
   ['handle_5frank',['handle_rank',['../classxg_1_1XG.html#a2e8f51499dd0ba67d52100bf380b0936',1,'xg::XG']]],
   ['handle_5fstart',['handle_start',['../classxg_1_1XGPath.html#a5a62bf71a4a85c9617402504a2be01a4',1,'xg::XGPath']]],

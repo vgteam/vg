@@ -92,10 +92,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aaebc8d221df2787a68023fce2d99290a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#aaebc8d221df2787a68023fce2d99290a">GaplessExtender</a> (const gbwtgraph::GBWTGraph &amp;<a class="el" href="classvg_1_1GaplessExtender.html#a8780650e736d01abf2dd910a3dd235c3">graph</a>, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &amp;<a class="el" href="classvg_1_1GaplessExtender.html#ac041ad7cec145f55b68442ac58aeaeed">aligner</a>)</td></tr>
 <tr class="memdesc:aaebc8d221df2787a68023fce2d99290a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> using the given GBWTGraph and <a class="el" href="classvg_1_1Aligner.html">Aligner</a> objects.  <a href="#aaebc8d221df2787a68023fce2d99290a">More...</a><br /></td></tr>
 <tr class="separator:aaebc8d221df2787a68023fce2d99290a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4b2aac19744bd71a08b1feec8ed24211"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a4b2aac19744bd71a08b1feec8ed24211">extend</a> (<a class="el" href="classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04">cluster_type</a> &amp;cluster, const std::string &amp;sequence, const gbwtgraph::CachedGBWTGraph *cache=nullptr, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>, bool trim_extensions=true) const</td></tr>
-<tr class="separator:a4b2aac19744bd71a08b1feec8ed24211"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0be1e348a96a8212f2ee80e3dd6a0875"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a0be1e348a96a8212f2ee80e3dd6a0875">trim</a> (std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extensions, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>, const gbwtgraph::CachedGBWTGraph *cache=nullptr) const</td></tr>
-<tr class="separator:a0be1e348a96a8212f2ee80e3dd6a0875"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa8a27641953b262ee165cdce0041f886"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#aa8a27641953b262ee165cdce0041f886">extend</a> (<a class="el" href="classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04">cluster_type</a> &amp;cluster, const std::string &amp;sequence, const gbwtgraph::CachedGBWTGraph *cache=nullptr, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>, double overlap_threshold=<a class="el" href="classvg_1_1GaplessExtender.html#a3d436577897604304729afc521928ee8">OVERLAP_THRESHOLD</a>) const</td></tr>
+<tr class="separator:aa8a27641953b262ee165cdce0041f886"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad7c50fb56db47cdcd112ef0d4b40a6e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ad7c50fb56db47cdcd112ef0d4b40a6e2">unfold_haplotypes</a> (const std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subgraph, std::vector&lt; std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;haplotype_paths, <a class="el" href="classbdsg_1_1HashGraph.html">bdsg::HashGraph</a> &amp;unfolded, const gbwtgraph::CachedGBWTGraph *cache=nullptr) const</td></tr>
 <tr class="separator:ad7c50fb56db47cdcd112ef0d4b40a6e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae97368246f0be8630c0247324576cbfd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ae97368246f0be8630c0247324576cbfd">transform_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;haplotype_paths) const</td></tr>
@@ -131,6 +129,8 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:aaa77a2fc74630664d12527818826e28b"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a> = 4</td></tr>
 <tr class="memdesc:aaa77a2fc74630664d12527818826e28b"><td class="mdescLeft">&#160;</td><td class="mdescRight">The default value for the maximum number of mismatches.  <a href="#aaa77a2fc74630664d12527818826e28b">More...</a><br /></td></tr>
 <tr class="separator:aaa77a2fc74630664d12527818826e28b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3d436577897604304729afc521928ee8"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a3d436577897604304729afc521928ee8">OVERLAP_THRESHOLD</a> = 0.8</td></tr>
+<tr class="separator:a3d436577897604304729afc521928ee8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>A class that supports haplotype-consistent seed extension using GBWTGraph. Each seed is a pair of matching read/graph positions and each extension is a gapless alignment of an interval of the read to a haplotype. A cluster is an unordered set of distinct seeds. Seeds in the same node with the same (read_offset - node_offset) difference are considered equivalent. All seeds in a cluster should correspond to the same alignment or positions near it. <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> also needs an <a class="el" href="classvg_1_1Aligner.html">Aligner</a> object for scoring the extension candidates. </p>
@@ -222,8 +222,8 @@ Static Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a4b2aac19744bd71a08b1feec8ed24211"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4b2aac19744bd71a08b1feec8ed24211">&#9670;&nbsp;</a></span>extend()</h2>
+<a id="aa8a27641953b262ee165cdce0041f886"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa8a27641953b262ee165cdce0041f886">&#9670;&nbsp;</a></span>extend()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -255,8 +255,8 @@ Static Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>trim_extensions</em> = <code>true</code>&#160;</td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>overlap_threshold</em> = <code><a class="el" href="classvg_1_1GaplessExtender.html#a3d436577897604304729afc521928ee8">OVERLAP_THRESHOLD</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -265,7 +265,7 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Find two highest-scoring full-length alignments for the sequence within the cluster with at most max_mismatches mismatches. If that is not possible, find the set of highest-scoring maximal extensions of the seeds, allowing any number of mismatches in the seed node and max_mismatches / 2 mismatches on each flank. Flanks may have more mismatches if it does not bring the total beyond max_mismatches. Then call <a class="el" href="classvg_1_1GaplessExtender.html#a0be1e348a96a8212f2ee80e3dd6a0875">trim()</a> if trim_extensions is set. Use the provided CachedGBWTGraph or allocate a new one. The extensions are sorted by their coordinates in the sequence. </p>
+<p>Find the highest-scoring extension for each seed in the cluster. If there is a full-length extension with at most max_mismatches mismatches, return the (up to two) best full-length extensions with less than overlap_threshold overlap, sorted by score in descending order. If that is not possible, trim the extensions to maximize score, sort them by read interval, and remove duplicates. Allow any number of mismatches in the initial node, at least max_mismatches mismatches in the entire extension, and at least max_mismatches / 2 mismatches on each flank. Use the provided CachedGBWTGraph or allocate a new one. </p>
 
 </div>
 </div>
@@ -448,41 +448,6 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a0be1e348a96a8212f2ee80e3dd6a0875"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0be1e348a96a8212f2ee80e3dd6a0875">&#9670;&nbsp;</a></span>trim()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::GaplessExtender::trim </td>
-          <td>(</td>
-          <td class="paramtype">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>extensions</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_mismatches</em> = <code><a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a></code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const gbwtgraph::CachedGBWTGraph *&#160;</td>
-          <td class="paramname"><em>cache</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Try to improve the score of each extension by trimming mismatches from the flanks. Do not trim full-length alignments with &lt;= max_mismatches mismatches. Use the provided CachedGBWTGraph or allocate a new one. Note that <a class="el" href="classvg_1_1GaplessExtender.html#a4b2aac19744bd71a08b1feec8ed24211">extend()</a> already calls this by default. </p>
-
-</div>
-</div>
 <a id="ad7c50fb56db47cdcd112ef0d4b40a6e2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad7c50fb56db47cdcd112ef0d4b40a6e2">&#9670;&nbsp;</a></span>unfold_haplotypes()</h2>
 
@@ -574,6 +539,29 @@ Static Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>The default value for the maximum number of mismatches. </p>
+
+</div>
+</div>
+<a id="a3d436577897604304729afc521928ee8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3d436577897604304729afc521928ee8">&#9670;&nbsp;</a></span>OVERLAP_THRESHOLD</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr double vg::GaplessExtender::OVERLAP_THRESHOLD = 0.8</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Two full-length alignments are distinct, if the fraction of overlapping position pairs is at most this. </p>
 
 </div>
 </div>

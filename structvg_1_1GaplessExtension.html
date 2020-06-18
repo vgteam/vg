@@ -109,6 +109,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a94628e41ab7556750c6ab841ca76fafd"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a94628e41ab7556750c6ab841ca76fafd">tail_offset</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph) const</td></tr>
 <tr class="memdesc:a94628e41ab7556750c6ab841ca76fafd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the node offset after the extension.  <a href="#a94628e41ab7556750c6ab841ca76fafd">More...</a><br /></td></tr>
 <tr class="separator:a94628e41ab7556750c6ab841ca76fafd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae13cbdb46d6375425a2f82e75daadb66"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#ae13cbdb46d6375425a2f82e75daadb66">overlap</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;another) const</td></tr>
+<tr class="memdesc:ae13cbdb46d6375425a2f82e75daadb66"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of shared (read position, graph position) pairs in the extensions.  <a href="#ae13cbdb46d6375425a2f82e75daadb66">More...</a><br /></td></tr>
+<tr class="separator:ae13cbdb46d6375425a2f82e75daadb66"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ade804b684aa81b0b2f95033ead5930a2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#ade804b684aa81b0b2f95033ead5930a2">to_path</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const std::string &amp;sequence) const</td></tr>
 <tr class="memdesc:ade804b684aa81b0b2f95033ead5930a2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert the extension into a <a class="el" href="structvg_1_1Path.html">Path</a>.  <a href="#ade804b684aa81b0b2f95033ead5930a2">More...</a><br /></td></tr>
 <tr class="separator:ade804b684aa81b0b2f95033ead5930a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -420,6 +423,36 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Two extensions are equal if the same read interval matches the same search state. </p>
+
+</div>
+</div>
+<a id="ae13cbdb46d6375425a2f82e75daadb66"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae13cbdb46d6375425a2f82e75daadb66">&#9670;&nbsp;</a></span>overlap()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::GaplessExtension::overlap </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;&#160;</td>
+          <td class="paramname"><em>another</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Number of shared (read position, graph position) pairs in the extensions. </p>
 
 </div>
 </div>
