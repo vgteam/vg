@@ -169,6 +169,7 @@ int main_mpmap(int argc, char** argv) {
     bool synthesize_tail_anchors = false;
     int max_paired_end_map_attempts = 24;
     int max_single_end_map_attempts = 64;
+    int max_single_end_map_attempts_very_short = 16;
     int max_single_end_mappings_for_rescue = max_single_end_map_attempts;
     int max_rescue_attempts = 10;
     int population_max_paths = 10;
@@ -775,7 +776,8 @@ int main_mpmap(int argc, char** argv) {
         // we don't want to automatically distrust short mappings
         suppress_mismapping_detection = true;
         // we want to look for short MEMs even on small reads
-        reseed_length = 20;
+        reseed_length = 22;
+        reseed_diff = 0.8;
         // but actually only use this other MEM algorithm if we have base qualities
         use_fanout_match_alg = true;
     }
@@ -794,7 +796,9 @@ int main_mpmap(int argc, char** argv) {
         secondary_rescue_attempts = 1;
         max_single_end_mappings_for_rescue = 32;
         hit_max = 100;
-        reseed_diff = 0.6;
+        if (read_length != "very-short") {
+            reseed_diff = 0.6;
+        }
         likelihood_approx_exp = 3.5;
     }
     else if (nt_type != "dna") {
@@ -885,10 +889,19 @@ int main_mpmap(int argc, char** argv) {
     }
         
     // choose either the user supplied max or the default for paired/unpaired
-    int max_map_attempts = max_map_attempts_arg ? max_map_attempts_arg : ((interleaved_input || !fastq_name_2.empty()) ?
-                                                                          max_paired_end_map_attempts : max_single_end_map_attempts);
+    int max_map_attempts = 0;
     if (max_map_attempts_arg) {
+        max_map_attempts = max_map_attempts_arg;
         max_single_end_mappings_for_rescue = max_map_attempts_arg;
+    }
+    else if (interleaved_input || !fastq_name_2.empty()) {
+        max_map_attempts = max_paired_end_map_attempts;
+    }
+    else if (read_length == "very-short") {
+        max_map_attempts = max_single_end_map_attempts_very_short;
+    }
+    else {
+        max_map_attempts = max_single_end_map_attempts;
     }
     
     // hits that are much more frequent than the number of hits we sample are unlikely to produce high MAPQs, so

@@ -580,6 +580,33 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         return false;
     };
     
+    if (mems.size() == 1 && mems.front().length() >= mem_reseed_length) {
+        // try looking for reseed MEMs even if base qualities were high, just in case
+        
+        int min_sub_mem_length = max<int>(ceil(fast_reseed_length_diff * mems.front().length()), min_mem_length);
+        
+        vector<pair<MaximalExactMatch, vector<size_t>>> sub_mems;
+        find_sub_mems_fast(mems, 0, 1, 0, mems.front().end, mems.front().begin, min_sub_mem_length, sub_mems);
+        
+        if (!sub_mems.empty()) {
+            // we found a reseed sub-MEM
+            
+            // consolidate the sub MEMs into the MEM vector and record the parent relationships
+            mems.reserve(mems.size() + sub_mems.size());
+            vector<pair<int, vector<size_t>>> containment_graph(1);
+            containment_graph.reserve(mems.size() + sub_mems.size());
+            for (auto& sub_mem_and_parents : sub_mems) {
+                mems.emplace_back(move(sub_mem_and_parents.first));
+                containment_graph.emplace_back(0, move(sub_mem_and_parents.second));
+            }
+            
+            // try to remove redundant sub-MEMs
+            if (prefilter_redundant_hits) {
+                prefilter_redundant_sub_mems(mems, containment_graph);
+            }
+        }
+    }
+    
     // put in lexicographic order and deduplicate
     if (!is_sorted(mems.begin(), mems.end(), cmp)) {
         sort(mems.begin(), mems.end(), cmp);
