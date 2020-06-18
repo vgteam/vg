@@ -77,6 +77,9 @@ struct GaplessExtension
     /// Return the node offset after the extension.
     size_t tail_offset(const HandleGraph& graph) const;
 
+    /// Number of shared (read position, graph position) pairs in the extensions.
+    size_t overlap(const HandleGraph& graph, const GaplessExtension& another) const;
+
     /// Convert the extension into a Path.
     Path to_path(const HandleGraph& graph, const std::string& sequence) const;
 
@@ -115,6 +118,10 @@ public:
     /// The default value for the maximum number of mismatches.
     constexpr static size_t MAX_MISMATCHES = 4;
 
+    /// Two full-length alignments are distinct, if the fraction of overlapping
+    /// position pairs is at most this.
+    constexpr static double OVERLAP_THRESHOLD = 0.9;
+
     /// Create an empty GaplessExtender.
     GaplessExtender();
 
@@ -149,25 +156,19 @@ public:
     }
 
     /**
-     * Find two highest-scoring full-length alignments for the sequence within the
-     * cluster with at most max_mismatches mismatches.
-     * If that is not possible, find the set of highest-scoring maximal extensions
-     * of the seeds, allowing any number of mismatches in the seed node and
-     * max_mismatches / 2 mismatches on each flank. Flanks may have more mismatches
-     * if it does not bring the total beyond max_mismatches. Then call trim() if
-     * trim_extensions is set.
+     * Find the highest-scoring extension for each seed in the cluster.
+     * If there is a full-length extension with at most max_mismatches
+     * mismatches, return the (up to two) best full-length extensions with
+     * up to overlap_threshold fraction of overlap, sorted by score in
+     * descending order.
+     * If that is not possible, trim the extensions to maximize score,
+     * sort them by read interval, and remove duplicates.
+     * Allow any number of mismatches in the initial node, at least
+     * max_mismatches mismatches in the entire extension, and at least
+     * max_mismatches / 2 mismatches on each flank.
      * Use the provided CachedGBWTGraph or allocate a new one.
-     * The extensions are sorted by their coordinates in the sequence.
      */
-    std::vector<GaplessExtension> extend(cluster_type& cluster, const std::string& sequence, const gbwtgraph::CachedGBWTGraph* cache = nullptr, size_t max_mismatches = MAX_MISMATCHES, bool trim_extensions = true) const;
-
-    /**
-     * Try to improve the score of each extension by trimming mismatches from the flanks.
-     * Do not trim full-length alignments with <= max_mismatches mismatches.
-     * Use the provided CachedGBWTGraph or allocate a new one.
-     * Note that extend() already calls this by default.
-     */
-    void trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches = MAX_MISMATCHES, const gbwtgraph::CachedGBWTGraph* cache = nullptr) const;
+    std::vector<GaplessExtension> extend(cluster_type& cluster, const std::string& sequence, const gbwtgraph::CachedGBWTGraph* cache = nullptr, size_t max_mismatches = MAX_MISMATCHES, double overlap_threshold = OVERLAP_THRESHOLD) const;
 
     /**
      * Find the distinct local haplotypes in the given subgraph and return the corresponding paths.
