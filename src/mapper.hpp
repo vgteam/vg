@@ -252,6 +252,18 @@ public:
                           size_t max_match_length,
                           size_t target_count);
     
+    vector<MaximalExactMatch>
+    find_fanout_mems(string::const_iterator seq_begin,
+                     string::const_iterator seq_end,
+                     string::const_iterator qual_begin,
+                     int reseed_length,
+                     char max_fanout_base_quality);
+    
+    vector<pos_t> walk_fanout_path(string::const_iterator begin,
+                                   string::const_iterator end,
+                                   const list<pair<string::const_iterator, char>>& fanout_breaks,
+                                   gcsa::node_type pos);
+    
     /// identifies tracts of order-length MEMs that were unfilled because their hit count was above the max
     /// and fills one MEM in the tract (the one with the smallest hit count), assumes MEMs are lexicographically
     /// ordered by read index

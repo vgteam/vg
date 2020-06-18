@@ -766,12 +766,13 @@ int main_mpmap(int argc, char** argv) {
     }
     else if (read_length == "very-short") {
         // clustering is unlikely to improve accuracy in very short data
-        // TODO: should i add a way to override this option?
-        no_clustering = true;
+        no_clustering = false; // might actually be important?
         // we don't want to throw away short matches a priori in very short data
         min_clustering_mem_length = 1;
         // we don't want to automatically distrust short mappings
         suppress_mismapping_detection = true;
+        // we want to look for short MEMs even on small reads
+        reseed_length = 20;
     }
     else if (read_length != "short") {
         // short is the default
@@ -788,7 +789,6 @@ int main_mpmap(int argc, char** argv) {
         secondary_rescue_attempts = 1;
         max_single_end_mappings_for_rescue = 32;
         hit_max = 100;
-        reseed_length = 28; // TODO: returned to the DNA value
         reseed_diff = 0.6;
         likelihood_approx_exp = 3.5;
     }
