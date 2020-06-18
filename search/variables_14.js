@@ -56,6 +56,7 @@ var searchData=
   ['translator',['translator',['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()']]],
   ['trav',['trav',['../classvg_1_1MCMCCaller.html#a44187bff29621c4b3ff13560ea748223',1,'vg::MCMCCaller']]],
   ['trav_5ffinder',['trav_finder',['../classvg_1_1Deconstructor.html#ab2c8f173c8de2b4ecb6f2af8fbfbbb08',1,'vg::Deconstructor']]],
+  ['trav_5fpadding',['trav_padding',['../classvg_1_1GAFOutputCaller.html#a1ef9a3f2df7cfbd1a35e3ee8f56f4657',1,'vg::GAFOutputCaller']]],
   ['traversal',['traversal',['../classvg_1_1mapping__t.html#a9ef6e5278c0ac9ce077ea2c8e0902674',1,'vg::mapping_t']]],
   ['traversal_5falg',['traversal_alg',['../classvg_1_1Genotyper.html#a5b040c1636f479b52dbdb641e82f74dd',1,'vg::Genotyper']]],
   ['traversal_5ffinder',['traversal_finder',['../classvg_1_1VCFGenotyper.html#afa0dd907b77ec7bd5d33f972c06ab131',1,'vg::VCFGenotyper::traversal_finder()'],['../classvg_1_1LegacyCaller.html#ada2c8e9befb0cbe8043779758468664a',1,'vg::LegacyCaller::traversal_finder()'],['../classvg_1_1FlowCaller.html#ad55a5eccba503ff1543b553ce5cd813f',1,'vg::FlowCaller::traversal_finder()'],['../classvg_1_1SmallSnarlSimplifier.html#aaf858ca21b486fe45acbf92a4cbea5ba',1,'vg::SmallSnarlSimplifier::traversal_finder()']]],

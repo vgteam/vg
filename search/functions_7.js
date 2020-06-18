@@ -7,7 +7,7 @@ var searchData=
   ['gaf_5funpaired_5ffor_5feach',['gaf_unpaired_for_each',['../namespacevg.html#abd2bd83ea96d2553443ac8aefa772f02',1,'vg']]],
   ['gaf_5funpaired_5ffor_5feach_5fparallel',['gaf_unpaired_for_each_parallel',['../namespacevg.html#a08c0cf97fda6bf63b9d68ffdf88ef67a',1,'vg']]],
   ['gafalignmentemitter',['GafAlignmentEmitter',['../classvg_1_1GafAlignmentEmitter.html#afae4c88d6bc0f0e01d16bb03db024b23',1,'vg::GafAlignmentEmitter']]],
-  ['gafoutputcaller',['GAFOutputCaller',['../classvg_1_1GAFOutputCaller.html#aa3a87e118658f5f5417047dbadcd342f',1,'vg::GAFOutputCaller']]],
+  ['gafoutputcaller',['GAFOutputCaller',['../classvg_1_1GAFOutputCaller.html#a2def7ee0c3eb2f0cbfd139ad0eeeec8b',1,'vg::GAFOutputCaller']]],
   ['gafrecord',['GafRecord',['../structgafkluge_1_1GafRecord.html#a81394a04ad249c56b3f757484a7663bc',1,'gafkluge::GafRecord']]],
   ['gamma_5fln',['gamma_ln',['../namespacevg.html#a05748ab256c93e2393252aa8ebbdde3d',1,'vg']]],
   ['gaplessextender',['GaplessExtender',['../classvg_1_1GaplessExtender.html#a497cc4e85c6433a3e41f04895703f271',1,'vg::GaplessExtender::GaplessExtender()'],['../classvg_1_1GaplessExtender.html#aaebc8d221df2787a68023fce2d99290a',1,'vg::GaplessExtender::GaplessExtender(const gbwtgraph::GBWTGraph &amp;graph, const Aligner &amp;aligner)']]],

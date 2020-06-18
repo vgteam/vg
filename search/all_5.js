@@ -75,7 +75,7 @@ var searchData=
   ['embed_5ftranscript_5fpaths',['embed_transcript_paths',['../classvg_1_1Transcriptome.html#ae30e4b25723e1eb0a1d0cbe94ef1a94a',1,'vg::Transcriptome']]],
   ['embedded_5falignments',['embedded_alignments',['../structvg_1_1AugmentedGraph.html#acde3270a37d6e01cfbf34ac3853e50b9',1,'vg::AugmentedGraph']]],
   ['emit',['emit',['../classvg_1_1TSVAlignmentEmitter.html#a7bb4b18649cd40e77924cb926c415462',1,'vg::TSVAlignmentEmitter::emit()'],['../classVectorizer.html#a086dc2c83d1627780103d9367b7d3191',1,'Vectorizer::emit()']]],
-  ['emit_5fgaf_5ftraversals',['emit_gaf_traversals',['../classvg_1_1GAFOutputCaller.html#ad59348a9abc412b86505baedf0f2a57f',1,'vg::GAFOutputCaller']]],
+  ['emit_5fgaf_5ftraversals',['emit_gaf_traversals',['../classvg_1_1GAFOutputCaller.html#a43dea9b915f8dd7cad84512ada463c3f',1,'vg::GAFOutputCaller']]],
   ['emit_5fgaf_5fvariant',['emit_gaf_variant',['../classvg_1_1GAFOutputCaller.html#a405cf98f20bdada9f7c1475d76c0db09',1,'vg::GAFOutputCaller']]],
   ['emit_5fgroup',['emit_group',['../classvg_1_1io_1_1MessageEmitter.html#a1f37b89141a12819675b1d2a9dccdb10',1,'vg::io::MessageEmitter::emit_group()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a55b19615de43ba7ef0fc38487fe7e811',1,'vg::io::ProtobufEmitter::emit_group()']]],
   ['emit_5fmapped_5fpair',['emit_mapped_pair',['../classvg_1_1AlignmentEmitter.html#ace1ae6b6682ee81431caf8d98243d258',1,'vg::AlignmentEmitter']]],
