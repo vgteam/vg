@@ -508,12 +508,12 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     }
 
     // Find the best extension starting from each seed.
-    GaplessExtension* best_alignment = nullptr;
+    size_t best_alignment = std::numeric_limits<size_t>::max();
     for (seed_type seed : cluster) {
 
         // Check if the seed is contained in an exact full-length alignment.
-        if (best_alignment != nullptr && best_alignment->internal_score == 0) {
-            if (best_alignment->contains(*cache, seed)) {
+        if (best_alignment < result.size() && result[best_alignment].internal_score == 0) {
+            if (result[best_alignment].contains(*cache, seed)) {
                 continue;
             }
         }
@@ -646,18 +646,18 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
             }
         }
 
-        // Add the best match to the result and update the best_alignment pointer.
+        // Add the best match to the result and update the best_alignment offset.
         if (!best_match.empty()) {
-            result.emplace_back(std::move(best_match));
-            if (result.back().full() && (best_alignment == nullptr || result.back().internal_score < best_alignment->internal_score)) {
-                best_alignment = &(result.back());
+            if (best_match.full() && (best_alignment >= result.size() || best_match.internal_score < result[best_alignment].internal_score)) {
+                best_alignment = result.size();
             }
+            result.emplace_back(std::move(best_match));
         }
     }
 
     // If we have a good enough full-length alignment, return the best two sufficiently
     // distinct full-length alingments.
-    if (best_alignment != nullptr && best_alignment->internal_score <= max_mismatches) {
+    if (best_alignment < result.size() && result[best_alignment].internal_score <= max_mismatches) {
         handle_full_length(*cache, result, overlap_threshold);
         find_mismatches(sequence, *cache, result);
     }
