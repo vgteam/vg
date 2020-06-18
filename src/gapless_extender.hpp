@@ -120,7 +120,7 @@ public:
 
     /// Two full-length alignments are distinct, if the fraction of overlapping
     /// position pairs is at most this.
-    constexpr static double OVERLAP_THRESHOLD = 0.9;
+    constexpr static double OVERLAP_THRESHOLD = 0.8;
 
     /// Create an empty GaplessExtender.
     GaplessExtender();
@@ -159,8 +159,8 @@ public:
      * Find the highest-scoring extension for each seed in the cluster.
      * If there is a full-length extension with at most max_mismatches
      * mismatches, return the (up to two) best full-length extensions with
-     * up to overlap_threshold fraction of overlap, sorted by score in
-     * descending order.
+     * less than overlap_threshold overlap, sorted by score in descending
+     * order.
      * If that is not possible, trim the extensions to maximize score,
      * sort them by read interval, and remove duplicates.
      * Allow any number of mismatches in the initial node, at least
