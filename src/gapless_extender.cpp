@@ -288,7 +288,9 @@ void handle_full_length(const HandleGraph& graph, std::vector<GaplessExtension>&
                 continue; // Duplicate.
             }
             if (result[i].overlap(graph, result.front()) <= overlap_threshold * result.front().length()) {
-                result[tail] = std::move(result[i]);
+                if (i > tail) {
+                    result[tail] = std::move(result[i]);
+                }
                 tail++;
                 break; // Found a non-overlapping extension.
             }
