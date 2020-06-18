@@ -113,7 +113,7 @@ class GAFOutputCaller {
 public:
     /// The emitter object is created and owned by external forces
     GAFOutputCaller(AlignmentEmitter* emitter, const string& sample_name, const vector<string>& ref_paths,
-                    size_t min_trav_len);
+                    size_t trav_padding);
     virtual ~GAFOutputCaller();
 
     /// print the GAF traversals
@@ -125,8 +125,8 @@ public:
                           const vector<SnarlTraversal>& traversals,
                           const vector<int>& genotype);
 
-    /// pad a traversal with (first found) reference path to make it at least min_trav_len long
-    SnarlTraversal pad_traversal(const PathHandleGraph& graph, const SnarlTraversal& trav, size_t trav_len) const;
+    /// pad a traversal with (first found) reference path, adding up to trav_padding to each side
+    SnarlTraversal pad_traversal(const PathHandleGraph& graph, const SnarlTraversal& trav) const;
     
 protected:
     
@@ -137,7 +137,7 @@ protected:
 
     /// Add padding from reference paths to traversals to make them at least this long
     /// (only in emit_gaf_traversals(), not emit_gaf_variant)
-    size_t min_trav_len = 0;
+    size_t trav_padding = 0;
 
     /// Reference paths are used to pad out traversals.  If there are none, then first path found is used
     unordered_set<string> ref_paths;
@@ -160,7 +160,7 @@ public:
                  AlignmentEmitter* aln_emitter,
                  bool traversals_only,
                  bool gaf_output,
-                 size_t min_trav_len);
+                 size_t trav_padding);
 
     virtual ~VCFGenotyper();
 
@@ -304,7 +304,7 @@ public:
                AlignmentEmitter* aln_emitter,
                bool traversals_only,
                bool gaf_output,
-               size_t min_trav_len);
+               size_t trav_padding);
    
     virtual ~FlowCaller();
 

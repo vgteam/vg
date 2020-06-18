@@ -36,7 +36,7 @@ void help_call(char** argv) {
        << "GAF options:" << endl
        << "    -G, --gaf               Output GAF genotypes instead of VCF" << endl
        << "    -T, --traversals        Output all candidate traversals in GAF without doing any genotyping" << endl
-       << "    -M, --min-trav-len N    Pad output traversals (when using -T) using reference paths so they are at least N bases if possible" << endl
+       << "    -M, --trav-padding N    Extend each flank of traversals (from -T) with reference path by N bases if possible" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
@@ -71,7 +71,7 @@ int main_call(int argc, char** argv) {
     int ploidy = 2;
     bool traversals_only = false;
     bool gaf_output = false;
-    size_t min_trav_len = 0;
+    size_t trav_padding = 0;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -177,7 +177,7 @@ int main_call(int argc, char** argv) {
             gaf_output = true;
             break;
         case 'M':
-            min_trav_len = parse<size_t>(optarg);
+            trav_padding = parse<size_t>(optarg);
             break;
         case 'L':
             legacy = true;
@@ -251,7 +251,7 @@ int main_call(int argc, char** argv) {
         return 1;
     }
 
-    if (min_trav_len > 0 && traversals_only == false) {
+    if (trav_padding > 0 && traversals_only == false) {
         cerr << "error [vg call]: -M option can only be used in conjunction with -T" << endl;
         return 1;
     }
@@ -445,7 +445,7 @@ int main_call(int argc, char** argv) {
                                                        alignment_emitter.get(),
                                                        traversals_only,
                                                        gaf_output,
-                                                       min_trav_len);
+                                                       trav_padding);
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
     } else if (legacy) {
         // de-novo caller (port of the old vg call code, which requires a support based caller)
@@ -491,7 +491,7 @@ int main_call(int argc, char** argv) {
                                                  alignment_emitter.get(),
                                                  traversals_only,
                                                  gaf_output,
-                                                 min_trav_len);
+                                                 trav_padding);
         graph_caller = unique_ptr<GraphCaller>(flow_caller);
     }
 

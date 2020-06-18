@@ -434,11 +434,11 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
 }
 
 GAFOutputCaller::GAFOutputCaller(AlignmentEmitter* emitter, const string& sample_name, const vector<string>& ref_paths,
-                                 size_t min_trav_len) :
+                                 size_t trav_padding) :
     emitter(emitter),
     gaf_sample_name(sample_name),
     ref_paths(ref_paths.begin(), ref_paths.end()),
-    min_trav_len(min_trav_len) {
+    trav_padding(trav_padding) {
     
 }
 
@@ -457,14 +457,9 @@ void GAFOutputCaller::emit_gaf_traversals(const PathHandleGraph& graph, const ve
     }
     
     for (int i = 0; i < travs.size(); ++i) {
-        size_t trav_len = 0;
-        // we compute the traversal length only if we think we need to pad it
-        for (int j = 0; j < travs[i].visit_size() && trav_len < min_trav_len; ++j) {
-            trav_len += graph.get_length(graph.get_handle(travs[i].visit(j).node_id()));
-        }
         Alignment trav_aln;
-        if (trav_len < min_trav_len) {
-            trav_aln = to_alignment(pad_traversal(graph, travs[i], trav_len), graph);
+        if (trav_padding > 0) {
+            trav_aln = to_alignment(pad_traversal(graph, travs[i]), graph);
         } else {
             trav_aln = to_alignment(travs[i], graph);
         }
@@ -493,11 +488,11 @@ void GAFOutputCaller::emit_gaf_variant(const HandleGraph& graph,
     emitter->emit_singles(std::move(aln_gt));
 }
 
-SnarlTraversal GAFOutputCaller::pad_traversal(const PathHandleGraph& graph, const SnarlTraversal& trav, size_t trav_len) const {
+SnarlTraversal GAFOutputCaller::pad_traversal(const PathHandleGraph& graph, const SnarlTraversal& trav) const {
 
     assert(trav.visit_size() >= 2);
 
-    SnarlTraversal out_trav = trav;
+    SnarlTraversal out_trav;
 
     // traversal endpoints
     handle_t start_handle = graph.get_handle(trav.visit(0).node_id(), trav.visit(0).backward());
@@ -508,6 +503,7 @@ SnarlTraversal GAFOutputCaller::pad_traversal(const PathHandleGraph& graph, cons
     path_handle_t reference_path;
     step_handle_t reference_step;
     bool found = false;
+    size_t padding = 0;
     graph.for_each_step_on_handle(start_handle, [&](step_handle_t step_handle) {
             reference_path = graph.get_path_handle_of_step(step_handle);
             string name = graph.get_path_name(reference_path);
@@ -520,24 +516,28 @@ SnarlTraversal GAFOutputCaller::pad_traversal(const PathHandleGraph& graph, cons
 
     // add left padding
     if (found) {
+        deque<Visit> left_padding;
+
         if (graph.get_is_reverse(start_handle) == graph.get_is_reverse(graph.get_handle_of_step(reference_step))) {
             // path and handle oriented the same, we can just backtrack along the path to get previous stuff
             for (step_handle_t step = graph.get_previous_step(reference_step);
-                 step != graph.path_front_end(reference_path) && trav_len < min_trav_len;
+                 step != graph.path_front_end(reference_path) && padding < trav_padding;
                  step = graph.get_previous_step(step)) {
-                Visit* visit = out_trav.add_visit();
-                *visit = to_visit(graph, graph.get_handle_of_step(step));
-                trav_len += graph.get_length(graph.get_handle_of_step(step));
+                left_padding.push_front(to_visit(graph, graph.get_handle_of_step(step)));
+                padding += graph.get_length(graph.get_handle_of_step(step));
             }
         } else {
             // path and handle oriented differently, we go forward in the path, flipping each step
             for (step_handle_t step = graph.get_next_step(reference_step);
-                 step != graph.path_end(reference_path) && trav_len < min_trav_len;
+                 step != graph.path_end(reference_path) && padding < trav_padding;
                  step = graph.get_next_step(step)) {
-                Visit* visit = out_trav.add_visit();
-                *visit = to_visit(graph, graph.flip(graph.get_handle_of_step(step)));
-                trav_len += graph.get_length(graph.get_handle_of_step(step));
+                left_padding.push_front(to_visit(graph, graph.get_handle_of_step(step)));
+                padding += graph.get_length(graph.get_handle_of_step(step));
             }
+        }
+
+        for (const Visit& visit : left_padding) {
+            *out_trav.add_visit() = visit;
         }
     }
 
@@ -546,39 +546,38 @@ SnarlTraversal GAFOutputCaller::pad_traversal(const PathHandleGraph& graph, cons
         *out_trav.add_visit() = trav.visit(i);
     }
 
-    if (trav_len < min_trav_len) {
-        // go through the whole thing again with the end
-        found = false;
-        graph.for_each_step_on_handle(end_handle, [&](step_handle_t step_handle) {
-                reference_path = graph.get_path_handle_of_step(step_handle);
-                string name = graph.get_path_name(reference_path);
-                if (!Paths::is_alt(name) && (ref_paths.empty() || ref_paths.count(name))) {
-                    reference_step = step_handle;
-                    found = true;
-                }
-                return !found;
-            });
+    // go through the whole thing again with the end
+    found = false;
+    padding = 0;
+    graph.for_each_step_on_handle(end_handle, [&](step_handle_t step_handle) {
+            reference_path = graph.get_path_handle_of_step(step_handle);
+            string name = graph.get_path_name(reference_path);
+            if (!Paths::is_alt(name) && (ref_paths.empty() || ref_paths.count(name))) {
+                reference_step = step_handle;
+                found = true;
+            }
+            return !found;
+        });
 
-        // add right padding
-        if (found) {
-            if (graph.get_is_reverse(end_handle) == graph.get_is_reverse(graph.get_handle_of_step(reference_step))) {
-                // path and handle oriented the same, we can just continue along the path to get next stuff
-                for (step_handle_t step = graph.get_next_step(reference_step);
-                     step != graph.path_end(reference_path) && trav_len < min_trav_len;
-                     step = graph.get_next_step(step)) {
-                    Visit* visit = out_trav.add_visit();
-                    *visit = to_visit(graph, graph.get_handle_of_step(step));
-                    trav_len += graph.get_length(graph.get_handle_of_step(step));
-                }
-            } else {
-                // path and handle oriented differently, we go backward in the path, flipping each step
-                for (step_handle_t step = graph.get_previous_step(reference_step);
-                     step != graph.path_front_end(reference_path) && trav_len < min_trav_len;
-                     step = graph.get_previous_step(step)) {
-                    Visit* visit = out_trav.add_visit();
-                    *visit = to_visit(graph, graph.flip(graph.get_handle_of_step(step)));
-                    trav_len += graph.get_length(graph.get_handle_of_step(step));
-                }
+    // add right padding
+    if (found) {
+        if (graph.get_is_reverse(end_handle) == graph.get_is_reverse(graph.get_handle_of_step(reference_step))) {
+            // path and handle oriented the same, we can just continue along the path to get next stuff
+            for (step_handle_t step = graph.get_next_step(reference_step);
+                 step != graph.path_end(reference_path) && padding < trav_padding;
+                 step = graph.get_next_step(step)) {
+                Visit* visit = out_trav.add_visit();
+                *visit = to_visit(graph, graph.get_handle_of_step(step));
+                padding += graph.get_length(graph.get_handle_of_step(step));
+            }
+        } else {
+            // path and handle oriented differently, we go backward in the path, flipping each step
+            for (step_handle_t step = graph.get_previous_step(reference_step);
+                 step != graph.path_front_end(reference_path) && padding < trav_padding;
+                 step = graph.get_previous_step(step)) {
+                Visit* visit = out_trav.add_visit();
+                *visit = to_visit(graph, graph.flip(graph.get_handle_of_step(step)));
+                padding += graph.get_length(graph.get_handle_of_step(step));
             }
         }
     }
@@ -598,10 +597,10 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            AlignmentEmitter* aln_emitter,
                            bool traversals_only,
                            bool gaf_output,
-                           size_t min_trav_len) :
+                           size_t trav_padding) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
-    GAFOutputCaller(aln_emitter, sample_name, ref_paths, min_trav_len),
+    GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
     graph(graph),
     input_vcf(variant_file),
     traversal_finder(graph, snarl_manager, variant_file, ref_paths, ref_fasta, ins_fasta, snarl_caller.get_skip_allele_fn()),
@@ -1164,10 +1163,10 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        AlignmentEmitter* aln_emitter,
                        bool traversals_only,
                        bool gaf_output,
-                       size_t min_trav_len) :
+                       size_t trav_padding) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
-    GAFOutputCaller(aln_emitter, sample_name, ref_paths, min_trav_len),
+    GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
     graph(graph),
     traversal_finder(traversal_finder),
     ref_paths(ref_paths),
