@@ -366,6 +366,8 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             cerr << "LF iter at cursor " << (cursor - seq_begin) << " char " << ch << ", fanout? " << use_fanout_char << endl;
 #endif
             
+            // TODO: choose X lowest quality bases rather than fanning out greedily
+            
             if (!use_fanout_char && (ch == 'N' || *(qual_begin + (cursor - seq_begin)) <= max_fanout_base_quality)
                 && fanout_breaks.size() < max_fans_out) {
 #ifdef debug_mapper
@@ -546,7 +548,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                         remain_len = xindex->get_length(xindex->get_handle(id(paths[i][path_pos.first])));
                     }
                     
-                    path_pos.second = left_to_walk;
+                    path_pos.second += left_to_walk;
                     path_step = paths[i][path_pos.first];
                     
 #ifdef debug_mapper
