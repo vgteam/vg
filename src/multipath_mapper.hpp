@@ -123,6 +123,7 @@ namespace vg {
         size_t stripped_match_alg_target_count = 5;
         bool use_fanout_match_alg = false;
         int max_fanout_base_quality = 20;
+        int max_fans_out = 5;
         size_t max_p_value_memo_size = 500;
         size_t band_padding_memo_size = 2000;
         bool use_weibull_calibration = false;

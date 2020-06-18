@@ -274,7 +274,7 @@ namespace vg {
         }
         else if (use_fanout_match_alg) {
             return find_fanout_mems(alignment.sequence().begin(), alignment.sequence().end(),
-                                    alignment.quality().begin(), max_fanout_base_quality);
+                                    alignment.quality().begin(), max_fans_out, max_fanout_base_quality);
         }
         else {
             return find_stripped_matches(alignment.sequence().begin(), alignment.sequence().end(),
