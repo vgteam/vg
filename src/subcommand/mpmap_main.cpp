@@ -193,8 +193,8 @@ int main_mpmap(int argc, char** argv) {
     int default_strip_count = 10;
     int stripped_match_alg_target_count = default_strip_count;
     bool use_fanout_match_alg = false;
-    int max_fanout_base_quality = 20;
-    int max_fans_out = 5;
+    int max_fanout_base_quality = 15;
+    int max_fans_out = 2;
     bool use_greedy_mem_restarts = true;
     // TODO: it would be best if these parameters responded to the size of the graph...
     int greedy_restart_min_length = 30;

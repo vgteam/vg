@@ -264,7 +264,26 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
 #ifdef debug_mapper
     cerr << "find_fanout_mems: sequence " << string(seq_begin, seq_end) << ", max fan-out quality" << max_fanout_base_quality << endl;
 #endif
+    
+    vector<pair<uint8_t, string::const_iterator>> qual_pos;
+    qual_pos.reserve(seq_end - seq_begin);
+    for (auto seq_it = seq_begin, qual_it = qual_begin; seq_it != seq_end; ++seq_it, ++qual_it) {
+        qual_pos.emplace_back(*(qual_it), seq_it);
+    }
+    make_heap(qual_pos.begin(), qual_pos.end(), greater<decltype(qual_pos)::value_type>());
+    
+    // find the k lowest base qualities and marking them as the fan out positions (breaking ties
+    // by moving to start of read)
+    vector<bool> do_fanout(seq_end - seq_begin, false);
+    while (!qual_pos.empty() && qual_pos.front().first < max_fanout_base_quality
+           && do_fanout.size() - qual_pos.size() < max_fans_out) {
+        
+        do_fanout[qual_pos.front().second - seq_begin] = true;
+        pop_heap(qual_pos.begin(), qual_pos.end(), greater<decltype(qual_pos)::value_type>());
+        qual_pos.pop_back();
+    }
 
+    // a struct to hold the information needed to continue a search from a fan-out
     struct FanOutSearch {
         // the SA range going into the  search
         gcsa::range_type prev_range;
@@ -300,6 +319,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         }
     };
     
+    // a struct to hold the information needed to reconstruct the results of a fan-out search
     struct SearchResult {
         gcsa::range_type range;
         string::const_iterator begin;
@@ -320,15 +340,21 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
     // initialize the stack of search problems
     vector<FanOutSearch> stack;
     if (seq_begin < seq_end) {
-        if (*(seq_end - 1) != 'N' && *(qual_begin + (seq_end - seq_begin) - 1) > max_fanout_base_quality
-            && (max_fans_out > 0)) {
-            // don't fan out at the first base
-            stack.emplace_back(full_range, seq_begin, seq_end, seq_end - 1, *(seq_end - 1));
+        // walk backwards from end until finding a non-N base or a base where we want to fan out
+        auto start_cursor = seq_end - 1;
+        while (start_cursor >= seq_begin && *start_cursor == 'N' && !do_fanout[start_cursor - seq_begin]) {
+            --start_cursor;
         }
-        else {
-            // fan out at the first base
-            for (char ch : {'A', 'C', 'G', 'T'}) {
-                stack.emplace_back(full_range, seq_begin, seq_end, seq_end - 1, ch);
+        if (start_cursor >= seq_begin) {
+            if (do_fanout[start_cursor - seq_begin]) {
+                // fan out at the first base
+                for (char ch : {'A', 'C', 'G', 'T'}) {
+                    stack.emplace_back(full_range, seq_begin, seq_end, start_cursor, ch);
+                }
+            }
+            else {
+                // don't fan out at the first base
+                stack.emplace_back(full_range, seq_begin, seq_end, start_cursor, *start_cursor);
             }
         }
     }
@@ -368,8 +394,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             
             // TODO: choose X lowest quality bases rather than fanning out greedily
             
-            if (!use_fanout_char && (ch == 'N' || *(qual_begin + (cursor - seq_begin)) <= max_fanout_base_quality)
-                && fanout_breaks.size() < max_fans_out) {
+            if (!use_fanout_char && do_fanout[cursor - seq_begin]) {
 #ifdef debug_mapper
                 cerr << "aborting to search to queue up fan-out searches" << endl;
 #endif
@@ -389,7 +414,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             // execute one step of LF mapping
             range = gcsa->LF(range, gcsa->alpha.char2comp[ch]);
             
-            if (gcsa::Range::empty(range) || match_end - cursor > gcsa->order()) {
+            if (gcsa::Range::empty(range) || match_end - cursor > gcsa->order() || ch == 'N') {
                 
 #ifdef debug_mapper
                 cerr << "terminating search at end of a MEM" << endl;
@@ -404,9 +429,9 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                 // we've exhausted our BWT range, so the last match range was maximal
                 // or we have exceeded the order of the graph (FPs if we go further)
                 
-                if (cursor + 1 == match_end) {
+                if (cursor + 1 == match_end || ch == 'N') {
 #ifdef debug_mapper
-                    cerr << "skipping past a full index mismatch" << endl;
+                    cerr << "skipping past a full index mismatch or N" << endl;
 #endif
                     // avoid getting caught in infinite loop when a single character mismatches
                     // entire index (b/c then advancing the LCP doesn't move the search forward
