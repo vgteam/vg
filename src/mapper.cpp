@@ -343,6 +343,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         // walk backwards from end until finding a non-N base or a base where we want to fan out
         auto start_cursor = seq_end - 1;
         while (start_cursor >= seq_begin && *start_cursor == 'N' && !do_fanout[start_cursor - seq_begin]) {
+            seq_end = start_cursor;
             --start_cursor;
         }
         if (start_cursor >= seq_begin) {
@@ -391,14 +392,12 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
 #ifdef debug_mapper
             cerr << "LF iter at cursor " << (cursor - seq_begin) << " char " << ch << ", fanout? " << use_fanout_char << endl;
 #endif
-            
-            // TODO: choose X lowest quality bases rather than fanning out greedily
-            
+                        
             if (!use_fanout_char && do_fanout[cursor - seq_begin]) {
 #ifdef debug_mapper
                 cerr << "aborting to search to queue up fan-out searches" << endl;
 #endif
-                // fan out at into all possiblities
+                // fan out into all possiblities
                 for (char nt : {'A', 'C', 'G', 'T'}) {
                     stack.emplace_back(range, seq_begin, match_end, cursor, nt, fanout_breaks);
                 }
