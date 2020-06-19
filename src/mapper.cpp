@@ -545,6 +545,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                     while (remain_len < left_to_walk) {
                         left_to_walk -= remain_len;
                         ++path_pos.first;
+                        path_pos.second = 0;
                         remain_len = xindex->get_length(xindex->get_handle(id(paths[i][path_pos.first])));
                     }
                     
