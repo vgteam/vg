@@ -692,12 +692,16 @@ vector<pos_t> BaseMapper::walk_fanout_path(string::const_iterator begin,
             
             continue;
         }
-        
+    
         
         // get the next position we're searching from
         handle_t handle;
         size_t off;
         tie(handle, off) = get<2>(stack_record)[get<3>(stack_record)++];
+        
+#ifdef debug_mapper
+        cerr << "offset " << off << " on node " << xindex->get_id(handle) << ": " << xindex->get_sequence(handle) << endl;
+#endif
         
         auto read_it = get<0>(stack_record);
         auto next_break = get<1>(stack_record);

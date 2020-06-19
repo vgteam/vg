@@ -4,6 +4,7 @@
 
 #include <omp.h>
 #include <unistd.h>
+#include <time.h>
 #include <getopt.h>
 
 #include "subcommand.hpp"
@@ -117,7 +118,7 @@ void help_mpmap(char** argv) {
 
 
 int main_mpmap(int argc, char** argv) {
-
+    
     if (argc == 2) {
         help_mpmap(argv);
         return 1;
@@ -229,6 +230,7 @@ int main_mpmap(int argc, char** argv) {
     size_t force_haplotype_count = 0;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
+    double mapq_scaling_factor = 1.0;
     size_t frag_length_sample_size = 1000;
     double frag_length_robustness_fraction = 0.95;
     double frag_length_mean = NAN;
@@ -800,6 +802,7 @@ int main_mpmap(int argc, char** argv) {
             reseed_diff = 0.6;
         }
         likelihood_approx_exp = 3.5;
+        mapq_scaling_factor = 0.5;
     }
     else if (nt_type != "dna") {
         // DNA is the default
@@ -1260,8 +1263,47 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
+    // a convenience function to preface a stderr log with an indicator of the command
+    // and the time elapse
+    bool clock_init = false;
+    clock_t time_start = 0;
+    auto progress_boilerplate = [&]() {
+        stringstream strm;
+        strm.precision(1);
+        strm << fixed;
+        if (!clock_init) {
+            time_start = clock();
+            strm << "0.0 s";
+            clock_init = true;
+        }
+        else {
+            clock_t time_now = clock();
+            double secs = ((double) (time_now - time_start)) / CLOCKS_PER_SEC;
+            if (secs <= 60.0) {
+                strm << secs << " s";
+            }
+            else {
+                double mins = secs / 60.0;
+                if (mins <= 60.0) {
+                    strm << mins << " m";
+                }
+                else {
+                    double hrs = mins / 60.0;
+                    if (hrs <= 24.0) {
+                        strm << hrs << " h";
+                    }
+                    else {
+                        strm << (hrs / 24.0) << " d";
+                    }
+                }
+            }
+        }
+        string boilerplate = "[vg mpmap] elapsed time " + strm.str() + ": ";
+        return boilerplate;
+    };
+    
     if (!suppress_progress) {
-        cerr << "[vg mpmap] Executing command:";
+        cerr << progress_boilerplate() << "Executing command:";
         for (size_t i = 0; i < argc; ++i) {
             cerr << " " << argv[i];
         }
@@ -1276,7 +1318,7 @@ int main_mpmap(int argc, char** argv) {
     
     // Load required indexes
     if (!suppress_progress) {
-        cerr << "[vg mpmap] Loading graph from " << graph_name << endl;
+        cerr << progress_boilerplate() << "Loading graph from " << graph_name << endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_stream);
     
@@ -1307,9 +1349,10 @@ int main_mpmap(int argc, char** argv) {
             type = "ODGI";
         }
         
+        cerr << progress_boilerplate();
         if (!type.empty()) {
             // we found the type, give an appropriate message about it
-            cerr << "[vg mpmap] Graph is in " << type << " format. ";
+            cerr << "Graph is in " + type + " format. ";
             
             if (type == "XG") {
                 cerr << "XG is a good graph format for most mapping use cases. PackedGraph may be selected if memory usage is too high. ";
@@ -1326,7 +1369,7 @@ int main_mpmap(int argc, char** argv) {
         }
         else {
             // probably a VG graph
-            cerr << "[vg mpmap] Graph is not in XG format. " << endl;
+            cerr << "Graph is not in XG format. ";
         }
         
         // are they using a graph combo that I don't recommend?
@@ -1347,14 +1390,14 @@ int main_mpmap(int argc, char** argv) {
     PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
     
     if (!suppress_progress) {
-        cerr << "[vg mpmap] Loading GCSA2 from " << gcsa_name << endl;
+        cerr << progress_boilerplate() << "Loading GCSA2 from " << gcsa_name << endl;
     }
     unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     unique_ptr<gcsa::LCPArray> lcp_array;
     if (!use_stripped_match_alg) {
         // The stripped algorithm doesn't use the LCP, but we aren't doing it
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Loading LCP from " << lcp_name << endl;
+            cerr << progress_boilerplate() << "Loading LCP from " << lcp_name << endl;
         }
         lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     }
@@ -1366,7 +1409,7 @@ int main_mpmap(int argc, char** argv) {
     haplo::ScoreProvider* haplo_score_provider = nullptr;
     if (!gbwt_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Loading GBWT from " << gbwt_name << endl;
+            cerr << progress_boilerplate() << "Loading GBWT from " << gbwt_name << endl;
         }
         // Load the GBWT from its container
         gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
@@ -1382,7 +1425,7 @@ int main_mpmap(int argc, char** argv) {
     }
     else if (!sublinearLS_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Loading LS index from " << sublinearLS_name << endl;
+            cerr << progress_boilerplate() << "Loading LS index from " << sublinearLS_name << endl;
         }
         
         // TODO: we only support a single ref contig, and we use these
@@ -1396,7 +1439,7 @@ int main_mpmap(int argc, char** argv) {
     unique_ptr<SnarlManager> snarl_manager;
     if (!snarls_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Loading snarls from " << snarls_name << endl;
+            cerr << progress_boilerplate() << "Loading snarls from " << snarls_name << endl;
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
     }
@@ -1404,7 +1447,7 @@ int main_mpmap(int argc, char** argv) {
     unique_ptr<MinimumDistanceIndex> distance_index;
     if (!distance_index_name.empty() && !no_clustering) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Loading distance index from " << distance_index_name << endl;
+            cerr << progress_boilerplate() << "Loading distance index from " << distance_index_name << endl;
         }
         
         // Load the index
@@ -1467,6 +1510,7 @@ int main_mpmap(int argc, char** argv) {
     // set mapping quality parameters
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
+    multipath_mapper.mapq_scaling_factor = mapq_scaling_factor;
     multipath_mapper.report_group_mapq = report_group_mapq;
     multipath_mapper.use_weibull_calibration = use_weibull_calibration;
     // Use population MAPQs when we have the right option combination to make that sensible.
@@ -1520,9 +1564,9 @@ int main_mpmap(int argc, char** argv) {
 #endif
     
     // if directed to, auto calibrate the mismapping detection to the graph
-    if (auto_calibrate_mismapping_detection) {
+    if (auto_calibrate_mismapping_detection && !suppress_mismapping_detection) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Building null model to calibrate mismapping detection (can take some time)." << endl;
+            cerr << progress_boilerplate() << "Building null model to calibrate mismapping detection (can take some time)." << endl;
         }
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_lengths);
     }
@@ -1575,7 +1619,7 @@ int main_mpmap(int argc, char** argv) {
                 if (n % progress_frequency == 0) {
 #pragma omp critical
                     {
-                        cerr << "[vg mpmap] Mapped " << n << (!interleaved_input && fastq_name_2.empty() ? " reads" : " read pairs") << endl;
+                        cerr << progress_boilerplate() << "Mapped " << n << (!interleaved_input && fastq_name_2.empty() ? " reads" : " read pairs") << endl;
                     }
                 }
                 thread_num_reads_mapped[thread_num] = 0;
@@ -1779,7 +1823,7 @@ int main_mpmap(int argc, char** argv) {
     // FASTQ input
     if (!fastq_name_1.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << " using " << thread_count << " threads" << endl;
+            cerr << progress_boilerplate() << "Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << " using " << thread_count << " threads" << endl;
         }
         
         if (interleaved_input) {
@@ -1798,7 +1842,7 @@ int main_mpmap(int argc, char** argv) {
     // GAM input
     if (!gam_file_name.empty()) {
         if (!suppress_progress) {
-            cerr << "[vg mpmap] Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << " using " << thread_count << " threads" << endl;
+            cerr << progress_boilerplate() << "Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << " using " << thread_count << " threads" << endl;
         }
         
         function<void(istream&)> execute = [&](istream& gam_in) {
@@ -1865,14 +1909,7 @@ int main_mpmap(int argc, char** argv) {
         for (auto uncounted_mappings : thread_num_reads_mapped) {
             num_reads_mapped += uncounted_mappings;
         }
-        cerr << "[vg mpmap] Mapping finished. Mapped " << num_reads_mapped;
-        if (fastq_name_2.empty() && !interleaved_input) {
-            cerr << " reads.";
-        }
-        else {
-            cerr << " read pairs.";
-        }
-        cerr << endl;
+        cerr << progress_boilerplate() << "Mapping finished. Mapped " << num_reads_mapped << " " << (fastq_name_2.empty() && !interleaved_input ? "reads" : "read pairs") << "." << endl;
     }
     
 #ifdef record_read_run_times
