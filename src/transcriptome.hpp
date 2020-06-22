@@ -10,9 +10,9 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/mutable_path_mutable_handle_graph.hpp>
+#include "bdsg/overlays/path_position_overlays.hpp"
 
 #include "../vg.hpp"
-#include "../path_index.hpp"
 #include "../types.hpp"
 
 namespace vg {
@@ -37,7 +37,10 @@ struct Transcript {
 
     /// Name of chromosome/contig where transcript exist.
     const string chrom;
-    
+
+    /// Length of chromosome/contig where transcript exist.
+    const uint32_t chrom_length;
+
     /// Exon coordinates (start and end) on the chromosome/contig.
     vector<pair<int32_t, int32_t> > exons;
 
@@ -45,7 +48,10 @@ struct Transcript {
     /// first position in downstream intron) on a variation graph. 
     vector<pair<Position, Position> > exon_border_nodes;
 
-    Transcript(const string & name_in, const bool is_reverse_in, const string & chrom_in) : name(name_in), is_reverse(is_reverse_in), chrom(chrom_in) {}
+    Transcript(const string & name_in, const bool is_reverse_in, const string & chrom_in, const uint32_t & chrom_length_in) : name(name_in), is_reverse(is_reverse_in), chrom(chrom_in), chrom_length(chrom_length_in) {
+
+        assert(chrom_length > 0);
+    }
 };
 
 
@@ -206,7 +212,7 @@ class Transcriptome {
 
         /// Finds the position of each end of a exon on a path in the  
         /// variation graph and adds the exon to a transcript.
-        void add_exon(Transcript * transcript, const pair<int32_t, int32_t> & exon_pos, const PathIndex & chrom_path_index) const;
+        void add_exon(Transcript * transcript, const pair<int32_t, int32_t> & exon_pos, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
 
         /// Reverses exon order if the transcript is on the reverse strand and the exons 
         /// are ordered in reverse.
