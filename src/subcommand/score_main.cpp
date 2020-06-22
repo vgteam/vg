@@ -67,11 +67,11 @@ int main_score(int argc, char** argv) {
     vector<size_t> mapq_counts ( 61, 0);
     vector<size_t> correct_counts (61, 0);;
 
-        size_t total_read_count = 0;
+    size_t total_read_count = 0;
     function<void(Alignment&)> count_mapqs = [&](Alignment& aln) {
         auto mapq = aln.mapping_quality();
         if (mapq) {
-            total_read_count = 0;
+            total_read_count ++;
             mapq_counts[mapq] ++;
             if (aln.correctly_mapped()) {
                 correct_counts[mapq]++;
@@ -81,33 +81,30 @@ int main_score(int argc, char** argv) {
     };
 
 
-        ifstream truth_file_in(read_file_name);
-        if (!truth_file_in) {
-            cerr << "error[vg score]: Unable to read " << read_file_name << " when looking for true reads" << endl;
-            exit(1);
-        }
-        //Get the mapqs
-        vg::io::for_each_parallel(truth_file_in, count_mapqs);
+    ifstream truth_file_in(read_file_name);
+    if (!truth_file_in) {
+        cerr << "error[vg score]: Unable to read " << read_file_name << " when looking for true reads" << endl;
+        exit(1);
+    }
+    //Get the mapqs
+    vg::io::for_each_parallel(truth_file_in, count_mapqs);
    
-        size_t accumulated_count = 0;
-        size_t accumulated_correct_count= 0;
-        size_t mapping_goodness_score = 0;
-        for (size_t i = 60 ; i <= 0 ; i-- ) {
-            accumulated_count += mapq_counts[i];
-            accumulated_correct_count += correct_counts[i];
-            double fraction_incorrect = accumulated_count == 0 ? 0.0 :
-                (float) (accumulated_count - accumulated_correct_count) / (float) accumulated_count;
+    size_t accumulated_count = 0;
+    size_t accumulated_correct_count= 0;
+    float mapping_goodness_score = 0.0;
+    for (int i = 60 ; i >= 0 ; i-- ) {
+        accumulated_count += mapq_counts[i];
+        accumulated_correct_count += correct_counts[i];
+        double fraction_incorrect = accumulated_count == 0 ? 0.0 :
+            (float) (accumulated_count - accumulated_correct_count) / (float) accumulated_count;
+        fraction_incorrect = fraction_incorrect == 0.0 ? 1.0/(float)total_read_count : fraction_incorrect;
 
-            if (fraction_incorrect == 0) {
-                mapping_goodness_score += (1.0 / total_read_count) * mapq_counts[i];
-            } else {
-                mapping_goodness_score += log10(fraction_incorrect) * mapq_counts[i];
-            }
-        }
+        mapping_goodness_score -= log10(fraction_incorrect) * mapq_counts[i];
+    }
 
 
-        
-        cerr << mapping_goodness_score << endl;
+    
+    cerr << mapping_goodness_score / total_read_count << endl;
     
     return 0;
 }
