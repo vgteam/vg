@@ -87,7 +87,7 @@ int main_score(int argc, char** argv) {
         exit(1);
     }
     //Get the mapqs
-    vg::io::for_each_parallel(truth_file_in, count_mapqs);
+    vg::io::for_each(truth_file_in, count_mapqs);
    
     size_t accumulated_count = 0;
     size_t accumulated_correct_count= 0;
