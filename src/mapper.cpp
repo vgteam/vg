@@ -223,7 +223,6 @@ BaseMapper::find_mems_simple(string::const_iterator seq_begin,
                 int reseeds = 0;
                 while (reseeds == 0 && reseed_to >= min_mem_length) {
 #ifdef debug_mapper
-#pragma omp critical
                     cerr << "reseeding " << mem.sequence() << " with " << reseed_to << endl;
 #endif
                     vector<MaximalExactMatch> remems = find_mems_simple(mem.begin,
@@ -254,6 +253,522 @@ BaseMapper::find_mems_simple(string::const_iterator seq_begin,
         std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) { return m1.begin < m2.begin; });
     }
     return mems;
+}
+
+vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator seq_begin,
+                                                       string::const_iterator seq_end,
+                                                       string::const_iterator qual_begin,
+                                                       int max_fans_out,
+                                                       char max_fanout_base_quality) {
+
+#ifdef debug_mapper
+    cerr << "find_fanout_mems: sequence " << string(seq_begin, seq_end) << ", max fan-out quality" << max_fanout_base_quality << endl;
+#endif
+    
+    vector<pair<uint8_t, string::const_iterator>> qual_pos;
+    qual_pos.reserve(seq_end - seq_begin);
+    for (auto seq_it = seq_begin, qual_it = qual_begin; seq_it != seq_end; ++seq_it, ++qual_it) {
+        qual_pos.emplace_back(*(qual_it), seq_it);
+    }
+    make_heap(qual_pos.begin(), qual_pos.end(), greater<decltype(qual_pos)::value_type>());
+    
+    // find the k lowest base qualities and marking them as the fan out positions (breaking ties
+    // by moving to start of read)
+    vector<bool> do_fanout(seq_end - seq_begin, false);
+    while (!qual_pos.empty() && qual_pos.front().first < max_fanout_base_quality
+           && do_fanout.size() - qual_pos.size() < max_fans_out) {
+        
+        do_fanout[qual_pos.front().second - seq_begin] = true;
+        pop_heap(qual_pos.begin(), qual_pos.end(), greater<decltype(qual_pos)::value_type>());
+        qual_pos.pop_back();
+    }
+
+    // a struct to hold the information needed to continue a search from a fan-out
+    struct FanOutSearch {
+        // the SA range going into the  search
+        gcsa::range_type prev_range;
+        // where the search originally started
+        string::const_iterator match_end;
+        // where the search will continue from when this is dequeued
+        string::const_iterator cursor;
+        // the char we should use at the first search
+        char fanout_char;
+        // the where the MEM will need to be broken up
+        list<pair<string::const_iterator, char>> fanout_breaks;
+        
+        FanOutSearch(gcsa::range_type prev_range,
+                     string::const_iterator seq_begin,
+                     string::const_iterator match_end,
+                     string::const_iterator cursor,
+                     char fanout_char,
+                     const list<pair<string::const_iterator, char>>& prev_fanout_breaks)
+            : prev_range(prev_range), match_end(match_end), cursor(cursor), fanout_char(fanout_char), fanout_breaks(prev_fanout_breaks) {
+            if (cursor >= seq_begin && *cursor != fanout_char) {
+                fanout_breaks.emplace_front(cursor, fanout_char);
+            }
+        }
+        FanOutSearch(gcsa::range_type prev_range,
+                     string::const_iterator seq_begin,
+                     string::const_iterator match_end,
+                     string::const_iterator cursor,
+                     char fanout_char)
+            : prev_range(prev_range), match_end(match_end), cursor(cursor), fanout_char(fanout_char) {
+            if (*cursor != fanout_char) {
+                fanout_breaks.emplace_front(cursor, fanout_char);
+            }
+        }
+    };
+    
+    // a struct to hold the information needed to reconstruct the results of a fan-out search
+    struct SearchResult {
+        gcsa::range_type range;
+        string::const_iterator begin;
+        string::const_iterator end;
+        list<pair<string::const_iterator, char>> fanout_breaks;
+        
+        SearchResult(string::const_iterator begin,
+                     string::const_iterator end,
+                     gcsa::range_type range,
+                     const list<pair<string::const_iterator, char>>& fanout_breaks)
+            : range(range), begin(begin), end(end), fanout_breaks(fanout_breaks) {
+                
+        }
+    };
+    
+    gcsa::range_type full_range = gcsa::range_type(0, gcsa->size() - 1);
+    
+    // initialize the stack of search problems
+    vector<FanOutSearch> stack;
+    if (seq_begin < seq_end) {
+        // walk backwards from end until finding a non-N base or a base where we want to fan out
+        auto start_cursor = seq_end - 1;
+        while (start_cursor >= seq_begin && *start_cursor == 'N' && !do_fanout[start_cursor - seq_begin]) {
+            seq_end = start_cursor;
+            --start_cursor;
+        }
+        if (start_cursor >= seq_begin) {
+            if (do_fanout[start_cursor - seq_begin]) {
+                // fan out at the first base
+                for (char ch : {'A', 'C', 'G', 'T'}) {
+                    stack.emplace_back(full_range, seq_begin, seq_end, start_cursor, ch);
+                }
+            }
+            else {
+                // don't fan out at the first base
+                stack.emplace_back(full_range, seq_begin, seq_end, start_cursor, *start_cursor);
+            }
+        }
+    }
+    
+    vector<SearchResult> search_results;
+    
+    while (!stack.empty()) {
+                
+        auto cursor = stack.back().cursor;
+        auto match_end = stack.back().match_end;
+        auto range = stack.back().prev_range;
+        auto fanout_char = stack.back().fanout_char;
+        auto fanout_breaks = move(stack.back().fanout_breaks);
+        
+#ifdef debug_mapper
+        cerr << "starting a fanout search with cursor at " << (cursor - seq_begin) << " and fanout char of " << fanout_char << endl;
+        cerr << "current suffix: " << string(cursor, match_end) << endl;
+        cerr << "breaks: " << endl;
+        for (auto r : fanout_breaks) {
+            cerr << "\t" << (r.first - seq_begin) << " -> " << r.second << endl;
+        }
+#endif
+        
+        stack.pop_back();
+        
+        bool prev_iter_jumped_lcp = false;
+        bool use_fanout_char = true;
+        
+        while (cursor >= seq_begin) {
+            
+            // we only use the fan out character on the first iteration of a fan out search
+            char ch = use_fanout_char ? fanout_char : *cursor;
+            
+#ifdef debug_mapper
+            cerr << "LF iter at cursor " << (cursor - seq_begin) << " char " << ch << ", fanout? " << use_fanout_char << endl;
+#endif
+                        
+            if (!use_fanout_char && do_fanout[cursor - seq_begin]) {
+#ifdef debug_mapper
+                cerr << "aborting to search to queue up fan-out searches" << endl;
+#endif
+                // fan out into all possiblities
+                for (char nt : {'A', 'C', 'G', 'T'}) {
+                    stack.emplace_back(range, seq_begin, match_end, cursor, nt, fanout_breaks);
+                }
+                // stop the current search
+                break;
+            }
+            
+            use_fanout_char = false;
+            
+            // hold onto our previous range
+            auto prev_range = range;
+            
+            // execute one step of LF mapping
+            range = gcsa->LF(range, gcsa->alpha.char2comp[ch]);
+            
+            if (gcsa::Range::empty(range) || match_end - cursor > gcsa->order() || ch == 'N') {
+                
+#ifdef debug_mapper
+                cerr << "terminating search at end of a MEM" << endl;
+#endif
+                
+                if (!fanout_breaks.empty() && fanout_breaks.begin()->first == cursor) {
+                    // the match ended on the fan-out character, so we don't want to include
+                    // that final break in the search result
+                    fanout_breaks.pop_front();
+                }
+                
+                // we've exhausted our BWT range, so the last match range was maximal
+                // or we have exceeded the order of the graph (FPs if we go further)
+                
+                if (cursor + 1 == match_end || ch == 'N') {
+#ifdef debug_mapper
+                    cerr << "skipping past a full index mismatch or N" << endl;
+#endif
+                    // avoid getting caught in infinite loop when a single character mismatches
+                    // entire index (b/c then advancing the LCP doesn't move the search forward
+                    // at all, need to move the cursor instead)
+                    
+                    search_results.emplace_back(cursor + 1, match_end, prev_range, fanout_breaks);
+                    
+                    match_end = cursor;
+                    range = full_range;
+                    fanout_breaks.clear();
+                    --cursor;
+                    
+                    prev_iter_jumped_lcp = false;
+                }
+                else {
+#ifdef debug_mapper
+                    cerr << "emitting a search result" << endl;
+#endif
+                    auto match_begin = cursor + 1;
+                    
+                    // record the last MEM, but check to make sure were not actually still searching
+                    // for the end of the next MEM
+                    if (!prev_iter_jumped_lcp) {
+                        search_results.emplace_back(match_begin, match_end, prev_range, fanout_breaks);
+                    }
+                    
+                    // init this outside of the if condition so that we can avoid calling the
+                    // expensive LCP::parent function twice in the code path that checks max LCP
+                    gcsa::STNode parent = lcp->parent(prev_range);
+                    
+                    // set the MEM to be the longest prefix that is shared with another MEM
+                    match_end = match_begin + parent.lcp();
+                    // and set up the next MEM using the parent node range
+                    range = parent.range();
+                    // forget about any fan outs that happened after the end of the new match
+                    while (!fanout_breaks.empty() && fanout_breaks.back().first >= match_end) {
+                        fanout_breaks.pop_back();
+                    }
+                    
+                    prev_iter_jumped_lcp = true;
+                }
+            }
+            else {
+                prev_iter_jumped_lcp = false;
+                // just step to the next position
+                --cursor;
+            }
+        }
+        
+        if (cursor < seq_begin) {
+#ifdef debug_mapper
+            cerr << "terminating search at start of the read" << endl;
+#endif
+            search_results.emplace_back(seq_begin, match_end, range, fanout_breaks);
+        }
+    }
+    
+    vector<MaximalExactMatch> mems;
+    mems.reserve(search_results.size());
+    for (auto it = search_results.rbegin(), end = search_results.rend(); it != end; ++it) {
+        
+        const auto& search_result = *it;
+        
+        // there are no mismatches in the search, so the whole thing can become 1 MEM
+        mems.emplace_back(search_result.begin, search_result.end, search_result.range,
+                          gcsa->count(search_result.range));
+        if (!hard_hit_max || mems.back().match_count < hard_hit_max) {
+            if (hit_max) {
+                gcsa->locate(mems.back().range, hit_max, mems.back().nodes);
+                
+            } else {
+                gcsa->locate(mems.back().range, mems.back().nodes);
+            }
+        }
+        
+#ifdef debug_mapper
+        cerr << "created MEM " << mems.back().sequence() << endl;
+        for (auto n : mems.back().nodes) {
+            cerr << "\t" << make_pos_t(n) << endl;
+        }
+#endif
+        
+        // keep track of the initial number of hits we query in case the nodes vector is
+        // modified later (e.g. by prefiltering)
+        mems.back().queried_count =  mems.back().nodes.size();
+        
+        if (!search_result.fanout_breaks.empty()) {
+#ifdef debug_mapper
+            cerr << "need to break apart fanout MEM" << endl;
+#endif
+            
+            // find the paths that each hit took
+            vector<vector<pos_t>> paths;
+            paths.reserve(mems.back().nodes.size());
+            for (gcsa::node_type pos : mems.back().nodes) {
+                paths.emplace_back(walk_fanout_path(search_result.begin,
+                                                    search_result.end,
+                                                    search_result.fanout_breaks,
+                                                    pos));
+            }
+            
+            // records of (pos index, bases past pos offset)
+            vector<pair<size_t, size_t>> path_positions(paths.size(), pair<size_t, size_t>(0, 0));
+            
+            for (auto fanout_break : search_result.fanout_breaks) {
+#ifdef debug_mapper
+                cerr << "breaking fanout mems at " << (fanout_break.first - seq_begin) << " -> " << fanout_break.second << endl;
+#endif
+                
+                // split up the match into two segments
+                mems.back().end = fanout_break.first;
+                if (fanout_break.first + 1 == seq_end) {
+                    break;
+                }
+                mems.emplace_back(fanout_break.first + 1, search_result.end,
+                                  mems.back().range, mems.back().match_count);
+                mems.back().queried_count = mems[mems.size() - 2].queried_count;
+                
+                // walk forward the specified length along each of the match paths
+                size_t dist_to_walk = mems.back().begin - mems[mems.size() - 2].begin;
+#ifdef debug_mapper
+                cerr << "need to walk " << dist_to_walk << " from previous match positions" << endl;
+#endif
+                for (size_t i = 0; i < paths.size(); ++i) {
+                    
+                    pair<size_t, size_t>& path_pos = path_positions[i];
+                    
+                    size_t left_to_walk = dist_to_walk;
+                    
+                    pos_t path_step = paths[i][path_pos.first];
+#ifdef debug_mapper
+                    cerr << "starting a walk " << path_pos.second << " past " << path_step << endl;
+#endif
+                    size_t node_len = xindex->get_length(xindex->get_handle(id(path_step)));
+                    size_t remain_len = node_len - offset(path_step) - path_pos.second;
+                    while (remain_len < left_to_walk) {
+                        left_to_walk -= remain_len;
+                        ++path_pos.first;
+                        path_pos.second = 0;
+                        remain_len = xindex->get_length(xindex->get_handle(id(paths[i][path_pos.first])));
+                    }
+                    
+                    path_pos.second += left_to_walk;
+                    path_step = paths[i][path_pos.first];
+                    
+#ifdef debug_mapper
+                    cerr << "\tadvance " << paths[i].front() << " to " << pos_t(id(path_step), is_rev(path_step), offset(path_step) + path_pos.second) << endl;
+#endif
+                    
+                    // add the result as a position for this MEM
+                    mems.back().nodes.emplace_back(gcsa::Node::encode(id(path_step),
+                                                                      offset(path_step) + path_pos.second,
+                                                                      is_rev(path_step)));
+                    
+                }
+            }
+        }
+    }
+    
+    auto cmp = [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
+        if (m1.begin < m2.begin) {
+            return true;
+        }
+        else if (m1.begin == m2.begin) {
+            if (m1.end < m2.end) {
+                return true;
+            }
+            else if (m1.end == m2.end) {
+                return m1.nodes < m2.nodes;
+            }
+        }
+        return false;
+    };
+    
+    if (mems.size() == 1 && mems.front().length() >= mem_reseed_length) {
+        // try looking for reseed MEMs even if base qualities were high, just in case
+        
+        int min_sub_mem_length = max<int>(ceil(fast_reseed_length_diff * mems.front().length()), min_mem_length);
+        
+        vector<pair<MaximalExactMatch, vector<size_t>>> sub_mems;
+        find_sub_mems_fast(mems, 0, 1, 0, mems.front().end, mems.front().begin, min_sub_mem_length, sub_mems);
+        
+        if (!sub_mems.empty()) {
+            // we found a reseed sub-MEM
+            
+            // consolidate the sub MEMs into the MEM vector and record the parent relationships
+            mems.reserve(mems.size() + sub_mems.size());
+            vector<pair<int, vector<size_t>>> containment_graph(1);
+            containment_graph.reserve(mems.size() + sub_mems.size());
+            for (auto& sub_mem_and_parents : sub_mems) {
+                mems.emplace_back(move(sub_mem_and_parents.first));
+                containment_graph.emplace_back(0, move(sub_mem_and_parents.second));
+            }
+            
+            // try to remove redundant sub-MEMs
+            if (prefilter_redundant_hits) {
+                prefilter_redundant_sub_mems(mems, containment_graph);
+            }
+        }
+    }
+    
+    // put in lexicographic order and deduplicate
+    if (!is_sorted(mems.begin(), mems.end(), cmp)) {
+        sort(mems.begin(), mems.end(), cmp);
+    }
+    auto non_null_end = remove_if(mems.begin(), mems.end(),
+                                  [](const MaximalExactMatch& m) { return m.end == m.begin; });
+    auto uniq_end = unique(mems.begin(), non_null_end);
+    if (uniq_end != mems.end()) {
+        // non unique matches can occur from different fan out searches
+        mems.resize(uniq_end - mems.begin());
+    }
+    
+    return mems;
+}
+
+vector<pos_t> BaseMapper::walk_fanout_path(string::const_iterator begin,
+                                           string::const_iterator end,
+                                           const list<pair<string::const_iterator, char>>& fanout_breaks,
+                                           gcsa::node_type pos) {
+#ifdef debug_mapper
+    cerr << "beginning walk of fan-out path for sequence " << string(begin, end) << endl;
+    cerr << "breaks:" << endl;
+    for (auto b : fanout_breaks) {
+        cerr << (b.first - begin) << " -> " << b.second << endl;
+    }
+#endif
+    vector<pos_t> path;
+    
+    pos_t start_pos = make_pos_t(pos);
+    handle_t start_handle = xindex->get_handle(id(start_pos), is_rev(start_pos));
+    
+    // records of (read pos, break pos, (node-offset records), next record to check)
+    vector<tuple<string::const_iterator,
+           list<pair<string::const_iterator, char>>::const_iterator,
+           vector<pair<handle_t, size_t>>,
+           size_t>> stack;
+    stack.emplace_back(begin,
+                       fanout_breaks.begin(),
+                       vector<pair<handle_t, size_t>>(1, make_pair(start_handle, offset(start_pos))),
+                       0);
+    
+    while (!stack.empty()) {
+        
+        auto& stack_record = stack.back();
+        
+#ifdef debug_mapper
+        cerr << "dequeueing stack record at relative idx " << (get<0>(stack_record) - begin) << ", option idx " << get<3>(stack_record) << " of " << get<2>(stack_record).size() << endl;
+#endif
+        
+        if (get<3>(stack_record) == get<2>(stack_record).size()) {
+#ifdef debug_mapper
+            cerr << "popping stack record" << endl;
+#endif
+            
+            // we've already traversed all of this nodes edges without finding a match
+            stack.pop_back();
+            
+            continue;
+        }
+    
+        
+        // get the next position we're searching from
+        handle_t handle;
+        size_t off;
+        tie(handle, off) = get<2>(stack_record)[get<3>(stack_record)++];
+        
+#ifdef debug_mapper
+        cerr << "offset " << off << " on node " << xindex->get_id(handle) << ": " << xindex->get_sequence(handle) << endl;
+#endif
+        
+        auto read_it = get<0>(stack_record);
+        auto next_break = get<1>(stack_record);
+        
+        size_t node_len = xindex->get_length(handle);
+        
+        // check for a match along this node
+        while (off < node_len && read_it != end) {
+            // get either the read char or the fanout char
+            char rch;
+            if (read_it == next_break->first) {
+                rch = next_break->second;
+                ++next_break;
+            }
+            else {
+                rch = *read_it;
+            }
+#ifdef debug_mapper
+            cerr << "\tlooking for match of " << rch << " to " << xindex->get_base(handle, off) << " at offset " << off << " on node length " << node_len << endl;
+#endif
+            
+            if (rch != xindex->get_base(handle, off)) {
+#ifdef debug_mapper
+                cerr << "\tdoes not match" << endl;
+#endif
+                // this isn't a matching path
+                break;
+            }
+            ++read_it;
+            ++off;
+        }
+        
+        if (read_it == end) {
+            // we've finished walking out the match, the stack encodes
+            // the path we took to get here
+#ifdef debug_mapper
+            cerr << "\tfound full length match" << endl;
+#endif
+            path.reserve(stack.size());
+            for (const auto& search_record : stack) {
+                handle_t h;
+                size_t o;
+                tie(h, o) = get<2>(search_record)[get<3>(search_record) - 1];
+                path.emplace_back(xindex->get_id(h), xindex->get_is_reverse(h), o);
+            }
+            break;
+        }
+        else if (off == node_len) {
+            // we walked to the end of the node, queue up the next nodes
+#ifdef debug_mapper
+            cerr << "\treached end of node" << endl;
+#endif
+            stack.emplace_back(read_it, next_break, vector<pair<handle_t, size_t>>(), 0);
+            xindex->follow_edges(handle, false, [&](const handle_t& next) {
+                get<2>(stack.back()).emplace_back(next, 0);
+            });
+        }
+    }
+    
+#ifdef debug_mapper
+    cerr << "walked path:";
+    for (auto p : path) {
+        cerr << " " << p;
+    }
+    cerr << endl;
+#endif
+    
+    return path;
 }
 
 // Use the GCSA2 index to find super-maximal exact matches (and optionally sub-MEMs).
@@ -532,7 +1047,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     vector<pair<int, vector<size_t>>> sub_mem_containment_graph(mems.size());
 
     if (reseed_length) {
-        
         // record what the minimum length of sub-MEMs they contain should be according to the parameters
         for (size_t i = 0; i < mems.size(); i++) {
             if (use_diff_based_fast_reseed && adaptive_reseed_diff) {
