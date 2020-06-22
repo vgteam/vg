@@ -6,6 +6,7 @@ var searchData=
   ['walk_2ecpp',['walk.cpp',['../walk_8cpp.html',1,'']]],
   ['walk_2ehpp',['walk.hpp',['../walk_8hpp.html',1,'']]],
   ['walk_5fbackwards',['walk_backwards',['../classvg_1_1NGSSimulator.html#aff7ec570f2361e525db4363bf0e5a2d2',1,'vg::NGSSimulator']]],
+  ['walk_5ffanout_5fpath',['walk_fanout_path',['../classvg_1_1BaseMapper.html#a36ef8d5303c03eb65b6dc75cd1b1017d',1,'vg::BaseMapper']]],
   ['walk_5ft',['walk_t',['../structvg_1_1algorithms_1_1walk__t.html',1,'vg::algorithms::walk_t'],['../structvg_1_1walk__t.html',1,'vg::walk_t'],['../structvg_1_1walk__t.html#ad7a131cb934419dc90103ce2483fc02b',1,'vg::walk_t::walk_t()'],['../structvg_1_1algorithms_1_1walk__t.html#af8c4463befc5bb6cec73b3e493acf545',1,'vg::algorithms::walk_t::walk_t()']]],
   ['wang_5fhash',['wang_hash',['../structvg_1_1wang__hash.html',1,'vg']]],
   ['wang_5fhash_2ehpp',['wang_hash.hpp',['../wang__hash_8hpp.html',1,'']]],

@@ -52,6 +52,8 @@ var searchData=
   ['max_5fexponential_5fshape_5fslope',['max_exponential_shape_slope',['../classvg_1_1MultipathMapper.html#a8ea8f5c8ad1906ccf0b878a6821a16e2',1,'vg::MultipathMapper']]],
   ['max_5fextensions',['max_extensions',['../classvg_1_1MinimizerMapper.html#a5d03747a37700e9a3f73c308709f70d1',1,'vg::MinimizerMapper']]],
   ['max_5ffan_5fin',['max_fan_in',['../classvg_1_1StreamSorter.html#a673ce446e1ba8b9917f9475b9003364d',1,'vg::StreamSorter']]],
+  ['max_5ffanout_5fbase_5fquality',['max_fanout_base_quality',['../classvg_1_1MultipathMapper.html#a63f9b0403dceed8c8055ce5c423dd8fe',1,'vg::MultipathMapper']]],
+  ['max_5ffans_5fout',['max_fans_out',['../classvg_1_1MultipathMapper.html#a46f2835eebe0c9ab495e697c975534b6',1,'vg::MultipathMapper']]],
   ['max_5fgap',['max_gap',['../classvg_1_1MEMClusterer.html#a9b8459888ec7b51e739c3be04825b4fd',1,'vg::MEMClusterer']]],
   ['max_5fgroup_5fsize',['max_group_size',['../classvg_1_1io_1_1MessageEmitter.html#a4bcef07ec2af1cb44f4cd3abfe58f29c',1,'vg::io::MessageEmitter']]],
   ['max_5fhandle',['max_handle',['../classvg_1_1DozeuPinningOverlay.html#a63162330a1caec7a81abf6b5f747da32',1,'vg::DozeuPinningOverlay']]],

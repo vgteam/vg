@@ -139,6 +139,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a4dd3272837211543ba461472833734a9 inherit pub_methods_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad0ca6fe6e3a407bd1bff38bb05cbe794 inherit pub_methods_classvg_1_1BaseMapper"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#ad0ca6fe6e3a407bd1bff38bb05cbe794">find_stripped_matches</a> (string::const_iterator seq_begin, string::const_iterator seq_end, size_t strip_length, size_t max_match_length, size_t target_count)</td></tr>
 <tr class="separator:ad0ca6fe6e3a407bd1bff38bb05cbe794 inherit pub_methods_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a80ad7a4fabfb08ae212dabfb9883e4f6 inherit pub_methods_classvg_1_1BaseMapper"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a80ad7a4fabfb08ae212dabfb9883e4f6">find_fanout_mems</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator qual_begin, int max_fans_out, char max_fanout_base_quality)</td></tr>
+<tr class="separator:a80ad7a4fabfb08ae212dabfb9883e4f6 inherit pub_methods_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a36ef8d5303c03eb65b6dc75cd1b1017d inherit pub_methods_classvg_1_1BaseMapper"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a36ef8d5303c03eb65b6dc75cd1b1017d">walk_fanout_path</a> (string::const_iterator begin, string::const_iterator end, const list&lt; pair&lt; string::const_iterator, char &gt;&gt; &amp;fanout_breaks, gcsa::node_type pos)</td></tr>
+<tr class="separator:a36ef8d5303c03eb65b6dc75cd1b1017d inherit pub_methods_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa7a71951ec7acdbf2c31ae9318ceb035 inherit pub_methods_classvg_1_1BaseMapper"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#aa7a71951ec7acdbf2c31ae9318ceb035">rescue_high_count_order_length_mems</a> (vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, size_t max_rescue_hit_count)</td></tr>
 <tr class="separator:aa7a71951ec7acdbf2c31ae9318ceb035 inherit pub_methods_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4372862ebd4f21da3e9ed105249a5af inherit pub_methods_classvg_1_1BaseMapper"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#af4372862ebd4f21da3e9ed105249a5af">precollapse_order_length_runs</a> (string::const_iterator seq_begin, vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems)</td></tr>
@@ -208,6 +212,12 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aee2a7d30863137faeb2b9925c195262d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3a8af36f7fbbe431ea804f83e75a684d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a3a8af36f7fbbe431ea804f83e75a684d">stripped_match_alg_target_count</a> = 5</td></tr>
 <tr class="separator:a3a8af36f7fbbe431ea804f83e75a684d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac02b5155c59ad4603f0cc633b2dfad8a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ac02b5155c59ad4603f0cc633b2dfad8a">use_fanout_match_alg</a> = false</td></tr>
+<tr class="separator:ac02b5155c59ad4603f0cc633b2dfad8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a63f9b0403dceed8c8055ce5c423dd8fe"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a63f9b0403dceed8c8055ce5c423dd8fe">max_fanout_base_quality</a> = 20</td></tr>
+<tr class="separator:a63f9b0403dceed8c8055ce5c423dd8fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a46f2835eebe0c9ab495e697c975534b6"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a46f2835eebe0c9ab495e697c975534b6">max_fans_out</a> = 5</td></tr>
+<tr class="separator:a46f2835eebe0c9ab495e697c975534b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ada39acac8f403bf92632024be4e448e1"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ada39acac8f403bf92632024be4e448e1">max_p_value_memo_size</a> = 500</td></tr>
 <tr class="separator:ada39acac8f403bf92632024be4e448e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a93b608c38afcfea23224165ebb614845"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a93b608c38afcfea23224165ebb614845">band_padding_memo_size</a> = 2000</td></tr>
@@ -460,6 +470,9 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a42169ca0715c4c784584ba3d2a5d34bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a362ad957c6634b60317158966c3e02f7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a362ad957c6634b60317158966c3e02f7">establish_strand_consistency</a> (vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs)</td></tr>
 <tr class="separator:a362ad957c6634b60317158966c3e02f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac4792f0ef829d9cf72f003d19ba6d3bf"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ac4792f0ef829d9cf72f003d19ba6d3bf">find_mems</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
+<tr class="memdesc:ac4792f0ef829d9cf72f003d19ba6d3bf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return exact matches according to the object's parameters.  <a href="#ac4792f0ef829d9cf72f003d19ba6d3bf">More...</a><br /></td></tr>
+<tr class="separator:ac4792f0ef829d9cf72f003d19ba6d3bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#ab180631766b1e787e29dd202ad455d90">AlignerClient</a> (double <a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a>=vg::default_gc_content)</td></tr>
 <tr class="separator:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1442,6 +1455,34 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also inverts the distances in the cluster pairs vector according to the strand </p>
+
+</div>
+</div>
+<a id="ac4792f0ef829d9cf72f003d19ba6d3bf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac4792f0ef829d9cf72f003d19ba6d3bf">&#9670;&nbsp;</a></span>find_mems()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; vg::MultipathMapper::find_mems </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Return exact matches according to the object's parameters. </p>
 
 </div>
 </div>
@@ -2757,6 +2798,34 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a63f9b0403dceed8c8055ce5c423dd8fe"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a63f9b0403dceed8c8055ce5c423dd8fe">&#9670;&nbsp;</a></span>max_fanout_base_quality</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::MultipathMapper::max_fanout_base_quality = 20</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a46f2835eebe0c9ab495e697c975534b6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a46f2835eebe0c9ab495e697c975534b6">&#9670;&nbsp;</a></span>max_fans_out</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::MultipathMapper::max_fans_out = 5</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="aa7656b2372ae8450e48a9db512ce309d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa7656b2372ae8450e48a9db512ce309d">&#9670;&nbsp;</a></span>max_mapping_p_value</h2>
 
@@ -3331,6 +3400,20 @@ Additional Inherited Members</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">bool vg::MultipathMapper::top_tracebacks = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac02b5155c59ad4603f0cc633b2dfad8a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac02b5155c59ad4603f0cc633b2dfad8a">&#9670;&nbsp;</a></span>use_fanout_match_alg</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MultipathMapper::use_fanout_match_alg = false</td>
         </tr>
       </table>
 </div><div class="memdoc">
