@@ -32,28 +32,30 @@ void help_gbwt(char** argv) {
     std::cerr << "Manipulate GBWTs." << std::endl;
     std::cerr << std::endl;
     std::cerr << "General options:" << std::endl;
-    std::cerr << "    -o, --output X          write output GBWT to X (required with -m, -f, and -P)" << std::endl;
+    std::cerr << "    -o, --output FILE       write output GBWT to FILE" << std::endl;
     std::cerr << "    -p, --progress          show progress and statistics" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Merging (requires -o; use deps/gbwt/merge_gbwt for more options):" << std::endl;
     std::cerr << "    -m, --merge             merge the GBWT files from the input args and write to output" << std::endl;
     std::cerr << "    -f, --fast              fast merging algorithm (node ids must not overlap; implies -m)" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Threads (one GBWT file as an input arg):" << std::endl;
+    std::cerr << "Threads (one input GBWT):" << std::endl;
     std::cerr << "    -c, --count-threads     print the number of threads" << std::endl;
     std::cerr << "    -e, --extract FILE      extract threads in SDSL format to FILE" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "GBWTGraph construction (0 or 1 GBWT files as input args):" << std::endl;
-    std::cerr << "    -g, --graph-name FILE   build GBWTGraph and serialize it to FILE (requires -x)" << std::endl;
-    std::cerr << "    -x, --xg-name FILE      use the node sequences from the graph in FILE" << std::endl;
-    std::cerr << "    -l, --local-haplotypes  sample local haplotypes from the input (requires -o)" << std::endl;
-    std::cerr << "    -P, --path-cover        build GBWT from a greedy path cover (requires -o)" << std::endl;
-    std::cerr << "    -n, --num-paths N       find N paths per component in -l or -P (default " << gbwtgraph::PATH_COVER_DEFAULT_N << ")" << std::endl;
-    std::cerr << "    -k, --context-length N  use N-node contexts in -l or -P (default " << gbwtgraph::PATH_COVER_DEFAULT_K << ")" << std::endl;
+    std::cerr << "GBWTGraph construction (based on path cover GBWT or one input GBWT):" << std::endl;
+    std::cerr << "    -g, --graph-name FILE   build GBWTGraph and serialize it to FILE (required)" << std::endl;
+    std::cerr << "    -x, --xg-name FILE      use the node sequences from the graph in FILE (required)" << std::endl;
+    std::cerr << std::endl;
+    std::cerr << "Path cover options (requires -o and one of { -l, -P }):" << std::endl;
+    std::cerr << "    -l, --local-haplotypes  sample local haplotypes (one input GBWT)" << std::endl;
+    std::cerr << "    -P, --path-cover        build a greedy path cover (no input GBWTs)" << std::endl;
+    std::cerr << "    -n, --num-paths N       find N paths per component (default " << gbwtgraph::PATH_COVER_DEFAULT_N << ")" << std::endl;
+    std::cerr << "    -k, --context-length N  use N-node contexts (default " << gbwtgraph::PATH_COVER_DEFAULT_K << ")" << std::endl;
     std::cerr << "    -b, --buffer-size N     GBWT construction buffer size in millions of nodes (default " << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << ")" << std::endl;
     std::cerr << "    -i, --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Metadata (one GBWT file as an input arg; use deps/gbwt/metadata_tool to modify):" << std::endl;
+    std::cerr << "Metadata (one input GBWT; use deps/gbwt/metadata_tool to modify):" << std::endl;
     std::cerr << "    -M, --metadata          print basic metadata" << std::endl;
     std::cerr << "    -C, --contigs           print the number of contigs" << std::endl;
     std::cerr << "    -H, --haplotypes        print the number of haplotypes" << std::endl;
@@ -107,6 +109,8 @@ int main_gbwt(int argc, char** argv)
                 // GBWTGraph
                 { "graph-name", required_argument, 0, 'g' },
                 { "xg-name", required_argument, 0, 'x' },
+
+                // Path cover
                 { "local-haplotypes", no_argument, 0, 'l' },
                 { "path-cover", no_argument, 0, 'P' },
                 { "num-paths", required_argument, 0, 'n' },
@@ -171,6 +175,8 @@ int main_gbwt(int argc, char** argv)
         case 'x':
             xg_name = optarg;
             break;
+
+        // Path cover
         case 'l':
             local_haplotypes = true;
             break;
