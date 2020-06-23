@@ -65,11 +65,11 @@ vg index -G x_both.gbwt -T -v small/xy2.vcf.gz x.vg
 is $(vg gbwt -c x_both.gbwt) 3 "there are 3 threads in the index"
 
 # Remove a sample (actually the reference) from a GBWT
-vg gbwt -R ref x_both.gbwt
+vg gbwt -R ref x_both.gbwt -o removed.gbwt
 is $? 0 "samples can be removed from a GBWT index"
-is $(vg gbwt -c x_both.gbwt) 2 "the sample was removed"
+is $(vg gbwt -c removed.gbwt) 2 "the sample was removed"
 
-rm x_ref.gbwt x_both.gbwt
+rm x_ref.gbwt x_both.gbwt removed.gbwt
 
 
 # Store haplotypes in both GBWT and a binary file
