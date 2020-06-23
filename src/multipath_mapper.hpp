@@ -198,6 +198,10 @@ namespace vg {
         /// as a priority).
         using clustergraph_t = tuple<bdsg::HashGraph*, memcluster_t, size_t>;
         
+        /// Represents the mismatches that were allowed in "MEMs" from the fanout
+        /// match algorithm
+        using match_fanouts_t = unordered_map<const MaximalExactMatch*, deque<pair<string::const_iterator, char>>>;
+        
     protected:
         
         /// Wrapped internal function that allows some code paths to circumvent the current
@@ -383,6 +387,10 @@ namespace vg {
                                                              vector<clustergraph_t>& cluster_graphs1,
                                                              vector<clustergraph_t>& cluster_graphs2,
                                                              bool did_secondary_rescue) const;
+        
+        /// Reorganizes the fan-out breaks into the format that MultipathAlignmentGraph wants it in
+        match_fanouts_t record_fanouts(const vector<MaximalExactMatch>& mems,
+                                       vector<deque<pair<string::const_iterator, char>>>& fanouts) const;
         
         /// Estimates the probability that a cluster with the same hits would have been missed because of
         /// subsampling high-count SMEMs

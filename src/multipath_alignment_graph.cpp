@@ -89,10 +89,11 @@ namespace vg {
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                                      const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
-                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa) {
+                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa,
+                                                     const MultipathMapper::match_fanouts_t* fanout_breaks) {
         
         // initialize the match nodes
-        create_match_nodes(graph, hits, project, injection_trans);
+        create_match_nodes(graph, hits, project, injection_trans, fanout_breaks);
         
         if (gcsa) {
             // we indicated that these MEMs came from a GCSA, so there might be order-length MEMs that we can combine
@@ -123,20 +124,22 @@ namespace vg {
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                                      const function<pair<id_t, bool>(id_t)>& project,
-                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa) :
+                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa,
+                                                     const MultipathMapper::match_fanouts_t* fanout_breaks) :
                                                      MultipathAlignmentGraph(graph, hits, project,
                                                                              create_injection_trans(graph, project),
-                                                                             max_branch_trim_length, gcsa) {
+                                                                             max_branch_trim_length, gcsa, fanout_breaks) {
         // Nothing to do
         
     }
 
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
-                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa) :
+                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa,
+                                                     const MultipathMapper::match_fanouts_t* fanout_breaks) :
                                                      MultipathAlignmentGraph(graph, hits, create_projector(projection_trans),
                                                                              create_injection_trans(projection_trans),
-                                                                             max_branch_trim_length, gcsa) {
+                                                                             max_branch_trim_length, gcsa, fanout_breaks) {
         // Nothing to do
         
     }
@@ -585,7 +588,8 @@ namespace vg {
     
     void MultipathAlignmentGraph::create_match_nodes(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                                      const function<pair<id_t, bool>(id_t)>& project,
-                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
+                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                     const MultipathMapper::match_fanouts_t* fanout_breaks) {
         
 #ifdef debug_multipath_alignment
         cerr << "walking out MEMs in graph" << endl;
@@ -709,11 +713,15 @@ namespace vg {
                 cerr << "performing DFS to walk out match" << endl;
 #endif
                 
-                // stack for DFS, each record contains tuples of (read begin, node offset, next node index, next node ids)
-                vector<tuple<string::const_iterator, size_t, size_t, vector<handle_t>>> stack;
+                // stack for DFS, each record contains tuples of
+                // (read begin, node offset, next node index, next node handles, fan-out index)
+                vector<tuple<string::const_iterator, size_t, size_t, vector<handle_t>, size_t>> stack;
                 stack.emplace_back(begin, offset(hit_pos), 0,
-                                   vector<handle_t>{graph.get_handle(injected_id)});
-                
+                                   vector<handle_t>{graph.get_handle(injected_id)}, 0);
+                size_t fanout_size = 0;
+                if (fanout_breaks && fanout_breaks->count(hit.first)) {
+                    fanout_size = fanout_breaks->at(hit.first).size();
+                }
                 while (!stack.empty()) {
                     auto& back = stack.back();
                     if (get<2>(back) == get<3>(back).size()) {
@@ -737,7 +745,19 @@ namespace vg {
                     
                     // look for a match along the entire node sequence
                     for (; node_idx < node_seq.size() && read_iter != end; node_idx++, read_iter++) {
-                        if (node_seq[node_idx] != *read_iter) {
+                        char read_char;
+                        if (get<4>(back) < fanout_size
+                            && fanout_breaks->at(hit.first)[get<4>(back)].first == read_iter) {
+                            // we're at the next place where we substituted the read character
+                            // for a different one
+                            read_char = fanout_breaks->at(hit.first)[get<4>(back)].second;
+                            ++get<4>(back);
+                        }
+                        else {
+                            // we just want to match the read
+                            read_char = *read_iter;
+                        }
+                        if (node_seq[node_idx] != read_char) {
 #ifdef debug_multipath_alignment
                             cerr << "node sequence does not match read" << endl;
 #endif
@@ -748,42 +768,96 @@ namespace vg {
                     if (read_iter == end) {
                         // finished walking match
 #ifdef debug_multipath_alignment
-                        cerr << "reached end of read sequence, converting into a Path at idx " << path_nodes.size() << endl;
+                        cerr << "reached end of read sequence, converting into path(s) start at idx " << path_nodes.size() << endl;
 #endif
+                        assert(get<4>(back) == fanout_size);
                         
-                        path_nodes.emplace_back();
-                        PathNode& match_node = path_nodes.back();
-                        path_t& path = match_node.path;
-                        match_node.begin = begin;
-                        match_node.end = end;
-                        int64_t length_remaining = end - begin;
+                        path_t path;
+                        int64_t path_length = end - begin;
+                        int64_t length_remaining = path_length;
+                        size_t fanout_idx = 0;
+                        int64_t length_until_fanout = fanout_size ? fanout_breaks->at(hit.first).front().first - begin
+                                                                  : length_remaining;
+                        auto curr_node_begin = begin;
                         
-                        // walk out the match
-                        int32_t rank = 1;
-                        for (auto search_record : stack) {
+                        // walk out the match, breaking it at fan-out positions as necessary
+                        for (size_t j = 0; curr_node_begin < end; ) {
+                            auto& search_record = stack[j];
                             int64_t offset = get<1>(search_record);
                             handle_t handle = get<3>(search_record)[get<2>(search_record) - 1];
-                            int64_t length = std::min(int64_t(graph.get_length(handle)) - offset, length_remaining);
+                            int64_t length_on_node = min(int64_t(graph.get_length(handle)) - offset, length_remaining);
                             
                             path_mapping_t* mapping = path.add_mapping();
                             
                             edit_t* edit = mapping->add_edit();
-                            edit->set_from_length(length);
-                            edit->set_to_length(length);
                             
                             // note: the graph is dagified and unrolled, so all hits should be on the forward strand
                             position_t* position = mapping->mutable_position();
                             position->set_node_id(graph.get_id(handle));
                             position->set_offset(offset);
                             
-                            // record that each node occurs in this match so we can filter out sub-MEMs
-                            node_matches[graph.get_id(handle)].push_back(path_nodes.size() - 1);
+                            if (length_on_node >= length_until_fanout) {
+                                // we're either at a fan-out position, or at the end of the path, so
+                                // now we want to emit a path node with the path we've just walked out
+                                
+                                edit->set_from_length(length_until_fanout);
+                                edit->set_to_length(length_until_fanout);
+                                
+                                path_nodes.emplace_back();
+                                auto node_end = end - length_remaining + length_until_fanout;
+                                
+                                if (curr_node_begin < node_end) {
+                                    // the node is non-empty
+                                    
+                                    for (const auto& m : path.mapping()) {
+                                        // record that each node occurs in this match so we can filter out sub-MEMs
+                                        node_matches[m.position().node_id()].push_back(path_nodes.size());
+                                    }
+                                    
+                                    // create a path node
+                                    PathNode& match_node = path_nodes.back();
+                                    match_node.path = move(path);
+                                    match_node.begin = curr_node_begin;
+                                    match_node.end = node_end;
+                                }
+                                
+                                // set up the next path walk
+                                path = path_t();
+                                
+                                // we need to advance past the fan-out character
+                                curr_node_begin = node_end + 1;
+                                int64_t length_to_advance = length_until_fanout + 1;
+                                
+                                // walk the path until finding the corresponding position
+                                length_remaining -= length_to_advance;
+                                while (j < stack.size() &&
+                                       length_to_advance >= get<1>(stack[j]) + graph.get_length(get<3>(stack[j])[get<2>(stack[j]) - 1])) {
+                                    length_to_advance -= graph.get_length(get<3>(stack[j])[get<2>(stack[j]) - 1]);
+                                    ++j;
+                                }
+                                // manipulate the offset on the stack so that we start on the correct position
+                                get<1>(stack[j]) += length_to_advance;
+                                
+                                
+                                // move the marker for the next fan-out ahead
+                                ++fanout_idx;
+                                length_until_fanout = fanout_idx < fanout_size ? fanout_breaks->at(hit.first)[fanout_idx].first - curr_node_begin
+                                                                               : length_remaining;
+                            }
+                            else {
+                                edit->set_from_length(length_on_node);
+                                edit->set_to_length(length_on_node);
+                                
+                                // advance to the next stack record
+                                ++j;
+                                
+                                // tick down the length trackers
+                                length_remaining -= length_on_node;
+                                length_until_fanout -=  length_on_node;
 #ifdef debug_multipath_alignment
-                            cerr << "associating node " << graph.get_id(handle) << " with a match at idx " << path_nodes.size() - 1 << endl;
+                                cerr << "associating node " << graph.get_id(handle) << " with a match at idx " << path_nodes.size() - 1 << endl;
 #endif
-                            
-                            rank++;
-                            length_remaining -= length;
+                            }
                         }
                         
 #ifdef debug_multipath_alignment
@@ -792,7 +866,7 @@ namespace vg {
                     }
                     else if (node_idx == node_seq.size()) {
                         // matched entire node, move to next node(s)
-                        stack.emplace_back(read_iter, 0, 0, vector<handle_t>());
+                        stack.emplace_back(read_iter, 0, 0, vector<handle_t>(), get<4>(back));
                         graph.follow_edges(trav, false, [&](const handle_t& next) {
                             get<3>(stack.back()).push_back(next);
                         });

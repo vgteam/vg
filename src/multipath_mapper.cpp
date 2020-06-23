@@ -2436,6 +2436,21 @@ namespace vg {
                                                                hit_sampling_mapq));
         }
     }
+
+    MultipathMapper::match_fanouts_t MultipathMapper::record_fanouts(const vector<MaximalExactMatch>& mems,
+                                                                     vector<deque<pair<string::const_iterator, char>>>& fanouts) const {
+        
+        match_fanouts_t match_fanouts;
+        if (!fanouts.empty()) {
+            assert(fanouts.size() == mems.size());
+            for (size_t i = 0; i < mems.size(); ++i) {
+                if (!fanouts[i].empty()) {
+                    match_fanouts[&mems[i]] = move(fanouts[i]);
+                }
+            }
+        }
+        return match_fanouts;
+    }
     
     void MultipathMapper::split_multicomponent_alignments(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const {
@@ -2717,7 +2732,7 @@ namespace vg {
         unordered_map<size_t, bdsg::HashGraph*> cluster_graphs;
         
         // to keep track of which clusters have been merged
-        UnionFind union_find(clusters.size());
+        UnionFind union_find(clusters.size(), false);
         
         // (for the suppressed merge code path)
         // maps the hits that make up a cluster to the index of the cluster
