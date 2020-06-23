@@ -49,7 +49,7 @@ void help_gbwt(char** argv) {
     std::cerr << "    -g, --graph-name FILE   build GBWTGraph and serialize it to FILE (required)" << std::endl;
     std::cerr << "    -x, --xg-name FILE      use the node sequences from the graph in FILE (required)" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Path cover (for GBWTGraph construction; requires -o and one of { -l, -P }):" << std::endl;
+    std::cerr << "Path cover (for GBWTGraph construction; requires -o and one of { -a, -l, -P }):" << std::endl;
     std::cerr << "    -a, --augment-gbwt      add a path cover of missing components (one input GBWT)" << std::endl;
     std::cerr << "    -l, --local-haplotypes  sample local haplotypes (one input GBWT)" << std::endl;
     std::cerr << "    -P, --path-cover        build a greedy path cover (no input GBWTs)" << std::endl;
