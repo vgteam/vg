@@ -4,7 +4,7 @@
 
 #include "multipath_alignment_graph.hpp"
 
-//#define debug_multipath_alignment
+#define debug_multipath_alignment
 
 using namespace std;
 namespace vg {

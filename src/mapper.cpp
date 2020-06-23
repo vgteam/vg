@@ -7,7 +7,7 @@
 #include "algorithms/is_acyclic.hpp"
 #include "algorithms/split_strands.hpp"
 
-//#define debug_mapper
+#define debug_mapper
 //#define debug_strip_match
 
 namespace vg {
@@ -498,6 +498,10 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         
         const auto& search_result = *it;
         
+        if (search_result.end - search_result.begin < min_mem_length) {
+            continue;
+        }
+        
         // there are no mismatches in the search, so the whole thing can become 1 MEM
         mems.emplace_back(search_result.begin, search_result.end, search_result.range,
                           gcsa->count(search_result.range));
@@ -505,7 +509,8 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             if (hit_max) {
                 gcsa->locate(mems.back().range, hit_max, mems.back().nodes);
                 
-            } else {
+            }
+            else {
                 gcsa->locate(mems.back().range, mems.back().nodes);
             }
         }
@@ -521,7 +526,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         // modified later (e.g. by prefiltering)
         mems.back().queried_count =  mems.back().nodes.size();
         
-        if (!mem_fanout_breaks) {
+        if (mem_fanout_breaks) {
             // we're communicating fan-out breaks to the calling environment rather than
             // breaking them into exact matches right now
             mem_fanout_breaks->emplace_back(move(search_result.fanout_breaks));

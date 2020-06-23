@@ -234,6 +234,7 @@ namespace vg {
                                      vector<clustergraph_t>& cluster_graphs,
                                      vector<multipath_alignment_t>& multipath_alns_out,
                                      size_t num_mapping_attempts,
+                                     const match_fanouts_t* fanouts = nullptr,
                                      vector<size_t>* cluster_idxs = nullptr);
         
         /// After clustering MEMs, extracting graphs, assigning hits to cluster graphs, and determining
@@ -245,7 +246,8 @@ namespace vg {
                                           vector<clustergraph_t>& cluster_graphs2,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                          vector<pair<size_t, size_t>>& duplicate_pairs_out);
+                                          vector<pair<size_t, size_t>>& duplicate_pairs_out,
+                                          const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
         
         /// Align the read ends independently, but also try to form rescue alignments for each from
         /// the other. Return true if output obeys pair consistency and false otherwise.
@@ -256,7 +258,8 @@ namespace vg {
                                                  bool block_rescue_from_1, bool block_rescue_from_2,
                                                  vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances_out,
-                                                 vector<double>& pair_multiplicities_out);
+                                                 vector<double>& pair_multiplicities_out,
+                                                 const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
         
         /// Use the rescue routine on strong suboptimal clusters to see if we can find a good secondary.
         /// Produces topologically sorted multipath_alignment_ts.
@@ -265,7 +268,8 @@ namespace vg {
                                             vector<clustergraph_t>& cluster_graphs2,
                                             vector<pair<size_t, size_t>>& duplicate_pairs,
                                             vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                            vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
+                                            vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                            const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
         
         /// Cluster and extract subgraphs for (possibly) only one end, meant to be a non-repeat, and use them to rescue
         /// an alignment for the other end, meant to be a repeat.
@@ -277,7 +281,8 @@ namespace vg {
                                                       vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
                                                       vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                       vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
-                                                      OrientedDistanceMeasurer& distance_measurer);
+                                                      OrientedDistanceMeasurer& distance_measurer,
+                                                      const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
         
         /// Merge the rescued mappings into the output vector and deduplicate pairs
         void merge_rescued_mappings(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
@@ -331,7 +336,8 @@ namespace vg {
         /// Does NOT necessarily produce a multipath_alignment_t in topological order.
         void multipath_align(const Alignment& alignment, const bdsg::HashGraph* graph,
                              memcluster_t& graph_mems,
-                             multipath_alignment_t& multipath_aln_out) const;
+                             multipath_alignment_t& multipath_aln_out,
+                             const match_fanouts_t* fanouts) const;
         
         /// Removes the sections of an Alignment's path within snarls and re-aligns them with multiple traceback
         /// to create a multipath alignment with non-trivial topology.
@@ -438,7 +444,10 @@ namespace vg {
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
         
         /// Return exact matches according to the object's parameters
-        vector<MaximalExactMatch> find_mems(const Alignment& alignment);
+        /// If using the fan-out algorithm, we can optionally leave fan-out MEMs in tact and
+        /// return a vector of their breaks.
+        vector<MaximalExactMatch> find_mems(const Alignment& alignment,
+                                            vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks = nullptr);
         
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
