@@ -25,6 +25,8 @@ using namespace vg::subcommand;
 
 #include <unistd.h>
 
+enum operation_mode { operation_none, operation_merge, operation_graph, operation_remove, operation_other };
+enum path_cover_mode { path_cover_none, path_cover_augment, path_cover_local, path_cover_greedy };
 
 void help_gbwt(char** argv) {
     std::cerr << "usage: " << argv[0] << " [options] [args]" << std::endl;
@@ -48,6 +50,7 @@ void help_gbwt(char** argv) {
     std::cerr << "    -x, --xg-name FILE      use the node sequences from the graph in FILE (required)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Path cover (for GBWTGraph construction; requires -o and one of { -l, -P }):" << std::endl;
+    std::cerr << "    -a, --augment-gbwt      add a path cover of missing components (one input GBWT)" << std::endl;
     std::cerr << "    -l, --local-haplotypes  sample local haplotypes (one input GBWT)" << std::endl;
     std::cerr << "    -P, --path-cover        build a greedy path cover (no input GBWTs)" << std::endl;
     std::cerr << "    -n, --num-paths N       find N paths per component (default " << gbwtgraph::PATH_COVER_DEFAULT_N << ")" << std::endl;
@@ -76,14 +79,14 @@ int main_gbwt(int argc, char** argv)
         std::exit(EXIT_FAILURE);
     }
 
-    // Operation modes. Only one of these can be active.
-    bool merge = false, build_graph = false, remove_sample = false, other_options = false;
+    // Operation modes.
+    operation_mode mode = operation_none;
+    path_cover_mode path_cover = path_cover_none;
 
     bool fast_merging = false;
     bool show_progress = false;
     bool count_threads = false;
     bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, thread_names = false;
-    bool local_haplotypes = false, path_cover = false;
     size_t num_paths = gbwtgraph::PATH_COVER_DEFAULT_N, context_length = gbwtgraph::PATH_COVER_DEFAULT_K;
     size_t buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
     size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
@@ -113,6 +116,7 @@ int main_gbwt(int argc, char** argv)
                 { "xg-name", required_argument, 0, 'x' },
 
                 // Path cover
+                { "augment-gbwt", no_argument, 0, 'a' },
                 { "local-haplotypes", no_argument, 0, 'l' },
                 { "path-cover", no_argument, 0, 'P' },
                 { "num-paths", required_argument, 0, 'n' },
@@ -136,7 +140,7 @@ int main_gbwt(int argc, char** argv)
             };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "o:pmfce:g:x:lPn:k:b:i:MCHSLTR:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "o:pmfce:g:x:alPn:k:b:i:MCHSLTR:h?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -154,38 +158,41 @@ int main_gbwt(int argc, char** argv)
 
         // Merging
         case 'm':
-            merge = true;
+            mode = operation_merge;
             break;
         case 'f':
+            mode = operation_merge;
             fast_merging = true;
-            merge = true;
             break;
 
         // Threads
         case 'c':
+            mode = operation_other;
             count_threads = true;
-            other_options = true;
             break;
         case 'e':
+            mode = operation_other;
             thread_output = optarg;
-            other_options = true;
             break;
 
         // GBWTGraph
         case 'g':
+            mode = operation_graph;
             graph_output = optarg;
-            build_graph = true;
             break;
         case 'x':
             xg_name = optarg;
             break;
 
         // Path cover
+        case 'a':
+            path_cover = path_cover_augment;
+            break;
         case 'l':
-            local_haplotypes = true;
+            path_cover = path_cover_local;
             break;
         case 'P':
-            path_cover = true;
+            path_cover = path_cover_greedy;
             break;
         case 'n':
             num_paths = parse<size_t>(optarg);
@@ -202,33 +209,33 @@ int main_gbwt(int argc, char** argv)
 
         // Metadata
         case 'M':
+            mode = operation_other;
             metadata = true;
-            other_options = true;
             break;
         case 'C':
+            mode = operation_other;
             contigs = true;
-            other_options = true;
             break;
         case 'H':
+            mode = operation_other;
             haplotypes = true;
-            other_options = true;
             break;
         case 'S':
+            mode = operation_other;
             samples = true;
-            other_options = true;
             break;
         case 'L':
             list_names = true;
             break;
         case 'T':
+            mode = operation_other;
             thread_names = true;
-            other_options = true;
             break;
 
         // Remove sample
         case 'R':
+            mode = operation_remove;
             to_remove = optarg;
-            remove_sample = true;
             break;
 
         case 'h':
@@ -244,24 +251,7 @@ int main_gbwt(int argc, char** argv)
     }
 
     // Sanity checks.
-    size_t active_modes = 0;
-    if (merge) {
-        active_modes++;
-    }
-    if (build_graph) {
-        active_modes++;
-    }
-    if (remove_sample) {
-        active_modes++;
-    }
-    if (other_options) {
-        active_modes++;
-    }
-    if (active_modes > 1) {
-        std::cerr << "error: [vg gbwt] merging, graph construction, removing samples, and other options are mutually exclusive" << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-    if (active_modes == 0) {
+    if (mode == operation_none) {
         help_gbwt(argv);
         std::exit(EXIT_FAILURE);
     }
@@ -271,7 +261,7 @@ int main_gbwt(int argc, char** argv)
 
 
     // Merging options.
-    if (merge) {
+    if (mode == operation_merge) {
 
         // Ugly hack here. GBWT prints to stdout, and we want to direct it to stderr.
         std::streambuf* cout_buf = std::cout.rdbuf();
@@ -379,22 +369,22 @@ int main_gbwt(int argc, char** argv)
 
 
     // GBWTGraph construction.
-    if (build_graph) {
-        if (local_haplotypes || path_cover) {
-            if (local_haplotypes && path_cover) {
-                std::cerr << "error: [vg gbwt] cannot build both local haplotypes and path cover" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (local_haplotypes && optind + 1 != argc) {
+    if (mode == operation_graph) {
+        if (path_cover != path_cover_none) {
+            if (path_cover == path_cover_local && optind + 1 != argc) {
                 std::cerr << "error: [vg gbwt] no input GBWT given for finding local haplotypes" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
-            if (path_cover && optind != argc) {
-                std::cerr << "error: [vg gbwt] input GBWTs are not used with path cover" << std::endl;
+            if (path_cover == path_cover_augment && optind + 1 != argc) {
+                std::cerr << "error: [vg gbwt] no input GBWT to augment" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            if (path_cover == path_cover_greedy && optind != argc) {
+                std::cerr << "error: [vg gbwt] input GBWTs are not used with greedy path cover" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             if (num_paths == 0) {
-                std::cerr << "error: [vg gbwt] number of paths must be non-zero for -l and -P" << std::endl;
+                std::cerr << "error: [vg gbwt] number of paths must be non-zero for path cover" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             if (context_length < gbwtgraph::PATH_COVER_MIN_K) {
@@ -433,7 +423,7 @@ int main_gbwt(int argc, char** argv)
         // Load or build GBWT.
         std::unique_ptr<gbwt::GBWT> loaded_gbwt(nullptr);
         gbwt::GBWT generated_gbwt;
-        if (path_cover) {
+        if (path_cover == path_cover_greedy) {
             if (show_progress) {
                 std::cerr << "Finding " << num_paths << "-path cover with context length " << context_length << std::endl;
             }
@@ -445,6 +435,27 @@ int main_gbwt(int argc, char** argv)
                 std::cerr << "Serializing path cover GBWT to " << gbwt_output << std::endl;
             }
             vg::io::VPKG::save(generated_gbwt, gbwt_output);
+        } else if (path_cover == path_cover_augment) {
+            if (show_progress) {
+                std::cerr << "Loading GBWT " << argv[optind] << std::endl;
+            }
+            std::unique_ptr<gbwt::DynamicGBWT> input_gbwt = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(argv[optind]);
+            if (input_gbwt.get() == nullptr) {
+                std::cerr << "error: [vg gbwt] could not load GBWT " << argv[optind] << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            if (show_progress) {
+                std::cerr << "Finding " << num_paths << "-path cover with context length " << context_length << " for missing components" << std::endl;
+            }
+            double start = gbwt::readTimer();
+            gbwtgraph::augment_gbwt(*handle_graph, *input_gbwt, num_paths, context_length, buffer_size, id_interval, show_progress);
+            if (show_progress) {
+                double seconds = gbwt::readTimer() - start;
+                std::cerr << "GBWT augmented in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+                std::cerr << "Serializing augmented GBWT to " << gbwt_output << std::endl;
+            }
+            generated_gbwt = gbwt::GBWT(*input_gbwt);
+            vg::io::VPKG::save(generated_gbwt, gbwt_output);
         } else {
             if (show_progress) {
                 std::cerr << "Loading GBWT " << argv[optind] << std::endl;
@@ -454,7 +465,7 @@ int main_gbwt(int argc, char** argv)
                 std::cerr << "error: [vg gbwt] could not load GBWT " << argv[optind] << std::endl;
                 std::exit(EXIT_FAILURE);
             }
-            if (local_haplotypes) {
+            if (path_cover == path_cover_local) {
                 if (show_progress) {
                     std::cerr << "Finding " << num_paths << "-path cover with context length " << context_length << std::endl;
                 }
@@ -469,7 +480,7 @@ int main_gbwt(int argc, char** argv)
                 loaded_gbwt.reset();
             }
         }
-        const gbwt::GBWT& selected_gbwt = ((path_cover || local_haplotypes) ? generated_gbwt : *loaded_gbwt);
+        const gbwt::GBWT& selected_gbwt = (path_cover == path_cover_none ? *loaded_gbwt : generated_gbwt);
 
         if (show_progress) {
             std::cerr << "Building GBWTGraph" << std::endl;
@@ -484,7 +495,7 @@ int main_gbwt(int argc, char** argv)
 
 
     // Remove a sample from the GBWT.
-    if (remove_sample) {
+    if (mode == operation_remove) {
         if (optind + 1 != argc) {
             std::cerr << "error: [vg gbwt] one input GBWT is required for removing a sample" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -516,7 +527,7 @@ int main_gbwt(int argc, char** argv)
 
 
     // Other options.
-    if (other_options) {
+    if (mode == operation_other) {
         if (optind + 1 != argc) {
             std::cerr << "error: [vg gbwt] selected options require one input GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
