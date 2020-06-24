@@ -806,7 +806,6 @@ namespace vg {
                                 edit->set_from_length(length_until_fanout);
                                 edit->set_to_length(length_until_fanout);
                                 
-                                path_nodes.emplace_back();
                                 auto node_end = end - length_remaining + length_until_fanout;
                                 
                                 if (curr_node_begin < node_end) {
@@ -826,6 +825,7 @@ namespace vg {
                                     }
                                     
                                     // create a path node
+                                    path_nodes.emplace_back();
                                     PathNode& match_node = path_nodes.back();
                                     match_node.path = move(path);
                                     match_node.begin = curr_node_begin;
