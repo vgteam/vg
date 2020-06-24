@@ -5,13 +5,16 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 42
+plan tests 48
 
 
 # Build vg graphs for two chromosomes
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R y -C -a > y.vg 2> /dev/null
 vg ids -j x.vg y.vg
+
+vg index -x x.xg x.vg
+vg index -x xy.xg x.vg y.vg
 
 
 # Chromosome X
@@ -65,11 +68,11 @@ vg index -G x_both.gbwt -T -v small/xy2.vcf.gz x.vg
 is $(vg gbwt -c x_both.gbwt) 3 "there are 3 threads in the index"
 
 # Remove a sample (actually the reference) from a GBWT
-vg gbwt -R ref x_both.gbwt
+vg gbwt -R ref x_both.gbwt -o removed.gbwt
 is $? 0 "samples can be removed from a GBWT index"
-is $(vg gbwt -c x_both.gbwt) 2 "the sample was removed"
+is $(vg gbwt -c removed.gbwt) 2 "the sample was removed"
 
-rm x_ref.gbwt x_both.gbwt
+rm x_ref.gbwt x_both.gbwt removed.gbwt
 
 
 # Store haplotypes in both GBWT and a binary file
@@ -86,17 +89,16 @@ rm -f x.gbwt x.bin x.extract
 
 
 # Build and serialize GBWTGraph
-vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
+vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
 vg gbwt -g x.gg -x x.xg x.gbwt
 is $? 0 "GBWTGraph construction was successful"
 vg view --extract-tag GBWTGraph x.gg > x.extracted.gg
 is $(md5sum x.extracted.gg | cut -f 1 -d\ ) 62d451917c5076d7e84a6837dfb836cb "GBWTGraph was correctly serialized"
 
-rm -f x.xg x.gbwt x.gg x.extracted.gg
+rm -f x.gbwt x.gg x.extracted.gg
 
 
 # Build both GBWT and GBWTGraph from a 16-path cover
-vg index -x xy.xg x.vg y.vg
 vg gbwt -P -n 16 -x xy.xg -g xy.gg -o xy.gbwt
 is $? 0 "GBWT/GBWTGraph construction from path cover was successful"
 vg view --extract-tag GBWTGraph xy.gg > xy.extracted.gg
@@ -106,11 +108,11 @@ is $(vg gbwt -C xy.gbwt) 2 "path cover: 2 contigs"
 is $(vg gbwt -H xy.gbwt) 16 "path cover: 16 haplotypes"
 is $(vg gbwt -S xy.gbwt) 16 "path cover: 16 samples"
 
-rm -f xy.xg xy.gg xy.gbwt xy.extracted.gg
+rm -f xy.gg xy.gbwt xy.extracted.gg
 
 
 # Build both GBWT and GBWTGraph from 16 paths of local haplotypes
-vg index -x xy.xg -G xy.gbwt -v small/xy2.vcf.gz x.vg y.vg
+vg index -G xy.gbwt -v small/xy2.vcf.gz x.vg y.vg
 vg gbwt -l -n 16 -x xy.xg -g xy.gg -o xy.local.gbwt xy.gbwt
 is $? 0 "GBWT/GBWTGraph construction from local haplotypes was successful"
 vg view --extract-tag GBWTGraph xy.gg > xy.extracted.gg
@@ -120,7 +122,21 @@ is $(vg gbwt -C xy.local.gbwt) 2 "local haplotypes: 2 contigs"
 is $(vg gbwt -H xy.local.gbwt) 16 "local haplotypes: 16 haplotypes"
 is $(vg gbwt -S xy.local.gbwt) 16 "local haplotypes: 16 samples"
 
-rm -f xy.xg xy.gg xy.gbwt xy.local.gbwt xy.extracted.gg
+rm -f xy.gg xy.gbwt xy.local.gbwt xy.extracted.gg
 
 
-rm -f x.vg y.vg
+# Build GBWTGraph from an augmented GBWT
+vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
+vg gbwt -a -n 16 -x xy.xg -g augmented.gg -o augmented.gbwt x.gbwt
+is $? 0 "GBWT/GBWTGraph construction by augmenting GBWT was successful"
+vg view --extract-tag GBWTGraph augmented.gg > augmented.extracted.gg
+is $(md5sum augmented.extracted.gg | cut -f 1 -d\ ) b7b40fb5296ded80cc659cd2300015af "GBWTGraph was correctly serialized"
+is $(vg gbwt -c augmented.gbwt) 18 "augmented: 18 threads"
+is $(vg gbwt -C augmented.gbwt) 2 "augmented: 2 contigs"
+is $(vg gbwt -H augmented.gbwt) 2 "augmented: 2 haplotypes"
+is $(vg gbwt -S augmented.gbwt) 17 "augmented: 17 samples"
+
+rm -f x.gbwt augmented.gg augmented.gbwt augmented.extracted.gg
+
+
+rm -f x.vg y.vg x.xg xy.xg
