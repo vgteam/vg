@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['snarltype',['SnarlType',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97',1,'vg']]]
+  ['rescuealgorithm',['RescueAlgorithm',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4',1,'vg::MinimizerMapper']]]
 ];

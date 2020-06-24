@@ -1,4 +1,8 @@
 var searchData=
 [
-  ['pipeline',['PIPELINE',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838a797a289a67a7dd20502b2436f0c9d305',1,'vg::subcommand']]]
+  ['operation_5fgraph',['operation_graph',['../gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09eaf012047638dc261ef5f93dea6a788266',1,'gbwt_main.cpp']]],
+  ['operation_5fmerge',['operation_merge',['../gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09ea1a8eaa1385a1500cd33203d52c29b179',1,'gbwt_main.cpp']]],
+  ['operation_5fnone',['operation_none',['../gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09ea3c378fcc0e442c1538f962b88a8db7ce',1,'gbwt_main.cpp']]],
+  ['operation_5fother',['operation_other',['../gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09ea531b1d64ebfaa5dd4fce4076856afa9a',1,'gbwt_main.cpp']]],
+  ['operation_5fremove',['operation_remove',['../gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09ea7f533394b7aefa59b4008ae6c0b234cf',1,'gbwt_main.cpp']]]
 ];

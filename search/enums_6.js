@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['pruningmode',['PruningMode',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248',1,'prune_main.cpp']]]
+  ['operation_5fmode',['operation_mode',['../gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09e',1,'gbwt_main.cpp']]]
 ];
