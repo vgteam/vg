@@ -691,6 +691,9 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             containment_graph.reserve(mems.size() + sub_mems.size());
             for (auto& sub_mem_and_parents : sub_mems) {
                 mems.emplace_back(move(sub_mem_and_parents.first));
+                if (mem_fanout_breaks) {
+                    mem_fanout_breaks->emplace_back();
+                }
                 containment_graph.emplace_back(0, move(sub_mem_and_parents.second));
             }
             
