@@ -3656,8 +3656,18 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
                     // the distance between the seeds on the read
                     int64_t read_dist = hit_node_2.mem->begin - hit_node_1.mem->end;
                     
-                    // is it possible that an alignment containing both could be detected with local alignment?
-                    if (abs(read_dist - graph_dist) < longest_gap) {
+                    if (min_dist == hit_node_2.mem->begin - hit_node_1.mem->begin &&
+                        ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end)
+                         || hit_node_1.mem->end <= hit_node_2.mem->end)) {
+                        // this has the appearance of being a redundant hit of a sub-MEM, which we don't want to form
+                        // a separate cluster
+                        
+                        // we add a dummy edge, but only to connect the nodes' components and join the clusters,
+                        // not to actually use in dynamic programming (given arbitrary low weight that should not
+                        // cause overflow)
+                        hit_graph.add_edge(i, j, numeric_limits<int32_t>::lowest() / 2, graph_dist);
+                    }
+                    else if (abs(read_dist - graph_dist) < longest_gap) {
                         // there's a path within in the limit
                         
 #ifdef debug_mem_clusterer
