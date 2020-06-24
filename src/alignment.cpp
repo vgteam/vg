@@ -793,7 +793,9 @@ void gaf_to_alignment(const HandleGraph& graph, const gafkluge::GafRecord& gaf, 
 
     aln.Clear();
 
-    aln.set_name(gaf.query_name);
+    if (!gafkluge::is_missing(gaf.query_name)) {
+        aln.set_name(gaf.query_name);
+    }
 
     for (size_t i = 0; i < gaf.path.size(); ++i) {
         const auto& gaf_step = gaf.path[i];

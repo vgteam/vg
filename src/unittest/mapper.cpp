@@ -5,6 +5,7 @@
 #include <iostream>
 #include "json2pb.h"
 #include <vg/vg.pb.h>
+#include <bdsg/hash_graph.hpp>
 #include "../mapper.hpp"
 #include "xg.hpp"
 #include "../build_index.hpp"
@@ -532,6 +533,126 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
     
 }
 
+TEST_CASE( "Mapper can walk paths from fan-out MEM algorithm", "[mapping][mapper][mem]" ) {
+    
+    
+    bdsg::HashGraph graph;
+    auto h1 = graph.create_handle("GATTGGACACCCATAGC");
+    auto h2 = graph.create_handle("TGGCCAC");
+    auto h3 = graph.create_handle("AGT");
+    auto h4 = graph.create_handle("AGT");
+    auto h5 = graph.create_handle("AGT");
+    auto h6 = graph.create_handle("AGT");
+    auto h7 = graph.create_handle("AGT");
+    auto h8 = graph.create_handle("AGTCA");
+    auto h9 = graph.create_handle("C");
+    auto h10 = graph.create_handle("C");
+    auto h11 = graph.create_handle("C");
+    
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h2, h4);
+    graph.create_edge(h2, h5);
+    graph.create_edge(h2, h6);
+    graph.create_edge(h2, h7);
+    graph.create_edge(h2, h8);
+    graph.create_edge(h3, h9);
+    graph.create_edge(h4, h10);
+    graph.create_edge(h5, h11);
+    
+    // Configure GCSA temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(temp_file::get_dir());
+    // And make it quiet
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Make pointers to fill in
+    gcsa::GCSA* gcsaidx = nullptr;
+    gcsa::LCPArray* lcpidx = nullptr;
+    
+    // Build the GCSA index
+    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
+    
+    // Build the xg index
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
+    
+    // Make a multipath mapper to map against the graph.
+    Mapper mapper(&xg_index, gcsaidx, lcpidx);
+    
+    SECTION("Path within a node") {
+        
+        //         GATTGGACACCCATAGC
+        //            ...X....
+        string seq = "TGGGCACC";
+        
+        list<pair<string::const_iterator, char>> fanout_breaks;
+        fanout_breaks.emplace_back(seq.begin() + 3, 'A');
+        
+        gcsa::node_type pos = gcsa::Node::encode(graph.get_id(h1), 3, false);
+        
+        auto path = mapper.walk_fanout_path(seq.begin(), seq.end(),
+                                            fanout_breaks, pos);
+        
+        REQUIRE(path.size() == 1);
+        REQUIRE(id(path[0]) == graph.get_id(h1));
+        REQUIRE(offset(path[0]) == 3);
+        REQUIRE(is_rev(path[0]) == false);
+    }
+    
+    SECTION("Path across two nodes") {
+        
+        //                 |
+        //GATTGGACACCCATAGCTGGCCAC
+        //              ..X.X....
+        string seq =   "AGTTTGCCA";
+        
+        list<pair<string::const_iterator, char>> fanout_breaks;
+        fanout_breaks.emplace_back(seq.begin() + 2, 'C');
+        fanout_breaks.emplace_back(seq.begin() + 4, 'G');
+        
+        gcsa::node_type pos = gcsa::Node::encode(graph.get_id(h1), 14, false);
+        
+        auto path = mapper.walk_fanout_path(seq.begin(), seq.end(),
+                                            fanout_breaks, pos);
+        
+        REQUIRE(path.size() == 2);
+        REQUIRE(id(path[0]) == graph.get_id(h1));
+        REQUIRE(offset(path[0]) == 14);
+        REQUIRE(is_rev(path[0]) == false);
+        REQUIRE(id(path[1]) == graph.get_id(h2));
+        REQUIRE(offset(path[1]) == 0);
+        REQUIRE(is_rev(path[1]) == false);
+    }
+    
+    SECTION("Path across two nodes that requires backtracking") {
+        
+        //                |
+        //         TGGCCACAGTCA
+        //            ..X.X..X.
+        string seq = "CCGCGGTTA";
+        
+        list<pair<string::const_iterator, char>> fanout_breaks;
+        fanout_breaks.emplace_back(seq.begin() + 2, 'A');
+        fanout_breaks.emplace_back(seq.begin() + 4, 'A');
+        fanout_breaks.emplace_back(seq.begin() + 7, 'C');
+        
+        gcsa::node_type pos = gcsa::Node::encode(graph.get_id(h2), 3, false);
+        
+        auto path = mapper.walk_fanout_path(seq.begin(), seq.end(),
+                                            fanout_breaks, pos);
+        
+        REQUIRE(path.size() == 2);
+        REQUIRE(id(path[0]) == graph.get_id(h2));
+        REQUIRE(offset(path[0]) == 3);
+        REQUIRE(is_rev(path[0]) == false);
+        REQUIRE(id(path[1]) == graph.get_id(h8));
+        REQUIRE(offset(path[1]) == 0);
+        REQUIRE(is_rev(path[1]) == false);
+    }
+    
+    delete gcsaidx;
+    delete lcpidx;
 }
 
+}
 }

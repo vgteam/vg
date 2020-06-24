@@ -112,23 +112,36 @@ protected:
 class GAFOutputCaller {
 public:
     /// The emitter object is created and owned by external forces
-    GAFOutputCaller(AlignmentEmitter* emitter, const string& sample_name);
+    GAFOutputCaller(AlignmentEmitter* emitter, const string& sample_name, const vector<string>& ref_paths,
+                    size_t trav_padding);
     virtual ~GAFOutputCaller();
 
     /// print the GAF traversals
-    void emit_gaf_traversals(const HandleGraph& graph, const vector<SnarlTraversal>& travs);
+    void emit_gaf_traversals(const PathHandleGraph& graph, const vector<SnarlTraversal>& travs);
 
     /// print the GAF genotype
     void emit_gaf_variant(const HandleGraph& graph,
                           const Snarl& snarl,
                           const vector<SnarlTraversal>& traversals,
                           const vector<int>& genotype);
+
+    /// pad a traversal with (first found) reference path, adding up to trav_padding to each side
+    SnarlTraversal pad_traversal(const PathHandleGraph& graph, const SnarlTraversal& trav) const;
+    
 protected:
     
     AlignmentEmitter* emitter;
 
     /// Sample name
     string gaf_sample_name;
+
+    /// Add padding from reference paths to traversals to make them at least this long
+    /// (only in emit_gaf_traversals(), not emit_gaf_variant)
+    size_t trav_padding = 0;
+
+    /// Reference paths are used to pad out traversals.  If there are none, then first path found is used
+    unordered_set<string> ref_paths;
+
 };
 
 /**
@@ -146,7 +159,8 @@ public:
                  FastaReference* ins_fasta,
                  AlignmentEmitter* aln_emitter,
                  bool traversals_only,
-                 bool gaf_output);
+                 bool gaf_output,
+                 size_t trav_padding);
 
     virtual ~VCFGenotyper();
 
@@ -289,7 +303,8 @@ public:
                const vector<size_t>& ref_path_offsets,
                AlignmentEmitter* aln_emitter,
                bool traversals_only,
-               bool gaf_output);
+               bool gaf_output,
+               size_t trav_padding);
    
     virtual ~FlowCaller();
 
