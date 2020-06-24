@@ -4,7 +4,7 @@
 
 #include "multipath_alignment_graph.hpp"
 
-#define debug_multipath_alignment
+//#define debug_multipath_alignment
 
 using namespace std;
 namespace vg {
@@ -751,6 +751,9 @@ namespace vg {
                             // we're at the next place where we substituted the read character
                             // for a different one
                             read_char = fanout_breaks->at(hit.first)[get<4>(back)].second;
+#ifdef debug_multipath_alignment
+                            cerr << "\tapplying fanout break to " << read_char << " instead of " << *read_iter << " at index " << (read_iter - begin) << " of MEM" << endl;
+#endif
                             ++get<4>(back);
                         }
                         else {
@@ -768,7 +771,7 @@ namespace vg {
                     if (read_iter == end) {
                         // finished walking match
 #ifdef debug_multipath_alignment
-                        cerr << "reached end of read sequence, converting into path(s) start at idx " << path_nodes.size() << endl;
+                        cerr << "reached end of read sequence, converting into path node(s) starting at idx " << path_nodes.size() << endl;
 #endif
                         assert(get<4>(back) == fanout_size);
                         
@@ -809,9 +812,17 @@ namespace vg {
                                 if (curr_node_begin < node_end) {
                                     // the node is non-empty
                                     
+#ifdef debug_multipath_alignment
+                                    cerr << "adding path node for walked match of sequence " << string(curr_node_begin, node_end) << endl;
+                                    cerr << debug_string(path) << endl;
+#endif
+                                    
                                     for (const auto& m : path.mapping()) {
                                         // record that each node occurs in this match so we can filter out sub-MEMs
                                         node_matches[m.position().node_id()].push_back(path_nodes.size());
+#ifdef debug_multipath_alignment
+                                        cerr << "associating node " << m.position().node_id() << " with a match at idx " << path_nodes.size() << endl;
+#endif
                                     }
                                     
                                     // create a path node
@@ -820,6 +831,11 @@ namespace vg {
                                     match_node.begin = curr_node_begin;
                                     match_node.end = node_end;
                                 }
+#ifdef debug_multipath_alignment
+                                else {
+                                    cerr << "skipping a walked path that has no sequence" << endl;
+                                }
+#endif
                                 
                                 // set up the next path walk
                                 path = path_t();
@@ -854,15 +870,9 @@ namespace vg {
                                 // tick down the length trackers
                                 length_remaining -= length_on_node;
                                 length_until_fanout -=  length_on_node;
-#ifdef debug_multipath_alignment
-                                cerr << "associating node " << graph.get_id(handle) << " with a match at idx " << path_nodes.size() - 1 << endl;
-#endif
+
                             }
                         }
-                        
-#ifdef debug_multipath_alignment
-                        cerr << debug_string(path) << endl;
-#endif
                     }
                     else if (node_idx == node_seq.size()) {
                         // matched entire node, move to next node(s)

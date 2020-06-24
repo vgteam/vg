@@ -4,8 +4,8 @@
 //
 //
 
-#define debug_multipath_mapper
-#define debug_multipath_mapper_alignment
+//#define debug_multipath_mapper
+//#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
 //#define debug_pretty_print_alignments

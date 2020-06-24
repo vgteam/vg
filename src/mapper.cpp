@@ -7,7 +7,7 @@
 #include "algorithms/is_acyclic.hpp"
 #include "algorithms/split_strands.hpp"
 
-#define debug_mapper
+//#define debug_mapper
 //#define debug_strip_match
 
 namespace vg {
@@ -283,6 +283,16 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         pop_heap(qual_pos.begin(), qual_pos.end(), greater<decltype(qual_pos)::value_type>());
         qual_pos.pop_back();
     }
+    
+#ifdef debug_mapper
+    cerr << "chose fan-out positions: ";
+    for (size_t i = 0; i < do_fanout.size(); ++i) {
+        if (do_fanout[i]) {
+            cerr << i << " ";
+        }
+    }
+    cerr << endl;
+#endif
 
     // a struct to hold the information needed to continue a search from a fan-out
     struct FanOutSearch {
@@ -334,6 +344,12 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             : range(range), begin(begin), end(end), fanout_breaks(fanout_breaks) {
                 
         }
+        SearchResult(const SearchResult& other) = default;
+        SearchResult(SearchResult&& other) = default;
+        SearchResult& operator=(const SearchResult& other) = default;
+        SearchResult& operator=(SearchResult&& other) = default;
+        SearchResult() = default;
+        ~SearchResult() = default;
     };
     
     gcsa::range_type full_range = gcsa::range_type(0, gcsa->size() - 1);
@@ -406,8 +422,6 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                 break;
             }
             
-            use_fanout_char = false;
-            
             // hold onto our previous range
             auto prev_range = range;
             
@@ -419,12 +433,6 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
 #ifdef debug_mapper
                 cerr << "terminating search at end of a MEM" << endl;
 #endif
-                
-                if (!fanout_breaks.empty() && fanout_breaks.begin()->first == cursor) {
-                    // the match ended on the fan-out character, so we don't want to include
-                    // that final break in the search result
-                    fanout_breaks.pop_front();
-                }
                 
                 // we've exhausted our BWT range, so the last match range was maximal
                 // or we have exceeded the order of the graph (FPs if we go further)
@@ -470,8 +478,21 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                     while (!fanout_breaks.empty() && fanout_breaks.back().first >= match_end) {
                         fanout_breaks.pop_back();
                     }
-                    
                     prev_iter_jumped_lcp = true;
+                    
+#ifdef debug_mapper
+                    cerr << "after jumping LCP, suffix is " << string(cursor + 1, match_end) << endl;
+#endif
+                    
+                    if (use_fanout_char) {
+                        // this match ended on the fanout character, so we remove that fanout
+                        // break from the search result
+                        search_results.back().fanout_breaks.pop_front();
+                        // and skip the part of the iteration where we mark ourselves as being
+                        // past the fan-out character
+                        continue;
+                    }
+                    
                 }
             }
             else {
@@ -479,6 +500,8 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                 // just step to the next position
                 --cursor;
             }
+            
+            use_fanout_char = false;
         }
         
         if (cursor < seq_begin) {
@@ -489,12 +512,59 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         }
     }
     
+    // filter out redundant MEMs, which are common in this algorithm (often when the
+    // larger MEM includes a correct mismatch from a fan-out). locate() is the most
+    // expensive part of this algorithm, so it's worth expending some effort to reduce
+    // calls to it
+    
+    // first order by read interval start and then by decreasing match size and range
+    // size, this ensures that a search result can only be fully redundant with another
+    // one that is earlier in the vector
+    sort(search_results.begin(), search_results.end(),
+         [](const SearchResult& a, const SearchResult& b) {
+        return (a.begin < b.begin
+                || (a.begin == b.begin && a.end > b.end)
+                || (a.begin == b.begin && a.end == b.end
+                    && gcsa::Range::length(a.range) > gcsa::Range::length(b.range)));
+    });
+    
+    size_t res_removed_so_far = 0;
+    for (size_t i = 0, j = 1; j < search_results.size(); ++j) {
+        // advance the starting index past the search results that cannot contain
+        // this one
+        while (search_results[i].end < search_results[j].begin) {
+            ++i;
+        }
+        bool redundant = false;
+        for (size_t k = i; k < j && !redundant; ++k) {
+            // does the other result cover the entire read interval and all of its
+            // locations in the graph?
+            redundant = (search_results[k].end >= search_results[j].end
+                         && search_results[k].range.first <= search_results[j].range.first
+                         && search_results[k].range.second >= search_results[j].range.second);
+        }
+        
+        if (redundant) {
+            ++res_removed_so_far;
+        }
+        else if (res_removed_so_far) {
+            search_results[j - res_removed_so_far] = move(search_results[j]);
+        }
+    }
+    
+    if (res_removed_so_far) {
+#ifdef debug_mapper
+        cerr << "removing " << res_removed_so_far << " redundant search results" << endl;
+#endif
+        search_results.resize(search_results.size() - res_removed_so_far);
+    }
+    
     vector<MaximalExactMatch> mems;
     mems.reserve(search_results.size());
     if (mem_fanout_breaks) {
         mem_fanout_breaks->reserve(search_results.size());
     }
-    for (auto it = search_results.rbegin(), end = search_results.rend(); it != end; ++it) {
+    for (auto it = search_results.begin(), end = search_results.end(); it != end; ++it) {
         
         const auto& search_result = *it;
         
