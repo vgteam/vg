@@ -852,7 +852,9 @@ namespace vg {
                                     ++j;
                                 }
                                 // manipulate the offset on the stack so that we start on the correct position
-                                get<1>(stack[j]) += length_to_advance;
+                                if (j < stack.size()) {
+                                    get<1>(stack[j]) += length_to_advance;
+                                }
                                 
                                 
                                 // move the marker for the next fan-out ahead
