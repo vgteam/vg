@@ -80,7 +80,7 @@ void help_view(char** argv) {
          << "    -X, --fastq-out            output fastq (input defaults to GAM)" << endl
          << "    -i, --interleaved          fastq is interleaved paired-ended" << endl
 
-         << "    -L, --pileup               ouput VG Pileup format" << endl
+         << "    -L, --pileup               output VG Pileup format" << endl
          << "    -l, --pileup-in            input VG Pileup format" << endl
 
          << "    -R, --snarl-in             input VG Snarl format" << endl
