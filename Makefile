@@ -17,7 +17,8 @@ CWD:=$(shell pwd)
 CXX ?= g++
 PKG_CONFIG ?= pkg-config
 
-EXE:=vg
+SFX :=
+EXE:=vg$(SFX)
 
 all: $(BIN_DIR)/$(EXE)
 
@@ -177,7 +178,7 @@ else
     CXXFLAGS += -fopenmp
 
     # We care about building for SSE4.2 only and not AVX, to have vaguely portable binaries
-    CXXFLAGS += -msse4.2
+    # CXXFLAGS += -msse4.2
     
     # Note shared libraries are so files
     SHARED_SUFFIX = so

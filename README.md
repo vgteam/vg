@@ -65,7 +65,7 @@ At present, you will need GCC version 4.9 or greater, with support for C++14, to
 
 Other libraries may be required. Please report any build difficulties.
 
-Note that a 64-bit OS is required. Ubuntu 18.04 should work. You will also need a CPU that supports SSE 4.2 to run VG; you can check this with `cat /proc/cpuinfo | grep sse4_2`.
+Note that a 64-bit OS is required. Ubuntu 18.04 should work.
 
 When you are ready, build with `. ./source_me.sh && make`, and run with `./bin/vg`.
 
