@@ -11,14 +11,7 @@
 
 namespace vg {
 
-/// Define a macro to tell things to be built for every architecture, if possible.
-/// This *doesn't* work on Mac with GNU GCC and Apple libc++, because functions
-/// for x86-64 can't use std::endl, so we exclude that combination.
-#if (!defined(__GNUC__) || !defined(_LIBCPP_VERSION) || !defined(__APPLE__))
-    #define VG_PREFLIGHT_EVERYWHERE __attribute__((__target__("arch=x86-64")))
-#else
-    #define VG_PREFLIGHT_EVERYWHERE
-#endif
+#define VG_PREFLIGHT_EVERYWHERE
 
 /// Run a preflight check to make sure that the system is usable for this build of vg.
 /// Aborts with a helpful message if this is not the case.

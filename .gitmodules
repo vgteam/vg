@@ -54,7 +54,7 @@
 	url = https://github.com/benedictpaten/sonLib.git
 [submodule "deps/fermi-lite"]
 	path = deps/fermi-lite
-    url = https://github.com/edawson/fermi-lite.git
+	url = https://github.com/mr-c/fermi-lite.git
 [submodule "deps/gbwt"]
 	path = deps/gbwt
 	url = https://github.com/jltsiren/gbwt.git
@@ -116,6 +116,9 @@
 [submodule "vgteam_bbhash"]
 	path = deps/BBHash
 	url = https://github.com/vgteam/BBHash.git
+[submodule "src/simde"]
+	path = src/simde
+	url = https://github.com/nemequ/simde-no-tests
 [submodule "doc/wiki"]
 	path = doc/wiki
 	url = https://github.com/vgteam/vg.wiki.git
