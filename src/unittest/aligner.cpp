@@ -149,7 +149,7 @@ TEST_CASE("Full-length bonus can hold down the left end", "[aligner][alignment][
     aligner_1.align(aln1, graph, true);
     aligner_2.align(aln2, graph, true);
     
-    SECTION("left end is detatched without bonus") {
+    SECTION("left end is detached without bonus") {
         REQUIRE(aln1.path().mapping_size() == 1);
         REQUIRE(aln1.path().mapping(0).position().node_id() == n0->id());
         REQUIRE(aln1.path().mapping(0).position().offset() == 2);
@@ -190,7 +190,7 @@ TEST_CASE("Full-length bonus can hold down the right end", "[aligner][alignment]
     aligner_1.align(aln1, graph, true);
     aligner_2.align(aln2, graph, true);
     
-    SECTION("right end is detatched without bonus") {
+    SECTION("right end is detached without bonus") {
         REQUIRE(aln1.path().mapping_size() == 1);
         REQUIRE(aln1.path().mapping(0).position().node_id() == n0->id());
         REQUIRE(aln1.path().mapping(0).position().offset() == 0);
