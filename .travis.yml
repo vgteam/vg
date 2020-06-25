@@ -2,7 +2,6 @@
 
 language: cpp
 compiler: gcc
-sudo: required
 dist: bionic
 # We have some shenanigans to let us cache submodules, and update changed files
 # without messing up mtimes and triggering rebuilds unnecessarily. Travis checks
@@ -112,8 +111,6 @@ os:
   - linux
   - osx
 osx_image: xcode12.2
-compiler:
-  - gcc
 env:
   global:
     - DOCS_KEY_ENCRYPTION_LABEL=125272388526
@@ -124,3 +121,5 @@ matrix:
     # We have a special entry to do the docs build
     - os: linux
       env: BUILD_DOCS_ONLY=1
+    - os: linux
+      arch: arm64
