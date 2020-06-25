@@ -847,8 +847,8 @@ namespace vg {
                                 // walk the path until finding the corresponding position
                                 length_remaining -= length_to_advance;
                                 while (j < stack.size() &&
-                                       length_to_advance >= get<1>(stack[j]) + graph.get_length(get<3>(stack[j])[get<2>(stack[j]) - 1])) {
-                                    length_to_advance -= graph.get_length(get<3>(stack[j])[get<2>(stack[j]) - 1]);
+                                       get<1>(stack[j]) + length_to_advance >= graph.get_length(get<3>(stack[j])[get<2>(stack[j]) - 1])) {
+                                    length_to_advance -= graph.get_length(get<3>(stack[j])[get<2>(stack[j]) - 1]) - get<1>(stack[j]);
                                     ++j;
                                 }
                                 // manipulate the offset on the stack so that we start on the correct position
