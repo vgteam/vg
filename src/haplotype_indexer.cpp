@@ -357,6 +357,8 @@ tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads
         size_t path_rank = 0;
         graph->for_each_path_handle([&](path_handle_t path_handle) {
                 ++path_rank;
+                haplotype_count++;
+                sample_names.emplace_back(graph->get_path_name(path_handle));
                 if (graph->is_empty(path_handle) || Paths::is_alt(graph->get_path_name(path_handle))) {
                     return;
                 }
@@ -369,8 +371,8 @@ tuple<vector<string>, size_t, vector<string>> HaplotypeIndexer::generate_threads
             });
 
         // GBWT metadata: We assume that the XG index contains the reference paths.
-        sample_names.emplace_back("ref");
-        haplotype_count++;
+        //sample_names.emplace_back("ref");
+        //haplotype_count++;
         true_sample_offset++;
     }
 
