@@ -3,7 +3,7 @@
 ## Conceptual model
 
 `Node`s, `Path`s and `Step`s, are the three core parts of any VG graph in RDF.
-A `Node` in the VG RDF corersponds directly to the Node concept in the VG protobuf serialization.
+A `Node` in the VG RDF corresponds directly to the Node concept in the VG protobuf serialization.
 `Paths` are a number of `Step`s that represent a sequence of Node visits that generate a linear biological sequence.
 Each `Step` connects a `Node` into a `Path`
 
@@ -86,7 +86,8 @@ On top of VG RDF, we can describe the same path information on Pantograph format
    vg:departure <pg/zoom1000/component2/bin2> ;
    vg:forwardLinkEdge <pg/zoom1000/link2> ;
    vg:linkRank 1 ;
-   vg:linkPaths <path1> <path2> . # Participants of the link
+   vg:linkPaths <path1> <path2> ; # Participants of the link
+   vg:linkZoomLevel <pg/zoom10> .
 <path1/region/6-100> a faldo:Region ;
    faldo:begin <path1/position/6>  ;
    faldo:end <path1/position/100>  .
