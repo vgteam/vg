@@ -611,7 +611,7 @@ by Masahide Kanzaki, and from the OWL2HTML stylesheet (2), by Li Ding. We are ve
                  
 		<xsl:for-each select="@rdf:datatype">
                    <sup>
-                       <a href=".">
+                       <a href="{concat(namespace-uri(),.)}">
                         <xsl:call-template name="prettyUrl">
                           <xsl:with-param name="name" select="."/>
                         </xsl:call-template>
