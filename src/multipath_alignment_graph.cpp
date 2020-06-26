@@ -726,7 +726,14 @@ namespace vg {
                     auto& back = stack.back();
                     if (get<2>(back) == get<3>(back).size()) {
 #ifdef debug_multipath_alignment
-                        cerr << "traversed all edges out of current traversal" << endl;
+                        cerr << "traversed all edges out of traversals coming from ";
+                        if (stack.size() > 1) {
+                            cerr << graph.get_id(get<3>(stack[stack.size() - 2])[get<2>(stack[stack.size() - 2]) - 1]);
+                        }
+                        else {
+                            cerr << "start";
+                        }
+                        cerr << endl;
 #endif
                         stack.pop_back();
                         continue;
@@ -734,9 +741,10 @@ namespace vg {
                     
                     handle_t trav = get<3>(back)[get<2>(back)];
                     get<2>(back)++;
+                    size_t fanout_idx = get<4>(back);
                     
 #ifdef debug_multipath_alignment
-                    cerr << "checking node " << graph.get_id(trav) << endl;
+                    cerr << "checking node " << graph.get_id(trav) << " at fanout idx " << get<4>(back) << " of " << fanout_size << endl;
 #endif
                     
                     string node_seq = graph.get_sequence(trav);
@@ -746,15 +754,15 @@ namespace vg {
                     // look for a match along the entire node sequence
                     for (; node_idx < node_seq.size() && read_iter != end; node_idx++, read_iter++) {
                         char read_char;
-                        if (get<4>(back) < fanout_size
-                            && fanout_breaks->at(hit.first)[get<4>(back)].first == read_iter) {
+                        if (fanout_idx < fanout_size
+                            && fanout_breaks->at(hit.first)[fanout_idx].first == read_iter) {
                             // we're at the next place where we substituted the read character
                             // for a different one
                             read_char = fanout_breaks->at(hit.first)[get<4>(back)].second;
 #ifdef debug_multipath_alignment
                             cerr << "\tapplying fanout break to " << read_char << " instead of " << *read_iter << " at index " << (read_iter - begin) << " of MEM" << endl;
 #endif
-                            ++get<4>(back);
+                            ++fanout_idx;
                         }
                         else {
                             // we just want to match the read
@@ -773,20 +781,25 @@ namespace vg {
 #ifdef debug_multipath_alignment
                         cerr << "reached end of read sequence, converting into path node(s) starting at idx " << path_nodes.size() << endl;
 #endif
-                        assert(get<4>(back) == fanout_size);
+                        assert(fanout_idx == fanout_size);
                         
                         path_t path;
                         int64_t path_length = end - begin;
                         int64_t length_remaining = path_length;
                         size_t fanout_idx = 0;
-                        int64_t length_until_fanout = fanout_size ? fanout_breaks->at(hit.first).front().first - begin
-                                                                  : length_remaining;
+                        int64_t length_until_fanout;
+                        if (fanout_size) {
+                            length_until_fanout = fanout_breaks->at(hit.first).front().first - begin;
+                        }
+                        else {
+                            length_until_fanout = length_remaining;
+                        }
                         auto curr_node_begin = begin;
                         
                         // walk out the match, breaking it at fan-out positions as necessary
+                        int64_t offset = get<1>(stack.front());
                         for (size_t j = 0; curr_node_begin < end; ) {
                             auto& search_record = stack[j];
-                            int64_t offset = get<1>(search_record);
                             handle_t handle = get<3>(search_record)[get<2>(search_record) - 1];
                             int64_t length_on_node = min(int64_t(graph.get_length(handle)) - offset, length_remaining);
                             
@@ -830,6 +843,7 @@ namespace vg {
                                     match_node.path = move(path);
                                     match_node.begin = curr_node_begin;
                                     match_node.end = node_end;
+                                    
                                 }
 #ifdef debug_multipath_alignment
                                 else {
@@ -847,20 +861,23 @@ namespace vg {
                                 // walk the path until finding the corresponding position
                                 length_remaining -= length_to_advance;
                                 while (j < stack.size() &&
-                                       get<1>(stack[j]) + length_to_advance >= graph.get_length(get<3>(stack[j])[get<2>(stack[j]) - 1])) {
-                                    length_to_advance -= graph.get_length(get<3>(stack[j])[get<2>(stack[j]) - 1]) - get<1>(stack[j]);
+                                       offset + length_to_advance >= graph.get_length(get<3>(stack[j])[get<2>(stack[j]) - 1])) {
+                                    length_to_advance -= graph.get_length(get<3>(stack[j])[get<2>(stack[j]) - 1]) - offset;
                                     ++j;
+                                    offset = 0;
                                 }
-                                // manipulate the offset on the stack so that we start on the correct position
-                                if (j < stack.size()) {
-                                    get<1>(stack[j]) += length_to_advance;
-                                }
+                                // manipulate the offset so that we start on the correct position
+                                offset = length_to_advance;
                                 
                                 
                                 // move the marker for the next fan-out ahead
                                 ++fanout_idx;
-                                length_until_fanout = fanout_idx < fanout_size ? fanout_breaks->at(hit.first)[fanout_idx].first - curr_node_begin
-                                                                               : length_remaining;
+                                if (fanout_idx < fanout_size) {
+                                    length_until_fanout = fanout_breaks->at(hit.first)[fanout_idx].first - curr_node_begin;
+                                }
+                                else {
+                                    length_until_fanout = length_remaining;
+                                }
                             }
                             else {
                                 edit->set_from_length(length_on_node);
@@ -868,6 +885,7 @@ namespace vg {
                                 
                                 // advance to the next stack record
                                 ++j;
+                                offset = 0;
                                 
                                 // tick down the length trackers
                                 length_remaining -= length_on_node;
@@ -878,7 +896,7 @@ namespace vg {
                     }
                     else if (node_idx == node_seq.size()) {
                         // matched entire node, move to next node(s)
-                        stack.emplace_back(read_iter, 0, 0, vector<handle_t>(), get<4>(back));
+                        stack.emplace_back(read_iter, 0, 0, vector<handle_t>(), fanout_idx);
                         graph.follow_edges(trav, false, [&](const handle_t& next) {
                             get<3>(stack.back()).push_back(next);
                         });
