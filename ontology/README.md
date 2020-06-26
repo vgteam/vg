@@ -46,7 +46,7 @@ me:example:some_gene rdfs:seeAlso ENSEMBL:ESG00000XXXX . #and then pick up the a
 
 ## Examples of using VG RDF
 
-[2 ecoli genomes, with ensembl and uniprot annotation](/vgteam/vg/wiki/VG-RDF,-the-Ensembl-bacteria-E.-coli-genome-hack-attack)
+[2 ecoli genomes, with ensembl and uniprot annotation](https://github.com/vgteam/vg/wiki/VG-RDF,-the-Ensembl-bacteria-E.-coli-genome-hack-attack)
 
 ## VG RDF limitations
 
