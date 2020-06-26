@@ -154,13 +154,13 @@
 </tr>
 <tr><td><a href="#Properties">
                                     Properties (
-                                    29
+                                    30
                                     )
                             </a></td></tr>
 <tr>
 <td><a style="objectPropertySearch" href="#ObjectProperties">
                                     Object properties (
-                                    22
+                                    23
                                     )
                             </a></td>
 <td><select onChange="window.location.hash = document.getElementById('navi3').value" id="navi3"><option value="arrival">
@@ -183,6 +183,8 @@
 				vg:forwardLinkEdge</option>
 <option value="linkPaths">
 				vg:linkPaths</option>
+<option value="linkZoomLevel">
+				vg:linkZoomLevel</option>
 <option value="links">
 				vg:links</option>
 <option value="linksForwardToForward">
@@ -1250,6 +1252,48 @@
 					rdfs:range</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Path">
 				vg:Path</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#linkZoomLevel"></a><tbody>
+<tr><th id="linkZoomLevel">
+				vg:linkZoomLevel<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A link is related to each zoom level."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"linkZoomLevel"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#ZoomLevel">
+				vg:ZoomLevel</a></td>
 </tr>
 </tbody>
 </table>
