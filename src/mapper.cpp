@@ -330,28 +330,6 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         }
     };
     
-    // a struct to hold the information needed to reconstruct the results of a fan-out search
-    struct SearchResult {
-        gcsa::range_type range;
-        string::const_iterator begin;
-        string::const_iterator end;
-        deque<pair<string::const_iterator, char>> fanout_breaks;
-        
-        SearchResult(string::const_iterator begin,
-                     string::const_iterator end,
-                     gcsa::range_type range,
-                     const deque<pair<string::const_iterator, char>>& fanout_breaks)
-            : range(range), begin(begin), end(end), fanout_breaks(fanout_breaks) {
-                
-        }
-        SearchResult(const SearchResult& other) = default;
-        SearchResult(SearchResult&& other) = default;
-        SearchResult& operator=(const SearchResult& other) = default;
-        SearchResult& operator=(SearchResult&& other) = default;
-        SearchResult() = default;
-        ~SearchResult() = default;
-    };
-    
     gcsa::range_type full_range = gcsa::range_type(0, gcsa->size() - 1);
     
     // initialize the stack of search problems
@@ -376,12 +354,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             }
         }
     }
-    /*
-     gcsa::range_type range;
-     string::const_iterator begin;
-     string::const_iterator end;
-     deque<pair<string::const_iterator, char>> fanout_breaks;
-     */
+    
     vector<tuple<gcsa::range_type, string::const_iterator, string::const_iterator, deque<pair<string::const_iterator, char>>>> search_results;
     
     while (!stack.empty()) {
