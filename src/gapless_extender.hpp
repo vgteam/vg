@@ -159,7 +159,7 @@ public:
      * Find the highest-scoring extension for each seed in the cluster.
      * If there is a full-length extension with at most max_mismatches
      * mismatches, return the (up to two) best full-length extensions with
-     * less than overlap_threshold overlap, sorted by score in descending
+     * at most overlap_threshold overlap, sorted by score in descending
      * order.
      * If that is not possible, trim the extensions to maximize score,
      * sort them by read interval, and remove duplicates.
