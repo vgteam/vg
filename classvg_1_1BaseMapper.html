@@ -110,10 +110,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a4dd3272837211543ba461472833734a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad0ca6fe6e3a407bd1bff38bb05cbe794"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#ad0ca6fe6e3a407bd1bff38bb05cbe794">find_stripped_matches</a> (string::const_iterator seq_begin, string::const_iterator seq_end, size_t strip_length, size_t max_match_length, size_t target_count)</td></tr>
 <tr class="separator:ad0ca6fe6e3a407bd1bff38bb05cbe794"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a80ad7a4fabfb08ae212dabfb9883e4f6"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a80ad7a4fabfb08ae212dabfb9883e4f6">find_fanout_mems</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator qual_begin, int max_fans_out, char max_fanout_base_quality)</td></tr>
-<tr class="separator:a80ad7a4fabfb08ae212dabfb9883e4f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a36ef8d5303c03eb65b6dc75cd1b1017d"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a36ef8d5303c03eb65b6dc75cd1b1017d">walk_fanout_path</a> (string::const_iterator begin, string::const_iterator end, const list&lt; pair&lt; string::const_iterator, char &gt;&gt; &amp;fanout_breaks, gcsa::node_type pos)</td></tr>
-<tr class="separator:a36ef8d5303c03eb65b6dc75cd1b1017d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeb048d786d78b3a545f724bf45cf11d6"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#aeb048d786d78b3a545f724bf45cf11d6">find_fanout_mems</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator qual_begin, int max_fans_out, char max_fanout_base_quality, vector&lt; deque&lt; pair&lt; string::const_iterator, char &gt;&gt;&gt; *mem_fanout_breaks=nullptr)</td></tr>
+<tr class="separator:aeb048d786d78b3a545f724bf45cf11d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad52deed127976201bd63b32929b71491"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#ad52deed127976201bd63b32929b71491">walk_fanout_path</a> (string::const_iterator begin, string::const_iterator end, const deque&lt; pair&lt; string::const_iterator, char &gt;&gt; &amp;fanout_breaks, gcsa::node_type pos)</td></tr>
+<tr class="separator:ad52deed127976201bd63b32929b71491"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa7a71951ec7acdbf2c31ae9318ceb035"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#aa7a71951ec7acdbf2c31ae9318ceb035">rescue_high_count_order_length_mems</a> (vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, size_t max_rescue_hit_count)</td></tr>
 <tr class="separator:aa7a71951ec7acdbf2c31ae9318ceb035"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4372862ebd4f21da3e9ed105249a5af"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#af4372862ebd4f21da3e9ed105249a5af">precollapse_order_length_runs</a> (string::const_iterator seq_begin, vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems)</td></tr>
@@ -362,8 +362,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a80ad7a4fabfb08ae212dabfb9883e4f6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a80ad7a4fabfb08ae212dabfb9883e4f6">&#9670;&nbsp;</a></span>find_fanout_mems()</h2>
+<a id="aeb048d786d78b3a545f724bf45cf11d6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeb048d786d78b3a545f724bf45cf11d6">&#9670;&nbsp;</a></span>find_fanout_mems()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -396,7 +396,13 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">char&#160;</td>
-          <td class="paramname"><em>max_fanout_base_quality</em>&#160;</td>
+          <td class="paramname"><em>max_fanout_base_quality</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; deque&lt; pair&lt; string::const_iterator, char &gt;&gt;&gt; *&#160;</td>
+          <td class="paramname"><em>mem_fanout_breaks</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -973,8 +979,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a36ef8d5303c03eb65b6dc75cd1b1017d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a36ef8d5303c03eb65b6dc75cd1b1017d">&#9670;&nbsp;</a></span>walk_fanout_path()</h2>
+<a id="ad52deed127976201bd63b32929b71491"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad52deed127976201bd63b32929b71491">&#9670;&nbsp;</a></span>walk_fanout_path()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -994,7 +1000,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const list&lt; pair&lt; string::const_iterator, char &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">const deque&lt; pair&lt; string::const_iterator, char &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>fanout_breaks</em>, </td>
         </tr>
         <tr>

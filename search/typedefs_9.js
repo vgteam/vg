@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['match_5ffanouts_5ft',['match_fanouts_t',['../classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd',1,'vg::MultipathMapper']]],
   ['memcluster_5ft',['memcluster_t',['../classvg_1_1MultipathMapper.html#ad39836d9d474da1ac41bdafd6db76d43',1,'vg::MultipathMapper']]],
   ['message_5fconsumer_5ffunction_5ft',['message_consumer_function_t',['../namespacevg_1_1io.html#a618e8c9e44f63328bb2c0742ab0e69c2',1,'vg::io']]],
   ['message_5flistener_5ft',['message_listener_t',['../classvg_1_1io_1_1ProtobufEmitter.html#a735167dc9e644a83d0e9fd206b241ce1',1,'vg::io::ProtobufEmitter']]],
