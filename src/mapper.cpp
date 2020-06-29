@@ -263,7 +263,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                                                        vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks) {
 
 #ifdef debug_mapper
-    cerr << "find_fanout_mems: sequence " << string(seq_begin, seq_end) << ", max fan-out quality" << (int) max_fanout_base_quality << endl;
+    cerr << "find_fanout_mems: sequence " << string(seq_begin, seq_end) << ", max fan-out quality " << (int) max_fanout_base_quality << endl;
 #endif
     
     vector<pair<uint8_t, string::const_iterator>> qual_pos;
@@ -583,7 +583,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         }
         
 #ifdef debug_mapper
-        cerr << "created MEM " << mems.back().sequence() << ", filled " << mems.back().size() << " of " << mems.back().match_count << " hits" << endl;
+        cerr << "created MEM " << mems.back().sequence() << ", filled " << mems.back().nodes.size() << " of " << mems.back().match_count << " hits" << endl;
         for (auto n : mems.back().nodes) {
             cerr << "\t" << make_pos_t(n) << endl;
         }
@@ -671,8 +671,9 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         }
     }
     
-    if (mems.size() == 1 && mems.front().length() >= mem_reseed_length
-        && !mems.front().nodes.empty()) {
+    if (mems.size() == 1 && mems.front().length() >= mem_reseed_length && !mems.front().nodes.empty() &&
+        (mem_fanout_breaks ? mem_fanout_breaks->front().empty() :
+         find(mems.front().begin, mems.front().end, 'N') == mems.front().end)) {
         // try looking for reseed MEMs even if base qualities were high, just in case
         
         int min_sub_mem_length = max<int>(ceil(fast_reseed_length_diff * mems.front().length()), min_mem_length);
