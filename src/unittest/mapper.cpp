@@ -585,7 +585,7 @@ TEST_CASE( "Mapper can walk paths from fan-out MEM algorithm", "[mapping][mapper
         //            ...X....
         string seq = "TGGGCACC";
         
-        list<pair<string::const_iterator, char>> fanout_breaks;
+        deque<pair<string::const_iterator, char>> fanout_breaks;
         fanout_breaks.emplace_back(seq.begin() + 3, 'A');
         
         gcsa::node_type pos = gcsa::Node::encode(graph.get_id(h1), 3, false);
@@ -606,7 +606,7 @@ TEST_CASE( "Mapper can walk paths from fan-out MEM algorithm", "[mapping][mapper
         //              ..X.X....
         string seq =   "AGTTTGCCA";
         
-        list<pair<string::const_iterator, char>> fanout_breaks;
+        deque<pair<string::const_iterator, char>> fanout_breaks;
         fanout_breaks.emplace_back(seq.begin() + 2, 'C');
         fanout_breaks.emplace_back(seq.begin() + 4, 'G');
         
@@ -631,7 +631,7 @@ TEST_CASE( "Mapper can walk paths from fan-out MEM algorithm", "[mapping][mapper
         //            ..X.X..X.
         string seq = "CCGCGGTTA";
         
-        list<pair<string::const_iterator, char>> fanout_breaks;
+        deque<pair<string::const_iterator, char>> fanout_breaks;
         fanout_breaks.emplace_back(seq.begin() + 2, 'A');
         fanout_breaks.emplace_back(seq.begin() + 4, 'A');
         fanout_breaks.emplace_back(seq.begin() + 7, 'C');

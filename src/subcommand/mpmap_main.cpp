@@ -4,7 +4,7 @@
 
 #include <omp.h>
 #include <unistd.h>
-#include <time.h>
+#include <ctime>
 #include <getopt.h>
 
 #include "subcommand.hpp"
@@ -1266,19 +1266,20 @@ int main_mpmap(int argc, char** argv) {
     // a convenience function to preface a stderr log with an indicator of the command
     // and the time elapse
     bool clock_init = false;
-    clock_t time_start = 0;
+    time_t time_start;
     auto progress_boilerplate = [&]() {
         stringstream strm;
         strm.precision(1);
         strm << fixed;
         if (!clock_init) {
-            time_start = clock();
-            strm << "0.0 s";
+            time(&time_start);
+            strm << 0.0 << " s";
             clock_init = true;
         }
         else {
-            clock_t time_now = clock();
-            double secs = ((double) (time_now - time_start)) / CLOCKS_PER_SEC;
+            time_t time_now;
+            time(&time_now);
+            double secs = (double) difftime(time_now, time_start);
             if (secs <= 60.0) {
                 strm << secs << " s";
             }

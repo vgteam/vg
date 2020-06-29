@@ -65,18 +65,21 @@ namespace vg {
         MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                 const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
-                                size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr);
+                                size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr,
+                                const MultipathMapper::match_fanouts_t* fanout_breaks = nullptr);
                                 
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily.
         MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
-                                size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr);
+                                size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr,
+                                const MultipathMapper::match_fanouts_t* fanout_breaks = nullptr);
         
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         /// using a lambda for a projector
         MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                 const function<pair<id_t, bool>(id_t)>& project,
-                                size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr);
+                                size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr,
+                                const MultipathMapper::match_fanouts_t* fanout_breaks = nullptr);
         
         /// Construct a graph of the reachability between aligned chunks in a linearized
         /// path graph. Produces a graph with reachability edges.
@@ -238,7 +241,8 @@ namespace vg {
         /// Walk out MEMs into match nodes and filter out redundant sub-MEMs
         void create_match_nodes(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                 const function<pair<id_t, bool>(id_t)>& project,
-                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                const MultipathMapper::match_fanouts_t* fanout_breaks);
         
         /// Identifies runs of exact matches that are sub-maximal because they hit the order of the GCSA
         /// index and merges them into a single node, assumes that match nodes are sorted by length and
