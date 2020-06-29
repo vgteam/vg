@@ -306,14 +306,18 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         char fanout_char;
         // the where the MEM will need to be broken up
         deque<pair<string::const_iterator, char>> fanout_breaks;
+        // record whether the iteration before the
+        bool prev_iter_jumped_lcp;
         
         FanOutSearch(gcsa::range_type prev_range,
                      string::const_iterator seq_begin,
                      string::const_iterator match_end,
                      string::const_iterator cursor,
                      char fanout_char,
+                     bool prev_iter_jumped_lcp,
                      const deque<pair<string::const_iterator, char>>& prev_fanout_breaks)
-            : prev_range(prev_range), match_end(match_end), cursor(cursor), fanout_char(fanout_char), fanout_breaks(prev_fanout_breaks) {
+            : prev_range(prev_range), match_end(match_end), cursor(cursor), fanout_char(fanout_char),
+              prev_iter_jumped_lcp(prev_iter_jumped_lcp), fanout_breaks(prev_fanout_breaks) {
             if (cursor >= seq_begin && *cursor != fanout_char) {
                 fanout_breaks.emplace_front(cursor, fanout_char);
             }
@@ -323,7 +327,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                      string::const_iterator match_end,
                      string::const_iterator cursor,
                      char fanout_char)
-            : prev_range(prev_range), match_end(match_end), cursor(cursor), fanout_char(fanout_char) {
+            : prev_range(prev_range), match_end(match_end), cursor(cursor), fanout_char(fanout_char), prev_iter_jumped_lcp(false) {
             if (*cursor != fanout_char) {
                 fanout_breaks.emplace_front(cursor, fanout_char);
             }
@@ -364,6 +368,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         auto range = stack.back().prev_range;
         auto fanout_char = stack.back().fanout_char;
         auto fanout_breaks = move(stack.back().fanout_breaks);
+        auto prev_iter_jumped_lcp = stack.back().prev_iter_jumped_lcp;
         stack.pop_back();
         
 #ifdef debug_mapper
@@ -376,7 +381,6 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
 #endif
         
         
-        bool prev_iter_jumped_lcp = false;
         bool use_fanout_char = true;
         
         while (cursor >= seq_begin) {
@@ -394,7 +398,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
 #endif
                 // fan out into all possiblities
                 for (char nt : {'A', 'C', 'G', 'T'}) {
-                    stack.emplace_back(range, seq_begin, match_end, cursor, nt, fanout_breaks);
+                    stack.emplace_back(range, seq_begin, match_end, cursor, nt, prev_iter_jumped_lcp, fanout_breaks);
                 }
                 // stop the current search
                 break;
@@ -423,6 +427,12 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                     // entire index (b/c then advancing the LCP doesn't move the search forward
                     // at all, need to move the cursor instead)
                     
+                    if (!fanout_breaks.empty() && match_end - cursor - 1 < fanout_length_threshold) {
+                        // this fan-out search didn't find a long enough match for us to think
+                        // that these are non-random matches
+                        break;
+                    }
+                    
                     search_results.emplace_back(prev_range, cursor + 1, match_end, fanout_breaks);
                     
                     match_end = cursor;
@@ -437,6 +447,11 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                     cerr << "emitting a search result" << endl;
 #endif
                     auto match_begin = cursor + 1;
+                    if (!fanout_breaks.empty() && match_end - match_begin < fanout_length_threshold) {
+                        // this fan-out search didn't find a long enough match for us to think
+                        // that these are non-random matches
+                        break;
+                    }
                     
                     // record the last MEM, but check to make sure were not actually still searching
                     // for the end of the next MEM
@@ -568,7 +583,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         }
         
 #ifdef debug_mapper
-        cerr << "created MEM " << mems.back().sequence() << endl;
+        cerr << "created MEM " << mems.back().sequence() << ", filled " << mems.back().size() << " of " << mems.back().match_count << " hits" << endl;
         for (auto n : mems.back().nodes) {
             cerr << "\t" << make_pos_t(n) << endl;
         }
@@ -656,7 +671,8 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         }
     }
     
-    if (mems.size() == 1 && mems.front().length() >= mem_reseed_length) {
+    if (mems.size() == 1 && mems.front().length() >= mem_reseed_length
+        && !mems.front().nodes.empty()) {
         // try looking for reseed MEMs even if base qualities were high, just in case
         
         int min_sub_mem_length = max<int>(ceil(fast_reseed_length_diff * mems.front().length()), min_mem_length);

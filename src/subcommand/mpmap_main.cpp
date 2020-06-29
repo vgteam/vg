@@ -1493,6 +1493,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.use_fanout_match_alg = use_fanout_match_alg;
     multipath_mapper.max_fanout_base_quality = max_fanout_base_quality;
     multipath_mapper.max_fans_out = max_fans_out;
+    multipath_mapper.fanout_length_threshold = ceil(log(path_position_handle_graph->get_total_length()) / log(4.0));
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
     multipath_mapper.use_approx_sub_mem_count = false;
