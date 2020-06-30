@@ -252,6 +252,24 @@ public:
                           size_t max_match_length,
                           size_t target_count);
     
+    // finds MEMs where a pre-specified number of low-quality bases are
+    // allowed to be any base. if the optional vector is provided, then it
+    // will be filled to include all of the places that each returned MEM
+    // mismatches the graph sequence. otherwise, the MEMs are walked out
+    // and split into exact matches (can be expensive)
+    vector<MaximalExactMatch>
+    find_fanout_mems(string::const_iterator seq_begin,
+                     string::const_iterator seq_end,
+                     string::const_iterator qual_begin,
+                     int max_fans_out,
+                     char max_fanout_base_quality,
+                     vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks = nullptr);
+    
+    vector<pos_t> walk_fanout_path(string::const_iterator begin,
+                                   string::const_iterator end,
+                                   const deque<pair<string::const_iterator, char>>& fanout_breaks,
+                                   gcsa::node_type pos);
+    
     /// identifies tracts of order-length MEMs that were unfilled because their hit count was above the max
     /// and fills one MEM in the tract (the one with the smallest hit count), assumes MEMs are lexicographically
     /// ordered by read index

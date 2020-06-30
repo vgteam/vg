@@ -632,7 +632,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     }
     
     if (!source_paths.empty() && !transcript_expressions.empty()) {
-        cerr << "error:[NGSSimulator] cannot simultaneously limit sampling to paths and match an expresssion profile" << endl;
+        cerr << "error:[NGSSimulator] cannot simultaneously limit sampling to paths and match an expression profile" << endl;
         exit(1);
     }
     
