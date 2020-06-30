@@ -427,7 +427,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                     // entire index (b/c then advancing the LCP doesn't move the search forward
                     // at all, need to move the cursor instead)
                     
-                    if (!fanout_breaks.empty() && match_end - cursor - 1 < fanout_length_threshold) {
+                    if (!fanout_breaks.empty() && match_end - cursor - 1 <= fanout_length_threshold) {
                         // this fan-out search didn't find a long enough match for us to think
                         // that these are non-random matches
                         break;
@@ -447,7 +447,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                     cerr << "emitting a search result" << endl;
 #endif
                     auto match_begin = cursor + 1;
-                    if (!fanout_breaks.empty() && match_end - match_begin < fanout_length_threshold) {
+                    if (!fanout_breaks.empty() && match_end - match_begin <= fanout_length_threshold) {
                         // this fan-out search didn't find a long enough match for us to think
                         // that these are non-random matches
                         break;

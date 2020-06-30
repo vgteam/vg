@@ -222,8 +222,8 @@ namespace vg {
         }
         
         vector<size_t> secondary_lengths;
-        if (clusters.size() > 1) {
-            for (const auto& hit : clusters[cluster_idxs[1]]) {
+        if (cluster_idxs.size() > 1) {
+            for (const auto& hit : clusters.at(cluster_idxs[1])) {
                 secondary_lengths.push_back(hit.first->length());
             }
         }
