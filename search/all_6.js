@@ -7,6 +7,7 @@ var searchData=
   ['failing',['failing',['../structvg_1_1Funnel_1_1FilterPerformance.html#aad9ef34a13eb3d6d7e5bf5ad42beb166',1,'vg::Funnel::FilterPerformance']]],
   ['failing_5fcorrect',['failing_correct',['../structvg_1_1Funnel_1_1FilterPerformance.html#a898f945e74a3583f316aa523920dc019',1,'vg::Funnel::FilterPerformance']]],
   ['false_5fextend',['false_extend',['../structhaplo_1_1haplo__DP__rectangle.html#af4b704f2932b2ce43bddbace287674b8',1,'haplo::haplo_DP_rectangle']]],
+  ['fanout_5flength_5fthreshold',['fanout_length_threshold',['../classvg_1_1BaseMapper.html#acd8be356ec0cdddaba2597913e75e2ef',1,'vg::BaseMapper']]],
   ['fast_5flinear_5fsort',['fast_linear_sort',['../classvg_1_1FlowSort.html#ab7f9051ee8d6e2118e4da7465c9c2a98',1,'vg::FlowSort']]],
   ['fast_5freseed',['fast_reseed',['../classvg_1_1BaseMapper.html#a85f811924225d6de6f0a26b168ed1df3',1,'vg::BaseMapper']]],
   ['fast_5freseed_5flength_5fdiff',['fast_reseed_length_diff',['../classvg_1_1BaseMapper.html#a74ce7cb0903b14c4b4132f504dcdc412',1,'vg::BaseMapper']]],

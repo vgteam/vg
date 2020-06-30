@@ -4,6 +4,7 @@ var searchData=
   ['failed_5fstatistic',['failed_statistic',['../structvg_1_1Funnel_1_1Item.html#a88e8b76d62aac942c29cfbefe38ec5ca',1,'vg::Funnel::Item']]],
   ['failing',['failing',['../structvg_1_1Funnel_1_1FilterPerformance.html#aad9ef34a13eb3d6d7e5bf5ad42beb166',1,'vg::Funnel::FilterPerformance']]],
   ['failing_5fcorrect',['failing_correct',['../structvg_1_1Funnel_1_1FilterPerformance.html#a898f945e74a3583f316aa523920dc019',1,'vg::Funnel::FilterPerformance']]],
+  ['fanout_5flength_5fthreshold',['fanout_length_threshold',['../classvg_1_1BaseMapper.html#acd8be356ec0cdddaba2597913e75e2ef',1,'vg::BaseMapper']]],
   ['fast_5freseed',['fast_reseed',['../classvg_1_1BaseMapper.html#a85f811924225d6de6f0a26b168ed1df3',1,'vg::BaseMapper']]],
   ['fast_5freseed_5flength_5fdiff',['fast_reseed_length_diff',['../classvg_1_1BaseMapper.html#a74ce7cb0903b14c4b4132f504dcdc412',1,'vg::BaseMapper']]],
   ['fasta_5ffilename',['fasta_filename',['../classvg_1_1IndexManager.html#a26a9030c5579df31b8a8f469008a0b15',1,'vg::IndexManager']]],
