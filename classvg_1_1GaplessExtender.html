@@ -265,7 +265,7 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Find the highest-scoring extension for each seed in the cluster. If there is a full-length extension with at most max_mismatches mismatches, return the (up to two) best full-length extensions with less than overlap_threshold overlap, sorted by score in descending order. If that is not possible, trim the extensions to maximize score, sort them by read interval, and remove duplicates. Allow any number of mismatches in the initial node, at least max_mismatches mismatches in the entire extension, and at least max_mismatches / 2 mismatches on each flank. Use the provided CachedGBWTGraph or allocate a new one. </p>
+<p>Find the highest-scoring extension for each seed in the cluster. If there is a full-length extension with at most max_mismatches mismatches, return the (up to two) best full-length extensions with at most overlap_threshold overlap, sorted by score in descending order. If that is not possible, trim the extensions to maximize score, sort them by read interval, and remove duplicates. Allow any number of mismatches in the initial node, at least max_mismatches mismatches in the entire extension, and at least max_mismatches / 2 mismatches on each flank. Use the provided CachedGBWTGraph or allocate a new one. </p>
 
 </div>
 </div>
