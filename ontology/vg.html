@@ -154,13 +154,13 @@
 </tr>
 <tr><td><a href="#Properties">
                                     Properties (
-                                    29
+                                    30
                                     )
                             </a></td></tr>
 <tr>
 <td><a style="objectPropertySearch" href="#ObjectProperties">
                                     Object properties (
-                                    22
+                                    23
                                     )
                             </a></td>
 <td><select onChange="window.location.hash = document.getElementById('navi3').value" id="navi3"><option value="arrival">
@@ -183,6 +183,8 @@
 				vg:forwardLinkEdge</option>
 <option value="linkPaths">
 				vg:linkPaths</option>
+<option value="linkZoomLevel">
+				vg:linkZoomLevel</option>
 <option value="links">
 				vg:links</option>
 <option value="linksForwardToForward">
@@ -278,7 +280,7 @@
 					owl:versionInfo</a></td>
 <td>
 						"Created at the DBCLS RDF Summit 2, Sendai Japan and COVID-19 Virtual Biohackathon"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -304,7 +306,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A bin in the output of odgi bin, representing a sequence section."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -313,7 +315,7 @@
 					rdfs:label</a></td>
 <td>
 						"Bin"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -340,7 +342,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A cell along a path of a specific group (component) of a specific zoom. A cell to a :Component and a :Path with supplemental informations."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -349,7 +351,7 @@
 					rdfs:label</a></td>
 <td>
 						"Cell"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -376,7 +378,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A region between Links structuring all bins and their present individuals into one component."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -385,7 +387,7 @@
 					rdfs:label</a></td>
 <td>
 						"Component"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -525,7 +527,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A link marks a graph traversal along a nonlinear connection."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -534,7 +536,7 @@
 					rdfs:label</a></td>
 <td>
 						"Link"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -561,7 +563,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A node in the variant graph, representing a sequence section."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -570,7 +572,7 @@
 					rdfs:label</a></td>
 <td>
 						"Node"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -597,7 +599,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A Path is a collection of steps from path to path that represent an asserdfs:labelmbled sequence integrated into the variant graph."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -606,7 +608,7 @@
 					rdfs:label</a></td>
 <td>
 						"Path"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -687,7 +689,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A step along a path in the variant graph. A series of steps along a path represent an assembled sequence that was originally inserted into the the variant graph. A step points to a :Node or the reverse complement of a node and has a rank (step number)."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -696,7 +698,7 @@
 					rdfs:label</a></td>
 <td>
 						"Step"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -793,7 +795,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A zoom level of Pangenome."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -802,7 +804,7 @@
 					rdfs:label</a></td>
 <td>
 						"ZoomLevel"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -837,7 +839,7 @@
 					rdfs:comment</a></td>
 <td>
 						"An end bin of nonlinear link. Incoming edge of the bin."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -852,7 +854,7 @@
 					rdfs:label</a></td>
 <td>
 						"arrival"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -885,7 +887,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A Component has one or more Bins."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -900,7 +902,7 @@
 					rdfs:label</a></td>
 <td>
 						"bins"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -927,7 +929,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A cell is composed of the specific subsequence of paths."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -942,7 +944,7 @@
 					rdfs:label</a></td>
 <td>
 						"cellRegions"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -968,7 +970,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A Bin has one or more paths of a specific group (component) of a specific zoom. That is represented as cells on the matrix."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -983,7 +985,7 @@
 					rdfs:label</a></td>
 <td>
 						"cells"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1010,7 +1012,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A zoom level has one or more components."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1025,7 +1027,7 @@
 					rdfs:label</a></td>
 <td>
 						"components"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1052,7 +1054,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A start bin of nonlinear link. Outgoing edge of the bin."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1067,7 +1069,7 @@
 					rdfs:label</a></td>
 <td>
 						"departure"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1100,7 +1102,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The super property that says two bins are linked in forward orientation on the pangenome sequence."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1115,7 +1117,7 @@
 					rdfs:label</a></td>
 <td>
 						"forwardBinEdge"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1142,7 +1144,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The super property that says two components are linked in forward orientation on the pangenome sequence."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1157,7 +1159,7 @@
 					rdfs:label</a></td>
 <td>
 						"forwardComponentEdge"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1184,7 +1186,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The super property that says two links are linked in forward orientation on the link column."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1199,7 +1201,7 @@
 					rdfs:label</a></td>
 <td>
 						"forwardLinkEdge"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1226,7 +1228,7 @@
 					rdfs:comment</a></td>
 <td>
 						"A list of paths that follow the same non-linear link between two bins."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1241,7 +1243,7 @@
 					rdfs:label</a></td>
 <td>
 						"linkPaths"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1250,6 +1252,48 @@
 					rdfs:range</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Path">
 				vg:Path</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#linkZoomLevel"></a><tbody>
+<tr><th id="linkZoomLevel">
+				vg:linkZoomLevel<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A link is related to each zoom level."
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Link">
+				vg:Link</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"linkZoomLevel"
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#ZoomLevel">
+				vg:ZoomLevel</a></td>
 </tr>
 </tbody>
 </table>
@@ -1268,7 +1312,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The super property that says two nodes are linked and does not allow one to infer which side to side it goes"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1283,7 +1327,7 @@
 					rdfs:label</a></td>
 <td>
 						"links"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1310,7 +1354,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This links a node from the forward (5' to 3') strand on the subject node to the forward (5' to 3') strand on the predicate node."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1325,7 +1369,7 @@
 					rdfs:label</a></td>
 <td>
 						"++"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1334,7 +1378,7 @@
 					rdfs:label</a></td>
 <td>
 						"linksForwardToForward"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1367,7 +1411,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This links a node from the forward (5' to 3') strand on the subject node to the reverse (3' to 5') strand on the predicate node."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1382,7 +1426,7 @@
 					rdfs:label</a></td>
 <td>
 						"+-"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1391,7 +1435,7 @@
 					rdfs:label</a></td>
 <td>
 						"linksForwardToReverse"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1424,7 +1468,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This links a node from the reverse (3' to 5') strand on the subject node to the forward (5' to 3') strand on the predicate node."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1439,7 +1483,7 @@
 					rdfs:label</a></td>
 <td>
 						"-+"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1448,7 +1492,7 @@
 					rdfs:label</a></td>
 <td>
 						"linksReverseToForward"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1481,7 +1525,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This links a node from the reverse (3' to 5') strand on the subject node to the reverse (3' to 5') strand on the predicate node."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1496,7 +1540,7 @@
 					rdfs:label</a></td>
 <td>
 						"--"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1505,7 +1549,7 @@
 					rdfs:label</a></td>
 <td>
 						"linksReverseToReverse"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1538,7 +1582,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This means that this step occurs on the forward strand of the sequence attaced to the node (i.e. it is on the explicit encoded forward (5' to 3') strand) of the predicate node."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1553,7 +1597,7 @@
 					rdfs:label</a></td>
 <td>
 						"node"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1580,7 +1624,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This means that this step occurs on the path that is the object of this statment"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1595,7 +1639,7 @@
 					rdfs:label</a></td>
 <td>
 						"path"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1622,7 +1666,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This is the position on the reference path at which this step starts."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1637,7 +1681,7 @@
 					rdfs:label</a></td>
 <td>
 						"position"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1664,7 +1708,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The super property that says two bins are linked in reverse orientation on the pangenome sequence."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1679,7 +1723,7 @@
 					rdfs:label</a></td>
 <td>
 						"reverseBinEdge"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1706,7 +1750,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The super property that says two components are linked in reverse orientation on the pangenome sequence."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1721,7 +1765,7 @@
 					rdfs:label</a></td>
 <td>
 						"reverseComponentEdge"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1748,7 +1792,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The super property that says two links are linked in reverse orientation on the link column."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1763,7 +1807,7 @@
 					rdfs:label</a></td>
 <td>
 						"reverseLinkEdge"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1790,7 +1834,7 @@
 					rdfs:comment</a></td>
 <td>
 						"This means this step occurs on the revese complement of the sequence attaced to the node (i.e. it is on the implicit reverse (3' to 5') strand) of the predicate node."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1805,7 +1849,7 @@
 					rdfs:label</a></td>
 <td>
 						"reverseOfNode"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1833,7 +1877,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The rank records that step place along its pangenome sequence."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1848,7 +1892,7 @@
 					rdfs:label</a></td>
 <td>
 						"binRank"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1875,7 +1919,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The rank records that step place along its pangenome sequence."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1890,7 +1934,7 @@
 					rdfs:label</a></td>
 <td>
 						"componentRank"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1917,7 +1961,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The inversion percent of the path in the component."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1932,7 +1976,7 @@
 					rdfs:label</a></td>
 <td>
 						"inversionPercent"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1959,7 +2003,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The rank records that step place along a link column."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -1974,7 +2018,7 @@
 					rdfs:label</a></td>
 <td>
 						"linkRank"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -2001,7 +2045,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The position coverage percent of the path in the component."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -2016,7 +2060,7 @@
 					rdfs:label</a></td>
 <td>
 						"positionPercent"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -2043,7 +2087,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The rank records the step place along its path."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -2058,7 +2102,7 @@
 					rdfs:label</a></td>
 <td>
 						"rank"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -2085,7 +2129,7 @@
 					rdfs:comment</a></td>
 <td>
 						"The zoom factor of pangenome, which is defined as bin width, generally."
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>
@@ -2100,7 +2144,7 @@
 					rdfs:label</a></td>
 <td>
 						"zoomFactor"
-						<sup><a href=".">
+						<sup><a href="http://www.w3.org/1999/02/22-rdf-syntax-ns#http://www.w3.org/2001/XMLSchema#string">
 				xsd:string</a></sup>
 </td>
 </tr>

@@ -2146,7 +2146,7 @@ pair<uint64_t, uint64_t> Index::compare_kmers(Index& other) {
             string kmer;
             parse_kmer(key, value, kmer, id, pos);
 
-            // only visit first kmer when multiple occurances with dif. ids in a row
+            // only visit first kmer when multiple occurrences with dif. ids in a row
             if (kmer != prev_kmer) {
 
                 string remk = reverse_complement(kmer);

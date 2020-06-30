@@ -749,7 +749,7 @@ protected:
     
     
     /// Minimum distance between two seeds on the read
-    const int64_t min_read_separation = -10;
+    const int64_t min_read_separation = 0;
     
     /// The number of connections from one hit in a component to another that we will consider (0 for no maximum)
     const int64_t early_stop_number = 2;

@@ -33,6 +33,10 @@ void help_call(char** argv) {
        << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.001]" << endl
        << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
        << "    -b, --het-bias M,N       Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
+       << "GAF options:" << endl
+       << "    -G, --gaf               Output GAF genotypes instead of VCF" << endl
+       << "    -T, --traversals        Output all candidate traversals in GAF without doing any genotyping" << endl
+       << "    -M, --trav-padding N    Extend each flank of traversals (from -T) with reference path by N bases if possible" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
@@ -44,8 +48,6 @@ void help_call(char** argv) {
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
        << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
        << "    -d, --ploidy N          Ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
-       << "    -G, --gaf               Output GAF genotypes instead of VCF" << endl
-       << "    -T, --traversals        Output all candidate traversals in GAF without doing any genotyping" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
@@ -69,6 +71,7 @@ int main_call(int argc, char** argv) {
     int ploidy = 2;
     bool traversals_only = false;
     bool gaf_output = false;
+    size_t trav_padding = 0;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -103,6 +106,7 @@ int main_call(int argc, char** argv) {
             {"ploidy", required_argument, 0, 'd'},
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
+            {"min-trav-len", required_argument, 0, 'M'},
             {"legacy", no_argument, 0, 'L'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
@@ -111,7 +115,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:f:i:s:r:g:p:o:l:d:GTLt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:f:i:s:r:g:p:o:l:d:GTLM:t:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -171,7 +175,10 @@ int main_call(int argc, char** argv) {
         case 'T':
             traversals_only = true;
             gaf_output = true;
-            break;            
+            break;
+        case 'M':
+            trav_padding = parse<size_t>(optarg);
+            break;
         case 'L':
             legacy = true;
             break;
@@ -241,6 +248,11 @@ int main_call(int argc, char** argv) {
         }
     } else if (error_toks.size() != 0) {
         cerr << "error [vg call]: -e option expects exactly two comma-separated numbers X,Y" << endl;
+        return 1;
+    }
+
+    if (trav_padding > 0 && traversals_only == false) {
+        cerr << "error [vg call]: -M option can only be used in conjunction with -T" << endl;
         return 1;
     }
     
@@ -432,7 +444,8 @@ int main_call(int argc, char** argv) {
                                                        ins_fasta.get(),
                                                        alignment_emitter.get(),
                                                        traversals_only,
-                                                       gaf_output);
+                                                       gaf_output,
+                                                       trav_padding);
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
     } else if (legacy) {
         // de-novo caller (port of the old vg call code, which requires a support based caller)
@@ -477,7 +490,8 @@ int main_call(int argc, char** argv) {
                                                  sample_name, *traversal_finder, ref_paths, ref_path_offsets,
                                                  alignment_emitter.get(),
                                                  traversals_only,
-                                                 gaf_output);
+                                                 gaf_output,
+                                                 trav_padding);
         graph_caller = unique_ptr<GraphCaller>(flow_caller);
     }
 

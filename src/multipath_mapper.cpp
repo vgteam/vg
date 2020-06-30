@@ -46,25 +46,15 @@ namespace vg {
     void MultipathMapper::multipath_map_internal(const Alignment& alignment,
                                                  MappingQualityMethod mapq_method,
                                                  vector<multipath_alignment_t>& multipath_alns_out) {
-        
 #ifdef debug_multipath_mapper
         cerr << "multipath mapping read " << pb2json(alignment) << endl;
         cerr << "querying MEMs..." << endl;
 #endif
         
-        vector<MaximalExactMatch> mems;
-        if (use_stripped_match_alg) {
-            mems = find_stripped_matches(alignment.sequence().begin(), alignment.sequence().end(),
-                                         stripped_match_alg_strip_length, stripped_match_alg_max_length,
-                                         stripped_match_alg_target_count);
-        }
-        else {
-            // query MEMs using GCSA2
-            double dummy1; double dummy2;
-            mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(), dummy1, dummy2,
-                                  0, min_mem_length, mem_reseed_length, false, true, true, false);
-        }
-        
+        vector<deque<pair<string::const_iterator, char>>> mem_fanouts;
+        auto mems = find_mems(alignment, &mem_fanouts);
+        unique_ptr<match_fanouts_t> fanouts(mem_fanouts.empty() ? nullptr :
+                                            new match_fanouts_t(record_fanouts(mems, mem_fanouts)));
         
 #ifdef debug_multipath_mapper
         cerr << "obtained MEMs:" << endl;
@@ -111,7 +101,8 @@ namespace vg {
         
         // actually perform the alignments and post-process to meet multipath_alignment_t invariants
         vector<size_t> cluster_idxs = range_vector(cluster_graphs.size());
-        align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, num_mapping_attempts, &cluster_idxs);
+        align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, num_mapping_attempts,
+                                fanouts.get(), &cluster_idxs);
         
         if (multipath_alns_out.empty()) {
             // add a null alignment so we know it wasn't mapped
@@ -194,42 +185,53 @@ namespace vg {
         
         size_t num_clusters = clusters.size();
         vector<size_t> winning_lengths;
-        size_t winning_cluster_num_mems = clusters[cluster_idxs.front()].size();
+        size_t winning_cluster_num_mems = clusters.empty() ? 0 : clusters[cluster_idxs.front()].size();
         size_t winning_cluster_total_bases = 0;
         size_t winning_cluster_min_mem_length = numeric_limits<size_t>::max();
         size_t winning_cluster_max_mem_length = 0;
-        for (const auto& hit : clusters[cluster_idxs.front()]) {
-            winning_cluster_min_mem_length = min<size_t>(winning_cluster_min_mem_length, hit.first->length());
-            winning_cluster_max_mem_length = max<size_t>(winning_cluster_max_mem_length, hit.first->length());
-            winning_cluster_total_bases += hit.first->length();
-        }
-        vector<size_t> order;
-        for (size_t i = 0; i < clusters[cluster_idxs.front()].size(); ++i) {
-            order.push_back(i);
-            winning_lengths.push_back(clusters[cluster_idxs.front()][i].first->length());
-        }
-        sort(order.begin(), order.end(), [&](size_t i, size_t j) {
-            return clusters[cluster_idxs.front()][i].first->begin < clusters[cluster_idxs.front()][j].first->begin;
-        });
-        sort(winning_lengths.begin(), winning_lengths.end(), std::greater<size_t>());
-        
-        size_t winning_cluster_tail_bases = ((clusters[cluster_idxs.front()][order.front()].first->begin - alignment.sequence().begin())
-                                             + (alignment.sequence().end() - clusters[cluster_idxs.front()][order.back()].first->end));
-        
+        size_t winning_cluster_tail_bases = 0;
         double winning_cluster_avg_intermem_gap = 0.0;
-        if (clusters[cluster_idxs.front()].size() == 0) {
-            winning_cluster_avg_intermem_gap = numeric_limits<double>::quiet_NaN();
-        }
-        else {
-            for (size_t i = 1; i < order.size(); ++i) {
-                winning_cluster_avg_intermem_gap += (clusters[cluster_idxs.front()][order[i]].first->begin
-                                                     - clusters[cluster_idxs.front()][order[i - 1]].first->end);
+        vector<size_t> order;
+
+        if (!clusters.empty()) {
+            for (const auto& hit : clusters[cluster_idxs.front()]) {
+                winning_cluster_min_mem_length = min<size_t>(winning_cluster_min_mem_length, hit.first->length());
+                winning_cluster_max_mem_length = max<size_t>(winning_cluster_max_mem_length, hit.first->length());
+                winning_cluster_total_bases += hit.first->length();
             }
-            winning_cluster_avg_intermem_gap /= order.size() - 1;
+            for (size_t i = 0; i < clusters[cluster_idxs.front()].size(); ++i) {
+                order.push_back(i);
+                winning_lengths.push_back(clusters[cluster_idxs.front()][i].first->length());
+            }
+            sort(order.begin(), order.end(), [&](size_t i, size_t j) {
+                return clusters[cluster_idxs.front()][i].first->begin < clusters[cluster_idxs.front()][j].first->begin;
+            });
+            sort(winning_lengths.begin(), winning_lengths.end(), std::greater<size_t>());
+            
+            winning_cluster_tail_bases = ((clusters[cluster_idxs.front()][order.front()].first->begin - alignment.sequence().begin())
+                                          + (alignment.sequence().end() - clusters[cluster_idxs.front()][order.back()].first->end));
+            if (clusters[cluster_idxs.front()].size() == 0) {
+                winning_cluster_avg_intermem_gap = numeric_limits<double>::quiet_NaN();
+            }
+            else {
+                for (size_t i = 1; i < order.size(); ++i) {
+                    winning_cluster_avg_intermem_gap += (clusters[cluster_idxs.front()][order[i]].first->begin
+                                                         - clusters[cluster_idxs.front()][order[i - 1]].first->end);
+                }
+                winning_cluster_avg_intermem_gap /= order.size() - 1;
+            }
         }
         
         vector<size_t> secondary_lengths;
-        if (clusters.size() > 1) {
+        if (cluster_idxs.size() > 1 && clusters.size() > 1) {
+            for (const auto& hit : clusters.at(cluster_idxs[1])) {
+                secondary_lengths.push_back(hit.first->length());
+            }
+        }
+        sort(secondary_lengths.begin(), secondary_lengths.end(), greater<size_t>());
+        
+        vector<size_t> secondary_lengths;
+        if (cluster_idxs.size() > 1 && clusters.size() > 1) {
             for (const auto& hit : clusters[cluster_idxs[1]]) {
                 secondary_lengths.push_back(hit.first->length());
             }
@@ -239,10 +241,12 @@ namespace vg {
         int64_t max_non_winning_mem_length = 0;
         for (size_t i = 0; i < mems.size(); ++i) {
             bool found = false;
-            for (const auto hit : clusters[cluster_idxs.front()]) {
-                if (hit.first == &mems[i]) {
-                    found = true;
-                    break;
+            if (!clusters.empty()) {
+                for (const auto hit : clusters[cluster_idxs.front()]) {
+                    if (hit.first == &mems[i]) {
+                        found = true;
+                        break;
+                    }
                 }
             }
             if (!found) {
@@ -323,6 +327,26 @@ namespace vg {
                                    min_median_mem_coverage_for_split);;
     }
     
+    vector<MaximalExactMatch> MultipathMapper::find_mems(const Alignment& alignment,
+                                                         vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks) {
+        if (!use_stripped_match_alg &&
+            (!use_fanout_match_alg || (use_fanout_match_alg && alignment.quality().empty()))) {
+            double dummy1, dummy2;
+            return find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(), dummy1, dummy2,
+                                  0, min_mem_length, mem_reseed_length, false, true, true, false);
+        }
+        else if (use_fanout_match_alg) {
+            return find_fanout_mems(alignment.sequence().begin(), alignment.sequence().end(),
+                                    alignment.quality().begin(), max_fans_out, max_fanout_base_quality,
+                                    mem_fanout_breaks);
+        }
+        else {
+            return find_stripped_matches(alignment.sequence().begin(), alignment.sequence().end(),
+                                         stripped_match_alg_strip_length, stripped_match_alg_max_length,
+                                         stripped_match_alg_target_count);
+        }
+    }
+
     vector<pair<pair<size_t, size_t>, int64_t>> MultipathMapper::get_cluster_pairs(const Alignment& alignment1,
                                                                                    const Alignment& alignment2,
                                                                                    vector<clustergraph_t>& cluster_graphs1,
@@ -390,6 +414,7 @@ namespace vg {
                                                   vector<clustergraph_t>& cluster_graphs,
                                                   vector<multipath_alignment_t>& multipath_alns_out,
                                                   size_t num_mapping_attempts,
+                                                  const match_fanouts_t* fanouts,
                                                   vector<size_t>* cluster_idxs) {
         
         
@@ -426,7 +451,8 @@ namespace vg {
 #endif
             
             multipath_alns_out.emplace_back();
-            multipath_align(alignment, get<0>(cluster_graph), get<1>(cluster_graph), multipath_alns_out.back());
+            multipath_align(alignment, get<0>(cluster_graph), get<1>(cluster_graph), multipath_alns_out.back(),
+                            fanouts);
             
             num_mappings++;
         }
@@ -471,7 +497,7 @@ namespace vg {
 #endif
             if (!validate_multipath_alignment(multipath_aln, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln.sequence() << " failed to validate" << endl;
             }
         }
 #endif
@@ -722,7 +748,7 @@ namespace vg {
             auto p_val = random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size());
             
 #ifdef debug_multipath_mapper
-            cerr << "effective match length of read " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << p_val << endl;
+            cerr << "effective match length of read " << multipath_aln.sequence() << " is " << pseudo_length(multipath_aln) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << p_val << endl;
 #endif
             
             return p_val > max_mapping_p_value;
@@ -983,7 +1009,8 @@ namespace vg {
                                                               bool block_rescue_from_1, bool block_rescue_from_2,
                                                               vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                               vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
-                                                              vector<double>& pair_multiplicities) {
+                                                              vector<double>& pair_multiplicities,
+                                                              const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2) {
         
         // align the two ends independently
         vector<multipath_alignment_t> multipath_alns_1, multipath_alns_2;
@@ -991,12 +1018,14 @@ namespace vg {
         if (!block_rescue_from_1) {
             cluster_idxs_1 = range_vector(cluster_graphs1.size());
             align_to_cluster_graphs(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                    cluster_graphs1, multipath_alns_1, max_single_end_mappings_for_rescue, &cluster_idxs_1);
+                                    cluster_graphs1, multipath_alns_1, max_single_end_mappings_for_rescue,
+                                    fanouts1, &cluster_idxs_1);
         }
         if (!block_rescue_from_2) {
             cluster_idxs_2 = range_vector(cluster_graphs2.size());
             align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                    cluster_graphs2, multipath_alns_2, max_single_end_mappings_for_rescue, &cluster_idxs_2);
+                                    cluster_graphs2, multipath_alns_2, max_single_end_mappings_for_rescue,
+                                    fanouts2, &cluster_idxs_2);
         }
         
         if (!multipath_alns_1.empty() &&
@@ -1228,11 +1257,11 @@ namespace vg {
 #endif
             if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.first.sequence() << " failed to validate" << endl;
             }
             if (!validate_multipath_alignment(multipath_aln_pair.second, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.second.sequence() << " failed to validate" << endl;
             }
         }
 #endif
@@ -1252,7 +1281,8 @@ namespace vg {
                                                          vector<clustergraph_t>& cluster_graphs2,
                                                          vector<pair<size_t, size_t>>& duplicate_pairs,
                                                          vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                                         vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) {
+                                                         vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                         const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2) {
         
 #ifdef debug_multipath_mapper
         cerr << "using rescue to find secondary mappings" << endl;
@@ -1284,7 +1314,7 @@ namespace vg {
         
         auto align_and_rescue = [&](const Alignment& anchor_aln, const Alignment& rescue_aln,
                                     vector<clustergraph_t>& cluster_graphs, unordered_set<size_t>& paired_clusters,
-                                    int32_t max_score, bool anchor_is_read_1) {
+                                    int32_t max_score, bool anchor_is_read_1, const match_fanouts_t* anchor_fanouts) {
             
 #ifdef debug_multipath_mapper
             cerr << "checking for rescues from read " << (anchor_is_read_1 ? 1 : 2) << endl;
@@ -1331,7 +1361,8 @@ namespace vg {
                 // make the alignment
                 vector<multipath_alignment_t> cluster_multipath_alns;
                 cluster_multipath_alns.emplace_back();
-                multipath_align(anchor_aln, get<0>(cluster_graphs[i]), get<1>(cluster_graphs[i]), cluster_multipath_alns.back());
+                multipath_align(anchor_aln, get<0>(cluster_graphs[i]), get<1>(cluster_graphs[i]),
+                                cluster_multipath_alns.back(), anchor_fanouts);
                 
                 // split it up if it turns out to be multiple components
                 split_multicomponent_alignments(cluster_multipath_alns);
@@ -1404,8 +1435,10 @@ namespace vg {
         };
         
         // perform routine for both read ends
-        align_and_rescue(alignment1, alignment2, cluster_graphs1, paired_clusters_1, cluster_score_1, true);
-        align_and_rescue(alignment2, alignment1, cluster_graphs2, paired_clusters_2, cluster_score_2, false);
+        align_and_rescue(alignment1, alignment2, cluster_graphs1, paired_clusters_1,
+                         cluster_score_1, true, fanouts1);
+        align_and_rescue(alignment2, alignment1, cluster_graphs2, paired_clusters_2,
+                         cluster_score_2, false, fanouts2);
         
 #ifdef debug_validate_multipath_alignments
         for (pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair : rescued_secondaries) {
@@ -1416,11 +1449,11 @@ namespace vg {
 #endif
             if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.first.sequence() << " failed to validate" << endl;
             }
             if (!validate_multipath_alignment(multipath_aln_pair.second, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.second.sequence() << " failed to validate" << endl;
             }
         }
 #endif
@@ -1504,27 +1537,14 @@ namespace vg {
         }
         
         // the fragment length distribution has been estimated, so we can do full-fledged paired mode
-        vector<MaximalExactMatch> mems1, mems2;
-        if (use_stripped_match_alg) {
-            // query matches along strips of the read
-            mems1 = find_stripped_matches(alignment1.sequence().begin(), alignment1.sequence().end(),
-                                          stripped_match_alg_strip_length, stripped_match_alg_max_length,
-                                          stripped_match_alg_target_count);
-            mems2 = find_stripped_matches(alignment2.sequence().begin(), alignment2.sequence().end(),
-                                          stripped_match_alg_strip_length, stripped_match_alg_max_length,
-                                          stripped_match_alg_target_count);
-        }
-        else {
-            // query MEMs
-            double dummy1, dummy2;
-            mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(), dummy1, dummy2,
-                                   0, min_mem_length, mem_reseed_length, false, true, true, false);
-            mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(), dummy1, dummy2,
-                                   0, min_mem_length, mem_reseed_length, false, true, true, false);
-        }
-        
-        
-        
+        vector<deque<pair<string::const_iterator, char>>> mem_fanouts1, mem_fanouts2;
+        auto mems1 = find_mems(alignment1, &mem_fanouts1);
+        auto mems2 = find_mems(alignment2, &mem_fanouts2);
+        unique_ptr<match_fanouts_t> fanouts1(mem_fanouts1.empty() ? nullptr
+                                             : new match_fanouts_t(record_fanouts(mems1, mem_fanouts1)));
+        unique_ptr<match_fanouts_t> fanouts2(mem_fanouts2.empty() ? nullptr
+                                             : new match_fanouts_t(record_fanouts(mems2, mem_fanouts2)));
+                
 #ifdef debug_multipath_mapper
         cerr << "obtained read1 MEMs:" << endl;
         for (MaximalExactMatch mem : mems1) {
@@ -1598,7 +1618,7 @@ namespace vg {
             
             attempt_rescue_of_repeat_from_non_repeat(alignment1, alignment2, mems1, mems2, do_repeat_rescue_from_1, do_repeat_rescue_from_2,
                                                      clusters1, clusters2, cluster_graphs1, cluster_graphs2, multipath_aln_pairs_out,
-                                                     cluster_pairs, *distance_measurer);
+                                                     cluster_pairs, *distance_measurer, fanouts1.get(), fanouts2.get());
             
             if (multipath_aln_pairs_out.empty() && do_repeat_rescue_from_1 && !do_repeat_rescue_from_2) {
                 // we've clustered and extracted read 1, but rescue failed, so do the same for read 2 to prepare for the
@@ -1711,7 +1731,7 @@ namespace vg {
                 // only perform the mappings that satisfy the expectations on distance
                 
                 align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
-                                             multipath_aln_pairs_out, duplicate_pairs);
+                                             multipath_aln_pairs_out, duplicate_pairs, fanouts1.get(), fanouts2.get());
                 
                 // do we produce at least one good looking pair alignments from the clustered clusters?
                 if (multipath_aln_pairs_out.empty() ? true : (likely_mismapping(multipath_aln_pairs_out.front().first) ||
@@ -1728,7 +1748,8 @@ namespace vg {
                     vector<double> rescue_multiplicities;
                     bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
                                                                        do_repeat_rescue_from_1, do_repeat_rescue_from_2,
-                                                                       rescue_aln_pairs, rescue_distances, rescue_multiplicities);
+                                                                       rescue_aln_pairs, rescue_distances, rescue_multiplicities,
+                                                                       fanouts1.get(), fanouts2.get());
                     
                     // if we find consistent pairs by rescue, merge the two lists
                     if (rescued) {
@@ -1777,7 +1798,8 @@ namespace vg {
                         // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
                         // so we use this routine to use rescue on other very good looking independent end clusters
                         attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                       duplicate_pairs, multipath_aln_pairs_out, cluster_pairs);
+                                                       duplicate_pairs, multipath_aln_pairs_out, cluster_pairs,
+                                                       fanouts1.get(), fanouts2.get());
                         
                         // TODO: is this still necessary with the multiplicity code?
                         // account for the possiblity that we selected the wrong ends to rescue with
@@ -1804,8 +1826,10 @@ namespace vg {
                 // have it record the multiplicities, even though we don't need them in thiss code path
                 vector<double> multiplicities;
                 
-                bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2, do_repeat_rescue_from_1,
-                                                                   do_repeat_rescue_from_2, multipath_aln_pairs_out, cluster_pairs, multiplicities);
+                bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                                   do_repeat_rescue_from_1, do_repeat_rescue_from_2,
+                                                                   multipath_aln_pairs_out, cluster_pairs, multiplicities,
+                                                                   fanouts1.get(), fanouts2.get());
                 
                 if (rescued) {
                     // We found valid pairs from rescue
@@ -2020,7 +2044,8 @@ namespace vg {
                                                                    vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
                                                                    vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                                    vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
-                                                                   OrientedDistanceMeasurer& distance_measurer) {
+                                                                   OrientedDistanceMeasurer& distance_measurer,
+                                                                   const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2) {
         
         bool rescue_succeeded_from_1 = false, rescue_succeeded_from_2 = false;
         
@@ -2043,7 +2068,8 @@ namespace vg {
             vector<pair<pair<size_t, size_t>, int64_t>> rescued_distances;
             vector<double> rescued_multiplicities;
             rescue_succeeded_from_1 = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                                          false, true, rescued_pairs, pair_distances, rescued_multiplicities);
+                                                                          false, true, rescued_pairs, pair_distances, rescued_multiplicities,
+                                                                          fanouts1, fanouts2);
             
             // move the rescued pairs to the output vectors
             if (rescue_succeeded_from_1) {
@@ -2082,7 +2108,8 @@ namespace vg {
             vector<pair<pair<size_t, size_t>, int64_t>> rescued_distances;
             vector<double> rescued_multiplicities;
             rescue_succeeded_from_2 = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                                          true, false, rescued_pairs, pair_distances, rescued_multiplicities);
+                                                                          true, false, rescued_pairs, pair_distances, rescued_multiplicities,
+                                                                          fanouts1, fanouts2);
             
             // move the rescued pairs to the output vectors
             if (rescue_succeeded_from_2) {
@@ -2468,6 +2495,21 @@ namespace vg {
                                                                hit_sampling_mapq));
         }
     }
+
+    MultipathMapper::match_fanouts_t MultipathMapper::record_fanouts(const vector<MaximalExactMatch>& mems,
+                                                                     vector<deque<pair<string::const_iterator, char>>>& fanouts) const {
+        
+        match_fanouts_t match_fanouts;
+        if (!fanouts.empty()) {
+            assert(fanouts.size() == mems.size());
+            for (size_t i = 0; i < mems.size(); ++i) {
+                if (!fanouts[i].empty()) {
+                    match_fanouts[&mems[i]] = move(fanouts[i]);
+                }
+            }
+        }
+        return match_fanouts;
+    }
     
     void MultipathMapper::split_multicomponent_alignments(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const {
@@ -2581,7 +2623,8 @@ namespace vg {
                                                        vector<clustergraph_t>& cluster_graphs2,
                                                        vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                        vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                                       vector<pair<size_t, size_t>>& duplicate_pairs_out) {
+                                                       vector<pair<size_t, size_t>>& duplicate_pairs_out,
+                                                       const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2) {
         
         assert(multipath_aln_pairs_out.empty());
         
@@ -2657,7 +2700,8 @@ namespace vg {
                 cerr << "performing alignment of read 1 to subgraph" << endl;
 #endif
                 
-                multipath_align(alignment1, graph1, graph_mems1, multipath_aln_pairs_out.back().first);
+                multipath_align(alignment1, graph1, graph_mems1, multipath_aln_pairs_out.back().first,
+                                fanouts1);
                 
                 // keep track of the fact that we have completed this multipath alignment
                 previous_multipath_alns_1[cluster_pair.first.first] = i;
@@ -2682,7 +2726,8 @@ namespace vg {
                 cerr << "performing alignment of read 2 to subgraph" << endl;
 #endif
                 
-                multipath_align(alignment2, graph2, graph_mems2, multipath_aln_pairs_out.back().second);
+                multipath_align(alignment2, graph2, graph_mems2, multipath_aln_pairs_out.back().second,
+                                fanouts2);
                 
                 // keep track of the fact that we have completed this multipath alignment
                 previous_multipath_alns_2[cluster_pair.first.second] = i;
@@ -2720,11 +2765,11 @@ namespace vg {
 #endif
             if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.first.sequence() << " failed to validate" << endl;
             }
             if (!validate_multipath_alignment(multipath_aln_pair.second, *xindex)) {
                 cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.second.sequence() << " failed to validate" << endl;
             }
         }
 #endif
@@ -2924,7 +2969,7 @@ namespace vg {
         unordered_map<size_t, pair<bdsg::HashGraph*, bool>> cluster_graphs;
         
         // to keep track of which clusters have been merged
-        UnionFind union_find(clusters.size());
+        UnionFind union_find(clusters.size(), false);
         
         // (for the suppressed merge code path)
         // maps the hits that make up a cluster to the index of the cluster
@@ -3236,7 +3281,8 @@ namespace vg {
     
     void MultipathMapper::multipath_align(const Alignment& alignment, const bdsg::HashGraph* graph,
                                           memcluster_t& graph_mems,
-                                          multipath_alignment_t& multipath_aln_out) const {
+                                          multipath_alignment_t& multipath_aln_out,
+                                          const match_fanouts_t* fanouts) const {
 
 #ifdef debug_multipath_mapper_alignment
         cerr << "constructing alignment graph" << endl;
@@ -3337,7 +3383,7 @@ namespace vg {
         });
 #endif
         
-        MultipathAlignmentGraph multi_aln_graph(*align_dag, graph_mems, translator, max_branch_trim_length, gcsa);
+        MultipathAlignmentGraph multi_aln_graph(*align_dag, graph_mems, translator, max_branch_trim_length, gcsa, fanouts);
         
         {
             // Compute a topological order over the graph

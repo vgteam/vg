@@ -50,6 +50,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "    -B, --label-paths           don't augment with alignments, just use them for labeling the graph" << endl
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
+         << "    -F, --gaf                   expect GAF instead of GAFM" << endl
          << "    -s, --subgraph              graph is a subgraph of the one used to create GAM. ignore alignments with missing nodes" << endl
          << "    -m, --min-coverage N        minimum coverage of a breakpoint required for it to be added to the graph" << endl
          << "    -c, --expected-cov N        expected coverage.  used only for memory tuning [default : 128]" << endl
@@ -114,6 +115,9 @@ int main_augment(int argc, char** argv) {
     // Maximum fraction of Ns
     double max_frac_n = 0.25;
 
+    // GAF format toggle
+    string aln_format = "GAM";
+
     // Print some progress messages to screen
     bool show_progress = false;
 
@@ -136,6 +140,7 @@ int main_augment(int argc, char** argv) {
         {"min-baseq", required_argument, 0, 'q'},
         {"min-mapq", required_argument, 0, 'Q'},
         {"max-n", required_argument, 0, 'N'},
+        {"gaf", no_argument, 0, 'F'},
         {"help", no_argument, 0, 'h'},
         {"progress", required_argument, 0, 'p'},
         {"verbose", no_argument, 0, 'v'},
@@ -145,7 +150,7 @@ int main_augment(int argc, char** argv) {
         {"include-gt", required_argument, 0, 'L'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "a:Z:A:iCSBhpvt:l:L:sm:c:q:Q:N:";
+    static const char* short_options = "a:Z:A:iCSBhpvt:l:L:sm:c:q:Q:N:F";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -193,6 +198,9 @@ int main_augment(int argc, char** argv) {
             break;
         case 'N':
             max_frac_n = parse<double>(optarg);
+            break;
+        case 'F':
+            aln_format = "GAF";
             break;
         case 'h':
         case '?':
