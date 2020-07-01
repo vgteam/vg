@@ -150,6 +150,9 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_SHORT_MEM_FILTER_FACTOR 1022
     #define OPT_NO_OUTPUT 1023
     #define OPT_STRIPPED_MATCH 1024
+    #define OPT_FAN_OUT_QUAL 1025
+    #define OPT_MAX_FANS_OUT 1026
+    #define OPT_FAN_OUT_DIFF 1027
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -197,8 +200,9 @@ int main_mpmap(int argc, char** argv) {
     int default_strip_count = 10;
     int stripped_match_alg_target_count = default_strip_count;
     bool use_fanout_match_alg = false;
-    int max_fanout_base_quality = 15;
-    int max_fans_out = 2;
+    int max_fanout_base_quality = 20;
+    int max_fans_out = 3;
+    int fanout_pruning_diff = 3;
     bool use_greedy_mem_restarts = true;
     // TODO: it would be best if these parameters responded to the size of the graph...
     int greedy_restart_min_length = 30;
@@ -339,6 +343,9 @@ int main_mpmap(int argc, char** argv) {
             {"no-greedy-restart", no_argument, 0, OPT_NO_GREEDY_MEM_RESTARTS},
             {"greedy-max-lcp", required_argument, 0, OPT_GREEDY_MEM_RESTART_MAX_LCP},
             {"filter-factor", required_argument, 0, OPT_SHORT_MEM_FILTER_FACTOR},
+            {"fan-out-qual", required_argument, 0, OPT_FAN_OUT_QUAL},
+            {"max-fans-out", required_argument, 0, OPT_MAX_FANS_OUT},
+            {"fan-out-diff", required_argument, 0, OPT_FAN_OUT_DIFF},
             {"hit-max", required_argument, 0, 'c'},
             {"hard-hit-mult", required_argument, 0, OPT_HARD_HIT_MAX_MULTIPLIER},
             {"approx-exp", required_argument, 0, OPT_APPROX_EXP},
@@ -614,6 +621,18 @@ int main_mpmap(int argc, char** argv) {
                 greedy_restart_max_lcp = parse<int>(optarg);
                 break;
                 
+            case OPT_MAX_FANS_OUT:
+                max_fans_out = parse<int>(optarg);
+                break;
+                
+            case OPT_FAN_OUT_QUAL:
+                max_fanout_base_quality = parse<int>(optarg);
+                break;
+                
+            case OPT_FAN_OUT_DIFF:
+                fanout_pruning_diff = parse<int>(optarg);
+                break;
+                
             case 'c':
                 hit_max_arg = parse<int>(optarg);
                 break;
@@ -780,7 +799,7 @@ int main_mpmap(int argc, char** argv) {
         // do less DP on tails (having a presumption that long tails with no seeds
         // will probably be soft-clipped)
         use_pessimistic_tail_alignment = true;
-        // quality scores express errors well for these reads and they slow down dozeu
+        // quality scores don't express errors well for these reads and they slow down dozeu
         qual_adjusted = false;
         // we generate many short MEMs that slow us down on high error reads, so we need
         // to filter them down to stay performant
@@ -1538,8 +1557,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.use_fanout_match_alg = use_fanout_match_alg;
     multipath_mapper.max_fanout_base_quality = max_fanout_base_quality;
     multipath_mapper.max_fans_out = max_fans_out;
-    // TODO: probably should do this without magic constants
-    multipath_mapper.fanout_length_threshold = ceil(log(path_position_handle_graph->get_total_length()) / log(4.0) + 2.0);
+    multipath_mapper.fanout_length_threshold = int(ceil(log(path_position_handle_graph->get_total_length()) / log(4.0))) + fanout_pruning_diff;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
     multipath_mapper.use_approx_sub_mem_count = false;
