@@ -168,17 +168,30 @@ protected:
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
-        size_t agglomeration_length; // What is the regioin of consecutive windows this minimizer instance is minimal in?
+        size_t agglomeration_length; // What is the region of consecutive windows this minimizer instance is minimal in?
         size_t hits; // How many hits does the minimizer have?
         const gbwtgraph::hit_type* occs;
         size_t origin; // This minimizer came from minimizer_indexes[origin].
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
 
         // Sort the minimizers in descending order by score.
-        bool operator< (const Minimizer& another) const {
+        inline bool operator< (const Minimizer& another) const {
             return (this->score > another.score);
         }
     };
+    
+    /// Get the starting position of the given minimizer on the forward strand.
+    /// Use this instead of minimizervalue.offset which can really be the last base for reverse strand minimizers.
+    /// Needs access to the minimizer indexes to get the length for strand conversion.
+    inline size_t forward_offset(const Minimizer& minimizer) const {
+        if (minimizer.value.is_reverse) {
+            // We have the position of the last base and we need the position of the first base.
+            return minimizer.value.offset - (minimizer_indexes[minimizer.origin]->k() - 1);
+        } else {
+            // We already have the position of the first base.
+            return minimizer.value.offset;
+        }
+    }
 
     /// The information we store for each seed.
     typedef SnarlSeedClusterer::Seed Seed;

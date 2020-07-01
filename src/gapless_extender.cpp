@@ -287,7 +287,7 @@ void handle_full_length(const HandleGraph& graph, std::vector<GaplessExtension>&
             if (result[i] == result.front()) {
                 continue; // Duplicate.
             }
-            if (result[i].overlap(graph, result.front()) < overlap_threshold * result.front().length()) {
+            if (result[i].overlap(graph, result.front()) <= overlap_threshold * result.front().length()) {
                 if (i > tail) {
                     result[tail] = std::move(result[i]);
                 }
