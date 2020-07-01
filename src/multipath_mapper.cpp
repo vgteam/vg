@@ -175,46 +175,69 @@ namespace vg {
         }
         avg_mem_overlap /= (mems.size() - 1);
         
+        vector<size_t> hit_lengths;
+        for (const auto& mem : mems) {
+            for (const auto& n : mem.nodes) {
+                hit_lengths.push_back(mem.length());
+            }
+        }
+        sort(hit_lengths.begin(), hit_lengths.end(), std::greater<size_t>());
+        
         size_t num_clusters = clusters.size();
-        size_t winning_cluster_num_mems = clusters[cluster_idxs.front()].size();
+        vector<size_t> winning_lengths;
+        size_t winning_cluster_num_mems = clusters.empty() ? 0 : clusters[cluster_idxs.front()].size();
         size_t winning_cluster_total_bases = 0;
         size_t winning_cluster_min_mem_length = numeric_limits<size_t>::max();
         size_t winning_cluster_max_mem_length = 0;
-        for (const auto& hit : clusters[cluster_idxs.front()]) {
-            winning_cluster_min_mem_length = min<size_t>(winning_cluster_min_mem_length, hit.first->length());
-            winning_cluster_max_mem_length = max<size_t>(winning_cluster_max_mem_length, hit.first->length());
-            winning_cluster_total_bases += hit.first->length();
-        }
-        vector<size_t> order;
-        for (size_t i = 0; i < clusters[cluster_idxs.front()].size(); ++i) {
-            order.push_back(i);
-        }
-        sort(order.begin(), order.end(), [&](size_t i, size_t j) {
-            return clusters[cluster_idxs.front()][i].first->begin < clusters[cluster_idxs.front()][j].first->begin;
-        });
-        
-        size_t winning_cluster_tail_bases = ((clusters[cluster_idxs.front()][order.front()].first->begin - alignment.sequence().begin())
-                                             + (alignment.sequence().end() - clusters[cluster_idxs.front()][order.back()].first->end));
-        
+        size_t winning_cluster_tail_bases = 0;
         double winning_cluster_avg_intermem_gap = 0.0;
-        if (clusters[cluster_idxs.front()].size() == 0) {
-            winning_cluster_avg_intermem_gap = numeric_limits<double>::quiet_NaN();
-        }
-        else {
-            for (size_t i = 1; i < order.size(); ++i) {
-                winning_cluster_avg_intermem_gap += (clusters[cluster_idxs.front()][order[i]].first->begin
-                                                     - clusters[cluster_idxs.front()][order[i - 1]].first->end);
+        vector<size_t> order;
+        if (!clusters.empty()) {
+            for (const auto& hit : clusters[cluster_idxs.front()]) {
+                winning_cluster_min_mem_length = min<size_t>(winning_cluster_min_mem_length, hit.first->length());
+                winning_cluster_max_mem_length = max<size_t>(winning_cluster_max_mem_length, hit.first->length());
+                winning_cluster_total_bases += hit.first->length();
             }
-            winning_cluster_avg_intermem_gap /= order.size() - 1;
+            for (size_t i = 0; i < clusters[cluster_idxs.front()].size(); ++i) {
+                order.push_back(i);
+                winning_lengths.push_back(clusters[cluster_idxs.front()][i].first->length());
+            }
+            sort(order.begin(), order.end(), [&](size_t i, size_t j) {
+                return clusters[cluster_idxs.front()][i].first->begin < clusters[cluster_idxs.front()][j].first->begin;
+            });
+            sort(winning_lengths.begin(), winning_lengths.end(), std::greater<size_t>());
+            
+            winning_cluster_tail_bases = ((clusters[cluster_idxs.front()][order.front()].first->begin - alignment.sequence().begin())
+                                          + (alignment.sequence().end() - clusters[cluster_idxs.front()][order.back()].first->end));
+            if (clusters[cluster_idxs.front()].size() == 0) {
+                winning_cluster_avg_intermem_gap = numeric_limits<double>::quiet_NaN();
+            }
+            else {
+                for (size_t i = 1; i < order.size(); ++i) {
+                    winning_cluster_avg_intermem_gap += (clusters[cluster_idxs.front()][order[i]].first->begin
+                                                         - clusters[cluster_idxs.front()][order[i - 1]].first->end);
+                }
+                winning_cluster_avg_intermem_gap /= order.size() - 1;
+            }
         }
+        
+        vector<size_t> secondary_lengths;
+        if (cluster_idxs.size() > 1) {
+            for (const auto& hit : clusters.at(cluster_idxs[1])) {
+                secondary_lengths.push_back(hit.first->length());
+            }
+        }
+        sort(secondary_lengths.begin(), secondary_lengths.end(), greater<size_t>());
         
         int64_t max_non_winning_mem_length = 0;
         for (size_t i = 0; i < mems.size(); ++i) {
             bool found = false;
-            for (const auto hit : clusters[cluster_idxs.front()]) {
-                if (hit.first == &mems[i]) {
-                    found = true;
-                    break;
+            if (!clusters.empty()) {
+                for (const auto hit : clusters[cluster_idxs.front()]) {
+                    if (hit.first == &mems[i]) {
+                        found = true;
+                        break;
+                    }
                 }
             }
             if (!found) {
@@ -225,10 +248,37 @@ namespace vg {
 #pragma omp critical
         {
             if (!_wrote_mem_stats_header) {
-                _mem_stats << "name\tread_len\tnum_mems\tmin_mem_length\tmax_mem_length\tavg_mem_length\tavg_mem_overlap\tnum_clusters\twinning_cluster_num_mems\twinning_cluster_min_mem_length\twinning_cluster_max_mem_length\twinning_cluster_total_bases\twinning_cluster_tail_bases\twinning_cluster_avg_intermem_gap\tmax_non_winning_mem_length" << endl;
+                _mem_stats << "name\tread_len\tnum_mems\tmin_mem_length\tmax_mem_length\tavg_mem_length\tavg_mem_overlap\tnum_clusters\twinning_cluster_num_mems\twinning_cluster_min_mem_length\twinning_cluster_max_mem_length\twinning_cluster_total_bases\twinning_cluster_tail_bases\twinning_cluster_avg_intermem_gap\tmax_non_winning_mem_length\tmapping_quality\thit_lengths\twinning_lengths\tsecondary_lengths" << endl;
                 _wrote_mem_stats_header = true;
             }
-            _mem_stats << alignment.name() << "\t" << alignment.sequence().size() << "\t" << num_mems << "\t" << min_mem_length << "\t" << max_mem_length << "\t" << avg_mem_length << "\t" << avg_mem_overlap << "\t" << num_clusters << "\t" << winning_cluster_num_mems << "\t" << winning_cluster_min_mem_length << "\t" << winning_cluster_max_mem_length << "\t" << winning_cluster_total_bases << "\t" << winning_cluster_tail_bases << "\t" << winning_cluster_avg_intermem_gap << "\t" << max_non_winning_mem_length << endl;
+            _mem_stats << alignment.name() << "\t" << alignment.sequence().size() << "\t" << num_mems << "\t" << min_mem_length << "\t" << max_mem_length << "\t" << avg_mem_length << "\t" << avg_mem_overlap << "\t" << num_clusters << "\t" << winning_cluster_num_mems << "\t" << winning_cluster_min_mem_length << "\t" << winning_cluster_max_mem_length << "\t" << winning_cluster_total_bases << "\t" << winning_cluster_tail_bases << "\t" << winning_cluster_avg_intermem_gap << "\t" << max_non_winning_mem_length << "\t" << multipath_alns_out.front().mapping_quality();
+            _mem_stats << "\t";
+            for (size_t i = 0; i < hit_lengths.size(); ++i) {
+                if (i > 0) {
+                    _mem_stats << ",";
+                }
+                _mem_stats << hit_lengths[i];
+            }
+            _mem_stats << "\t";
+            for (size_t i = 0; i < winning_lengths.size(); ++i) {
+                if (i > 0) {
+                    _mem_stats << ",";
+                }
+                _mem_stats << winning_lengths[i];
+            }
+            _mem_stats << "\t";
+            if (secondary_lengths.empty()) {
+                _mem_stats << "NA";
+            }
+            else {
+                for (size_t i = 0; i < secondary_lengths.size(); ++i) {
+                    if (i > 0) {
+                        _mem_stats << ",";
+                    }
+                    _mem_stats << secondary_lengths[i];
+                }
+            }
+            _mem_stats << endl;
         }
 #endif
     }

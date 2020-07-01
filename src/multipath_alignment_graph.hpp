@@ -244,6 +244,8 @@ namespace vg {
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks);
         
+        
+        
         /// Identifies runs of exact matches that are sub-maximal because they hit the order of the GCSA
         /// index and merges them into a single node, assumes that match nodes are sorted by length and
         /// then lexicographically by read interval, does not update edges
