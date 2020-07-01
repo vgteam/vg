@@ -10,7 +10,7 @@
 #include "dozeu_interface.hpp"
 
 #include "algorithms/topological_sort.hpp"
-
+ 
 // Configure dozeu:
 // We want the full length bonus included
 #ifndef DZ_FULL_LENGTH_BONUS
@@ -29,8 +29,8 @@ enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 
 
 // To turn on debugging:
-#define DEBUG
-#define DZ_PRINT_VECTOR
+//#define DEBUG
+//#define DZ_PRINT_VECTOR
 
 #include <dozeu/dozeu.h>
 

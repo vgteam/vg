@@ -21,9 +21,9 @@ enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 #endif
 
 // To turn on debugging:
-#define DEBUG
-#define DZ_PRINT_VECTOR
-
+//#define DEBUG
+//#define DZ_PRINT_VECTOR
+ 
 #include <dozeu/dozeu.h>
 
 using namespace vg;

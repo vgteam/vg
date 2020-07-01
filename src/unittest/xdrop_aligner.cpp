@@ -657,7 +657,7 @@ TEST_CASE("XdropAligner doesn't crash on a case where it is hard to find a seed"
     aligner.align_xdrop(aln, graph, vector<MaximalExactMatch>(), false);
 }
 
-TEST_CASE("XdropAligner pinned alignment doesn't crash on a difficult example",
+TEST_CASE("XdropAligner pinned alignment doesn't crash on an example that revealed a bug",
           "[xdrop][alignment][mapping][pinned][newxdrop]") {
     
     bdsg::HashGraph graph;
