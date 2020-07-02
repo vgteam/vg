@@ -14,11 +14,13 @@
 namespace vg {
 namespace unittest {
 
-// We define a child class to expose all the protected stuff for testing
+// We define a child class to expose protected stuff for testing
 class TestMinimizerMapper : public MinimizerMapper {
 public:
     using MinimizerMapper::MinimizerMapper;
     using MinimizerMapper::score_extension_group;
+    using MinimizerMapper::window_breaking_quality;
+    using MinimizerMapper::Minimizer;
 };
 
 TEST_CASE("MinimizerMapper::score_extension_group works", "[giraffe][mapping]") {

@@ -27,32 +27,15 @@ namespace vg {
 
 using namespace std;
 
-constexpr size_t MinimizerMapper::PRECISION;
-
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes,
     MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_indexes(minimizer_indexes),
     distance_index(distance_index), gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index),
-    fragment_length_distr(1000,1000,0.95),
-    phred_at_least_one() {
+    fragment_length_distr(1000,1000,0.95) {
 
-    // Initialize phred_at_least_one.
-    size_t max_k = 0, values = static_cast<size_t>(1) << PRECISION;
-    for (size_t i = 0; i < this->minimizer_indexes.size(); i++) {
-        max_k = std::max(max_k, this->minimizer_indexes[i]->k());
-    }
-    this->phred_at_least_one.resize((max_k + 1) * values, 0.0);
-    for (size_t n = 1; n <= max_k; n++) {
-        for (size_t p = 0; p < values; p++) {
-            // Because each p represents a range of probabilities, we choose a value
-            // in the middle for the approximation.
-            double probability = (2 * p + 1) / (2.0 * values);
-            // Phred for at least one out of n.
-            this->phred_at_least_one[(n << PRECISION) + p] = prob_to_phred(1.0 - std::pow(1.0 - probability, n));
-        }
-    }
+   
 }
 
 //-----------------------------------------------------------------------------
@@ -1826,7 +1809,7 @@ double MinimizerMapper::compute_mapq_caps(const Alignment& aln,
 }
 
 double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
-    const string& sequence, const string& quality_bytes) const {
+    const string& sequence, const string& quality_bytes) {
     
 #ifdef debug
     cerr << "Computing MAPQ cap based on " << broken.size() << "/" << minimizers.size() << " minimizers' windows" << endl;
@@ -1905,18 +1888,17 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
             auto& minimizer = minimizers[*next_agglomeration];
             
             // Determine its window size from its index.
-            auto& source_index = *minimizer_indexes[minimizer.origin];
-            size_t window_size = source_index.k() + source_index.w() - 1;
+            size_t window_size = minimizer.length + minimizer.index_windows - 1;
             
 #ifdef debug
             cerr << "\tBegin agglomeration of " << (minimizer.agglomeration_length - window_size + 1)
                 << " windows of " << window_size << " bp each for minimizer "
-                << *next_agglomeration << " (" << forward_offset(minimizer)
-                << "-" << (forward_offset(minimizer) + source_index.k()) << ")" << endl;
+                << *next_agglomeration << " (" << minimizer.forward_offset()
+                << "-" << (minimizer.forward_offset() + minimizer.length) << ")" << endl;
 #endif
 
             // Make sure the minimizer instance isn't too far into the agglomeration to actually be conatined in the same k+w-1 window as the first base.
-            assert(minimizer.agglomeration_start + source_index.w() >= forward_offset(minimizer));
+            assert(minimizer.agglomeration_start + minimizer.index_windows >= minimizer.forward_offset());
 
             for (size_t start = minimizer.agglomeration_start;
                 start + window_size - 1 < minimizer.agglomeration_start + minimizer.agglomeration_length;
@@ -1962,16 +1944,13 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 // Find the minimizer whose agglomeration we are looking at
                 auto& active = minimizers[active_index];
 
-                // Find its index
-                auto& source_index = *minimizer_indexes[active.origin];
-
-                if (i >= forward_offset(active) &&
-                    i < forward_offset(active) + source_index.k()) {
+                if (i >= active.forward_offset() &&
+                    i < active.forward_offset() + active.length) {
                     // If the base falls in the minimizer, we don't do anything. Just mutating the base is enough to create this wrong minimizer.
                     
 #ifdef debug
-                    cerr << "\t\tBase in minimizer " << active_index << " (" << forward_offset(active)
-                        << "-" << (forward_offset(active) + source_index.k()) << ") for agglomeration "
+                    cerr << "\t\tBase in minimizer " << active_index << " (" << active.forward_offset()
+                        << "-" << (active.forward_offset() + active.length) << ") for agglomeration "
                         << active.agglomeration_start << "-" << (active.agglomeration_start + active.agglomeration_length) << endl;
 #endif
                     
@@ -1981,17 +1960,17 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 // If the base falls outside the minimizer, it participates in
                 // some number of other possible minimizers in the
                 // agglomeration. Compute that, accounting for edge effects.
-                size_t possible_minimizers = min(source_index.k(), min(i - active.agglomeration_start + 1, (active.agglomeration_start + active.agglomeration_length) - i));
+                size_t possible_minimizers = min((size_t) active.length, min(i - active.agglomeration_start + 1, (active.agglomeration_start + active.agglomeration_length) - i));
 
                 // Then for each of those possible minimizers, we need P(would have beaten the current minimizer).
                 // We approximate this as constant across the possible minimizers.
                 // And since we want to OR together beating, we actually AND together not-beating and then not it.
                 // So we track the probability of not beating.
-                double any_beat_phred = this->phred_for_at_least_one(active.value.hash, possible_minimizers);
+                double any_beat_phred = phred_for_at_least_one(active.value.hash, possible_minimizers);
 
 #ifdef debug
-                cerr << "\t\tBase flanks minimizer " << active_index << " (" << forward_offset(active)
-                    << "-" << (forward_offset(active) + source_index.k()) << ") for agglomeration "
+                cerr << "\t\tBase flanks minimizer " << active_index << " (" << active.forward_offset()
+                    << "-" << (active.forward_offset() + active.length) << ") for agglomeration "
                     << active.agglomeration_start << "-" << (active.agglomeration_start + active.agglomeration_length) 
                     << " and has " << possible_minimizers
                     << " chances to have beaten it; cost to have beaten with any is Phred " << any_beat_phred << endl;
@@ -2286,12 +2265,6 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
 }
 
-
-double MinimizerMapper::phred_for_at_least_one(size_t p, size_t n) const {
-    p >>= 8 * sizeof(size_t) - PRECISION;
-    return this->phred_at_least_one[(n << PRECISION) + p];
-}
-
 void MinimizerMapper::extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const {
     *(alignment.mutable_path()) = extension.to_path(this->gbwt_graph, alignment.sequence());
     alignment.set_score(extension.score);
@@ -2328,7 +2301,8 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
                     score = 1.0;
                 }
             }
-            result.push_back({ std::get<0>(m), std::get<1>(m), std::get<2>(m), hits.first, hits.second, i, score });
+            result.push_back({ std::get<0>(m), std::get<1>(m), std::get<2>(m), hits.first, hits.second,
+                               (int32_t) minimizer_indexes[i]->k(), (int32_t) minimizer_indexes[i]->w(), score });
         }
     }
     std::sort(result.begin(), result.end());
@@ -2381,7 +2355,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         const Minimizer& minimizer = minimizers[i];
 
 #ifdef debug
-        std::cerr << "Minimizer " << i << " = " << minimizer.value.key.decode(this->minimizer_indexes[minimizer.origin]->k())
+        std::cerr << "Minimizer " << i << " = " << minimizer.value.key.decode(minimizer.length)
              << " has " << minimizer.hits << " hits" << std::endl;
 #endif
 
@@ -2522,8 +2496,8 @@ void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const std::vecto
             cluster.score += minimizer.score;
 
             // The offset of a reverse minimizer is the endpoint of the kmer
-            size_t start_offset = forward_offset(minimizer);
-            size_t k = this->minimizer_indexes[minimizer.origin]->k();
+            size_t start_offset = minimizer.forward_offset();
+            size_t k = minimizer.length;
 
             // Set the k bits starting at start_offset.
             covered.set_int(start_offset, sdsl::bits::lo_set[k], k);
