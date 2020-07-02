@@ -658,7 +658,7 @@ TEST_CASE("XdropAligner doesn't crash on a case where it is hard to find a seed"
 }
 
 TEST_CASE("XdropAligner pinned alignment doesn't crash on an example that revealed a bug",
-          "[xdrop][alignment][mapping][pinned][newxdrop]") {
+          "[xdrop][alignment][mapping][pinned]") {
     
     bdsg::HashGraph graph;
     
