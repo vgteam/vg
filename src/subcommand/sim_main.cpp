@@ -648,8 +648,8 @@ int main_sim(int argc, char** argv) {
                              unsheared_fragments,
                              seed_val);
         
-        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", json_out ? "JSON" : "GAM",
-                                                                               map<string, int64_t>(), get_thread_count());
+        unique_ptr<AlignmentEmitter> alignment_emitter = get_non_hts_alignment_emitter("-", json_out ? "JSON" : "GAM",
+                                                                                       map<string, int64_t>(), get_thread_count());
         
 #pragma omp parallel for
         for (size_t i = 0; i < num_reads; i++) {

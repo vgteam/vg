@@ -714,7 +714,7 @@ int ReadFilter::filter(istream* alignment_stream) {
     unique_ptr<AlignmentEmitter> emitter;
     
     if (write_output) {
-        emitter = get_alignment_emitter("-", "GAM",  map<string, int64_t>(), get_thread_count());
+        emitter = get_non_hts_alignment_emitter("-", "GAM",  map<string, int64_t>(), get_thread_count());
     }
 
     // keep counts of what's filtered to report (in verbose mode)

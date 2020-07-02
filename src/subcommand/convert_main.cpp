@@ -136,8 +136,8 @@ int main_convert(int argc, char** argv) {
             input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
         });
 
-        unique_ptr<AlignmentEmitter> emitter = get_alignment_emitter("-", gam_to_gaf ? "GAF" : "GAM", {}, get_thread_count(),
-                                                                     input_graph.get());
+        unique_ptr<AlignmentEmitter> emitter = get_non_hts_alignment_emitter("-", gam_to_gaf ? "GAF" : "GAM", {}, get_thread_count(),
+                                                                             input_graph.get());
         std::function<void(Alignment&)> lambda = [&] (Alignment& aln) {
             emitter->emit_singles({aln});
         };                
