@@ -486,6 +486,9 @@ double phred_for_at_least_one(size_t p, size_t n) {
         return to_return;
     }());
     
+    // Make sure we don't go out of bounds.
+    assert(n <= MAX_AT_LEAST_ONE_EVENTS);
+    
     p >>= 8 * sizeof(size_t) - AT_LEAST_ONE_PRECISION;
     return phred_at_least_one[(n << AT_LEAST_ONE_PRECISION) + p];
 }

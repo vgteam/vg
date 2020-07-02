@@ -158,6 +158,19 @@ TEST_CASE("MinimizerMapper::score_extension_group works", "[giraffe][mapping]") 
     }
 }
 
+TEST_CASE("MinimizerMapper::window_breaking_quality works", "[giraffe][mapping]") {
+
+    Alignment aln;
+    aln.set_sequence("AAAAAAAAAA");
+    aln.set_quality(std::string(10, (char)30));
+    vector<TestMinimizerMapper::Minimizer> minimizers;
+    vector<size_t> to_break;
+    
+    SECTION("Cap of no minimizers is inf") {
+        double cap = TestMinimizerMapper::window_breaking_quality(minimizers, to_break, aln.sequence(), aln.quality());
+        REQUIRE(cap == numeric_limits<double>::infinity());
+    }
+}
 
 }
 
