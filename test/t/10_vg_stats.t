@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 11
+plan tests 17
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -51,3 +51,16 @@ printf "P\talt1.1\t1+,2+,4+,6+,8+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1
 vg view -Fv tiny_names.gfa > tiny_names.vg 
 is $(vg stats -O tiny_names.vg | wc -l) 113 "a path overlap description of a test graph has the expected length"
 rm -f tiny_names.gfa tiny_names.vg
+
+is "$(vg stats -F graphs/atgc.vg)" "format: VG-Protobuf" "vg stats -F detects format of old protobuf graph"
+vg convert graphs/atgc.vg -v > atgc.vg
+is "$(vg stats -F atgc.vg)" "format: VG-Protobuf" "vg stats -F detects format of newer protobuf graph"
+vg convert graphs/atgc.vg -a > atgc.hg
+is "$(vg stats -F atgc.hg)" "format: HashGraph" "vg stats -F detects format of hash graph"
+vg convert graphs/atgc.vg -p > atgc.pg
+is "$(vg stats -F atgc.pg)" "format: PackedGraph" "vg stats -F detects format of packed graph"
+vg convert graphs/atgc.vg -o > atgc.og
+is "$(vg stats -F atgc.og)" "format: ODGI" "vg stats -F detects format of odgi graph"
+vg index graphs/atgc.vg -x atgc.xg
+is "$(vg stats -F atgc.xg)" "format: XG" "vg stats -F detects format of xg graph"
+rm -f  atgc.vg atgc.hg atgc.pg atgc.og atgc.xg
