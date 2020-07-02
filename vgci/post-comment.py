@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # post-comment.py: post standard input as a Github comment
 
 """
@@ -85,7 +85,7 @@ def main(args):
     
     # Report that it worked.
     # Need to use html_url for user reporting because url is just JSON.
-    print("Created comment: {}".format(comment.html_url))
+    print(("Created comment: {}".format(comment.html_url)))
     
     return 0
     
