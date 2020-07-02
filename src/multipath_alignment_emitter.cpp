@@ -10,23 +10,27 @@
 namespace vg {
 using namespace std;
 
-MultipathAlignmentEmitter::MultipathAlignmentEmitter(ostream& out, int num_threads,
-                                                     bool emit_single_path) :
+MultipathAlignmentEmitter::MultipathAlignmentEmitter(ostream& out, int num_threads, const HandleGraph& graph, const string out_format) :
     out(out),
+    graph(graph),
     multiplexer(out, num_threads)
 {
     // init the emitters for the correct output type
-    if (emit_single_path) {
+    if (out_format == "gam" ) {
         aln_emitters.reserve(num_threads);
         for (int i = 0; i < num_threads; ++i) {
             aln_emitters.emplace_back(new vg::io::ProtobufEmitter<Alignment>(multiplexer.get_thread_stream(i)));
         }
     }
-    else {
+    else if (out_format == "gamp") {
         mp_aln_emitters.reserve(num_threads);
         for (int i = 0; i < num_threads; ++i) {
             mp_aln_emitters.emplace_back(new vg::io::ProtobufEmitter<MultipathAlignment>(multiplexer.get_thread_stream(i)));
         }
+    }
+    else if (out_format != "gaf") {
+        cerr << "error:[MultipathAlignmentEmitter] unrecognized output format " << out_format << endl;
+        exit(1);
     }
 }
 
@@ -112,14 +116,21 @@ void MultipathAlignmentEmitter::emit_pairs(const string& name_1, const string& n
             }
         }
         
-        aln_emitters[thread_number]->write_many(std::move(alns_out));
-        
-        if (multiplexer.want_breakpoint(thread_number)) {
-            // The multiplexer wants our data.
-            // Flush and create a breakpoint.
-            aln_emitters[thread_number]->flush();
-            multiplexer.register_breakpoint(thread_number);
+        if (!aln_emitters.empty()) {
+            aln_emitters[thread_number]->write_many(std::move(alns_out));
+            
+            if (multiplexer.want_breakpoint(thread_number)) {
+                // The multiplexer wants our data.
+                // Flush and create a breakpoint.
+                aln_emitters[thread_number]->flush();
+            }
         }
+        else {
+            for (auto& aln : alns_out) {
+                multiplexer.get_thread_stream(thread_number) << alignment_to_gaf(graph, aln) << endl;
+            }
+        }
+        multiplexer.register_breakpoint(thread_number);
     }
 }
 
@@ -164,13 +175,19 @@ void MultipathAlignmentEmitter::emit_singles(const string& name, vector<multipat
             }
         }
         
-        aln_emitters[thread_number]->write_many(std::move(alns_out));
-        
-        if (multiplexer.want_breakpoint(thread_number)) {
-            // The multiplexer wants our data.
-            // Flush and create a breakpoint.
-            aln_emitters[thread_number]->flush();
-            multiplexer.register_breakpoint(thread_number);
+        if (!aln_emitters.empty()) {
+            aln_emitters[thread_number]->write_many(std::move(alns_out));
+            
+            if (multiplexer.want_breakpoint(thread_number)) {
+                // The multiplexer wants our data.
+                // Flush and create a breakpoint.
+                aln_emitters[thread_number]->flush();
+            }
+        }
+        else {
+            for (auto& aln : alns_out) {
+                multiplexer.get_thread_stream(thread_number) << alignment_to_gaf(graph, aln) << endl;
+            }
         }
     }
 }

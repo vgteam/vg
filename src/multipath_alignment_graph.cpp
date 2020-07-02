@@ -1629,7 +1629,6 @@ namespace vg {
                                                           size_t min_anchor_length, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
                                                           double pessimistic_tail_gap_multiplier) {
     
-        
         // Align the tails, not collecting a set of source subpaths.
         // TODO: factor of 1/2 is arbitray, but i do think it should be fewer than the max
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max<size_t>(1, max_alt_alns / 2),
@@ -3637,7 +3636,7 @@ namespace vg {
                                                                                                dest_pos,          // beginning of later match
                                                                                                false,             // do not bother finding all cycles (it's a DAG)
                                                                                                true,              // only include nodes on connecting paths
-                                                                                               true);             // enforce max distance strictly
+                                                                                               false);            // do not enforce max distance
                 
                 
                 if (connecting_graph.get_node_count() == 0) {
@@ -3906,7 +3905,7 @@ namespace vg {
         cerr << "doing tail alignments to:" << endl;
         to_dot(cerr);
 #endif
-        
+                
         // Make a structure to populate
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>> to_return;
         auto& left_alignments = to_return[false];
@@ -3988,11 +3987,17 @@ namespace vg {
                         // align against the graph
                         auto& alt_alignments = right_alignments[j];
                         if (num_alt_alns == 1) {
+#ifdef debug_multipath_alignment
+                            cerr << "align right with dozeu with gap " << gap << endl;
+#endif
                             // we can speed things up by using the dozeu pinned alignment
                             alt_alignments.emplace_back(move(right_tail_sequence));
-                            aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, target_length);
+                            aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
                         }
                         else {
+#ifdef debug_multipath_alignment
+                            cerr << "align right with gssw" << endl;
+#endif
                             aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
                         }
                         
@@ -4095,11 +4100,17 @@ namespace vg {
                         // align against the graph
                         auto& alt_alignments = left_alignments[j];
                         if (num_alt_alns == 1) {
+#ifdef debug_multipath_alignment
+                            cerr << "align left with dozeu using gap " << gap << endl;
+#endif
                             // we can speed things up by using the dozeu pinned alignment
                             alt_alignments.emplace_back(move(left_tail_sequence));
-                            aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, target_length);
+                            aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, gap);
                         }
                         else {
+#ifdef debug_multipath_alignment
+                            cerr << "align left with gssw" << endl;
+#endif
                             aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                         }
                         

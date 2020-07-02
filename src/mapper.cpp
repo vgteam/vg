@@ -1241,6 +1241,17 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         }
     }
     
+    // determine the shortest length
+    size_t min_mem_query_length = 0;
+    if (filter_short_mems) {
+        // we will filter out MEMs that are short relative to the longest MEMs
+        size_t max_mem_length = 0;
+        for (const auto& mem : mems) {
+            max_mem_length = max<size_t>(max_mem_length, mem.length());
+        }
+        min_mem_query_length = max_mem_length * short_mem_filter_factor;
+    }
+    
     // query the locations of the hits
     // note: iterate in reverse so we remove the parent count from the children MEMs before decrementing
     // the parent count itself
@@ -1255,7 +1266,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             }
         }
         
-        if (mem.match_count > 0) {
+        if (mem.match_count > 0 && mem.length() >= min_mem_query_length) {
             if (!hard_hit_max || mem.match_count < hard_hit_max) {
                 if (hit_max) {
                     gcsa->locate(mem.range, hit_max, mem.nodes);
@@ -1263,15 +1274,13 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 } else {
                     gcsa->locate(mem.range, mem.nodes);
                 }
+                // keep track of the initial number of hits we query in case the nodes vector is
+                // modified later (e.g. by prefiltering)
+                mem.queried_count = mem.nodes.size();
             }
-            
-            // keep track of the initial number of hits we query in case the nodes vector is
-            // modified later (e.g. by prefiltering)
-            mem.queried_count = mem.nodes.size();
-            
-            filtered_mems += mem.match_count - mem.nodes.size();
-            total_mems += mem.nodes.size();
         }
+        filtered_mems += mem.match_count - mem.nodes.size();
+        total_mems += mem.nodes.size();
 #ifdef debug_mapper
         cerr << "MEM " << mem.sequence() << " has " << mem.match_count << " hits: ";
         for (auto nt : mem.nodes) {
@@ -5233,7 +5242,7 @@ double FragmentLengthDistribution::mean() const {
     return mu;
 }
 
-double FragmentLengthDistribution::stdev() const {
+double FragmentLengthDistribution::std_dev() const {
     return sigma;
 }
 

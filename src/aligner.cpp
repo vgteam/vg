@@ -1209,6 +1209,9 @@ void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_
         // thread-safety by having one per thread, which makes this method const-ish.
         XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
         
+        // dozeu declines to produce an alignment when the gap is set to 0
+        xdrop_max_gap_length = max<uint16_t>(xdrop_max_gap_length, 1);
+        
         // wrap the graph so that empty pinning points are handled correctly
         DozeuPinningOverlay overlay(&g, !pin_left);
         
@@ -1790,6 +1793,9 @@ void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bo
         // for every alignment, which meshes poorly with its stack implementation. We achieve
         // thread-safety by having one per thread, which makes this method const-ish.
         QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
+        
+        // dozeu declines to produce an alignment when the gap is set to 0
+        xdrop_max_gap_length = max<uint16_t>(xdrop_max_gap_length, 1);
         
         // wrap the graph so that empty pinning points are handled correctly
         DozeuPinningOverlay overlay(&g, !pin_left);

@@ -156,7 +156,7 @@ public:
     bool fragment_distr_is_finalized () {return fragment_length_distr.is_finalized();}
     void finalize_fragment_length_distr() {
         if (!fragment_length_distr.is_finalized()) {
-            fragment_length_distr.force_parameters(fragment_length_distr.mean(), fragment_length_distr.stdev());
+            fragment_length_distr.force_parameters(fragment_length_distr.mean(), fragment_length_distr.std_dev());
         } 
     }
 

@@ -276,7 +276,6 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         multipath_alignment_t out;
         
         SECTION("Tries multiple traversals of snarls in tails") {
-        
             // Generate 2 fake tail anchors
             mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false, 100, 0.0);
             
