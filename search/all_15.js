@@ -64,6 +64,7 @@ var searchData=
   ['use_5finternal_5fconnectivity',['use_internal_connectivity',['../classvg_1_1NetGraph.html#a57dedbbe009595f748dc3c4deae2dc72',1,'vg::NetGraph']]],
   ['use_5fmapq',['use_mapq',['../classvg_1_1Genotyper.html#a5991ce66cc2a9ea45bd27d288dd7d9b8',1,'vg::Genotyper::use_mapq()'],['../classvg_1_1PoissonSupportSnarlCaller.html#a0588ea9ea69bf3c4c3f9108549e6102b',1,'vg::PoissonSupportSnarlCaller::use_mapq()']]],
   ['use_5fmin_5fdist_5fclusterer',['use_min_dist_clusterer',['../classvg_1_1MultipathMapper.html#aed5898444e134f0fb95ae527d215e88f',1,'vg::MultipathMapper']]],
+  ['use_5fpessimistic_5ftail_5falignment',['use_pessimistic_tail_alignment',['../classvg_1_1MultipathMapper.html#a552098fc2ac26aa17929d31f7a0f1ecd',1,'vg::MultipathMapper']]],
   ['use_5fpopulation_5fmapqs',['use_population_mapqs',['../classvg_1_1MultipathMapper.html#aaaecbb0881e444042662a72907442fc1',1,'vg::MultipathMapper']]],
   ['use_5freference_5fpaths',['use_reference_paths',['../classvg_1_1Transcriptome.html#a37911193a8091c07833776946f9994ad',1,'vg::Transcriptome']]],
   ['use_5fstripped_5fmatch_5falg',['use_stripped_match_alg',['../classvg_1_1MultipathMapper.html#ac9ea306291983b4c10ff1ec97b6d1adc',1,'vg::MultipathMapper']]],

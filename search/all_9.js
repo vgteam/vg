@@ -200,6 +200,7 @@ var searchData=
   ['is_5fvalid',['is_valid',['../classvg_1_1Sampler.html#a6f979036816c6f3657c98193b9b1e22d',1,'vg::Sampler::is_valid()'],['../classvg_1_1VG.html#aa77d93fdf76698460ce509ea5dcde954',1,'vg::VG::is_valid()'],['../structvg_1_1Range.html#a15b962d68b5743aa9ba5f8a487007a83',1,'vg::Range::is_valid()']]],
   ['is_5fvalid_5ftag',['is_valid_tag',['../classvg_1_1io_1_1Registry.html#a4985634eed56438635dfbe0999103305',1,'vg::io::Registry']]],
   ['is_5fvg',['is_vg',['../classvg_1_1LegacyCaller.html#a80d266e926310b4def5ac48e3211029f',1,'vg::LegacyCaller']]],
+  ['is_5fweakly_5fconnected',['is_weakly_connected',['../namespacevg_1_1algorithms.html#a5fd50ad23f4adfb93004694a6ffa509c',1,'vg::algorithms']]],
   ['isatgc',['isATGC',['../namespacevg.html#a92c923774a6526b7bfc7f06ae4ae7a18',1,'vg']]],
   ['isbgzf',['IsBGZF',['../classvg_1_1io_1_1BlockedGzipInputStream.html#a1eb2633e42ca1b50ab167497e581e6bd',1,'vg::io::BlockedGzipInputStream']]],
   ['isforward',['isForward',['../structvg_1_1BREAKPOINT.html#a3179531d48993e05d802907b730e1631',1,'vg::BREAKPOINT']]],

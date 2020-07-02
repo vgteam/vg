@@ -19,6 +19,7 @@ var searchData=
   ['filenames',['filenames',['../structvg_1_1temp__file_1_1Handler.html#a712176aeac999c1930b246fa02dc0f25',1,'vg::temp_file::Handler::filenames()'],['../classvg_1_1VGset.html#a49cf0bee988a30fb024218dd4f4eed56',1,'vg::VGset::filenames()'],['../structxg_1_1temp__file_1_1Handler.html#ad61c52d26a2feddf0770d74d4ff65754',1,'xg::temp_file::Handler::filenames()']]],
   ['filter_5fmatches',['filter_matches',['../classvg_1_1Filter.html#ab1a5ffa8d8e0205909a9ed33e1ff26f5',1,'vg::Filter']]],
   ['filter_5fon_5fall',['filter_on_all',['../classvg_1_1ReadFilter.html#acc075968b0c08ed7ad4f2cb0a837ef95',1,'vg::ReadFilter']]],
+  ['filter_5fshort_5fmems',['filter_short_mems',['../classvg_1_1BaseMapper.html#a883a1d2afe593993dc7e5f0268a3caa6',1,'vg::BaseMapper']]],
   ['first',['first',['../structvg_1_1FeatureSet_1_1Feature.html#ade37c17b95cc0314dc381e93b04ff7b4',1,'vg::FeatureSet::Feature::first()'],['../structbdsg_1_1ODGI_1_1path__metadata__t.html#a1c4c3353f547d55e87077b673d1f75a0',1,'bdsg::ODGI::path_metadata_t::first()']]],
   ['fixed_5ffragment_5fmodel',['fixed_fragment_model',['../classvg_1_1FragmentLengthStatistics.html#a8c3c6bfb99c7cef159520adb58be271d',1,'vg::FragmentLengthStatistics']]],
   ['flank_5frange',['flank_range',['../classvg_1_1VariantAdder.html#a1761b88c30f6fc8e9e40a99d6f66d9dd',1,'vg::VariantAdder']]],

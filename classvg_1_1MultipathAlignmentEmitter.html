@@ -77,8 +77,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:abf934d24201b3af8bb1cfd91c2c99c31"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#abf934d24201b3af8bb1cfd91c2c99c31">MultipathAlignmentEmitter</a> (ostream &amp;<a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a7ea0cf17aa42f10f6d2b417d541220d5">out</a>, int num_threads, bool emit_single_path=false)</td></tr>
-<tr class="separator:abf934d24201b3af8bb1cfd91c2c99c31"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7b5d5530870011e669e648ad64a4babd"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a7b5d5530870011e669e648ad64a4babd">MultipathAlignmentEmitter</a> (ostream &amp;<a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a7ea0cf17aa42f10f6d2b417d541220d5">out</a>, int num_threads, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#ac19b221e040f5b280ce88e2d55e768e7">graph</a>, const string out_format=&quot;gamp&quot;)</td></tr>
+<tr class="separator:a7b5d5530870011e669e648ad64a4babd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a18c81d0a9a77020adca05f0bc5b7fbcb"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a18c81d0a9a77020adca05f0bc5b7fbcb">~MultipathAlignmentEmitter</a> ()</td></tr>
 <tr class="separator:a18c81d0a9a77020adca05f0bc5b7fbcb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad772e7a7315be2a57899c234116de800"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#ad772e7a7315be2a57899c234116de800">set_read_group</a> (const string &amp;<a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a931f4785a73cfd9069d7447ba63b71ef">read_group</a>)</td></tr>
@@ -101,6 +101,9 @@ Private Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
+<tr class="memitem:ac19b221e040f5b280ce88e2d55e768e7"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#ac19b221e040f5b280ce88e2d55e768e7">graph</a></td></tr>
+<tr class="memdesc:ac19b221e040f5b280ce88e2d55e768e7"><td class="mdescLeft">&#160;</td><td class="mdescRight">the graph we're aligning against  <a href="#ac19b221e040f5b280ce88e2d55e768e7">More...</a><br /></td></tr>
+<tr class="separator:ac19b221e040f5b280ce88e2d55e768e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7ea0cf17aa42f10f6d2b417d541220d5"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a7ea0cf17aa42f10f6d2b417d541220d5">out</a></td></tr>
 <tr class="memdesc:a7ea0cf17aa42f10f6d2b417d541220d5"><td class="mdescLeft">&#160;</td><td class="mdescRight">the stream that everything is emitted into  <a href="#a7ea0cf17aa42f10f6d2b417d541220d5">More...</a><br /></td></tr>
 <tr class="separator:a7ea0cf17aa42f10f6d2b417d541220d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -121,8 +124,8 @@ Private Attributes</h2></td></tr>
 <tr class="separator:a6fa324b9dee313b1fceab7bafa62db24"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="abf934d24201b3af8bb1cfd91c2c99c31"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abf934d24201b3af8bb1cfd91c2c99c31">&#9670;&nbsp;</a></span>MultipathAlignmentEmitter()</h2>
+<a id="a7b5d5530870011e669e648ad64a4babd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7b5d5530870011e669e648ad64a4babd">&#9670;&nbsp;</a></span>MultipathAlignmentEmitter()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -142,8 +145,14 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>emit_single_path</em> = <code>false</code>&#160;</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string&#160;</td>
+          <td class="paramname"><em>out_format</em> = <code>&quot;gamp&quot;</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -152,7 +161,7 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Initialize with the intended output stream and the maximum number of threads that will be outputting. Optionally convert to single path alignments instead of multipath alignments. </p>
+<p>Initialize with the intended output stream and the maximum number of threads that will be outputting. Optionally converts to single path alignments in either "gam" or "gaf" format. </p>
 
 </div>
 </div>
@@ -350,6 +359,30 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> emitter for each thread </p>
+
+</div>
+</div>
+<a id="ac19b221e040f5b280ce88e2d55e768e7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac19b221e040f5b280ce88e2d55e768e7">&#9670;&nbsp;</a></span>graph</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>&amp; vg::MultipathAlignmentEmitter::graph</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>the graph we're aligning against </p>
 
 </div>
 </div>

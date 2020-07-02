@@ -119,6 +119,7 @@ var searchData=
   ['perfect_5ffilter',['perfect_filter',['../classvg_1_1Filter.html#af33b08ad08247167fbe7d90ac86047a3',1,'vg::Filter']]],
   ['perform_5fdp',['perform_dp',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a6a5314b3408ca05c265648b8b6053e1d',1,'vg::MEMClusterer::HitGraph']]],
   ['performed_5fduplications',['performed_duplications',['../classvg_1_1DozeuPinningOverlay.html#af98692ca5587716febd938e4e216cf99',1,'vg::DozeuPinningOverlay']]],
+  ['pessimistic_5fgap',['pessimistic_gap',['../classvg_1_1MultipathMapper.html#ac4311460002c8df22a29b3e55cc4e1ff',1,'vg::MultipathMapper']]],
   ['pessimistic_5ftail_5fgap',['pessimistic_tail_gap',['../classvg_1_1MultipathAlignmentGraph.html#a4c591d080bc48994fcdb2c9dc08d34a1',1,'vg::MultipathAlignmentGraph']]],
   ['phasedgenome',['PhasedGenome',['../classvg_1_1PhasedGenome.html#aa7a7cce5f88f52d20c659e64966ece28',1,'vg::PhasedGenome::PhasedGenome(const SnarlManager &amp;snarl_manager)'],['../classvg_1_1PhasedGenome.html#a0e96410c065eb722e527be06b710c5d7',1,'vg::PhasedGenome::PhasedGenome(PhasedGenome &amp;phased_genome)'],['../classvg_1_1PhasedGenome.html#ace57a61caa7e82942f94ea1e128bc3e3',1,'vg::PhasedGenome::PhasedGenome(PhasedGenome &amp;&amp;other)=delete']]],
   ['phaseunfolder',['PhaseUnfolder',['../classvg_1_1PhaseUnfolder.html#a0a0b10a4f3df5383bc95214b2e172cd5',1,'vg::PhaseUnfolder']]],

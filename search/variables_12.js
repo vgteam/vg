@@ -59,6 +59,7 @@ var searchData=
   ['rescue_5fsubgraph_5fstdevs',['rescue_subgraph_stdevs',['../classvg_1_1MinimizerMapper.html#a19f9bf5af66cbc96a3d1fdd2e5e83dda',1,'vg::MinimizerMapper']]],
   ['reserved',['reserved',['../structvg_1_1Alignment.html#a8374111b6348509e8e9ecca0cd1ac046',1,'vg::Alignment']]],
   ['reset_5fchain_5fparent',['reset_chain_parent',['../structvg_1_1Range.html#ae7094ff81d6898f0c8e8b7883f316bd9',1,'vg::Range']]],
+  ['restrained_5fgraph_5fextraction',['restrained_graph_extraction',['../classvg_1_1MultipathMapper.html#a0ad5a21ab0cf3c77e3905e299b7d26c4',1,'vg::MultipathMapper']]],
   ['retry_5fon_5fns',['retry_on_Ns',['../classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd',1,'vg::NGSSimulator']]],
   ['rev_5fin_5fchain',['rev_in_chain',['../structvg_1_1SnarlSeedClusterer_1_1Seed.html#a7646fe3dbcf703f66a16da41a763820d',1,'vg::SnarlSeedClusterer::Seed']]],
   ['rev_5fin_5fparent',['rev_in_parent',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a3d6a7da19bb2f8ce0c762dde01384392',1,'vg::MinimumDistanceIndex::SnarlIndex::rev_in_parent()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#ae42bfcae1c483aa51641b3ef48dbe4fa',1,'vg::MinimumDistanceIndex::ChainIndex::rev_in_parent()']]],
