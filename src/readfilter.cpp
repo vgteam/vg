@@ -1,7 +1,7 @@
 #include "readfilter.hpp"
 #include "IntervalTree.h"
 #include "annotation.hpp"
-#include "alignment_emitter.hpp"
+#include "vg/io/alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 
 #include <fstream>
@@ -12,6 +12,7 @@
 namespace vg {
 
 using namespace std;
+using namespace vg::io;
 
 bool ReadFilter::trim_ambiguous_ends(Alignment& alignment, int k) {
     assert(graph != nullptr);

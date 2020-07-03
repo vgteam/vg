@@ -5,7 +5,7 @@
 
 #include <iostream>
 #include <string>
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "../alignment.hpp"
 #include <vg/vg.pb.h>
 #include "test_aligner.hpp"
@@ -15,6 +15,7 @@
 namespace vg {
 namespace unittest {
 using namespace std;
+using namespace vg::io;
 
 TEST_CASE("XdropAligner can compute an alignment with no MEMs", "[xdrop][alignment][mapping]") {
     

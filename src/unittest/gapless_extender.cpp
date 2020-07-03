@@ -5,7 +5,7 @@
 
 #include "../gapless_extender.hpp"
 #include "../gbwt_helper.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "../utility.hpp"
 
 #include "catch.hpp"

@@ -8,7 +8,7 @@
 #include <unordered_set>
 #include <sstream>
 
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "catch.hpp"
 #include "randomness.hpp"
 

@@ -6,7 +6,7 @@
 
 #include "hts_alignment_emitter.hpp"
 #include "alignment.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/io/hfile_cppstream.hpp>
 #include <vg/io/stream.hpp>
 

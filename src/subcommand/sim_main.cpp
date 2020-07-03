@@ -17,7 +17,7 @@
 #include "../vg.hpp"
 #include "../aligner.hpp"
 #include "../gbwt_helper.hpp"
-#include "../alignment_emitter.hpp"
+#include "vg/io/alignment_emitter.hpp"
 #include "../sampler.hpp"
 #include "../algorithms/copy_graph.hpp"
 #include <vg/io/protobuf_emitter.hpp>
@@ -28,6 +28,7 @@
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
+using namespace vg::io;
 
 // Gets the transcript IDs and TPM values from an RSEM output .tsv file
 vector<pair<string, double>> parse_rsem_expression_file(istream& rsem_in) {

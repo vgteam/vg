@@ -5,7 +5,9 @@
  */
 
 #include "multipath_alignment_emitter.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
+
+using namespace vg::io;
 
 namespace vg {
 using namespace std;

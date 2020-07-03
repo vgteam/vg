@@ -12,7 +12,7 @@
 #include "xg.hpp"
 #include "../vg.hpp"
 #include "../seed_clusterer.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include <gcsa/gcsa.h>
 #include <sstream>
 #include <tuple>

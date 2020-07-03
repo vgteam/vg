@@ -17,7 +17,7 @@
 #include "rocksdb/table.h"
 #include "rocksdb/filter_policy.h"
 
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include "vg.hpp"
 #include "hash_map.hpp"
 

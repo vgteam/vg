@@ -7,7 +7,7 @@
 #include "../io/save_handle_graph.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
-#include "../alignment_emitter.hpp"
+#include <vg/io/alignment_emitter.hpp>
 
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
@@ -18,6 +18,7 @@
 
 using namespace vg;
 using namespace vg::subcommand;
+using namespace vg::io;
 
 void help_convert(char** argv) {
     cerr << "usage: " << argv[0] << " convert [options] <input-graph>" << endl

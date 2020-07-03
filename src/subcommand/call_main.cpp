@@ -408,7 +408,7 @@ int main_call(int argc, char** argv) {
 
     unique_ptr<AlignmentEmitter> alignment_emitter;
     if (gaf_output) {
-        alignment_emitter = get_non_hts_alignment_emitter("-", "GAF", {}, get_thread_count(), graph);
+      alignment_emitter = vg::io::get_non_hts_alignment_emitter("-", "GAF", {}, get_thread_count(), graph);
     }
 
     unique_ptr<GraphCaller> graph_caller;

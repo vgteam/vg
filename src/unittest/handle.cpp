@@ -8,7 +8,7 @@
 #include "../handle.hpp"
 #include "../vg.hpp"
 #include "xg.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 
 
 #include "algorithms/are_equivalent.hpp"

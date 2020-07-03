@@ -20,10 +20,12 @@
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/stream_multiplexer.hpp>
 #include "handle.hpp"
-#include "alignment_emitter.hpp"
+#include "vg/io/alignment_emitter.hpp"
 
 namespace vg {
 using namespace std;
+
+using namespace vg::io;
 
 /// Get an AlignmentEmitter that can emit to the given file (or "-") in the
 /// given format. A table of contig lengths is required for HTSlib formats.

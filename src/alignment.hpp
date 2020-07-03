@@ -8,13 +8,13 @@
 #include "path.hpp"
 #include "position.hpp"
 #include <vg/vg.pb.h>
-#include "edit.hpp"
+#include "vg/io/edit.hpp"
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
 #include "htslib/sam.h"
 #include "htslib/vcf.h"
 #include "handle.hpp"
-#include "alignment_io.hpp"
+#include "vg/io/alignment_io.hpp"
 
 namespace vg {
 

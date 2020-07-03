@@ -3,7 +3,7 @@
 /// unit tests for the multipath mapper's MultipathAlignmentGraph
 
 #include <iostream>
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "../cactus_snarl_finder.hpp"
 #include "../multipath_alignment_graph.hpp"

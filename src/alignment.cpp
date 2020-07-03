@@ -1,8 +1,10 @@
 #include "alignment.hpp"
-#include "gafkluge.hpp"
+#include "vg/io/gafkluge.hpp"
 
 #include <sstream>
 #include <regex>
+
+using namespace vg::io;
 
 namespace vg {
 

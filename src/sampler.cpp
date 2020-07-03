@@ -2,6 +2,8 @@
 
 //#define debug_ngs_sim
 
+using namespace vg::io;
+
 namespace vg {
 
 

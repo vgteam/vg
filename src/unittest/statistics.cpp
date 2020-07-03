@@ -3,7 +3,7 @@
 /// unit tests for statistics functions
 ///
 
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include "random_graph.hpp"
 #include "catch.hpp"
 
