@@ -1888,7 +1888,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
             auto& minimizer = minimizers[*next_agglomeration];
             
             // Determine its window size from its index.
-            size_t window_size = minimizer.length + minimizer.index_windows - 1;
+            size_t window_size = minimizer.length + minimizer.candidates_per_window - 1;
             
 #ifdef debug
             cerr << "\tBegin agglomeration of " << (minimizer.agglomeration_length - window_size + 1)
@@ -1898,7 +1898,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 #endif
 
             // Make sure the minimizer instance isn't too far into the agglomeration to actually be conatined in the same k+w-1 window as the first base.
-            assert(minimizer.agglomeration_start + minimizer.index_windows >= minimizer.forward_offset());
+            assert(minimizer.agglomeration_start + minimizer.candidates_per_window >= minimizer.forward_offset());
 
             for (size_t start = minimizer.agglomeration_start;
                 start + window_size - 1 < minimizer.agglomeration_start + minimizer.agglomeration_length;
