@@ -737,10 +737,12 @@ int main_mod(int argc, char** argv) {
     }
 
     if (chop_to) {
-        // TODO: turn into an algorithm
-        ensure_vg();
-        vg_graph->dice_nodes(chop_to);
-        vg_graph->paths.compact_ranks();
+        if (vg_graph != nullptr) {
+            vg_graph->dice_nodes(chop_to);
+            vg_graph->paths.compact_ranks();
+        } else {
+            algorithms::chop(graph.get(), chop_to);
+        }
     }
 
     if (kill_labels) {
