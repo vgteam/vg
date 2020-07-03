@@ -4,11 +4,7 @@
 #include <iostream>
 #include <functional>
 #include <zlib.h>
-#include "utility.hpp"
-#include "path.hpp"
-#include "position.hpp"
 #include <vg/vg.pb.h>
-#include "edit.hpp"
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
 #include "htslib/sam.h"

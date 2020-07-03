@@ -9,6 +9,7 @@
 #include "json2pb.h"
 #include <vg/io/hfile_cppstream.hpp>
 #include <vg/io/stream.hpp>
+#include <omp.h>
 
 #include <sstream>
 

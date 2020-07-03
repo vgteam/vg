@@ -3,8 +3,6 @@
 
 #include <vg/vg.pb.h>
 #include <utility>
-#include <iostream> // for debugging
-#include "json2pb.h"
 
 namespace vg {
 
