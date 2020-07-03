@@ -101,23 +101,29 @@ public:
      * If batch_file_prefix is set on the object, also dumps VCF parse
      * information.
      *
+     * If needed, this function can delete the graph to save memory.
+     *
      * Returns the number of haplotypes created (2 per sample) This number will
      * need to be adjusted if any samples' haplotypes are filtered out later.
      * This function ignores any sample filters and processes the entire
      * sample range.
      */
-    size_t parse_vcf(const PathHandleGraph* graph, const std::vector<path_handle_t>& contigs,
+    size_t parse_vcf(PathHandleGraph* graph, const std::vector<path_handle_t>& contigs,
         vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names,
-        const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch) const;
+        const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch,
+        bool delete_graph) const;
     
     /**
      * Build a GBWT from the haplotypes in the given VCF file.
      *
      * Respects excluded_samples and does not produce threads for them.
-     * 
+     *
+     * If needed, this function can delete the graph to save memory.
+     *
      * TODO: We copy the file name, as vcflib requires a non-const name.
      */
-    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const PathHandleGraph* graph, std::string vcf_filename) const;
+    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(PathHandleGraph* graph, std::string vcf_filename,
+        bool delete_graph) const;
     
     /**
      * Build a GBWT from the embedded non-alt paths in the graph.

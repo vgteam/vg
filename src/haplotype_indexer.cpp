@@ -27,9 +27,10 @@ HaplotypeIndexer::HaplotypeIndexer() {
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
 }
 
-size_t HaplotypeIndexer::parse_vcf(const PathHandleGraph* graph, const std::vector<path_handle_t>& contigs,
+size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<path_handle_t>& contigs,
     vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names,
-    const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch) const {
+    const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch,
+    bool delete_graph) const {
 
     size_t total_variants_processed = 0;
     std::mt19937 rng(0xDEADBEEF);
@@ -39,6 +40,10 @@ size_t HaplotypeIndexer::parse_vcf(const PathHandleGraph* graph, const std::vect
     size_t num_samples = variant_file.sampleNames.size();
     if (num_samples == 0) {
         std::cerr << "error: [HaplotypeIndexer::parse_vcf] the variant file does not contain phasings" << std::endl;
+        if (delete_graph) {
+            delete graph;
+            graph = nullptr;
+        }
         std::exit(1);
     }
 
@@ -232,8 +237,13 @@ size_t HaplotypeIndexer::parse_vcf(const PathHandleGraph* graph, const std::vect
         }
 
         // Save memory by closing the phasings files.
+        // Also delete the graph after the last contig if requested.
         for (size_t batch = 0; batch < phasings.size(); batch++) {
             phasings[batch].close();
+        }
+        if (contig + 1 >= contigs.size() && delete_graph) {
+            delete graph;
+            graph = nullptr;
         }
 
         // Save the VCF parse
@@ -263,7 +273,8 @@ size_t HaplotypeIndexer::parse_vcf(const PathHandleGraph* graph, const std::vect
     return haplotype_count;
 }
 
-std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandleGraph* graph, std::string vcf_filename) const {
+std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph* graph, std::string vcf_filename,
+    bool delete_graph) const {
 
     // GBWT metadata.
     std::vector<std::string> sample_names, contig_names;
@@ -280,6 +291,10 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
     variant_file.open(vcf_filename);
     if (!variant_file.is_open()) {
         std::cerr << "error: [HaplotypeIndexer::build_gbwt] could not open " << vcf_filename << std::endl;
+        if (delete_graph) {
+            delete graph;
+            graph = nullptr;
+        }
         throw runtime_error("Could not open " + vcf_filename);
     } else if (this->show_progress) {
         std::cerr << "Opened variant file " << vcf_filename << std::endl;
@@ -322,7 +337,7 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
         if (this->show_progress) {
             std::cerr << "- Processed samples " << phasings_batch.offset() << " to " << (phasings_batch.offset() + phasings_batch.size() - 1) << std::endl;
         }
-    });
+    }, delete_graph);
     haplotype_count += parsed_haplotypes - skipped_sample_numbers.size() * 2;
         
     // Finish the construction and extract the index.

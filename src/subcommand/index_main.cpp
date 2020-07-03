@@ -561,10 +561,11 @@ int main_index(int argc, char** argv) {
                 // Run VCF parsing but do nothing with the generated phasing batches.
                 // This will write all the parse files for us.
                 std::vector<std::string> sample_names;
-                haplotype_indexer.parse_vcf(path_handle_graph.get(), path_handles, variant_file, sample_names,
-                    [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {});
+                haplotype_indexer.parse_vcf(path_handle_graph.release(), path_handles, variant_file, sample_names,
+                    [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {},
+                    true);
             } else {
-                gbwt_index = haplotype_indexer.build_gbwt(path_handle_graph.get(), vcf_name);
+                gbwt_index = haplotype_indexer.build_gbwt(path_handle_graph.release(), vcf_name, true);
             }
         } else if (thread_source == thread_source_paths) {
             gbwt_index = haplotype_indexer.build_gbwt(path_handle_graph.get());

@@ -388,7 +388,7 @@ void IndexManager::ensure_gbwt() {
         indexer.show_progress = show_progress;
 
         // Make it, making sure to convert to non-dynamic GBWT
-        auto built = indexer.build_gbwt(graph.get(), vcf_filename);
+        auto built = indexer.build_gbwt(graph.get(), vcf_filename, false);
         gbwt = make_shared<gbwt::GBWT>(*built);
         built.reset();
 
