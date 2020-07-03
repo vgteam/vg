@@ -339,6 +339,8 @@ Functions</h2></td></tr>
 <tr class="separator:a067f7b444391db934c13c07938c43569"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0109d211ac713194397e14a1f7dc8435"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0109d211ac713194397e14a1f7dc8435">unchop</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph)</td></tr>
 <tr class="separator:a0109d211ac713194397e14a1f7dc8435"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a730fa3757b87183664991d17e182dba4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a730fa3757b87183664991d17e182dba4">chop</a> (<a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">handlegraph::MutableHandleGraph</a> *graph, size_t max_node_length)</td></tr>
+<tr class="separator:a730fa3757b87183664991d17e182dba4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ace1ad4f4eccc7041eb1e700463492540"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ace1ad4f4eccc7041eb1e700463492540">for_each_walk</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t k, size_t edge_max, const std::function&lt; void(const <a class="el" href="structvg_1_1algorithms_1_1walk__t.html">walk_t</a> &amp;)&gt; &amp;lambda)</td></tr>
 <tr class="memdesc:ace1ad4f4eccc7041eb1e700463492540"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all the walks in the graph, running lambda on each.  <a href="#ace1ad4f4eccc7041eb1e700463492540">More...</a><br /></td></tr>
 <tr class="separator:ace1ad4f4eccc7041eb1e700463492540"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -969,6 +971,35 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a730fa3757b87183664991d17e182dba4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a730fa3757b87183664991d17e182dba4">&#9670;&nbsp;</a></span>chop()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::chop </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">handlegraph::MutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_node_length</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Chop the graph so nodes are at most max_node_length </p>
 
 </div>
 </div>
