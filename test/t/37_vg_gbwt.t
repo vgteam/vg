@@ -66,7 +66,7 @@ is $(vg gbwt -c x_ref.gbwt) 1 "there is 1 thread in the index"
 
 # Build a GBWT for both paths and threads
 vg index -G x_haplo.gbwt -v small/xy2.vcf.gz x.vg
-vg gbwt -m -o x_both.gbwt x_ref.gbwt x_haplo.gbwt
+vg gbwt -m -o x_both.gbwt x_haplo.gbwt x_ref.gbwt
 is $(vg gbwt -c x_both.gbwt) 3 "there are 3 threads in the index"
 
 # Remove a sample (actually the reference) from a GBWT
