@@ -51,7 +51,7 @@ void help_find(char** argv) {
          << "sequences:" << endl
          << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph" << endl
          << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
-         << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
+         << "    -j, --kmer-stride N    step distance between successive kmers in sequence (default 1)" << endl
          << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
          << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
          << "    -B, --reseed-length N  find non-super-maximal MEMs inside SMEMs of length at least N" << endl

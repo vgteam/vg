@@ -34,7 +34,7 @@ void help_genotype(char** argv) {
          << "    -A, --no_indel_realign  disable indel realignment" << endl
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << endl
          << "    -P, --min_per_strand    min unique reads per strand for a called allele to accept a call" << endl
-         << "    -E, --no_embed          dont embed gam edits into grpah" << endl
+         << "    -E, --no_embed          don't embed gam edits into graph" << endl
          << "    -T, --traversal         traversal finder to use {reads, exhaustive, representative, adaptive} (adaptive)" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;

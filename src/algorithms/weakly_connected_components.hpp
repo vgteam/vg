@@ -29,6 +29,10 @@ vector<unordered_set<id_t>> weakly_connected_components(const HandleGraph* graph
 /// appear in tips in both orientations.
 vector<pair<unordered_set<id_t>, vector<handle_t>>> weakly_connected_components_with_tips(const HandleGraph* graph);
 
+/// Returns true if graph is a single weakly connected component. Graphs with
+/// no nodes are considered connected.
+bool is_weakly_connected(const HandleGraph* graph);
+
 }
 }
 

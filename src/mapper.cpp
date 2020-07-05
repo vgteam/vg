@@ -259,10 +259,11 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                                                        string::const_iterator seq_end,
                                                        string::const_iterator qual_begin,
                                                        int max_fans_out,
-                                                       char max_fanout_base_quality) {
+                                                       char max_fanout_base_quality,
+                                                       vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks) {
 
 #ifdef debug_mapper
-    cerr << "find_fanout_mems: sequence " << string(seq_begin, seq_end) << ", max fan-out quality" << max_fanout_base_quality << endl;
+    cerr << "find_fanout_mems: sequence " << string(seq_begin, seq_end) << ", max fan-out quality " << (int) max_fanout_base_quality << endl;
 #endif
     
     vector<pair<uint8_t, string::const_iterator>> qual_pos;
@@ -282,6 +283,16 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         pop_heap(qual_pos.begin(), qual_pos.end(), greater<decltype(qual_pos)::value_type>());
         qual_pos.pop_back();
     }
+    
+#ifdef debug_mapper
+    cerr << "chose fan-out positions: ";
+    for (size_t i = 0; i < do_fanout.size(); ++i) {
+        if (do_fanout[i]) {
+            cerr << i << " ";
+        }
+    }
+    cerr << endl;
+#endif
 
     // a struct to hold the information needed to continue a search from a fan-out
     struct FanOutSearch {
@@ -294,15 +305,19 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         // the char we should use at the first search
         char fanout_char;
         // the where the MEM will need to be broken up
-        list<pair<string::const_iterator, char>> fanout_breaks;
+        deque<pair<string::const_iterator, char>> fanout_breaks;
+        // record whether the iteration before the
+        bool prev_iter_jumped_lcp;
         
         FanOutSearch(gcsa::range_type prev_range,
                      string::const_iterator seq_begin,
                      string::const_iterator match_end,
                      string::const_iterator cursor,
                      char fanout_char,
-                     const list<pair<string::const_iterator, char>>& prev_fanout_breaks)
-            : prev_range(prev_range), match_end(match_end), cursor(cursor), fanout_char(fanout_char), fanout_breaks(prev_fanout_breaks) {
+                     bool prev_iter_jumped_lcp,
+                     const deque<pair<string::const_iterator, char>>& prev_fanout_breaks)
+            : prev_range(prev_range), match_end(match_end), cursor(cursor), fanout_char(fanout_char),
+              prev_iter_jumped_lcp(prev_iter_jumped_lcp), fanout_breaks(prev_fanout_breaks) {
             if (cursor >= seq_begin && *cursor != fanout_char) {
                 fanout_breaks.emplace_front(cursor, fanout_char);
             }
@@ -312,26 +327,10 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                      string::const_iterator match_end,
                      string::const_iterator cursor,
                      char fanout_char)
-            : prev_range(prev_range), match_end(match_end), cursor(cursor), fanout_char(fanout_char) {
+            : prev_range(prev_range), match_end(match_end), cursor(cursor), fanout_char(fanout_char), prev_iter_jumped_lcp(false) {
             if (*cursor != fanout_char) {
                 fanout_breaks.emplace_front(cursor, fanout_char);
             }
-        }
-    };
-    
-    // a struct to hold the information needed to reconstruct the results of a fan-out search
-    struct SearchResult {
-        gcsa::range_type range;
-        string::const_iterator begin;
-        string::const_iterator end;
-        list<pair<string::const_iterator, char>> fanout_breaks;
-        
-        SearchResult(string::const_iterator begin,
-                     string::const_iterator end,
-                     gcsa::range_type range,
-                     const list<pair<string::const_iterator, char>>& fanout_breaks)
-            : range(range), begin(begin), end(end), fanout_breaks(fanout_breaks) {
-                
         }
     };
     
@@ -360,7 +359,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         }
     }
     
-    vector<SearchResult> search_results;
+    vector<tuple<gcsa::range_type, string::const_iterator, string::const_iterator, deque<pair<string::const_iterator, char>>>> search_results;
     
     while (!stack.empty()) {
                 
@@ -369,6 +368,8 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         auto range = stack.back().prev_range;
         auto fanout_char = stack.back().fanout_char;
         auto fanout_breaks = move(stack.back().fanout_breaks);
+        auto prev_iter_jumped_lcp = stack.back().prev_iter_jumped_lcp;
+        stack.pop_back();
         
 #ifdef debug_mapper
         cerr << "starting a fanout search with cursor at " << (cursor - seq_begin) << " and fanout char of " << fanout_char << endl;
@@ -379,9 +380,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         }
 #endif
         
-        stack.pop_back();
         
-        bool prev_iter_jumped_lcp = false;
         bool use_fanout_char = true;
         
         while (cursor >= seq_begin) {
@@ -399,13 +398,11 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
 #endif
                 // fan out into all possiblities
                 for (char nt : {'A', 'C', 'G', 'T'}) {
-                    stack.emplace_back(range, seq_begin, match_end, cursor, nt, fanout_breaks);
+                    stack.emplace_back(range, seq_begin, match_end, cursor, nt, prev_iter_jumped_lcp, fanout_breaks);
                 }
                 // stop the current search
                 break;
             }
-            
-            use_fanout_char = false;
             
             // hold onto our previous range
             auto prev_range = range;
@@ -419,12 +416,6 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                 cerr << "terminating search at end of a MEM" << endl;
 #endif
                 
-                if (!fanout_breaks.empty() && fanout_breaks.begin()->first == cursor) {
-                    // the match ended on the fan-out character, so we don't want to include
-                    // that final break in the search result
-                    fanout_breaks.pop_front();
-                }
-                
                 // we've exhausted our BWT range, so the last match range was maximal
                 // or we have exceeded the order of the graph (FPs if we go further)
                 
@@ -436,7 +427,13 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                     // entire index (b/c then advancing the LCP doesn't move the search forward
                     // at all, need to move the cursor instead)
                     
-                    search_results.emplace_back(cursor + 1, match_end, prev_range, fanout_breaks);
+                    if (!fanout_breaks.empty() && match_end - cursor - 1 <= fanout_length_threshold) {
+                        // this fan-out search didn't find a long enough match for us to think
+                        // that these are non-random matches
+                        break;
+                    }
+                    
+                    search_results.emplace_back(prev_range, cursor + 1, match_end, fanout_breaks);
                     
                     match_end = cursor;
                     range = full_range;
@@ -450,11 +447,16 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                     cerr << "emitting a search result" << endl;
 #endif
                     auto match_begin = cursor + 1;
+                    if (!fanout_breaks.empty() && match_end - match_begin <= fanout_length_threshold) {
+                        // this fan-out search didn't find a long enough match for us to think
+                        // that these are non-random matches
+                        break;
+                    }
                     
                     // record the last MEM, but check to make sure were not actually still searching
                     // for the end of the next MEM
                     if (!prev_iter_jumped_lcp) {
-                        search_results.emplace_back(match_begin, match_end, prev_range, fanout_breaks);
+                        search_results.emplace_back(prev_range, match_begin, match_end, fanout_breaks);
                     }
                     
                     // init this outside of the if condition so that we can avoid calling the
@@ -469,8 +471,24 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                     while (!fanout_breaks.empty() && fanout_breaks.back().first >= match_end) {
                         fanout_breaks.pop_back();
                     }
-                    
                     prev_iter_jumped_lcp = true;
+                    
+#ifdef debug_mapper
+                    cerr << "after jumping LCP, suffix is " << string(cursor + 1, match_end) << endl;
+#endif
+                    
+                    if (use_fanout_char) {
+                        // this match ended on the fanout character, so we may need to remove
+                        // that fan-out break from the search result
+                        if (!get<3>(search_results.back()).empty() &&
+                            get<3>(search_results.back()).front().first < get<1>(search_results.back())) {
+                            get<3>(search_results.back()).pop_front();
+                        }
+                        // and skip the part of the iteration where we mark ourselves as being
+                        // past the fan-out character
+                        continue;
+                    }
+                    
                 }
             }
             else {
@@ -478,36 +496,94 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                 // just step to the next position
                 --cursor;
             }
+            
+            use_fanout_char = false;
         }
         
         if (cursor < seq_begin) {
 #ifdef debug_mapper
             cerr << "terminating search at start of the read" << endl;
 #endif
-            search_results.emplace_back(seq_begin, match_end, range, fanout_breaks);
+            search_results.emplace_back(range, seq_begin, match_end, fanout_breaks);
         }
+    }
+    
+    // filter out redundant MEMs, which are common in this algorithm (often when the
+    // larger MEM includes a correct mismatch from a fan-out). locate() is the most
+    // expensive part of this algorithm, so it's worth expending some effort to reduce
+    // calls to it
+    
+    // first order by read interval start and then by decreasing match size and range
+    // size, this ensures that a search result can only be fully redundant with another
+    // one that is earlier in the vector
+    sort(search_results.begin(), search_results.end(),
+         [](const tuple<gcsa::range_type, string::const_iterator, string::const_iterator, deque<pair<string::const_iterator, char>>>& a,
+            const tuple<gcsa::range_type, string::const_iterator, string::const_iterator, deque<pair<string::const_iterator, char>>>& b) {
+        return (get<1>(a) < get<1>(b)
+                || (get<1>(a) == get<1>(b) && get<2>(a) > get<2>(b))
+                || (get<1>(a) == get<1>(b) && get<2>(a) == get<2>(b)
+                    && gcsa::Range::length(get<0>(a)) > gcsa::Range::length(get<0>(b))));
+    });
+    
+    size_t res_removed_so_far = 0;
+    for (size_t i = 0, j = 1; j < search_results.size(); ++j) {
+        // advance the starting index past the search results that cannot contain
+        // this one
+        while (get<2>(search_results[i]) < get<1>(search_results[j])) {
+            ++i;
+        }
+        bool redundant = false;
+        for (size_t k = i; k < j && !redundant; ++k) {
+            // does the other result cover the entire read interval and all of its
+            // locations in the graph?
+            redundant = (get<2>(search_results[k]) >= get<2>(search_results[j])
+                         && get<0>(search_results[k]).first <= get<0>(search_results[j]).first
+                         && get<0>(search_results[k]).second >= get<0>(search_results[j]).second);
+        }
+        
+        if (redundant) {
+            ++res_removed_so_far;
+        }
+        else if (res_removed_so_far) {
+            search_results[j - res_removed_so_far] = move(search_results[j]);
+        }
+    }
+    
+    if (res_removed_so_far) {
+#ifdef debug_mapper
+        cerr << "removing " << res_removed_so_far << " redundant search results" << endl;
+#endif
+        search_results.resize(search_results.size() - res_removed_so_far);
     }
     
     vector<MaximalExactMatch> mems;
     mems.reserve(search_results.size());
-    for (auto it = search_results.rbegin(), end = search_results.rend(); it != end; ++it) {
+    if (mem_fanout_breaks) {
+        mem_fanout_breaks->reserve(search_results.size());
+    }
+    for (auto it = search_results.begin(), end = search_results.end(); it != end; ++it) {
         
         const auto& search_result = *it;
         
+        if (get<2>(search_result) - get<1>(search_result) < min_mem_length) {
+            continue;
+        }
+        
         // there are no mismatches in the search, so the whole thing can become 1 MEM
-        mems.emplace_back(search_result.begin, search_result.end, search_result.range,
-                          gcsa->count(search_result.range));
+        mems.emplace_back(get<1>(search_result), get<2>(search_result), get<0>(search_result),
+                          gcsa->count(get<0>(search_result)));
         if (!hard_hit_max || mems.back().match_count < hard_hit_max) {
             if (hit_max) {
                 gcsa->locate(mems.back().range, hit_max, mems.back().nodes);
                 
-            } else {
+            }
+            else {
                 gcsa->locate(mems.back().range, mems.back().nodes);
             }
         }
         
 #ifdef debug_mapper
-        cerr << "created MEM " << mems.back().sequence() << endl;
+        cerr << "created MEM " << mems.back().sequence() << ", filled " << mems.back().nodes.size() << " of " << mems.back().match_count << " hits" << endl;
         for (auto n : mems.back().nodes) {
             cerr << "\t" << make_pos_t(n) << endl;
         }
@@ -517,7 +593,12 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         // modified later (e.g. by prefiltering)
         mems.back().queried_count =  mems.back().nodes.size();
         
-        if (!search_result.fanout_breaks.empty()) {
+        if (mem_fanout_breaks) {
+            // we're communicating fan-out breaks to the calling environment rather than
+            // breaking them into exact matches right now
+            mem_fanout_breaks->emplace_back(move(get<3>(search_result)));
+        }
+        else if (!get<3>(search_result).empty()) {
 #ifdef debug_mapper
             cerr << "need to break apart fanout MEM" << endl;
 #endif
@@ -526,16 +607,16 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             vector<vector<pos_t>> paths;
             paths.reserve(mems.back().nodes.size());
             for (gcsa::node_type pos : mems.back().nodes) {
-                paths.emplace_back(walk_fanout_path(search_result.begin,
-                                                    search_result.end,
-                                                    search_result.fanout_breaks,
+                paths.emplace_back(walk_fanout_path(get<1>(search_result),
+                                                    get<2>(search_result),
+                                                    get<3>(search_result),
                                                     pos));
             }
             
             // records of (pos index, bases past pos offset)
             vector<pair<size_t, size_t>> path_positions(paths.size(), pair<size_t, size_t>(0, 0));
             
-            for (auto fanout_break : search_result.fanout_breaks) {
+            for (auto fanout_break : get<3>(search_result)) {
 #ifdef debug_mapper
                 cerr << "breaking fanout mems at " << (fanout_break.first - seq_begin) << " -> " << fanout_break.second << endl;
 #endif
@@ -545,7 +626,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                 if (fanout_break.first + 1 == seq_end) {
                     break;
                 }
-                mems.emplace_back(fanout_break.first + 1, search_result.end,
+                mems.emplace_back(fanout_break.first + 1, get<2>(search_result),
                                   mems.back().range, mems.back().match_count);
                 mems.back().queried_count = mems[mems.size() - 2].queried_count;
                 
@@ -590,22 +671,9 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         }
     }
     
-    auto cmp = [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-        if (m1.begin < m2.begin) {
-            return true;
-        }
-        else if (m1.begin == m2.begin) {
-            if (m1.end < m2.end) {
-                return true;
-            }
-            else if (m1.end == m2.end) {
-                return m1.nodes < m2.nodes;
-            }
-        }
-        return false;
-    };
-    
-    if (mems.size() == 1 && mems.front().length() >= mem_reseed_length) {
+    if (mems.size() == 1 && mems.front().length() >= mem_reseed_length && !mems.front().nodes.empty() &&
+        (mem_fanout_breaks ? mem_fanout_breaks->front().empty() :
+         find(mems.front().begin, mems.front().end, 'N') == mems.front().end)) {
         // try looking for reseed MEMs even if base qualities were high, just in case
         
         int min_sub_mem_length = max<int>(ceil(fast_reseed_length_diff * mems.front().length()), min_mem_length);
@@ -622,6 +690,9 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
             containment_graph.reserve(mems.size() + sub_mems.size());
             for (auto& sub_mem_and_parents : sub_mems) {
                 mems.emplace_back(move(sub_mem_and_parents.first));
+                if (mem_fanout_breaks) {
+                    mem_fanout_breaks->emplace_back();
+                }
                 containment_graph.emplace_back(0, move(sub_mem_and_parents.second));
             }
             
@@ -632,16 +703,64 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         }
     }
     
-    // put in lexicographic order and deduplicate
+    auto cmp = [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
+        if (m1.begin < m2.begin) {
+            return true;
+        }
+        else if (m1.begin == m2.begin) {
+            if (m1.end < m2.end) {
+                return true;
+            }
+            else if (m1.end == m2.end) {
+                return m1.nodes < m2.nodes;
+            }
+        }
+        return false;
+    };
+    
+    // put in lexicographic order
     if (!is_sorted(mems.begin(), mems.end(), cmp)) {
-        sort(mems.begin(), mems.end(), cmp);
+        vector<size_t> order(mems.size(), 0);
+        for (size_t i = 1; i < order.size(); ++i) {
+            order[i] = i;
+        }
+        stable_sort(order.begin(), order.end(), [&](size_t i, size_t j) { return cmp(mems[i], mems[j]); });
+        vector<size_t> index(order.size());
+        for (size_t i = 0; i < order.size(); ++i) {
+            index[order[i]] = i;
+        }
+        for (size_t i = 0; i < index.size(); ++i) {
+            while (index[i] != i) {
+                swap(mems[i], mems[index[i]]);
+                if (mem_fanout_breaks) {
+                    swap((*mem_fanout_breaks)[i], (*mem_fanout_breaks)[index[i]]);
+                }
+                swap(index[i], index[index[i]]);
+            }
+        }
     }
-    auto non_null_end = remove_if(mems.begin(), mems.end(),
-                                  [](const MaximalExactMatch& m) { return m.end == m.begin; });
-    auto uniq_end = unique(mems.begin(), non_null_end);
-    if (uniq_end != mems.end()) {
-        // non unique matches can occur from different fan out searches
-        mems.resize(uniq_end - mems.begin());
+    // remove null matches and duplicates
+    size_t num_removed_so_far = 0;
+    for (size_t i = 0; i < mems.size(); ++i) {
+        if (mems[i].begin == mems[i].end ||
+            (i >= num_removed_so_far + 1 && mems[i] == mems[i - num_removed_so_far - 1])) {
+            // MEM is either empty or non-unique
+            ++num_removed_so_far;
+        }
+        else if (num_removed_so_far) {
+            // move the non-removed MEM past the removed ones
+            mems[i - num_removed_so_far] = move(mems[i]);
+            if (mem_fanout_breaks) {
+                (*mem_fanout_breaks)[i - num_removed_so_far] = move((*mem_fanout_breaks)[i]);
+            }
+        }
+    }
+    
+    if (num_removed_so_far) {
+        mems.resize(mems.size() - num_removed_so_far);
+        if (mem_fanout_breaks) {
+            mem_fanout_breaks->resize(mem_fanout_breaks->size() - num_removed_so_far);
+        }
     }
     
     return mems;
@@ -649,7 +768,7 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
 
 vector<pos_t> BaseMapper::walk_fanout_path(string::const_iterator begin,
                                            string::const_iterator end,
-                                           const list<pair<string::const_iterator, char>>& fanout_breaks,
+                                           const deque<pair<string::const_iterator, char>>& fanout_breaks,
                                            gcsa::node_type pos) {
 #ifdef debug_mapper
     cerr << "beginning walk of fan-out path for sequence " << string(begin, end) << endl;
@@ -665,7 +784,7 @@ vector<pos_t> BaseMapper::walk_fanout_path(string::const_iterator begin,
     
     // records of (read pos, break pos, (node-offset records), next record to check)
     vector<tuple<string::const_iterator,
-           list<pair<string::const_iterator, char>>::const_iterator,
+           deque<pair<string::const_iterator, char>>::const_iterator,
            vector<pair<handle_t, size_t>>,
            size_t>> stack;
     stack.emplace_back(begin,
@@ -1122,6 +1241,17 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         }
     }
     
+    // determine the shortest length
+    size_t min_mem_query_length = 0;
+    if (filter_short_mems) {
+        // we will filter out MEMs that are short relative to the longest MEMs
+        size_t max_mem_length = 0;
+        for (const auto& mem : mems) {
+            max_mem_length = max<size_t>(max_mem_length, mem.length());
+        }
+        min_mem_query_length = max_mem_length * short_mem_filter_factor;
+    }
+    
     // query the locations of the hits
     // note: iterate in reverse so we remove the parent count from the children MEMs before decrementing
     // the parent count itself
@@ -1136,7 +1266,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             }
         }
         
-        if (mem.match_count > 0) {
+        if (mem.match_count > 0 && mem.length() >= min_mem_query_length) {
             if (!hard_hit_max || mem.match_count < hard_hit_max) {
                 if (hit_max) {
                     gcsa->locate(mem.range, hit_max, mem.nodes);
@@ -1144,15 +1274,13 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 } else {
                     gcsa->locate(mem.range, mem.nodes);
                 }
+                // keep track of the initial number of hits we query in case the nodes vector is
+                // modified later (e.g. by prefiltering)
+                mem.queried_count = mem.nodes.size();
             }
-            
-            // keep track of the initial number of hits we query in case the nodes vector is
-            // modified later (e.g. by prefiltering)
-            mem.queried_count = mem.nodes.size();
-            
-            filtered_mems += mem.match_count - mem.nodes.size();
-            total_mems += mem.nodes.size();
         }
+        filtered_mems += mem.match_count - mem.nodes.size();
+        total_mems += mem.nodes.size();
 #ifdef debug_mapper
         cerr << "MEM " << mem.sequence() << " has " << mem.match_count << " hits: ";
         for (auto nt : mem.nodes) {
@@ -5114,7 +5242,7 @@ double FragmentLengthDistribution::mean() const {
     return mu;
 }
 
-double FragmentLengthDistribution::stdev() const {
+double FragmentLengthDistribution::std_dev() const {
     return sigma;
 }
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 
 """
 analyze_indels.py: take GAM JSON as input and produce tables of non-softclip
@@ -106,14 +106,14 @@ def main(args):
         read_mapqs[status][alignment.get("mapping_quality", 0)] += 1
                 
     # Now dump tables for plotting
-    for value, count in indel_starts.iteritems():
+    for value, count in indel_starts.items():
         options.positions.write("{}\t{}\n".format(value, count))
         
-    for value, count in indel_lengths.iteritems():
+    for value, count in indel_lengths.items():
         options.lengths.write("{}\t{}\n".format(value, count))
       
-    for status, counts in read_mapqs.iteritems():
-        for value, count in counts.iteritems():
+    for status, counts in read_mapqs.items():
+        for value, count in counts.items():
             options.mapqs.write("{}\t{}\t{}\n".format(status, value, count))
 
 

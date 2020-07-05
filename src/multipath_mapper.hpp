@@ -52,7 +52,7 @@
 #include <gbwt/gbwt.h>
 
 // note: only activated for single end mapping
-//#define mpmap_instrument_mem_statitics
+//#define mpmap_instrument_mem_statistics
 
 using namespace std;
 using namespace haplo;
@@ -109,7 +109,9 @@ namespace vg {
         bool suppress_tail_anchors = false;
         size_t min_tail_anchor_length = 3;
         double band_padding_multiplier = 1.0;
-        double pessimistic_tail_gap_multiplier = 0.0;
+        bool use_pessimistic_tail_alignment = false;
+        double pessimistic_gap_multiplier = 0.0;
+        bool restrained_graph_extraction = false;
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
@@ -198,6 +200,10 @@ namespace vg {
         /// as a priority).
         using clustergraph_t = tuple<bdsg::HashGraph*, memcluster_t, size_t>;
         
+        /// Represents the mismatches that were allowed in "MEMs" from the fanout
+        /// match algorithm
+        using match_fanouts_t = unordered_map<const MaximalExactMatch*, deque<pair<string::const_iterator, char>>>;
+        
     protected:
         
         /// Wrapped internal function that allows some code paths to circumvent the current
@@ -230,6 +236,7 @@ namespace vg {
                                      vector<clustergraph_t>& cluster_graphs,
                                      vector<multipath_alignment_t>& multipath_alns_out,
                                      size_t num_mapping_attempts,
+                                     const match_fanouts_t* fanouts = nullptr,
                                      vector<size_t>* cluster_idxs = nullptr);
         
         /// After clustering MEMs, extracting graphs, assigning hits to cluster graphs, and determining
@@ -241,7 +248,8 @@ namespace vg {
                                           vector<clustergraph_t>& cluster_graphs2,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                          vector<pair<size_t, size_t>>& duplicate_pairs_out);
+                                          vector<pair<size_t, size_t>>& duplicate_pairs_out,
+                                          const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
         
         /// Align the read ends independently, but also try to form rescue alignments for each from
         /// the other. Return true if output obeys pair consistency and false otherwise.
@@ -252,7 +260,8 @@ namespace vg {
                                                  bool block_rescue_from_1, bool block_rescue_from_2,
                                                  vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances_out,
-                                                 vector<double>& pair_multiplicities_out);
+                                                 vector<double>& pair_multiplicities_out,
+                                                 const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
         
         /// Use the rescue routine on strong suboptimal clusters to see if we can find a good secondary.
         /// Produces topologically sorted multipath_alignment_ts.
@@ -261,7 +270,8 @@ namespace vg {
                                             vector<clustergraph_t>& cluster_graphs2,
                                             vector<pair<size_t, size_t>>& duplicate_pairs,
                                             vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                            vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
+                                            vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                            const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
         
         /// Cluster and extract subgraphs for (possibly) only one end, meant to be a non-repeat, and use them to rescue
         /// an alignment for the other end, meant to be a repeat.
@@ -273,7 +283,8 @@ namespace vg {
                                                       vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
                                                       vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                       vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
-                                                      OrientedDistanceMeasurer& distance_measurer);
+                                                      OrientedDistanceMeasurer& distance_measurer,
+                                                      const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
         
         /// Merge the rescued mappings into the output vector and deduplicate pairs
         void merge_rescued_mappings(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
@@ -306,6 +317,24 @@ namespace vg {
                                                     const vector<MaximalExactMatch>& mems,
                                                     const vector<memcluster_t>& clusters);
         
+        /// Return a graph (on the heap) that contains a cluster. The paired bool
+        /// indicates whether the graph is known to be connected (but it is possible
+        /// for the graph to be connected and have it return false)
+        pair<bdsg::HashGraph*, bool> extract_cluster_graph(const Alignment& alignment, const memcluster_t& cluster);
+        
+        /// Extract a graph that is guaranteed to contain all local alignments that include
+        /// the MEMs of the cluster.  The paired bool indicates whether the graph is
+        /// known to be connected (but it is possible for the graph to be connected and have
+        /// it return false)
+        pair<bdsg::HashGraph*, bool> extract_maximal_graph(const Alignment& alignment, const memcluster_t& cluster);
+        
+        /// Extract a graph with an algorithm that tries to extract not much more than what
+        /// is required to contain the cluster in a single connected component (can be slower
+        /// than the maximal algorithm for alignments that require large indels),  The paired bool
+        /// indicates whether the graph is known to be connected (but it is possible
+        /// for the graph to be connected and have it return false)
+        pair<bdsg::HashGraph*, bool> extract_restrained_graph(const Alignment& alignment, const memcluster_t& cluster);
+        
         /// If there are any multipath_alignment_ts with multiple connected components, split them
         /// up and add them to the return vector.
         /// Properly handles multipath_alignment_ts that are unmapped.
@@ -327,7 +356,8 @@ namespace vg {
         /// Does NOT necessarily produce a multipath_alignment_t in topological order.
         void multipath_align(const Alignment& alignment, const bdsg::HashGraph* graph,
                              memcluster_t& graph_mems,
-                             multipath_alignment_t& multipath_aln_out) const;
+                             multipath_alignment_t& multipath_aln_out,
+                             const match_fanouts_t* fanouts) const;
         
         /// Removes the sections of an Alignment's path within snarls and re-aligns them with multiple traceback
         /// to create a multipath alignment with non-trivial topology.
@@ -384,6 +414,10 @@ namespace vg {
                                                              vector<clustergraph_t>& cluster_graphs2,
                                                              bool did_secondary_rescue) const;
         
+        /// Reorganizes the fan-out breaks into the format that MultipathAlignmentGraph wants it in
+        match_fanouts_t record_fanouts(const vector<MaximalExactMatch>& mems,
+                                       vector<deque<pair<string::const_iterator, char>>>& fanouts) const;
+        
         /// Estimates the probability that a cluster with the same hits would have been missed because of
         /// subsampling high-count SMEMs
         double prob_equivalent_clusters_hits_missed(const memcluster_t& cluster) const;
@@ -422,15 +456,21 @@ namespace vg {
         bool share_terminal_positions(const multipath_alignment_t& multipath_aln_1, const multipath_alignment_t& multipath_aln_2) const;
         
         /// Get a thread_local RRMemo with these parameters
-        haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;;
+        haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;
         
         /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also
         /// inverts the distances in the cluster pairs vector according to the strand
         void establish_strand_consistency(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
         
+        /// A restrained estimate of the amount of gap we would like to align for a read tail
+        int64_t pessimistic_gap(int64_t length, double multiplier) const;
+
         /// Return exact matches according to the object's parameters
-        vector<MaximalExactMatch> find_mems(const Alignment& alignment);
+        /// If using the fan-out algorithm, we can optionally leave fan-out MEMs in tact and
+        /// return a vector of their breaks.
+        vector<MaximalExactMatch> find_mems(const Alignment& alignment,
+                                            vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks = nullptr);
         
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
@@ -443,10 +483,15 @@ namespace vg {
         // a memo for the transcendental p-value function (thread local to maintain threadsafety)
         static thread_local unordered_map<pair<size_t, size_t>, double> p_value_memo;
         
+        // a memo for the transcendental restrained extraction function (thread local to maintain threadsafety)
+        static thread_local unordered_map<double, vector<int64_t>> pessimistic_gap_memo;
+        
+        static const size_t gap_memo_max_size;
+        
         // a memo for transcendental band padidng function (gets initialized at construction)
         vector<size_t> band_padding_memo;
         
-#ifdef mpmap_instrument_mem_statitics
+#ifdef mpmap_instrument_mem_statistics
     public:
         ofstream _mem_stats;
         bool _wrote_mem_stats_header = false;

@@ -23,7 +23,7 @@ void help_gamcompare(char** argv) {
          << endl
          << "options:" << endl
          << "    -r, --range N            distance within which to consider reads correct" << endl
-         << "    -T, --tsv                output TSV (correct, mq, aligner, read) comaptible with plot-qq.R instead of GAM" << endl
+         << "    -T, --tsv                output TSV (correct, mq, aligner, read) compatible with plot-qq.R instead of GAM" << endl
          << "    -a, --aligner            aligner name for TSV output [\"vg\"]" << endl
          << "    -t, --threads N          number of threads to use" << endl;
 }

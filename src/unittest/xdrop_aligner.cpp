@@ -656,6 +656,44 @@ TEST_CASE("XdropAligner doesn't crash on a case where it is hard to find a seed"
     
     aligner.align_xdrop(aln, graph, vector<MaximalExactMatch>(), false);
 }
+
+TEST_CASE("XdropAligner pinned alignment doesn't crash on an example that revealed a bug",
+          "[xdrop][alignment][mapping][pinned]") {
+    
+    bdsg::HashGraph graph;
+    
+    handle_t h0 = graph.create_handle("CCACCATCTTGTTCACTCTGGGGCCACAGACT");
+    handle_t h1 = graph.create_handle("GTCTTTTTCTGGTCTCTGCTTCCCTGCTTCAT");
+    handle_t h2 = graph.create_handle("CCTCCTTCTACTCTCTGCTTCCCTAGCGTGTG");
+    handle_t h3 = graph.create_handle("GCCCAGATGGTCAGTCACAATCCTGACTCCAC");
+    handle_t h4 = graph.create_handle("AGCAGTTTTGGGGTCAAGCCTGTAGACAGGAG");
+    handle_t h5 = graph.create_handle("TTACTTATCATCTTTGAGTTTATTTAATTTTT");
+    handle_t h6 = graph.create_handle("CAATGGGAGAACTAGATTGTCCAGTCTTGGCC");
+    handle_t h7 = graph.create_handle("AAAAAAATGGTCTAGCTTTGAGTCATACTGTA");
+    handle_t h8 = graph.create_handle("ATCATCTGTGGCTCAAAGGCAAGATCCTGCCC");
+    handle_t h9 = graph.create_handle("ACTGTCCACTCGGCAGGGCTGTGGTGGGCACC");
+    handle_t h10 = graph.create_handle("ACAAGGAGGAGTATTTCTTCTTCA");
+    
+    graph.create_edge(h0, h1);
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, h5);
+    graph.create_edge(h5, h6);
+    graph.create_edge(h6, h7);
+    graph.create_edge(h7, h8);
+    graph.create_edge(h8, h9);
+    graph.create_edge(h9, h10);
+    
+    Alignment aln;
+    aln.set_sequence("CAGATCCCTCGACCATCCGGTCAGGATACACAAAAGGACAGCAAAGGGGTTGAGAAGGGCTGAGGGGAGAAAAGCCAGGAAGCTGAGATCAGCAGAGGCCAAGCATAAAAACTGGGAGGATGCTACGAAGCTGCAGATGACAGCATCATTTTCTTGAAGAACATTCAAGGATTTGTCATAGTGGCTGGGCTTTCACTGATTGATTGAAGTCTACAAACAGCACTTCAATTGGTATCGGTCAAGTTCTTTAAGATTTAGGAAATTGATTGGAGCGGAAAATTGTAAGTTACAAAATTCGCACTGAAGTCCCATTAAAACCAC");
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 1, 1, 1, 0);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
+    
+    aligner.align_pinned(aln, graph, false, true, 10);
+}
    
 }
 }

@@ -730,7 +730,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         funnels[1].stage("cluster");
     }
     std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, get_distance_limit(aln1.sequence().size()), 
-            fragment_length_distr.mean() + paired_distance_stdevs * fragment_length_distr.stdev());
+            fragment_length_distr.mean() + paired_distance_stdevs * fragment_length_distr.std_dev());
 
     //For each fragment cluster, determine if it has clusters from both reads
     size_t max_fragment_num = 0;
@@ -1189,7 +1189,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     //Get the likelihood of the fragment distance
                     int64_t fragment_distance = distance_between(alignment1, alignment2); 
                     double dev = fragment_distance - fragment_length_distr.mean();
-                    double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
+                    double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev());
                     if (fragment_distance != std::numeric_limits<int64_t>::max() ) {
                         double score = alignment1.score() + alignment2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
                         alignment_groups[fragment_num].first[i1].emplace_back(paired_alignments.size());
@@ -1407,7 +1407,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     bool duplicated = false;
 
                     double dev = fragment_dist - fragment_length_distr.mean();
-                    double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
+                    double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev());
                     double score = mapped_aln.score() + rescued_aln.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
 
                     set_annotation(mapped_aln, "rescuer", true);
@@ -1677,7 +1677,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         //Annotate top pair with its fragment distance, fragment length distrubution, and secondary scores
         set_annotation(mappings.first.front(), "fragment_length", (double) distances.front());
         set_annotation(mappings.second.front(), "fragment_length", (double) distances.front());
-        string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.stdev());
+        string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.std_dev());
         set_annotation(mappings.first.front(),"fragment_length_distribution", distribution);
         set_annotation(mappings.second.front(),"fragment_length_distribution", distribution);
         set_annotation(mappings.first.front(),"secondary_scores", scores);
@@ -1910,8 +1910,13 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
             
 #ifdef debug
             cerr << "\tBegin agglomeration of " << (minimizer.agglomeration_length - window_size + 1)
-                << " windows of " << window_size << " bp each" << endl;
+                << " windows of " << window_size << " bp each for minimizer "
+                << *next_agglomeration << " (" << forward_offset(minimizer)
+                << "-" << (forward_offset(minimizer) + source_index.k()) << ")" << endl;
 #endif
+
+            // Make sure the minimizer instance isn't too far into the agglomeration to actually be conatined in the same k+w-1 window as the first base.
+            assert(minimizer.agglomeration_start + source_index.w() >= forward_offset(minimizer));
 
             for (size_t start = minimizer.agglomeration_start;
                 start + window_size - 1 < minimizer.agglomeration_start + minimizer.agglomeration_length;
@@ -1958,18 +1963,25 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 auto& active = minimizers[active_index];
 
                 // Find its index
-                auto& index = *minimizer_indexes[active.origin];
+                auto& source_index = *minimizer_indexes[active.origin];
 
-                if (i >= active.value.offset &&
-                    i < active.value.offset + index.k()) {
+                if (i >= forward_offset(active) &&
+                    i < forward_offset(active) + source_index.k()) {
                     // If the base falls in the minimizer, we don't do anything. Just mutating the base is enough to create this wrong minimizer.
+                    
+#ifdef debug
+                    cerr << "\t\tBase in minimizer " << active_index << " (" << forward_offset(active)
+                        << "-" << (forward_offset(active) + source_index.k()) << ") for agglomeration "
+                        << active.agglomeration_start << "-" << (active.agglomeration_start + active.agglomeration_length) << endl;
+#endif
+                    
                     continue;
                 }
 
                 // If the base falls outside the minimizer, it participates in
                 // some number of other possible minimizers in the
                 // agglomeration. Compute that, accounting for edge effects.
-                size_t possible_minimizers = min(index.k(), min(i - active.agglomeration_start + 1, (active.agglomeration_start + active.agglomeration_length) - i));
+                size_t possible_minimizers = min(source_index.k(), min(i - active.agglomeration_start + 1, (active.agglomeration_start + active.agglomeration_length) - i));
 
                 // Then for each of those possible minimizers, we need P(would have beaten the current minimizer).
                 // We approximate this as constant across the possible minimizers.
@@ -1978,8 +1990,10 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 double any_beat_phred = this->phred_for_at_least_one(active.value.hash, possible_minimizers);
 
 #ifdef debug
-                cerr << "\t\tBase flanks minimizer " << active_index << " (" << active.value.offset
-                    << "-" << (active.value.offset + index.k()) << ") and has " << possible_minimizers
+                cerr << "\t\tBase flanks minimizer " << active_index << " (" << forward_offset(active)
+                    << "-" << (forward_offset(active) + source_index.k()) << ") for agglomeration "
+                    << active.agglomeration_start << "-" << (active.agglomeration_start + active.agglomeration_length) 
+                    << " and has " << possible_minimizers
                     << " chances to have beaten it; cost to have beaten with any is Phred " << any_beat_phred << endl;
 #endif
 
@@ -2110,8 +2124,8 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
 
     // Find all nodes within a reasonable range from aligned_read.
     std::unordered_set<id_t> rescue_nodes;
-    int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - rescue_subgraph_stdevs * fragment_length_distr.stdev());
-    int64_t max_distance = fragment_length_distr.mean() + rescue_subgraph_stdevs * fragment_length_distr.stdev();
+    int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - rescue_subgraph_stdevs * fragment_length_distr.std_dev());
+    int64_t max_distance = fragment_length_distr.mean() + rescue_subgraph_stdevs * fragment_length_distr.std_dev();
     distance_index.subgraph_in_range(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
 
     // Remove node ids that do not exist in the GBWTGraph from the subgraph.
@@ -2508,11 +2522,8 @@ void MinimizerMapper::score_cluster(Cluster& cluster, size_t i, const std::vecto
             cluster.score += minimizer.score;
 
             // The offset of a reverse minimizer is the endpoint of the kmer
-            size_t start_offset = minimizer.value.offset;
+            size_t start_offset = forward_offset(minimizer);
             size_t k = this->minimizer_indexes[minimizer.origin]->k();
-            if (minimizer.value.is_reverse) {
-                start_offset = start_offset + 1 - k;
-            }
 
             // Set the k bits starting at start_offset.
             covered.set_int(start_offset, sdsl::bits::lo_set[k], k);

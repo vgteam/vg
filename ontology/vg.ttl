@@ -249,6 +249,13 @@
   rdfs:label "linkRank"^^xsd:string ;
   rdfs:range xsd:positiveInteger ;
 .
+:linkZoomLevel
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "A link is related to each zoom level."^^xsd:string ;
+  rdfs:domain :Link ;
+  rdfs:label "linkZoomLevel"^^xsd:string ;
+  rdfs:range :ZoomLevel ;
+.
 :cells
   rdf:type owl:ObjectProperty ;
   rdfs:comment "A Bin has one or more paths of a specific group (component) of a specific zoom. That is represented as cells on the matrix."^^xsd:string ;
