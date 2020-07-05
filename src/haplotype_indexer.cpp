@@ -351,8 +351,14 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
 
     // GBWT metadata.
     std::vector<std::string> sample_names, contig_names;
-    sample_names.push_back("ref"); // An artificial sample.
-    size_t haplotype_count = 1;
+    size_t haplotype_count = 0;
+    if (this->paths_as_samples) {
+        contig_names.push_back("0"); // An artificial contig.
+    }
+    else {
+        sample_names.push_back("ref"); // An artificial sample.
+        haplotype_count = 1;
+    }
 
     // GBWT construction.
     gbwt::GBWTBuilder builder(gbwt_node_width(*graph), this->gbwt_buffer_size * gbwt::MILLION, this->id_interval);
@@ -373,13 +379,24 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
             buffer.push_back(gbwt::Node::encode(graph->get_id(handle), graph->get_is_reverse(handle)));
         }
         builder.insert(buffer, true); // Insert in both orientations.
-        builder.index.metadata.addPath({
-            static_cast<gbwt::PathName::path_name_type>(0),
-            static_cast<gbwt::PathName::path_name_type>(contig_names.size()),
-            static_cast<gbwt::PathName::path_name_type>(0),
-            static_cast<gbwt::PathName::path_name_type>(0)
-        });
-        contig_names.push_back(path_name);
+        if (this->paths_as_samples) {
+            builder.index.metadata.addPath({
+                static_cast<gbwt::PathName::path_name_type>(sample_names.size()),
+                static_cast<gbwt::PathName::path_name_type>(0),
+                static_cast<gbwt::PathName::path_name_type>(0),
+                static_cast<gbwt::PathName::path_name_type>(0)
+            });
+            sample_names.push_back(path_name);
+            haplotype_count++;
+        } else {
+            builder.index.metadata.addPath({
+                static_cast<gbwt::PathName::path_name_type>(0),
+                static_cast<gbwt::PathName::path_name_type>(contig_names.size()),
+                static_cast<gbwt::PathName::path_name_type>(0),
+                static_cast<gbwt::PathName::path_name_type>(0)
+            });
+            contig_names.push_back(path_name);
+        }
     });
         
     // Finish the construction and extract the index.

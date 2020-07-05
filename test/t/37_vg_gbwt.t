@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 48
+plan tests 56
 
 
 # Build vg graphs for two chromosomes
@@ -74,7 +74,21 @@ vg gbwt -R ref x_both.gbwt -o removed.gbwt
 is $? 0 "samples can be removed from a GBWT index"
 is $(vg gbwt -c removed.gbwt) 2 "the sample was removed"
 
-rm x_ref.gbwt x_haplo.gbwt x_both.gbwt removed.gbwt
+# Build a GBWT with paths as contigs
+vg index -G xy_contigs.gbwt -T xy.xg
+is $(vg gbwt -c xy_contigs.gbwt) 2 "paths as contigs: 2 threads"
+is $(vg gbwt -C xy_contigs.gbwt) 2 "paths as contigs: 2 contigs"
+is $(vg gbwt -H xy_contigs.gbwt) 1 "paths as contigs: 1 haplotype"
+is $(vg gbwt -S xy_contigs.gbwt) 1 "paths as contigs: 1 sample"
+
+# Build a GBWT with paths as samples
+vg index -G xy_samples.gbwt -T --paths-as-samples xy.xg
+is $(vg gbwt -c xy_samples.gbwt) 2 "paths as samples: 2 threads"
+is $(vg gbwt -C xy_samples.gbwt) 1 "paths as samples: 1 contig"
+is $(vg gbwt -H xy_samples.gbwt) 2 "paths as samples: 2 haplotypes"
+is $(vg gbwt -S xy_samples.gbwt) 2 "paths as samples: 2 samples"
+
+rm x_ref.gbwt x_haplo.gbwt x_both.gbwt removed.gbwt xy_contigs.gbwt xy_samples.gbwt
 
 
 # Extract threads from GBWT

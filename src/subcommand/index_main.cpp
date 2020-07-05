@@ -49,6 +49,7 @@ void help_index(char** argv) {
          << "    -W, --ignore-missing   don't warn when variants in the VCF are missing from the graph; silently skip them" << endl
          << "    -e, --parse-only FILE  store the VCF parsing with prefix FILE without generating threads" << endl
          << "    -T, --store-threads    generate threads from the embedded paths" << endl
+         << "    --paths-as-samples     interpret the paths as samples instead of contigs in -T" << endl
          << "    -M, --store-gam FILE   generate threads from the alignments in gam FILE (many allowed)" << endl
          << "    -F, --store-gaf FILE   generate threads from the alignments in gaf FILE (many allowed)" << endl
          << "    -G, --gbwt-name FILE   store the threads as GBWT in FILE" << endl
@@ -99,6 +100,7 @@ int main_index(int argc, char** argv) {
 
     #define OPT_BUILD_VGI_INDEX 1000
     #define OPT_RENAME_VARIANTS 1001
+    #define OPT_PATHS_AS_SAMPLES 1002
 
     // Which indexes to build.
     bool build_xg = false, build_gbwt = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
@@ -167,6 +169,7 @@ int main_index(int argc, char** argv) {
             {"ignore-missing", no_argument, 0, 'W'},
             {"parse-only", required_argument, 0, 'e'},
             {"store-threads", no_argument, 0, 'T'},
+            {"paths-as-samples", no_argument, 0, OPT_PATHS_AS_SAMPLES},
             {"store-gam", required_argument, 0, 'M'},
             {"store-gaf", required_argument, 0, 'F'},
             {"gbwt-name", required_argument, 0, 'G'},
@@ -259,6 +262,9 @@ int main_index(int argc, char** argv) {
         case 'T':
             assert(thread_source == thread_source_none);
             thread_source = thread_source_paths;
+            break;
+        case OPT_PATHS_AS_SAMPLES:
+            haplotype_indexer.paths_as_samples = true;
             break;
         case 'M':
             assert(thread_source == thread_source_none || thread_source == thread_source_gam);

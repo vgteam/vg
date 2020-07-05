@@ -32,6 +32,10 @@ using namespace std;
 class HaplotypeIndexer : public Progressive {
 public:
 
+    /// Treat the embedded paths in the graph as samples. By default,
+    /// the paths are interpreted as contigs.
+    bool paths_as_samples = false;
+
     /// Print a warning if variants in the VCF can't be found in the graph
     bool warn_on_missing_variants = true;
 
