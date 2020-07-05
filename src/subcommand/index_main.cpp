@@ -91,6 +91,12 @@ void help_index(char** argv) {
          << "    -w  --max_dist N       cap beyond which the maximum distance is no longer accurate. If this is not included or is 0, don't build maximum distance index" << endl;
 }
 
+void multiple_thread_sources() {
+    std::cerr << "error: [vg index] cannot generate threads from multiple sources (VCF, GAM, GAF, paths)" << std::endl;
+    std::cerr << "error: [vg index] GBWT indexes can be built separately and merged with vg gbwt -m" << std::endl;
+    std::exit(EXIT_FAILURE);
+}
+
 int main_index(int argc, char** argv) {
 
     if (argc == 2) {
@@ -249,7 +255,9 @@ int main_index(int argc, char** argv) {
 
         // GBWT
         case 'v':
-            assert(thread_source == thread_source_none);
+            if (thread_source != thread_source_none) {
+                multiple_thread_sources();
+            }
             thread_source = thread_source_vcf;
             vcf_name = optarg;
             break;
@@ -260,20 +268,26 @@ int main_index(int argc, char** argv) {
             haplotype_indexer.batch_file_prefix = optarg;
             break;
         case 'T':
-            assert(thread_source == thread_source_none);
+            if (thread_source != thread_source_none) {
+                multiple_thread_sources();
+            }
             thread_source = thread_source_paths;
             break;
         case OPT_PATHS_AS_SAMPLES:
             haplotype_indexer.paths_as_samples = true;
             break;
         case 'M':
-            assert(thread_source == thread_source_none || thread_source == thread_source_gam);
+            if (thread_source != thread_source_none && thread_source != thread_source_gam) {
+                multiple_thread_sources();
+            }
             thread_source = thread_source_gam;
             build_gbwt = true;
             aln_file_names.push_back(optarg);
             break;
         case 'F':
-            assert(thread_source == thread_source_none || thread_source == thread_source_gaf);
+            if (thread_source != thread_source_none && thread_source != thread_source_gaf) {
+                multiple_thread_sources();
+            }
             thread_source = thread_source_gaf;
             build_gbwt = true;
             aln_file_names.push_back(optarg);
