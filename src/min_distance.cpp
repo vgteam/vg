@@ -1817,6 +1817,35 @@ pair<int64_t, int64_t> MinimumDistanceIndex::SnarlIndex::dist_to_ends(size_t ran
 }
 
 
+json_t*  MinimumDistanceIndex::SnarlIndex::snarl_to_json() {
+    json_t* out_json = json_object();
+    json_object_set_new(out_json, "type", json_string(is_unary_snarl ? "unary snarl" : "snarl"));
+
+    json_t* start_node = json_object();
+    json_object_set_new(start_node, "node_id", json_integer(id_in_parent));
+    json_t* end_node = json_object();
+    json_object_set_new(end_node, "node_id", json_integer(end_id));
+    json_t* parent = json_object();
+    if (parent_id == 0 && depth == 0 && !in_chain ) {
+        json_object_set_new(parent, "type", json_string("root"));
+    } else {
+        json_object_set_new(parent, "type", json_string(in_chain ? "chain" : "snarl"));
+        json_object_set_new(parent, "node_id", json_integer(parent_id));
+    }
+
+    json_object_set_new(out_json, "start", start_node);
+    json_object_set_new(out_json, "end", end_node);
+    json_object_set_new(out_json, "parent", parent);
+
+    json_object_set_new(out_json, "node_count", json_integer(num_nodes));
+    json_object_set_new(out_json, "depth", json_integer(depth));
+    json_object_set_new(out_json, "minimum_length", json_integer(snarl_length()));
+    json_object_set_new(out_json, "maximum_length", json_integer(max_width));
+
+
+    return out_json;
+}
+
 void MinimumDistanceIndex::SnarlIndex::print_self() {
     //Print the nodes contained in SnarlDistance
     cerr << endl;
@@ -1993,6 +2022,32 @@ int64_t MinimumDistanceIndex::ChainIndex::chain_distance(
 }
 
 
+json_t*  MinimumDistanceIndex::ChainIndex::chain_to_json() {
+    json_t* out_json = json_object();
+    json_object_set_new(out_json, "type", json_string("chain"));
+
+    json_t* start_node = json_object();
+    json_object_set_new(start_node, "node_id", json_integer(id_in_parent));
+    json_t* end_node = json_object();
+    json_object_set_new(end_node, "node_id", json_integer(end_id));
+    json_t* parent = json_object();
+    if (parent_id == 0) {
+        json_object_set_new(parent, "type", json_string("root"));
+    } else {
+        json_object_set_new(parent, "type", json_string("snarl"));
+        json_object_set_new(parent, "node_id", json_integer(parent_id));
+    }
+
+    json_object_set_new(out_json, "start", start_node);
+    json_object_set_new(out_json, "end", end_node);
+    json_object_set_new(out_json, "parent", parent);
+
+    json_object_set_new(out_json, "snarl_count", json_integer(prefix_sum.size() - 1));
+    json_object_set_new(out_json, "minimum_length", json_integer(prefix_sum[prefix_sum.size() - 1]));
+    json_object_set_new(out_json, "maximum_length", json_integer(max_width));
+
+    return out_json;
+}
 void MinimumDistanceIndex::ChainIndex::print_self() {
     //Print the contenst of ChainDistance
    
@@ -2144,6 +2199,19 @@ cerr << "Making graph acyclic" << endl;
 }
 
 
+void MinimumDistanceIndex::write_snarls_to_json() {
+    for (auto& snarl : snarl_indexes) {
+
+        cout << json_dumps(snarl.snarl_to_json(), JSON_ENCODE_ANY) << endl;
+    }
+    for (auto& chain : chain_indexes) {
+        json_t* chain_json = chain.chain_to_json();
+        size_t depth = snarl_indexes[get_primary_assignment(chain.id_in_parent)].depth; 
+        json_object_set_new(chain_json, "depth", json_integer(depth));
+        cout << json_dumps(chain_json, JSON_ENCODE_ANY) << endl;
+    }
+
+}
 
 void MinimumDistanceIndex::print_snarl_stats() {
     //Print out stats bout the snarl
