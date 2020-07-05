@@ -473,6 +473,7 @@ int main_index(int argc, char** argv) {
 
     if (thread_source != thread_source_none && file_names.size() != 1) {
         cerr << "error: [vg index] exactly one graph required for generating threads" << std::endl;
+        cerr << "error: [vg index] you may combine the graphs with vg index -x combined.xg --xg-alts" << std::endl;
         return 1;
     }
 
