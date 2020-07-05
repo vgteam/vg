@@ -17,7 +17,12 @@ using namespace std;
  * compatible path steps together.
  */
 void unchop(handlegraph::MutablePathDeletableHandleGraph* graph);
-    
+
+/**
+ * Chop the graph so nodes are at most max_node_length
+ */
+void chop(handlegraph::MutableHandleGraph* graph, size_t max_node_length);
+
 }
 }
 

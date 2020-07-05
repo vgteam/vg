@@ -29,6 +29,11 @@
 #include "../statistics.hpp"
 #include "../genotypekit.hpp"
 
+#include "xg.hpp"
+#include "bdsg/packed_graph.hpp"
+#include "bdsg/hash_graph.hpp"
+#include "bdsg/odgi.hpp"
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -57,6 +62,8 @@ void help_stats(char** argv) {
          << "                          multiple allowed; limit comparison to those provided" << endl
          << "    -O, --overlap-all     print overlap table for the cartesian product of paths" << endl
          << "    -R, --snarls          print statistics for each snarl" << endl
+         << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, ODGI, XG}. " <<
+        "Can't detect Protobuf if graph read from stdin" << endl
          << "    -v, --verbose         output longer reports" << endl;
 }
 
@@ -88,6 +95,7 @@ int main_stats(int argc, char** argv) {
     vector<string> paths_to_overlap;
     bool overlap_all_paths = false;
     bool snarl_stats = false;
+    bool format = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -113,11 +121,12 @@ int main_stats(int argc, char** argv) {
             {"overlap", no_argument, 0, 'o'},
             {"overlap-all", no_argument, 0, 'O'},
             {"snarls", no_argument, 0, 'R'},
+            {"format", no_argument, 0, 'F'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTcdtn:NEa:vAro:OR",
+        c = getopt_long (argc, argv, "hzlsHTcdtn:NEa:vAro:ORF",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -202,6 +211,10 @@ int main_stats(int argc, char** argv) {
             verbose = true;
             break;
 
+        case 'F':
+            format = true;
+            break;
+
         case 'h':
         case '?':
             help_stats(argv);
@@ -214,11 +227,13 @@ int main_stats(int argc, char** argv) {
     }
 
     unique_ptr<PathHandleGraph> graph;
+    string graph_file_name;
     if (have_input_file(optind, argc, argv)) {
         // We have an (optional, because we can just process alignments) graph input file.
         // TODO: we can load any PathHandleGraph, but some operations still require a VG
         // In those cases, we convert back to vg::VG
-        graph = vg::io::VPKG::load_one<PathHandleGraph>(get_input_file_name(optind, argc, argv));
+        graph_file_name = get_input_file_name(optind, argc, argv);
+        graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file_name);
     }
     
     // We have function to make sure the graph was passed and complain if not
@@ -353,6 +368,38 @@ int main_stats(int argc, char** argv) {
             cout << id << " to tail:\t"
                 << distance_to_tail(n, 1000, graph.get()) << endl;
         }
+    }
+
+    if (format) {
+        require_graph();
+        string format_string;
+        if (dynamic_cast<xg::XG*>(graph.get()) != nullptr) {
+            format_string = "XG";
+        } else if (dynamic_cast<bdsg::PackedGraph*>(graph.get()) != nullptr) {
+            format_string = "PackedGraph";
+        } else if (dynamic_cast<bdsg::HashGraph*>(graph.get()) != nullptr) {
+            format_string = "HashGraph";
+        } else if (dynamic_cast<bdsg::ODGI*>(graph.get()) != nullptr) {
+            format_string = "ODGI";
+        } else {
+            format_string = "Unknown";
+        }
+        if (graph_file_name != "-" && format_string == "HashGraph") {
+            // Maybe vpkg loaded a protobuf graph into a different handle graph format
+            // (it currently uses HashGraph)
+            try {
+                ifstream graph_stream(graph_file_name);
+                vg::io::MessageIterator message_it(graph_stream);
+                if (message_it.has_current()) {
+                    string msg_tag = message_it.take().first;
+                    // older protobufs are untagged, newer ones are tagged "VG"
+                    if (msg_tag.empty() || msg_tag == "VG") {
+                        format_string = "VG-Protobuf";
+                    }
+                }
+            } catch(...) {}
+        }
+        cout << "format: " << format_string << endl;
     }
 
     if (!paths_to_overlap.empty() || overlap_all_paths) {

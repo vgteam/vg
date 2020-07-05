@@ -162,7 +162,7 @@ LD_LIB_FLAGS += -ldl -llzma
 ifeq ($(shell uname -s),Darwin)
     # We need to apply a filter to all our build command output. This discards
     # all the assembler warnings which can overwhelm Travis log storage.
-    FILTER=2>&1 | python $(CWD)/scripts/filter-noisy-assembler-warnings.py
+    FILTER=2>&1 | python3 $(CWD)/scripts/filter-noisy-assembler-warnings.py
     # For the filter to work and not just swallow errors we also need to turn on
     # pipefail in the shell
     SHELL=/bin/bash -o pipefail
