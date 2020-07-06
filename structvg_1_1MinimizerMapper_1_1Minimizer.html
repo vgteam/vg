@@ -78,6 +78,8 @@ $(function() {
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a94ddd290e4408f2a758083d2022b6c46"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#a94ddd290e4408f2a758083d2022b6c46">operator&lt;</a> (const <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &amp;another) const</td></tr>
 <tr class="separator:a94ddd290e4408f2a758083d2022b6c46"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3ffe7fc7ef04c67add8a6fae372dcee9"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#a3ffe7fc7ef04c67add8a6fae372dcee9">forward_offset</a> () const</td></tr>
+<tr class="separator:a3ffe7fc7ef04c67add8a6fae372dcee9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -91,14 +93,42 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aa60067efaa8910104760c8d910471a29"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a023a81e9cd9f65fe3fa45293d08f643b"><td class="memItemLeft" align="right" valign="top">const gbwtgraph::hit_type *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#a023a81e9cd9f65fe3fa45293d08f643b">occs</a></td></tr>
 <tr class="separator:a023a81e9cd9f65fe3fa45293d08f643b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a11781df7cf275f7593be31be33c3478b"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#a11781df7cf275f7593be31be33c3478b">origin</a></td></tr>
-<tr class="separator:a11781df7cf275f7593be31be33c3478b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afd3e1c8befad3a1911504cfbd3f54ccd"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#afd3e1c8befad3a1911504cfbd3f54ccd">length</a></td></tr>
+<tr class="separator:afd3e1c8befad3a1911504cfbd3f54ccd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab1badd75611d7d30cfcc7d387aa2986a"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#ab1badd75611d7d30cfcc7d387aa2986a">candidates_per_window</a></td></tr>
+<tr class="separator:ab1badd75611d7d30cfcc7d387aa2986a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a002868b55e87a630c4e4f1e1ff213008"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html#a002868b55e87a630c4e4f1e1ff213008">score</a></td></tr>
 <tr class="separator:a002868b55e87a630c4e4f1e1ff213008"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>We define our own type for minimizers, to use during mapping and to pass around between our internal functions. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
+<a id="a3ffe7fc7ef04c67add8a6fae372dcee9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3ffe7fc7ef04c67add8a6fae372dcee9">&#9670;&nbsp;</a></span>forward_offset()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::Minimizer::forward_offset </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Get the starting position of the given minimizer on the forward strand. Use this instead of value.offset which can really be the last base for reverse strand minimizers. </p>
+
+</div>
+</div>
 <a id="a94ddd290e4408f2a758083d2022b6c46"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a94ddd290e4408f2a758083d2022b6c46">&#9670;&nbsp;</a></span>operator<()</h2>
 
@@ -154,6 +184,20 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="ab1badd75611d7d30cfcc7d387aa2986a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab1badd75611d7d30cfcc7d387aa2986a">&#9670;&nbsp;</a></span>candidates_per_window</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t vg::MinimizerMapper::Minimizer::candidates_per_window</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="aa60067efaa8910104760c8d910471a29"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa60067efaa8910104760c8d910471a29">&#9670;&nbsp;</a></span>hits</h2>
 
@@ -168,6 +212,20 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="afd3e1c8befad3a1911504cfbd3f54ccd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afd3e1c8befad3a1911504cfbd3f54ccd">&#9670;&nbsp;</a></span>length</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t vg::MinimizerMapper::Minimizer::length</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a023a81e9cd9f65fe3fa45293d08f643b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a023a81e9cd9f65fe3fa45293d08f643b">&#9670;&nbsp;</a></span>occs</h2>
 
@@ -176,20 +234,6 @@ Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">const gbwtgraph::hit_type* vg::MinimizerMapper::Minimizer::occs</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a11781df7cf275f7593be31be33c3478b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a11781df7cf275f7593be31be33c3478b">&#9670;&nbsp;</a></span>origin</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::MinimizerMapper::Minimizer::origin</td>
         </tr>
       </table>
 </div><div class="memdoc">

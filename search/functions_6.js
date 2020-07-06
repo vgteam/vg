@@ -167,7 +167,7 @@ var searchData=
   ['format',['format',['../classVectorizer.html#a30aa5bafd8a44b2e1259245b6e046062',1,'Vectorizer']]],
   ['format_5fmemory',['format_memory',['../namespacebdsg.html#ac182567e588792dc529e8419df44e651',1,'bdsg']]],
   ['forward',['forward',['../classhandlegraph_1_1HandleGraph.html#a9e946bb4ed53f9423072955cdaab6386',1,'handlegraph::HandleGraph']]],
-  ['forward_5foffset',['forward_offset',['../classvg_1_1MinimizerMapper.html#a6f5d01b0fef78815fa7fb596ea9a77c9',1,'vg::MinimizerMapper']]],
+  ['forward_5foffset',['forward_offset',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a3ffe7fc7ef04c67add8a6fae372dcee9',1,'vg::MinimizerMapper::Minimizer']]],
   ['forwardize_5fbreakpoints',['forwardize_breakpoints',['../namespacevg.html#a9e9c975d7bec4a22a46b72736915ceb1',1,'vg']]],
   ['fragment_5fdirection',['fragment_direction',['../classvg_1_1FragmentLengthStatistics.html#af43d1fa0b2d07be1cd3f7d658fa932c5',1,'vg::FragmentLengthStatistics']]],
   ['fragment_5fdistr_5fis_5ffinalized',['fragment_distr_is_finalized',['../classvg_1_1MinimizerMapper.html#a692470c7551c4966126aa7bf357e60a4',1,'vg::MinimizerMapper']]],

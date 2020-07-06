@@ -218,7 +218,7 @@ var searchData=
   ['forward',['forward',['../structvg_1_1Support.html#afe50d5886e57f3ff8594bddb90dfc8fa',1,'vg::Support::forward()'],['../classhandlegraph_1_1HandleGraph.html#a9e946bb4ed53f9423072955cdaab6386',1,'handlegraph::HandleGraph::forward()']]],
   ['forward_5fgraph',['forward_graph',['../classvg_1_1ReverseGraph.html#ab5cdf413526444fe31d07e3dce91d0f8',1,'vg::ReverseGraph']]],
   ['forward_5fmultiplier',['forward_multiplier',['../classvg_1_1GreedyMinDistanceClusterer.html#a4423fb0153d3e55694c29fea2d5388af',1,'vg::GreedyMinDistanceClusterer']]],
-  ['forward_5foffset',['forward_offset',['../classvg_1_1MinimizerMapper.html#a6f5d01b0fef78815fa7fb596ea9a77c9',1,'vg::MinimizerMapper']]],
+  ['forward_5foffset',['forward_offset',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a3ffe7fc7ef04c67add8a6fae372dcee9',1,'vg::MinimizerMapper::Minimizer']]],
   ['forward_5fonly',['forward_only',['../classvg_1_1Sampler.html#a5d105468c850a483ff1b7696b1da7507',1,'vg::Sampler']]],
   ['forwardize_5fbreakpoints',['forwardize_breakpoints',['../namespacevg.html#a9e9c975d7bec4a22a46b72736915ceb1',1,'vg']]],
   ['frac_5fscore',['frac_score',['../classvg_1_1ReadFilter.html#a39086ef40e89b6b3733e5e9c42482e1e',1,'vg::ReadFilter']]],

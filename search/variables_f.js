@@ -27,7 +27,6 @@ var searchData=
   ['options_5fby_5fcode',['options_by_code',['../classvg_1_1ConfigurableParser.html#a8bdfad847167513663ef67839a574e92',1,'vg::ConfigurableParser']]],
   ['order',['order',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html#ae776df11d1881a7ac95ca8775b6f53d6',1,'vg::DozeuInterface::OrderedGraph']]],
   ['order_5flength_5frepeat_5fhit_5fmax',['order_length_repeat_hit_max',['../classvg_1_1MultipathMapper.html#ae87f55f358023f5c881494ccc4ed884f',1,'vg::MultipathMapper']]],
-  ['origin',['origin',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a11781df7cf275f7593be31be33c3478b',1,'vg::MinimizerMapper::Minimizer']]],
   ['os',['OS',['../classvg_1_1Version.html#a60cb5fa1efa9969bcdfa529484ea4280',1,'vg::Version']]],
   ['other_5forientation_5ftimeout',['other_orientation_timeout',['../classvg_1_1RepresentativeTraversalFinder.html#a5d5136f771fe4566506ff486fb17df49',1,'vg::RepresentativeTraversalFinder']]],
   ['other_5fsupports',['other_supports',['../structvg_1_1BREAKPOINT.html#a2f08ace3f57cff47b7f703fef1ae9792',1,'vg::BREAKPOINT']]],

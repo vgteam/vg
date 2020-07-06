@@ -124,7 +124,7 @@ var searchData=
   ['phasedgenome',['PhasedGenome',['../classvg_1_1PhasedGenome.html#aa7a7cce5f88f52d20c659e64966ece28',1,'vg::PhasedGenome::PhasedGenome(const SnarlManager &amp;snarl_manager)'],['../classvg_1_1PhasedGenome.html#a0e96410c065eb722e527be06b710c5d7',1,'vg::PhasedGenome::PhasedGenome(PhasedGenome &amp;phased_genome)'],['../classvg_1_1PhasedGenome.html#ace57a61caa7e82942f94ea1e128bc3e3',1,'vg::PhasedGenome::PhasedGenome(PhasedGenome &amp;&amp;other)=delete']]],
   ['phaseunfolder',['PhaseUnfolder',['../classvg_1_1PhaseUnfolder.html#a0a0b10a4f3df5383bc95214b2e172cd5',1,'vg::PhaseUnfolder']]],
   ['phi',['phi',['../namespacevg.html#ace2d2438c678d4fc4c0007b64b8ccd6f',1,'vg']]],
-  ['phred_5ffor_5fat_5fleast_5fone',['phred_for_at_least_one',['../classvg_1_1MinimizerMapper.html#a0a67380a95608145839617f3a3193a6c',1,'vg::MinimizerMapper']]],
+  ['phred_5ffor_5fat_5fleast_5fone',['phred_for_at_least_one',['../namespacevg.html#a9a6ab3a0f45f6ab7b38320db7cc14583',1,'vg']]],
   ['phred_5fgeometric_5fmean',['phred_geometric_mean',['../namespacevg.html#a04edc3daae77e9d3813a97da0f473def',1,'vg']]],
   ['phred_5fto_5flogprob',['phred_to_logprob',['../namespacevg.html#a35b531c82b765cd54702665668a98448',1,'vg']]],
   ['phred_5fto_5fprob',['phred_to_prob',['../namespacevg.html#aa269a7de61c98b1c46b3cacd5d5a43d6',1,'vg']]],

@@ -6,6 +6,7 @@ var searchData=
   ['cached_5ffragment_5flength_5fstdev',['cached_fragment_length_stdev',['../classvg_1_1FragmentLengthStatistics.html#ab1e6c7664c21e3ab33a68fd3e37e48d0',1,'vg::FragmentLengthStatistics']]],
   ['cached_5ffragment_5forientation_5fsame',['cached_fragment_orientation_same',['../classvg_1_1FragmentLengthStatistics.html#ac7d06aa4fc1cc543f395ac2f7edaf583',1,'vg::FragmentLengthStatistics']]],
   ['cached_5fgenotypes',['cached_genotypes',['../classvg_1_1WindowedVcfBuffer.html#a3ad6b744291240805d0a810a9399c1fc',1,'vg::WindowedVcfBuffer']]],
+  ['candidates_5fper_5fwindow',['candidates_per_window',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#ab1badd75611d7d30cfcc7d387aa2986a',1,'vg::MinimizerMapper::Minimizer']]],
   ['category',['category',['../classvg_1_1subcommand_1_1Subcommand.html#a6042accceefeb06bb5c072932f4b7ac7',1,'vg::subcommand::Subcommand']]],
   ['chain_5fassignments',['chain_assignments',['../classvg_1_1MinimumDistanceIndex.html#af04cb883a13ff7a9cb6eed0dee80c4b3',1,'vg::MinimumDistanceIndex']]],
   ['chain_5fdeletions',['chain_deletions',['../classvg_1_1Constructor.html#a57a532cd2bab1d857bee058633ffa525',1,'vg::Constructor']]],

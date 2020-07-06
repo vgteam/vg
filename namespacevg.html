@@ -1814,6 +1814,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a314ff925fad534d112e4531617e408fa"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a314ff925fad534d112e4531617e408fa">golden_section_search</a> (const function&lt; double(double)&gt; &amp;f, double x_min, double x_max, double tolerance=1e-8)</td></tr>
 <tr class="memdesc:a314ff925fad534d112e4531617e408fa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a local maximum of a function within an interval.  <a href="#a314ff925fad534d112e4531617e408fa">More...</a><br /></td></tr>
 <tr class="separator:a314ff925fad534d112e4531617e408fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9a6ab3a0f45f6ab7b38320db7cc14583"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9a6ab3a0f45f6ab7b38320db7cc14583">phred_for_at_least_one</a> (size_t p, size_t n)</td></tr>
+<tr class="separator:a9a6ab3a0f45f6ab7b38320db7cc14583"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1409ac23ce33abd463dcd46093079023"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; double &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1409ac23ce33abd463dcd46093079023">transpose</a> (const vector&lt; vector&lt; double &gt;&gt; &amp;A)</td></tr>
 <tr class="memdesc:a1409ac23ce33abd463dcd46093079023"><td class="mdescLeft">&#160;</td><td class="mdescRight">A shitty set of linear algebra functions.  <a href="#a1409ac23ce33abd463dcd46093079023">More...</a><br /></td></tr>
 <tr class="separator:a1409ac23ce33abd463dcd46093079023"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -15059,6 +15061,40 @@ template&lt;&gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9a6ab3a0f45f6ab7b38320db7cc14583"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9a6ab3a0f45f6ab7b38320db7cc14583">&#9670;&nbsp;</a></span>phred_for_at_least_one()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::phred_for_at_least_one </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>p</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>n</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Assume that we have n independent random events that occur with probability p each (p is interpreted as a real number between 0 at 0 and 1 at its maximum value). Return an approximate probability for at least one event occurring as a phred score.</p>
+<p>n must be &lt;= MAX_AT_LEAST_ONE_EVENTS. </p>
+<p>Assume that we have n &lt;= MAX_AT_LEAST_ONE_EVENTS independent events with probability p each. Let x be the AT_LEAST_ONE_PRECISION most significant bits of p. Then</p>
+<p>phred_at_least_one[(n &lt;&lt; AT_LEAST_ONE_PRECISION) + x]</p>
+<p>is an approximate phred score of at least one event occurring.</p>
+<p>We exploit the magical thread-safety of static local initialization to fill this in exactly once when needed.</p>
 
 </div>
 </div>

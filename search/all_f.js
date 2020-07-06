@@ -125,7 +125,6 @@ var searchData=
   ['oriented_5fdistance',['oriented_distance',['../classvg_1_1OrientedDistanceMeasurer.html#af6551e771deca01e6af9054a1ad3d30e',1,'vg::OrientedDistanceMeasurer::oriented_distance()'],['../classvg_1_1PathOrientedDistanceMeasurer.html#a8ec77086bfe160d85961a509725b529f',1,'vg::PathOrientedDistanceMeasurer::oriented_distance()'],['../classvg_1_1SnarlOrientedDistanceMeasurer.html#a8f8081d5bb9b0f5526935e2691f52dc3',1,'vg::SnarlOrientedDistanceMeasurer::oriented_distance()']]],
   ['orienteddistanceclusterer',['OrientedDistanceClusterer',['../classvg_1_1OrientedDistanceClusterer.html',1,'vg::OrientedDistanceClusterer'],['../classvg_1_1OrientedDistanceClusterer.html#a0bab84127f018db9467240db290113b4',1,'vg::OrientedDistanceClusterer::OrientedDistanceClusterer()']]],
   ['orienteddistancemeasurer',['OrientedDistanceMeasurer',['../classvg_1_1OrientedDistanceMeasurer.html',1,'vg']]],
-  ['origin',['origin',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a11781df7cf275f7593be31be33c3478b',1,'vg::MinimizerMapper::Minimizer']]],
   ['os',['OS',['../classvg_1_1Version.html#a60cb5fa1efa9969bcdfa529484ea4280',1,'vg::Version']]],
   ['other_5forientation_5ftimeout',['other_orientation_timeout',['../classvg_1_1RepresentativeTraversalFinder.html#a5d5136f771fe4566506ff486fb17df49',1,'vg::RepresentativeTraversalFinder']]],
   ['other_5fsupports',['other_supports',['../structvg_1_1BREAKPOINT.html#a2f08ace3f57cff47b7f703fef1ae9792',1,'vg::BREAKPOINT']]],
