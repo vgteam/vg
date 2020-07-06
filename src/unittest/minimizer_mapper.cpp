@@ -14,11 +14,13 @@
 namespace vg {
 namespace unittest {
 
-// We define a child class to expose all the protected stuff for testing
+// We define a child class to expose protected stuff for testing
 class TestMinimizerMapper : public MinimizerMapper {
 public:
     using MinimizerMapper::MinimizerMapper;
     using MinimizerMapper::score_extension_group;
+    using MinimizerMapper::window_breaking_quality;
+    using MinimizerMapper::Minimizer;
 };
 
 TEST_CASE("MinimizerMapper::score_extension_group works", "[giraffe][mapping]") {
@@ -156,6 +158,39 @@ TEST_CASE("MinimizerMapper::score_extension_group works", "[giraffe][mapping]") 
     }
 }
 
+TEST_CASE("MinimizerMapper::window_breaking_quality works", "[giraffe][mapping]") {
+
+    string sequence("AAAAAAAAAA");
+    string quality(10, (char)10);
+    vector<TestMinimizerMapper::Minimizer> minimizers;
+    vector<size_t> to_break;
+    
+    SECTION("Cap of no minimizers is inf") {
+        double cap = TestMinimizerMapper::window_breaking_quality(minimizers, to_break, sequence, quality);
+        REQUIRE(cap == numeric_limits<double>::infinity());
+    }
+    
+    SECTION("Cap of a minimizer with a low quality internal base is low") {
+        quality[2] = 5;
+        // key, hash value, offset of start or end depending on strand, is_reverse
+        // agglomeration start, agglomeration window count, hit count, occurrences, index k, index w, score
+        minimizers.push_back({{{}, numeric_limits<size_t>::max()/2, 2, false}, 1, 2, 0, nullptr, 1, 2, 0});
+        to_break.push_back(0);
+        double cap = TestMinimizerMapper::window_breaking_quality(minimizers, to_break, sequence, quality);
+        REQUIRE((size_t) cap == 5);
+    }
+    
+    SECTION("Cap of a minimizer with a low quality external base is less low") {
+        quality[1] = 5;
+        // key, hash value, offset of start or end depending on strand, is_reverse
+        // agglomeration start, agglomeration window count, hit count, occurrences, index k, index w, score
+        minimizers.push_back({{{}, numeric_limits<size_t>::max()/2, 2, false}, 1, 2, 0, nullptr, 1, 2, 0});
+        to_break.push_back(0);
+        double cap = TestMinimizerMapper::window_breaking_quality(minimizers, to_break, sequence, quality);
+        // 3 points is about a 1/2 probability, which is what we expect given the middle hash value we sent
+        REQUIRE((size_t) cap == 5 + 3);
+    }
+}
 
 }
 

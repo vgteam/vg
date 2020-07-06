@@ -121,6 +121,22 @@ inline double phred_geometric_mean(double phred1, double phred2) {
     return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
 }
 
+/**
+ * Assume that we have n independent random events that occur with probability
+ * p each (p is interpreted as a real number between 0 at 0 and 1 at its
+ * maximum value). Return an approximate probability for at least one event
+ * occurring as a phred score.
+ *
+ * n must be <= MAX_AT_LEAST_ONE_EVENTS.
+ */
+double phred_for_at_least_one(size_t p, size_t n);
+
+/// How many events should we allow in phred_for_at_least_one?
+/// Should be >= our longest supported minimizer index.
+constexpr static size_t MAX_AT_LEAST_ONE_EVENTS = 32;
+/// Use this many bits for approximate probabilities.
+constexpr static size_t AT_LEAST_ONE_PRECISION = 8; 
+
 // normal pdf, from http://stackoverflow.com/a/10848293/238609
 template <typename T>
 T normal_pdf(T x, T m, T s)
