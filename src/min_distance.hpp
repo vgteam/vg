@@ -2,6 +2,7 @@
 #define VG_MIN_DISTANCE_HPP_INCLUDED
 
 #include <unordered_set>
+#include <jansson.h>
 
 #include "snarls.hpp"
 #include "hash_map.hpp"
@@ -98,6 +99,9 @@ class MinimumDistanceIndex {
         return static_cast<int64_t>(std::min(static_cast<uint64_t>(x), static_cast<uint64_t>(y)));
     }
 
+    ///Write snarls out to stout
+    void write_snarls_to_json();
+
     ///print the distance index for debugging
     void print_self();
     // Prints the number of nodes in each snarl netgraph and number of snarls in each chain
@@ -168,6 +172,7 @@ class MinimumDistanceIndex {
 
 
             void print_self();
+            json_t* snarl_to_json();
 
         protected:
  
@@ -266,6 +271,7 @@ class MinimumDistanceIndex {
             }
 
             void print_self();
+            json_t* chain_to_json();
 
         protected:
 

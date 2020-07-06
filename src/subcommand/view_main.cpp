@@ -15,6 +15,7 @@
 
 #include "../multipath_alignment.hpp"
 #include "../vg.hpp"
+#include "../min_distance.hpp"
 #include "../gfa.hpp"
 #include "../io/json_stream_helper.hpp"
 #include "../handle.hpp"
@@ -83,6 +84,7 @@ void help_view(char** argv) {
          << "    -L, --pileup               output VG Pileup format" << endl
          << "    -l, --pileup-in            input VG Pileup format" << endl
 
+         << "    -B, --distance-in          input distance index" << endl
          << "    -R, --snarl-in             input VG Snarl format" << endl
          << "    -E, --snarl-traversal-in   input VG SnarlTraversal format" << endl
          << "    -K, --multipath-in         input VG MultipathAlignment format (GAMP)" << endl
@@ -182,6 +184,7 @@ int main_view(int argc, char** argv) {
                 {"locus-in", no_argument, 0, 'q'},
                 {"loci", no_argument, 0, 'Q'},
                 {"locus-out", no_argument, 0, 'z'},
+                {"distance-in", no_argument, 0, 'B'},
                 {"snarl-in", no_argument, 0, 'R'},
                 {"snarl-traversal-in", no_argument, 0, 'E'},
                 {"expect-duplicates", no_argument, 0, 'D'},
@@ -194,7 +197,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZYmqQ:zXREDx:kKe7:",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZYmqQ:zXBREDx:kKe7:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -370,6 +373,14 @@ int main_view(int argc, char** argv) {
 
         case 'Q':
             loci_file = optarg;
+            break;
+
+        case 'B':
+            input_type = "distance";
+            if (output_type.empty()) {
+                // Default to DistanceIndex -> JSON
+                output_type = "json";
+            }
             break;
 
         case 'R':
@@ -830,6 +841,17 @@ int main_view(int argc, char** argv) {
             }
         }
         cout.flush();
+        return 0;
+    } else if (input_type == "distance") {
+        if (output_type == "json") {
+            get_input_file(file_name, [&](istream& in) {
+                auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(in);
+                distance_index->write_snarls_to_json();
+            });
+        } else {
+            cerr << "[vg view] error: (binary) Distance index can only be converted to JSON" << endl;
+            return 1;
+        }
         return 0;
     } else if (input_type == "snarls") {
         if (output_type == "json") {
