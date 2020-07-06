@@ -322,7 +322,7 @@ int main_gbwt(int argc, char** argv)
             std::unique_ptr<gbwt::DynamicGBWT> index;
             {
                 // Try to load the first GBWT as a dynamic one.
-                string input_name = argv[optind];
+                std::string input_name = argv[optind];
                 index = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(input_name);
                 if (index.get() == nullptr) {
                     std::cerr << "error: [vg gbwt] could not load dynamic GBWT " << input_name << std::endl;
@@ -334,7 +334,7 @@ int main_gbwt(int argc, char** argv)
             }
             for (int curr = optind + 1; curr < argc; curr++)
             {
-                string input_name = argv[curr];
+                std::string input_name = argv[curr];
                 std::unique_ptr<gbwt::GBWT> next = vg::io::VPKG::load_one<gbwt::GBWT>(input_name);
                 if (next.get() == nullptr) {
                     std::cerr << "error: [vg gbwt]: could not load GBWT " << input_name << std::endl;
@@ -342,6 +342,10 @@ int main_gbwt(int argc, char** argv)
                 }
                 if (show_progress) {
                     gbwt::printStatistics(*next, input_name);
+                }
+                if (next->size() > 2 * index->size()) {
+                    std::cerr << "warning: [vg gbwt] merging " << input_name << " into a substantially smaller index" << std::endl;
+                    std::cerr << "warning: [vg gbwt] merging would be faster in another order" << std::endl;
                 }
                 index->merge(*next);
                 total_inserted += next->size();

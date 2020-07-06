@@ -45,6 +45,62 @@ std::vector<std::string> parseGenotypes(const std::string& vcf_line, size_t num_
 
 //------------------------------------------------------------------------------
 
+gbwt::vector_type extract_as_gbwt_path(const PathHandleGraph& graph, const std::string& path_name) {
+    gbwt::vector_type result;
+    if (!graph.has_path(path_name)) {
+        return result;
+    }
+    path_handle_t path_handle = graph.get_path_handle(path_name);
+    result.reserve(graph.get_step_count(path_handle));
+    for (handle_t handle : graph.scan_path(path_handle)) {
+        result.push_back(gbwt::Node::encode(graph.get_id(handle), graph.get_is_reverse(handle)));
+    }
+    return result;
+}
+
+gbwt::vector_type path_predecessors(const PathHandleGraph& graph, const std::string& path_name) {
+    gbwt::vector_type result;
+    if (!graph.has_path(path_name)) {
+        return result;
+    }
+    path_handle_t path_handle = graph.get_path_handle(path_name);
+    if (graph.get_step_count(path_handle) == 0) {
+        return result;
+    }
+    step_handle_t step = graph.path_begin(path_handle);
+    handle_t handle = graph.get_handle_of_step(step);
+    graph.follow_edges(handle, true, [&] (handle_t prev) {
+        if (prev != handle) {
+            result.push_back(gbwt::Node::encode(graph.get_id(prev), graph.get_is_reverse(prev)));
+        }
+    });
+    return result;
+}
+
+//------------------------------------------------------------------------------
+
+gbwt::size_type gbwt_node_width(const HandleGraph& graph) {
+    return gbwt::bit_length(gbwt::Node::encode(graph.max_node_id(), true));
+}
+
+void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
+    const std::vector<std::string>& sample_names,
+    const std::vector<std::string>& contig_names,
+    size_t haplotype_count, bool print_metadata) {
+
+    builder.finish();
+    builder.index.metadata.setSamples(sample_names);
+    builder.index.metadata.setHaplotypes(haplotype_count);
+    builder.index.metadata.setContigs(contig_names);
+    if (print_metadata) {
+        std::cerr << "GBWT metadata: ";
+        gbwt::operator<<(std::cerr, builder.index.metadata);
+        std::cerr << std::endl;
+    }
+}
+
+//------------------------------------------------------------------------------
+
 std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
 
     gbwt::size_type sequence_id = gbwt::Path::encode(id, false);

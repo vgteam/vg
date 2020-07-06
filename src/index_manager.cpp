@@ -388,9 +388,7 @@ void IndexManager::ensure_gbwt() {
         indexer.show_progress = show_progress;
 
         // Make it, making sure to convert to non-dynamic GBWT
-        map<string, Path> alt_paths;
-        vector<string> insertion_filenames;
-        auto built = indexer.build_gbwt(graph.get(), alt_paths, false, vcf_filename, insertion_filenames, "GAM");
+        auto built = indexer.build_gbwt(graph.get(), vcf_filename, false);
         gbwt = make_shared<gbwt::GBWT>(*built);
         built.reset();
 
