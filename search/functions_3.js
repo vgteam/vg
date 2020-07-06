@@ -47,6 +47,7 @@ var searchData=
   ['chain_5frcbegin',['chain_rcbegin',['../namespacevg.html#a7aed054b974860f2cc4d5be4b7615de0',1,'vg']]],
   ['chain_5frcend',['chain_rcend',['../namespacevg.html#ae1369d5e29159750fd14482f73421660',1,'vg']]],
   ['chain_5frend',['chain_rend',['../namespacevg.html#a2c65134c67609a001a61291b22337f8d',1,'vg']]],
+  ['chain_5fto_5fjson',['chain_to_json',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a66d720d1a837350f56f9f23239cf638b',1,'vg::MinimumDistanceIndex::ChainIndex']]],
   ['chainindex',['ChainIndex',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a287b836abecc0b383dc34df12b3aaca7',1,'vg::MinimumDistanceIndex::ChainIndex::ChainIndex(id_t parent_id, id_t id_in_parent, id_t end_id, bool rev_in_parent, bool loops, size_t length)'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#ad0759276f32a19ce4f9a7214ab6a53bb',1,'vg::MinimumDistanceIndex::ChainIndex::ChainIndex()']]],
   ['chains_5fof',['chains_of',['../classvg_1_1SnarlManager.html#a237e4dae871d0555ccb855285364ab8a',1,'vg::SnarlManager']]],
   ['check_5falignment',['check_alignment',['../classvg_1_1Mapper.html#a0750e1ca5a4eff47c148b176081c5333',1,'vg::Mapper']]],

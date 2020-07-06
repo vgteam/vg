@@ -45,6 +45,7 @@ var searchData=
   ['write_5fmany',['write_many',['../classvg_1_1io_1_1ProtobufEmitter.html#a05abdc0c51cc62b21c849c2ef13e81e0',1,'vg::io::ProtobufEmitter']]],
   ['write_5fmapping',['write_mapping',['../classvg_1_1PhaseUnfolder.html#a708fb760e358eedc63c624c617885548',1,'vg::PhaseUnfolder']]],
   ['write_5fsequences',['write_sequences',['../classvg_1_1Transcriptome.html#a21215127ca34332cff285e93c6af6258',1,'vg::Transcriptome']]],
+  ['write_5fsnarls_5fto_5fjson',['write_snarls_to_json',['../classvg_1_1MinimumDistanceIndex.html#ae20a265127d05b3b8bf4e247563f466a',1,'vg::MinimumDistanceIndex']]],
   ['write_5fsplice_5fgraph',['write_splice_graph',['../classvg_1_1Transcriptome.html#a1531c856c447cf7b9666cdf9e3983f52',1,'vg::Transcriptome']]],
   ['write_5fsupports',['write_supports',['../structvg_1_1SupportAugmentedGraph.html#a4f08f8c78bf0ffbfe7e364d4404b97a9',1,'vg::SupportAugmentedGraph']]],
   ['write_5fto_5ffile',['write_to_file',['../namespacevg_1_1io.html#a88cb8e7bbebb78a2ef3bdce1c64ba077',1,'vg::io']]],
