@@ -906,114 +906,114 @@ public:
         WorkType dest_range_size_minus_1 = (WorkType) m_b - (WorkType) m_a;
         
         if (source_range_size_minus_1 >= dest_range_size_minus_1) {
-        // The generator's result is going to be wide enough
-        return generate_from_wide_generator(_g);
+            // The generator's result is going to be wide enough
+            return generate_from_wide_generator(_g);
         } else {
-        // The hard way is generating a bigger range from a smaller range.
-        // Wrap the generator in something to widen it to our work type
-        // and recurse.
-        WideningPRNG<Generator, WorkType> widened(_g);
-        
-        // Generate with that, which had better be wide enough
-        return generate_from_wide_generator(widened);
+            // The hard way is generating a bigger range from a smaller range.
+            // Wrap the generator in something to widen it to our work type
+            // and recurse.
+            WideningPRNG<Generator, WorkType> widened(_g);
+            
+            // Generate with that, which had better be wide enough
+            return generate_from_wide_generator(widened);
         }
-        }
-        
-        T a() const {
+    }
+            
+    T a() const {
         return m_a;
-        }
-        
-        T b() const {
+    }
+            
+    T b() const {
         return m_b;
-        }
+    }
         
-    protected:
+protected:
         
-        /// Generate a result when we know the generator will produce a result on a
-        /// range as big as or bigger than ours.
-        template<class Generator>
-        T generate_from_wide_generator(Generator &_g) {
+    /// Generate a result when we know the generator will produce a result on a
+    /// range as big as or bigger than ours.
+    template<class Generator>
+    T generate_from_wide_generator(Generator &_g) {
         // Jordan's strategy: discard anything above the highest multiple of your range, then mod down to your range.
-        
+
 #ifdef debug
         cerr << "Source range " << _g.min() << " to " << _g.max() << endl;
         cerr << "Dest range " << m_a << " to " << m_b << endl;
 #endif
-        
+
         // Define an unsigned widest type to work in
         using WorkType = typename make_unsigned<typename common_type<typename Generator::result_type, T>::type>::type;
-        
+
         // How big are the source and destination ranges?
         // Since they are so big and inclusive we can't always hold their real sizes, so hold size-1
         WorkType source_range_size_minus_1 = (WorkType) _g.max() - (WorkType) _g.min();
         WorkType dest_range_size_minus_1 = (WorkType) m_b - (WorkType) m_a;
-        
+
         // We must be generating a smaller range from a bigger rnage here.
         assert(source_range_size_minus_1 >= dest_range_size_minus_1);
-        
+
         if (dest_range_size_minus_1 == source_range_size_minus_1) {
-        // Ranges are the same size. No real work to do.
-        return (WorkType) _g() - (WorkType) _g.min() + (WorkType) m_a;
+            // Ranges are the same size. No real work to do.
+            return (WorkType) _g() - (WorkType) _g.min() + (WorkType) m_a;
         }
-        
+
         // Otherwise the ranges differ in size. Which means the dest range must
         // be smaller. Which means the dest range's real size is representable.
         WorkType dest_range_size = dest_range_size_minus_1 + 1;
-        
+
         // Find how many numbers we have to clip off of the top of the source
         // range so the rest can be covered by tiled destination ranges.
         WorkType remainder = source_range_size_minus_1 % dest_range_size;
         // Change the remainder from source_range_size_minus_1 to the remainder for the actual source range size
         remainder = (remainder + 1) % dest_range_size;
-        
+
         if (remainder == 0) {
-        // We perfectly tiled the source range
-        return ((WorkType) _g() - (WorkType) _g.min()) % dest_range_size + (WorkType) m_a;
+            // We perfectly tiled the source range
+            return ((WorkType) _g() - (WorkType) _g.min()) % dest_range_size + (WorkType) m_a;
         }
-        
+
         // Otherwise there are some values we need to reject
-        
+
         // Sample a value until we get one that isn't too close to the top of the range.
         WorkType sampled;
         do {
-        sampled = (WorkType) _g();
+            sampled = (WorkType) _g();
         } while (_g.max() - sampled < remainder);
-        
+
         // Convert to destination range.
         return (sampled - (WorkType) _g.min()) % dest_range_size + m_a;
-        }
+    }
+
+
+    T m_a;
+    T m_b;
+};
         
-        
-        T m_a;
-        T m_b;
-        };
-        
-        /// We provide a partial discrete_distribution implementation that is just the parts we need
-        template<typename T = int>
-        class discrete_distribution {
-    public:
-        typedef T result_type;
-        typedef double param_type;
-        
-        template<class InputIt>
-        discrete_distribution(InputIt first, InputIt last) : m_weights{first, last} {
+/// We provide a partial discrete_distribution implementation that is just the parts we need
+template<typename T = int>
+class discrete_distribution {
+public:
+    typedef T result_type;
+    typedef double param_type;
+    
+    template<class InputIt>
+    discrete_distribution(InputIt first, InputIt last) : m_weights{first, last} {
         // We can't use an empty weights vector
         assert(!m_weights.empty());
         // Compute partial sums
         std::partial_sum(m_weights.begin(), m_weights.end(), std::back_inserter(m_sums));
-        }
-        
-        discrete_distribution(initializer_list<double> weights = {1}) : discrete_distribution(weights.begin(), weights.end()) {
+    }
+    
+    discrete_distribution(initializer_list<double> weights = {1}) : discrete_distribution(weights.begin(), weights.end()) {
         // Nothing to do
-        }
-        
-        void reset() {
+    }
+    
+    void reset() {
         // Also nothing to do!
-        }
-        
-        template<class Generator>
-        T operator()(Generator &_g) {
-        
+    }
+    
+    template<class Generator>
+    T operator()(Generator &_g) {
+    
         // Set up to generate a double from 0 to max weight
         vg::uniform_real_distribution<double> backing_dist(0, m_sums.back());
         // Do it and find which cumumative sum is greater than it
@@ -1021,46 +1021,46 @@ public:
         
         // Find its category number and return that.
         return winning_iterator - m_sums.begin();
-        
-        }
+    
+    }
         
     protected:
-        // If we ever want to implement the params stuff we need the weights stored.
-        vector<double> m_weights;
-        vector<double> m_sums;
-        
-        };
-        
-        // ewen's allele sampling distribution.  for use in genotype prior (as in freebayes)
-        // gives Pr(a1, ...,an;theta) where ai is the number of sampled haplotypes (out of n) that
-        // have i different alleles at a given locus. theta is the population mutation rate.
-        // ex: for a single diploid genotype, a={2,0} = heterozygous: 2 alleles occur once.
-        //                                    a={0,1} = homozygous: 1 allele occurs twice.
-        //
-        // https://en.wikipedia.org/wiki/Ewens%27s_sampling_formula
-        // https://github.com/ekg/freebayes/blob/master/src/Ewens.cpp#L17
-        inline real_t ewens_af_prob_ln(const vector<int>& a, real_t theta) {
-        
-        // first term (wrt formula as stated on wikipedia)
-        // n! / (theta * (theta + 1) * ... (theta + n - 1))
-        real_t term1_num_ln = factorial_ln(a.size());
-        real_t term1_denom_ln = 0.;
-        for (int i = 0; i < a.size(); ++i) {
+    // If we ever want to implement the params stuff we need the weights stored.
+    vector<double> m_weights;
+    vector<double> m_sums;
+    
+};
+    
+// ewen's allele sampling distribution.  for use in genotype prior (as in freebayes)
+// gives Pr(a1, ...,an;theta) where ai is the number of sampled haplotypes (out of n) that
+// have i different alleles at a given locus. theta is the population mutation rate.
+// ex: for a single diploid genotype, a={2,0} = heterozygous: 2 alleles occur once.
+//                                    a={0,1} = homozygous: 1 allele occurs twice.
+//
+// https://en.wikipedia.org/wiki/Ewens%27s_sampling_formula
+// https://github.com/ekg/freebayes/blob/master/src/Ewens.cpp#L17
+inline real_t ewens_af_prob_ln(const vector<int>& a, real_t theta) {
+
+    // first term (wrt formula as stated on wikipedia)
+    // n! / (theta * (theta + 1) * ... (theta + n - 1))
+    real_t term1_num_ln = factorial_ln(a.size());
+    real_t term1_denom_ln = 0.;
+    for (int i = 0; i < a.size(); ++i) {
         term1_denom_ln += log(theta + i);
-        }
-        real_t term1_ln = term1_num_ln - term1_denom_ln;
-        
-        // second term
-        // prod [ (theta^aj) / (j^aj * aj!)
-        real_t term2_ln = 0.;
-        for (int j = 0; j < a.size(); ++j) {
+    }
+    real_t term1_ln = term1_num_ln - term1_denom_ln;
+
+    // second term
+    // prod [ (theta^aj) / (j^aj * aj!)
+    real_t term2_ln = 0.;
+    for (int j = 0; j < a.size(); ++j) {
         real_t num = log(pow(theta, a[j]));
         real_t denom = log(pow(1. + j, a[j]) + factorial_ln(a[j]));
         term2_ln += num - denom;
-        }
-        
-        return term1_ln + term2_ln;
-        }
+    }
+
+    return term1_ln + term2_ln;
+}
 
 
 }
