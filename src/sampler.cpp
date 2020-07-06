@@ -6,6 +6,7 @@ namespace vg {
 
 
 void Sampler::set_source_paths(const vector<string>& source_paths,
+                               const vector<double>& source_path_ploidies,
                                const vector<pair<string, double>>& transcript_expressions,
                                const vector<tuple<string, string, size_t>>& haplotype_transcripts) {
     if (!source_paths.empty() && !transcript_expressions.empty()) {
@@ -48,11 +49,18 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
     }
     else if (!source_paths.empty()) {
         this->source_paths = source_paths;
-        vector<size_t> path_lengths;
-        for (auto& source_path : source_paths) {
-            path_lengths.push_back(xgidx->get_path_length(xgidx->get_path_handle(source_path)));
+        vector<double> path_weights;
+        path_weights.reserve(source_paths.size());
+        for (size_t i = 0; i < source_paths.size(); i++) {
+            // For each source path
+            auto& source_path = source_paths[i];
+            // Grab an applicable ploidy weight, or assume 1
+            double ploidy = i >= source_path_ploidies.size() ? 1.0 : source_path_ploidies[i];
+            
+            // Add each path, weighted by ploidy and length, to the distribution for sampling paths
+            path_weights.push_back(ploidy * xgidx->get_path_length(xgidx->get_path_handle(source_path)));
         }
-        path_sampler = vg::discrete_distribution<>(path_lengths.begin(), path_lengths.end());
+        path_sampler = vg::discrete_distribution<>(path_weights.begin(), path_weights.end());
     }
     else {
         path_sampler = vg::discrete_distribution<>();
