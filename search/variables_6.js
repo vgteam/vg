@@ -35,7 +35,6 @@ var searchData=
   ['forward_5fgraph',['forward_graph',['../classvg_1_1ReverseGraph.html#ab5cdf413526444fe31d07e3dce91d0f8',1,'vg::ReverseGraph']]],
   ['forward_5fmultiplier',['forward_multiplier',['../classvg_1_1GreedyMinDistanceClusterer.html#a4423fb0153d3e55694c29fea2d5388af',1,'vg::GreedyMinDistanceClusterer']]],
   ['forward_5fonly',['forward_only',['../classvg_1_1Sampler.html#a5d105468c850a483ff1b7696b1da7507',1,'vg::Sampler']]],
-  ['found_5fmissing_5fvariants',['found_missing_variants',['../classvg_1_1HaplotypeIndexer.html#ab71ee1525ebe28961647878f3b08c016',1,'vg::HaplotypeIndexer']]],
   ['frac_5fscore',['frac_score',['../classvg_1_1ReadFilter.html#a39086ef40e89b6b3733e5e9c42482e1e',1,'vg::ReadFilter']]],
   ['frag_5fstats',['frag_stats',['../classvg_1_1Mapper.html#a2574eba87f3d7e8e93bf3fee99dacf27',1,'vg::Mapper']]],
   ['fragl_5fsupports',['fragl_supports',['../structvg_1_1BREAKPOINT.html#a282d8840a4a956ce5d76ca1638871df7',1,'vg::BREAKPOINT']]],

@@ -116,6 +116,7 @@ var searchData=
   ['extend_5fstate',['extend_state',['../classvg_1_1PhaseUnfolder.html#a610d8256b9dc58fe6d04b1ff7aaafebb',1,'vg::PhaseUnfolder']]],
   ['extension_5fto_5falignment',['extension_to_alignment',['../classvg_1_1MinimizerMapper.html#a33fac2713ca1929fc6f870f4bb9e82b8',1,'vg::MinimizerMapper']]],
   ['external_5fhandle',['external_handle',['../classxg_1_1XGPath.html#a002267f235e618bb59e28cad12bb02a3',1,'xg::XGPath']]],
+  ['extract_5fas_5fgbwt_5fpath',['extract_as_gbwt_path',['../namespacevg.html#a0d1c00a44e9aeb5c4294edd60fcbaa61',1,'vg']]],
   ['extract_5fcluster_5fgraph',['extract_cluster_graph',['../classvg_1_1MultipathMapper.html#ad9b95d302067e0e5a575c54fe6c96274',1,'vg::MultipathMapper']]],
   ['extract_5fcomponent',['extract_component',['../classvg_1_1PathChunker.html#ae971765e047d0f1747b7f481003c73c7',1,'vg::PathChunker']]],
   ['extract_5fconnecting_5fgraph',['extract_connecting_graph',['../namespacevg_1_1algorithms.html#acd0a6861311baddb7982d556ac78bb1d',1,'vg::algorithms']]],

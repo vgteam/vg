@@ -88,12 +88,14 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ae0b8cbfe64f32152ceefa57daf9ece72"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#ae0b8cbfe64f32152ceefa57daf9ece72">HaplotypeIndexer</a> ()</td></tr>
 <tr class="memdesc:ae0b8cbfe64f32152ceefa57daf9ece72"><td class="mdescLeft">&#160;</td><td class="mdescRight">Perform initialization of backing libraries.  <a href="#ae0b8cbfe64f32152ceefa57daf9ece72">More...</a><br /></td></tr>
 <tr class="separator:ae0b8cbfe64f32152ceefa57daf9ece72"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a55930d99cba18adc343d9aeac16dae9f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a55930d99cba18adc343d9aeac16dae9f">parse_vcf</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, map&lt; string, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;alt_paths, const vector&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;contigs, vcflib::VariantCallFile &amp;variant_file, std::vector&lt; std::string &gt; &amp;sample_names, const function&lt; void(size_t, const gbwt::VariantPaths &amp;, gbwt::PhasingInformation &amp;)&gt; &amp;handle_contig_haplotype_batch)</td></tr>
-<tr class="separator:a55930d99cba18adc343d9aeac16dae9f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a49df3c8edf46023038e552aff560b767"><td class="memItemLeft" align="right" valign="top">tuple&lt; vector&lt; string &gt;, size_t, vector&lt; string &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a49df3c8edf46023038e552aff560b767">generate_threads</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, map&lt; string, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;alt_paths, bool <a class="el" href="classvg_1_1HaplotypeIndexer.html#ad9505a82880c8d30cd41bc83c4a9d76b">index_paths</a>, const string &amp;vcf_filename, const vector&lt; string &gt; &amp;aln_filenames, const string &amp;aln_format, const function&lt; void(size_t)&gt; &amp;bit_width_ready, const function&lt; void(const gbwt::vector_type &amp;, const gbwt::size_type(&amp;)[4])&gt; &amp;each_thread)</td></tr>
-<tr class="separator:a49df3c8edf46023038e552aff560b767"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab2a04acd03b684f8d8a476b72bb811bf"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; gbwt::DynamicGBWT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#ab2a04acd03b684f8d8a476b72bb811bf">build_gbwt</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, map&lt; string, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;alt_paths, bool <a class="el" href="classvg_1_1HaplotypeIndexer.html#ad9505a82880c8d30cd41bc83c4a9d76b">index_paths</a>, const string &amp;vcf_filename, const vector&lt; string &gt; &amp;aln_filenames, const string &amp;aln_format)</td></tr>
-<tr class="separator:ab2a04acd03b684f8d8a476b72bb811bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1cd54c8ebe178c2002b148d6ddb26833"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a1cd54c8ebe178c2002b148d6ddb26833">parse_vcf</a> (<a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const std::vector&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;contigs, vcflib::VariantCallFile &amp;variant_file, std::vector&lt; std::string &gt; &amp;sample_names, const function&lt; void(size_t, const gbwt::VariantPaths &amp;, gbwt::PhasingInformation &amp;)&gt; &amp;handle_contig_haplotype_batch, bool delete_graph) const</td></tr>
+<tr class="separator:a1cd54c8ebe178c2002b148d6ddb26833"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a653b8eb8e5869b1293b6ca28dcfe3389"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwt::DynamicGBWT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a653b8eb8e5869b1293b6ca28dcfe3389">build_gbwt</a> (<a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, std::string vcf_filename, bool delete_graph) const</td></tr>
+<tr class="separator:a653b8eb8e5869b1293b6ca28dcfe3389"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae2b7cbe6b570f97882faade0d147202a"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwt::DynamicGBWT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#ae2b7cbe6b570f97882faade0d147202a">build_gbwt</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph) const</td></tr>
+<tr class="separator:ae2b7cbe6b570f97882faade0d147202a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3c3c27992ab64b26ca74a1b2cab07295"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwt::DynamicGBWT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a3c3c27992ab64b26ca74a1b2cab07295">build_gbwt</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, const std::vector&lt; std::string &gt; &amp;aln_filenames, const std::string &amp;aln_format) const</td></tr>
+<tr class="separator:a3c3c27992ab64b26ca74a1b2cab07295"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1Progressive"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1Progressive')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1Progressive.html">vg::Progressive</a></td></tr>
 <tr class="memitem:a4eb5050eb36ed519cbfa398748ef183b inherit pub_methods_classvg_1_1Progressive"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#a4eb5050eb36ed519cbfa398748ef183b">preload_progress</a> (const string &amp;message)</td></tr>
 <tr class="separator:a4eb5050eb36ed519cbfa398748ef183b inherit pub_methods_classvg_1_1Progressive"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -110,22 +112,20 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
+<tr class="memitem:a0ddd9253497e1feaef7a3ff27d7ae2bf"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a0ddd9253497e1feaef7a3ff27d7ae2bf">paths_as_samples</a> = false</td></tr>
+<tr class="separator:a0ddd9253497e1feaef7a3ff27d7ae2bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afb3592792a7d781cb6e88fe7949b7bfe"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#afb3592792a7d781cb6e88fe7949b7bfe">warn_on_missing_variants</a> = true</td></tr>
 <tr class="memdesc:afb3592792a7d781cb6e88fe7949b7bfe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print a warning if variants in the VCF can't be found in the graph.  <a href="#afb3592792a7d781cb6e88fe7949b7bfe">More...</a><br /></td></tr>
 <tr class="separator:afb3592792a7d781cb6e88fe7949b7bfe"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab71ee1525ebe28961647878f3b08c016"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#ab71ee1525ebe28961647878f3b08c016">found_missing_variants</a> = 0</td></tr>
-<tr class="separator:ab71ee1525ebe28961647878f3b08c016"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a512203218e3b78afa0fc5c0e594e6516"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a512203218e3b78afa0fc5c0e594e6516">max_missing_variant_warnings</a> = 10</td></tr>
 <tr class="memdesc:a512203218e3b78afa0fc5c0e594e6516"><td class="mdescLeft">&#160;</td><td class="mdescRight">Only report up to this many of them.  <a href="#a512203218e3b78afa0fc5c0e594e6516">More...</a><br /></td></tr>
 <tr class="separator:a512203218e3b78afa0fc5c0e594e6516"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae814c4307983b700ace3cce764a412ca"><td class="memItemLeft" align="right" valign="top">map&lt; string, string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#ae814c4307983b700ace3cce764a412ca">path_to_vcf</a></td></tr>
-<tr class="separator:ae814c4307983b700ace3cce764a412ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5ff016a7fdf425ec4f3d5408d09b951f"><td class="memItemLeft" align="right" valign="top">std::map&lt; std::string, std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a5ff016a7fdf425ec4f3d5408d09b951f">path_to_vcf</a></td></tr>
+<tr class="separator:a5ff016a7fdf425ec4f3d5408d09b951f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8061130697dc26811303c4b67b081245"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a8061130697dc26811303c4b67b081245">rename_variants</a> = true</td></tr>
 <tr class="separator:a8061130697dc26811303c4b67b081245"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3823e07210ab4a9ceabd7de359f0ce37"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a3823e07210ab4a9ceabd7de359f0ce37">batch_file_prefix</a> = &quot;&quot;</td></tr>
-<tr class="separator:a3823e07210ab4a9ceabd7de359f0ce37"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad9505a82880c8d30cd41bc83c4a9d76b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#ad9505a82880c8d30cd41bc83c4a9d76b">index_paths</a> = false</td></tr>
-<tr class="separator:ad9505a82880c8d30cd41bc83c4a9d76b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa818eebd7cffc81773e8bea65bd398cb"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#aa818eebd7cffc81773e8bea65bd398cb">batch_file_prefix</a> = &quot;&quot;</td></tr>
+<tr class="separator:aa818eebd7cffc81773e8bea65bd398cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a881e755025092748b18f037fb1078e65"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a881e755025092748b18f037fb1078e65">phase_homozygous</a> = true</td></tr>
 <tr class="memdesc:a881e755025092748b18f037fb1078e65"><td class="mdescLeft">&#160;</td><td class="mdescRight">Phase homozygous unphased variants.  <a href="#a881e755025092748b18f037fb1078e65">More...</a><br /></td></tr>
 <tr class="separator:a881e755025092748b18f037fb1078e65"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -144,13 +144,13 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:af71885cc768549e78097e76e77e90ea8"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#af71885cc768549e78097e76e77e90ea8">id_interval</a> = gbwt::DynamicGBWT::SAMPLE_INTERVAL</td></tr>
 <tr class="memdesc:af71885cc768549e78097e76e77e90ea8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Interval at which to sample for GBWT locate.  <a href="#af71885cc768549e78097e76e77e90ea8">More...</a><br /></td></tr>
 <tr class="separator:af71885cc768549e78097e76e77e90ea8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abbfc79b62d07a12ccc173ba953a6482d"><td class="memItemLeft" align="right" valign="top">pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#abbfc79b62d07a12ccc173ba953a6482d">sample_range</a> = pair&lt;size_t, size_t&gt;(0, numeric_limits&lt;size_t&gt;::max())</td></tr>
-<tr class="memdesc:abbfc79b62d07a12ccc173ba953a6482d"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Range.html" title="This defines a range of values to test, from start to &lt;=end, going up by step. ">Range</a> of VCF samples to process (first to past-last).  <a href="#abbfc79b62d07a12ccc173ba953a6482d">More...</a><br /></td></tr>
-<tr class="separator:abbfc79b62d07a12ccc173ba953a6482d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:add79c3d35a8a04fb5147a8dda65de8bf"><td class="memItemLeft" align="right" valign="top">map&lt; string, pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#add79c3d35a8a04fb5147a8dda65de8bf">regions</a></td></tr>
-<tr class="separator:add79c3d35a8a04fb5147a8dda65de8bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aead849ac7d6dc12063c666a0222e3bef"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#aead849ac7d6dc12063c666a0222e3bef">excluded_samples</a></td></tr>
-<tr class="separator:aead849ac7d6dc12063c666a0222e3bef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a53cb273305c8fb1c039581c1a1b3d76e"><td class="memItemLeft" align="right" valign="top">std::pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a53cb273305c8fb1c039581c1a1b3d76e">sample_range</a> = std::pair&lt;size_t, size_t&gt;(0, std::numeric_limits&lt;size_t&gt;::max())</td></tr>
+<tr class="memdesc:a53cb273305c8fb1c039581c1a1b3d76e"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Range.html" title="This defines a range of values to test, from start to &lt;=end, going up by step. ">Range</a> of VCF samples to process (first to past-last).  <a href="#a53cb273305c8fb1c039581c1a1b3d76e">More...</a><br /></td></tr>
+<tr class="separator:a53cb273305c8fb1c039581c1a1b3d76e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a85285e19121d708649f61b5420ab0777"><td class="memItemLeft" align="right" valign="top">std::map&lt; std::string, std::pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a85285e19121d708649f61b5420ab0777">regions</a></td></tr>
+<tr class="separator:a85285e19121d708649f61b5420ab0777"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a116eb86acabeb52c7da7a1688686c034"><td class="memItemLeft" align="right" valign="top">std::unordered_set&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a116eb86acabeb52c7da7a1688686c034">excluded_samples</a></td></tr>
+<tr class="separator:a116eb86acabeb52c7da7a1688686c034"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_attribs_classvg_1_1Progressive"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1Progressive')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1Progressive.html">vg::Progressive</a></td></tr>
 <tr class="memitem:a6653625f496832c4cb8711185d5e04cb inherit pub_attribs_classvg_1_1Progressive"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#a6653625f496832c4cb8711185d5e04cb">show_progress</a> = false</td></tr>
 <tr class="separator:a6653625f496832c4cb8711185d5e04cb inherit pub_attribs_classvg_1_1Progressive"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -178,14 +178,71 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="ab2a04acd03b684f8d8a476b72bb811bf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab2a04acd03b684f8d8a476b72bb811bf">&#9670;&nbsp;</a></span>build_gbwt()</h2>
+<a id="a653b8eb8e5869b1293b6ca28dcfe3389"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a653b8eb8e5869b1293b6ca28dcfe3389">&#9670;&nbsp;</a></span>build_gbwt() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">unique_ptr&lt; gbwt::DynamicGBWT &gt; vg::HaplotypeIndexer::build_gbwt </td>
+          <td class="memname">std::unique_ptr&lt; gbwt::DynamicGBWT &gt; vg::HaplotypeIndexer::build_gbwt </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>vcf_filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>delete_graph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Build a GBWT from the haplotypes in the given VCF file.</p>
+<p>Respects excluded_samples and does not produce threads for them.</p>
+<p>If needed, this function can delete the graph to save memory.</p>
+<p>TODO: We copy the file name, as vcflib requires a non-const name. </p>
+
+</div>
+</div>
+<a id="ae2b7cbe6b570f97882faade0d147202a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae2b7cbe6b570f97882faade0d147202a">&#9670;&nbsp;</a></span>build_gbwt() <span class="overload">[2/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::unique_ptr&lt; gbwt::DynamicGBWT &gt; vg::HaplotypeIndexer::build_gbwt </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Build a GBWT from the embedded non-alt paths in the graph. </p>
+
+</div>
+</div>
+<a id="a3c3c27992ab64b26ca74a1b2cab07295"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3c3c27992ab64b26ca74a1b2cab07295">&#9670;&nbsp;</a></span>build_gbwt() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::unique_ptr&lt; gbwt::DynamicGBWT &gt; vg::HaplotypeIndexer::build_gbwt </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -193,128 +250,29 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">map&lt; string, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>alt_paths</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>index_paths</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>vcf_filename</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramtype">const std::vector&lt; std::string &gt; &amp;&#160;</td>
           <td class="paramname"><em>aln_filenames</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>aln_format</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td></td>
+          <td></td><td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Build a GBWT from the given haplotype sources.</p>
-<p>graph is the graph to operate on.</p>
-<p>alt_paths is a map of pre-extracted alt paths. If not filled in, alt paths will be extracted. The map will be cleared when the function returns.</p>
-<p>index_paths is a flag for whether to include non-alt paths in the graph as haplotypes in the GBWT.</p>
-<p>If vcf_filename is set, includes haplotypes from the VCF in the GBWT. If batch_file_prefix is set on the object, also dumps VCF parse information.</p>
-<p>If aln_filenames is nonempty, includes alignment paths from those files as haplotypes. In that case, index_paths must be false and vcf_filenames must be empty.</p>
-<p>aln_format can be "GAM" or "GAF"</p>
-<p>Respects excluded_samples and does not produce threads for them. </p>
+<p>Build a GBWT with each alignment as a thread over a separate sample in the same contig.</p>
+<p>aln_format can be "GAM" or "GAF" </p>
 
 </div>
 </div>
-<a id="a49df3c8edf46023038e552aff560b767"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a49df3c8edf46023038e552aff560b767">&#9670;&nbsp;</a></span>generate_threads()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">tuple&lt; vector&lt; string &gt;, size_t, vector&lt; string &gt; &gt; vg::HaplotypeIndexer::generate_threads </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">map&lt; string, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>alt_paths</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>index_paths</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>vcf_filename</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
-          <td class="paramname"><em>aln_filenames</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>aln_format</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; void(size_t)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>bit_width_ready</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; void(const gbwt::vector_type &amp;, const gbwt::size_type(&amp;)[4])&gt; &amp;&#160;</td>
-          <td class="paramname"><em>each_thread</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Collect haplotype threads and metadata by combining haplotype sources.</p>
-<p>graph is the graph to operate on.</p>
-<p>alt_paths is a map of pre-extracted alt paths. If not filled in, alt paths will be extracted. The map will be cleared when the function returns.</p>
-<p>index_paths is a flag for whether to include non-alt paths in the graph as haplotypes in the GBWT.</p>
-<p>If vcf_filename is set, includes haplotypes from the VCF in the GBWT. If batch_file_prefix is set on the object, also dumps VCF parse information.</p>
-<p>If aln_filenames is nonempty, includes alignment paths from those files as haplotypes. In that case, index_paths must be false and vcf_filenames must be empty.</p>
-<p>aln_format can be "GAM" or "GAF"</p>
-<p>First, determines the bit width necessary to encode the threads that will be produced, and announces it to the bit_width_ready callback.</p>
-<p>Then, for each thread in serial (describing a contiguous portion of a haplotype on a contig), calls each_thread with the thread data itself and an array of numbers describing the thread name.</p>
-<p>Respects excluded_samples and does not produce threads for them.</p>
-<p>Returns the sample names, the total haplotype count, and the contig names. </p>
-
-</div>
-</div>
-<a id="a55930d99cba18adc343d9aeac16dae9f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a55930d99cba18adc343d9aeac16dae9f">&#9670;&nbsp;</a></span>parse_vcf()</h2>
+<a id="a1cd54c8ebe178c2002b148d6ddb26833"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1cd54c8ebe178c2002b148d6ddb26833">&#9670;&nbsp;</a></span>parse_vcf()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -322,19 +280,13 @@ Public Attributes</h2></td></tr>
         <tr>
           <td class="memname">size_t vg::HaplotypeIndexer::parse_vcf </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">map&lt; string, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>alt_paths</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>contigs</em>, </td>
         </tr>
         <tr>
@@ -353,35 +305,40 @@ Public Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const function&lt; void(size_t, const gbwt::VariantPaths &amp;, gbwt::PhasingInformation &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>handle_contig_haplotype_batch</em>&#160;</td>
+          <td class="paramname"><em>handle_contig_haplotype_batch</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>delete_graph</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td></td>
+          <td></td><td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
 <p>Parse a VCF file into the types needed for GBWT indexing.</p>
-<p>Takes a graph, a map of alt paths by name that will be extracted from the graph if not populated, a vector of contigs in the graph to process, in order, and the corresponding VCF file, already open. Sample parsing on the VCF file should be turned off.</p>
-<p>Uses the given vector of sample names, which must be pre-populated with any other samples (such as "ref") already in a GBWTBuilder that you are using with the results of this function. Sample names from the VCF will be added.</p>
+<p>Takes a graph, a vector of contigs in the graph to process, in order, and the corresponding VCF file, already open. Sample parsing on the VCF file should be turned off.</p>
+<p>Inserts the sample names from the VCF into sample_names.</p>
 <p>Calls the callback serially with the contig number, each contig's gbwt::VariantPaths, for each gbwt::PhasingInformation batch of samples. The gbwt::PhasingInformation is not const because the GBWT library needs to modify it in order to generate haplotypes from it efficiently.</p>
 <p>If batch_file_prefix is set on the object, also dumps VCF parse information.</p>
-<p>Doesn't create threads for embedded graph paths itself.</p>
-<p>Ignores excluded_samples.</p>
-<p>Returns the number of haplotypes created (2 per sample) This number will need to be adjusted if any samples' haplotypes are filtered out later. This function ignores any sample filters and processes the entire VCF. </p>
+<p>If needed, this function can delete the graph to save memory.</p>
+<p>Returns the number of haplotypes created (2 per sample) This number will need to be adjusted if any samples' haplotypes are filtered out later. This function ignores any sample filters and processes the entire sample range. </p>
 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a id="a3823e07210ab4a9ceabd7de359f0ce37"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3823e07210ab4a9ceabd7de359f0ce37">&#9670;&nbsp;</a></span>batch_file_prefix</h2>
+<a id="aa818eebd7cffc81773e8bea65bd398cb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa818eebd7cffc81773e8bea65bd398cb">&#9670;&nbsp;</a></span>batch_file_prefix</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">string vg::HaplotypeIndexer::batch_file_prefix = &quot;&quot;</td>
+          <td class="memname">std::string vg::HaplotypeIndexer::batch_file_prefix = &quot;&quot;</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -405,14 +362,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aead849ac7d6dc12063c666a0222e3bef"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aead849ac7d6dc12063c666a0222e3bef">&#9670;&nbsp;</a></span>excluded_samples</h2>
+<a id="a116eb86acabeb52c7da7a1688686c034"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a116eb86acabeb52c7da7a1688686c034">&#9670;&nbsp;</a></span>excluded_samples</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">unordered_set&lt;string&gt; vg::HaplotypeIndexer::excluded_samples</td>
+          <td class="memname">std::unordered_set&lt;std::string&gt; vg::HaplotypeIndexer::excluded_samples</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -433,21 +390,6 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Arbitrarily phase all unphased variants. </p>
-
-</div>
-</div>
-<a id="ab71ee1525ebe28961647878f3b08c016"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab71ee1525ebe28961647878f3b08c016">&#9670;&nbsp;</a></span>found_missing_variants</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::HaplotypeIndexer::found_missing_variants = 0</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Track the number of variants in the phasing VCF that aren't found in the graph TODO: Make atomic? </p>
 
 </div>
 </div>
@@ -483,21 +425,6 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ad9505a82880c8d30cd41bc83c4a9d76b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad9505a82880c8d30cd41bc83c4a9d76b">&#9670;&nbsp;</a></span>index_paths</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::HaplotypeIndexer::index_paths = false</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>If set to true, store paths from the graph alognside haplotype threads from the VCF, if any. </p>
-
-</div>
-</div>
 <a id="a512203218e3b78afa0fc5c0e594e6516"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a512203218e3b78afa0fc5c0e594e6516">&#9670;&nbsp;</a></span>max_missing_variant_warnings</h2>
 
@@ -514,18 +441,33 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ae814c4307983b700ace3cce764a412ca"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae814c4307983b700ace3cce764a412ca">&#9670;&nbsp;</a></span>path_to_vcf</h2>
+<a id="a5ff016a7fdf425ec4f3d5408d09b951f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5ff016a7fdf425ec4f3d5408d09b951f">&#9670;&nbsp;</a></span>path_to_vcf</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">map&lt;string, string&gt; vg::HaplotypeIndexer::path_to_vcf</td>
+          <td class="memname">std::map&lt;std::string, std::string&gt; vg::HaplotypeIndexer::path_to_vcf</td>
         </tr>
       </table>
 </div><div class="memdoc">
 <p><a class="el" href="structvg_1_1Path.html">Path</a> names in the graph are mapped to VCF contig names via path_to_vcf, or used as-is if no entry there is found. </p>
+
+</div>
+</div>
+<a id="a0ddd9253497e1feaef7a3ff27d7ae2bf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0ddd9253497e1feaef7a3ff27d7ae2bf">&#9670;&nbsp;</a></span>paths_as_samples</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::HaplotypeIndexer::paths_as_samples = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Treat the embedded paths in the graph as samples. By default, the paths are interpreted as contigs. </p>
 
 </div>
 </div>
@@ -545,14 +487,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="add79c3d35a8a04fb5147a8dda65de8bf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#add79c3d35a8a04fb5147a8dda65de8bf">&#9670;&nbsp;</a></span>regions</h2>
+<a id="a85285e19121d708649f61b5420ab0777"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a85285e19121d708649f61b5420ab0777">&#9670;&nbsp;</a></span>regions</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">map&lt;string, pair&lt;size_t, size_t&gt; &gt; vg::HaplotypeIndexer::regions</td>
+          <td class="memname">std::map&lt;std::string, std::pair&lt;size_t, size_t&gt; &gt; vg::HaplotypeIndexer::regions</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -575,14 +517,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="abbfc79b62d07a12ccc173ba953a6482d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abbfc79b62d07a12ccc173ba953a6482d">&#9670;&nbsp;</a></span>sample_range</h2>
+<a id="a53cb273305c8fb1c039581c1a1b3d76e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a53cb273305c8fb1c039581c1a1b3d76e">&#9670;&nbsp;</a></span>sample_range</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt;size_t, size_t&gt; vg::HaplotypeIndexer::sample_range = pair&lt;size_t, size_t&gt;(0, numeric_limits&lt;size_t&gt;::max())</td>
+          <td class="memname">std::pair&lt;size_t, size_t&gt; vg::HaplotypeIndexer::sample_range = std::pair&lt;size_t, size_t&gt;(0, std::numeric_limits&lt;size_t&gt;::max())</td>
         </tr>
       </table>
 </div><div class="memdoc">

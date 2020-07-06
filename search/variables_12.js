@@ -46,7 +46,7 @@ var searchData=
   ['reference_5fpaths',['reference_paths',['../classvg_1_1PhaseUnfolder.html#a2bfa46441300e0817643b310aced989b',1,'vg::PhaseUnfolder']]],
   ['reflect',['reflect',['../classvg_1_1GraphSynchronizer_1_1Lock.html#aa5776efd133ed466cb82ef4f4b161dfd',1,'vg::GraphSynchronizer::Lock']]],
   ['refpos',['refpos',['../structvg_1_1Alignment.html#a584c3aa15a5c1386d14a97c0ce85c0cf',1,'vg::Alignment']]],
-  ['regions',['regions',['../classvg_1_1HaplotypeIndexer.html#add79c3d35a8a04fb5147a8dda65de8bf',1,'vg::HaplotypeIndexer']]],
+  ['regions',['regions',['../classvg_1_1HaplotypeIndexer.html#a85285e19121d708649f61b5420ab0777',1,'vg::HaplotypeIndexer']]],
   ['regular_5faligner',['regular_aligner',['../classvg_1_1AlignerClient.html#af164f37a5efb0c05b10fea3841b78e83',1,'vg::AlignerClient']]],
   ['remove_5ffailing_5fedits',['remove_failing_edits',['../classvg_1_1Filter.html#aea2a2fc6de506793111639e609376bf0',1,'vg::Filter']]],
   ['rename_5fvariants',['rename_variants',['../classvg_1_1HaplotypeIndexer.html#a8061130697dc26811303c4b67b081245',1,'vg::HaplotypeIndexer']]],

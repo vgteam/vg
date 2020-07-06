@@ -100,7 +100,7 @@ var searchData=
   ['region_5fexpander_2ecpp',['region_expander.cpp',['../region__expander_8cpp.html',1,'']]],
   ['region_5fexpander_2ehpp',['region_expander.hpp',['../region__expander_8hpp.html',1,'']]],
   ['regionexpander',['RegionExpander',['../classvg_1_1RegionExpander.html',1,'vg::RegionExpander'],['../classvg_1_1RegionExpander.html#a42c0f501da7fabf0045f5c434b55f705',1,'vg::RegionExpander::RegionExpander()']]],
-  ['regions',['regions',['../classvg_1_1HaplotypeIndexer.html#add79c3d35a8a04fb5147a8dda65de8bf',1,'vg::HaplotypeIndexer']]],
+  ['regions',['regions',['../classvg_1_1HaplotypeIndexer.html#a85285e19121d708649f61b5420ab0777',1,'vg::HaplotypeIndexer']]],
   ['register_5fbare_5floader',['register_bare_loader',['../classvg_1_1io_1_1Registry.html#aaf8339640cdf9162563246a1e136b57f',1,'vg::io::Registry']]],
   ['register_5fbare_5floader_5fsaver',['register_bare_loader_saver',['../classvg_1_1io_1_1Registry.html#aab501bb8db46d45e8b1946da37f0b382',1,'vg::io::Registry']]],
   ['register_5fbare_5floader_5fsaver_5fwith_5fmagic',['register_bare_loader_saver_with_magic',['../classvg_1_1io_1_1Registry.html#ad3f16de5d24cb503429d358e2af8c831',1,'vg::io::Registry']]],

@@ -43,7 +43,7 @@ var searchData=
   ['brute_5fforce_5falt_5ftraversals',['brute_force_alt_traversals',['../classvg_1_1VCFTraversalFinder.html#ab27f747fe785a8536cd1f944a5876774',1,'vg::VCFTraversalFinder']]],
   ['build_5fedge_5findexes',['build_edge_indexes',['../classvg_1_1VG.html#a3fb2cb59474393ac822847033f185d17',1,'vg::VG']]],
   ['build_5fedge_5findexes_5fno_5finit_5fsize',['build_edge_indexes_no_init_size',['../classvg_1_1VG.html#af63d4a22a3baa5b21623128b81a14872',1,'vg::VG']]],
-  ['build_5fgbwt',['build_gbwt',['../classvg_1_1HaplotypeIndexer.html#ab2a04acd03b684f8d8a476b72bb811bf',1,'vg::HaplotypeIndexer']]],
+  ['build_5fgbwt',['build_gbwt',['../classvg_1_1HaplotypeIndexer.html#a653b8eb8e5869b1293b6ca28dcfe3389',1,'vg::HaplotypeIndexer::build_gbwt(PathHandleGraph *graph, std::string vcf_filename, bool delete_graph) const'],['../classvg_1_1HaplotypeIndexer.html#ae2b7cbe6b570f97882faade0d147202a',1,'vg::HaplotypeIndexer::build_gbwt(const PathHandleGraph *graph) const'],['../classvg_1_1HaplotypeIndexer.html#a3c3c27992ab64b26ca74a1b2cab07295',1,'vg::HaplotypeIndexer::build_gbwt(const PathHandleGraph *graph, const std::vector&lt; std::string &gt; &amp;aln_filenames, const std::string &amp;aln_format) const']]],
   ['build_5fgcsa_5flcp',['build_gcsa_lcp',['../namespacevg.html#a34b89433618346e971606020965b10ed',1,'vg']]],
   ['build_5findexes',['build_indexes',['../classvg_1_1SnarlManager.html#a962ce88320136f82a1f5f58a036698c2',1,'vg::SnarlManager::build_indexes()'],['../classvg_1_1VG.html#a7f71911fe2c652dc11aec0a0d705b1e4',1,'vg::VG::build_indexes()']]],
   ['build_5findexes_5fno_5finit_5fsize',['build_indexes_no_init_size',['../classvg_1_1VG.html#aa78095fb5d27e182c5cc4d5c10d3da39',1,'vg::VG']]],

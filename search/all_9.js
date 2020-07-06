@@ -68,7 +68,6 @@ var searchData=
   ['index_5fmanager_2ehpp',['index_manager.hpp',['../index__manager_8hpp.html',1,'']]],
   ['index_5fnode_5fto_5fpath',['index_node_to_path',['../classxg_1_1XG.html#a4599310a72acd2ccfbe9d6041cc51dd1',1,'xg::XG']]],
   ['index_5fof',['index_of',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html#a622e1fefb7e7aa8977623b183ea9b457',1,'vg::DozeuInterface::OrderedGraph']]],
-  ['index_5fpaths',['index_paths',['../classvg_1_1HaplotypeIndexer.html#ad9505a82880c8d30cd41bc83c4a9d76b',1,'vg::HaplotypeIndexer']]],
   ['index_5fpositions',['index_positions',['../namespacevg.html#a674d255929d511d200bd410beca4dee6',1,'vg']]],
   ['index_5fto_5fnode',['index_to_node',['../classvg_1_1Packer.html#a967dcbe2cbcb6df4c7e2d938f7cd11fa',1,'vg::Packer']]],
   ['indexed_5fvg_2ecpp',['indexed_vg.cpp',['../indexed__vg_8cpp.html',1,'']]],
