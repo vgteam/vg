@@ -420,10 +420,35 @@ int main_sim(int argc, char** argv) {
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
 
-    if (!path_names.empty()) {
-        for (auto& name : path_names) {
-            // Synthesize ploidies for explicitly specified paths
+    // Deal with path names. Do this before we create paths to represent threads.
+    if (any_path) {
+        if (progress) {
+            std::cerr << "Selecting all " << path_handle_graph->get_path_count() << " paths" << std::endl;
+        }
+        if (path_handle_graph->get_path_count() == 0) {
+            cerr << "[vg sim] error: the graph does not contain paths" << endl;
+            return 1;
+        }
+        path_names.clear();
+        path_handle_graph->for_each_path_handle([&](const path_handle_t& handle) {
+            // For each path in the graph
+            auto name = path_handle_graph->get_path_name(handle);
+            // Simulate from it
+            path_names.push_back(name);
+            // At ploidy defined by the rules (default 1)
             path_ploidies.push_back(consult_ploidy_rules(name));
+        });
+    } else if (!path_names.empty()) {
+        if (progress) {
+            std::cerr << "Checking " << path_names.size() << " selected paths" << std::endl;
+        }
+        for (auto& path_name : path_names) {
+            if (path_handle_graph->has_path(path_name) == false) {
+                cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
+                return 1;
+            }
+            // Synthesize ploidies for explicitly specified paths
+            path_ploidies.push_back(consult_ploidy_rules(path_name));
         }
     }
 
@@ -523,36 +548,6 @@ int main_sim(int argc, char** argv) {
     bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
 
-    // Deal with path names.
-    if (any_path) {
-        if (progress) {
-            std::cerr << "Selecting all " << xgidx->get_path_count() << " paths" << std::endl;
-        }
-        if (xgidx->get_path_count() == 0) {
-            cerr << "[vg sim] error: the graph does not contain paths" << endl;
-            return 1;
-        }
-        path_names.clear();
-        xgidx->for_each_path_handle([&](const path_handle_t& handle) {
-            // For each path in the graph
-            auto name = xgidx->get_path_name(handle);
-            // Simulate from it
-            path_names.push_back(name);
-            // At ploidy defined by the rules (default 1)
-            path_ploidies.push_back(consult_ploidy_rules(name));
-        });
-    } else if (!path_names.empty()) {
-        if (progress) {
-            std::cerr << "Checking " << path_names.size() << " selected paths" << std::endl;
-        }
-        for (auto& path_name : path_names) {
-            if (xgidx->has_path(path_name) == false) {
-                cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
-                return 1;
-            }
-        }
-    }
-    
     if (haplotype_transcript_file_name.empty()) {
         if (progress && !transcript_expressions.empty()) {
             std::cerr << "Checking " << transcript_expressions.size() << " transcripts" << std::endl;

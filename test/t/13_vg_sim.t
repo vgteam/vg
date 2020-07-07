@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 18
+plan tests 26
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz -a >x2.vg
@@ -55,6 +55,23 @@ is $(vg sim -N -n 1000 -l 20 -x n.xg | grep -o N | uniq | wc -l) 1 "sim can emit
 is $(vg sim -n 1000 -l 2 -p 5 -e 0.1 -x n.xg | grep N | wc -l) 0 "sim doesn't emit Ns even with pair and errors"
 
 rm -f x.vg x2.vg x.xg x.gbwt n.vg n.fa n.xg
+
+vg construct -r small/xy.fa -v small/x.vcf.gz -a >xy.vg
+vg index -x xy.xg xy.vg
+vg index -G xy.gbwt -v small/x.vcf.gz xy.vg
+
+vg sim -s 12345 -n 1000 -l 2 -e 0.1 -x xy.xg -g xy.gbwt --sample-name 1 --any-path >/dev/null
+is $? "0" "Sample simulation works along with --any-path"
+
+is "$(vg sim -s 12345 -n 1000 -l 2 -e 0.1 -x xy.xg -g xy.gbwt --sample-name 1 -a --ploidy-regex y:0 | vg annotate -p -x xy.xg -a - | vg view -aj - | jq -c 'select(.refpos[].name == "x")' | wc -l)" "1000" "not having any regexes skips all unvisited contigs"
+is "$(vg sim -s 12345 -n 1000 -l 2 -e 0.1 -x xy.xg -g xy.gbwt --sample-name 1 -a --ploidy-regex candyfloss:12345 | vg annotate -p -x xy.xg -a - | vg view -aj - | jq -c 'select(.refpos[].name == "x")' | wc -l)" "663" "assigning a ploidy of 1 by default gives reads in a ~1-2 ratio vs. diploid covered contigs"
+is "$(vg sim -s 12345 -n 1000 -l 2 -e 0.1 -x xy.xg -g xy.gbwt --sample-name 1 -a --ploidy-regex y:2 | vg annotate -p -x xy.xg -a - | vg view -aj - | jq -c 'select(.refpos[].name == "x")' | wc -l)" "498" "assigning a ploidy of 2 by regex gives reads in a ~1-1 ratio vs. diploid covered contigs"
+is "$(vg sim -s 12345 -n 1000 -l 2 -e 0.1 -x xy.xg -g xy.gbwt --sample-name 1 -a --ploidy-regex y:0 | vg annotate -p -x xy.xg -a - | vg view -aj - | jq -c 'select(.refpos[].name == "x")' | wc -l)" "1000" "assigning a ploidy of 0 by regex excludes reads from that contig"
+is "$(vg sim -s 12345 -n 1000 -l 2 -e 0.1 -x xy.xg -g xy.gbwt --sample-name 1 -a --ploidy-regex a:5,b:10,y:0,c:6 | vg annotate -p -x xy.xg -a - | vg view -aj - | jq -c 'select(.refpos[].name == "x")' | wc -l)" "1000" "multiple regexes are interpreted"
+is "$(vg sim -s 12345 -n 1000 -l 2 -e 0.1 -x xy.xg -g xy.gbwt --sample-name 1 -a --ploidy-regex "[^x]:0" | vg annotate -p -x xy.xg -a - | vg view -aj - | jq -c 'select(.refpos[].name == "x")' | wc -l)" "1000" "regexes are interpreted as regexes"
+is "$(vg sim -s 12345 -n 1000 -l 2 -e 0.1 -x xy.xg -g xy.gbwt --sample-name 1 -a --ploidy-regex y:1E20 | vg annotate -p -x xy.xg -a - | vg view -aj - | jq -c 'select(.refpos[].name == "y")' | wc -l)" "1000" "assigning a very high ploidy by regex starves out the other paths"
+
+rm -f xy.vg xy.xg xy.gbwt
 
 vg view -Fv graphs/cactus-BRCA2.gfa >cactus-BRCA2.vg
 vg index -x cactus-BRCA2.xg cactus-BRCA2.vg
