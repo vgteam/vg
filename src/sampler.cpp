@@ -17,6 +17,11 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
         cerr << "error:[Sampler] cannot sample from haplotype transcripts without an expression profile" << endl;
         exit(1);
     }
+    if (!source_path_ploidies.empty() && source_path_ploidies.size() != source_paths.size()) {
+        cerr << "error:[Sampler] cannot sample from list of paths with the wrong number of ploidy weights ("
+            << source_path_ploidies.size() << " vs. " << source_paths.size() << ")" << endl;
+        exit(1);
+    }
     else if (!transcript_expressions.empty()) {
         this->source_paths.clear();
         vector<double> expression_values;
