@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 56
+plan tests 64
 
 
 # Build vg graphs for two chromosomes
@@ -57,7 +57,34 @@ is $(vg gbwt -S xy2.gbwt) 1 "fast merge: 1 sample"
 cmp xy.gbwt xy2.gbwt
 is $? 0 "the merged indexes are identical"
 
-rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt
+# Build an empty GBWT
+../deps/gbwt/build_gbwt -e empty > /dev/null
+
+# Normal merging, x + empty
+vg gbwt -m -o x2.gbwt x.gbwt empty.gbwt
+is $? 0 "normal merging: non-empty + empty"
+cmp x.gbwt x2.gbwt
+is $? 0 "the index remains unchanged"
+
+# Normal merging, empty + x; silence the warning about the merging order
+vg gbwt -m -o x2.gbwt empty.gbwt x.gbwt 2> /dev/null
+is $? 0 "normal merging: empty + non-empty"
+cmp x.gbwt x2.gbwt
+is $? 0 "the index remains unchanged"
+
+# Fast merging, x + empty
+vg gbwt -f -o x2.gbwt x.gbwt empty.gbwt
+is $? 0 "fast merging: non-empty + empty"
+cmp x.gbwt x2.gbwt
+is $? 0 "the index remains unchanged"
+
+# Fast merging, empty + x
+vg gbwt -f -o x2.gbwt empty.gbwt x.gbwt
+is $? 0 "fast merging: empty + non-empty"
+cmp x.gbwt x2.gbwt
+is $? 0 "the index remains unchanged"
+
+rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt empty.gbwt x2.gbwt
 
 
 # Build a GBWT for paths
