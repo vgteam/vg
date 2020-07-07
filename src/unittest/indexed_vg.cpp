@@ -3,7 +3,7 @@
 /// unit tests for the vg-file-backed handle graph implementation
 
 #include <iostream>
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "../indexed_vg.hpp"
 #include "../vg.hpp"

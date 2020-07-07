@@ -3,6 +3,7 @@
 #include "../vg.hpp"
 
 //#define debug
+using namespace vg::io;
 
 namespace vg {
 

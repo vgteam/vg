@@ -6,7 +6,7 @@
 namespace vg {
 
 using namespace std;
-
+using namespace vg::io;
 
 VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     graph.paths.for_each_name([&](const string& name) {

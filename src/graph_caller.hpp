@@ -13,11 +13,13 @@
 #include "traversal_finder.hpp"
 #include "snarl_caller.hpp"
 #include "region.hpp"
-#include "alignment_emitter.hpp"
+#include "vg/io/alignment_emitter.hpp"
 
 namespace vg {
 
 using namespace std;
+
+using vg::io::AlignmentEmitter;
 
 /**
  * GraphCaller: Use the snarl decomposition to call snarls in a graph

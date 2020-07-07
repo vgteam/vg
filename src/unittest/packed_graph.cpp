@@ -7,7 +7,7 @@
 #include <sstream>
 #include <set>
 
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "random_graph.hpp"
 #include "randomness.hpp"
 

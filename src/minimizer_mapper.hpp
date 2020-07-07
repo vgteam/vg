@@ -8,7 +8,7 @@
 
 #include "algorithms/nearest_offsets_in_paths.hpp"
 #include "aligner.hpp"
-#include "alignment_emitter.hpp"
+#include "vg/io/alignment_emitter.hpp"
 #include "gapless_extender.hpp"
 #include "mapper.hpp"
 #include "min_distance.hpp"
@@ -23,6 +23,7 @@
 namespace vg {
 
 using namespace std;
+using namespace vg::io;
 
 class MinimizerMapper : public AlignerClient {
 public:

@@ -6,7 +6,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "../split_strand_graph.hpp"
 #include "../utility.hpp"
 #include "random_graph.hpp"

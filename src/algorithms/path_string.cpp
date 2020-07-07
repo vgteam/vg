@@ -4,6 +4,7 @@ namespace vg {
 namespace algorithms {
 
 using namespace std;
+using namespace vg::io;
 
 void append_mapping_sequence(const Mapping& m, const string& node_seq, string& seq) {
     size_t t = 0;
