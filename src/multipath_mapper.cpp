@@ -60,6 +60,12 @@ namespace vg {
         cerr << "obtained MEMs:" << endl;
         for (MaximalExactMatch mem : mems) {
             cerr << "\t" << mem << " (" << mem.nodes.size() << " hits)" << endl;
+            if (fanouts.get() && fanouts->count(&mem)) {
+                cerr << "\t\tfan-outs:" << endl;
+                for (auto fanout : fanouts->at(&mem)) {
+                    cerr << "\t\t\t" << (fanout.first - mem.begin) << ": " << *fanout.first << " -> " << fanout.second << endl;
+                }
+            }
         }
         cerr << "clustering MEMs..." << endl;
 #endif
@@ -91,6 +97,12 @@ namespace vg {
             cerr << "\tcluster " << i << endl;
             for (pair<const MaximalExactMatch*, pos_t>  hit : clusters[i]) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
+                if (fanouts.get() && fanouts->count(hit.first)) {
+                    cerr << "\t\t\tfan-outs:" << endl;
+                    for (auto fanout : fanouts->at(hit.first)) {
+                        cerr << "\t\t\t\t" << (fanout.first - hit.first->begin) << ": " << *fanout.first << " -> " << fanout.second << endl;
+                    }
+                }
             }
         }
         cerr << "extracting subgraphs..." << endl;
