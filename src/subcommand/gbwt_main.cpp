@@ -95,7 +95,7 @@ int main_gbwt(int argc, char** argv)
     std::string to_remove;
 
     int c;
-    optind = 2; // force optind past command positional argument    
+    optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
             {
@@ -129,8 +129,8 @@ int main_gbwt(int argc, char** argv)
                 { "contigs", no_argument, 0, 'C' },
                 { "haplotypes", no_argument, 0, 'H' },
                 { "samples", no_argument, 0, 'S' },
-                { "list_names", no_argument, 0, 'L' },
-                { "thread_names", no_argument, 0, 'T' },
+                { "list-names", no_argument, 0, 'L' },
+                { "thread-names", no_argument, 0, 'T' },
 
                 // Remove sample
                 { "remove-sample", required_argument, 0, 'R' },
