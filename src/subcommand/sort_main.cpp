@@ -18,7 +18,8 @@
 #include "../algorithms/gfa_to_handle.hpp"
 #include "../algorithms/id_sort.hpp"
 #include "../algorithms/topological_sort.hpp"
-
+#include "../algorithms/copy_graph.hpp"
+#include <vg/io/vpkg.hpp>
 
 using namespace std;
 using namespace vg;
@@ -149,10 +150,22 @@ int main_sort(int argc, char *argv[]) {
             exit(1);
         }
     } else {
-        // Read as VG
-        get_input_file(filename, [&](istream& in) {
-            graph.reset(new VG(in));
-        });
+        // Read as Handle Graph and copy into VG           
+        unique_ptr<handlegraph::MutablePathMutableHandleGraph> handle_graph =
+            vg::io::VPKG::load_one<handlegraph::MutablePathMutableHandleGraph>(filename);
+        VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
+        if (vg_graph != nullptr) {
+            graph.reset(vg_graph);
+            handle_graph.release();
+        } else {
+            // Copy instead.
+            vg_graph = new vg::VG();
+            algorithms::copy_path_handle_graph(handle_graph.get(), vg_graph);
+            // Give the unique_ptr ownership and delete the graph we loaded.
+            graph.reset(vg_graph);
+            // Make sure the paths are all synced up
+            vg_graph->paths.to_graph(vg_graph->graph);
+        }
     }
     
     // Now sort the graph
