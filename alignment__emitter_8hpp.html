@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/alignment_emitter.hpp File Reference</title>
+<title>vg: deps/libvgio/include/vg/io/alignment_emitter.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,13 +59,14 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_94a36784afa54c0b50996002372b429e.html">deps</a></li><li class="navelem"><a class="el" href="dir_d95f31dd51a20bec8abfb4ef4a294bfc.html">libvgio</a></li><li class="navelem"><a class="el" href="dir_b8cdeaf7bc0e978ab70c29617e7f23d6.html">include</a></li><li class="navelem"><a class="el" href="dir_be4f3f33969cd0caa07504c2c50019bf.html">vg</a></li><li class="navelem"><a class="el" href="dir_d5bc4d4758c1b2ca50e24c55c255edfd.html">io</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
+<a href="#typedef-members">Typedefs</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">alignment_emitter.hpp File Reference</div>  </div>
@@ -81,34 +82,47 @@ $(function() {
 <code>#include &lt;vg/vg.pb.h&gt;</code><br />
 <code>#include &lt;<a class="el" href="protobuf__emitter_8hpp.html">vg/io/protobuf_emitter.hpp</a>&gt;</code><br />
 <code>#include &lt;<a class="el" href="stream__multiplexer_8hpp.html">vg/io/stream_multiplexer.hpp</a>&gt;</code><br />
-<code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="handle__graph_8hpp.html">handlegraph/handle_graph.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html">vg::AlignmentEmitter</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">vg::io::AlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NullAlignmentEmitter.html">vg::NullAlignmentEmitter</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1NullAlignmentEmitter.html">vg::io::NullAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TSVAlignmentEmitter.html">vg::TSVAlignmentEmitter</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1TSVAlignmentEmitter.html">vg::io::TSVAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html">vg::HTSAlignmentEmitter</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VGAlignmentEmitter.html">vg::io::VGAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SplicedHTSAlignmentEmitter.html">vg::SplicedHTSAlignmentEmitter</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGAlignmentEmitter.html">vg::VGAlignmentEmitter</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GafAlignmentEmitter.html">vg::GafAlignmentEmitter</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html">vg::io::GafAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacevg_1_1io"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html">vg::io</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
+Typedefs</h2></td></tr>
+<tr class="memitem:a3943ae5818e3556e216014f0df531502"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a3943ae5818e3556e216014f0df531502">vg::io::handle_t</a> = <a class="el" href="structhandlegraph_1_1handle__t.html">handlegraph::handle_t</a></td></tr>
+<tr class="separator:a3943ae5818e3556e216014f0df531502"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a43c8209ab6c2c1d48c0ca50c24fd0d13"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a43c8209ab6c2c1d48c0ca50c24fd0d13">vg::io::nid_t</a> = <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">handlegraph::nid_t</a></td></tr>
+<tr class="separator:a43c8209ab6c2c1d48c0ca50c24fd0d13"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5cab7a1a96fc203865d8ca67a372b24f"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a5cab7a1a96fc203865d8ca67a372b24f">vg::io::path_handle_t</a> = <a class="el" href="structhandlegraph_1_1path__handle__t.html">handlegraph::path_handle_t</a></td></tr>
+<tr class="separator:a5cab7a1a96fc203865d8ca67a372b24f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5473f8a5ac351719453cfd62655beebb"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a5473f8a5ac351719453cfd62655beebb">vg::io::step_handle_t</a> = <a class="el" href="structhandlegraph_1_1step__handle__t.html">handlegraph::step_handle_t</a></td></tr>
+<tr class="separator:a5473f8a5ac351719453cfd62655beebb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a51e10b2bc70fa91b79b32c5aadeab4ff"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a51e10b2bc70fa91b79b32c5aadeab4ff">vg::io::edge_t</a> = <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">handlegraph::edge_t</a></td></tr>
+<tr class="separator:a51e10b2bc70fa91b79b32c5aadeab4ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a172e1fe036e09c51c5a60918463de08f"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a172e1fe036e09c51c5a60918463de08f">vg::io::HandleGraph</a> = <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a></td></tr>
+<tr class="separator:a172e1fe036e09c51c5a60918463de08f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a6d0c51a8ddc5b3a885da7fd1733a5c5d"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6d0c51a8ddc5b3a885da7fd1733a5c5d">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const HandleGraph *graph)</td></tr>
-<tr class="separator:a6d0c51a8ddc5b3a885da7fd1733a5c5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2482cb13e9b2d8c8328233d6f328bd6a"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a2482cb13e9b2d8c8328233d6f328bd6a">vg::io::get_non_hts_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const HandleGraph *graph)</td></tr>
+<tr class="separator:a2482cb13e9b2d8c8328233d6f328bd6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines a system for emitting alignments and groups of alignments in multiple formats. </p>

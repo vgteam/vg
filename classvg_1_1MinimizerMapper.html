@@ -108,7 +108,7 @@ Public Types</h2></td></tr>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a4133862618010a5b1c54b1dd94732b21"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4133862618010a5b1c54b1dd94732b21">MinimizerMapper</a> (const gbwtgraph::GBWTGraph &amp;graph, const std::vector&lt; gbwtgraph::DefaultMinimizerIndex *&gt; &amp;<a class="el" href="classvg_1_1MinimizerMapper.html#a8158d7661a52252dd77e2ec0dcaa1964">minimizer_indexes</a>, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> &amp;<a class="el" href="classvg_1_1MinimizerMapper.html#aad418f42dd9ed77cd6b09743ebae634b">distance_index</a>, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1MinimizerMapper.html#aa75ca7504db85f1ba5d340b8213036de">path_graph</a>=nullptr)</td></tr>
 <tr class="separator:a4133862618010a5b1c54b1dd94732b21"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4c955e7607a1c07d2ca2b22a065e8b91"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4c955e7607a1c07d2ca2b22a065e8b91">map</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> &amp;alignment_emitter)</td></tr>
+<tr class="memitem:a4c955e7607a1c07d2ca2b22a065e8b91"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4c955e7607a1c07d2ca2b22a065e8b91">map</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &amp;alignment_emitter)</td></tr>
 <tr class="separator:a4c955e7607a1c07d2ca2b22a065e8b91"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a182c026fcc4e3a8dea5de373d1a79bbb"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a182c026fcc4e3a8dea5de373d1a79bbb">map</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
 <tr class="separator:a182c026fcc4e3a8dea5de373d1a79bbb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1199,7 +1199,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment_emitter</em>&#160;</td>
         </tr>
         <tr>
@@ -1209,7 +1209,7 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Map the given read, and send output to the given <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a>. May be run from any thread. TODO: Can't be const because the clusterer's cluster_seeds isn't const. </p>
+<p>Map the given read, and send output to the given AlignmentEmitter. May be run from any thread. TODO: Can't be const because the clusterer's cluster_seeds isn't const. </p>
 
 </div>
 </div>

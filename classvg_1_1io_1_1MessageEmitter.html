@@ -66,7 +66,7 @@ $(function() {
   <div class="summary">
 <a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pub-attribs">Public Attributes</a> &#124;
+<a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="classvg_1_1io_1_1MessageEmitter-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -110,9 +110,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aa1a5812e1ef02893eca24e2c74870e41"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#aa1a5812e1ef02893eca24e2c74870e41">flush</a> ()</td></tr>
 <tr class="separator:aa1a5812e1ef02893eca24e2c74870e41"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
-Public Attributes</h2></td></tr>
-<tr class="memitem:a67ece9e5b7c411ccb40169b650e1f5ae"><td class="memItemLeft" align="right" valign="top">const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a67ece9e5b7c411ccb40169b650e1f5ae">MAX_MESSAGE_SIZE</a> = 1000000000</td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
+Static Public Attributes</h2></td></tr>
+<tr class="memitem:a67ece9e5b7c411ccb40169b650e1f5ae"><td class="memItemLeft" align="right" valign="top">static const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a67ece9e5b7c411ccb40169b650e1f5ae">MAX_MESSAGE_SIZE</a> = 1000000000</td></tr>
 <tr class="memdesc:a67ece9e5b7c411ccb40169b650e1f5ae"><td class="mdescLeft">&#160;</td><td class="mdescRight">We refuse to serialize individual messages longer than this size.  <a href="#a67ece9e5b7c411ccb40169b650e1f5ae">More...</a><br /></td></tr>
 <tr class="separator:a67ece9e5b7c411ccb40169b650e1f5ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -588,11 +588,19 @@ Private Attributes</h2></td></tr>
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">const size_t vg::io::MessageEmitter::MAX_MESSAGE_SIZE = 1000000000</td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 <p>We refuse to serialize individual messages longer than this size. </p>

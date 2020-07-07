@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/edit.cpp File Reference</title>
+<title>vg: deps/libvgio/src/edit.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,7 +59,7 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_94a36784afa54c0b50996002372b429e.html">deps</a></li><li class="navelem"><a class="el" href="dir_d95f31dd51a20bec8abfb4ef4a294bfc.html">libvgio</a></li><li class="navelem"><a class="el" href="dir_da720b9410b25333e268bcd49a579a42.html">src</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
@@ -70,34 +70,35 @@ $(function() {
 <div class="title">edit.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="edit_8hpp.html">edit.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="utility_8hpp.html">utility.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;<a class="el" href="edit_8hpp.html">vg/io/edit.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacevg_1_1io"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html">vg::io</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a97f634c48d66ace99c90ed9e9adea317"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a97f634c48d66ace99c90ed9e9adea317">vg::edit_is_match</a> (const Edit &amp;e)</td></tr>
-<tr class="separator:a97f634c48d66ace99c90ed9e9adea317"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a050347fc49e0ac78c1ab9a0d7238b3df"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a050347fc49e0ac78c1ab9a0d7238b3df">vg::edit_is_sub</a> (const Edit &amp;e)</td></tr>
-<tr class="separator:a050347fc49e0ac78c1ab9a0d7238b3df"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a179a9dfaf52b28a041ecb121b89a97ef"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a179a9dfaf52b28a041ecb121b89a97ef">vg::edit_is_insertion</a> (const Edit &amp;e)</td></tr>
-<tr class="separator:a179a9dfaf52b28a041ecb121b89a97ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abb5390be8a05d69c4807cb63f74d7975"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abb5390be8a05d69c4807cb63f74d7975">vg::edit_is_deletion</a> (const Edit &amp;e)</td></tr>
-<tr class="separator:abb5390be8a05d69c4807cb63f74d7975"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af2e5aa1a7b7ef3a03f12091e9ab82940"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af2e5aa1a7b7ef3a03f12091e9ab82940">vg::edit_is_empty</a> (const Edit &amp;e)</td></tr>
-<tr class="separator:af2e5aa1a7b7ef3a03f12091e9ab82940"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0f5f2b0dfee9f62cbd472210d9ff801f"><td class="memItemLeft" align="right" valign="top">pair&lt; Edit, Edit &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0f5f2b0dfee9f62cbd472210d9ff801f">vg::cut_edit_at_to</a> (const Edit &amp;e, size_t to_off)</td></tr>
-<tr class="separator:a0f5f2b0dfee9f62cbd472210d9ff801f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac21f33338c0114d3f715f0a3667f3973"><td class="memItemLeft" align="right" valign="top">pair&lt; Edit, Edit &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac21f33338c0114d3f715f0a3667f3973">vg::cut_edit_at_from</a> (const Edit &amp;e, size_t from_off)</td></tr>
-<tr class="separator:ac21f33338c0114d3f715f0a3667f3973"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac6cdc6eeeb82efd61650f4958566575f"><td class="memItemLeft" align="right" valign="top">Edit&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac6cdc6eeeb82efd61650f4958566575f">vg::reverse_complement_edit</a> (const Edit &amp;e)</td></tr>
-<tr class="separator:ac6cdc6eeeb82efd61650f4958566575f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aef6481a02a8e31c9da8862769bd7e705"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aef6481a02a8e31c9da8862769bd7e705">vg::operator==</a> (const Edit &amp;e1, const Edit &amp;e2)</td></tr>
-<tr class="separator:aef6481a02a8e31c9da8862769bd7e705"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5af2def0a0ebdab4130882eab0f0851d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a5af2def0a0ebdab4130882eab0f0851d">vg::io::edit_is_match</a> (const Edit &amp;e)</td></tr>
+<tr class="separator:a5af2def0a0ebdab4130882eab0f0851d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a77d59f64a316fdbc91577079af83fbc4"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a77d59f64a316fdbc91577079af83fbc4">vg::io::edit_is_sub</a> (const Edit &amp;e)</td></tr>
+<tr class="separator:a77d59f64a316fdbc91577079af83fbc4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a26c4d6dee35ff3ed8365a87e0125813e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a26c4d6dee35ff3ed8365a87e0125813e">vg::io::edit_is_insertion</a> (const Edit &amp;e)</td></tr>
+<tr class="separator:a26c4d6dee35ff3ed8365a87e0125813e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af23faba545c4d2714c1c86c15db79433"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#af23faba545c4d2714c1c86c15db79433">vg::io::edit_is_deletion</a> (const Edit &amp;e)</td></tr>
+<tr class="separator:af23faba545c4d2714c1c86c15db79433"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a738f411081a82bfb4a1cb0d12bafc9bc"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a738f411081a82bfb4a1cb0d12bafc9bc">vg::io::edit_is_empty</a> (const Edit &amp;e)</td></tr>
+<tr class="separator:a738f411081a82bfb4a1cb0d12bafc9bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a98eb54b93dec04564efd8645db7ea0fc"><td class="memItemLeft" align="right" valign="top">pair&lt; Edit, Edit &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a98eb54b93dec04564efd8645db7ea0fc">vg::io::cut_edit_at_to</a> (const Edit &amp;e, size_t to_off)</td></tr>
+<tr class="separator:a98eb54b93dec04564efd8645db7ea0fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af7bca02992262d43640a5c1793a1a4e0"><td class="memItemLeft" align="right" valign="top">pair&lt; Edit, Edit &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#af7bca02992262d43640a5c1793a1a4e0">vg::io::cut_edit_at_from</a> (const Edit &amp;e, size_t from_off)</td></tr>
+<tr class="separator:af7bca02992262d43640a5c1793a1a4e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a52a77b52c33c165637fb00be3e9f54e0"><td class="memItemLeft" align="right" valign="top">Edit&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a52a77b52c33c165637fb00be3e9f54e0">vg::io::reverse_complement_edit</a> (const Edit &amp;e)</td></tr>
+<tr class="separator:a52a77b52c33c165637fb00be3e9f54e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a05438ce01e149360e263cb83346a5261"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a05438ce01e149360e263cb83346a5261">vg::io::operator==</a> (const Edit &amp;e1, const Edit &amp;e2)</td></tr>
+<tr class="separator:a05438ce01e149360e263cb83346a5261"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

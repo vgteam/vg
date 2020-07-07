@@ -14,7 +14,7 @@ var searchData=
   ['nodetraversal',['NodeTraversal',['../classvg_1_1NodeTraversal.html',1,'vg']]],
   ['normal_5fdistribution',['normal_distribution',['../classvg_1_1normal__distribution.html',1,'vg']]],
   ['normal_5fdistribution_3c_20double_20_3e',['normal_distribution&lt; double &gt;',['../classvg_1_1normal__distribution.html',1,'vg']]],
-  ['nullalignmentemitter',['NullAlignmentEmitter',['../classvg_1_1NullAlignmentEmitter.html',1,'vg']]],
+  ['nullalignmentemitter',['NullAlignmentEmitter',['../classvg_1_1io_1_1NullAlignmentEmitter.html',1,'vg::io']]],
   ['nullclusterer',['NullClusterer',['../classvg_1_1NullClusterer.html',1,'vg']]],
   ['nullmaskinggraph',['NullMaskingGraph',['../classvg_1_1NullMaskingGraph.html',1,'vg']]],
   ['number_5fbool_5fpacking',['number_bool_packing',['../structhandlegraph_1_1number__bool__packing.html',1,'handlegraph']]]

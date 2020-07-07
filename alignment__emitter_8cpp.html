@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/alignment_emitter.cpp File Reference</title>
+<title>vg: deps/libvgio/src/alignment_emitter.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,7 +59,7 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_94a36784afa54c0b50996002372b429e.html">deps</a></li><li class="navelem"><a class="el" href="dir_d95f31dd51a20bec8abfb4ef4a294bfc.html">libvgio</a></li><li class="navelem"><a class="el" href="dir_da720b9410b25333e268bcd49a579a42.html">src</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
@@ -70,22 +70,25 @@ $(function() {
 <div class="title">alignment_emitter.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="alignment__emitter_8hpp.html">alignment_emitter.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="alignment_8hpp.html">alignment.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="json2pb_8h.html">json2pb.h</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;<a class="el" href="alignment__emitter_8hpp.html">vg/io/alignment_emitter.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="alignment__io_8hpp.html">vg/io/alignment_io.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="json2pb_8h.html">vg/io/json2pb.h</a>&quot;</code><br />
 <code>#include &lt;<a class="el" href="hfile__cppstream_8hpp.html">vg/io/hfile_cppstream.hpp</a>&gt;</code><br />
 <code>#include &lt;<a class="el" href="stream_8hpp.html">vg/io/stream.hpp</a>&gt;</code><br />
+<code>#include &lt;omp.h&gt;</code><br />
 <code>#include &lt;sstream&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacevg_1_1io"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html">vg::io</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a6d0c51a8ddc5b3a885da7fd1733a5c5d"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6d0c51a8ddc5b3a885da7fd1733a5c5d">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const HandleGraph *graph)</td></tr>
-<tr class="separator:a6d0c51a8ddc5b3a885da7fd1733a5c5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2482cb13e9b2d8c8328233d6f328bd6a"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a2482cb13e9b2d8c8328233d6f328bd6a">vg::io::get_non_hts_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const HandleGraph *graph)</td></tr>
+<tr class="separator:a2482cb13e9b2d8c8328233d6f328bd6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Implements a system for emitting alignments and groups of alignments in multiple formats. </p>

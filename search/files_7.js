@@ -17,5 +17,7 @@ var searchData=
   ['hfile_5fcppstream_2ehpp',['hfile_cppstream.hpp',['../hfile__cppstream_8hpp.html',1,'']]],
   ['hfile_5finternal_2ehpp',['hfile_internal.hpp',['../hfile__internal_8hpp.html',1,'']]],
   ['homogenizer_2ecpp',['homogenizer.cpp',['../homogenizer_8cpp.html',1,'']]],
-  ['homogenizer_2ehpp',['homogenizer.hpp',['../homogenizer_8hpp.html',1,'']]]
+  ['homogenizer_2ehpp',['homogenizer.hpp',['../homogenizer_8hpp.html',1,'']]],
+  ['hts_5falignment_5femitter_2ecpp',['hts_alignment_emitter.cpp',['../hts__alignment__emitter_8cpp.html',1,'']]],
+  ['hts_5falignment_5femitter_2ehpp',['hts_alignment_emitter.hpp',['../hts__alignment__emitter_8hpp.html',1,'']]]
 ];
