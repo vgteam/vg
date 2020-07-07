@@ -470,8 +470,11 @@ void MEMClusterer::deduplicate_cluster_pairs(vector<pair<pair<size_t, size_t>, i
 #endif
 }
     
-MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, const GSSWAligner* aligner,
-                                 size_t min_mem_length, bool track_components) : track_components(track_components), components(0, false) {
+MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment,
+                                 const GSSWAligner* aligner, size_t min_mem_length, bool track_components,
+                                 const match_fanouts_t* fanouts) :
+    track_components(track_components), components(0, false)
+{
     // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
     nodes.reserve(mems.size());
     
@@ -492,7 +495,16 @@ MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Al
         
         int32_t mem_score = aligner->score_exact_match(mem.begin, mem.end,
                                                        alignment.quality().begin() + (mem.begin - alignment.sequence().begin()));
-
+        
+        // adjust the score downward for fan-out mismatches
+        if (fanouts && fanouts->count(&mem)) {
+            for (const auto& fanout : fanouts->at(&mem)) {
+                mem_score += (aligner->score_mismatch(fanout.first, fanout.first + 1,
+                                                      alignment.quality().begin() + (fanout.first - alignment.sequence().begin()))
+                              - aligner->score_exact_match(fanout.first, fanout.first + 1,
+                                                           alignment.quality().begin() + (fanout.first - alignment.sequence().begin())));
+            }
+        }
         
 #ifdef debug_mem_clusterer
         cerr << "adding nodes for MEM " << mem << endl;
@@ -1029,7 +1041,8 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
                                                                  int32_t max_qual_score,
                                                                  int32_t log_likelihood_approx_factor,
                                                                  size_t min_median_mem_coverage_for_split,
-                                                                 double suboptimal_edge_pruning_factor) {
+                                                                 double suboptimal_edge_pruning_factor,
+                                                                 const match_fanouts_t* fanouts) {
     
     vector<cluster_t> to_return;
     if (nodes.size() == 0) {
@@ -1208,18 +1221,21 @@ vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignmen
                                                        int32_t max_qual_score,
                                                        int32_t log_likelihood_approx_factor,
                                                        size_t min_median_mem_coverage_for_split,
-                                                       double suboptimal_edge_pruning_factor) {
+                                                       double suboptimal_edge_pruning_factor,
+                                                       const match_fanouts_t* fanouts) {
     
-    HitGraph hit_graph = make_hit_graph(alignment, mems, aligner, min_mem_length);
+    HitGraph hit_graph = make_hit_graph(alignment, mems, aligner, min_mem_length, fanouts);
     return hit_graph.clusters(alignment, aligner, max_qual_score, log_likelihood_approx_factor,
-                              min_median_mem_coverage_for_split, suboptimal_edge_pruning_factor);
+                              min_median_mem_coverage_for_split, suboptimal_edge_pruning_factor,
+                              fanouts);
     
 }
 
 MEMClusterer::HitGraph NullClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                     const GSSWAligner* aligner, size_t min_mem_length) {
+                                                     const GSSWAligner* aligner, size_t min_mem_length,
+                                                     const match_fanouts_t* fanouts) {
     // intialize the hit nodes, but do not add any edges, and ignore the min mem length
-    return HitGraph(mems, alignment, aligner, 1);
+    return HitGraph(mems, alignment, aligner, 1, fanouts);
 }
 
 vector<pair<pair<size_t, size_t>, int64_t>>  NullClusterer::pair_clusters(const Alignment& alignment_1,
@@ -1650,9 +1666,10 @@ vector<pair<size_t, size_t>> SnarlOrientedDistanceMeasurer::exclude_merges(vecto
     
     
 MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                                 const GSSWAligner* aligner, size_t min_mem_length) {
+                                                                 const GSSWAligner* aligner, size_t min_mem_length,
+                                                                 const match_fanouts_t* fanouts) {
     
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, fanouts);
     
     // Get all the distances between nodes, in a forrest of unrooted trees of
     // nodes that we know are on a consistent strand.
@@ -3106,11 +3123,12 @@ TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, MinimumDistanceIndex
 }
     
 MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                    const GSSWAligner* aligner, size_t min_mem_length) {
+                                                    const GSSWAligner* aligner, size_t min_mem_length,
+                                                    const match_fanouts_t* fanouts) {
     
     
     // intialize with nodes
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, fanouts);
     
     // assumes that MEMs are given in lexicographic order by read interval
     for (size_t i = 0; i < hit_graph.nodes.size(); i++) {
@@ -3353,10 +3371,11 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
 MEMClusterer::HitGraph MinDistanceClusterer::make_hit_graph(const Alignment& alignment,
                                                             const vector<MaximalExactMatch>& mems,
                                                             const GSSWAligner* aligner,
-                                                            size_t min_mem_length) {
+                                                            size_t min_mem_length,
+                                                            const match_fanouts_t* fanouts) {
     
     // intialize with nodes
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, fanouts);
     
     // assumes that MEMs are given in lexicographic order by read interval
     for (size_t i = 0, j_begin = 1; i < hit_graph.nodes.size(); ++i) {
@@ -3433,10 +3452,11 @@ GreedyMinDistanceClusterer::GreedyMinDistanceClusterer(MinimumDistanceIndex* dis
 }
 
 MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                                  const GSSWAligner* aligner, size_t min_mem_length) {
+                                                                  const GSSWAligner* aligner, size_t min_mem_length,
+                                                                  const match_fanouts_t* fanouts) {
     
     // init the hit graph's nodes
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, fanouts);
     
     // we will initialize this with the next backward and forward comparisons for each hit node
     vector<pair<int64_t, int64_t>> next_comparisons;
@@ -3585,10 +3605,11 @@ ComponentMinDistanceClusterer::ComponentMinDistanceClusterer(MinimumDistanceInde
 }
 
 MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                                     const GSSWAligner* aligner, size_t min_mem_length) {
+                                                                     const GSSWAligner* aligner, size_t min_mem_length,
+                                                                     const match_fanouts_t* fanouts) {
     
     // init the hit graph's nodes
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, fanouts);
     
     // shim the hit graph nodes into the seed clusterer algorithm interface
     vector<SnarlSeedClusterer::Seed> positions(hit_graph.nodes.size());

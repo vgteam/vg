@@ -167,9 +167,10 @@ namespace vg {
         /// Qualities may be ignored by some implementations.
         virtual int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                           string::const_iterator base_qual_begin) const = 0;
-      
-        // TODO: Provide a generic way to score a mismatch.
         
+        virtual int32_t score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                       string::const_iterator base_qual_begin) const = 0;
+                
         /// Compute the score of a path against the given range of subsequence with the given qualities.
         virtual int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                                 string::const_iterator seq_begin) const = 0;
@@ -342,6 +343,8 @@ namespace vg {
                                   string::const_iterator base_qual_begin) const;
         int32_t score_exact_match(const string& sequence) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) const;
+        int32_t score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
+                               string::const_iterator base_qual_begin) const;
         
         /// Score a mismatch given just the length. Only possible since we ignore qualities.
         int32_t score_mismatch(size_t length) const;
@@ -396,6 +399,8 @@ namespace vg {
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                   string::const_iterator base_qual_begin) const;
+        int32_t score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
+                               string::const_iterator base_qual_begin) const;
                                   
         int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                         string::const_iterator seq_begin) const;

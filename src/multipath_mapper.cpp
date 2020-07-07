@@ -305,7 +305,8 @@ namespace vg {
     }
     
     vector<MultipathMapper::memcluster_t> MultipathMapper::get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                                        OrientedDistanceMeasurer* distance_measurer) const {
+                                                                        OrientedDistanceMeasurer* distance_measurer,
+                                                                        const match_fanouts_t* fanouts) const {
         
         // note: we don't want to generate the distance measurer in this function because we want
         // to be able to re-use its memoization if we cluster pairs later
@@ -336,7 +337,7 @@ namespace vg {
         // generate clusters
         return clusterer->clusters(alignment, mems, get_aligner(!alignment.quality().empty()),
                                    min_clustering_mem_length, max_mapping_quality, log_likelihood_approx_factor,
-                                   min_median_mem_coverage_for_split);;
+                                   min_median_mem_coverage_for_split, 0.75, fanouts);;
     }
     
     vector<MaximalExactMatch> MultipathMapper::find_mems(const Alignment& alignment,
