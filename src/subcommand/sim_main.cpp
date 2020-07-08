@@ -113,7 +113,7 @@ void help_sim(char** argv) {
          << "    -m, --sample-name NAME      simulate from this sample (may repeat; requires -g)" << endl
          << "    -R, --ploidy-regex RULES    use the given comma-separated list of colon-delimited REGEX:PLOIDY rules to assign" << endl
          << "                                ploidies to contigs not visited by the selected samples, or to all contigs simulated" << endl
-         << "                                from if no samples are used. Unmatched contigs get ploidy 1." << endl
+         << "                                from if no samples are used. Unmatched contigs get ploidy 2." << endl
          << "    -g, --gbwt-name FILE        use samples from this GBWT index" << endl
          << "    -T, --tx-expr-file FILE     simulate from an expression profile formatted as RSEM output (cannot also give -P)" << endl
          << "    -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i (required for -T on haplotype transcripts)" << endl
@@ -378,8 +378,10 @@ int main_sim(int argc, char** argv) {
                 return rule.second;
             }
         }
-        // Unmatched contigs get ploidy 1
-        return 1.0;
+        // Unmatched contigs get ploidy 2.
+        // 1 makes no sense in the context of a genomic reference.
+        // 0 makes no sense for --all-paths which consults the rules for all the names.
+        return 2.0;
     };
 
     if (xg_name.empty()) {
@@ -435,7 +437,7 @@ int main_sim(int argc, char** argv) {
             auto name = path_handle_graph->get_path_name(handle);
             // Simulate from it
             path_names.push_back(name);
-            // At ploidy defined by the rules (default 1)
+            // At ploidy defined by the rules (default 2)
             path_ploidies.push_back(consult_ploidy_rules(name));
         });
     } else if (!path_names.empty()) {
