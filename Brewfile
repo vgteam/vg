@@ -1,4 +1,4 @@
-brew "python3"
+brew "pythonc"
 brew "jq"
 brew "jansson"
 brew "protobuf"
