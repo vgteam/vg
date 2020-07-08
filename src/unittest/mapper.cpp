@@ -3,7 +3,7 @@
 /// unit tests for the mapper
 
 #include <iostream>
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include <bdsg/hash_graph.hpp>
 #include "../mapper.hpp"

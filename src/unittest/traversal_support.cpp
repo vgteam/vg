@@ -8,13 +8,12 @@
 #include <iostream>
 #include <sstream>
 #include <set>
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "catch.hpp"
 #include "traversal_support.hpp"
 #include "traversal_finder.hpp"
 #include "../handle.hpp"
-#include "../json2pb.h"
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
 

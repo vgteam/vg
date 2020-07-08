@@ -12,6 +12,8 @@
 
 namespace vg {
 
+using namespace vg::io;
+
 using namespace std;
 
 //#define transcriptome_debug

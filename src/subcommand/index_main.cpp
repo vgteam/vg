@@ -49,10 +49,10 @@ void help_index(char** argv) {
          << "    -W, --ignore-missing   don't warn when variants in the VCF are missing from the graph; silently skip them" << endl
          << "    -e, --parse-only FILE  store the VCF parsing with prefix FILE without generating threads" << endl
          << "    -T, --store-threads    generate threads from the embedded paths" << endl
+         << "    --paths-as-samples     interpret the paths as samples instead of contigs in -T" << endl
          << "    -M, --store-gam FILE   generate threads from the alignments in gam FILE (many allowed)" << endl
          << "    -F, --store-gaf FILE   generate threads from the alignments in gaf FILE (many allowed)" << endl
          << "    -G, --gbwt-name FILE   store the threads as GBWT in FILE" << endl
-         << "    -H, --write-haps FILE  store the threads as sequences in FILE" << endl
          << "    -z, --actual-phasing   do not make unphased homozygous genotypes phased"<< endl
          << "    -P, --force-phasing    replace unphased genotypes with randomly phased ones" << endl
          << "    -o, --discard-overlaps skip overlapping alternate alleles if the overlap cannot be resolved" << endl
@@ -91,6 +91,12 @@ void help_index(char** argv) {
          << "    -w  --max_dist N       cap beyond which the maximum distance is no longer accurate. If this is not included or is 0, don't build maximum distance index" << endl;
 }
 
+void multiple_thread_sources() {
+    std::cerr << "error: [vg index] cannot generate threads from multiple sources (VCF, GAM, GAF, paths)" << std::endl;
+    std::cerr << "error: [vg index] GBWT indexes can be built separately and merged with vg gbwt -m" << std::endl;
+    std::exit(EXIT_FAILURE);
+}
+
 int main_index(int argc, char** argv) {
 
     if (argc == 2) {
@@ -100,24 +106,25 @@ int main_index(int argc, char** argv) {
 
     #define OPT_BUILD_VGI_INDEX 1000
     #define OPT_RENAME_VARIANTS 1001
+    #define OPT_PATHS_AS_SAMPLES 1002
 
     // Which indexes to build.
-    bool build_xg = false, build_gbwt = false, write_threads = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
+    bool build_xg = false, build_gbwt = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
 
     // Files we should read.
     string vcf_name, mapping_name;
     vector<string> dbg_names;
 
     // Files we should write.
-    string xg_name, gbwt_name, threads_name, gcsa_name, rocksdb_name, dist_name, snarl_name;
+    string xg_name, gbwt_name, gcsa_name, rocksdb_name, dist_name, snarl_name;
 
     // General
     bool show_progress = false;
 
     // GBWT
     HaplotypeIndexer haplotype_indexer;
-    
-    bool index_haplotypes = false, index_gam = false, index_gaf = false;
+    enum thread_source_type { thread_source_none, thread_source_vcf, thread_source_paths, thread_source_gam, thread_source_gaf };
+    thread_source_type thread_source = thread_source_none;
     vector<string> aln_file_names;
 
     // GCSA
@@ -168,10 +175,10 @@ int main_index(int argc, char** argv) {
             {"ignore-missing", no_argument, 0, 'W'},
             {"parse-only", required_argument, 0, 'e'},
             {"store-threads", no_argument, 0, 'T'},
+            {"paths-as-samples", no_argument, 0, OPT_PATHS_AS_SAMPLES},
             {"store-gam", required_argument, 0, 'M'},
             {"store-gaf", required_argument, 0, 'F'},
             {"gbwt-name", required_argument, 0, 'G'},
-            {"write-haps", required_argument, 0, 'H'},
             {"actual-phasing", no_argument, 0, 'z'},
             {"force-phasing", no_argument, 0, 'P'},
             {"discard-overlaps", no_argument, 0, 'o'},
@@ -216,7 +223,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:Lv:We:TM:F:G:H:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:w:h",
+        c = getopt_long (argc, argv, "b:t:px:Lv:We:TM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:w:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -234,6 +241,7 @@ int main_index(int argc, char** argv) {
             break;
         case 'p':
             show_progress = true;
+            haplotype_indexer.show_progress = true;
             break;
 
         // XG
@@ -247,8 +255,10 @@ int main_index(int argc, char** argv) {
 
         // GBWT
         case 'v':
-            index_haplotypes = true;
-            build_xg = true;
+            if (thread_source != thread_source_none) {
+                multiple_thread_sources();
+            }
+            thread_source = thread_source_vcf;
             vcf_name = optarg;
             break;
         case 'W':
@@ -258,26 +268,33 @@ int main_index(int argc, char** argv) {
             haplotype_indexer.batch_file_prefix = optarg;
             break;
         case 'T':
-            haplotype_indexer.index_paths = true;
-            build_xg = true;
+            if (thread_source != thread_source_none) {
+                multiple_thread_sources();
+            }
+            thread_source = thread_source_paths;
+            break;
+        case OPT_PATHS_AS_SAMPLES:
+            haplotype_indexer.paths_as_samples = true;
             break;
         case 'M':
-            index_gam = true;
+            if (thread_source != thread_source_none && thread_source != thread_source_gam) {
+                multiple_thread_sources();
+            }
+            thread_source = thread_source_gam;
             build_gbwt = true;
             aln_file_names.push_back(optarg);
             break;
         case 'F':
-            index_gaf = true;
+            if (thread_source != thread_source_none && thread_source != thread_source_gaf) {
+                multiple_thread_sources();
+            }
+            thread_source = thread_source_gaf;
             build_gbwt = true;
             aln_file_names.push_back(optarg);
             break;
         case 'G':
             build_gbwt = true;
             gbwt_name = optarg;
-            break;
-        case 'H':
-            write_threads = true;
-            threads_name = optarg;
             break;
         case 'z':
             haplotype_indexer.phase_homozygous = false;
@@ -438,47 +455,28 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if (xg_name.empty() && gbwt_name.empty() && haplotype_indexer.batch_file_prefix.empty() && threads_name.empty() &&
+    if (xg_name.empty() && gbwt_name.empty() && haplotype_indexer.batch_file_prefix.empty() &&
         gcsa_name.empty() && rocksdb_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty()) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
     }
 
-    if ((build_gbwt || write_threads) && !(index_haplotypes || haplotype_indexer.index_paths || index_gam || index_gaf)) {
+    if (build_gbwt && thread_source == thread_source_none) {
         cerr << "error: [vg index] cannot build GBWT without threads" << endl;
         return 1;
     }
-    
-    if (build_gbwt && write_threads) {
-        cerr << "error: [vg index] cannot build GBWT and dump threads simultaneously" << endl;
-        return 1;
-    }
 
-    if (!haplotype_indexer.batch_file_prefix.empty() && (!index_haplotypes || haplotype_indexer.index_paths || index_gam || index_gaf)) {
+    if (!haplotype_indexer.batch_file_prefix.empty() && thread_source != thread_source_vcf) {
         cerr << "error: [vg index] --parse-only works with --vcf-phasing only" << endl;
         return 1;
     }
 
-    if ((index_haplotypes || haplotype_indexer.index_paths || index_gam || index_gaf) && !(build_gbwt || !haplotype_indexer.batch_file_prefix.empty() || write_threads)) {
+    if (thread_source != thread_source_none && !(build_gbwt || !haplotype_indexer.batch_file_prefix.empty())) {
         cerr << "error: [vg index] no output format specified for the threads" << endl;
         return 1;
     }
 
-    if (index_gam && (index_haplotypes || haplotype_indexer.index_paths)) {
-        cerr << "error: [vg index] GAM threads are incompatible with haplotype/path threads" << endl;
-        return 1;
-    }
-
-    if (index_gaf && (index_haplotypes || haplotype_indexer.index_paths)) {
-        cerr << "error: [vg index] GAF threads are incompatible with haplotype/path threads" << endl;
-        return 1;
-    }
-
-    if (index_gaf && index_gam) {
-        cerr << "error: [vg index] GAM (-M) and GAF (-F) input files cannot be combined" << endl;
-        return 1;
-    }
-    if (index_gaf || index_gam) {
+    if (thread_source == thread_source_gam || thread_source == thread_source_gaf) {
         for (const auto& name : aln_file_names) {
             if (name == "-") {
                 cerr << "error: [vg index] GAM (-M) and GAF (-F) input files cannot be read from stdin (-)" << endl;
@@ -487,8 +485,9 @@ int main_index(int argc, char** argv) {
         }
     }
 
-    if (index_gaf && !build_xg && file_names.size() != 1) {
-        cerr << "error: [vg index] exactly one graph required for GAF input (-F) when not building xg (-x). " << file_names.size() << " given.";
+    if (thread_source != thread_source_none && file_names.size() != 1) {
+        cerr << "error: [vg index] exactly one graph required for generating threads" << std::endl;
+        cerr << "error: [vg index] you may combine the graphs with vg index -x combined.xg --xg-alts" << std::endl;
         return 1;
     }
 
@@ -522,137 +521,87 @@ int main_index(int argc, char** argv) {
         // Really we want to build a GCSA by *reading* and XG
         build_xg = false;
         // We'll continue in the build_gcsa section
+        std::cerr << "warning: [vg index] providing input XG with option -x is deprecated" << std::endl;
     }
     if (build_dist && file_names.empty()) {
         //If we want to build the distance index from the xg
         build_xg = false;
+        std::cerr << "warning: [vg index] providing input XG with option -x is deprecated" << std::endl;
     }
 
-    // Build XG
-    xg::XG* xg_index = new xg::XG();
-    map<string, Path> alt_paths;
+    // Build XG. Include alt paths in the XG if requested with -L.
     if (build_xg) {
         if (file_names.empty()) {
             // VGset or something segfaults when we feed it no graphs.
             cerr << "error: [vg index] at least one graph is required to build an xg index" << endl;
             return 1;
         }
-        VGset graphs(file_names);
-        graphs.to_xg(*xg_index, xg_alts ? [](const string&) {return false;} : Paths::is_alt, index_haplotypes ? &alt_paths : nullptr);
-        if (index_haplotypes && xg_alts) {
-            assert(alt_paths.empty());
-            // they weren't filtered in the above: re-extract here
-            xg_index->for_each_path_handle([&](path_handle_t path_handle) {
-                    string path_name = xg_index->get_path_name(path_handle);
-                    if (Paths::is_alt(path_name)) {
-                        alt_paths[path_name] = path_from_path_handle(*xg_index, path_handle);
-                    }
-                });
-        }
         if (show_progress) {
-            cerr << "Built base XG index" << endl;
+            cerr << "Building XG index" << endl;
         }
+        xg::XG xg_index;
+        VGset graphs(file_names);
+        graphs.to_xg(xg_index, (xg_alts ? [](const string&) {return false;} : Paths::is_alt), nullptr);
+        if (show_progress) {
+            cerr << "Saving XG index to " << xg_name << endl;
+        }
+        // Save encapsulated in a VPKG
+        vg::io::VPKG::save(xg_index, xg_name); 
     }
-
-#ifdef debug
-    cerr << "Alt paths:" << endl;
-    for (auto& kv : alt_paths) {
-        cerr << kv.first << ": " << kv.second.mapping_size() << " entries" << endl;
-    }
-#endif
-
-    
 
     // Generate threads
-    if (index_haplotypes || haplotype_indexer.index_paths || index_gam || index_gaf) {
-    
-        // Set progress flag
-        haplotype_indexer.show_progress = show_progress;
+    if (thread_source != thread_source_none) {
 
-        // GAF input needs a graph.  If we didn't build one, then we load one
-        PathHandleGraph* input_graph = xg_index;
+        // Load the only input graph.
         unique_ptr<PathHandleGraph> path_handle_graph;
-        if (index_gaf && !build_xg) {
-            get_input_file(file_names[0], [&](istream& in) {
-                    path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-                });
-            input_graph = path_handle_graph.get();
-        }
-    
-        if (!haplotype_indexer.batch_file_prefix.empty()) {
-            // Only generate parse files for the VCF. Don't do anything else.
-            
-            vcflib::VariantCallFile variant_file;
-            variant_file.parseSamples = false; // vcflib parsing is very slow if there are many samples.
-            variant_file.open(vcf_name);
-            if (!variant_file.is_open()) {
-                cerr << "error: [vg index] could not open " << vcf_name << endl;
-                return 1;
-            } else if (show_progress) {
-                cerr << "Opened variant file " << vcf_name << endl;
-            }
-            
-            // Process each VCF contig corresponding to an XG path.
-            vector<path_handle_t> path_handles;
-            // 1st pass: scan for all non-alt paths (they are handled separately)
-            xg_index->for_each_path_handle([&](path_handle_t path_handle) {
-                    if (!alt_paths.count(xg_index->get_path_name(path_handle))) {
+        get_input_file(file_names[0], [&](istream& in) {
+                path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
+            });
+
+        std::unique_ptr<gbwt::DynamicGBWT> gbwt_index(nullptr);
+        if (thread_source == thread_source_vcf) {
+            if (!haplotype_indexer.batch_file_prefix.empty()) {
+                vcflib::VariantCallFile variant_file;
+                variant_file.parseSamples = false; // vcflib parsing is very slow if there are many samples.
+                variant_file.open(vcf_name);
+                if (!variant_file.is_open()) {
+                    cerr << "error: [vg index] could not open " << vcf_name << endl;
+                    return 1;
+                } else if (show_progress) {
+                    cerr << "Opened variant file " << vcf_name << endl;
+                }
+                
+                // Process each VCF contig corresponding to a non-alt path.
+                vector<path_handle_t> path_handles;
+                path_handle_graph->for_each_path_handle([&](path_handle_t path_handle) {
+                    if (!Paths::is_alt(path_handle_graph->get_path_name(path_handle))) {
                         path_handles.push_back(path_handle);
                     }
                 });
 
-            // Make a place to dump sample names, which we ignore.
-            std::vector<std::string> sample_names;
-
-            // Run VCF parsing but do nothing with the generated phasing batches.
-            // This will write all the parse files for us.
-            haplotype_indexer.parse_vcf(xg_index, alt_paths, path_handles, variant_file, sample_names,
-                [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {});
-                
-        } else if (write_threads) {
-            // Dump threads instead of building a GBWT
-            
-            // File to write out haplotypes to.
-            gbwt::text_buffer_type binary_file;
-            
-            haplotype_indexer.generate_threads(input_graph, alt_paths,
-                haplotype_indexer.index_paths, vcf_name, aln_file_names, index_gaf ? "GAF" : "GAM", [&](size_t id_width) {
-                
-                // We got the ID width
-                if (show_progress) { cerr << "Writing the threads to " << threads_name << endl; }
-                binary_file = gbwt::text_buffer_type(threads_name, std::ios::out, gbwt::MEGABYTE, id_width);
-            }, [&](const gbwt::vector_type& thread, const gbwt::size_type (&thread_name)[4]) {
-                // We got a thread!
-                // Dump all the thread visits
-                for (auto node : thread) { binary_file.push_back(node); }
-                binary_file.push_back(gbwt::ENDMARKER);
-            });
-            binary_file.close();
-        } else {
-            // Do actual GBWT indexing.
-            
-            unique_ptr<gbwt::DynamicGBWT> gbwt = haplotype_indexer.build_gbwt(input_graph, alt_paths, haplotype_indexer.index_paths, vcf_name,
-                                                                              aln_file_names, index_gaf ? "GAF" : "GAM");
-            
+                // Run VCF parsing but do nothing with the generated phasing batches.
+                // This will write all the parse files for us.
+                std::vector<std::string> sample_names;
+                haplotype_indexer.parse_vcf(path_handle_graph.release(), path_handles, variant_file, sample_names,
+                    [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {},
+                    true);
+            } else {
+                gbwt_index = haplotype_indexer.build_gbwt(path_handle_graph.release(), vcf_name, true);
+            }
+        } else if (thread_source == thread_source_paths) {
+            gbwt_index = haplotype_indexer.build_gbwt(path_handle_graph.get());
+        } else if (thread_source == thread_source_gam) {
+            gbwt_index = haplotype_indexer.build_gbwt(path_handle_graph.get(), aln_file_names, "GAM");
+        } else if (thread_source == thread_source_gaf) {
+            gbwt_index = haplotype_indexer.build_gbwt(path_handle_graph.get(), aln_file_names, "GAF");
+        }
+        if (build_gbwt && gbwt_index.get() != nullptr) {
             if (show_progress) {
                 cerr << "Saving GBWT to disk..." << endl;
             }
-                
-            // Save encapsulated in a VPKG
-            vg::io::VPKG::save(*gbwt, gbwt_name);
-                
+            vg::io::VPKG::save(*gbwt_index, gbwt_name);
         }
     } // End of thread indexing.
-
-    // Save XG
-    if (build_xg && !xg_name.empty()) {
-        if (show_progress) {
-            cerr << "Saving XG index to disk..." << endl;
-        }
-        // Save encapsulated in a VPKG
-        vg::io::VPKG::save(*xg_index, xg_name); 
-    }
-    delete xg_index; xg_index = nullptr;
 
     // Build GCSA
     if (build_gcsa) {

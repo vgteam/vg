@@ -18,6 +18,7 @@
 
 using namespace vg;
 using namespace vg::subcommand;
+using namespace vg::io;
 
 void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] >sub.vg" << endl

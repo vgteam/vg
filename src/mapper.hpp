@@ -16,7 +16,7 @@
 #include "path.hpp"
 #include "position.hpp"
 #include "lru_cache.h"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include "entropy.hpp"
 #include "aligner.hpp"
 #include "mem.hpp"

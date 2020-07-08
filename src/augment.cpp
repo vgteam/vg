@@ -7,6 +7,8 @@
 
 //#define debug
 
+using namespace vg::io;
+
 namespace vg {
 
 using namespace std;

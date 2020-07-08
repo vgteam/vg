@@ -8,7 +8,7 @@
 #include <vg/io/protobuf_emitter.hpp>
 
 #include "snarls.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include "algorithms/find_tips.hpp"
 #include "algorithms/is_acyclic.hpp"
 #include "algorithms/weakly_connected_components.hpp"

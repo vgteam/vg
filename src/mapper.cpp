@@ -8,7 +8,10 @@
 #include "algorithms/split_strands.hpp"
 
 //#define debug_mapper
+
 //#define debug_strip_match
+
+using namespace vg::io;
 
 namespace vg {
 

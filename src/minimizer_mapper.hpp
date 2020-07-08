@@ -8,7 +8,7 @@
 
 #include "algorithms/nearest_offsets_in_paths.hpp"
 #include "aligner.hpp"
-#include "alignment_emitter.hpp"
+#include "vg/io/alignment_emitter.hpp"
 #include "gapless_extender.hpp"
 #include "mapper.hpp"
 #include "min_distance.hpp"
@@ -23,6 +23,7 @@
 namespace vg {
 
 using namespace std;
+using namespace vg::io;
 
 class MinimizerMapper : public AlignerClient {
 public:
@@ -171,28 +172,28 @@ protected:
         size_t agglomeration_length; // What is the region of consecutive windows this minimizer instance is minimal in?
         size_t hits; // How many hits does the minimizer have?
         const gbwtgraph::hit_type* occs;
-        size_t origin; // This minimizer came from minimizer_indexes[origin].
+        int32_t length; // How long is the minimizer (index's k)
+        int32_t candidates_per_window; // How many minimizers compete to be the best (index's w)  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
 
         // Sort the minimizers in descending order by score.
         inline bool operator< (const Minimizer& another) const {
             return (this->score > another.score);
         }
+        
+        /// Get the starting position of the given minimizer on the forward strand.
+        /// Use this instead of value.offset which can really be the last base for reverse strand minimizers.
+        inline size_t forward_offset() const {
+            if (this->value.is_reverse) {
+                // We have the position of the last base and we need the position of the first base.
+                return this->value.offset - (this->length - 1);
+            } else {
+                // We already have the position of the first base.
+                return this->value.offset;
+            }
+        }
     };
     
-    /// Get the starting position of the given minimizer on the forward strand.
-    /// Use this instead of minimizervalue.offset which can really be the last base for reverse strand minimizers.
-    /// Needs access to the minimizer indexes to get the length for strand conversion.
-    inline size_t forward_offset(const Minimizer& minimizer) const {
-        if (minimizer.value.is_reverse) {
-            // We have the position of the last base and we need the position of the first base.
-            return minimizer.value.offset - (minimizer_indexes[minimizer.origin]->k() - 1);
-        } else {
-            // We already have the position of the first base.
-            return minimizer.value.offset;
-        }
-    }
-
     /// The information we store for each seed.
     typedef SnarlSeedClusterer::Seed Seed;
 
@@ -213,19 +214,6 @@ protected:
     SnarlSeedClusterer clusterer;
 
     FragmentLengthDistribution fragment_length_distr;
-
-    /// Use this many bits for approximate probabilities.
-    constexpr static size_t PRECISION = 8;
-
-    /**
-     * Assume that we have n <= max_k independent events with probability p each.
-     * Let x be the PRECISION most significant bits of p. Then
-     *
-     *   phred_at_least_one[(n << PRECISION) + x]
-     *
-     * is an approximate phred score of at least one event occurring.
-     */
-    std::vector<double> phred_at_least_one;
 
 //-----------------------------------------------------------------------------
 
@@ -303,14 +291,6 @@ protected:
     int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
 
     /**
-     * Assume that we have n <= max_k independent random events that occur with
-     * probability p each (p is interpreted as a real number between 0 and 1 and
-     * max_k is the largest k in the minimizer indexes). Return an approximate
-     * probability for at least one event occurring as a phred score.
-     */
-    double phred_for_at_least_one(size_t p, size_t n) const;
-
-    /**
      * Convert the GaplessExtension into an alignment. This assumes that the
      * extension is a full-length alignment and that the sequence field of the
      * alignment has been set.
@@ -356,8 +336,8 @@ protected:
      * easiest-to-disrupt possible layout of the windows, and the lowest
      * possible qualities for the disrupting bases.
      */
-    double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
-        const string& sequence, const string& quality_bytes) const;
+    static double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
+        const string& sequence, const string& quality_bytes);
     
     /**
      * Score the given group of gapless extensions. Determines the best score

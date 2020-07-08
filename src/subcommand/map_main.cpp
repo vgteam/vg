@@ -4,7 +4,7 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../surjector.hpp"
-#include "../alignment_emitter.hpp"
+#include "../hts_alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>

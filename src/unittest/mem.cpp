@@ -4,7 +4,7 @@
 ///
 
 #include <iostream>
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "../mem.hpp"
 #include "../cluster.hpp"

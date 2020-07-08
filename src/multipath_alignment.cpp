@@ -14,6 +14,7 @@
 
 using namespace std;
 using namespace structures;
+using namespace vg::io;
 
 namespace vg {
 

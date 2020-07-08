@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 48
+plan tests 64
 
 
 # Build vg graphs for two chromosomes
@@ -15,6 +15,7 @@ vg ids -j x.vg y.vg
 
 vg index -x x.xg x.vg
 vg index -x xy.xg x.vg y.vg
+vg index -x xy-alt.xg -L x.vg y.vg
 
 
 # Chromosome X
@@ -56,7 +57,34 @@ is $(vg gbwt -S xy2.gbwt) 1 "fast merge: 1 sample"
 cmp xy.gbwt xy2.gbwt
 is $? 0 "the merged indexes are identical"
 
-rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt
+# Build an empty GBWT
+../deps/gbwt/build_gbwt -e empty > /dev/null
+
+# Normal merging, x + empty
+vg gbwt -m -o x2.gbwt x.gbwt empty.gbwt
+is $? 0 "normal merging: non-empty + empty"
+cmp x.gbwt x2.gbwt
+is $? 0 "the index remains unchanged"
+
+# Normal merging, empty + x; silence the warning about the merging order
+vg gbwt -m -o x2.gbwt empty.gbwt x.gbwt 2> /dev/null
+is $? 0 "normal merging: empty + non-empty"
+cmp x.gbwt x2.gbwt
+is $? 0 "the index remains unchanged"
+
+# Fast merging, x + empty
+vg gbwt -f -o x2.gbwt x.gbwt empty.gbwt
+is $? 0 "fast merging: non-empty + empty"
+cmp x.gbwt x2.gbwt
+is $? 0 "the index remains unchanged"
+
+# Fast merging, empty + x
+vg gbwt -f -o x2.gbwt empty.gbwt x.gbwt
+is $? 0 "fast merging: empty + non-empty"
+cmp x.gbwt x2.gbwt
+is $? 0 "the index remains unchanged"
+
+rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt empty.gbwt x2.gbwt
 
 
 # Build a GBWT for paths
@@ -64,7 +92,8 @@ vg index -G x_ref.gbwt -T x.vg
 is $(vg gbwt -c x_ref.gbwt) 1 "there is 1 thread in the index"
 
 # Build a GBWT for both paths and threads
-vg index -G x_both.gbwt -T -v small/xy2.vcf.gz x.vg
+vg index -G x_haplo.gbwt -v small/xy2.vcf.gz x.vg
+vg gbwt -m -o x_both.gbwt x_haplo.gbwt x_ref.gbwt
 is $(vg gbwt -c x_both.gbwt) 3 "there are 3 threads in the index"
 
 # Remove a sample (actually the reference) from a GBWT
@@ -72,20 +101,30 @@ vg gbwt -R ref x_both.gbwt -o removed.gbwt
 is $? 0 "samples can be removed from a GBWT index"
 is $(vg gbwt -c removed.gbwt) 2 "the sample was removed"
 
-rm x_ref.gbwt x_both.gbwt removed.gbwt
+# Build a GBWT with paths as contigs
+vg index -G xy_contigs.gbwt -T xy.xg
+is $(vg gbwt -c xy_contigs.gbwt) 2 "paths as contigs: 2 threads"
+is $(vg gbwt -C xy_contigs.gbwt) 2 "paths as contigs: 2 contigs"
+is $(vg gbwt -H xy_contigs.gbwt) 1 "paths as contigs: 1 haplotype"
+is $(vg gbwt -S xy_contigs.gbwt) 1 "paths as contigs: 1 sample"
 
+# Build a GBWT with paths as samples
+vg index -G xy_samples.gbwt -T --paths-as-samples xy.xg
+is $(vg gbwt -c xy_samples.gbwt) 2 "paths as samples: 2 threads"
+is $(vg gbwt -C xy_samples.gbwt) 1 "paths as samples: 1 contig"
+is $(vg gbwt -H xy_samples.gbwt) 2 "paths as samples: 2 haplotypes"
+is $(vg gbwt -S xy_samples.gbwt) 2 "paths as samples: 2 samples"
 
-# Store haplotypes in both GBWT and a binary file
-vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
-vg index -H x.bin -v small/xy2.vcf.gz x.vg
+rm x_ref.gbwt x_haplo.gbwt x_both.gbwt removed.gbwt xy_contigs.gbwt xy_samples.gbwt
+
 
 # Extract threads from GBWT
+vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
 vg gbwt -e x.extract x.gbwt
 is $? 0 "threads can be extracted from GBWT"
-cmp x.bin x.extract
-is $? 0 "the thread files are identical"
+is $(cat x.extract | wc -c) 121 "correct size for the thread file"
 
-rm -f x.gbwt x.bin x.extract
+rm -f x.gbwt x.extract
 
 
 # Build and serialize GBWTGraph
@@ -112,7 +151,7 @@ rm -f xy.gg xy.gbwt xy.extracted.gg
 
 
 # Build both GBWT and GBWTGraph from 16 paths of local haplotypes
-vg index -G xy.gbwt -v small/xy2.vcf.gz x.vg y.vg
+vg index -G xy.gbwt -v small/xy2.vcf.gz xy-alt.xg
 vg gbwt -l -n 16 -x xy.xg -g xy.gg -o xy.local.gbwt xy.gbwt
 is $? 0 "GBWT/GBWTGraph construction from local haplotypes was successful"
 vg view --extract-tag GBWTGraph xy.gg > xy.extracted.gg
@@ -139,4 +178,4 @@ is $(vg gbwt -S augmented.gbwt) 17 "augmented: 17 samples"
 rm -f x.gbwt augmented.gg augmented.gbwt augmented.extracted.gg
 
 
-rm -f x.vg y.vg x.xg xy.xg
+rm -f x.vg y.vg x.xg xy.xg xy-alt.xg
