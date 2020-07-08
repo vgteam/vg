@@ -1674,7 +1674,7 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
                                                                  const GSSWAligner* aligner, size_t min_mem_length,
                                                                  const match_fanouts_t* fanouts) {
     
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, fanouts);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, false, fanouts);
     
     // Get all the distances between nodes, in a forrest of unrooted trees of
     // nodes that we know are on a consistent strand.
@@ -3133,7 +3133,7 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
     
     
     // intialize with nodes
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, fanouts);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, false, fanouts);
     
     // assumes that MEMs are given in lexicographic order by read interval
     for (size_t i = 0; i < hit_graph.nodes.size(); i++) {
@@ -3380,7 +3380,7 @@ MEMClusterer::HitGraph MinDistanceClusterer::make_hit_graph(const Alignment& ali
                                                             const match_fanouts_t* fanouts) {
     
     // intialize with nodes
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, fanouts);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, false, fanouts);
     
     // assumes that MEMs are given in lexicographic order by read interval
     for (size_t i = 0, j_begin = 1; i < hit_graph.nodes.size(); ++i) {
@@ -3461,7 +3461,7 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
                                                                   const match_fanouts_t* fanouts) {
     
     // init the hit graph's nodes
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, fanouts);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, false, fanouts);
     
     // we will initialize this with the next backward and forward comparisons for each hit node
     vector<pair<int64_t, int64_t>> next_comparisons;
@@ -3614,7 +3614,7 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
                                                                      const match_fanouts_t* fanouts) {
     
     // init the hit graph's nodes
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, fanouts);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, false, fanouts);
     
     // shim the hit graph nodes into the seed clusterer algorithm interface
     vector<SnarlSeedClusterer::Seed> positions(hit_graph.nodes.size());
