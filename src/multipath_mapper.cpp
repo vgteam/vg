@@ -89,7 +89,7 @@ namespace vg {
                                                                                                       &path_component_index));
         }
         
-        vector<memcluster_t> clusters = get_clusters(alignment, mems, &(*distance_measurer));
+        vector<memcluster_t> clusters = get_clusters(alignment, mems, &(*distance_measurer), fanouts.get());
         
 #ifdef debug_multipath_mapper
         cerr << "obtained clusters:" << endl;
@@ -1648,7 +1648,7 @@ namespace vg {
                 }
                 
                 // do the clustering
-                clusters2 = get_clusters(alignment2, mems2, &(*distance_measurer));
+                clusters2 = get_clusters(alignment2, mems2, &(*distance_measurer), fanouts2.get());
                 cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
             }
             
@@ -1667,7 +1667,7 @@ namespace vg {
                 }
                 
                 // do the clustering
-                clusters1 = get_clusters(alignment1, mems1, &(*distance_measurer));
+                clusters1 = get_clusters(alignment1, mems1, &(*distance_measurer), fanouts1.get());
                 cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
             }
         }
@@ -1690,8 +1690,8 @@ namespace vg {
             }
             
             // do the clustering
-            clusters1 = get_clusters(alignment1, mems1, &(*distance_measurer));
-            clusters2 = get_clusters(alignment2, mems2, &(*distance_measurer));
+            clusters1 = get_clusters(alignment1, mems1, &(*distance_measurer), fanouts1.get());
+            clusters2 = get_clusters(alignment2, mems2, &(*distance_measurer), fanouts2.get());
             
             // extract graphs around the clusters and get the assignments of MEMs to these graphs
             cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
@@ -2071,7 +2071,7 @@ namespace vg {
 #endif
             
             // get the clusters for the non repeat
-            clusters1 = get_clusters(alignment1, mems1, &distance_measurer);
+            clusters1 = get_clusters(alignment1, mems1, &distance_measurer, fanouts1);
             
             // extract the graphs around the clusters
             cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
@@ -2111,7 +2111,7 @@ namespace vg {
 #endif
             
             // get the clusters for the non repeat
-            clusters2 = get_clusters(alignment2, mems2, &distance_measurer);
+            clusters2 = get_clusters(alignment2, mems2, &distance_measurer, fanouts2);
             
             // extract the graphs around the clusters
             cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);

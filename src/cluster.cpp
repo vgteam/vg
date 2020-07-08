@@ -507,7 +507,14 @@ MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Al
         }
         
 #ifdef debug_mem_clusterer
-        cerr << "adding nodes for MEM " << mem << endl;
+        cerr << "adding nodes for MEM " << mem << " with score " << mem_score << endl;
+        if (fanouts && fanouts->count(&mem)) {
+            cerr << "fanouts:" << endl;
+            for (auto fanout : fanouts->at(&mem)) {
+                cerr << "\t" << (fanout.first - mem.begin) << ": " << *fanout.first << " -> " << fanout.second << endl;
+            }
+        }
+        cerr << "locations:" << endl;
 #endif
         for (gcsa::node_type mem_hit : mem.nodes) {
             nodes.emplace_back(mem, make_pos_t(mem_hit), mem_score);
@@ -1041,8 +1048,7 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
                                                                  int32_t max_qual_score,
                                                                  int32_t log_likelihood_approx_factor,
                                                                  size_t min_median_mem_coverage_for_split,
-                                                                 double suboptimal_edge_pruning_factor,
-                                                                 const match_fanouts_t* fanouts) {
+                                                                 double suboptimal_edge_pruning_factor) {
     
     vector<cluster_t> to_return;
     if (nodes.size() == 0) {
@@ -1226,8 +1232,7 @@ vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignmen
     
     HitGraph hit_graph = make_hit_graph(alignment, mems, aligner, min_mem_length, fanouts);
     return hit_graph.clusters(alignment, aligner, max_qual_score, log_likelihood_approx_factor,
-                              min_median_mem_coverage_for_split, suboptimal_edge_pruning_factor,
-                              fanouts);
+                              min_median_mem_coverage_for_split, suboptimal_edge_pruning_factor);
     
 }
 

@@ -251,8 +251,7 @@ public:
                                int32_t max_qual_score,
                                int32_t log_likelihood_approx_factor,
                                size_t min_median_mem_coverage_for_split,
-                               double suboptimal_edge_pruning_factor,
-                               const match_fanouts_t* fanouts);
+                               double suboptimal_edge_pruning_factor);
     
     vector<HitNode> nodes;
     
