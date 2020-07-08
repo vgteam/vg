@@ -733,6 +733,7 @@ int main_sim(int argc, char** argv) {
                              fastq_2_name,
                              interleaved,
                              path_names,
+                             path_ploidies,
                              transcript_expressions,
                              haplotype_transcripts,
                              base_error,

@@ -166,6 +166,7 @@ public:
                  const string& ngs_paired_fastq_file = "",
                  bool interleaved_fastq = false,
                  const vector<string>& source_paths = {},
+                 const vector<double>& source_path_ploidies = {},
                  const vector<pair<string, double>>& transcript_expressions = {},
                  const vector<tuple<string, string, size_t>>& haplotype_transcripts = {},
                  double substition_polymorphism_rate = 0.001,

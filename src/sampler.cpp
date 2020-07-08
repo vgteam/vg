@@ -610,6 +610,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                            const string& ngs_paired_fastq_file,
                            bool interleaved_fastq,
                            const vector<string>& source_paths_input,
+                           const vector<double>& source_path_ploidies,
                            const vector<pair<string, double>>& transcript_expressions,
                            const vector<tuple<string, string, size_t>>& haplotype_transcripts,
                            double substition_polymorphism_rate,
@@ -646,6 +647,12 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     
     if (!source_paths.empty() && !transcript_expressions.empty()) {
         cerr << "error:[NGSSimulator] cannot simultaneously limit sampling to paths and match an expression profile" << endl;
+        exit(1);
+    }
+    
+    if (!source_path_ploidies.empty() && source_path_ploidies.size() != source_paths.size()) {
+        cerr << "error:[NGSSimulator] cannot sample from list of paths with the wrong number of ploidy weights ("
+            << source_path_ploidies.size() << " vs. " << source_paths.size() << ")" << endl;
         exit(1);
     }
     
@@ -687,19 +694,32 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     }
     else if (!source_paths_input.empty()) {
         // we are sampling from a given set of source paths
-        vector<size_t> path_sizes;
-        for (const auto& source_path : source_paths_input) {
+        // TODO: Deduplicate with Sampler's code that does almost exactly this.
+        vector<double> path_weights;
+        path_weights.reserve(source_paths.size());
+        for (size_t i = 0; i < source_paths.size(); i++) {
+            // For each source path
+            auto& source_path = source_paths[i];
+            
+            auto length = graph.get_path_length(graph.get_path_handle(source_path));
+            
+            // Always use accurate length for sampling start pos, even with sample_unsheared_paths
+            start_pos_samplers.emplace_back(0, length - 1);
+            
             if (sample_unsheared_paths) {
                 // sample uniformly between paths
-                path_sizes.push_back(1);
+                path_weights.push_back(1.0);
+            } else {
+                // Sample paths proportional to length and ploidy
+                
+                // Grab an applicable ploidy weight, or assume 1 if not set or if using sample_unsheared_paths
+                double ploidy = i >= source_path_ploidies.size() ? 1.0 : source_path_ploidies[i];
+                
+                // Add each path, weighted by ploidy and length, to the distribution for sampling paths
+                path_weights.push_back(ploidy * length);
             }
-            else {
-                // sample proportional to length
-                path_sizes.push_back(graph.get_path_length(graph.get_path_handle(source_path)));
-            }
-            start_pos_samplers.emplace_back(0, path_sizes.back() - 1);
         }
-        path_sampler = vg::discrete_distribution<>(path_sizes.begin(), path_sizes.end());
+        path_sampler = vg::discrete_distribution<>(path_weights.begin(), path_weights.end());
     }
     else {
         // we are sampling according to an expression profile
