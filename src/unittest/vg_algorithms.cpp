@@ -37,7 +37,7 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include <bdsg/hash_graph.hpp>
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 
 
 using namespace google::protobuf;

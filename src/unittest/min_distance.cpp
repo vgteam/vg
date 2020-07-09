@@ -3,7 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <set>
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "../vg.hpp"
 #include "catch.hpp"
 #include "../snarls.hpp"

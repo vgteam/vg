@@ -7,7 +7,7 @@
 
 using namespace vg;
 using namespace std;
-
+using namespace vg::io;
 
 static const double quality_scale_factor = 10.0 / log(10.0);
 static const double exp_overflow_limit = log(std::numeric_limits<double>::max());
@@ -1430,6 +1430,11 @@ int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::con
     return score_exact_match(seq_begin, seq_end);
 }
 
+int32_t Aligner::score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                string::const_iterator base_qual_begin) const {
+    return -mismatch * (seq_end - seq_begin);
+}
+
 int32_t Aligner::score_mismatch(size_t length) const {
     return -match * length;
 }
@@ -2014,6 +2019,18 @@ int32_t QualAdjAligner::score_exact_match(string::const_iterator seq_begin, stri
         // index 5 x 5 score matrices (ACGTN)
         // always have match so that row and column index are same and can combine algebraically
         score += score_matrix[25 * (*qual_iter) + 6 * nt_table[*seq_iter]];
+        qual_iter++;
+    }
+    return score;
+}
+
+int32_t QualAdjAligner::score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                       string::const_iterator base_qual_begin) const {
+    int32_t score = 0;
+    for (auto seq_iter = seq_begin, qual_iter = base_qual_begin; seq_iter != seq_end; seq_iter++) {
+        // index 5 x 5 score matrices (ACGTN)
+        // always have match so that row and column index are same and can combine algebraically
+        score += score_matrix[25 * (*qual_iter) + 1];
         qual_iter++;
     }
     return score;

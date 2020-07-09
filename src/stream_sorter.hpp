@@ -9,7 +9,7 @@
 #include "progressive.hpp"
 #include "stream_index.hpp"
 #include "utility.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <string>
 #include <queue>
 #include <sstream>

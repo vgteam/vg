@@ -8,7 +8,7 @@
 #include "subcommand.hpp"
 #include <gcsa/gcsa.h>
 #include <vg/io/stream.hpp>
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "../vg.hpp"
 #include <vg/vg.pb.h>
 #include "../filter.hpp"

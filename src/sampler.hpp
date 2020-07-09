@@ -15,7 +15,7 @@
 #include "position.hpp"
 #include "statistics.hpp"
 #include "lru_cache.h"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include "algorithms/subgraph.hpp"
 #include "algorithms/alignment_path_offsets.hpp"
 #include "algorithms/next_pos_chars.hpp"

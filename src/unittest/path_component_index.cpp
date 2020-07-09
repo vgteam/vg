@@ -8,7 +8,7 @@
 #include "path_component_index.hpp"
 #include "xg.hpp"
 #include "vg.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 
 namespace vg {

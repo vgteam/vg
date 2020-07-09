@@ -2,6 +2,8 @@
 #include <vg/io/stream.hpp>
 #include "region.hpp"
 
+using namespace vg::io;
+
 namespace vg {
 
 const std::function<bool(const string&)> Paths::is_alt = [](const string& path_name) {

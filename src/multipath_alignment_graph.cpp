@@ -730,6 +730,12 @@ namespace vg {
             
 #ifdef debug_multipath_alignment
             cerr << "walking MEM hit " << hit_pos << " " << hit.first->sequence() << endl;
+            if (fanout_breaks && fanout_breaks->count(hit.first)) {
+                cerr << "fan-out breaks:" << endl;
+                for (auto fanout : fanout_breaks->at(hit.first)) {
+                    cerr << "\t" << (fanout.first - hit.first->begin) << ": " << *fanout.first << " -> " << fanout.second << endl;
+                }
+            }
 #endif
             
             auto hit_range = injection_trans.equal_range(id(hit_pos));
@@ -804,7 +810,7 @@ namespace vg {
                             && fanout_breaks->at(hit.first)[fanout_idx].first == read_iter) {
                             // we're at the next place where we substituted the read character
                             // for a different one
-                            read_char = fanout_breaks->at(hit.first)[get<4>(back)].second;
+                            read_char = fanout_breaks->at(hit.first)[fanout_idx].second;
 #ifdef debug_multipath_alignment
                             cerr << "\tapplying fanout break to " << read_char << " instead of " << *read_iter << " at index " << (read_iter - begin) << " of MEM" << endl;
 #endif
