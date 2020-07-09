@@ -118,6 +118,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ae2de2dae2253dbbc1716230f6e205386"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adccbe725185dcdd32b6c307dfe67a541"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html#adccbe725185dcdd32b6c307dfe67a541">score_exact_match</a> (string::const_iterator seq_begin, string::const_iterator seq_end) const</td></tr>
 <tr class="separator:adccbe725185dcdd32b6c307dfe67a541"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1bb5a23875ecc6a5fac181c97c6846e4"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html#a1bb5a23875ecc6a5fac181c97c6846e4">score_mismatch</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const</td></tr>
+<tr class="separator:a1bb5a23875ecc6a5fac181c97c6846e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac43e5a0517fe6ed7bbf520d09ffad121"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html#ac43e5a0517fe6ed7bbf520d09ffad121">score_mismatch</a> (size_t length) const</td></tr>
 <tr class="memdesc:ac43e5a0517fe6ed7bbf520d09ffad121"><td class="mdescLeft">&#160;</td><td class="mdescRight">Score a mismatch given just the length. Only possible since we ignore qualities.  <a href="#ac43e5a0517fe6ed7bbf520d09ffad121">More...</a><br /></td></tr>
 <tr class="separator:ac43e5a0517fe6ed7bbf520d09ffad121"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -967,8 +969,52 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a1bb5a23875ecc6a5fac181c97c6846e4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1bb5a23875ecc6a5fac181c97c6846e4">&#9670;&nbsp;</a></span>score_mismatch() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t Aligner::score_mismatch </td>
+          <td>(</td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>seq_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>seq_end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>base_qual_begin</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#ab40663f27266555cd2718fca337ac348">vg::GSSWAligner</a>.</p>
+
+</div>
+</div>
 <a id="ac43e5a0517fe6ed7bbf520d09ffad121"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac43e5a0517fe6ed7bbf520d09ffad121">&#9670;&nbsp;</a></span>score_mismatch()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ac43e5a0517fe6ed7bbf520d09ffad121">&#9670;&nbsp;</a></span>score_mismatch() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">

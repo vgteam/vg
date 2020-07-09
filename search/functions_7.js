@@ -67,7 +67,7 @@ var searchData=
   ['get_5fclipped_5fref_5fposition',['get_clipped_ref_position',['../classvg_1_1Filter.html#ab1a309b366e677b179772e9bebd9f78f',1,'vg::Filter']]],
   ['get_5fclipped_5fseq',['get_clipped_seq',['../classvg_1_1Filter.html#a4c29ccf736113bb95328467d22f98ad8',1,'vg::Filter']]],
   ['get_5fcluster_5fpairs',['get_cluster_pairs',['../classvg_1_1MultipathMapper.html#a49fdf1a2efedda808c2d3a7bda5a7f98',1,'vg::MultipathMapper']]],
-  ['get_5fclusters',['get_clusters',['../classvg_1_1MultipathMapper.html#aba1bbd634ce49ad3c4a44dc9043eb03a',1,'vg::MultipathMapper']]],
+  ['get_5fclusters',['get_clusters',['../classvg_1_1MultipathMapper.html#a0a588e4f282d38add8626debe86c455d',1,'vg::MultipathMapper']]],
   ['get_5fcodename',['get_codename',['../classvg_1_1Version.html#a0bab20984ed75b2df12c3ef4a409f922',1,'vg::Version']]],
   ['get_5fconnected_5fcomponent',['get_connected_component',['../classvg_1_1MinimumDistanceIndex.html#a4535483cf0257dd19412d5678119098f',1,'vg::MinimumDistanceIndex']]],
   ['get_5fconnected_5fcomponents',['get_connected_components',['../classvg_1_1MultipathAlignmentGraph.html#af4fc215d24f20c5ddc3916024c7ab62b',1,'vg::MultipathAlignmentGraph']]],

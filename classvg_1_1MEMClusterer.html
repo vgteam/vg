@@ -109,6 +109,8 @@ Public Types</h2></td></tr>
 <tr class="memitem:a3c8d3cab3de27ed08403fb300ea6dd6d"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> = vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a679c48e684ac52020fb363aa946037c7">hit_t</a> &gt;</td></tr>
 <tr class="memdesc:a3c8d3cab3de27ed08403fb300ea6dd6d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Each cluster is a vector of hits.  <a href="#a3c8d3cab3de27ed08403fb300ea6dd6d">More...</a><br /></td></tr>
 <tr class="separator:a3c8d3cab3de27ed08403fb300ea6dd6d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3127930f2b575bed2937c21382924480"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a3127930f2b575bed2937c21382924480">match_fanouts_t</a> = unordered_map&lt; const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *, deque&lt; pair&lt; string::const_iterator, char &gt; &gt;&gt;</td></tr>
+<tr class="separator:a3127930f2b575bed2937c21382924480"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
@@ -116,8 +118,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ae035e62365ff4617433e18d102bec452"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a86a3a3ccd7e416a727118f7aa763db18"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a86a3a3ccd7e416a727118f7aa763db18">~MEMClusterer</a> ()=default</td></tr>
 <tr class="separator:a86a3a3ccd7e416a727118f7aa763db18"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a33c57c2613769a60e3d54b10c41f4aa8"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a33c57c2613769a60e3d54b10c41f4aa8">clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *<a class="el" href="classvg_1_1Aligner.html">Aligner</a>, size_t min_mem_length=1, int32_t max_qual_score=60, int32_t log_likelihood_approx_factor=0, size_t min_median_mem_coverage_for_split=0, double suboptimal_edge_pruning_factor=.75)</td></tr>
-<tr class="separator:a33c57c2613769a60e3d54b10c41f4aa8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a14a84b43525dda46b3df51fb27a9909f"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a14a84b43525dda46b3df51fb27a9909f">clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *<a class="el" href="classvg_1_1Aligner.html">Aligner</a>, size_t min_mem_length=1, int32_t max_qual_score=60, int32_t log_likelihood_approx_factor=0, size_t min_median_mem_coverage_for_split=0, double suboptimal_edge_pruning_factor=.75, const <a class="el" href="classvg_1_1MEMClusterer.html#a3127930f2b575bed2937c21382924480">match_fanouts_t</a> *fanouts=nullptr)</td></tr>
+<tr class="separator:a14a84b43525dda46b3df51fb27a9909f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68482212691d8c1d4ead37f8d8d9d54c"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a68482212691d8c1d4ead37f8d8d9d54c">pair_clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment_1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment_2, const vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> *&gt; &amp;left_clusters, const vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> *&gt; &amp;right_clusters, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;left_alt_cluster_anchors, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;right_alt_cluster_anchors, int64_t optimal_separation, int64_t max_deviation)=0</td></tr>
 <tr class="separator:a68482212691d8c1d4ead37f8d8d9d54c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -129,8 +131,8 @@ Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:af2d7afad2eed6e2dd44de7a9882e7d2f"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html">HitGraph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#af2d7afad2eed6e2dd44de7a9882e7d2f">make_hit_graph</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t min_mem_length)=0</td></tr>
-<tr class="separator:af2d7afad2eed6e2dd44de7a9882e7d2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac65c43448463ef346199437b073c1467"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html">HitGraph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#ac65c43448463ef346199437b073c1467">make_hit_graph</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t min_mem_length, const <a class="el" href="classvg_1_1MEMClusterer.html#a3127930f2b575bed2937c21382924480">match_fanouts_t</a> *fanouts)=0</td></tr>
+<tr class="separator:ac65c43448463ef346199437b073c1467"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a941476ae17420e703a8ef743232643ab"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a941476ae17420e703a8ef743232643ab">estimate_edge_score</a> (const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_1, const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_2, int64_t graph_dist, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner) const</td></tr>
 <tr class="separator:a941476ae17420e703a8ef743232643ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae99c87e944c8c1056abb8efc7da5786e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#ae99c87e944c8c1056abb8efc7da5786e">deduplicate_cluster_pairs</a> (vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, int64_t optimal_separation)</td></tr>
@@ -165,6 +167,21 @@ Protected Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Each hit contains a pointer to the original MEM and the position of that particular hit in the graph. </p>
+
+</div>
+</div>
+<a id="a3127930f2b575bed2937c21382924480"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3127930f2b575bed2937c21382924480">&#9670;&nbsp;</a></span>match_fanouts_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="classvg_1_1MEMClusterer.html#a3127930f2b575bed2937c21382924480">vg::MEMClusterer::match_fanouts_t</a> =  unordered_map&lt;const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a>*, deque&lt;pair&lt;string::const_iterator, char&gt; &gt;&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Represents the mismatches that were allowed in "MEMs" from the fanout match algorithm </p>
 
 </div>
 </div>
@@ -220,8 +237,8 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a33c57c2613769a60e3d54b10c41f4aa8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a33c57c2613769a60e3d54b10c41f4aa8">&#9670;&nbsp;</a></span>clusters()</h2>
+<a id="a14a84b43525dda46b3df51fb27a9909f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a14a84b43525dda46b3df51fb27a9909f">&#9670;&nbsp;</a></span>clusters()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -272,7 +289,13 @@ Protected Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">double&#160;</td>
-          <td class="paramname"><em>suboptimal_edge_pruning_factor</em> = <code>.75</code>&#160;</td>
+          <td class="paramname"><em>suboptimal_edge_pruning_factor</em> = <code>.75</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1MEMClusterer.html#a3127930f2b575bed2937c21382924480">match_fanouts_t</a> *&#160;</td>
+          <td class="paramname"><em>fanouts</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -371,8 +394,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="af2d7afad2eed6e2dd44de7a9882e7d2f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af2d7afad2eed6e2dd44de7a9882e7d2f">&#9670;&nbsp;</a></span>make_hit_graph()</h2>
+<a id="ac65c43448463ef346199437b073c1467"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac65c43448463ef346199437b073c1467">&#9670;&nbsp;</a></span>make_hit_graph()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -402,7 +425,13 @@ Protected Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>min_mem_length</em>&#160;</td>
+          <td class="paramname"><em>min_mem_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1MEMClusterer.html#a3127930f2b575bed2937c21382924480">match_fanouts_t</a> *&#160;</td>
+          <td class="paramname"><em>fanouts</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -418,7 +447,7 @@ Protected Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Initializes a hit graph and adds edges to it, this must be implemented by any inheriting class </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1ComponentMinDistanceClusterer.html#a552c7102fcc7efd961dc81ae06d43dd1">vg::ComponentMinDistanceClusterer</a>, <a class="el" href="classvg_1_1GreedyMinDistanceClusterer.html#a04e62475281afcf80d2479ff29546660">vg::GreedyMinDistanceClusterer</a>, <a class="el" href="classvg_1_1MinDistanceClusterer.html#a6830e17ff5aa27717dae558dbacfd948">vg::MinDistanceClusterer</a>, <a class="el" href="classvg_1_1TVSClusterer.html#aabdbd5086c66e1f0193c870532e82789">vg::TVSClusterer</a>, <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a7bcda4e626cbd4dd7fda99f952a3ef72">vg::OrientedDistanceClusterer</a>, and <a class="el" href="classvg_1_1NullClusterer.html#af18dcc06326364a14c422671edfa2f0b">vg::NullClusterer</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1ComponentMinDistanceClusterer.html#afe8b8bc133b5ef94999264dabb3452b8">vg::ComponentMinDistanceClusterer</a>, <a class="el" href="classvg_1_1GreedyMinDistanceClusterer.html#ad5a3eda064089d19eec2338ccc82e515">vg::GreedyMinDistanceClusterer</a>, <a class="el" href="classvg_1_1MinDistanceClusterer.html#a8f3bd899d336e3a30f77e2985eaceb81">vg::MinDistanceClusterer</a>, <a class="el" href="classvg_1_1TVSClusterer.html#a33dff32277c63fa9dc42969c01094900">vg::TVSClusterer</a>, <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#af520fdf27e87d46d3a7a5976ec6179c2">vg::OrientedDistanceClusterer</a>, and <a class="el" href="classvg_1_1NullClusterer.html#a4e7540aadd3d1eb3d4616cf0d268b3f0">vg::NullClusterer</a>.</p>
 
 </div>
 </div>

@@ -112,6 +112,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac8e1b97332df85221c6a2be61cbd1b3d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac2969d865d7cb4652a7476feabd9c9b5"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ac2969d865d7cb4652a7476feabd9c9b5">score_exact_match</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const =0</td></tr>
 <tr class="separator:ac2969d865d7cb4652a7476feabd9c9b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab40663f27266555cd2718fca337ac348"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab40663f27266555cd2718fca337ac348">score_mismatch</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const =0</td></tr>
+<tr class="separator:ab40663f27266555cd2718fca337ac348"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5d843e8415e3080421f75ac6e98c6bd3"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a5d843e8415e3080421f75ac6e98c6bd3">score_partial_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, string::const_iterator seq_begin) const =0</td></tr>
 <tr class="memdesc:a5d843e8415e3080421f75ac6e98c6bd3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compute the score of a path against the given range of subsequence with the given qualities.  <a href="#a5d843e8415e3080421f75ac6e98c6bd3">More...</a><br /></td></tr>
 <tr class="separator:a5d843e8415e3080421f75ac6e98c6bd3"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1560,6 +1562,50 @@ Protected Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Use the score values in the aligner to score the given alignment, scoring gaps caused by jumping between between nodes using a custom gap length estimation function (which takes the from position, the to position, and a search limit in bp that happens to be the read length).</p>
 <p>May include full length bonus or not. TODO: bool flags are bad. </p>
+
+</div>
+</div>
+<a id="ab40663f27266555cd2718fca337ac348"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab40663f27266555cd2718fca337ac348">&#9670;&nbsp;</a></span>score_mismatch()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual int32_t vg::GSSWAligner::score_mismatch </td>
+          <td>(</td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>seq_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>seq_end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>base_qual_begin</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#a4b60c05aa08eaf51d5e77aabde39a409">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a1bb5a23875ecc6a5fac181c97c6846e4">vg::Aligner</a>.</p>
 
 </div>
 </div>

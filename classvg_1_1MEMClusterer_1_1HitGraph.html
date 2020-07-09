@@ -78,9 +78,9 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:af8b973948228e8cb287a166af90dcd96"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#af8b973948228e8cb287a166af90dcd96">HitGraph</a> (const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t min_mem_length=1, bool <a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a6bc63fbe77aee54235636bbc228a9e96">track_components</a>=false)</td></tr>
-<tr class="memdesc:af8b973948228e8cb287a166af90dcd96"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initializes nodes in the hit graph, but does not add edges.  <a href="#af8b973948228e8cb287a166af90dcd96">More...</a><br /></td></tr>
-<tr class="separator:af8b973948228e8cb287a166af90dcd96"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9895e95cdaa1b95876c79c07d29fe852"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a9895e95cdaa1b95876c79c07d29fe852">HitGraph</a> (const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t min_mem_length=1, bool <a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a6bc63fbe77aee54235636bbc228a9e96">track_components</a>=false, const <a class="el" href="classvg_1_1MEMClusterer.html#a3127930f2b575bed2937c21382924480">match_fanouts_t</a> *fanouts=nullptr)</td></tr>
+<tr class="memdesc:a9895e95cdaa1b95876c79c07d29fe852"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initializes nodes in the hit graph, but does not add edges.  <a href="#a9895e95cdaa1b95876c79c07d29fe852">More...</a><br /></td></tr>
+<tr class="separator:a9895e95cdaa1b95876c79c07d29fe852"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ea6a73a76afd51e8e3faee8d76575a2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a9ea6a73a76afd51e8e3faee8d76575a2">add_edge</a> (size_t from, size_t to, int32_t weight, int64_t distance)</td></tr>
 <tr class="memdesc:a9ea6a73a76afd51e8e3faee8d76575a2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add an edge.  <a href="#a9ea6a73a76afd51e8e3faee8d76575a2">More...</a><br /></td></tr>
 <tr class="separator:a9ea6a73a76afd51e8e3faee8d76575a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -125,8 +125,8 @@ Private Attributes</h2></td></tr>
 <tr class="separator:ab0952f2992c99f031ac813bfa563bf34"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="af8b973948228e8cb287a166af90dcd96"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af8b973948228e8cb287a166af90dcd96">&#9670;&nbsp;</a></span>HitGraph()</h2>
+<a id="a9895e95cdaa1b95876c79c07d29fe852"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9895e95cdaa1b95876c79c07d29fe852">&#9670;&nbsp;</a></span>HitGraph()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -159,7 +159,13 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>track_components</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>track_components</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1MEMClusterer.html#a3127930f2b575bed2937c21382924480">match_fanouts_t</a> *&#160;</td>
+          <td class="paramname"><em>fanouts</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>

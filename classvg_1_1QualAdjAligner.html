@@ -112,6 +112,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a89a12943aa532cda18ebbd5ccb8ac7f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7477c0be20954fbe9ddd3939a8abaa8d"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a7477c0be20954fbe9ddd3939a8abaa8d">score_exact_match</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const</td></tr>
 <tr class="separator:a7477c0be20954fbe9ddd3939a8abaa8d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b60c05aa08eaf51d5e77aabde39a409"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a4b60c05aa08eaf51d5e77aabde39a409">score_mismatch</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const</td></tr>
+<tr class="separator:a4b60c05aa08eaf51d5e77aabde39a409"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2ce043fec7e907c811813c8fe99fc759"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html#a2ce043fec7e907c811813c8fe99fc759">score_partial_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, string::const_iterator seq_begin) const</td></tr>
 <tr class="memdesc:a2ce043fec7e907c811813c8fe99fc759"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compute the score of a path against the given range of subsequence with the given qualities.  <a href="#a2ce043fec7e907c811813c8fe99fc759">More...</a><br /></td></tr>
 <tr class="separator:a2ce043fec7e907c811813c8fe99fc759"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -875,6 +877,50 @@ Additional Inherited Members</h2></td></tr>
 <p>Compute the score of an exact match of the given range of sequence with the given qualities. Qualities may be ignored by some implementations. </p>
 
 <p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#ac2969d865d7cb4652a7476feabd9c9b5">vg::GSSWAligner</a>.</p>
+
+</div>
+</div>
+<a id="a4b60c05aa08eaf51d5e77aabde39a409"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4b60c05aa08eaf51d5e77aabde39a409">&#9670;&nbsp;</a></span>score_mismatch()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t QualAdjAligner::score_mismatch </td>
+          <td>(</td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>seq_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>seq_end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>base_qual_begin</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#ab40663f27266555cd2718fca337ac348">vg::GSSWAligner</a>.</p>
 
 </div>
 </div>
