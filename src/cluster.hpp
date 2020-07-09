@@ -174,6 +174,10 @@ public:
     /// Each cluster is a vector of hits.
     using cluster_t = vector<hit_t>;
     
+    /// Represents the mismatches that were allowed in "MEMs" from the fanout
+    /// match algorithm
+    using match_fanouts_t = unordered_map<const MaximalExactMatch*, deque<pair<string::const_iterator, char>>>;
+    
     /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
     /// contains a pointer to the original MEM and the position of that particular hit in the graph.
     vector<cluster_t> clusters(const Alignment& alignment,
@@ -183,7 +187,8 @@ public:
                                int32_t max_qual_score = 60,
                                int32_t log_likelihood_approx_factor = 0,
                                size_t min_median_mem_coverage_for_split = 0,
-                               double suboptimal_edge_pruning_factor = .75);
+                               double suboptimal_edge_pruning_factor = .75,
+                               const match_fanouts_t* fanouts = nullptr);
     
     /**
      * Given two vectors of clusters and bounds on the distance between clusters,
@@ -217,7 +222,8 @@ protected:
     /// Initializes a hit graph and adds edges to it, this must be implemented by any inheriting
     /// class
     virtual HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                    const GSSWAligner* aligner, size_t min_mem_length) = 0;
+                                    const GSSWAligner* aligner, size_t min_mem_length,
+                                    const match_fanouts_t* fanouts) = 0;
     
     /// Once the distance between two hits has been estimated, estimate the score of the hit graph edge
     /// connecting them
@@ -234,7 +240,7 @@ public:
     
     /// Initializes nodes in the hit graph, but does not add edges
     HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, const GSSWAligner* aligner,
-             size_t min_mem_length = 1, bool track_components = false);
+             size_t min_mem_length = 1, bool track_components = false, const match_fanouts_t* fanouts = nullptr);
     
     /// Add an edge
     void add_edge(size_t from, size_t to, int32_t weight, int64_t distance);
@@ -356,7 +362,7 @@ protected:
     /// Concrete implementation of virtual method from MEMClusterer
     /// Note: ignores the min_mem_length parameter
     HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
-                            size_t min_mem_length);
+                            size_t min_mem_length, const match_fanouts_t* fanouts);
 };
     
     
@@ -556,7 +562,7 @@ protected:
     
     /// Concrete implementation of virtual method from MEMClusterer
     HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
-                            size_t min_mem_length);
+                            size_t min_mem_length, const match_fanouts_t* fanouts);
     
     OrientedDistanceMeasurer& distance_measurer;
     size_t max_expected_dist_approx_error;
@@ -668,7 +674,7 @@ protected:
     
     /// Concrete implementation of virtual method from MEMClusterer
     HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
-                            size_t min_mem_length);
+                            size_t min_mem_length, const match_fanouts_t* fanouts);
     
     TargetValueSearch tvs;
 };
@@ -695,7 +701,7 @@ protected:
     
     /// Concrete implementation of virtual method from MEMClusterer
     virtual HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
-                                    size_t min_mem_length);
+                                    size_t min_mem_length, const match_fanouts_t* fanouts);
     
     const HandleGraph* handle_graph;
     MinimumDistanceIndex* distance_index;
@@ -714,7 +720,7 @@ protected:
     
     /// Concrete implementation of virtual method from MEMClusterer, overides the inherited one from MinDistanceClusterer
     HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
-                            size_t min_mem_length);
+                            size_t min_mem_length, const match_fanouts_t* fanouts);
     
     
     /// How far apart do we expect the seeds to be on the read?
@@ -745,7 +751,7 @@ protected:
     
     /// Concrete implementation of virtual method from MEMClusterer, overides the inherited one from MinDistanceClusterer
     HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
-                            size_t min_mem_length);
+                            size_t min_mem_length, const match_fanouts_t* fanouts);
     
     
     /// Minimum distance between two seeds on the read

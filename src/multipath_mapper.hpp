@@ -296,7 +296,8 @@ namespace vg {
         /// Use the oriented distance clusterer or the TVS clusterer to cluster MEMs depending on parameters.
         /// If using oriented distance cluster, must alo provide an oriented distance measurer.
         vector<memcluster_t> get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                          OrientedDistanceMeasurer* distance_measurer = nullptr) const;
+                                          OrientedDistanceMeasurer* distance_measurer = nullptr,
+                                          const match_fanouts_t* fanouts = nullptr) const;
         
         /// Use the oriented distance clusterer or the TVS clusterer to cluster pairs of clusters. Assumes that
         /// the fragment length distribution has been estimated and fixed.
