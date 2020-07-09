@@ -4,7 +4,7 @@
 ///
 
 #include <iostream>
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include "../vg.hpp"
 #include "../split_strand_graph.hpp"
 #include "../algorithms/dagify.hpp"

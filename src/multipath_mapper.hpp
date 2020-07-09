@@ -16,7 +16,7 @@
 #include "position.hpp"
 #include "nodeside.hpp"
 #include "path.hpp"
-#include "edit.hpp"
+#include "vg/io/edit.hpp"
 #include "snarls.hpp"
 #include "haplotypes.hpp"
 #include "min_distance.hpp"

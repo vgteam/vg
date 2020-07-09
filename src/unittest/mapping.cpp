@@ -5,7 +5,7 @@
 
 #include <iostream>
 #include <string>
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "../path.hpp"
 #include "catch.hpp"

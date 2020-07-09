@@ -1,7 +1,7 @@
 #include "readfilter.hpp"
 #include "IntervalTree.h"
 #include "annotation.hpp"
-#include "alignment_emitter.hpp"
+#include "vg/io/alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 
 #include <fstream>
@@ -12,6 +12,7 @@
 namespace vg {
 
 using namespace std;
+using namespace vg::io;
 
 bool ReadFilter::trim_ambiguous_ends(Alignment& alignment, int k) {
     assert(graph != nullptr);
@@ -714,7 +715,7 @@ int ReadFilter::filter(istream* alignment_stream) {
     unique_ptr<AlignmentEmitter> emitter;
     
     if (write_output) {
-        emitter = get_alignment_emitter("-", "GAM",  map<string, int64_t>(), get_thread_count());
+        emitter = get_non_hts_alignment_emitter("-", "GAM",  map<string, int64_t>(), get_thread_count());
     }
 
     // keep counts of what's filtered to report (in verbose mode)

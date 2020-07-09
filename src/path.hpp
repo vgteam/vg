@@ -7,9 +7,9 @@
 #include <set>
 #include <list>
 #include <sstream>
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
-#include "edit.hpp"
+#include "vg/io/edit.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "types.hpp"

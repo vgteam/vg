@@ -11,9 +11,10 @@
 #include "vg.hpp"
 #include "path.hpp"
 #include "catch.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 
 using namespace google::protobuf;
+using namespace vg::io;
 
 namespace vg {
     namespace unittest {

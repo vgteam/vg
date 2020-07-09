@@ -7,7 +7,7 @@
 #include <string>
 #include "../algorithms/k_widest_paths.hpp"
 #include "../handle.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "catch.hpp"
 
 #include <vg/vg.pb.h>

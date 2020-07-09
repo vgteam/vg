@@ -6,7 +6,7 @@
 #include <unordered_set>
 #include <utility>
 
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "../sampler.hpp"
 #include "../xg.hpp"

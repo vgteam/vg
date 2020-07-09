@@ -444,7 +444,7 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
             });
         } else {
             assert(aln_format == "GAF");
-            gaf_unpaired_for_each(*graph, file_name, lambda);
+            vg::io::gaf_unpaired_for_each(*graph, file_name, lambda);
         }
     }
         

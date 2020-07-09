@@ -7,7 +7,7 @@
 
 using namespace vg;
 using namespace std;
-
+using namespace vg::io;
 
 static const double quality_scale_factor = 10.0 / log(10.0);
 static const double exp_overflow_limit = log(std::numeric_limits<double>::max());

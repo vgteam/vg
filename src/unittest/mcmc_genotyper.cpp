@@ -9,7 +9,7 @@
 #include <gbwt/dynamic_gbwt.h>
 #include "../build_index.hpp"
 #include "../haplotypes.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "../vg.hpp"
 #include "../multipath_alignment.hpp"

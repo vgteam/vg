@@ -20,7 +20,7 @@
 #include <vg/io/vpkg.hpp>
 #include "../utility.hpp"
 #include "../surjector.hpp"
-#include "../alignment_emitter.hpp"
+#include "../hts_alignment_emitter.hpp"
 
 
 using namespace std;
