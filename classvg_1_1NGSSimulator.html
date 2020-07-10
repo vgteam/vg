@@ -84,8 +84,8 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:ac5be854c23e090c6dbe917a90fa53602"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ac5be854c23e090c6dbe917a90fa53602">NGSSimulator</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1NGSSimulator.html#a39eab8a38fd07e9f3d90a25b6830a815">graph</a>, const string &amp;ngs_fastq_file, const string &amp;ngs_paired_fastq_file=&quot;&quot;, bool interleaved_fastq=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a>={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={}, const vector&lt; tuple&lt; string, string, size_t &gt;&gt; &amp;haplotype_transcripts={}, double substition_polymorphism_rate=0.001, double indel_polymorphism_rate=0.0002, double indel_error_proportion=0.01, double fragment_length_mean=300.0, double fragment_length_stdev=50.0, double error_multiplier=1.0, bool <a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a>=true, bool <a class="el" href="classvg_1_1NGSSimulator.html#af7441bd12030f0e189aca5ba2e0b47ef">sample_unsheared_paths</a>=false, size_t <a class="el" href="classvg_1_1NGSSimulator.html#ae24dec0a78bc0166a7f27356632f135a">seed</a>=0)</td></tr>
-<tr class="separator:ac5be854c23e090c6dbe917a90fa53602"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afbc1b6fe13d89c3c63184b6386ba7c1d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#afbc1b6fe13d89c3c63184b6386ba7c1d">NGSSimulator</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1NGSSimulator.html#a39eab8a38fd07e9f3d90a25b6830a815">graph</a>, const string &amp;ngs_fastq_file, const string &amp;ngs_paired_fastq_file=&quot;&quot;, bool interleaved_fastq=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a>={}, const vector&lt; double &gt; &amp;source_path_ploidies={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={}, const vector&lt; tuple&lt; string, string, size_t &gt;&gt; &amp;haplotype_transcripts={}, double substition_polymorphism_rate=0.001, double indel_polymorphism_rate=0.0002, double indel_error_proportion=0.01, double fragment_length_mean=300.0, double fragment_length_stdev=50.0, double error_multiplier=1.0, bool <a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a>=true, bool <a class="el" href="classvg_1_1NGSSimulator.html#af7441bd12030f0e189aca5ba2e0b47ef">sample_unsheared_paths</a>=false, size_t <a class="el" href="classvg_1_1NGSSimulator.html#ae24dec0a78bc0166a7f27356632f135a">seed</a>=0)</td></tr>
+<tr class="separator:afbc1b6fe13d89c3c63184b6386ba7c1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a50a20af9dd3edd86233edf1de13a5cda"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a50a20af9dd3edd86233edf1de13a5cda">sample_read</a> ()</td></tr>
 <tr class="memdesc:a50a20af9dd3edd86233edf1de13a5cda"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sample an individual read and alignment.  <a href="#a50a20af9dd3edd86233edf1de13a5cda">More...</a><br /></td></tr>
 <tr class="separator:a50a20af9dd3edd86233edf1de13a5cda"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -227,8 +227,8 @@ Static Private Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Class that simulates reads with alignments to a graph that mimic the error profile of NGS sequencing data. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="ac5be854c23e090c6dbe917a90fa53602"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac5be854c23e090c6dbe917a90fa53602">&#9670;&nbsp;</a></span>NGSSimulator() <span class="overload">[1/2]</span></h2>
+<a id="afbc1b6fe13d89c3c63184b6386ba7c1d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afbc1b6fe13d89c3c63184b6386ba7c1d">&#9670;&nbsp;</a></span>NGSSimulator() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -262,6 +262,12 @@ Static Private Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
           <td class="paramname"><em>source_paths</em> = <code>{}</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; double &gt; &amp;&#160;</td>
+          <td class="paramname"><em>source_path_ploidies</em> = <code>{}</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
