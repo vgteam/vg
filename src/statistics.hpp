@@ -71,6 +71,33 @@ inline double log10_to_ln(double l10) {
     return l10 * log(10);
 }
 
+/**
+ * Assume that we have n independent random events that occur with probability
+ * p each (p is interpreted as a real number between 0 at 0 and 1 at its
+ * maximum value). Return an approximate probability for at least one event
+ * occurring as a phred score.
+ *
+ * n must be <= MAX_AT_LEAST_ONE_EVENTS.
+ */
+double phred_for_at_least_one(size_t p, size_t n);
+
+/// How many events should we allow in phred_for_at_least_one?
+/// Should be >= our longest supported minimizer index.
+constexpr static size_t MAX_AT_LEAST_ONE_EVENTS = 32;
+/// Use this many bits for approximate probabilities.
+constexpr static size_t AT_LEAST_ONE_PRECISION = 8; 
+
+// normal pdf, from http://stackoverflow.com/a/10848293/238609
+template <typename T>
+T normal_pdf(T x, T m, T s)
+{
+    static const T inv_sqrt_2pi = 0.3989422804014327;
+    T a = (x - m) / s;
+    
+    return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
+}
+
+
 /// Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {
     return log(prob);
@@ -130,33 +157,6 @@ inline double phred_add(double phred1, double phred2) {
 
 
 /**
- * Assume that we have n independent random events that occur with probability
- * p each (p is interpreted as a real number between 0 at 0 and 1 at its
- * maximum value). Return an approximate probability for at least one event
- * occurring as a phred score.
- *
- * n must be <= MAX_AT_LEAST_ONE_EVENTS.
- */
-double phred_for_at_least_one(size_t p, size_t n);
-
-/// How many events should we allow in phred_for_at_least_one?
-/// Should be >= our longest supported minimizer index.
-constexpr static size_t MAX_AT_LEAST_ONE_EVENTS = 32;
-/// Use this many bits for approximate probabilities.
-constexpr static size_t AT_LEAST_ONE_PRECISION = 8; 
-
-// normal pdf, from http://stackoverflow.com/a/10848293/238609
-template <typename T>
-T normal_pdf(T x, T m, T s)
-{
-    static const T inv_sqrt_2pi = 0.3989422804014327;
-    T a = (x - m) / s;
-    
-    return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
-}
-
-
-/**
  * Compute the sum of the values in a collection, where the values are log
  * probabilities and the result is the log of the total probability. Items must
  * be convertible to/from doubles for math.
@@ -200,6 +200,63 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
     
     // Re-log and re-scale
     return pulled_out + prob_to_logprob(total);
+}
+
+/**
+ * Compute the sum of the values in a collection, represented by an iterator
+ * range, where the values are Phred scores and the result is the Phred score
+ * of the total probability. Items must be convertible to/from doubles for
+ * math.
+ */
+template<typename Iterator>
+typename std::iterator_traits<Iterator>::value_type phred_sum(const Iterator& begin_it, const Iterator& end_it) {
+    
+    // Set up an alias for the type we're operating on
+    using Item = typename std::iterator_traits<Iterator>::value_type;
+    
+    // Pull out the minimum probability
+    auto min_iterator = max_element(begin_it, end_it);
+    
+    if (min_iterator == end_it) {
+        // Nothing there, p = 0
+        return Item(logprob_to_phred(prob_to_logprob(0)));
+    }
+    
+    auto check_iterator = begin_it;
+    ++check_iterator;
+    if (check_iterator == end_it) {
+        // We only have a single element anyway. We don't want to subtract it
+        // out because we'll get 0s.
+        return *min_iterator;
+    }
+    
+    // Pull this much out of every logprob.
+    double pulled_out = phred_to_logprob(*min_iterator);
+    
+    if (logprob_to_prob(pulled_out) == 0) {
+        // Can't divide by 0!
+        // TODO: fix this in selection
+        pulled_out = prob_to_logprob(1);
+    }
+    
+    double total(0);
+    for(auto to_add_it = begin_it; to_add_it != end_it; ++to_add_it) {
+        // Sum up all the scaled probabilities.
+        total += logprob_to_prob(phred_to_logprob(*to_add_it) - pulled_out);
+    }
+    
+    // Re-log and re-scale
+    return Item(logprob_to_phred(pulled_out + prob_to_logprob(total)));
+}
+
+/**
+ * Compute the sum of the values in a collection, where the values are Phred
+ * scores and the result is the Phred score of the total probability. Items
+ * must be convertible to/from doubles for math.
+ */
+template<typename Collection>
+typename Collection::value_type phred_sum(const Collection& collection) {
+    return phred_sum(begin(collection), end(collection));
 }
 
 

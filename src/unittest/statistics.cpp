@@ -166,5 +166,14 @@ TEST_CASE("Phred probability addition works", "[statistics]") {
     
 }
 
+TEST_CASE("Phred probability summation works", "[statistics]") {
+
+    vector<double> to_sum = {30, 30, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40};
+    double result = 25.2287874528;
+   
+    REQUIRE(phred_sum(to_sum) == Approx(result));
+    
+}
+
 }
 }
