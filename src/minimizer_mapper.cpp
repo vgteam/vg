@@ -1796,7 +1796,7 @@ double MinimizerMapper::compute_mapq_caps(const Alignment& aln,
             extended_cluster_minimizers.push_back(i);
         }
     }
-    double mapq_extended_cap = window_breaking_quality(minimizers, extended_cluster_minimizers, aln.sequence(), aln.quality());
+    double mapq_extended_cap = window_breaking_quality(minimizers, extended_cluster_minimizers, aln.sequence(), aln.quality(), true);
     
     // And we also need to cap based on the probability of creating the windows
     // in the read that distinguish it from the most plausible (minimum created
@@ -1809,10 +1809,11 @@ double MinimizerMapper::compute_mapq_caps(const Alignment& aln,
 }
 
 double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
-    const string& sequence, const string& quality_bytes) {
+    const string& sequence, const string& quality_bytes, bool sum) {
     
 #ifdef debug
-    cerr << "Computing MAPQ cap based on " << broken.size() << "/" << minimizers.size() << " minimizers' windows" << endl;
+    cerr << "Computing MAPQ cap based on " << broken.size() << "/" << minimizers.size()
+        << " minimizers' windows in " << (sum ? "sum" : "most probable") << "mode" << endl;
 #endif
 
     if (broken.empty() || quality_bytes.empty()) {
@@ -1859,15 +1860,19 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
     // Have a cursor for which agglomeration should come in next.
     auto next_agglomeration = broken.begin();
     
-    // Have a DP table with the cost of the cheapest solution to the problem up to here, including a hit at this base.
+    // Have a DP table with the cost of the cheapest solution to the problem up
+    // to here (in non-sum mode), or the total probability up to here (in sum
+    // mode), including a hit at this base.
     // Or numeric_limits<double>::infinity() if base cannot be hit.
     // We pre-fill it because I am scared to use end() if we change its size.
-    vector<double> costs(sequence.size(), numeric_limits<double>::infinity());
+    vector<double> dp_table(sequence.size(), numeric_limits<double>::infinity());
     
     // Keep track of the latest-starting window ending before here. If none, this will be two numeric_limits<size_t>::max() values.
     window_t latest_starting_ending_before = { numeric_limits<size_t>::max(), numeric_limits<size_t>::max() };
-    // And keep track of the min cost DP table entry, or end if not computed yet.
-    auto latest_starting_ending_before_winner = costs.end();
+    // And keep track of the min cost DP table entry, or end if not computed yet (for non-sum mode).
+    auto latest_starting_ending_before_winner = dp_table.end();
+    // Or the total probability as a Phred score (for sum mode)
+    double latest_starting_ending_before_sum = NAN;
     
     for (size_t i = 0; i < sequence.size(); i++) {
         // For each base in the read
@@ -1979,6 +1984,13 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 // Then we AND (sum) the Phred of that in, as an additional cost to mutating this base and kitting all the windows it covers.
                 // This makes low-quality bases outside of minimizers produce fewer low MAPQ caps, and accounts for the robustness of minimizers to some errors.
                 base_cost += any_beat_phred;
+                
+                // TODO: in sum mode, we're allowing any base to be hit, but
+                // when we hit it we require it to disrupt *all* the minimizers
+                // whose windows it intersects. We have no good way to model
+                // the long-range dependencies involved in cases where we hit a
+                // base but don't disrupt the minimizer, requiring us to hit
+                // another base later.
 
             }
                 
@@ -1992,28 +2004,47 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 // If there is no such window, this is the first base hit, so
                 // record the cost of hitting it.
                 
-                costs[i] = base_cost;
+                dp_table[i] = base_cost;
                 
 #ifdef debug
-                cerr << "\tFirst base hit, costs " << costs[i] << endl;
+                cerr << "\tFirst base hit, costs " << dp_table[i] << endl;
 #endif
             } else {
                 // Else, scan from that window's start to its end in the DP
-                // table, and find the min cost.
-
-                if (latest_starting_ending_before_winner == costs.end()) {
-                    // We haven't found the min in the window we come from yet, so do that.
-                    latest_starting_ending_before_winner = std::min_element(costs.begin() + latest_starting_ending_before.first,
-                        costs.begin() + latest_starting_ending_before.last + 1);
-                }
-                double min_prev_cost = *latest_starting_ending_before_winner;
-                    
-                // Add the cost of hitting this base
-                costs[i] = min_prev_cost + base_cost;
+                // table.
                 
+                if (sum) {
+                    // OR together all possible places to hit in that window
+                    if (isnan(latest_starting_ending_before_sum)) {
+                        // We haven't found the sum over the window we come from yet, so do that.
+                        latest_starting_ending_before_sum = phred_sum(dp_table.begin() + latest_starting_ending_before.first,
+                            dp_table.begin() + latest_starting_ending_before.last + 1);
+                    }
+                    
+                    // and AND with hitting here
+                    dp_table[i] = latest_starting_ending_before_sum + base_cost;
+                    
 #ifdef debug
-                cerr << "\tComes from prev base at " << (latest_starting_ending_before_winner - costs.begin()) << ", costs " << costs[i] << endl;
+                    cerr << "\tOR over prev bases is " << latest_starting_ending_before_sum << ", total cost " << dp_table[i] << endl;
 #endif
+                    
+                } else {
+                    // Find the min cost place to hit in that window
+                    if (latest_starting_ending_before_winner == dp_table.end()) {
+                        // We haven't found the min in the window we come from yet, so do that.
+                        latest_starting_ending_before_winner = std::min_element(dp_table.begin() + latest_starting_ending_before.first,
+                            dp_table.begin() + latest_starting_ending_before.last + 1);
+                    }
+                    double min_prev_cost = *latest_starting_ending_before_winner;
+                        
+                    // Add the cost of hitting this base
+                    dp_table[i] = min_prev_cost + base_cost;
+                    
+#ifdef debug
+                    cerr << "\tComes from prev base at " << (latest_starting_ending_before_winner - dp_table.begin()) << ", costs " << dp_table[i] << endl;
+#endif
+                }
+    
             }
             
         } else {
@@ -2053,8 +2084,9 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 
                 // If so, use the latest-starting of all such windows as our latest starting window ending here or before result.
                 latest_starting_ending_before = active_windows.top();
-                // And clear our cache of the lowest cost base to hit it.
-                latest_starting_ending_before_winner = costs.end();
+                // And clear our cache of the lowest cost base to hit it/sum over it.
+                latest_starting_ending_before_winner = dp_table.end();
+                latest_starting_ending_before_sum = NAN;
                 
 #ifdef debug
                 cerr << "\t\t\tNow have: " << latest_starting_ending_before.first << " - " << latest_starting_ending_before.last << endl;
@@ -2082,14 +2114,28 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
     // When we get to the end, we have the latest-starting window overall. It must exist.
     assert(latest_starting_ending_before.first != numeric_limits<size_t>::max());
     
-    // Scan it for the best final base to hit and return the cost there.
-    // Don't use the cache here because nothing can come after the last-ending window.
-    auto min_cost_at = std::min_element(costs.begin() + latest_starting_ending_before.first,
-        costs.begin() + latest_starting_ending_before.last + 1);
+    if (sum) {
+        // OR over it.
+        // Don't use the cache here because nothing can come after the last-ending window.
+        double overall_cost = phred_sum(dp_table.begin() + latest_starting_ending_before.first,
+            dp_table.begin() + latest_starting_ending_before.last + 1);
+        
 #ifdef debug
-    cerr << "Overall min cost: " << *min_cost_at << " at base " << (min_cost_at - costs.begin()) << endl;
+        cerr << "Overall cost: " << overall_cost << endl;
 #endif
-    return *min_cost_at;
+
+        return overall_cost;
+        
+    } else {
+        // Scan it for the best final base to hit and return the cost there.
+        // Don't use the cache here because nothing can come after the last-ending window.
+        auto min_cost_at = std::min_element(dp_table.begin() + latest_starting_ending_before.first,
+            dp_table.begin() + latest_starting_ending_before.last + 1);
+#ifdef debug
+        cerr << "Overall min cost: " << *min_cost_at << " at base " << (min_cost_at - dp_table.begin()) << endl;
+#endif
+        return *min_cost_at;
+    }
 }
 
 //-----------------------------------------------------------------------------

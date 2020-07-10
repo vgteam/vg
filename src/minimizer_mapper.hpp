@@ -331,14 +331,18 @@ protected:
      * Also takes the sequence of the read (to avoid Ns) and the quality string
      * (interpreted as a byte array).
      *
-     * Currently computes a lower-score-bound, upper-probability-bound,
+     * When sum is false, computes a lower-score-bound, upper-probability-bound,
      * suitable for use as a mapping quality cap, by assuming the
      * easiest-to-disrupt possible layout of the windows, and the lowest
      * possible qualities for the disrupting bases.
+     *
+     * When sum is true, computes a lower-score-bound, upper-probability-bound,
+     * suitable for use as a mapping quality cap, by summing over all possible
+     * sets of disrupting bases that disrupt the minimizers of all windows.
      */
     static double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
-        const string& sequence, const string& quality_bytes);
-    
+        const string& sequence, const string& quality_bytes, bool sum = false);
+        
     /**
      * Score the given group of gapless extensions. Determines the best score
      * that can be obtained by chaining extensions together, using the given
