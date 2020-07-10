@@ -71,55 +71,63 @@ inline double log10_to_ln(double l10) {
     return l10 * log(10);
 }
 
-// Convert a probability to a natural log probability.
+/// Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {
     return log(prob);
 }
-// Convert natural log probability to a probability
+/// Convert natural log probability to a probability
 inline double logprob_to_prob(double logprob) {
     return exp(logprob);
 }
-// Add two probabilities (expressed as logprobs) together and return the result
-// as a logprob.
+/// Add two probabilities (expressed as logprobs) together and return the result
+/// as a logprob.
 inline double logprob_add(double logprob1, double logprob2) {
     // Pull out the larger one to avoid underflows
     double pulled_out = max(logprob1, logprob2);
     return pulled_out + prob_to_logprob(logprob_to_prob(logprob1 - pulled_out) + logprob_to_prob(logprob2 - pulled_out));
 }
-// Invert a logprob, and get the probability of its opposite.
+/// Invert a logprob, and get the probability of its opposite.
 inline double logprob_invert(double logprob) {
     return prob_to_logprob(1.0 - logprob_to_prob(logprob));
 }
 
-// Convert integer Phred quality score to probability of wrongness.
+/// Convert integer Phred quality score to probability of wrongness.
 inline double phred_to_prob(int phred) {
     return pow(10, -((double)phred) / 10);
 }
 
-// Convert probability of wrongness to integer Phred quality score.
+/// Convert probability of wrongness to integer Phred quality score.
 inline double prob_to_phred(double prob) {
     return -10.0 * log10(prob);
 }
 
-// Convert a Phred quality score directly to a natural log probability of wrongness.
+/// Convert a Phred quality score directly to a natural log probability of wrongness.
 inline double phred_to_logprob(int phred) {
     return (-((double)phred) / 10) / log10(exp(1.0));
 }
 
-// Convert a natural log probability of wrongness directly to a Phred quality score.
+/// Convert a natural log probability of wrongness directly to a Phred quality score.
 inline double logprob_to_phred(double logprob ) {
     return -10.0 * logprob * log10(exp(1.0));
 }
 
-// Take the geometric mean of two logprobs
+/// Take the geometric mean of two logprobs
 inline double logprob_geometric_mean(double lnprob1, double lnprob2) {
     return log(sqrt(exp(lnprob1 + lnprob2)));
 }
 
-// Same thing in phred
+/// Take the geometric mean of two phred-encoded probabilities
 inline double phred_geometric_mean(double phred1, double phred2) {
     return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
 }
+
+/// Add two probabilities (expressed as phred scores) together and return the result
+/// as a phred score.
+inline double phred_add(double phred1, double phred2) {
+    return logprob_to_phred(logprob_add(phred_to_logprob(phred1), phred_to_logprob(phred2)));
+}
+
+
 
 /**
  * Assume that we have n independent random events that occur with probability

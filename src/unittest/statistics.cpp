@@ -154,5 +154,17 @@ TEST_CASE("Max exponential fitting function learns parameters that are approxima
     REQUIRE(abs(params.second - 5.0) < 1.5);
 }
 
+TEST_CASE("Phred probability addition works", "[statistics]") {
+
+    vector<double> phred1 = {prob_to_phred(0.01), prob_to_phred(1E-8), prob_to_phred(0.1), 30 };
+    vector<double> phred2 = {prob_to_phred(0.1), prob_to_phred(0.3), prob_to_phred(0.2), 30 };
+    vector<double> result = {prob_to_phred(0.11), prob_to_phred(0.3+1E-8), prob_to_phred(0.3), 26.98970004336};
+    
+    for (size_t i = 0; i < phred1.size(); i++) {
+        REQUIRE((size_t) round(phred_add(phred1[i], phred2[i])) == (size_t) round(result[i]));
+    }
+    
+}
+
 }
 }
