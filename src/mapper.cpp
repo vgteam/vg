@@ -447,18 +447,25 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
                 }
                 else {
 #ifdef debug_mapper
-                    cerr << "emitting a search result" << endl;
+                    cerr << "reached end of match" << endl;
 #endif
                     auto match_begin = cursor + 1;
                     if (!fanout_breaks.empty() && match_end - match_begin <= fanout_length_threshold) {
                         // this fan-out search didn't find a long enough match for us to think
                         // that these are non-random matches
+#ifdef debug_mapper
+                        cerr << "match length of " << (match_end - match_begin) << " is below threshold " << fanout_length_threshold << ", aborting search" << endl;
+#endif
                         break;
                     }
+
                     
                     // record the last MEM, but check to make sure were not actually still searching
                     // for the end of the next MEM
                     if (!prev_iter_jumped_lcp) {
+#ifdef debug_mapper
+                        cerr << "emitting a search result" << endl;
+#endif
                         search_results.emplace_back(prev_range, match_begin, match_end, fanout_breaks);
                     }
                     
@@ -599,6 +606,13 @@ vector<MaximalExactMatch> BaseMapper::find_fanout_mems(string::const_iterator se
         if (mem_fanout_breaks) {
             // we're communicating fan-out breaks to the calling environment rather than
             // breaking them into exact matches right now
+            
+#ifdef debug_mapper
+            cerr << "recording fanout breaks:" << endl;
+            for (auto b : get<3>(search_result)) {
+                cerr << "\t" << (b.first - seq_begin) << ": " << *b.first << " -> " << b.second << endl;
+            }
+#endif
             mem_fanout_breaks->emplace_back(move(get<3>(search_result)));
         }
         else if (!get<3>(search_result).empty()) {

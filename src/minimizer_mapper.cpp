@@ -2417,6 +2417,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 funnel.pass("hard-hit-cap", i);
                 funnel.fail("hit-cap||score-fraction", i, (selected_score + minimizer.score) / base_target_score);
             }
+            //Stop looking for more minimizers once we fail the score fraction
+            target_score = selected_score; 
         } else {
             // Failed hard hit cap
             took_last = false;

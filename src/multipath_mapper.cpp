@@ -60,6 +60,12 @@ namespace vg {
         cerr << "obtained MEMs:" << endl;
         for (MaximalExactMatch mem : mems) {
             cerr << "\t" << mem << " (" << mem.nodes.size() << " hits)" << endl;
+            if (fanouts.get() && fanouts->count(&mem)) {
+                cerr << "\t\tfan-outs:" << endl;
+                for (auto fanout : fanouts->at(&mem)) {
+                    cerr << "\t\t\t" << (fanout.first - mem.begin) << ": " << *fanout.first << " -> " << fanout.second << endl;
+                }
+            }
         }
         cerr << "clustering MEMs..." << endl;
 #endif
@@ -83,7 +89,7 @@ namespace vg {
                                                                                                       &path_component_index));
         }
         
-        vector<memcluster_t> clusters = get_clusters(alignment, mems, &(*distance_measurer));
+        vector<memcluster_t> clusters = get_clusters(alignment, mems, &(*distance_measurer), fanouts.get());
         
 #ifdef debug_multipath_mapper
         cerr << "obtained clusters:" << endl;
@@ -91,6 +97,12 @@ namespace vg {
             cerr << "\tcluster " << i << endl;
             for (pair<const MaximalExactMatch*, pos_t>  hit : clusters[i]) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
+                if (fanouts.get() && fanouts->count(hit.first)) {
+                    cerr << "\t\t\tfan-outs:" << endl;
+                    for (auto fanout : fanouts->at(hit.first)) {
+                        cerr << "\t\t\t\t" << (fanout.first - hit.first->begin) << ": " << *fanout.first << " -> " << fanout.second << endl;
+                    }
+                }
             }
         }
         cerr << "extracting subgraphs..." << endl;
@@ -293,7 +305,8 @@ namespace vg {
     }
     
     vector<MultipathMapper::memcluster_t> MultipathMapper::get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                                        OrientedDistanceMeasurer* distance_measurer) const {
+                                                                        OrientedDistanceMeasurer* distance_measurer,
+                                                                        const match_fanouts_t* fanouts) const {
         
         // note: we don't want to generate the distance measurer in this function because we want
         // to be able to re-use its memoization if we cluster pairs later
@@ -324,7 +337,7 @@ namespace vg {
         // generate clusters
         return clusterer->clusters(alignment, mems, get_aligner(!alignment.quality().empty()),
                                    min_clustering_mem_length, max_mapping_quality, log_likelihood_approx_factor,
-                                   min_median_mem_coverage_for_split);;
+                                   min_median_mem_coverage_for_split, 0.75, fanouts);;
     }
     
     vector<MaximalExactMatch> MultipathMapper::find_mems(const Alignment& alignment,
@@ -1635,7 +1648,7 @@ namespace vg {
                 }
                 
                 // do the clustering
-                clusters2 = get_clusters(alignment2, mems2, &(*distance_measurer));
+                clusters2 = get_clusters(alignment2, mems2, &(*distance_measurer), fanouts2.get());
                 cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
             }
             
@@ -1654,7 +1667,7 @@ namespace vg {
                 }
                 
                 // do the clustering
-                clusters1 = get_clusters(alignment1, mems1, &(*distance_measurer));
+                clusters1 = get_clusters(alignment1, mems1, &(*distance_measurer), fanouts1.get());
                 cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
             }
         }
@@ -1677,8 +1690,8 @@ namespace vg {
             }
             
             // do the clustering
-            clusters1 = get_clusters(alignment1, mems1, &(*distance_measurer));
-            clusters2 = get_clusters(alignment2, mems2, &(*distance_measurer));
+            clusters1 = get_clusters(alignment1, mems1, &(*distance_measurer), fanouts1.get());
+            clusters2 = get_clusters(alignment2, mems2, &(*distance_measurer), fanouts2.get());
             
             // extract graphs around the clusters and get the assignments of MEMs to these graphs
             cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
@@ -2058,7 +2071,7 @@ namespace vg {
 #endif
             
             // get the clusters for the non repeat
-            clusters1 = get_clusters(alignment1, mems1, &distance_measurer);
+            clusters1 = get_clusters(alignment1, mems1, &distance_measurer, fanouts1);
             
             // extract the graphs around the clusters
             cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
@@ -2098,7 +2111,7 @@ namespace vg {
 #endif
             
             // get the clusters for the non repeat
-            clusters2 = get_clusters(alignment2, mems2, &distance_measurer);
+            clusters2 = get_clusters(alignment2, mems2, &distance_measurer, fanouts2);
             
             // extract the graphs around the clusters
             cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);

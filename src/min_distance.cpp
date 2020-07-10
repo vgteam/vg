@@ -596,7 +596,15 @@ int64_t MinimumDistanceIndex::calculate_min_index(const HandleGraph* graph,
                 int64_t loop_distance = min_pos(rev_loop_dist, last_loop + dist_to_end);
                chain_indexes[curr_chain_assignment].loop_rev[curr_chain_rank+1] = loop_distance + 1;
             }
-            chain_indexes[curr_chain_assignment].max_width += sd.max_width; 
+            if ( c == chain_begin(*chain)) {
+                //If this is the first snarl, include the length of the start node
+                chain_indexes[curr_chain_assignment].max_width += sd.max_width; 
+            } else {
+                //Otherwise don't
+                int64_t start_len = snarl_rev_in_chain
+                    ? sd.node_length(num_nodes * 2 - 1) : sd.node_length(0);
+                chain_indexes[curr_chain_assignment].max_width += sd.max_width - start_len; 
+            }
         }
         
         //Bit compress distance matrix of snarl index
