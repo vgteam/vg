@@ -64,6 +64,7 @@ void help_stats(char** argv) {
          << "    -R, --snarls          print statistics for each snarl" << endl
          << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, ODGI, XG}. " <<
         "Can't detect Protobuf if graph read from stdin" << endl
+         << "    -D, --degree-dist     print degree distribution of the graph." << endl
          << "    -v, --verbose         output longer reports" << endl;
 }
 
@@ -96,6 +97,7 @@ int main_stats(int argc, char** argv) {
     bool overlap_all_paths = false;
     bool snarl_stats = false;
     bool format = false;
+    bool degree_dist = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -122,11 +124,12 @@ int main_stats(int argc, char** argv) {
             {"overlap-all", no_argument, 0, 'O'},
             {"snarls", no_argument, 0, 'R'},
             {"format", no_argument, 0, 'F'},
+            {"degree-dist", no_argument, 0, 'D'}, 
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTcdtn:NEa:vAro:ORF",
+        c = getopt_long (argc, argv, "hzlsHTcdtn:NEa:vAro:ORFD",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -213,6 +216,10 @@ int main_stats(int argc, char** argv) {
 
         case 'F':
             format = true;
+            break;
+
+        case 'D':
+            degree_dist = true;
             break;
 
         case 'h':
@@ -400,6 +407,30 @@ int main_stats(int argc, char** argv) {
             } catch(...) {}
         }
         cout << "format: " << format_string << endl;
+    }
+
+    if (degree_dist) {
+        require_graph();
+        // compute degrees
+        map<size_t, tuple<size_t, size_t, size_t, size_t>> degree_to_count;
+        graph->for_each_handle([&degree_to_count, &graph](handle_t handle) {
+                size_t left_degree = graph->get_degree(handle, true);
+                size_t right_degree = graph->get_degree(handle, false);
+                // update sides count
+                ++get<0>(degree_to_count[left_degree]);
+                ++get<0>(degree_to_count[right_degree]);
+                // update min count
+                ++get<1>(degree_to_count[std::min(left_degree, right_degree)]);
+                // update max count
+                ++get<2>(degree_to_count[std::max(left_degree, right_degree)]);
+                // update total count
+                ++get<3>(degree_to_count[left_degree + right_degree]);
+            });
+        // print degrees
+        cout << "Degree\tSides\tNodes(min)\tNodes(max)\tNodes(total)" << endl;
+        for (const auto& dg : degree_to_count) {
+            cout << dg.first << "\t" << get<0>(dg.second) << "\t" <<get<1>(dg.second) << "\t" << get<2>(dg.second) << "\t" << get<3>(dg.second) << endl;
+        }
     }
 
     if (!paths_to_overlap.empty() || overlap_all_paths) {
