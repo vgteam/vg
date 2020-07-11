@@ -589,7 +589,10 @@ $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 $(INC_DIR)/backward.hpp: $(BACKWARD_CPP_DIR)/backward.hpp
 	+cp $(BACKWARD_CPP_DIR)/backward.hpp $(CWD)/$(INC_DIR)/
 
-$(INC_DIR)/dozeu/dozeu.h: $(DOZEU_DIR)/*.h
+$(INC_DIR)/simde/x86/sse4.1.h: $(DOZEU_DIR)/simde/*.h $(DOZEU_DIR)/simde/x86/*.h
+	+cp -r $(DOZEU_DIR)/simde $(INC_DIR)
+
+$(INC_DIR)/dozeu/dozeu.h: $(DOZEU_DIR)/*.h $(INC_DIR)/simde/x86/sse4.1.h
 	+mkdir -p $(CWD)/$(INC_DIR)/dozeu && cp $(DOZEU_DIR)/*.h $(CWD)/$(INC_DIR)/dozeu/
 
 $(LIB_DIR)/libebl.a: $(LIB_DIR)/libelf.a
