@@ -1796,7 +1796,7 @@ double MinimizerMapper::compute_mapq_caps(const Alignment& aln,
             extended_cluster_minimizers.push_back(i);
         }
     }
-    double mapq_extended_cap = window_breaking_quality(minimizers, extended_cluster_minimizers, aln.sequence(), aln.quality(), true);
+    double mapq_extended_cap = window_breaking_quality(minimizers, extended_cluster_minimizers, aln.sequence(), aln.quality(), this->sum_mapq_cap);
     
     // And we also need to cap based on the probability of creating the windows
     // in the read that distinguish it from the most plausible (minimum created

@@ -135,6 +135,9 @@ public:
     /// and track if/when their descendants make it through stages of the
     /// algorithm. Only works if track_provenance is true.
     bool track_correctness = false;
+    
+    /// Cap MAPQ by sum of all possible disruptions, instead of most probable dusruption.
+    bool sum_mapq_cap = false;
 
     ////How many stdevs from fragment length distr mean do we cluster together?
     size_t paired_distance_stdevs = 2; 
