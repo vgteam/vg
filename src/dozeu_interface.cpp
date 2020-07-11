@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <assert.h>
 #include <utility>
-
+ 
 #include "dozeu_interface.hpp"
 
 #include "algorithms/topological_sort.hpp"
@@ -128,7 +128,7 @@ DozeuInterface::graph_pos_s DozeuInterface::calculate_max_position(const Ordered
     assert(forefronts.at(max_node_index)->mcap != nullptr);
 
 	// calc max position on the node
-	uint64_t max_pos = (uint64_t) dz_calc_max_pos(dz, forefronts[max_node_index]);
+	uint64_t max_pos = (uint64_t) dz_calc_max_pos(forefronts[max_node_index]);
 
 	// ref-side offset fixup
 	int32_t rpos = (int32_t)(max_pos>>32);
@@ -293,14 +293,16 @@ size_t DozeuInterface::do_poa(const OrderedGraph& graph, const dz_query_s* packe
     // Get max query pos
     assert(max_idx <= forefronts.size());
     assert(forefronts[max_idx] != nullptr);
-    
+
+#ifdef DEBUG    
     if (forefronts[max_idx]->mcap != nullptr) {
         
-        uint64_t query_max_pos = dz_calc_max_qpos(dz, forefronts[max_idx]);
-        uint64_t ref_node_max_pos = dz_calc_max_rpos(dz, forefronts[max_idx]);
+        uint64_t query_max_pos = dz_calc_max_qpos(forefronts[max_idx]);
+        uint64_t ref_node_max_pos = dz_calc_max_rpos(forefronts[max_idx]);
         
         debug("max(%p), score(%d), qpos(%ld), rpos(%ld)", forefronts[max_idx], forefronts[max_idx]->max, query_max_pos, ref_node_max_pos);
     }
+#endif
     return max_idx;
 }
 

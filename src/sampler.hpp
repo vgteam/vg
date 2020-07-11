@@ -54,11 +54,17 @@ public:
     vector<string> source_paths;
     vg::discrete_distribution<> path_sampler; // draw an index in source_paths
     size_t total_seq_length = 0;
+    
+    /// Make a Sampler to sample from the given graph.
+    /// If sampling from particular paths, source_paths should contain their
+    /// names, and source_path_ploidies should either be empty or contain a
+    /// ploidy value for each source path.
     inline Sampler(PathPositionHandleGraph* x,
             int seed = 0,
             bool forward_only = false,
             bool allow_Ns = false,
             const vector<string>& source_paths = {},
+            const vector<double>& source_path_ploidies = {},
             const vector<pair<string, double>>& transcript_expressions = {},
             const vector<tuple<string, string, size_t>>& haplotype_transcripts = {})
         : xgidx(x),
@@ -76,15 +82,17 @@ public:
             seed = time(NULL);
         }
         rng.seed(seed);
-        set_source_paths(source_paths, transcript_expressions, haplotype_transcripts);
+        set_source_paths(source_paths, source_path_ploidies, transcript_expressions, haplotype_transcripts);
     }
 
-    /// Make a path sampling distribution based on relative lengths or on transcript expressions
-    /// (at most one should be non-empty)
-    /// If providing a transcript expression profile, can optionally provide a non-empty vector
-    /// of haplotype transcripts to translate between the embedded path names and the transcript
-    /// names in the expression profile
+    /// Make a path sampling distribution based on relative lengths (weighted
+    /// by ploidy) or on transcript expressions. (At most one of source_paths and
+    /// expressions should be non-empty.) If providing a transcript expression
+    /// profile, can optionally provide a non-empty vector of haplotype
+    /// transcripts to translate between the embedded path names and the
+    /// transcript names in the expression profile.
     void set_source_paths(const vector<string>& source_paths,
+                          const vector<double>& source_path_ploidies,
                           const vector<pair<string, double>>& transcript_expressions,
                           const vector<tuple<string, string, size_t>>& haplotype_transcripts);
 
@@ -158,6 +166,7 @@ public:
                  const string& ngs_paired_fastq_file = "",
                  bool interleaved_fastq = false,
                  const vector<string>& source_paths = {},
+                 const vector<double>& source_path_ploidies = {},
                  const vector<pair<string, double>>& transcript_expressions = {},
                  const vector<tuple<string, string, size_t>>& haplotype_transcripts = {},
                  double substition_polymorphism_rate = 0.001,

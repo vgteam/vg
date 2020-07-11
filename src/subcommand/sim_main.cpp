@@ -11,6 +11,7 @@
 #include <list>
 #include <fstream>
 #include <algorithm>
+#include <regex>
 
 #include "subcommand.hpp"
 
@@ -111,6 +112,9 @@ void help_sim(char** argv) {
          << "    -P, --path PATH             simulate from this path (may repeat; cannot also give -T)" << endl
          << "    -A, --any-path              simulate from any path (overrides -P)" << endl
          << "    -m, --sample-name NAME      simulate from this sample (may repeat; requires -g)" << endl
+         << "    -R, --ploidy-regex RULES    use the given comma-separated list of colon-delimited REGEX:PLOIDY rules to assign" << endl
+         << "                                ploidies to contigs not visited by the selected samples, or to all contigs simulated" << endl
+         << "                                from if no samples are used. Unmatched contigs get ploidy 2." << endl
          << "    -g, --gbwt-name FILE        use samples from this GBWT index" << endl
          << "    -T, --tx-expr-file FILE     simulate from an expression profile formatted as RSEM output (cannot also give -P)" << endl
          << "    -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i (required for -T on haplotype transcripts)" << endl
@@ -154,6 +158,13 @@ int main_sim(int argc, char** argv) {
     // Sample from GBWT threads.
     std::vector<std::string> sample_names;
     std::string gbwt_name;
+    
+    // When sampling from paths or GBWT threads, what ploidy should we assign to each path?
+    // Represented as a list of regexes (to match the whole path name) and ploidies.
+    // The first rule to match wins.
+    // When using GBWT threads, only applies to contigs with no threads in any sample.
+    // Each thread that does exist is ploidy 1.
+    std::vector<std::pair<std::regex, double>> ploidy_rules;
 
     // Alternatively, which transcripts with how much expression?
     string rsem_file_name;
@@ -176,6 +187,7 @@ int main_sim(int argc, char** argv) {
             {"path", required_argument, 0, 'P'},
             {"any-path", no_argument, 0, 'A'},
             {"sample-name", required_argument, 0, 'm'},
+            {"ploidy-regex", required_argument, 0, 'R'},
             {"gbwt-name", required_argument, 0, 'g'},
             {"tx-expr-file", required_argument, 0, 'T'},
             {"read-length", required_argument, 0, 'l'},
@@ -197,7 +209,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nud:F:P:Am:g:T:H:S:It:",
+        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nud:F:P:Am:R:g:T:H:S:It:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -242,6 +254,28 @@ int main_sim(int argc, char** argv) {
 
         case 'm':
             sample_names.push_back(optarg);
+            break;
+            
+        case 'R':
+            for (auto& rule : split_delims(optarg, ",")) {
+                // For each comma-separated rule
+                auto parts = split_delims(rule, ":");
+                if (parts.size() != 2) {
+                    cerr << "error: ploidy rules must be REGEX:PLOIDY" << endl;
+                    exit(1);
+                }
+                try {
+                    // Parse the regex
+                    std::regex match(parts[0]);
+                    double weight = parse<double>(parts[1]);
+                    // Save the rule
+                    ploidy_rules.emplace_back(match, weight);
+                } catch (const std::regex_error& e) {
+                    // This is not a good regex
+                    cerr << "error: unacceptable regular expression \"" << parts[0] << "\": " << e.what() << endl;
+                    exit(1);
+                }
+            }
             break;
 
         case 'g':
@@ -334,6 +368,22 @@ int main_sim(int argc, char** argv) {
     }
     
     omp_set_num_threads(threads);
+    
+    // We'll fill this in with ploidies for each path in path_names
+    std::vector<double> path_ploidies;
+    // When we need to consult the ploidy rules about a contig nemr we call this function.
+    auto consult_ploidy_rules = [&](const std::string& name) {
+        for (auto& rule : ploidy_rules) {
+            if (std::regex_match(name, rule.first)) {
+                // This rule should apply to this contig
+                return rule.second;
+            }
+        }
+        // Unmatched contigs get ploidy 2.
+        // 1 makes no sense in the context of a genomic reference.
+        // 0 makes no sense for --all-paths which consults the rules for all the names.
+        return 2.0;
+    };
 
     if (xg_name.empty()) {
         cerr << "[vg sim] error: we need a graph to sample reads from" << endl;
@@ -373,8 +423,58 @@ int main_sim(int argc, char** argv) {
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
 
+    // Deal with path names. Do this before we create paths to represent threads.
+    if (any_path) {
+        if (progress) {
+            std::cerr << "Selecting all " << path_handle_graph->get_path_count() << " paths" << std::endl;
+        }
+        if (path_handle_graph->get_path_count() == 0) {
+            cerr << "[vg sim] error: the graph does not contain paths" << endl;
+            return 1;
+        }
+        path_names.clear();
+        path_handle_graph->for_each_path_handle([&](const path_handle_t& handle) {
+            // For each path in the graph
+            auto name = path_handle_graph->get_path_name(handle);
+            // Simulate from it
+            path_names.push_back(name);
+            // At ploidy defined by the rules (default 2)
+            path_ploidies.push_back(consult_ploidy_rules(name));
+        });
+    } else if (!path_names.empty()) {
+        if (progress) {
+            std::cerr << "Checking " << path_names.size() << " selected paths" << std::endl;
+        }
+        for (auto& path_name : path_names) {
+            if (path_handle_graph->has_path(path_name) == false) {
+                cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
+                return 1;
+            }
+            // Synthesize ploidies for explicitly specified paths
+            path_ploidies.push_back(consult_ploidy_rules(path_name));
+        }
+    }
+
     // Deal with GBWT threads
     if (!gbwt_name.empty()) {
+        // We need to track the contigs that have not had any threads in any sample
+        std::unordered_set<std::string> unvisited_contigs;
+        if (!ploidy_rules.empty()) {
+            // We actually want to visit them, so we have to find them
+            if (progress) {
+                std::cerr << "Inventorying contigs" << std::endl;
+            }
+            path_handle_graph->for_each_path_handle([&](const path_handle_t& handle) {
+                // For each path in the graph
+                auto name = path_handle_graph->get_path_name(handle);
+                if (!Paths::is_alt(name)) {
+                    // TODO: We assume that if it isn't an alt path it represents a contig!
+                    // TODO: We may need to change this when working with graphs with multiple sets of primary paths, or other extra paths.
+                    unvisited_contigs.insert(name);
+                }
+            });
+        }
+    
         if (progress) {
             std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
         }
@@ -413,13 +513,35 @@ int main_sim(int argc, char** argv) {
             if (sample_ids.find(path.sample) != sample_ids.end()) {
                 std::string path_name = insert_gbwt_path(*mutable_graph, *gbwt_index, i);
                 if (!path_name.empty()) {
+                    // We managed to make a path for this thread
                     path_names.push_back(path_name);
+                    // It should have ploidy 1
+                    path_ploidies.push_back(1.0);
+                    // Remember we inserted a path
                     inserted++;
+                    
+                    if (!unvisited_contigs.empty()) {
+                        // Remember that the contig this path is on is visited
+                        auto contig_name = gbwt_index->metadata.contig(path.contig);
+                        unvisited_contigs.erase(contig_name);
+                    }
                 }
             }
         }
         if (progress) {
             std::cerr << "Inserted " << inserted << " paths" << std::endl;
+        }
+        if (!unvisited_contigs.empty()) {
+            // There are unvisited contigs we want to sample from too
+            for (auto& name : unvisited_contigs) {
+                // Sample from each
+                path_names.push_back(name);
+                // With the rule-determined ploidy
+                path_ploidies.push_back(consult_ploidy_rules(name));
+            }
+            if (progress) {
+                std::cerr << "Also sampling from " << unvisited_contigs.size() << " paths representing unvisited contigs" << std::endl;
+            }
         }
     }
 
@@ -429,31 +551,6 @@ int main_sim(int argc, char** argv) {
     bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
 
-    // Deal with path names.
-    if (any_path) {
-        if (progress) {
-            std::cerr << "Selecting all " << xgidx->get_path_count() << " paths" << std::endl;
-        }
-        if (xgidx->get_path_count() == 0) {
-            cerr << "[vg sim] error: the graph does not contain paths" << endl;
-            return 1;
-        }
-        path_names.clear();
-        xgidx->for_each_path_handle([&](const path_handle_t& handle) {
-            path_names.push_back(xgidx->get_path_name(handle));
-        });
-    } else if (!path_names.empty()) {
-        if (progress) {
-            std::cerr << "Checking " << path_names.size() << " selected paths" << std::endl;
-        }
-        for (auto& path_name : path_names) {
-            if (xgidx->has_path(path_name) == false) {
-                cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
-                return 1;
-            }
-        }
-    }
-    
     if (haplotype_transcript_file_name.empty()) {
         if (progress && !transcript_expressions.empty()) {
             std::cerr << "Checking " << transcript_expressions.size() << " transcripts" << std::endl;
@@ -541,7 +638,7 @@ int main_sim(int argc, char** argv) {
         }
         
         // Make a sample to sample reads with
-        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions, haplotype_transcripts);
+        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, path_ploidies, transcript_expressions, haplotype_transcripts);
         
         // initialize an aligner
         Aligner rescorer(default_score_matrix, default_gap_open, default_gap_extension,
@@ -637,6 +734,7 @@ int main_sim(int argc, char** argv) {
                              fastq_2_name,
                              interleaved,
                              path_names,
+                             path_ploidies,
                              transcript_expressions,
                              haplotype_transcripts,
                              base_error,
