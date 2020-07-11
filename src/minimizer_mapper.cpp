@@ -22,6 +22,7 @@
 #include <cmath>
 
 //#define debug
+#define print_minimizers
 
 namespace vg {
 
@@ -49,6 +50,12 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     
 #ifdef debug
     cerr << "Read " << aln.name() << ": " << aln.sequence() << endl;
+#endif
+#ifdef print_minimizers
+    cerr << aln.sequence() << "/t";
+    for (char c : aln.quality()) {
+        cerr << (char)(c+33);
+    }
 #endif
 
     // Make a new funnel instrumenter to watch us map this read.
@@ -499,6 +506,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 #ifdef debug
     cerr << "uncapped MAPQ is " << mapq << endl;
 #endif
+#ifdef print_minimizers
+    double uncapped_mapq = mapq;
+#endif
     
     if (probability_mapping_lost.front() > 0) {
         mapq = min(mapq,round(prob_to_phred(probability_mapping_lost.front())));
@@ -597,6 +607,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 #ifdef debug
     // Dump the funnel info graph.
     funnel.to_dot(cerr);
+#endif
+#ifdef print_minimizers
+    cerr << "\t" << uncapped_mapq << "\t" << mapq_extended_cap << "\t" << probability_mapping_lost.front() << endl; 
 #endif
 
     return mappings;
@@ -1795,6 +1808,16 @@ double MinimizerMapper::compute_mapq_caps(const Alignment& aln,
         if (present_in_any_extended_cluster.contains(i)) {
             extended_cluster_minimizers.push_back(i);
         }
+#ifdef print_minimizers
+        auto& minimizer = minimizers[i];
+        cerr << "\t" 
+             << minimizer.value.key.decode(minimizer.length) << "\t"
+             << minimizer.forward_offset() << "\t"
+             << minimizer.agglomeration_start << "\t"
+             << minimizer.agglomeration_length << "\t"
+             << minimizer.hits << "\t"
+             << present_in_any_extended_cluster.contains(i);
+#endif
     }
     double mapq_extended_cap = window_breaking_quality(minimizers, extended_cluster_minimizers, aln.sequence(), aln.quality(), this->sum_mapq_cap);
     
