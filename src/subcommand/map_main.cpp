@@ -9,7 +9,6 @@
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
 
-#include <chrono>
 #include <unistd.h>
 #include <getopt.h>
 
@@ -93,13 +92,11 @@ void help_map(char** argv) {
          << "    -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
          << "    -Q, --mq-max INT              cap the mapping quality at INT [60]" << endl
          << "    --exclude-unaligned           exclude reads with no alignment" << endl
-         << "    --time                        print mapping speed" << endl
          << "    -D, --debug                   print debugging information about alignment to stderr" << endl;
 
 }
 
 int main_map(int argc, char** argv) {
-    std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
     if (argc == 2) {
         help_map(argv);
@@ -126,7 +123,6 @@ int main_map(int argc, char** argv) {
     int thread_count = 1;
     string output_format = "GAM";
     bool exclude_unaligned = false;
-    bool time_mapping = false;
     bool debug = false;
     float min_score = 0;
     string sample_name;
@@ -213,7 +209,6 @@ int main_map(int argc, char** argv) {
                 {"hts-input", required_argument, 0, 'b'},
                 {"keep-secondary", no_argument, 0, 'K'},
                 {"exclude-unaligned", no_argument, 0, OPT_EXCLUDE_UNALIGNED},
-                {"time", no_argument, 0, 10},
                 {"fastq", required_argument, 0, 'f'},
                 {"fasta", required_argument, 0, 'F'},
                 {"interleaved", no_argument, 0, 'i'},
@@ -373,10 +368,6 @@ int main_map(int argc, char** argv) {
 
         case OPT_EXCLUDE_UNALIGNED:
             exclude_unaligned = true;
-            break;
-
-        case 10:
-            time_mapping = true;
             break;
 
         case 'f':
@@ -865,10 +856,6 @@ int main_map(int argc, char** argv) {
         mapper[i] = m;
     }
 
-    //TODO: I think this is where we've finished loading indexes
-    std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
-    std::chrono::duration<double> init_seconds = init - launch;
-
     if (!seq.empty()) {
         int tid = omp_get_thread_num();
 
@@ -1246,9 +1233,6 @@ int main_map(int argc, char** argv) {
     }
     
     cout.flush();
-
-    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-    std::chrono::duration<double> mapping_time = end - init;
 
     // clean up our mappers
     for (uint64_t i = 0; i < mapper.size(); ++i) {
