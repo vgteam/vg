@@ -658,7 +658,7 @@ TEST_CASE("XdropAligner doesn't crash on a case where it is hard to find a seed"
     aligner.align_xdrop(aln, graph, vector<MaximalExactMatch>(), false);
 }
 
-TEST_CASE("XdropAligner pinned alignment doesn't crash on an example that revealed a bug",
+TEST_CASE("XdropAligner pinned alignment doesn't crash when aligning to a long stretch of mismatches",
           "[xdrop][alignment][mapping][pinned]") {
     
     bdsg::HashGraph graph;
@@ -694,6 +694,26 @@ TEST_CASE("XdropAligner pinned alignment doesn't crash on an example that reveal
     const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     aligner.align_pinned(aln, graph, false, true, 10);
+}
+
+TEST_CASE("XdropAligner pinned alignment doesn't crash when the optimal alignment column would be x-dropped if not for the full length bonus",
+          "[xdrop][alignment][mapping][pinned]") {
+    
+    bdsg::HashGraph graph;
+    
+    handle_t h0 = graph.create_handle("AAGGG");
+    
+    
+    Alignment aln;
+    aln.set_sequence("AACGT");
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 9);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
+    
+    aligner.align_pinned(aln, graph, true, true, 0);
+    
+    REQUIRE(aln.score() == 1 + 1 + 1 - 4 - 4 + 9);
 }
    
 }
