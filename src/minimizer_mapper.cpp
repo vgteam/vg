@@ -52,7 +52,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     cerr << "Read " << aln.name() << ": " << aln.sequence() << endl;
 #endif
 #ifdef print_minimizers
-    cerr << aln.sequence() << "/t";
+    cerr << aln.sequence() << "\t";
     for (char c : aln.quality()) {
         cerr << (char)(c+33);
     }
@@ -94,6 +94,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 #ifdef debug
     cerr << "Found " << clusters.size() << " clusters" << endl;
 #endif
+#ifdef print_minimizers
+    cerr << "\t" << clusters.size();
+#endif
     
     // We will set a score cutoff based on the best, but move it down to the
     // second best if it does not include the second best and the second best
@@ -116,6 +119,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // To compute the windows present in any extended cluster, we need to get
     // all the minimizers in any extended cluster.
     SmallBitset present_in_any_extended_cluster(minimizers.size());
+    //How many hits of each minimizer end up in an extended cluster?
+    vector<size_t> minimizer_extended_cluster_count(minimizers.size(), 0);
     //For each cluster, what fraction of "equivalent" clusters did we keep?
     vector<double> probability_cluster_lost;
     //What is the score and coverage we are considering and how many reads
@@ -213,6 +218,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             // Extend seed hits in the cluster into one or more gapless extensions
             cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
             present_in_any_extended_cluster |= cluster.present;
+            for (size_t i = 0 ; i < cluster.present.size() ; i++) {
+                if (cluster.present.contains(i)) {
+                    minimizer_extended_cluster_count[i]++;
+                }
+            }
             
             if (track_provenance) {
                 // Record with the funnel that the previous group became a group of this size.
@@ -608,8 +618,27 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // Dump the funnel info graph.
     funnel.to_dot(cerr);
 #endif
+
 #ifdef print_minimizers
-    cerr << "\t" << uncapped_mapq << "\t" << mapq_extended_cap << "\t" << probability_mapping_lost.front() << endl; 
+    for (size_t i = 0 ; i < minimizers.size() ; i++ ) {
+        auto& minimizer = minimizers[i];
+        cerr << "\t" 
+             << minimizer.value.key.decode(minimizer.length) << "\t"
+             << minimizer.forward_offset() << "\t"
+             << minimizer.agglomeration_start << "\t"
+             << minimizer.agglomeration_length << "\t"
+             << minimizer.hits << "\t"
+             << minimizer_extended_cluster_count[i];
+        if (minimizer_extended_cluster_count[i] > 0) {
+            assert (minimizer.hits <= hard_hit_cap);
+        }
+    }
+    cerr << "\t" << uncapped_mapq << "\t" << mapq_extended_cap << "\t" << probability_mapping_lost.front();
+    if (track_correctness) {
+        cerr << "\t" << funnel.last_correct_stage() << endl; 
+    } else {
+        cerr << endl;
+    }
 #endif
 
     return mappings;
@@ -1808,16 +1837,6 @@ double MinimizerMapper::compute_mapq_caps(const Alignment& aln,
         if (present_in_any_extended_cluster.contains(i)) {
             extended_cluster_minimizers.push_back(i);
         }
-#ifdef print_minimizers
-        auto& minimizer = minimizers[i];
-        cerr << "\t" 
-             << minimizer.value.key.decode(minimizer.length) << "\t"
-             << minimizer.forward_offset() << "\t"
-             << minimizer.agglomeration_start << "\t"
-             << minimizer.agglomeration_length << "\t"
-             << minimizer.hits << "\t"
-             << present_in_any_extended_cluster.contains(i);
-#endif
     }
     double mapq_extended_cap = window_breaking_quality(minimizers, extended_cluster_minimizers, aln.sequence(), aln.quality(), this->sum_mapq_cap);
     
