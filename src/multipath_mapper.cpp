@@ -633,6 +633,15 @@ namespace vg {
         
 #ifdef debug_multipath_mapper
         cerr << "got rescue graph" << endl;
+        rescue_graph.for_each_handle([&](const handle_t& h) {
+            cerr << rescue_graph.get_id(h) << " " << rescue_graph.get_sequence(h) << endl;
+            rescue_graph.follow_edges(h, true, [&](const handle_t& p) {
+                cerr << "\t" << rescue_graph.get_id(p) << (rescue_graph.get_is_reverse(p) ? "-" : "+") << " <-" << endl;
+            });
+            rescue_graph.follow_edges(h, false, [&](const handle_t& n) {
+                cerr << "\t-> " << rescue_graph.get_id(n) << (rescue_graph.get_is_reverse(n) ? "-" : "+") << endl;
+            });
+        });
 #endif
         
         // TODO: repetitive code with multipath_align
@@ -833,9 +842,15 @@ namespace vg {
                                 // edges automatically deduplicate, so don't worry about checking whether
                                 // it exists
                                 if (go_left) {
+#ifdef debug_multipath_mapper
+                                    cerr << "create edge " << rescue_graph->get_id(sub_neighbor) << (rescue_graph->get_is_reverse(sub_neighbor) ? "-" : "+") << " -> " << rescue_graph->get_id(sub_handle) << (rescue_graph->get_is_reverse(sub_handle) ? "-" : "+")  << endl;
+#endif
                                     rescue_graph->create_edge(sub_neighbor, sub_handle);
                                 }
                                 else {
+#ifdef debug_multipath_mapper
+                                    cerr << "create edge " << rescue_graph->get_id(sub_handle) << (rescue_graph->get_is_reverse(sub_handle) ? "-" : "+") << " -> " << rescue_graph->get_id(sub_neighbor) << (rescue_graph->get_is_reverse(sub_neighbor) ? "-" : "+")  << endl;
+#endif
                                     rescue_graph->create_edge(sub_handle, sub_neighbor);
                                 }
                             }
