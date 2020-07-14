@@ -635,7 +635,6 @@ namespace vg {
         cerr << "got rescue graph" << endl;
 #endif
         
-        
         // TODO: repetitive code with multipath_align
         
         // the longest path we could possibly align to (full gap and a full sequence)
@@ -772,40 +771,54 @@ namespace vg {
             // we have a distance index and we want to use it
             
             // get the set of nodes that we want to extrat
-            unordered_set<id_t> subgraph_nodes_add;
+            unordered_set<id_t> subgraph_nodes_to_add;
             int64_t min_distance = max(0.0, fragment_length_distr.mean() - other_aln.sequence().size()
                                        - rescue_graph_std_devs * fragment_length_distr.std_dev());
             int64_t max_distance = fragment_length_distr.mean() + rescue_graph_std_devs * fragment_length_distr.std_dev();
             distance_index->subgraph_in_range(opt_anchoring_aln.path(), xindex, min_distance, max_distance,
-                                              subgraph_nodes_add, rescue_forward);
+                                              subgraph_nodes_to_add, rescue_forward);
+            
+            
+#ifdef debug_multipath_mapper
+            cerr << "got distance based rescue graph:" << endl;
+            for (auto nid : subgraph_nodes_to_add) {
+                cerr << "\t" << nid << endl;
+            }
+#endif
             
             // this algorithm is better matched to the GBWTGraph, we need to extract the subgraph manually now.
             // we'll use an algorithm that tries to follow edges to find nodes. this way we minimize calls to XG's
             // get_handle, and we have to follow all edges anyway to add them
             
-            while (!subgraph_nodes_add.empty()) {
+            while (!subgraph_nodes_to_add.empty()) {
                 // there's at least one node that we haven't added yet
                 
                 // initialize a search out from an arbitrary unadded node
-                id_t node_id = *subgraph_nodes_add.begin();
-                subgraph_nodes_add.erase(node_id);
+                id_t node_id = *subgraph_nodes_to_add.begin();
+                subgraph_nodes_to_add.erase(node_id);
                 handle_t start_handle = xindex->get_handle(node_id);
                 rescue_graph->create_handle(xindex->get_sequence(start_handle),
                                             xindex->get_id(start_handle));
                 vector<handle_t> stack(1, start_handle);
+#ifdef debug_multipath_mapper
+                cerr << "initializing extraction search at node " << node_id << endl;
+#endif
                 while (!stack.empty()) {
                     handle_t super_handle = stack.back();
                     stack.pop_back();
                     for (bool go_left : {true, false}) {
                         xindex->follow_edges(super_handle, go_left, [&](const handle_t& neighbor) {
                             
-                            if (subgraph_nodes_add.count(xindex->get_id(neighbor))) {
+                            if (subgraph_nodes_to_add.count(xindex->get_id(neighbor))) {
                                 // we've found a new node that we haven't added yet, add it to the graph
                                 // and the queue, and erase from the nodes left to add
-                                subgraph_nodes_add.erase(xindex->get_id(neighbor));
+                                subgraph_nodes_to_add.erase(xindex->get_id(neighbor));
                                 rescue_graph->create_handle(xindex->get_sequence(xindex->forward(neighbor)),
                                                             xindex->get_id(super_handle));
                                 stack.push_back(neighbor);
+#ifdef debug_multipath_mapper
+                                cerr << "reached " << xindex->get_id(neighbor) << " from searching" << endl;
+#endif
                             }
                             
                             if (rescue_graph->has_node(xindex->get_id(neighbor))) {
