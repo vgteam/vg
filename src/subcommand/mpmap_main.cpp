@@ -824,6 +824,12 @@ int main_mpmap(int argc, char** argv) {
         reseed_diff = 0.8;
         // but actually only use this other MEM algorithm if we have base qualities
         use_fanout_match_alg = true;
+        
+        // removing too many bases of matches distorts the multipath alignment
+        // graph's pruning algorithms for very short reads
+        max_branch_trim_length = 1;
+        snarl_cut_size = 2;
+        suboptimal_path_exponent = 1.5;
     }
     else if (read_length != "short") {
         // short is the default

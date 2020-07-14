@@ -3367,10 +3367,11 @@ namespace vg {
         // compute the weight of edges and node matches
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& from_node = path_nodes.at(i);
-            node_weights[i] = aligner->match * (from_node.end - from_node.begin)
-            + aligner->full_length_bonus * ((from_node.begin == alignment.sequence().begin())
-                                            + (from_node.end == alignment.sequence().end()));
-            
+            node_weights[i] = (aligner->score_exact_match(from_node.begin, from_node.end,
+                                                          alignment.quality().begin() + (from_node.begin - alignment.sequence().begin()))
+                               + aligner->full_length_bonus * ((from_node.begin == alignment.sequence().begin())
+                                                               + (from_node.end == alignment.sequence().end())));
+                        
             for (const pair<size_t, size_t>& edge : from_node.edges) {
                 PathNode& to_node = path_nodes.at(edge.first);
                 
