@@ -1242,6 +1242,15 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
                 //Check distances for random pairs of positions 
                 const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
                 const Snarl* snarl2 = allSnarls[randSnarlIndex(generator)];
+
+                id_t start1_id = snarl1->start().node_id();
+                bool start1_rev = snarl1->start().backward();
+                id_t end1_id = snarl1->end().node_id();
+                bool end1_rev = !snarl1->end().backward();
+
+                REQUIRE((di.into_which_snarl(start1_id, start1_rev) == make_pair(start1_id, start1_rev) ||
+                         di.into_which_snarl(start1_id, start1_rev) == make_pair(end1_id, end1_rev)));
+
                  
                 pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 = 
                     pb_contents(graph, snarl_manager.shallow_contents(snarl1, graph, true));
@@ -1268,6 +1277,17 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
                 auto chain_info = di.get_minimizer_distances(pos1);
                 auto encoded_chain_info = MIPayload::decode(MIPayload::encode(di.get_minimizer_distances(pos1)));
                 assert (chain_info == encoded_chain_info);
+
+                const Snarl* pos1_snarl = snarl_manager.into_which_snarl(nodeID1, false);
+
+                if (pos1_snarl == nullptr) {
+                    auto n = di.into_which_snarl(nodeID1, false);
+                    REQUIRE(di.into_which_snarl(nodeID1, false) == make_pair((id_t)0, false));
+                } else {
+                    pair<id_t, bool> n = di.into_which_snarl(nodeID1, false);
+                    REQUIRE((di.into_which_snarl(nodeID1, false) == make_pair((id_t)pos1_snarl->start().node_id(), pos1_snarl->start().backward()) ||
+                             di.into_which_snarl(nodeID1, false) == make_pair((id_t)pos1_snarl->end().node_id(), !pos1_snarl->end().backward())));
+                }
 
  
                 if (!(nodeID1 != snarl1->start().node_id() && 
