@@ -129,7 +129,7 @@ var searchData=
   ['interval_5flength',['interval_length',['../namespacevg.html#a9467900ec651b93d47190413208cdf6f',1,'vg']]],
   ['interval_5fsize',['interval_size',['../structhaplo_1_1haplo__DP__rectangle.html#a751f03ab1d68636c47340dbd376b66a8',1,'haplo::haplo_DP_rectangle']]],
   ['intervals',['intervals',['../classvg_1_1SRPE.html#a5fc255cb93b3221c2b8a01ae7553ac7b',1,'vg::SRPE']]],
-  ['into_5fwhich_5fsnarl',['into_which_snarl',['../classvg_1_1SnarlManager.html#ac08074e3073ecd2ef72a57116b459577',1,'vg::SnarlManager::into_which_snarl(int64_t id, bool reverse) const'],['../classvg_1_1SnarlManager.html#a852f930d4e68e9bbd664ebe5a73a4669',1,'vg::SnarlManager::into_which_snarl(const Visit &amp;visit) const']]],
+  ['into_5fwhich_5fsnarl',['into_which_snarl',['../classvg_1_1MinimumDistanceIndex.html#a02f58601939741b6d51fb2db878d23a6',1,'vg::MinimumDistanceIndex::into_which_snarl()'],['../classvg_1_1SnarlManager.html#ac08074e3073ecd2ef72a57116b459577',1,'vg::SnarlManager::into_which_snarl(int64_t id, bool reverse) const'],['../classvg_1_1SnarlManager.html#a852f930d4e68e9bbd664ebe5a73a4669',1,'vg::SnarlManager::into_which_snarl(const Visit &amp;visit) const']]],
   ['introduce',['introduce',['../classvg_1_1Funnel.html#adfe8a13519ae236c400f3ad68980e16c',1,'vg::Funnel']]],
   ['invalid',['invalid',['../structhaplo_1_1linear__haplo__structure.html#a3180d362cdac21750aebf6d4fe77e0d8a26ab26b5bf5a066a0902a79defda6b5d',1,'haplo::linear_haplo_structure']]],
   ['inverse',['inverse',['../classvg_1_1Filter.html#a05e7274611008cdd5b89d1fa81605882',1,'vg::Filter']]],

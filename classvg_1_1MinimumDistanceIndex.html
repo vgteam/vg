@@ -103,6 +103,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:afdf0c30e576d1380e69d90252d7909b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a55cdaa03bda701f54462c226cd5b9abc"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#a55cdaa03bda701f54462c226cd5b9abc">max_distance</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos1, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos2) const</td></tr>
 <tr class="separator:a55cdaa03bda701f54462c226cd5b9abc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a02f58601939741b6d51fb2db878d23a6"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#a02f58601939741b6d51fb2db878d23a6">into_which_snarl</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id, bool <a class="el" href="namespacevg.html#a91adfc6327b5709dc73fcc7edbe5da57">reverse</a>) const</td></tr>
+<tr class="memdesc:a02f58601939741b6d51fb2db878d23a6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the start node (id and orientation pointing into the snarl) of the.  <a href="#a02f58601939741b6d51fb2db878d23a6">More...</a><br /></td></tr>
+<tr class="separator:a02f58601939741b6d51fb2db878d23a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6bfe4193023f43239631e9e23a75c8db"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#a6bfe4193023f43239631e9e23a75c8db">subgraph_in_range</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *super_graph, int64_t <a class="el" href="classvg_1_1MinimumDistanceIndex.html#afdf0c30e576d1380e69d90252d7909b9">min_distance</a>, int64_t <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a55cdaa03bda701f54462c226cd5b9abc">max_distance</a>, std::unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;sub_graph, bool look_forward)</td></tr>
 <tr class="separator:a6bfe4193023f43239631e9e23a75c8db"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad4bcd7ce6b82bcb363ba4f144abd015b"><td class="memItemLeft" align="right" valign="top">tuple&lt; bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#ad4bcd7ce6b82bcb363ba4f144abd015b">get_minimizer_distances</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos)</td></tr>
@@ -114,9 +117,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ae20a265127d05b3b8bf4e247563f466a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#ae20a265127d05b3b8bf4e247563f466a">write_snarls_to_json</a> ()</td></tr>
 <tr class="memdesc:ae20a265127d05b3b8bf4e247563f466a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Write snarls out to stout.  <a href="#ae20a265127d05b3b8bf4e247563f466a">More...</a><br /></td></tr>
 <tr class="separator:ae20a265127d05b3b8bf4e247563f466a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa142560f94217f06502b33393fb3c063"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#aa142560f94217f06502b33393fb3c063">print_self</a> ()</td></tr>
-<tr class="memdesc:aa142560f94217f06502b33393fb3c063"><td class="mdescLeft">&#160;</td><td class="mdescRight">print the distance index for debugging  <a href="#aa142560f94217f06502b33393fb3c063">More...</a><br /></td></tr>
-<tr class="separator:aa142560f94217f06502b33393fb3c063"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5e6346d997862bc15289b39788e2f68a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#a5e6346d997862bc15289b39788e2f68a">print_self</a> () const</td></tr>
+<tr class="memdesc:a5e6346d997862bc15289b39788e2f68a"><td class="mdescLeft">&#160;</td><td class="mdescRight">print the distance index for debugging  <a href="#a5e6346d997862bc15289b39788e2f68a">More...</a><br /></td></tr>
+<tr class="separator:a5e6346d997862bc15289b39788e2f68a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aadfc399e1bb100f8895594e3e95bf89d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html#aadfc399e1bb100f8895594e3e95bf89d">print_snarl_stats</a> ()</td></tr>
 <tr class="separator:aadfc399e1bb100f8895594e3e95bf89d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -698,6 +701,36 @@ Friends</h2></td></tr>
 
 </div>
 </div>
+<a id="a02f58601939741b6d51fb2db878d23a6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a02f58601939741b6d51fb2db878d23a6">&#9670;&nbsp;</a></span>into_which_snarl()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt; vg::MinimumDistanceIndex::into_which_snarl </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td>
+          <td class="paramname"><em>node_id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>reverse</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the start node (id and orientation pointing into the snarl) of the. </p>
+
+</div>
+</div>
 <a id="a12c03031615405ee6bffeed1e2a6a2a6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a12c03031615405ee6bffeed1e2a6a2a6">&#9670;&nbsp;</a></span>load()</h2>
 
@@ -936,8 +969,8 @@ Friends</h2></td></tr>
 
 </div>
 </div>
-<a id="aa142560f94217f06502b33393fb3c063"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa142560f94217f06502b33393fb3c063">&#9670;&nbsp;</a></span>print_self()</h2>
+<a id="a5e6346d997862bc15289b39788e2f68a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5e6346d997862bc15289b39788e2f68a">&#9670;&nbsp;</a></span>print_self()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -946,7 +979,7 @@ Friends</h2></td></tr>
           <td class="memname">void vg::MinimumDistanceIndex::print_self </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
-          <td></td>
+          <td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
