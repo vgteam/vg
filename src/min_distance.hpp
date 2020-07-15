@@ -60,6 +60,12 @@ class MinimumDistanceIndex {
     int64_t max_distance(pos_t pos1, pos_t pos2) const;
 
 
+    ///Get the start node (id and orientation pointing  into the snarl) of the
+    //snarl that this point into
+    //Returns <0, false> if this doesn't point into a snarl
+    pair<id_t, bool> into_which_snarl(id_t node_id, bool reverse) const;
+
+
     //Given an alignment to a graph and a range, find the set of nodes in the
     //graph for which the minimum distance from the position to any position
     //in the node is within the given distance range
@@ -103,7 +109,7 @@ class MinimumDistanceIndex {
     void write_snarls_to_json();
 
     ///print the distance index for debugging
-    void print_self();
+    void print_self() const;
     // Prints the number of nodes in each snarl netgraph and number of snarls in each chain
     void print_snarl_stats();
 
@@ -171,7 +177,7 @@ class MinimumDistanceIndex {
             void insert_distance(size_t start, size_t end, int64_t dist);
 
 
-            void print_self();
+            void print_self() const;
             json_t* snarl_to_json();
 
         protected:
@@ -270,7 +276,7 @@ class MinimumDistanceIndex {
                 return prefix_sum[prefix_sum.size() - 1] - 1;
             }
 
-            void print_self();
+            void print_self() const;
             json_t* chain_to_json();
 
         protected:

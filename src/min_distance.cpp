@@ -143,8 +143,7 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
     #endif
 
 
-    util::assign(has_secondary_snarl, 
-                 rank_support_v<1>(&has_secondary_snarl_bv));
+    util::assign(has_secondary_snarl, rank_support_v<1>(&has_secondary_snarl_bv));
     util::assign(has_chain, rank_support_v<1>(&has_chain_bv));
 
     //Remove empty entries of chain/secondary snarl assignments and ranks
@@ -1134,6 +1133,58 @@ int64_t MinimumDistanceIndex::max_distance(pos_t pos1, pos_t pos2) const {
     }
 }
 
+pair<id_t, bool> MinimumDistanceIndex::into_which_snarl(id_t node_id, bool reverse) const {
+    size_t primary_assignment = get_primary_assignment(node_id);
+    const SnarlIndex& primary_snarl_index = snarl_indexes[primary_assignment];
+
+    //Rank always returns the rank of the forward orientation of the node
+    //The first (0) and last (num_nodes*2+1) rank will be pointing in, so:
+    //If this is the start node of snarl, 
+    // rank is 0 if it is traversed forward to enter the snarl, 1 if it is traversed backward
+    //If it is the end node of the primary snarl, rank is even if it is traversed backward to enter the snarl
+    pair<id_t, bool> primary_start (primary_snarl_index.id_in_parent, 
+                     get_primary_assignment(primary_snarl_index.id_in_parent) == primary_assignment ? 
+                                    get_primary_rank(primary_snarl_index.id_in_parent) == 1 :
+                                    get_secondary_rank(primary_snarl_index.id_in_parent) == 1 );
+    pair<id_t, bool> primary_end (primary_snarl_index.end_id, 
+                     get_primary_assignment(primary_snarl_index.end_id) == primary_assignment ? 
+                                  get_primary_rank(primary_snarl_index.end_id)%2 == 0 : 
+                                  get_secondary_rank(primary_snarl_index.end_id)%2 == 0);
+    if (primary_snarl_index.is_unary_snarl) {
+        primary_end = primary_start;
+    }
+
+    if ((node_id == primary_start.first && reverse == primary_start.second) || 
+        (node_id == primary_end.first && reverse == primary_end.second )) {
+        //If this is then end node and it points in
+        return primary_start;
+    }
+
+    if (has_secondary_snarl_bv[node_id-min_node_id]){ 
+        size_t secondary_assignment = get_secondary_assignment(node_id);
+        const SnarlIndex& secondary_snarl_index = snarl_indexes[secondary_assignment];
+        pair<id_t, bool> secondary_start (secondary_snarl_index.id_in_parent, 
+                         get_primary_assignment(secondary_snarl_index.id_in_parent) == secondary_assignment ?
+                         get_primary_rank(secondary_snarl_index.id_in_parent) == 1 :
+                         get_secondary_rank(secondary_snarl_index.id_in_parent) == 1);
+        pair<id_t, bool> secondary_end (secondary_snarl_index.end_id, 
+                         get_primary_assignment(secondary_snarl_index.id_in_parent) == secondary_assignment ?
+                         get_primary_rank(secondary_snarl_index.end_id)%2 == 0 :
+                         get_secondary_rank(secondary_snarl_index.end_id)%2 == 0);
+        if (secondary_snarl_index.is_unary_snarl) {
+            secondary_end = secondary_start;
+        }
+                            
+        if ( (node_id == secondary_start.first && reverse == secondary_start.second) ||
+             (node_id == secondary_end.first && reverse == secondary_end.second)) {
+            //If this is the inward facing start or end node of the secondary snarl
+            return secondary_start;
+        }
+    }
+    //This does not point into a snarl
+    return make_pair(0, false);
+}
+
 int64_t MinimumDistanceIndex::node_length(id_t id) const {
     return snarl_indexes[get_primary_assignment(id)].node_length(get_primary_rank(id));
 }
@@ -1627,7 +1678,7 @@ int64_t MinimumDistanceIndex::min_pos (vector<int64_t> vals) {
    
 };
 
-void MinimumDistanceIndex::print_self() {
+void MinimumDistanceIndex::print_self() const {
     cerr << "node id \t primary snarl \t rank \t secondary snarl \t rank \t chain \t rank" << endl;
     for (size_t i = 0 ; i < primary_snarl_assignments.size() ; i ++ ) {
         if (primary_snarl_assignments[i] != 0){
@@ -1854,7 +1905,7 @@ json_t*  MinimumDistanceIndex::SnarlIndex::snarl_to_json() {
     return out_json;
 }
 
-void MinimumDistanceIndex::SnarlIndex::print_self() {
+void MinimumDistanceIndex::SnarlIndex::print_self() const {
     //Print the nodes contained in SnarlDistance
     cerr << endl;
     if (is_unary_snarl) {
@@ -2056,7 +2107,7 @@ json_t*  MinimumDistanceIndex::ChainIndex::chain_to_json() {
 
     return out_json;
 }
-void MinimumDistanceIndex::ChainIndex::print_self() {
+void MinimumDistanceIndex::ChainIndex::print_self() const {
     //Print the contenst of ChainDistance
    
     if (is_looping_chain) {
