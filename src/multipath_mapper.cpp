@@ -823,7 +823,7 @@ namespace vg {
                                 // and the queue, and erase from the nodes left to add
                                 subgraph_nodes_to_add.erase(xindex->get_id(neighbor));
                                 rescue_graph->create_handle(xindex->get_sequence(xindex->forward(neighbor)),
-                                                            xindex->get_id(super_handle));
+                                                            xindex->get_id(neighbor));
                                 stack.push_back(neighbor);
 #ifdef debug_multipath_mapper
                                 cerr << "reached " << xindex->get_id(neighbor) << " from searching" << endl;
