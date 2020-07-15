@@ -481,8 +481,10 @@ namespace vg {
         cerr << "splitting multicomponent alignments..." << endl;
 #endif
         
-        // split up any alignments that ended up being disconnected
-        split_multicomponent_alignments(multipath_alns_out, cluster_idxs);
+        if (!suppress_multicomponent_splitting) {
+            // split up any alignments that ended up being disconnected
+            split_multicomponent_alignments(multipath_alns_out, cluster_idxs);
+        }
         
 #ifdef debug_multipath_mapper
         cerr << "topologically ordering " << multipath_alns_out.size() << " multipath alignments" << endl;
@@ -1377,8 +1379,10 @@ namespace vg {
                 multipath_align(anchor_aln, get<0>(cluster_graphs[i]), get<1>(cluster_graphs[i]),
                                 cluster_multipath_alns.back(), anchor_fanouts);
                 
-                // split it up if it turns out to be multiple components
-                split_multicomponent_alignments(cluster_multipath_alns);
+                if (!suppress_multicomponent_splitting) {
+                    // split it up if it turns out to be multiple components
+                    split_multicomponent_alignments(cluster_multipath_alns);
+                }
                 
                 // order the subpaths
                 for (multipath_alignment_t& multipath_aln : cluster_multipath_alns) {
@@ -2756,8 +2760,10 @@ namespace vg {
             num_mappings++;
         }
         
-        // split up any multi-component multipath alignments
-        split_multicomponent_alignments(multipath_aln_pairs_out, cluster_pairs);
+        if (!suppress_multicomponent_splitting) {
+            // split up any multi-component multipath alignments
+            split_multicomponent_alignments(multipath_aln_pairs_out, cluster_pairs);
+        }
         
         // downstream algorithms assume multipath alignments are topologically sorted (including the scoring
         // algorithm in the next step)

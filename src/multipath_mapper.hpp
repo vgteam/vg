@@ -170,6 +170,7 @@ namespace vg {
         int32_t secondary_rescue_subopt_diff = 10;
         size_t min_median_mem_coverage_for_split = 0;
         bool suppress_cluster_merging = false;
+        bool suppress_multicomponent_splitting = false;
         size_t alt_anchor_max_length_diff = 5;
         bool dynamic_max_alt_alns = false;
         bool simplify_topologies = false;
