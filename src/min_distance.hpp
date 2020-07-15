@@ -61,9 +61,9 @@ class MinimumDistanceIndex {
 
 
     ///Get the start node (id and orientation pointing  into the snarl) of the
-    //snarl that this point into
-    //Returns <0, false> if this doesn't point into a snarl
-    pair<id_t, bool> into_which_snarl(id_t node_id, bool reverse) const;
+    //snarl that this point into and a bool is_trivial_snarl
+    //Returns <0, false, false> if this doesn't point into a snarl
+    tuple<id_t, bool, bool> into_which_snarl(id_t node_id, bool reverse) const;
 
 
     //Given an alignment to a graph and a range, find the set of nodes in the
@@ -176,6 +176,8 @@ class MinimumDistanceIndex {
             ///add the distance from start to end to the index
             void insert_distance(size_t start, size_t end, int64_t dist);
 
+
+            bool is_trivial_snarl() const;
 
             void print_self() const;
             json_t* snarl_to_json();

@@ -1133,7 +1133,7 @@ int64_t MinimumDistanceIndex::max_distance(pos_t pos1, pos_t pos2) const {
     }
 }
 
-pair<id_t, bool> MinimumDistanceIndex::into_which_snarl(id_t node_id, bool reverse) const {
+tuple<id_t, bool, bool> MinimumDistanceIndex::into_which_snarl(id_t node_id, bool reverse) const {
     size_t primary_assignment = get_primary_assignment(node_id);
     const SnarlIndex& primary_snarl_index = snarl_indexes[primary_assignment];
 
@@ -1157,7 +1157,7 @@ pair<id_t, bool> MinimumDistanceIndex::into_which_snarl(id_t node_id, bool rever
     if ((node_id == primary_start.first && reverse == primary_start.second) || 
         (node_id == primary_end.first && reverse == primary_end.second )) {
         //If this is then end node and it points in
-        return primary_start;
+        return make_tuple(primary_start.first, primary_start.second, primary_snarl_index.is_trivial_snarl());
     }
 
     if (has_secondary_snarl_bv[node_id-min_node_id]){ 
@@ -1178,11 +1178,11 @@ pair<id_t, bool> MinimumDistanceIndex::into_which_snarl(id_t node_id, bool rever
         if ( (node_id == secondary_start.first && reverse == secondary_start.second) ||
              (node_id == secondary_end.first && reverse == secondary_end.second)) {
             //If this is the inward facing start or end node of the secondary snarl
-            return secondary_start;
+            return make_tuple(secondary_start.first, secondary_start.second, secondary_snarl_index.is_trivial_snarl());
         }
     }
     //This does not point into a snarl
-    return make_pair(0, false);
+    return make_tuple(0, false, false);
 }
 
 int64_t MinimumDistanceIndex::node_length(id_t id) const {
@@ -1875,6 +1875,9 @@ pair<int64_t, int64_t> MinimumDistanceIndex::SnarlIndex::dist_to_ends(size_t ran
     return make_pair(dist_start, dist_end);
 }
 
+bool MinimumDistanceIndex::SnarlIndex::is_trivial_snarl() const {
+    return num_nodes == 2 && !is_unary_snarl && snarl_distance(0,1) == -1 && snarl_distance(4,3) == -1; 
+}
 
 json_t*  MinimumDistanceIndex::SnarlIndex::snarl_to_json() {
     json_t* out_json = json_object();
