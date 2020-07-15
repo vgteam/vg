@@ -1248,8 +1248,8 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
                 id_t end1_id = snarl1->end().node_id();
                 bool end1_rev = !snarl1->end().backward();
 
-                REQUIRE((di.into_which_snarl(start1_id, start1_rev) == make_pair(start1_id, start1_rev) ||
-                         di.into_which_snarl(start1_id, start1_rev) == make_pair(end1_id, end1_rev)));
+                REQUIRE((di.into_which_snarl(start1_id, start1_rev) == make_tuple(start1_id, start1_rev, snarl_manager.is_trivial(snarl1, graph)) ||
+                         di.into_which_snarl(start1_id, start1_rev) == make_tuple(end1_id, end1_rev,     snarl_manager.is_trivial(snarl1, graph))));
 
                  
                 pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 = 
@@ -1281,12 +1281,15 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
                 const Snarl* pos1_snarl = snarl_manager.into_which_snarl(nodeID1, false);
 
                 if (pos1_snarl == nullptr) {
-                    auto n = di.into_which_snarl(nodeID1, false);
-                    REQUIRE(di.into_which_snarl(nodeID1, false) == make_pair((id_t)0, false));
+                    REQUIRE(di.into_which_snarl(nodeID1, false) == make_tuple((id_t)0, false, false));
                 } else {
-                    pair<id_t, bool> n = di.into_which_snarl(nodeID1, false);
-                    REQUIRE((di.into_which_snarl(nodeID1, false) == make_pair((id_t)pos1_snarl->start().node_id(), pos1_snarl->start().backward()) ||
-                             di.into_which_snarl(nodeID1, false) == make_pair((id_t)pos1_snarl->end().node_id(), !pos1_snarl->end().backward())));
+                    auto result = di.into_which_snarl(nodeID1, false);
+                    //cerr << "node: " << nodeID1 << ": guess: " << std::get<0>(result) << " " << std::get<1>(result) << " " << std::get<2>(result) 
+                    //     << " actual snarl start: "<< pos1_snarl->start().node_id() << " " <<  pos1_snarl->start().backward() 
+                    //     << ", actual snarl end: " << pos1_snarl->end().node_id() << " " <<  pos1_snarl->end().backward() 
+                    //     << " trivial? " <<  snarl_manager.is_trivial(pos1_snarl, graph) << endl; 
+                    REQUIRE((di.into_which_snarl(nodeID1, false) == make_tuple((id_t)pos1_snarl->start().node_id(), pos1_snarl->start().backward(), snarl_manager.is_trivial(pos1_snarl, graph)) ||
+                             di.into_which_snarl(nodeID1, false) == make_tuple((id_t)pos1_snarl->end().node_id(), !pos1_snarl->end().backward(), snarl_manager.is_trivial(pos1_snarl, graph))));
                 }
 
  
