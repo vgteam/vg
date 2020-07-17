@@ -150,7 +150,7 @@ namespace vg {
         /// Cut the interior of snarls out of anchoring paths (and split
         /// alignment nodes accordingly) unless they are longer than the max
         /// cut size. Snarls can be stored either in a SnarlManager or a
-        /// MinimumDistancIndex (only one need be supplied).
+        /// MinimumDistanceIndex (only one need be supplied).
         void resect_snarls_from_paths(SnarlManager* cutting_snarls, MinimumDistanceIndex* dist_index,
                                       const function<pair<id_t, bool>(id_t)>& project, int64_t max_snarl_cut_size = 5);
         
@@ -266,7 +266,7 @@ namespace vg {
         
         /// Returns true if we're pointing into a snarl that we want to cut out of paths
         bool into_cutting_snarl(id_t node_id, bool is_rev,
-                                SnarlManager* snarl_manager, MinimumDistancIndex* dist_index);
+                                SnarlManager* snarl_manager, MinimumDistanceIndex* dist_index);
         
         /// Generate alignments of the tails of the query sequence, beyond the
         /// sources and sinks. The Alignment passed *must* be the one that owns

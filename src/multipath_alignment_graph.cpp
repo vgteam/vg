@@ -4222,10 +4222,10 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
     }
 
     bool MultipathAlignmentGraph::into_cutting_snarl(id_t node_id, bool is_rev,
-                                                     SnarlManager* snarl_manager, MinimumDistancIndex* dist_index) {
+                                                     SnarlManager* snarl_manager, MinimumDistanceIndex* dist_index) {
         
         if (dist_index) {
-            auto result = dist_index->into_cutting_snarl(node_id, is_rev);
+            auto result = dist_index->into_which_snarl(node_id, is_rev);
             // points into a snarl and snarl is nontrivial
             return get<1>(result) && get<2>(result);
         }

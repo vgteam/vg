@@ -3493,7 +3493,7 @@ namespace vg {
         auto aligner = get_aligner(!alignment.quality().empty());
         
         // create an alignment graph with the internals of snarls removed
-        MultipathAlignmentGraph multi_aln_graph(subgraph, alignment, snarl_manager, max_snarl_cut_size, translator);
+        MultipathAlignmentGraph multi_aln_graph(subgraph, alignment, snarl_manager, distance_index, max_snarl_cut_size, translator);
         
         // remove any transitive edges that may have found their way in there
         // TODO: is this necessary? all edges should be across snarls, how could they be transitive? from trimmed indels maybe?
