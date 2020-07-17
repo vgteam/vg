@@ -1300,10 +1300,15 @@ int main_mpmap(int argc, char** argv) {
     
     ifstream snarl_stream;
     if (!snarls_name.empty()) {
-        snarl_stream.open(snarls_name);
-        if (!snarl_stream) {
-            cerr << "error:[vg mpmap] Cannot open Snarls file " << snarls_name << endl;
-            exit(1);
+        if (distance_index_name.empty()) {
+            snarl_stream.open(snarls_name);
+            if (!snarl_stream) {
+                cerr << "error:[vg mpmap] Cannot open Snarls file " << snarls_name << endl;
+                exit(1);
+            }
+        }
+        else {
+            cerr << "warning:[vg mpmap] Snarls file (-s) is unnecessary and will be ignored when the distance index (-d) is provided" << endl;
         }
     }
     
@@ -1500,7 +1505,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     unique_ptr<SnarlManager> snarl_manager;
-    if (!snarls_name.empty()) {
+    if (!snarls_name.empty() && distance_index_name.empty()) {
         if (!suppress_progress) {
             cerr << progress_boilerplate() << "Loading snarls from " << snarls_name << endl;
         }
