@@ -135,9 +135,6 @@ public:
     /// and track if/when their descendants make it through stages of the
     /// algorithm. Only works if track_provenance is true.
     bool track_correctness = false;
-    
-    /// Cap MAPQ by sum of all possible disruptions, instead of most probable dusruption.
-    bool sum_mapq_cap = false;
 
     ////How many stdevs from fragment length distr mean do we cluster together?
     size_t paired_distance_stdevs = 2; 
@@ -334,18 +331,14 @@ protected:
      * Also takes the sequence of the read (to avoid Ns) and the quality string
      * (interpreted as a byte array).
      *
-     * When sum is false, computes a lower-score-bound, upper-probability-bound,
+     * Currently computes a lower-score-bound, upper-probability-bound,
      * suitable for use as a mapping quality cap, by assuming the
      * easiest-to-disrupt possible layout of the windows, and the lowest
      * possible qualities for the disrupting bases.
-     *
-     * When sum is true, computes a lower-score-bound, upper-probability-bound,
-     * suitable for use as a mapping quality cap, by summing over all possible
-     * sets of disrupting bases that disrupt the minimizers of all windows.
      */
     static double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
-        const string& sequence, const string& quality_bytes, bool sum = false);
-        
+        const string& sequence, const string& quality_bytes);
+    
     /**
      * Score the given group of gapless extensions. Determines the best score
      * that can be obtained by chaining extensions together, using the given

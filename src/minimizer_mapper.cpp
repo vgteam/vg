@@ -119,8 +119,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // To compute the windows present in any extended cluster, we need to get
     // all the minimizers in any extended cluster.
     SmallBitset present_in_any_extended_cluster(minimizers.size());
-    //How many hits of each minimizer end up in an extended cluster?
-    vector<size_t> minimizer_extended_cluster_count(minimizers.size(), 0);
+    //How many hits of each minimizer ended up in each extended cluster?
+    vector<vector<size_t>> minimizer_extended_cluster_count; 
     //For each cluster, what fraction of "equivalent" clusters did we keep?
     vector<double> probability_cluster_lost;
     //What is the score and coverage we are considering and how many reads
@@ -202,12 +202,14 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             cerr << "Scores " << cluster.score << "/" << cluster_score_cutoff << endl;
 #endif
              
+            minimizer_extended_cluster_count.emplace_back(minimizers.size(), 0);
             // Pack the seeds for GaplessExtender.
             GaplessExtender::cluster_type seed_matchings;
             for (auto seed_index : cluster.seeds) {
                 // Insert the (graph position, read offset) pair.
                 const Seed& seed = seeds[seed_index];
                 seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
+                minimizer_extended_cluster_count.back()[seed.source]++;
 #ifdef debug
                 const Minimizer& minimizer = minimizers[seed.source];
                 cerr << "Seed read:" << minimizer.value.offset << " = " << seed.pos
@@ -218,11 +220,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             // Extend seed hits in the cluster into one or more gapless extensions
             cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
             present_in_any_extended_cluster |= cluster.present;
-            for (size_t i = 0 ; i < cluster.present.size() ; i++) {
-                if (cluster.present.contains(i)) {
-                    minimizer_extended_cluster_count[i]++;
-                }
-            }
             
             if (track_provenance) {
                 // Record with the funnel that the previous group became a group of this size.
@@ -283,6 +280,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     if (track_provenance) {
         funnel.stage("align");
     }
+
+    //How many of each minimizer ends up in an extension set that actually gets turned into an alignment?
+    vector<size_t> minimizer_extensions_count(minimizers.size(), 0);
     
     // Now start the alignment step. Everything has to become an alignment.
 
@@ -327,6 +327,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 funnel.pass("max-alignments", extension_num);
                 funnel.processing_input(extension_num);
             }
+
             
             auto& extensions = cluster_extensions[extension_num];
             
@@ -415,6 +416,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 
                 // We're done with this input item
                 funnel.processed_input();
+            }
+
+            for (size_t i = 0 ; i < minimizer_extended_cluster_count[extension_num].size() ; i++) {
+                minimizer_extensions_count[i] += minimizer_extended_cluster_count[extension_num][i];
             }
             
             return true;
@@ -513,11 +518,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
         get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
 
+#ifdef print_minimizers
+double uncapped_mapq = mapq;
+#endif
 #ifdef debug
     cerr << "uncapped MAPQ is " << mapq << endl;
-#endif
-#ifdef print_minimizers
-    double uncapped_mapq = mapq;
 #endif
     
     if (probability_mapping_lost.front() > 0) {
@@ -614,31 +619,30 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         set_annotation(mappings[0], "param_max-multimaps", (double) max_multimaps);
     }
     
-#ifdef debug
-    // Dump the funnel info graph.
-    funnel.to_dot(cerr);
-#endif
-
 #ifdef print_minimizers
-    for (size_t i = 0 ; i < minimizers.size() ; i++ ) {
+    for (size_t i = 0 ; i < minimizers.size() ; i++) {
         auto& minimizer = minimizers[i];
-        cerr << "\t" 
+        cerr << "\t"
              << minimizer.value.key.decode(minimizer.length) << "\t"
              << minimizer.forward_offset() << "\t"
              << minimizer.agglomeration_start << "\t"
              << minimizer.agglomeration_length << "\t"
              << minimizer.hits << "\t"
-             << minimizer_extended_cluster_count[i];
-        if (minimizer_extended_cluster_count[i] > 0) {
-            assert (minimizer.hits <= hard_hit_cap);
-        }
+             << minimizer_extensions_count[i];
+         if (minimizer_extensions_count[i]>0) {
+             assert(minimizer.hits<=hard_hit_cap) ;
+         }
     }
     cerr << "\t" << uncapped_mapq << "\t" << mapq_extended_cap << "\t" << probability_mapping_lost.front();
     if (track_correctness) {
-        cerr << "\t" << funnel.last_correct_stage() << endl; 
+        cerr << "\t" << funnel.last_correct_stage() << endl;
     } else {
         cerr << endl;
     }
+#endif
+#ifdef debug
+    // Dump the funnel info graph.
+    funnel.to_dot(cerr);
 #endif
 
     return mappings;
@@ -1838,7 +1842,7 @@ double MinimizerMapper::compute_mapq_caps(const Alignment& aln,
             extended_cluster_minimizers.push_back(i);
         }
     }
-    double mapq_extended_cap = window_breaking_quality(minimizers, extended_cluster_minimizers, aln.sequence(), aln.quality(), this->sum_mapq_cap);
+    double mapq_extended_cap = window_breaking_quality(minimizers, extended_cluster_minimizers, aln.sequence(), aln.quality());
     
     // And we also need to cap based on the probability of creating the windows
     // in the read that distinguish it from the most plausible (minimum created
@@ -1851,11 +1855,10 @@ double MinimizerMapper::compute_mapq_caps(const Alignment& aln,
 }
 
 double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
-    const string& sequence, const string& quality_bytes, bool sum) {
+    const string& sequence, const string& quality_bytes) {
     
 #ifdef debug
-    cerr << "Computing MAPQ cap based on " << broken.size() << "/" << minimizers.size()
-        << " minimizers' windows in " << (sum ? "sum" : "most probable") << "mode" << endl;
+    cerr << "Computing MAPQ cap based on " << broken.size() << "/" << minimizers.size() << " minimizers' windows" << endl;
 #endif
 
     if (broken.empty() || quality_bytes.empty()) {
@@ -1902,19 +1905,15 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
     // Have a cursor for which agglomeration should come in next.
     auto next_agglomeration = broken.begin();
     
-    // Have a DP table with the cost of the cheapest solution to the problem up
-    // to here (in non-sum mode), or the total probability up to here (in sum
-    // mode), including a hit at this base.
+    // Have a DP table with the cost of the cheapest solution to the problem up to here, including a hit at this base.
     // Or numeric_limits<double>::infinity() if base cannot be hit.
     // We pre-fill it because I am scared to use end() if we change its size.
-    vector<double> dp_table(sequence.size(), numeric_limits<double>::infinity());
+    vector<double> costs(sequence.size(), numeric_limits<double>::infinity());
     
     // Keep track of the latest-starting window ending before here. If none, this will be two numeric_limits<size_t>::max() values.
     window_t latest_starting_ending_before = { numeric_limits<size_t>::max(), numeric_limits<size_t>::max() };
-    // And keep track of the min cost DP table entry, or end if not computed yet (for non-sum mode).
-    auto latest_starting_ending_before_winner = dp_table.end();
-    // Or the total probability as a Phred score (for sum mode)
-    double latest_starting_ending_before_sum = NAN;
+    // And keep track of the min cost DP table entry, or end if not computed yet.
+    auto latest_starting_ending_before_winner = costs.end();
     
     for (size_t i = 0; i < sequence.size(); i++) {
         // For each base in the read
@@ -2026,13 +2025,6 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 // Then we AND (sum) the Phred of that in, as an additional cost to mutating this base and kitting all the windows it covers.
                 // This makes low-quality bases outside of minimizers produce fewer low MAPQ caps, and accounts for the robustness of minimizers to some errors.
                 base_cost += any_beat_phred;
-                
-                // TODO: in sum mode, we're allowing any base to be hit, but
-                // when we hit it we require it to disrupt *all* the minimizers
-                // whose windows it intersects. We have no good way to model
-                // the long-range dependencies involved in cases where we hit a
-                // base but don't disrupt the minimizer, requiring us to hit
-                // another base later.
 
             }
                 
@@ -2046,47 +2038,28 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 // If there is no such window, this is the first base hit, so
                 // record the cost of hitting it.
                 
-                dp_table[i] = base_cost;
+                costs[i] = base_cost;
                 
 #ifdef debug
-                cerr << "\tFirst base hit, costs " << dp_table[i] << endl;
+                cerr << "\tFirst base hit, costs " << costs[i] << endl;
 #endif
             } else {
                 // Else, scan from that window's start to its end in the DP
-                // table.
-                
-                if (sum) {
-                    // OR together all possible places to hit in that window
-                    if (isnan(latest_starting_ending_before_sum)) {
-                        // We haven't found the sum over the window we come from yet, so do that.
-                        latest_starting_ending_before_sum = phred_sum(dp_table.begin() + latest_starting_ending_before.first,
-                            dp_table.begin() + latest_starting_ending_before.last + 1);
-                    }
-                    
-                    // and AND with hitting here
-                    dp_table[i] = latest_starting_ending_before_sum + base_cost;
-                    
-#ifdef debug
-                    cerr << "\tOR over prev bases is " << latest_starting_ending_before_sum << ", total cost " << dp_table[i] << endl;
-#endif
-                    
-                } else {
-                    // Find the min cost place to hit in that window
-                    if (latest_starting_ending_before_winner == dp_table.end()) {
-                        // We haven't found the min in the window we come from yet, so do that.
-                        latest_starting_ending_before_winner = std::min_element(dp_table.begin() + latest_starting_ending_before.first,
-                            dp_table.begin() + latest_starting_ending_before.last + 1);
-                    }
-                    double min_prev_cost = *latest_starting_ending_before_winner;
-                        
-                    // Add the cost of hitting this base
-                    dp_table[i] = min_prev_cost + base_cost;
-                    
-#ifdef debug
-                    cerr << "\tComes from prev base at " << (latest_starting_ending_before_winner - dp_table.begin()) << ", costs " << dp_table[i] << endl;
-#endif
+                // table, and find the min cost.
+
+                if (latest_starting_ending_before_winner == costs.end()) {
+                    // We haven't found the min in the window we come from yet, so do that.
+                    latest_starting_ending_before_winner = std::min_element(costs.begin() + latest_starting_ending_before.first,
+                        costs.begin() + latest_starting_ending_before.last + 1);
                 }
-    
+                double min_prev_cost = *latest_starting_ending_before_winner;
+                    
+                // Add the cost of hitting this base
+                costs[i] = min_prev_cost + base_cost;
+                
+#ifdef debug
+                cerr << "\tComes from prev base at " << (latest_starting_ending_before_winner - costs.begin()) << ", costs " << costs[i] << endl;
+#endif
             }
             
         } else {
@@ -2126,9 +2099,8 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
                 
                 // If so, use the latest-starting of all such windows as our latest starting window ending here or before result.
                 latest_starting_ending_before = active_windows.top();
-                // And clear our cache of the lowest cost base to hit it/sum over it.
-                latest_starting_ending_before_winner = dp_table.end();
-                latest_starting_ending_before_sum = NAN;
+                // And clear our cache of the lowest cost base to hit it.
+                latest_starting_ending_before_winner = costs.end();
                 
 #ifdef debug
                 cerr << "\t\t\tNow have: " << latest_starting_ending_before.first << " - " << latest_starting_ending_before.last << endl;
@@ -2156,28 +2128,14 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
     // When we get to the end, we have the latest-starting window overall. It must exist.
     assert(latest_starting_ending_before.first != numeric_limits<size_t>::max());
     
-    if (sum) {
-        // OR over it.
-        // Don't use the cache here because nothing can come after the last-ending window.
-        double overall_cost = phred_sum(dp_table.begin() + latest_starting_ending_before.first,
-            dp_table.begin() + latest_starting_ending_before.last + 1);
-        
+    // Scan it for the best final base to hit and return the cost there.
+    // Don't use the cache here because nothing can come after the last-ending window.
+    auto min_cost_at = std::min_element(costs.begin() + latest_starting_ending_before.first,
+        costs.begin() + latest_starting_ending_before.last + 1);
 #ifdef debug
-        cerr << "Overall cost: " << overall_cost << endl;
+    cerr << "Overall min cost: " << *min_cost_at << " at base " << (min_cost_at - costs.begin()) << endl;
 #endif
-
-        return overall_cost;
-        
-    } else {
-        // Scan it for the best final base to hit and return the cost there.
-        // Don't use the cache here because nothing can come after the last-ending window.
-        auto min_cost_at = std::min_element(dp_table.begin() + latest_starting_ending_before.first,
-            dp_table.begin() + latest_starting_ending_before.last + 1);
-#ifdef debug
-        cerr << "Overall min cost: " << *min_cost_at << " at base " << (min_cost_at - dp_table.begin()) << endl;
-#endif
-        return *min_cost_at;
-    }
+    return *min_cost_at;
 }
 
 //-----------------------------------------------------------------------------
