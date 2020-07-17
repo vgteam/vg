@@ -702,7 +702,7 @@ namespace vg {
         
         if (num_alt_alns > 1 && snarl_manager != nullptr) {
             // make an interesting multipath alignment by realigning the single path alignment inside snarls
-            make_nontrivial_multipath_alignment(aln, *align_dag, translator, *snarl_manager, rescue_multipath_aln);
+            make_nontrivial_multipath_alignment(aln, *align_dag, translator, rescue_multipath_aln);
             
         }
         else {
