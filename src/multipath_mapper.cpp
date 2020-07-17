@@ -3484,7 +3484,7 @@ namespace vg {
             
     void MultipathMapper::make_nontrivial_multipath_alignment(const Alignment& alignment, const HandleGraph& subgraph,
                                                               const function<pair<id_t, bool>(id_t)>& translator,
-                                                              SnarlManager& snarl_manager, multipath_alignment_t& multipath_aln_out) const {
+                                                              multipath_alignment_t& multipath_aln_out) const {
         
 #ifdef debug_multipath_mapper_alignment
         cerr << "attempting to make nontrivial alignment for " << alignment.name() << endl;

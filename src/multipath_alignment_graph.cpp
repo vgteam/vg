@@ -161,7 +161,7 @@ namespace vg {
         
         // cut the snarls out of the aligned path so we can realign through them
         if (max_snarl_cut_size) {
-            resect_snarls_from_paths(snarl_manager, dist_index, dist_index, project, max_snarl_cut_size);
+            resect_snarls_from_paths(snarl_manager, dist_index, project, max_snarl_cut_size);
         }
         
         // the snarls algorithm adds edges where necessary
@@ -1435,7 +1435,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 
                 if (j > 0) {
                     // we have entered this node on this iteration
-                    if (into_cutting_snarl(projected_id, !projected_rev, snarl_manager, dist_index)) {
+                    if (into_cutting_snarl(projected_id, !projected_rev, cutting_snarls, dist_index)) {
                         // as we enter this node, we are leaving the snarl we were in
                         
                         // since we're going up a level, we need to check whether we need to cut out the segment we've traversed
@@ -1458,7 +1458,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 
                 if (j < last) {
                     // we are going to leave this node next iteration
-                    if (into_cutting_snarl(projected_id, projected_rev, snarl_manager, dist_index)) {
+                    if (into_cutting_snarl(projected_id, projected_rev, cutting_snarls, dist_index)) {
                         // as we leave this node, we are entering a new deeper snarl
                         
                         // the segment in the new level will begin at the end of the current node
