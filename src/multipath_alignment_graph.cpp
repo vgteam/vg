@@ -4227,7 +4227,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         if (dist_index) {
             auto result = dist_index->into_which_snarl(node_id, is_rev);
             // points into a snarl and snarl is nontrivial
-            return get<1>(result) && get<2>(result);
+            return get<0>(result) != 0 && !get<2>(result);
         }
         else if (snarl_manager) {
             // no mechanism to check for triviality without traversing graph
