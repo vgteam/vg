@@ -221,7 +221,7 @@ var searchData=
   ['rescue_5fonly_5fmin',['rescue_only_min',['../classvg_1_1MultipathMapper.html#a2ad423f9fc1a81bbe31e9c25992de378',1,'vg::MultipathMapper']]],
   ['rescue_5fsubgraph_5fstdevs',['rescue_subgraph_stdevs',['../classvg_1_1MinimizerMapper.html#a19f9bf5af66cbc96a3d1fdd2e5e83dda',1,'vg::MinimizerMapper']]],
   ['rescuealgorithm',['RescueAlgorithm',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4',1,'vg::MinimizerMapper']]],
-  ['resect_5fsnarls_5ffrom_5fpaths',['resect_snarls_from_paths',['../classvg_1_1MultipathAlignmentGraph.html#a6f112f435d0099a503bc4fa6a8dd3a65',1,'vg::MultipathAlignmentGraph']]],
+  ['resect_5fsnarls_5ffrom_5fpaths',['resect_snarls_from_paths',['../classvg_1_1MultipathAlignmentGraph.html#a246faa7f218fe02d1dd521a1a3d52e4c',1,'vg::MultipathAlignmentGraph']]],
   ['reserved',['reserved',['../structvg_1_1Alignment.html#a8374111b6348509e8e9ecca0cd1ac046',1,'vg::Alignment']]],
   ['reset',['reset',['../structvg_1_1ReadFilter_1_1Counts.html#a82d73a9715f7de040c00dfc9329fd88c',1,'vg::ReadFilter::Counts::reset()'],['../classvg_1_1uniform__real__distribution.html#ad9ba8ac53f8a0af213db9d4f8da12617',1,'vg::uniform_real_distribution::reset()'],['../classvg_1_1normal__distribution.html#a7bae578d38533043f42f09413c7c1e32',1,'vg::normal_distribution::reset()'],['../classvg_1_1uniform__int__distribution.html#a38594c45008dfc36cfbb4f9b9e4193dd',1,'vg::uniform_int_distribution::reset()'],['../classvg_1_1discrete__distribution.html#a5a3ca0751a139bef583b819118188780',1,'vg::discrete_distribution::reset()'],['../structvg_1_1Range.html#a3bf0b390a74ca7ea5f806f6cd98aac2c',1,'vg::Range::reset()']]],
   ['reset_5fchain',['reset_chain',['../structvg_1_1Range.html#ab58a66f95eb33321597178626972e135',1,'vg::Range']]],
