@@ -702,7 +702,7 @@ namespace vg {
         
         if (num_alt_alns > 1 && snarl_manager != nullptr) {
             // make an interesting multipath alignment by realigning the single path alignment inside snarls
-            make_nontrivial_multipath_alignment(aln, *align_dag, translator, *snarl_manager, rescue_multipath_aln);
+            make_nontrivial_multipath_alignment(aln, *align_dag, translator, rescue_multipath_aln);
             
         }
         else {
@@ -3434,7 +3434,7 @@ namespace vg {
         
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
             if (max_snarl_cut_size) {
-                multi_aln_graph.resect_snarls_from_paths(snarl_manager, translator, max_snarl_cut_size);
+                multi_aln_graph.resect_snarls_from_paths(snarl_manager, distance_index, translator, max_snarl_cut_size);
             }
         }
 
@@ -3484,7 +3484,7 @@ namespace vg {
             
     void MultipathMapper::make_nontrivial_multipath_alignment(const Alignment& alignment, const HandleGraph& subgraph,
                                                               const function<pair<id_t, bool>(id_t)>& translator,
-                                                              SnarlManager& snarl_manager, multipath_alignment_t& multipath_aln_out) const {
+                                                              multipath_alignment_t& multipath_aln_out) const {
         
 #ifdef debug_multipath_mapper_alignment
         cerr << "attempting to make nontrivial alignment for " << alignment.name() << endl;
@@ -3493,7 +3493,7 @@ namespace vg {
         auto aligner = get_aligner(!alignment.quality().empty());
         
         // create an alignment graph with the internals of snarls removed
-        MultipathAlignmentGraph multi_aln_graph(subgraph, alignment, snarl_manager, max_snarl_cut_size, translator);
+        MultipathAlignmentGraph multi_aln_graph(subgraph, alignment, snarl_manager, distance_index, max_snarl_cut_size, translator);
         
         // remove any transitive edges that may have found their way in there
         // TODO: is this necessary? all edges should be across snarls, how could they be transitive? from trimmed indels maybe?

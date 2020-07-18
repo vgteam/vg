@@ -7,6 +7,7 @@
 #include <vg/vg.pb.h>
 #include "../cactus_snarl_finder.hpp"
 #include "../multipath_alignment_graph.hpp"
+#include "../min_distance.hpp"
 #include "catch.hpp"
 
 namespace vg {
@@ -46,7 +47,8 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
     
     // Make snarls on it
     CactusSnarlFinder bubble_finder(vg);
-    SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+    SnarlManager snarl_manager = bubble_finder.find_snarls();
+    MinimumDistanceIndex dist_index(&vg, &snarl_manager);
     
     // We need a fake read
     string read("GATTACAA");
@@ -188,7 +190,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
             mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false, 100, 0.0);
             
             // Cut new anchors on snarls
-            mpg.resect_snarls_from_paths(&snarl_manager,
+            mpg.resect_snarls_from_paths(&snarl_manager, nullptr,
                                          MultipathAlignmentGraph::create_projector(identity), 5);
             
             // Make it align, with alignments per gap/tail
@@ -280,7 +282,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
             mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false, 100, 0.0);
             
             // Cut new anchors on snarls
-            mpg.resect_snarls_from_paths(&snarl_manager,
+            mpg.resect_snarls_from_paths(nullptr, &dist_index,
                                          MultipathAlignmentGraph::create_projector(identity), 5);
             
             // Make it align, with alignments per gap/tail
