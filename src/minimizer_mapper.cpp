@@ -21,8 +21,8 @@
 #include <algorithm>
 #include <cmath>
 
-//#define debug
-#define print_minimizers
+#define debug
+//#define print_minimizers
 
 namespace vg {
 
@@ -159,6 +159,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 
                 // Record MAPQ implications of not extending this cluster.
                 unextended_clusters.push_back(cluster_num);
+#ifdef debug
+            cerr << "Cluster " << cluster_num << " fails cluster score cutoff" <<  endl;
+            cerr << "Covers " << clusters[cluster_num].coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
+            cerr << "Scores " << clusters[cluster_num].score << "/" << cluster_score_cutoff << endl;
+#endif
                 return false;
             }
             
@@ -190,6 +195,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 
                 // Record MAPQ implications of not extending this cluster.
                 unextended_clusters.push_back(cluster_num);
+#ifdef debug
+            cerr << "Cluster " << cluster_num << " fails because we took too many identical clusters" <<  endl;
+            cerr << "Covers " << clusters[cluster_num].coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
+            cerr << "Scores " << clusters[cluster_num].score << "/" << cluster_score_cutoff << endl;
+#endif
                 return false;
             }
             
@@ -254,6 +264,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             
             // Record MAPQ implications of not extending this cluster.
             unextended_clusters.push_back(cluster_num);
+#ifdef debug
+            cerr << "Cluster " << cluster_num << " passes cluster cutoffs but we have too many" <<  endl;
+            cerr << "Covers " << cluster.coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
+            cerr << "Scores " << cluster.score << "/" << cluster_score_cutoff << endl;
+#endif
             
         }, [&](size_t cluster_num) {
             // This cluster is not sufficiently good.
@@ -270,6 +285,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             
             // Record MAPQ implications of not extending this cluster.
             unextended_clusters.push_back(cluster_num);
+#ifdef debug
+            cerr << "Cluster " << cluster_num << " fails cluster coverage cutoffs" <<  endl;
+            cerr << "Covers " << clusters[cluster_num].coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
+            cerr << "Scores " << clusters[cluster_num].score << "/" << cluster_score_cutoff << endl;
+#endif
         });
         
     for (size_t i = 0 ; i < curr_kept ; i++ ) {
@@ -429,11 +449,17 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 funnel.pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
                 funnel.fail("max-alignments", extension_num);
             }
+#ifdef debug
+                cerr << "gapless extension " << extension_num << " failed because there were too many good extensions" << endl;
+#endif
         }, [&](size_t extension_num) {
             // This extension is not good enough.
             if (track_provenance) {
                 funnel.fail("extension-set", extension_num, cluster_extension_scores[extension_num]);
             }
+#ifdef debug
+                cerr << "gapless extension " << extension_num << " failed because its score was not good enough (score=" << cluster_extension_scores[extension_num] << ")" << endl;
+#endif
         });
     
     if (alignments.size() == 0) {
