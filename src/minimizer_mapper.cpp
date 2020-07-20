@@ -219,7 +219,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             
             // Extend seed hits in the cluster into one or more gapless extensions
             cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
-            minimizer_explored |= cluster.present;
             
             if (track_provenance) {
                 // Record with the funnel that the previous group became a group of this size.
@@ -420,6 +419,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
             for (size_t i = 0 ; i < minimizer_extended_cluster_count[extension_num].size() ; i++) {
                 minimizer_extensions_count[i] += minimizer_extended_cluster_count[extension_num][i];
+                if (minimizer_extended_cluster_count[extension_num][i] > 0) {
+                    // This minimizer is in an extended cluster that gave rise
+                    // to at least one alignment, so it is explored.
+                    minimizer_explored.insert(i);
+                }
             }
             
             return true;
@@ -528,16 +532,23 @@ double uncapped_mapq = mapq;
     if (probability_mapping_lost.front() > 0) {
         mapq = min(mapq,round(prob_to_phred(probability_mapping_lost.front())));
     }
-
+    
+    // TODO: give SmallBitset iterators so we can use it instead of an index vector.
+    vector<size_t> minimizer_hits_explored;
+    for (size_t i = 0; i < minimizers.size(); i++) {
+        if (minimizer_explored.contains(i)) {
+            minimizer_hits_explored.push_back(i);
+        }
+    }
     // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
-    double mapq_extended_cap = compute_mapq_caps(aln, minimizers, minimizer_explored);
+    double mapq_explored_cap = 2 * faster_cap(minimizers, minimizer_hits_explored, aln.sequence(), aln.quality());
 
     // Remember the uncapped MAPQ and the caps
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
-    set_annotation(mappings.front(), "mapq_extended_cap", mapq_extended_cap);
+    set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
 
     // Apply the caps
-    mapq = min(mapq, mapq_extended_cap);
+    mapq = min(mapq, mapq_explored_cap);
 
 #ifdef debug
     cerr << "MAPQ is " << mapq << endl;
@@ -633,7 +644,7 @@ double uncapped_mapq = mapq;
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    cerr << "\t" << uncapped_mapq << "\t" << mapq_extended_cap << "\t" << probability_mapping_lost.front();
+    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << probability_mapping_lost.front();
     if (track_correctness) {
         cerr << "\t" << funnel.last_correct_stage() << endl;
     } else {
@@ -858,6 +869,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // To compute the windows that are explored, we need to get
     // all the minimizers that are explored.
     vector<SmallBitset> minimizer_explored_by_read(2);
+    //How many hits of each minimizer ended up in each extended cluster?
+    vector<vector<vector<size_t>>> minimizer_extended_cluster_count_by_read(2); 
     
 
     //Now that we've scored each of the clusters, extend and align them
@@ -967,13 +980,15 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #ifdef debug
                     cerr << "Cluster " << cluster_num << endl;
 #endif
-                     
+                    
+                    minimizer_extended_cluster_count_by_read[read_num].emplace_back(minimizers.size(), 0);
                     // Pack the seeds for GaplessExtender.
                     GaplessExtender::cluster_type seed_matchings;
                     for (auto seed_index : cluster.seeds) {
                         // Insert the (graph position, read offset) pair.
                         const Seed& seed = seeds[seed_index];
                         seed_matchings.insert(GaplessExtender::to_seed(seed.pos, minimizers[seed.source].value.offset));
+                        minimizer_extended_cluster_count_by_read[read_num].back()[seed.source]++;
 #ifdef debug
                         cerr << "Seed read:" << minimizers[seed.source].value.offset << " = " << seed.pos
                             << " from minimizer " << seed.source << endl;
@@ -983,7 +998,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     // Extend seed hits in the cluster into one or more gapless extensions
                     cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())), 
                                                     cluster.fragment);
-                    minimizer_explored_by_read[read_num] |= cluster.present;
                     
                     if (track_provenance) {
                         // Record with the funnel that the previous group became a group of this size.
@@ -1149,6 +1163,14 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     
                     // We're done with this input item
                     funnels[read_num].processed_input();
+                }
+                
+                for (size_t i = 0 ; i < minimizer_extended_cluster_count_by_read[read_num][extension_num].size() ; i++) {
+                    if (minimizer_extended_cluster_count_by_read[read_num][extension_num][i] > 0) {
+                        // This minimizer is in an extended cluster that gave rise
+                        // to at least one alignment, so it is explored.
+                        minimizer_explored_by_read[read_num].insert(i);
+                    }
                 }
                 
                 return true;
@@ -1661,20 +1683,24 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
             // Find the source read
             auto& aln = read_num == 0 ? aln1 : aln2;
-    
+            
+            vector<size_t> minimizer_hits_explored;
+            for (size_t i = 0; i < minimizers_by_read[read_num].size(); i++) {
+                if (minimizer_explored_by_read[read_num].contains(i)) {
+                    minimizer_hits_explored.push_back(i);
+                }
+            }
             // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
-            double mapq_extended_cap = compute_mapq_caps(aln,
-                minimizers_by_read[read_num],
-                minimizer_explored_by_read[read_num]);
+            double mapq_explored_cap = 2 * faster_cap(minimizers_by_read[read_num], minimizer_hits_explored, aln.sequence(), aln.quality());
 
             // Remember the caps
             auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
-            set_annotation(to_annotate, "mapq_extended_cap", mapq_extended_cap);
+            set_annotation(to_annotate, "mapq_explored_cap", mapq_explored_cap);
 
             // Compute the cap. It should be the higher of the caps for the two reads 
             // (unless one has no minimizers, i.e. if it was rescued) 
             // The individual cap values are either actual numbers or +inf, so the cap can't stay as -inf.
-            mapq_cap = mapq_extended_cap == numeric_limits<double>::infinity() ? mapq_cap : max(mapq_cap, mapq_extended_cap);
+            mapq_cap = mapq_explored_cap == numeric_limits<double>::infinity() ? mapq_cap : max(mapq_cap, mapq_explored_cap);
         }
         mapq_cap = mapq_cap == -std::numeric_limits<float>::infinity() ? numeric_limits<double>::infinity() : mapq_cap;
 
