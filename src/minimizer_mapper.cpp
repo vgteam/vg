@@ -2172,8 +2172,14 @@ double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, const ve
             filtered_minimizers.push_back(i);
         }
     }
+    
+    // Sort filtered_minimizers so we go through minimizers in increasing order of start position
+    filtered_minimizers.sort([&](size_t a, size_t b) {
+        // Return true if a must come before b, and false otherwise
+        return minimizers[a].forward_offset() < minimizers[b].forward_offset();
+    });
 
-    // Make a DP table hodling the log10 probability of having an error disrupt each minimizer.
+    // Make a DP table holding the log10 probability of having an error disrupt each minimizer.
     // Entry i+1 is log prob of mutating minimizers 0, 1, 2, ..., i.
     // Make sure to have an extra field at the end to support this.
     vector<double> c(filtered_minimizers.size() + 1, numeric_limits<double>::infinity());
