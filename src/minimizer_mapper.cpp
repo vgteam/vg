@@ -116,9 +116,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // These are the GaplessExtensions for all the clusters.
     vector<vector<GaplessExtension>> cluster_extensions;
     cluster_extensions.reserve(clusters.size());
-    // To compute the windows present in any extended cluster, we need to get
-    // all the minimizers in any extended cluster.
-    SmallBitset present_in_any_extended_cluster(minimizers.size());
+    // To compute the windows for explored minimizers, we need to get
+    // all the minimizers that are explored.
+    SmallBitset minimizer_explored(minimizers.size());
     //How many hits of each minimizer ended up in each extended cluster?
     vector<vector<size_t>> minimizer_extended_cluster_count; 
     //For each cluster, what fraction of "equivalent" clusters did we keep?
@@ -219,7 +219,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             
             // Extend seed hits in the cluster into one or more gapless extensions
             cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
-            present_in_any_extended_cluster |= cluster.present;
+            minimizer_explored |= cluster.present;
             
             if (track_provenance) {
                 // Record with the funnel that the previous group became a group of this size.
@@ -530,7 +530,7 @@ double uncapped_mapq = mapq;
     }
 
     // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
-    double mapq_extended_cap = compute_mapq_caps(aln, minimizers, present_in_any_extended_cluster);
+    double mapq_extended_cap = compute_mapq_caps(aln, minimizers, minimizer_explored);
 
     // Remember the uncapped MAPQ and the caps
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
@@ -855,9 +855,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
     // We track unextended clusters.
     vector<vector<size_t>> unextended_clusters_by_read(2);
-    // To compute the windows present in any extended cluster, we need to get
-    // all the minimizers in any extended cluster.
-    vector<SmallBitset> present_in_any_extended_cluster_by_read(2);
+    // To compute the windows that are explored, we need to get
+    // all the minimizers that are explored.
+    vector<SmallBitset> minimizer_explored_by_read(2);
     
 
     //Now that we've scored each of the clusters, extend and align them
@@ -898,7 +898,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         //size_t curr_count = 0;
 
         unextended_clusters_by_read[read_num].reserve(clusters.size());
-        present_in_any_extended_cluster_by_read[read_num] = SmallBitset(minimizers.size());
+        minimizer_explored_by_read[read_num] = SmallBitset(minimizers.size());
         
         //Process clusters sorted by both score and read coverage
         process_until_threshold_c<Cluster, double>(clusters, [&](size_t i) -> double {
@@ -983,7 +983,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     // Extend seed hits in the cluster into one or more gapless extensions
                     cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())), 
                                                     cluster.fragment);
-                    present_in_any_extended_cluster_by_read[read_num] |= cluster.present;
+                    minimizer_explored_by_read[read_num] |= cluster.present;
                     
                     if (track_provenance) {
                         // Record with the funnel that the previous group became a group of this size.
@@ -1665,7 +1665,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
             double mapq_extended_cap = compute_mapq_caps(aln,
                 minimizers_by_read[read_num],
-                present_in_any_extended_cluster_by_read[read_num]);
+                minimizer_explored_by_read[read_num]);
 
             // Remember the caps
             auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
@@ -1827,31 +1827,24 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
 double MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
     const std::vector<Minimizer>& minimizers,
-    const SmallBitset& present_in_any_extended_cluster) {
+    const SmallBitset& explored) {
 
-    // We need to cap MAPQ based on the likelihood of generating all the windows in the extended clusters by chance, too.
+    // We need to cap MAPQ based on the likelihood of generating all the windows in the explored minimizers by chance, too.
 #ifdef debug
-    cerr << "Cap based on extended clusters' minimizers all being faked by errors..." << endl;
+    cerr << "Cap based on explored minimizers all being faked by errors..." << endl;
 #endif
 
     // Convert our flag vector to a list of the minimizers actually in extended clusters
-    vector<size_t> extended_cluster_minimizers;
-    extended_cluster_minimizers.reserve(minimizers.size());
+    vector<size_t> explored_minimizers;
+    explored_minimizers.reserve(minimizers.size());
     for (size_t i = 0; i < minimizers.size(); i++) {
-        if (present_in_any_extended_cluster.contains(i)) {
-            extended_cluster_minimizers.push_back(i);
+        if (explored.contains(i)) {
+            explored_minimizers.push_back(i);
         }
     }
-    double mapq_extended_cap = window_breaking_quality(minimizers, extended_cluster_minimizers, aln.sequence(), aln.quality());
+    double mapq_explored_cap = window_breaking_quality(minimizers, explored_minimizers, aln.sequence(), aln.quality());
     
-    // And we also need to cap based on the probability of creating the windows
-    // in the read that distinguish it from the most plausible (minimum created
-    // windows needed) non-extended cluster.
-#ifdef debug
-    cerr << "Cap based on read's minimizers not in non-extended clusters all being wrong (and the read actually having come from the non-extended clusters)..." << endl;
-#endif
-
-    return mapq_extended_cap;
+    return mapq_explored_cap;
 }
 
 double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,

@@ -313,7 +313,7 @@ protected:
 //-----------------------------------------------------------------------------
 
     /**
-     * Compute MAPQ caps based on all minimizers present in extended clusters.
+     * Compute MAPQ caps based on all minimizers that are explored, for some definition of explored.
      *
      * Needs access to the input alignment for sequence and quality
      * information.
@@ -321,7 +321,7 @@ protected:
      * Returns only an "extended" cap at the moment.
      */
     double compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
-                             const SmallBitset& present_in_any_extended_cluster);
+                             const SmallBitset& explored);
 
     /**
      * Compute a bound on the Phred score probability of having created the
