@@ -71,56 +71,6 @@ inline double log10_to_ln(double l10) {
     return l10 * log(10);
 }
 
-// Convert a probability to a natural log probability.
-inline double prob_to_logprob(double prob) {
-    return log(prob);
-}
-// Convert natural log probability to a probability
-inline double logprob_to_prob(double logprob) {
-    return exp(logprob);
-}
-// Add two probabilities (expressed as logprobs) together and return the result
-// as a logprob.
-inline double logprob_add(double logprob1, double logprob2) {
-    // Pull out the larger one to avoid underflows
-    double pulled_out = max(logprob1, logprob2);
-    return pulled_out + prob_to_logprob(logprob_to_prob(logprob1 - pulled_out) + logprob_to_prob(logprob2 - pulled_out));
-}
-// Invert a logprob, and get the probability of its opposite.
-inline double logprob_invert(double logprob) {
-    return prob_to_logprob(1.0 - logprob_to_prob(logprob));
-}
-
-// Convert integer Phred quality score to probability of wrongness.
-inline double phred_to_prob(int phred) {
-    return pow(10, -((double)phred) / 10);
-}
-
-// Convert probability of wrongness to integer Phred quality score.
-inline double prob_to_phred(double prob) {
-    return -10.0 * log10(prob);
-}
-
-// Convert a Phred quality score directly to a natural log probability of wrongness.
-inline double phred_to_logprob(int phred) {
-    return (-((double)phred) / 10) / log10(exp(1.0));
-}
-
-// Convert a natural log probability of wrongness directly to a Phred quality score.
-inline double logprob_to_phred(double logprob ) {
-    return -10.0 * logprob * log10(exp(1.0));
-}
-
-// Take the geometric mean of two logprobs
-inline double logprob_geometric_mean(double lnprob1, double lnprob2) {
-    return log(sqrt(exp(lnprob1 + lnprob2)));
-}
-
-// Same thing in phred
-inline double phred_geometric_mean(double phred1, double phred2) {
-    return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
-}
-
 /**
  * Assume that we have n independent random events that occur with probability
  * p each (p is interpreted as a real number between 0 at 0 and 1 at its
@@ -146,6 +96,64 @@ T normal_pdf(T x, T m, T s)
     
     return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
 }
+
+
+/// Convert a probability to a natural log probability.
+inline double prob_to_logprob(double prob) {
+    return log(prob);
+}
+/// Convert natural log probability to a probability
+inline double logprob_to_prob(double logprob) {
+    return exp(logprob);
+}
+/// Add two probabilities (expressed as logprobs) together and return the result
+/// as a logprob.
+inline double logprob_add(double logprob1, double logprob2) {
+    // Pull out the larger one to avoid underflows
+    double pulled_out = max(logprob1, logprob2);
+    return pulled_out + prob_to_logprob(logprob_to_prob(logprob1 - pulled_out) + logprob_to_prob(logprob2 - pulled_out));
+}
+/// Invert a logprob, and get the probability of its opposite.
+inline double logprob_invert(double logprob) {
+    return prob_to_logprob(1.0 - logprob_to_prob(logprob));
+}
+
+/// Convert integer Phred quality score to probability of wrongness.
+inline double phred_to_prob(int phred) {
+    return pow(10, -((double)phred) / 10);
+}
+
+/// Convert probability of wrongness to integer Phred quality score.
+inline double prob_to_phred(double prob) {
+    return -10.0 * log10(prob);
+}
+
+/// Convert a Phred quality score directly to a natural log probability of wrongness.
+inline double phred_to_logprob(int phred) {
+    return (-((double)phred) / 10) / log10(exp(1.0));
+}
+
+/// Convert a natural log probability of wrongness directly to a Phred quality score.
+inline double logprob_to_phred(double logprob ) {
+    return -10.0 * logprob * log10(exp(1.0));
+}
+
+/// Take the geometric mean of two logprobs
+inline double logprob_geometric_mean(double lnprob1, double lnprob2) {
+    return log(sqrt(exp(lnprob1 + lnprob2)));
+}
+
+/// Take the geometric mean of two phred-encoded probabilities
+inline double phred_geometric_mean(double phred1, double phred2) {
+    return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
+}
+
+/// Add two probabilities (expressed as phred scores) together and return the result
+/// as a phred score.
+inline double phred_add(double phred1, double phred2) {
+    return logprob_to_phred(logprob_add(phred_to_logprob(phred1), phred_to_logprob(phred2)));
+}
+
 
 
 /**
@@ -192,6 +200,63 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
     
     // Re-log and re-scale
     return pulled_out + prob_to_logprob(total);
+}
+
+/**
+ * Compute the sum of the values in a collection, represented by an iterator
+ * range, where the values are Phred scores and the result is the Phred score
+ * of the total probability. Items must be convertible to/from doubles for
+ * math.
+ */
+template<typename Iterator>
+typename std::iterator_traits<Iterator>::value_type phred_sum(const Iterator& begin_it, const Iterator& end_it) {
+    
+    // Set up an alias for the type we're operating on
+    using Item = typename std::iterator_traits<Iterator>::value_type;
+    
+    // Pull out the minimum probability
+    auto min_iterator = max_element(begin_it, end_it);
+    
+    if (min_iterator == end_it) {
+        // Nothing there, p = 0
+        return Item(logprob_to_phred(prob_to_logprob(0)));
+    }
+    
+    auto check_iterator = begin_it;
+    ++check_iterator;
+    if (check_iterator == end_it) {
+        // We only have a single element anyway. We don't want to subtract it
+        // out because we'll get 0s.
+        return *min_iterator;
+    }
+    
+    // Pull this much out of every logprob.
+    double pulled_out = phred_to_logprob(*min_iterator);
+    
+    if (logprob_to_prob(pulled_out) == 0) {
+        // Can't divide by 0!
+        // TODO: fix this in selection
+        pulled_out = prob_to_logprob(1);
+    }
+    
+    double total(0);
+    for(auto to_add_it = begin_it; to_add_it != end_it; ++to_add_it) {
+        // Sum up all the scaled probabilities.
+        total += logprob_to_prob(phred_to_logprob(*to_add_it) - pulled_out);
+    }
+    
+    // Re-log and re-scale
+    return Item(logprob_to_phred(pulled_out + prob_to_logprob(total)));
+}
+
+/**
+ * Compute the sum of the values in a collection, where the values are Phred
+ * scores and the result is the Phred score of the total probability. Items
+ * must be convertible to/from doubles for math.
+ */
+template<typename Collection>
+typename Collection::value_type phred_sum(const Collection& collection) {
+    return phred_sum(begin(collection), end(collection));
 }
 
 
