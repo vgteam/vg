@@ -2138,6 +2138,158 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
     return *min_cost_at;
 }
 
+double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, const vector<size_t>& minimizer_hits_explored,
+    const string& sequence, const string& quality_bytes) {
+
+    // Make sure we have input lists in correspondence
+    assert(minimizers.size() == minimizer_hits_explored.size());
+
+    // Filter out to minimizers we definitely skip over due to no extended hits.
+    // Keep just the indices of ones with extended hits.
+    vector<size_t> filtered_minimizers;
+    filtered_minimizers.reserve(minimizers.size());
+    for (size_t i = 0; i < minimizers.size(); i++) {
+        if (minimizer_hits_explored[i] > 0) {
+            filtered_minimizers.push_back(i);
+        }
+    }
+
+    // Make a DP table hodling the log10 probability of having an error disrupt each minimizer.
+    // Entry i+1 is log prob of mutating minimizers 0, 1, 2, ..., i.
+    // Make sure to have an extra field at the end to support this.
+    vector<double> c(filtered_minimizers.size() + 1, numeric_limits<double>::infinity());
+    c[0] = 0.0;
+    
+    for_each_aglomeration_interval(minimizers, sequence, quality_bytes, filtered_minimizers, [&](size_t left, size_t right, size_t bottom, size_t top) {
+        // For each overlap range in the agglomerations
+        // Calculate prob of all intervals up to top being disrupted
+        double p = c[bottom] + get_log10_prob_of_disruption_in_interval(minimizers, sequence, quality_bytes,
+            filtered_minimizers.begin() + bottom, filtered_minimizers.begin() + top, left, right);
+
+        for (size_t i = bottom + 1; i < top + 1; i++) {
+            // Replace min-prob for minimizers in the interval
+            if (c[i] < p) {
+                c[i] = p;
+            }
+        }
+    });
+    
+    assert(!isinf(c.back()));
+    // Conver to Phred.
+    return -c.back() * 10;
+}
+
+void MinimizerMapper::for_each_aglomeration_interval(const vector<Minimizer>& minimizers,
+    const string& sequence, const string& quality_bytes,
+    const vector<size_t>& minimizer_indices,
+    const function<void(size_t, size_t, size_t, size_t)>& iteratee) {
+    
+    if (minimizer_indices.empty()) {
+        // Handle no item case
+        return;
+    }
+
+    // Items currently being iterated over
+    list<const Minimizer*> stack = {&minimizers[minimizer_indices.front()]};
+    // The left end of an item interval
+    size_t left = stack.front()->agglomeration_start;
+    // The index of the first item in the interval in the sequence of selected items
+    size_t bottom = 0;
+
+    // Emit all intervals that precede a given point "right"
+    auto emit_preceding_intervals = [&](size_t right) {
+        while (left < right) {
+            // Work out the end position of the top thing on the stack
+            size_t stack_top_end = stack.front()->agglomeration_start + stack.front()->agglomeration_bp();
+            if (stack_top_end <= right) {
+                // Case where the left-most item ends before the start of the new item
+                iteratee(left, stack_top_end, bottom, bottom + stack.size());
+
+                // If the stack contains only one item there is a gap between the item
+                // and the new item, otherwise just shift to the end of the leftmost item
+                left = stack.size() == 1 ? right : stack_top_end;
+
+                bottom += 1;
+                stack.pop_front();
+            } else {
+                // Case where the left-most item ends at or after the beginning of the new new item
+                iteratee(left, right, bottom, bottom + stack.size());
+                left = right;
+            }
+        }
+    };
+
+    for (auto it = minimizer_indices.begin() + 1; it != minimizer_indices.end(); ++it) {
+        // For each item in turn
+        auto& item = minimizers[*it];
+        
+        assert(stack.size() > 0);
+
+        // For each new item we return all intervals that
+        // precede its start
+        emit_preceding_intervals(item.agglomeration_start);
+
+        // Add the new item for the next loop
+        stack.push_back(&item);
+    }
+
+    // Intervals of the remaining intervals on the stack
+    emit_preceding_intervals(sequence.size());
+}
+
+double MinimizerMapper::get_log10_prob_of_disruption_in_interval(const vector<Minimizer>& minimizers,
+    const string& sequence, const string& quality_bytes,
+    const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
+    size_t left, size_t right) {
+    
+    // We don't allow zero length intervals
+    assert(left < right);
+    
+    // Start with the first column
+    double p = get_log10_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, left);
+    for(size_t i = left + 1 ; i < right; i++) {
+        // OR up probability of all the other columns
+        p = add_log10(get_log10_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, i), p);
+    }
+    
+    // Return the result
+    return p;
+ 
+}
+
+double MinimizerMapper::get_log10_prob_of_disruption_in_column(const vector<Minimizer>& minimizers,
+    const string& sequence, const string& quality_bytes,
+    const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
+    size_t index) {
+    
+    // Base cost is quality.
+    double p = -(uint8_t)quality_bytes[index] / 10;
+    for (auto it = disrupt_begin; it != disrupt_end; ++it) {
+        // For each minimizer to disrupt
+        auto m = minimizers[*it];
+        
+        if (!(m.forward_offset() <= index && index < m.forward_offset() + m.length)) {
+            // Index is out of range of the minimizer
+        }
+        
+        // How many new possible minimizers would an error here create in this agglomeration,
+        // to compete with its minimizer?
+        // No more than one per position in a minimizer sequence.
+        // No more than 1 per base from the start of the agglomeration to here, inclusive.
+        // No more than 1 per base from here to the last base of the agglomeration, inclusive.
+        size_t possible_minimizers = min((size_t) m.length,
+                                         min(index - m.agglomeration_start + 1,
+                                         (m.agglomeration_start + m.agglomeration_bp()) - index));
+
+        // Account for at least one of them beating the minimizer.
+        p += phred_for_at_least_one(m.value.hash, possible_minimizers);
+        
+        // TODO: handle N somehow??? It can occur outside the minimizer itself, here in the flank.
+    }
+    
+    return p;
+}
+
 //-----------------------------------------------------------------------------
 
 void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, const std::vector<Minimizer>& minimizers, bool rescue_forward ) {

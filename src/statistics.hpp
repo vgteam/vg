@@ -72,6 +72,24 @@ inline double log10_to_ln(double l10) {
 }
 
 /**
+ * Given the log10 of a value, retunr the log10 of (that value plus one).
+ */
+inline double log10_add_one(double x) {
+    return log10(pow(10, x) + 1);
+}
+
+/**
+ * Return the log of the sum of two log10-transformed values without taking them
+ * out of log space.
+ */
+inline double add_log10(double i, double j) {
+    if (i < j) {
+        return log10_add_one(j - i) + ((j - i < 10) ? i : j);
+    }
+    return log10_add_one(i - j) + ((i - j <= 10) ? j : i);
+}
+
+/**
  * Assume that we have n independent random events that occur with probability
  * p each (p is interpreted as a real number between 0 at 0 and 1 at its
  * maximum value). Return an approximate probability for at least one event

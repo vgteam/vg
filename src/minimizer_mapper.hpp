@@ -192,6 +192,12 @@ protected:
                 return this->value.offset;
             }
         }
+        
+        /// How many bases are in this minimizer's agglomeration?
+        inline size_t agglomeration_bp() const {
+            // Work out the length of a whole window, and then from that and the window count get the overall length.
+            return (length + candidates_per_window - 1) + agglomeration_length - 1;
+        }
     };
     
     /// The information we store for each seed.
@@ -338,6 +344,87 @@ protected:
      */
     static double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
         const string& sequence, const string& quality_bytes);
+    
+    /**
+     * Compute a bound on the Phred score probability of a mapping beign wrong
+     * due to base errors and unlocated minimizer hits prevented us from
+     * finding the true alignment.
+     *  
+     * Algorithm uses a "sweep line" dynamic programming approach.
+     * For a read with minimizers aligned to it:
+     *
+     *              000000000011111111112222222222
+     *              012345678901234567890123456789
+     * Read:        ******************************
+     * Minimizer 1:    *****
+     * Minimizer 2:       *****
+     * Minimizer 3:                   *****
+     * Minimizer 4:                      *****
+     *
+     * For each distinct read interval of overlapping minimizers, e.g. in the
+     * example the intervals 3,4,5; 6,7; 8,9,10; 18,19,20; 21,22; and 23,24,25
+     * we consider base errors that would result in the minimizers in the
+     * interval being incorrect
+     *
+     * We use dynamic programming sweeping left-to-right over the intervals to
+     * compute the probability of the minimum number of base errors needed to
+     * disrupt all the minimizers.
+     */
+    static double faster_cap(const vector<Minimizer>& minimizers, const vector<size_t>& minimizer_hits_explored, const string& sequence, const string& quality_bytes);
+    
+    /**
+     * Given a collection of minimizers, and a list of the minimizers we
+     * actually care about (as indices into the collection), iterate over
+     * common intervals of overlapping minimizer agglomerations.
+     *   
+     * Calls the given callback with (left, right, bottom, top), where left is
+     * the first base of the agglomeration interval (inclusive), right is the
+     * last base of the agglomeration interval (exclusive), bottom is the index
+     * of the first minimizer with an agglomeration in the interval and top is
+     * the index of the last minimizer with an agglomeration in the interval
+     * (exclusive).
+     *
+     * Note that bottom and top are offsets into minimizer_indices, **NOT**
+     * minimizers itself. Only contiguous ranges in minimizer_indices actually
+     * make sense.
+     */
+    static void for_each_aglomeration_interval(const vector<Minimizer>& minimizers,
+        const string& sequence, const string& quality_bytes,
+        const vector<size_t>& minimizer_indices,
+        const function<void(size_t, size_t, size_t, size_t)>& iteratee);      
+    
+    /**
+     * Gives the log10 prob of a base error in the given interval of the read,
+     * accounting for the disruption of specified minimizers.
+     * 
+     * minimizers is the collection of all minimizers
+     *
+     * disrupt_begin and disrupt_end are iterators defining a sequence of
+     * **indices** of minimizers in minimizers that are disrupted.
+     *
+     * left and right are the inclusive and exclusive bounds of the interval
+     * of the read where the disruption occurs.
+     */
+    static double get_log10_prob_of_disruption_in_interval(const vector<Minimizer>& minimizers,
+        const string& sequence, const string& quality_bytes,
+        const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
+        size_t left, size_t right);
+    
+    /**
+     * Gives the log10 prob of a base error in the given column of the read,
+     * accounting for the disruption of specified minimizers.
+     * 
+     * minimizers is the collection of all minimizers
+     *
+     * disrupt_begin and disrupt_end are iterators defining a sequence of
+     * **indices** of minimizers in minimizers that are disrupted.
+     *
+     * index is the position in the read where the disruption occurs.
+     */
+    static double get_log10_prob_of_disruption_in_column(const vector<Minimizer>& minimizers,
+        const string& sequence, const string& quality_bytes,
+        const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
+        size_t index);
     
     /**
      * Score the given group of gapless extensions. Determines the best score
