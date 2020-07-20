@@ -534,14 +534,14 @@ double uncapped_mapq = mapq;
     }
     
     // TODO: give SmallBitset iterators so we can use it instead of an index vector.
-    vector<size_t> minimizer_hits_explored;
+    vector<size_t> explored_minimizers;
     for (size_t i = 0; i < minimizers.size(); i++) {
         if (minimizer_explored.contains(i)) {
-            minimizer_hits_explored.push_back(i);
+            explored_minimizers.push_back(i);
         }
     }
     // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
-    double mapq_explored_cap = 2 * faster_cap(minimizers, minimizer_hits_explored, aln.sequence(), aln.quality());
+    double mapq_explored_cap = 2 * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
 
     // Remember the uncapped MAPQ and the caps
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
@@ -1684,14 +1684,14 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             // Find the source read
             auto& aln = read_num == 0 ? aln1 : aln2;
             
-            vector<size_t> minimizer_hits_explored;
+            vector<size_t> explored_minimizers;
             for (size_t i = 0; i < minimizers_by_read[read_num].size(); i++) {
                 if (minimizer_explored_by_read[read_num].contains(i)) {
-                    minimizer_hits_explored.push_back(i);
+                    explored_minimizers.push_back(i);
                 }
             }
             // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
-            double mapq_explored_cap = 2 * faster_cap(minimizers_by_read[read_num], minimizer_hits_explored, aln.sequence(), aln.quality());
+            double mapq_explored_cap = 2 * faster_cap(minimizers_by_read[read_num], explored_minimizers, aln.sequence(), aln.quality());
 
             // Remember the caps
             auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
@@ -2157,24 +2157,11 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
     return *min_cost_at;
 }
 
-double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, const vector<size_t>& minimizer_hits_explored,
+double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored,
     const string& sequence, const string& quality_bytes) {
 
-    // Make sure we have input lists in correspondence
-    assert(minimizers.size() == minimizer_hits_explored.size());
-
-    // Filter out to minimizers we definitely skip over due to no extended hits.
-    // Keep just the indices of ones with extended hits.
-    vector<size_t> filtered_minimizers;
-    filtered_minimizers.reserve(minimizers.size());
-    for (size_t i = 0; i < minimizers.size(); i++) {
-        if (minimizer_hits_explored[i] > 0) {
-            filtered_minimizers.push_back(i);
-        }
-    }
-    
-    // Sort filtered_minimizers so we go through minimizers in increasing order of start position
-    filtered_minimizers.sort([&](size_t a, size_t b) {
+    // Sort minimizer subset so we go through minimizers in increasing order of start position
+    std::sort(minimizers_explored.begin(), minimizers_explored.end(), [&](size_t a, size_t b) {
         // Return true if a must come before b, and false otherwise
         return minimizers[a].forward_offset() < minimizers[b].forward_offset();
     });
@@ -2182,14 +2169,14 @@ double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, const ve
     // Make a DP table holding the log10 probability of having an error disrupt each minimizer.
     // Entry i+1 is log prob of mutating minimizers 0, 1, 2, ..., i.
     // Make sure to have an extra field at the end to support this.
-    vector<double> c(filtered_minimizers.size() + 1, numeric_limits<double>::infinity());
+    vector<double> c(minimizers_explored.size() + 1, numeric_limits<double>::infinity());
     c[0] = 0.0;
     
-    for_each_aglomeration_interval(minimizers, sequence, quality_bytes, filtered_minimizers, [&](size_t left, size_t right, size_t bottom, size_t top) {
+    for_each_aglomeration_interval(minimizers, sequence, quality_bytes, minimizers_explored, [&](size_t left, size_t right, size_t bottom, size_t top) {
         // For each overlap range in the agglomerations
         // Calculate prob of all intervals up to top being disrupted
         double p = c[bottom] + get_log10_prob_of_disruption_in_interval(minimizers, sequence, quality_bytes,
-            filtered_minimizers.begin() + bottom, filtered_minimizers.begin() + top, left, right);
+            minimizers_explored.begin() + bottom, minimizers_explored.begin() + top, left, right);
 
         for (size_t i = bottom + 1; i < top + 1; i++) {
             // Replace min-prob for minimizers in the interval

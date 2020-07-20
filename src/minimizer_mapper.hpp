@@ -369,8 +369,11 @@ protected:
      * We use dynamic programming sweeping left-to-right over the intervals to
      * compute the probability of the minimum number of base errors needed to
      * disrupt all the minimizers.
+     *
+     * Will sort minimizers_explored (which is indices into minimizers) by
+     * minimizer start position.
      */
-    static double faster_cap(const vector<Minimizer>& minimizers, const vector<size_t>& minimizer_hits_explored, const string& sequence, const string& quality_bytes);
+    static double faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored, const string& sequence, const string& quality_bytes);
     
     /**
      * Given a collection of minimizers, and a list of the minimizers we
