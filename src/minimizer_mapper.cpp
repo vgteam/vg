@@ -1953,7 +1953,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
             auto& minimizer = minimizers[*next_agglomeration];
             
             // Determine its window size from its index.
-            size_t window_size = minimizer.length + minimizer.candidates_per_window - 1;
+            size_t window_size = minimizer.window_size();
             
 #ifdef debug
             cerr << "\tBegin agglomeration of " << (minimizer.agglomeration_length - window_size + 1)
@@ -2170,6 +2170,40 @@ double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<s
     cerr << "Sorted " << minimizers_explored.size() << " minimizers" << endl;
 #endif
 
+#ifdef debug
+    // Dump read and minimizers
+    int digits_needed = (int) ceil(log10(sequence.size()));
+    for (int digit = digits_needed - 1; digit >= 0; digit--) {
+        for (size_t i = 0; i < sequence.size(); i++) {
+            // Output the correct digit for this place in this number
+            cerr << (char) ('0' + (uint8_t) round(i % (int) round(pow(10, digit + 1)) / pow(10, digit)));
+        }
+        cerr << endl;
+    }
+    cerr << sequence << endl;
+    
+    for (auto& explored_index : minimizers_explored) {
+        // For each explored minimizer
+        auto& m = minimizers[explored_index];
+        for (size_t i = 0; i < m.agglomeration_start; i++) {
+            // Space until its agglomeration starts
+            cerr << ' ';
+        }
+        
+        for (size_t i = m.agglomeration_start; i < m.forward_offset(); i++) {
+            // Do the beginnign of the agglomeration
+            cerr << '-';
+        }
+        // Do the minimizer itself
+        cerr << m.value.key.decode(m.length);
+        for (size_t i = m.forward_offset() + m.length ; i < m.agglomeration_start + m.agglomeration_length; i++) {
+            // Do the tail end of the agglomeration
+            cerr << '-';
+        }
+        cerr << endl;
+    }
+#endif
+
     // Make a DP table holding the log10 probability of having an error disrupt each minimizer.
     // Entry i+1 is log prob of mutating minimizers 0, 1, 2, ..., i.
     // Make sure to have an extra field at the end to support this.
@@ -2241,7 +2275,7 @@ void MinimizerMapper::for_each_aglomeration_interval(const vector<Minimizer>& mi
     auto emit_preceding_intervals = [&](size_t right) {
         while (left < right) {
             // Work out the end position of the top thing on the stack
-            size_t stack_top_end = stack.front()->agglomeration_start + stack.front()->agglomeration_bp();
+            size_t stack_top_end = stack.front()->agglomeration_start + stack.front()->agglomeration_length;
             if (stack_top_end <= right) {
                 // Case where the left-most item ends before the start of the new item
                 iteratee(left, stack_top_end, bottom, bottom + stack.size());
@@ -2320,7 +2354,7 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_column(const vector<Mini
         // No more than 1 per base from here to the last base of the agglomeration, inclusive.
         size_t possible_minimizers = min((size_t) m.length,
                                          min(index - m.agglomeration_start + 1,
-                                         (m.agglomeration_start + m.agglomeration_bp()) - index));
+                                         (m.agglomeration_start + m.agglomeration_length) - index));
 
         // Account for at least one of them beating the minimizer.
         p += phred_for_at_least_one(m.value.hash, possible_minimizers);

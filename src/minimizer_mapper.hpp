@@ -169,7 +169,7 @@ protected:
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
-        size_t agglomeration_length; // What is the region of consecutive windows this minimizer instance is minimal in?
+        size_t agglomeration_length; // What is the length in bp of the region of consecutive windows this minimizer instance is minimal in?
         size_t hits; // How many hits does the minimizer have?
         const gbwtgraph::hit_type* occs;
         int32_t length; // How long is the minimizer (index's k)
@@ -193,10 +193,15 @@ protected:
             }
         }
         
-        /// How many bases are in this minimizer's agglomeration?
-        inline size_t agglomeration_bp() const {
+        /// How many bases are in a window for which a minimizer is chosen?
+        inline size_t window_size() const {
+            return length + candidates_per_window - 1;
+        }
+        
+        /// How many different windows are in this minimizer's agglomeration?
+        inline size_t agglomeration_window_count() const {
             // Work out the length of a whole window, and then from that and the window count get the overall length.
-            return (length + candidates_per_window - 1) + agglomeration_length - 1;
+            return agglomeration_length - window_size() + 1;
         }
     };
     
