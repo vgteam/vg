@@ -1851,7 +1851,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
 //-----------------------------------------------------------------------------
 
-#define debug
 double MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
     const std::vector<Minimizer>& minimizers,
     const SmallBitset& explored) {
@@ -2394,7 +2393,6 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_column(const vector<Mini
     
     return p;
 }
-#undef debug
 
 //-----------------------------------------------------------------------------
 
