@@ -2361,37 +2361,35 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_column(const vector<Mini
 #endif
         
         if (!(m.forward_offset() <= index && index < m.forward_offset() + m.length)) {
-            // Index is out of range of the minimizer. Skip it.
+            // Index is out of range of the minimizer itself. We're in the flank.
 #ifdef debug
-                cerr << "\t\t\tColumn " << index << " is out of range." << endl;
+            cerr << "\t\t\tColumn " << index << " is in flank." << endl;
 #endif
-        }
-        
-        // How many new possible minimizers would an error here create in this agglomeration,
-        // to compete with its minimizer?
-        // No more than one per position in a minimizer sequence.
-        // No more than 1 per base from the start of the agglomeration to here, inclusive.
-        // No more than 1 per base from here to the last base of the agglomeration, inclusive.
-        size_t possible_minimizers = min((size_t) m.length,
-                                         min(index - m.agglomeration_start + 1,
-                                         (m.agglomeration_start + m.agglomeration_length) - index));
+            // How many new possible minimizers would an error here create in this agglomeration,
+            // to compete with its minimizer?
+            // No more than one per position in a minimizer sequence.
+            // No more than 1 per base from the start of the agglomeration to here, inclusive.
+            // No more than 1 per base from here to the last base of the agglomeration, inclusive.
+            size_t possible_minimizers = min((size_t) m.length,
+                                             min(index - m.agglomeration_start + 1,
+                                             (m.agglomeration_start + m.agglomeration_length) - index));
 
-        // Account for at least one of them beating the minimizer.
-        double any_beat_phred = phred_for_at_least_one(m.value.hash, possible_minimizers);
-        // Make sure to convert to log10 probability
-        double any_beat_log10_prob = -any_beat_phred / 10;
-        
+            // Account for at least one of them beating the minimizer.
+            double any_beat_phred = phred_for_at_least_one(m.value.hash, possible_minimizers);
+            // Make sure to convert to log10 probability
+            double any_beat_log10_prob = -any_beat_phred / 10;
+            
 #ifdef debug
-        cerr << "\t\t\tBeat hash " << m.value.hash << " at least 1 time in " << possible_minimizers << " gives log10 probability: " << any_beat_log10_prob << endl;
+            cerr << "\t\t\tBeat hash " << m.value.hash << " at least 1 time in " << possible_minimizers << " gives log10 probability: " << any_beat_log10_prob << endl;
 #endif
-        
-        p += any_beat_log10_prob;
-        
+            
+            p += any_beat_log10_prob;
+            
+            // TODO: handle N somehow??? It can occur outside the minimizer itself, here in the flank.
+        }
 #ifdef debug
         cerr << "\t\t\tRunning AND log10 prob: " << p << endl;
 #endif
-        
-        // TODO: handle N somehow??? It can occur outside the minimizer itself, here in the flank.
     }
     
     return p;
