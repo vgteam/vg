@@ -753,7 +753,7 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 		echo 'syntax = "proto3";' > $${TESTDIR}/empty.proto; \
 		protoc $${TESTDIR}/empty.proto --proto_path=$${TESTDIR} --cpp_out=$${TESTDIR}; \
 		PROTOC_VER=$$(cat $${TESTDIR}/empty.pb.h | grep GOOGLE_PROTOBUF_VERSION | sed 's/[^0-9]*\([0-9]*\)[^0-9]*/\1/' | head -n1); \
-		if [ "$${HEADER_VER}" != "$${PROTOC_VER}" ] ; then \
+		if [ "$${HEADER_VER}" != "$${PROTOC_VER}" ] || [ "$$(protoc --version | cut -d' ' -f2)" == "3.12.3" ] ; then \
 			echo "Protobuf version has changed!"; \
 			echo "Headers are for $${HEADER_VER} but we make headers for $${PROTOC_VER}"; \
 			echo "Need to rebuild libvgio"; \
@@ -763,7 +763,17 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 		rm $${TESTDIR}/empty.proto $${TESTDIR}/empty.pb.h $${TESTDIR}/empty.pb.cc; \
 		rmdir $${TESTDIR}; \
 	fi;
-	
+
+# A note about Protobuf:
+# We have a lot of logic here to make sure that the protoc we have henerates headers with exactly the same
+# version requirements as the headers we already have.
+# If not, we regenerate them.
+# We also have a special check for Protobuf 3.12.3.
+# Protobuf 3.12.3 doesn't really mean a single version, and Homebrew has shipped multiple incompatible
+# versions with that version number.
+# Make sure that if we see that version exactly on CI, we always rebuild the Protobuf.
+# See <https://github.com/protocolbuffers/protobuf/issues/7632> and
+# <https://github.com/Homebrew/homebrew-core/pull/58229>
 	
 	
 	
