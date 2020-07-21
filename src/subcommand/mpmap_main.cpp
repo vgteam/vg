@@ -1202,8 +1202,8 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (no_clustering && !distance_index_name.empty()) {
-        cerr << "warning:[vg mpmap] No clustering option (--no-cluster) causes distance index (-d) to be ignored. This option is activated by default for 'very-short' read lengths (-l)." << endl;
+    if (no_clustering && !distance_index_name.empty() && !snarls_name.empty()) {
+        cerr << "warning:[vg mpmap] No clustering option (--no-cluster) causes distance index (-d) to be ignored when snarls (-s) are provided. This option is activated by default for 'very-short' read lengths (-l)." << endl;
     }
     
     if (suboptimal_path_exponent < 1.0) {
@@ -1290,7 +1290,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     ifstream distance_index_stream;
-    if (!distance_index_name.empty() && !no_clustering) {
+    if (!distance_index_name.empty() && !(no_clustering && !snarls_name.empty())) {
         distance_index_stream.open(distance_index_name);
         if (!distance_index_stream) {
             cerr << "error:[vg mpmap] Cannot open distance index file " << distance_index_name << endl;
@@ -1300,10 +1300,15 @@ int main_mpmap(int argc, char** argv) {
     
     ifstream snarl_stream;
     if (!snarls_name.empty()) {
-        snarl_stream.open(snarls_name);
-        if (!snarl_stream) {
-            cerr << "error:[vg mpmap] Cannot open Snarls file " << snarls_name << endl;
-            exit(1);
+        if (distance_index_name.empty() || no_clustering) {
+            snarl_stream.open(snarls_name);
+            if (!snarl_stream) {
+                cerr << "error:[vg mpmap] Cannot open Snarls file " << snarls_name << endl;
+                exit(1);
+            }
+        }
+        else {
+            cerr << "warning:[vg mpmap] Snarls file (-s) is unnecessary and will be ignored when the distance index (-d) is provided." << endl;
         }
     }
     
@@ -1500,7 +1505,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     unique_ptr<SnarlManager> snarl_manager;
-    if (!snarls_name.empty()) {
+    if (!snarls_name.empty() && (distance_index_name.empty() || no_clustering)) {
         if (!suppress_progress) {
             cerr << progress_boilerplate() << "Loading snarls from " << snarls_name << endl;
         }
@@ -1508,7 +1513,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     unique_ptr<MinimumDistanceIndex> distance_index;
-    if (!distance_index_name.empty() && !no_clustering) {
+    if (!distance_index_name.empty() && !(no_clustering && !snarls_name.empty())) {
         if (!suppress_progress) {
             cerr << progress_boilerplate() << "Loading distance index from " << distance_index_name << endl;
         }

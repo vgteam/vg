@@ -144,7 +144,8 @@ namespace vg {
         
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
+                                                     MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
@@ -160,7 +161,7 @@ namespace vg {
         
         // cut the snarls out of the aligned path so we can realign through them
         if (max_snarl_cut_size) {
-            resect_snarls_from_paths(&snarl_manager, project, max_snarl_cut_size);
+            resect_snarls_from_paths(snarl_manager, dist_index, project, max_snarl_cut_size);
         }
         
         // the snarls algorithm adds edges where necessary
@@ -170,17 +171,20 @@ namespace vg {
         trim_hanging_indels(alignment, true);
     }
 
-    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
+                                                 MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans) :
-                                                     MultipathAlignmentGraph(graph, alignment, snarl_manager, max_snarl_cut_size, create_projector(projection_trans),
+                                                     MultipathAlignmentGraph(graph, alignment, snarl_manager, dist_index, max_snarl_cut_size,
+                                                                             create_projector(projection_trans),
                                                                              create_injection_trans(projection_trans)) {
         // Nothing to do
     }
 
-    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
+                                                 MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const function<pair<id_t, bool>(id_t)>& project) :
-                                                     MultipathAlignmentGraph(graph, alignment, snarl_manager, max_snarl_cut_size, project,
-                                                                             create_injection_trans(graph, project)) {
+                                                     MultipathAlignmentGraph(graph, alignment, snarl_manager, dist_index, max_snarl_cut_size,
+                                                                             project, create_injection_trans(graph, project)) {
         // Nothing to do
     }
     
@@ -1389,6 +1393,7 @@ namespace vg {
     }
     
     void MultipathAlignmentGraph::resect_snarls_from_paths(SnarlManager* cutting_snarls,
+                                                           MinimumDistanceIndex* dist_index,
                                                            const function<pair<id_t, bool>(id_t)>& project,
                                                            int64_t max_snarl_cut_size) {
 #ifdef debug_multipath_alignment
@@ -1430,7 +1435,7 @@ namespace vg {
                 
                 if (j > 0) {
                     // we have entered this node on this iteration
-                    if (cutting_snarls->into_which_snarl(projected_id, !projected_rev)) {
+                    if (into_cutting_snarl(projected_id, !projected_rev, cutting_snarls, dist_index)) {
                         // as we enter this node, we are leaving the snarl we were in
                         
                         // since we're going up a level, we need to check whether we need to cut out the segment we've traversed
@@ -1453,7 +1458,7 @@ namespace vg {
                 
                 if (j < last) {
                     // we are going to leave this node next iteration
-                    if (cutting_snarls->into_which_snarl(projected_id, projected_rev)) {
+                    if (into_cutting_snarl(projected_id, projected_rev, cutting_snarls, dist_index)) {
                         // as we leave this node, we are entering a new deeper snarl
                         
                         // the segment in the new level will begin at the end of the current node
@@ -4214,6 +4219,24 @@ namespace vg {
             }
         }
         out << "}" << endl;
+    }
+
+    bool MultipathAlignmentGraph::into_cutting_snarl(id_t node_id, bool is_rev,
+                                                     SnarlManager* snarl_manager, MinimumDistanceIndex* dist_index) {
+        
+        if (dist_index) {
+            auto result = dist_index->into_which_snarl(node_id, is_rev);
+            // points into a snarl and snarl is nontrivial
+            return get<0>(result) != 0 && !get<2>(result);
+        }
+        else if (snarl_manager) {
+            // no mechanism to check for triviality without traversing graph
+            return snarl_manager->into_which_snarl(node_id, is_rev);
+        }
+        else {
+            // no snarls provided
+            return false;
+        }
     }
     
     vector<vector<id_t>> MultipathAlignmentGraph::get_connected_components() const {
