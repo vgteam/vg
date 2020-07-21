@@ -3,6 +3,7 @@
  */
 
 #include <iostream>
+#include <map>
 #include <vector>
 #include <string>
 
@@ -411,6 +412,7 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
 
     // GBWT metadata.
     std::vector<std::string> sample_names, contig_names;
+    std::map<std::string, std::pair<size_t, size_t>> sample_info; // name -> (id, count)
     contig_names.push_back("0"); // An artificial contig.
     size_t haplotype_count = 0;
 
@@ -428,14 +430,24 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
             buffer.push_back(mapping_to_gbwt(m));
         }
         builder.insert(buffer, true); // Insert in both orientations.
+        size_t sample_id = 0, sample_count = 0;
+        auto iter = sample_info.find(aln.name());
+        if (iter == sample_info.end()) {
+            sample_id = sample_names.size();
+            sample_names.push_back(aln.name());
+            sample_info[aln.name()] = std::pair<size_t, size_t>(sample_id, sample_count);
+            haplotype_count++;
+        } else {
+            sample_id = iter->second.first;
+            sample_count = iter->second.second;
+            iter->second.second++;
+        }
         builder.index.metadata.addPath({
-            static_cast<gbwt::PathName::path_name_type>(sample_names.size()),
+            static_cast<gbwt::PathName::path_name_type>(sample_id),
             static_cast<gbwt::PathName::path_name_type>(0),
             static_cast<gbwt::PathName::path_name_type>(0),
-            static_cast<gbwt::PathName::path_name_type>(0)
+            static_cast<gbwt::PathName::path_name_type>(sample_count)
         });
-        sample_names.push_back(aln.name());
-        haplotype_count++;
     };
     for (auto& file_name : aln_filenames) {
         if (aln_format == "GAM") {
