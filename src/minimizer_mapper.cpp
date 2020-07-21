@@ -22,7 +22,7 @@
 #include <cmath>
 
 //#define debug
-//#define print_minimizers
+#define print_minimizers
 
 namespace vg {
 
@@ -1851,6 +1851,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
 //-----------------------------------------------------------------------------
 
+#define debug
 double MinimizerMapper::compute_mapq_caps(const Alignment& aln, 
     const std::vector<Minimizer>& minimizers,
     const SmallBitset& explored) {
@@ -2321,9 +2322,19 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_interval(const vector<Mi
     
     // Start with the first column
     double p = get_log10_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, left);
+#ifdef debug
+    cerr << "log10 probability at column " << left << ": " << p << endl;
+#endif
     for(size_t i = left + 1 ; i < right; i++) {
         // OR up probability of all the other columns
-        p = add_log10(get_log10_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, i), p);
+        double col_p = get_log10_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, i);
+#ifdef debug
+        cerr << "log10 probability at column " << i << ": " << col_p << endl;
+#endif
+        p = add_log10(col_p, p);
+#ifdef debug
+        cerr << "Running total: " << p << endl;
+#endif
     }
     
     // Return the result
@@ -2338,12 +2349,22 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_column(const vector<Mini
     
     // Base cost is quality.
     double p = -(uint8_t)quality_bytes[index] / 10;
+#ifdef debug
+    cerr << "Base log10 probability from quality: " << p << endl;
+#endif
     for (auto it = disrupt_begin; it != disrupt_end; ++it) {
         // For each minimizer to disrupt
         auto m = minimizers[*it];
         
+#ifdef debug
+        cerr << "Relative rank " << (it - disrupt_begin) << " is minimizer " << m.value.key.decode(m.length) << endl;
+#endif
+        
         if (!(m.forward_offset() <= index && index < m.forward_offset() + m.length)) {
-            // Index is out of range of the minimizer
+            // Index is out of range of the minimizer. Skip it.
+#ifdef debug
+                cerr << "\tColumn " << index << " is out of range." << endl;
+#endif
         }
         
         // How many new possible minimizers would an error here create in this agglomeration,
@@ -2356,13 +2377,26 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_column(const vector<Mini
                                          (m.agglomeration_start + m.agglomeration_length) - index));
 
         // Account for at least one of them beating the minimizer.
-        p += phred_for_at_least_one(m.value.hash, possible_minimizers);
+        double any_beat_phred = phred_for_at_least_one(m.value.hash, possible_minimizers);
+        // Make sure to convert to log10 probability
+        double any_beat_log10_prob = -any_beat_phred / 10;
+        
+#ifdef debug
+        cerr << "\tBeat hash " << m.value.hash << " at least 1 time in " << possible_minimizers << " gives log10 probability: " << any_beat_log10_prob << endl;
+#endif
+        
+        p += any_beat_log10_prob;
+        
+#ifdef debug
+        cerr << "\tRunning AND log10 prob: " << p << endl;
+#endif
         
         // TODO: handle N somehow??? It can occur outside the minimizer itself, here in the flank.
     }
     
     return p;
 }
+#undef debug
 
 //-----------------------------------------------------------------------------
 
