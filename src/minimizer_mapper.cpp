@@ -22,7 +22,7 @@
 #include <cmath>
 
 //#define debug
-#define print_minimizers
+//#define print_minimizers
 
 namespace vg {
 
@@ -2157,6 +2157,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
     return *min_cost_at;
 }
 
+#define debug
 double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored,
     const string& sequence, const string& quality_bytes) {
 
@@ -2165,23 +2166,51 @@ double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<s
         // Return true if a must come before b, and false otherwise
         return minimizers[a].forward_offset() < minimizers[b].forward_offset();
     });
+#ifdef debug
+    cerr << "Sorted " << minimizers_explored.size() << " minimizers" << endl;
+#endif
 
     // Make a DP table holding the log10 probability of having an error disrupt each minimizer.
     // Entry i+1 is log prob of mutating minimizers 0, 1, 2, ..., i.
     // Make sure to have an extra field at the end to support this.
-    vector<double> c(minimizers_explored.size() + 1, numeric_limits<double>::infinity());
+    // Initialize with -inf for unfilled.
+    vector<double> c(minimizers_explored.size() + 1, -numeric_limits<double>::infinity());
     c[0] = 0.0;
     
     for_each_aglomeration_interval(minimizers, sequence, quality_bytes, minimizers_explored, [&](size_t left, size_t right, size_t bottom, size_t top) {
         // For each overlap range in the agglomerations
-        // Calculate prob of all intervals up to top being disrupted
-        double p = c[bottom] + get_log10_prob_of_disruption_in_interval(minimizers, sequence, quality_bytes,
+        
+#ifdef debug
+        cerr << "Consider overlap range " << left << " to " << right << " in minimizer ranks " << bottom << " to " << top << endl;
+        cerr << "log10prob for bottom: " << c[bottom] << endl;
+#endif
+        
+        // Calculate the probability of a disruption here
+        double p_here = get_log10_prob_of_disruption_in_interval(minimizers, sequence, quality_bytes,
             minimizers_explored.begin() + bottom, minimizers_explored.begin() + top, left, right);
+
+#ifdef debug
+        cerr << "log10prob for here: " << p_here << endl;
+#endif
+        
+        // Calculate prob of all intervals up to top being disrupted
+        double p = c[bottom] + p_here;
+        
+#ifdef debug
+        cerr << "log10prob overall: " << p << endl;
+#endif
 
         for (size_t i = bottom + 1; i < top + 1; i++) {
             // Replace min-prob for minimizers in the interval
             if (c[i] < p) {
+#ifdef debug
+                cerr << "\tBeats " << c[i] << " at rank " << i-1 << endl;
+#endif
                 c[i] = p;
+            } else {
+#ifdef debug
+                cerr << "\tBeaten by " << c[i] << " at rank " << i-1 << endl;
+#endif
             }
         }
     });
@@ -2301,6 +2330,7 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_column(const vector<Mini
     
     return p;
 }
+#undef debug
 
 //-----------------------------------------------------------------------------
 
