@@ -231,7 +231,7 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Build a GBWT from the embedded non-alt paths in the graph. </p>
+<p>Build a GBWT from the embedded non-alt paths in the graph. Use paths_as_samples to choose whether we treat the paths as contigs or samples. </p>
 
 </div>
 </div>
@@ -266,7 +266,7 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Build a GBWT with each alignment as a thread over a separate sample in the same contig.</p>
+<p>Build a GBWT from the alignments. Each distinct alignment name becomes a sample in the GBWT metadata. If there are multiple alignments with the same name, the corresponding GBWT path names will have the same sample identifier but different values in the count field.</p>
 <p>aln_format can be "GAM" or "GAF" </p>
 
 </div>
