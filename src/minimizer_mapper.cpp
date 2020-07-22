@@ -548,7 +548,7 @@ double uncapped_mapq = mapq;
     set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
 
     // Apply the caps and transformations
-    mapq = round(0.85 * min(mapq_explored_cap, mapq, 70));
+    mapq = round(0.85 * min(mapq_explored_cap, min(mapq, 70.0)));
 
 #ifdef debug
     cerr << "Explored cap is " << mapq_explored_cap << endl;
@@ -1720,7 +1720,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             set_annotation(to_annotate, "mapq_applied_cap", mapq_cap);
 
             // Apply the cap and transformation
-            read_mapq = round(0.85 * min(mapq_cap, read_mapq, 70));
+            read_mapq = round(0.85 * min(mapq_cap, min(read_mapq, 70.0)));
         }
         
 #ifdef debug
