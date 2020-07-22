@@ -547,10 +547,11 @@ double uncapped_mapq = mapq;
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
     set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
 
-    // Apply the caps
-    mapq = min(mapq, mapq_explored_cap);
+    // Apply the caps and transformations
+    mapq = round(0.85 * min(mapq_explored_cap, mapq, 70));
 
 #ifdef debug
+    cerr << "Explored cap is " << mapq_explored_cap << endl;
     cerr << "MAPQ is " << mapq << endl;
 #endif
         
@@ -1718,8 +1719,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             // And the cap we actually applied (possibly from the pair partner)
             set_annotation(to_annotate, "mapq_applied_cap", mapq_cap);
 
-            // Apply the cap
-            read_mapq = min(read_mapq, mapq_cap);
+            // Apply the cap and transformation
+            read_mapq = round(0.85 * min(mapq_cap, read_mapq, 70));
         }
         
 #ifdef debug
@@ -2248,9 +2249,14 @@ double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<s
         }
     });
     
+#ifdef debug
+    cerr << "log10prob after all minimizers is " << c.back() << endl;
+#endif
+    
     assert(!isinf(c.back()));
     // Conver to Phred.
-    return -c.back() * 10;
+    double result = -c.back() * 10;
+    return result;
 }
 
 void MinimizerMapper::for_each_aglomeration_interval(const vector<Minimizer>& minimizers,
@@ -2316,6 +2322,10 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_interval(const vector<Mi
     const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
     size_t left, size_t right) {
     
+#ifdef debug
+    cerr << "Compute log10 probability in interval " << left << "-" << right << endl;
+#endif
+    
     if (left == right) {
         // 0-length intervals need no disruption.
         return 0;
@@ -2334,9 +2344,13 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_interval(const vector<Mi
 #endif
         p = add_log10(col_p, p);
 #ifdef debug
-        cerr << "\tRunning total: " << p << endl;
+        cerr << "\tRunning total OR: " << p << endl;
 #endif
     }
+    
+    // Make sure that we don't go above certainty when our bases are really bad
+    // and OR ~= sum assumption breaks down due to non-tiny probabilities.
+    p = std::min(p, 0.0);
     
     // Return the result
     return p;
@@ -2348,8 +2362,12 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_column(const vector<Mini
     const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
     size_t index) {
     
-    // Base cost is quality.
-    double p = -(uint8_t)quality_bytes[index] / 10;
+#ifdef debug
+    cerr << "\tCompute log10 probability at column " << index << endl;
+#endif
+    
+    // Base cost is quality. Make sure to compute a non-integral answer.
+    double p = -(uint8_t)quality_bytes[index] / 10.0;
 #ifdef debug
     cerr << "\t\tBase log10 probability from quality: " << p << endl;
 #endif
