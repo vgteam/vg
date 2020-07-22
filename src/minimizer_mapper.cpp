@@ -2316,8 +2316,10 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_interval(const vector<Mi
     const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
     size_t left, size_t right) {
     
-    // We don't allow zero length intervals
-    assert(left < right);
+    if (left == right) {
+        // 0-length intervals need no disruption.
+        return 0;
+    }
     
     // Start with the first column
     double p = get_log10_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, left);
