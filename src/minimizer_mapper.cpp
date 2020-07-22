@@ -678,7 +678,7 @@ double uncapped_mapq = mapq;
 
 pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2,
                                                       vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer){
-
+    fragment_length_distr.force_parameters(565, 174);
     if (fragment_length_distr.is_finalized()) {
         //If we know the fragment length distribution then we just map paired ended 
         return map_paired(aln1, aln2);
@@ -892,7 +892,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     //For each minimizer, how many hits ended up in an extended cluster that got turned into an alignment?
     vector<vector<size_t>> minimizer_extensions_count(2); 
     minimizer_extensions_count[0].resize(minimizers_by_read[0].size(), 0);
-    minimizer_extensions_count[2].resize(minimizers_by_read[1].size(), 0);
+    minimizer_extensions_count[1].resize(minimizers_by_read[1].size(), 0);
 
     //Now that we've scored each of the clusters, extend and align them
     for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
@@ -1013,8 +1013,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #ifdef debug
                         cerr << "Seed read:" << minimizers[seed.source].value.offset << " = " << seed.pos
                             << " from minimizer " << seed.source << endl;
-                            minimizer_extended_cluster_count[read_num].back()[seed.source]++
 #endif
+                        minimizer_extended_cluster_count[read_num].back()[seed.source]++;
                     }
                     
                     // Extend seed hits in the cluster into one or more gapless extensions
@@ -1273,7 +1273,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         fragment_distances.emplace_back(fragment_distance);
                         better_cluster_count_alignment_pairs.emplace_back(better_cluster_count[fragment_num]);
 #ifdef print_minimizers
-                        alignment_was_rescued.emplace_back(0,0);
+                        alignment_was_rescued.emplace_back(false, false);
 #endif
 
 #ifdef debug
@@ -1741,6 +1741,9 @@ vector<pair<bool, bool>> mapping_was_rescued;
         mappings.second.back().set_score(0);
         mappings.second.back().set_identity(0);
         mappings.second.back().set_mapping_quality(0);
+#ifdef print_minimizers
+        mapping_was_rescued.emplace_back(false, false);
+#endif
 
     } else {
     
@@ -1766,7 +1769,9 @@ vector<pair<bool, bool>> mapping_was_rescued;
             mapq = min(mapq,round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front()))));
         }
 #ifdef print_minimizers
-        fragment_cluster_cap = round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front())));
+        if (better_cluster_count_mappings.size() != 0 && better_cluster_count_mappings.front() > 0) {
+            fragment_cluster_cap = round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front())));
+        }
 #endif
 
         //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
@@ -1778,8 +1783,8 @@ vector<pair<bool, bool>> mapping_was_rescued;
 
     
 #ifdef print_minimizers
-    mapq_score_group_1 = get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index);
-    mapq_score_group_2 = get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index);
+    mapq_score_group_1 = scores_group_1.size() <= 1 ? 0.0 : get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index);
+    mapq_score_group_2 = scores_group_2.size() <= 1 ? 0.0 : get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index);
 #endif
         // Compute one MAPQ cap across all the fragments
         double mapq_cap = -std::numeric_limits<float>::infinity();
@@ -1944,6 +1949,12 @@ vector<pair<bool, bool>> mapping_was_rescued;
     }
  
 #ifdef print_minimizers
+    if (mapq_extend_caps.size() == 0) {
+        mapq_extend_caps.resize(2,0.0);
+    }
+    if (distances.size() == 0) {
+        distances.emplace_back(0);
+    }
     cerr << aln1.sequence() << "\t";
     for (char c : aln1.quality()) {
         cerr << (char)(c+33);
@@ -1961,8 +1972,7 @@ vector<pair<bool, bool>> mapping_was_rescued;
          if (minimizer_extensions_count[0][i]>0) {
              assert(minimizer.hits<=hard_hit_cap) ;
          }
-    }
-    cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_group_1 << "\t" << mapq_extend_caps[0];  
+    } cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_group_1 << "\t" << mapq_extend_caps[0];  
     if (track_correctness) {
         cerr << "\t" << funnels[0].last_correct_stage() << endl;
     } else {
@@ -1973,7 +1983,7 @@ vector<pair<bool, bool>> mapping_was_rescued;
     for (char c : aln2.quality()) {
         cerr << (char)(c+33);
     }
-    cerr << "\t" << all_clusters.size() << "\t" << mapping_was_rescued[1].first << "\t" << mapping_was_rescued[1].second << "\t" << distances.front();
+    cerr << "\t" << all_clusters.size() << "\t" << mapping_was_rescued[0].second << "\t" << mapping_was_rescued[0].first << "\t" << distances.front();
     for (size_t i = 0 ; i < minimizers_by_read[1].size() ; i++) {
         auto& minimizer = minimizers_by_read[1][i];
         cerr << "\t"
