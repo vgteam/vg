@@ -897,6 +897,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // To compute the windows that are explored, we need to get
     // all the minimizers that are explored.
     vector<SmallBitset> minimizer_explored_by_read(2);
+    vector<vector<size_t>> minimizer_aligned_count_by_read(2);
     //How many hits of each minimizer ended up in each extended cluster?
     vector<vector<vector<size_t>>> minimizer_extended_cluster_count_by_read(2); 
     
@@ -940,6 +941,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
         unextended_clusters_by_read[read_num].reserve(clusters.size());
         minimizer_explored_by_read[read_num] = SmallBitset(minimizers.size());
+        minimizer_aligned_count_by_read[read_num].resize(minimizers.size(), 0);
         
         //Process clusters sorted by both score and read coverage
         process_until_threshold_c<Cluster, double>(clusters, [&](size_t i) -> double {
@@ -1200,6 +1202,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         // This minimizer is in an extended cluster that gave rise
                         // to at least one alignment, so it is explored.
                         minimizer_explored_by_read[read_num].insert(i);
+                        minimizer_aligned_count_by_read[read_num][i] += minimizer_extended_cluster_count_by_read[read_num][extension_num][i];
                     }
                 }
                 
@@ -1472,8 +1475,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                  << minimizer.agglomeration_start << "\t"
                  << minimizer.agglomeration_length << "\t"
                  << minimizer.hits << "\t"
-                 << minimizer_explored_by_read[0].contains(i);
-             if (minimizer_explored_by_read[0].contains(i)) {
+                 << minimizer_aligned_count_by_read[0][i];
+             if (minimizer_aligned_count_by_read[0][i] > 0) {
                  assert(minimizer.hits<=hard_hit_cap) ;
              }
         }
@@ -1497,8 +1500,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                  << minimizer.agglomeration_start << "\t"
                  << minimizer.agglomeration_length << "\t"
                  << minimizer.hits << "\t"
-                 << minimizer_explored_by_read[0].contains(i);
-             if (minimizer_explored_by_read[0].contains(i)) {
+                 << minimizer_aligned_count_by_read[1][i];
+             if (minimizer_aligned_count_by_read[1][i] > 0) {
                  assert(minimizer.hits<=hard_hit_cap) ;
              }
         }
@@ -1987,7 +1990,7 @@ vector<pair<bool, bool>> mapping_was_rescued;
          if (minimizer_explored_by_read[0].contains(i)) {
              assert(minimizer.hits<=hard_hit_cap) ;
          }
-    } cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_group_1 << "\t" << mapq_extend_caps[0];  
+    } cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_group_1 << "\t" << mapq_extend_caps[0] << "\t" << mappings.first.front().get_mapping_quality();  
     if (track_correctness) {
         cerr << "\t" << funnels[0].last_correct_stage() << endl;
     } else {
@@ -2012,7 +2015,7 @@ vector<pair<bool, bool>> mapping_was_rescued;
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_group_1 << "\t" << mapq_extend_caps[1];
+    cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_group_2 << "\t" << mapq_extend_caps[1] << "\t" << mappings.second.front().get_mapping_quality();
     if (track_correctness) {
         cerr << "\t" << funnels[1].last_correct_stage() << endl;
     } else {
