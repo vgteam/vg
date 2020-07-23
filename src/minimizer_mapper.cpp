@@ -2338,6 +2338,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
     return *min_cost_at;
 }
 
+#define debug
 double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored,
     const string& sequence, const string& quality_bytes) {
 
@@ -2530,8 +2531,8 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_interval(const vector<Mi
     }
     
     // NOT the AND of NOT, so we actually OR over the columns.
-    // Also convert to logprob.
-    return 1.0 - p;
+    // Also convert to log10prob.
+    return log10(1.0 - p);
  
 }
 
@@ -2589,6 +2590,7 @@ double MinimizerMapper::get_prob_of_disruption_in_column(const vector<Minimizer>
     
     return p;
 }
+#undef debug
 
 //-----------------------------------------------------------------------------
 
