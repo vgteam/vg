@@ -22,7 +22,7 @@
 #include <cmath>
 
 //#define debug
-#define print_minimizers
+//#define print_minimizers
 
 namespace vg {
 
