@@ -689,7 +689,6 @@ double uncapped_mapq = mapq;
 
 pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2,
                                                       vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer){
-    fragment_length_distr.force_parameters(565, 174);
     if (fragment_length_distr.is_finalized()) {
         //If we know the fragment length distribution then we just map paired ended 
         return map_paired(aln1, aln2);
