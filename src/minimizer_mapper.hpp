@@ -249,17 +249,17 @@ protected:
      */
     void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
 
-   /**
-    * Score the set of extensions for each cluster using score_extension_group().
-    * Return the scores in the same order as the extensions.
-    */
-   std::vector<int> score_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
+    /**
+     * Score the set of extensions for each cluster using score_extension_group().
+     * Return the scores in the same order as the extensions.
+     */
+    std::vector<int> score_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
 
-   /**
-    * Score the set of extensions for each cluster using score_extension_group().
-    * Return the scores in the same order as the extensions.
-    */
-   std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
+    /**
+     * Score the set of extensions for each cluster using score_extension_group().
+     * Return the scores in the same order as the extensions.
+     */
+    std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
 
 //-----------------------------------------------------------------------------
 
@@ -419,8 +419,8 @@ protected:
         size_t left, size_t right);
     
     /**
-     * Gives the log10 prob of a base error in the given column of the read,
-     * accounting for the disruption of specified minimizers.
+     * Gives the raw probability of a base error in the given column of the
+     * read, accounting for the disruption of specified minimizers.
      * 
      * minimizers is the collection of all minimizers
      *
@@ -429,7 +429,7 @@ protected:
      *
      * index is the position in the read where the disruption occurs.
      */
-    static double get_log10_prob_of_disruption_in_column(const vector<Minimizer>& minimizers,
+    static double get_prob_of_disruption_in_column(const vector<Minimizer>& minimizers,
         const string& sequence, const string& quality_bytes,
         const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
         size_t index);
