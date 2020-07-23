@@ -42,7 +42,7 @@ var searchData=
   ['path_5fmetadata_5fv',['path_metadata_v',['../classbdsg_1_1ODGI.html#a82c86ac9e3606a17826e01c73719ee0d',1,'bdsg::ODGI']]],
   ['path_5fname',['path_name',['../structvg_1_1FeatureSet_1_1Feature.html#a645900ed3044cc3359c18e109f7460a7',1,'vg::FeatureSet::Feature::path_name()'],['../classvg_1_1GraphSynchronizer_1_1Lock.html#ad19c5f9cbb68abb1bcfe6e3a9fd65382',1,'vg::GraphSynchronizer::Lock::path_name()']]],
   ['path_5fname_5flength_5fiv',['path_name_length_iv',['../classbdsg_1_1PackedGraph.html#ab1fed5a13cbd083d895a147a21d735bc',1,'bdsg::PackedGraph']]],
-  ['path_5fname_5fmap',['path_name_map',['../classbdsg_1_1ODGI.html#ae7d1b996a2ea9f70cc0285313cf7b168',1,'bdsg::ODGI']]],
+  ['path_5fname_5fmap',['path_name_map',['../classbdsg_1_1ODGI.html#a427c27fc015bebd3177ffafc8517c728',1,'bdsg::ODGI']]],
   ['path_5fname_5fstart_5fiv',['path_name_start_iv',['../classbdsg_1_1PackedGraph.html#a86fe04dbf96248b43407ffeae86c56fd',1,'bdsg::PackedGraph']]],
   ['path_5fnames',['path_names',['../classvg_1_1VariantAdder.html#a3f40d9f81c27adf5afffe04d551ac138',1,'vg::VariantAdder']]],
   ['path_5fnames_5fiv',['path_names_iv',['../classbdsg_1_1PackedGraph.html#af4e3b5c2c3f05fece654faf6f06fc426',1,'bdsg::PackedGraph']]],

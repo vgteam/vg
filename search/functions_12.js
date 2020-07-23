@@ -12,6 +12,7 @@ var searchData=
   ['rank_5fin_5fparent',['rank_in_parent',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html#a8764931229567f2ffbf14988d02ff17f',1,'vg::SnarlSeedClusterer::NetgraphNode']]],
   ['rank_5fto_5fhandle',['rank_to_handle',['../classhandlegraph_1_1RankedHandleGraph.html#aacf6651545adbd407082a539222f8a69',1,'handlegraph::RankedHandleGraph']]],
   ['rank_5fto_5fid',['rank_to_id',['../classxg_1_1XG.html#aee052f301d8cae7b30c50c115c6b950b',1,'xg::XG::rank_to_id()'],['../classbdsg_1_1ODGI.html#a2629006a078b90f4e6306d6bc8c133be',1,'bdsg::ODGI::rank_to_id()'],['../classhandlegraph_1_1RankedHandleGraph.html#a5bf563241454b21539effcad11406ec9',1,'handlegraph::RankedHandleGraph::rank_to_id()']]],
+  ['rank_5fto_5fpath',['rank_to_path',['../classbdsg_1_1ODGI.html#a8541c8178fd0a21db8579db55b53ca39',1,'bdsg::ODGI']]],
   ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html#a08cf82d7c40db195176b9bf177a50e32',1,'vg::RareVariantSimplifier']]],
   ['ratiosupportsnarlcaller',['RatioSupportSnarlCaller',['../classvg_1_1RatioSupportSnarlCaller.html#ad6905b3e30632f2a0a3e304cdfd15faa',1,'vg::RatioSupportSnarlCaller']]],
   ['re_5fgenotype',['re_genotype',['../classvg_1_1LegacyCaller.html#a6c23ee5b732d26d4f55bd3b5b4830fca',1,'vg::LegacyCaller']]],

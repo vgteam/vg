@@ -150,8 +150,15 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aeb9d9a5e4259e365194e650f4d8de89a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1f762f9a7977278859307a9c16a0ca9d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a1f762f9a7977278859307a9c16a0ca9d">get_degree</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left) const</td></tr>
 <tr class="separator:a1f762f9a7977278859307a9c16a0ca9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a283642a6aa72294926826b3e429bcb34"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a283642a6aa72294926826b3e429bcb34">forward</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
+<tr class="memdesc:a283642a6aa72294926826b3e429bcb34"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the locally forward version of a handle.  <a href="#a283642a6aa72294926826b3e429bcb34">More...</a><br /></td></tr>
+<tr class="separator:a283642a6aa72294926826b3e429bcb34"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa9f151b46b20a3c08314058c69c37ba4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#aa9f151b46b20a3c08314058c69c37ba4">edge_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;left, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;right) const</td></tr>
+<tr class="separator:aa9f151b46b20a3c08314058c69c37ba4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa1d6a4235afe99439e8a323cc142ffc2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#aa1d6a4235afe99439e8a323cc142ffc2">traverse_edge_handle</a> (const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;edge, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;left) const</td></tr>
+<tr class="separator:aa1d6a4235afe99439e8a323cc142ffc2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aefbb6d165884048871c0c71dfd5ec0bd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#aefbb6d165884048871c0c71dfd5ec0bd">has_path</a> (const std::string &amp;path_name) const</td></tr>
-<tr class="memdesc:aefbb6d165884048871c0c71dfd5ec0bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the locally forward version of a handle.  <a href="#aefbb6d165884048871c0c71dfd5ec0bd">More...</a><br /></td></tr>
+<tr class="memdesc:aefbb6d165884048871c0c71dfd5ec0bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if a path name exists and is legal to get a path handle for.  <a href="#aefbb6d165884048871c0c71dfd5ec0bd">More...</a><br /></td></tr>
 <tr class="separator:aefbb6d165884048871c0c71dfd5ec0bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5272dacca04fba9b408d034dbacf538d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a5272dacca04fba9b408d034dbacf538d">get_path_handle</a> (const std::string &amp;path_name) const</td></tr>
 <tr class="separator:a5272dacca04fba9b408d034dbacf538d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -172,9 +179,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ac8cad8b4fd7cbc45c63d6a24aae9e08c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ac8cad8b4fd7cbc45c63d6a24aae9e08c">get_handle_of_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const</td></tr>
 <tr class="memdesc:ac8cad8b4fd7cbc45c63d6a24aae9e08c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a node handle (node ID and orientation) from a handle to an step on a path.  <a href="#ac8cad8b4fd7cbc45c63d6a24aae9e08c">More...</a><br /></td></tr>
 <tr class="separator:ac8cad8b4fd7cbc45c63d6a24aae9e08c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8f19e1e243a7476bb02dbdbc0c7e4e3f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a8f19e1e243a7476bb02dbdbc0c7e4e3f">get_path</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const</td></tr>
-<tr class="memdesc:a8f19e1e243a7476bb02dbdbc0c7e4e3f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a path handle (path ID) from a handle to an step on a path.  <a href="#a8f19e1e243a7476bb02dbdbc0c7e4e3f">More...</a><br /></td></tr>
-<tr class="separator:a8f19e1e243a7476bb02dbdbc0c7e4e3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a89e279a09b8a97ccf0b6173dbf403476"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a89e279a09b8a97ccf0b6173dbf403476">path_begin</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const</td></tr>
 <tr class="separator:a89e279a09b8a97ccf0b6173dbf403476"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1b4c772ba162987a9639aa5fa8d6771a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a1b4c772ba162987a9639aa5fa8d6771a">path_end</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const</td></tr>
@@ -193,10 +197,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:abd56c244b5681b99d4c68f3e829198a9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the step handle is an end magic handle.  <a href="#abd56c244b5681b99d4c68f3e829198a9">More...</a><br /></td></tr>
 <tr class="separator:abd56c244b5681b99d4c68f3e829198a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa5ec93e4c218d661208be27bb6dbcbac"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#aa5ec93e4c218d661208be27bb6dbcbac">has_next_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const</td></tr>
-<tr class="memdesc:aa5ec93e4c218d661208be27bb6dbcbac"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the step is not the last step on the path, else false.  <a href="#aa5ec93e4c218d661208be27bb6dbcbac">More...</a><br /></td></tr>
+<tr class="memdesc:aa5ec93e4c218d661208be27bb6dbcbac"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the step has a next step on the path, else false.  <a href="#aa5ec93e4c218d661208be27bb6dbcbac">More...</a><br /></td></tr>
 <tr class="separator:aa5ec93e4c218d661208be27bb6dbcbac"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a117c7a402f0deb7dfe3e4c60d5b85a7c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a117c7a402f0deb7dfe3e4c60d5b85a7c">has_previous_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const</td></tr>
-<tr class="memdesc:a117c7a402f0deb7dfe3e4c60d5b85a7c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the step is not the first step on the path, else false.  <a href="#a117c7a402f0deb7dfe3e4c60d5b85a7c">More...</a><br /></td></tr>
+<tr class="memdesc:a117c7a402f0deb7dfe3e4c60d5b85a7c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the step has a previous step on the path, else false.  <a href="#a117c7a402f0deb7dfe3e4c60d5b85a7c">More...</a><br /></td></tr>
 <tr class="separator:a117c7a402f0deb7dfe3e4c60d5b85a7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9b25ea3cd9dd8deda455adcb54048758"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a9b25ea3cd9dd8deda455adcb54048758">get_next_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const</td></tr>
 <tr class="memdesc:a9b25ea3cd9dd8deda455adcb54048758"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a handle to the next step on the path.  <a href="#a9b25ea3cd9dd8deda455adcb54048758">More...</a><br /></td></tr>
@@ -205,7 +209,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:a0ddc5873bb8e56f00a7788ee269cc3f2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a handle to the previous step on the path.  <a href="#a0ddc5873bb8e56f00a7788ee269cc3f2">More...</a><br /></td></tr>
 <tr class="separator:a0ddc5873bb8e56f00a7788ee269cc3f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aca22411d8d2b91cd5646d012d4cced32"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#aca22411d8d2b91cd5646d012d4cced32">get_path_handle_of_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const</td></tr>
-<tr class="memdesc:aca22411d8d2b91cd5646d012d4cced32"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a handle to the path that an step is on.  <a href="#aca22411d8d2b91cd5646d012d4cced32">More...</a><br /></td></tr>
+<tr class="memdesc:aca22411d8d2b91cd5646d012d4cced32"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a handle to the path that a step is on.  <a href="#aca22411d8d2b91cd5646d012d4cced32">More...</a><br /></td></tr>
 <tr class="separator:aca22411d8d2b91cd5646d012d4cced32"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2f1f969f0a4aa08e812324a4e3028872"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a2f1f969f0a4aa08e812324a4e3028872">is_empty</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const</td></tr>
 <tr class="memdesc:a2f1f969f0a4aa08e812324a4e3028872"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the given path is empty, and false otherwise.  <a href="#a2f1f969f0a4aa08e812324a4e3028872">More...</a><br /></td></tr>
@@ -275,6 +279,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a74b5764a3b881b921ce745fd8e53d1ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af9b068258f3a98847bcde404ef293d9c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#af9b068258f3a98847bcde404ef293d9c">append_step</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to_append)</td></tr>
 <tr class="separator:af9b068258f3a98847bcde404ef293d9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab91a47ba26660fdd0022e193a5de05df"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ab91a47ba26660fdd0022e193a5de05df">insert_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;before, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;after, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to_insert)</td></tr>
+<tr class="separator:ab91a47ba26660fdd0022e193a5de05df"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab249018b1f7ccbb325f7de2575b2f269"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ab249018b1f7ccbb325f7de2575b2f269">set_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle)</td></tr>
 <tr class="memdesc:ab249018b1f7ccbb325f7de2575b2f269"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the step to the given handle, possibly re-linking and cleaning up if needed.  <a href="#ab249018b1f7ccbb325f7de2575b2f269">More...</a><br /></td></tr>
 <tr class="separator:ab249018b1f7ccbb325f7de2575b2f269"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -287,6 +293,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a803a41f3012e735d81272826acdac236"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a803a41f3012e735d81272826acdac236">to_gfa</a> (std::ostream &amp;out) const</td></tr>
 <tr class="memdesc:a803a41f3012e735d81272826acdac236"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert to GFA (for debugging)  <a href="#a803a41f3012e735d81272826acdac236">More...</a><br /></td></tr>
 <tr class="separator:a803a41f3012e735d81272826acdac236"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a683d1879ff05c9e27f1586cb8f61376f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a683d1879ff05c9e27f1586cb8f61376f">to_gfa</a> (const string &amp;filename) const</td></tr>
+<tr class="memdesc:a683d1879ff05c9e27f1586cb8f61376f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert to GFA and send to the given filename, or "-" for standard output (the default).  <a href="#a683d1879ff05c9e27f1586cb8f61376f">More...</a><br /></td></tr>
+<tr class="separator:a683d1879ff05c9e27f1586cb8f61376f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab7efc962237f615ababad29f06d98c9b"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ab7efc962237f615ababad29f06d98c9b">to_gfa</a> () const</td></tr>
+<tr class="memdesc:ab7efc962237f615ababad29f06d98c9b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert to GFA and return as a string.  <a href="#ab7efc962237f615ababad29f06d98c9b">More...</a><br /></td></tr>
+<tr class="separator:ab7efc962237f615ababad29f06d98c9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a316d91c973ef3b034a7d40118ff350b6"><td class="memItemLeft" align="right" valign="top">long long int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a316d91c973ef3b034a7d40118ff350b6">serialize_and_measure</a> (std::ostream &amp;out) const</td></tr>
 <tr class="separator:a316d91c973ef3b034a7d40118ff350b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8b4feef9688b5ecd376e84bd693f0466"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a8b4feef9688b5ecd376e84bd693f0466">load</a> (std::istream &amp;in)</td></tr>
@@ -384,6 +396,12 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:ac16e82b77edebf5bceb31301bddbac2a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ac16e82b77edebf5bceb31301bddbac2a">for_each_step_on_handle_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;)&gt; &amp;iteratee) const</td></tr>
 <tr class="memdesc:ac16e82b77edebf5bceb31301bddbac2a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enumerate the path steps on a given handle (strand agnostic)  <a href="#ac16e82b77edebf5bceb31301bddbac2a">More...</a><br /></td></tr>
 <tr class="separator:ac16e82b77edebf5bceb31301bddbac2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a611a37a8f9cc6612e6fdf9039da6839f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a611a37a8f9cc6612e6fdf9039da6839f">has_linear_next_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const</td></tr>
+<tr class="memdesc:a611a37a8f9cc6612e6fdf9039da6839f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the step has a next step on the path that doesn't wrap around, else false.  <a href="#a611a37a8f9cc6612e6fdf9039da6839f">More...</a><br /></td></tr>
+<tr class="separator:a611a37a8f9cc6612e6fdf9039da6839f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9e083851337fd6d17f4d198d6442fff9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a9e083851337fd6d17f4d198d6442fff9">has_linear_previous_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const</td></tr>
+<tr class="memdesc:a9e083851337fd6d17f4d198d6442fff9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the step has a previous step on the path that doesn't wrap around, else false.  <a href="#a9e083851337fd6d17f4d198d6442fff9">More...</a><br /></td></tr>
+<tr class="separator:a9e083851337fd6d17f4d198d6442fff9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -407,9 +425,9 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:a9dfdedab948ca178b87f3f6ff31edafb"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a9dfdedab948ca178b87f3f6ff31edafb">create_step</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle)</td></tr>
 <tr class="memdesc:a9dfdedab948ca178b87f3f6ff31edafb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helper to create the internal records for the step.  <a href="#a9dfdedab948ca178b87f3f6ff31edafb">More...</a><br /></td></tr>
 <tr class="separator:a9dfdedab948ca178b87f3f6ff31edafb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a766c2bd59741d0cdaad205f1a0eb93b5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a766c2bd59741d0cdaad205f1a0eb93b5">destroy_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle)</td></tr>
-<tr class="memdesc:a766c2bd59741d0cdaad205f1a0eb93b5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helper to destroy the internal records for the step.  <a href="#a766c2bd59741d0cdaad205f1a0eb93b5">More...</a><br /></td></tr>
-<tr class="separator:a766c2bd59741d0cdaad205f1a0eb93b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae8154aa4f5f9b0e9aa0a80043c53cb2f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ae8154aa4f5f9b0e9aa0a80043c53cb2f">destroy_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle, bool clean_up_empty_path=true)</td></tr>
+<tr class="memdesc:ae8154aa4f5f9b0e9aa0a80043c53cb2f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helper to destroy the internal records for the step.  <a href="#ae8154aa4f5f9b0e9aa0a80043c53cb2f">More...</a><br /></td></tr>
+<tr class="separator:ae8154aa4f5f9b0e9aa0a80043c53cb2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8b838cef09db03164c14ecfa74bd4dbe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a8b838cef09db03164c14ecfa74bd4dbe">link_steps</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;from, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;to)</td></tr>
 <tr class="memdesc:a8b838cef09db03164c14ecfa74bd4dbe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helper to stitch up partially built paths.  <a href="#a8b838cef09db03164c14ecfa74bd4dbe">More...</a><br /></td></tr>
 <tr class="separator:a8b838cef09db03164c14ecfa74bd4dbe"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -419,6 +437,18 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:ab673c6dd900657a2a31ee9ea0dbf2611"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ab673c6dd900657a2a31ee9ea0dbf2611">set_handle_of_step</a> (<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
 <tr class="memdesc:ab673c6dd900657a2a31ee9ea0dbf2611"><td class="mdescLeft">&#160;</td><td class="mdescRight">Modify the given step handle to point to the given handle.  <a href="#ab673c6dd900657a2a31ee9ea0dbf2611">More...</a><br /></td></tr>
 <tr class="separator:ab673c6dd900657a2a31ee9ea0dbf2611"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0732e24fcd5aabb78e109aa92aa1509e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structbdsg_1_1ODGI_1_1path__metadata__t.html">path_metadata_t</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a0732e24fcd5aabb78e109aa92aa1509e">find_metadata</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)</td></tr>
+<tr class="memdesc:a0732e24fcd5aabb78e109aa92aa1509e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the path metadata for a path.  <a href="#a0732e24fcd5aabb78e109aa92aa1509e">More...</a><br /></td></tr>
+<tr class="separator:a0732e24fcd5aabb78e109aa92aa1509e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5b27bbcef4c2efe28b9ee26759a1aba1"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structbdsg_1_1ODGI_1_1path__metadata__t.html">path_metadata_t</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a5b27bbcef4c2efe28b9ee26759a1aba1">find_metadata</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path) const</td></tr>
+<tr class="memdesc:a5b27bbcef4c2efe28b9ee26759a1aba1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the metadata for a path, read-only.  <a href="#a5b27bbcef4c2efe28b9ee26759a1aba1">More...</a><br /></td></tr>
+<tr class="separator:a5b27bbcef4c2efe28b9ee26759a1aba1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af23d11fddc9cb68d5b80b4b557954bbe"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#af23d11fddc9cb68d5b80b4b557954bbe">path_to_rank</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path) const</td></tr>
+<tr class="memdesc:af23d11fddc9cb68d5b80b4b557954bbe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the 0-based rank encoded by a path handle.  <a href="#af23d11fddc9cb68d5b80b4b557954bbe">More...</a><br /></td></tr>
+<tr class="separator:af23d11fddc9cb68d5b80b4b557954bbe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8541c8178fd0a21db8579db55b53ca39"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a8541c8178fd0a21db8579db55b53ca39">rank_to_path</a> (size_t rank) const</td></tr>
+<tr class="memdesc:a8541c8178fd0a21db8579db55b53ca39"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the path handle encoding the given 0-based rank.  <a href="#a8541c8178fd0a21db8579db55b53ca39">More...</a><br /></td></tr>
+<tr class="separator:a8541c8178fd0a21db8579db55b53ca39"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8db273d2507e0e7960d0b1fa2d439d1b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a8db273d2507e0e7960d0b1fa2d439d1b">add_to_number</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, int64_t offset) const</td></tr>
 <tr class="separator:a8db273d2507e0e7960d0b1fa2d439d1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3304c7fd92ccdc8b7492df7a18c97d89"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a3304c7fd92ccdc8b7492df7a18c97d89">set_handle_sequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const std::string &amp;seq)</td></tr>
@@ -452,9 +482,9 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:a82c86ac9e3606a17826e01c73719ee0d"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structbdsg_1_1ODGI_1_1path__metadata__t.html">path_metadata_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a82c86ac9e3606a17826e01c73719ee0d">path_metadata_v</a></td></tr>
 <tr class="memdesc:a82c86ac9e3606a17826e01c73719ee0d"><td class="mdescLeft">&#160;</td><td class="mdescRight">maps between path identifier and the start, end, and length of the path  <a href="#a82c86ac9e3606a17826e01c73719ee0d">More...</a><br /></td></tr>
 <tr class="separator:a82c86ac9e3606a17826e01c73719ee0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae7d1b996a2ea9f70cc0285313cf7b168"><td class="memItemLeft" align="right" valign="top">string_hash_map&lt; std::string, uint64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ae7d1b996a2ea9f70cc0285313cf7b168">path_name_map</a></td></tr>
-<tr class="memdesc:ae7d1b996a2ea9f70cc0285313cf7b168"><td class="mdescLeft">&#160;</td><td class="mdescRight">Links path names to handles.  <a href="#ae7d1b996a2ea9f70cc0285313cf7b168">More...</a><br /></td></tr>
-<tr class="separator:ae7d1b996a2ea9f70cc0285313cf7b168"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a427c27fc015bebd3177ffafc8517c728"><td class="memItemLeft" align="right" valign="top">string_hash_map&lt; std::string, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a427c27fc015bebd3177ffafc8517c728">path_name_map</a></td></tr>
+<tr class="memdesc:a427c27fc015bebd3177ffafc8517c728"><td class="mdescLeft">&#160;</td><td class="mdescRight">Links path names to handles.  <a href="#a427c27fc015bebd3177ffafc8517c728">More...</a><br /></td></tr>
+<tr class="separator:a427c27fc015bebd3177ffafc8517c728"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a22bc41b3879acd02979c22f841791e6e"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a22bc41b3879acd02979c22f841791e6e">_node_count</a> = 0</td></tr>
 <tr class="memdesc:a22bc41b3879acd02979c22f841791e6e"><td class="mdescLeft">&#160;</td><td class="mdescRight">A helper to record the number of live nodes.  <a href="#a22bc41b3879acd02979c22f841791e6e">More...</a><br /></td></tr>
 <tr class="separator:a22bc41b3879acd02979c22f841791e6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -464,11 +494,14 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:ac40a397647ed92d84ea2bb418bad40bb"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#ac40a397647ed92d84ea2bb418bad40bb">_path_count</a> = 0</td></tr>
 <tr class="memdesc:ac40a397647ed92d84ea2bb418bad40bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">A helper to record the number of live paths.  <a href="#ac40a397647ed92d84ea2bb418bad40bb">More...</a><br /></td></tr>
 <tr class="separator:ac40a397647ed92d84ea2bb418bad40bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9afadd1464c1817fa40ecdc991c4f9bc"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a9afadd1464c1817fa40ecdc991c4f9bc">_path_handle_next</a> = 0</td></tr>
-<tr class="memdesc:a9afadd1464c1817fa40ecdc991c4f9bc"><td class="mdescLeft">&#160;</td><td class="mdescRight">A helper to record the next path handle (path deletions are hard because of our path FM-index)  <a href="#a9afadd1464c1817fa40ecdc991c4f9bc">More...</a><br /></td></tr>
-<tr class="separator:a9afadd1464c1817fa40ecdc991c4f9bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9d66ceb7a06f6dd27922015b755b1b8e"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classbdsg_1_1ODGI.html#a9d66ceb7a06f6dd27922015b755b1b8e">_path_rank_next</a> = 0</td></tr>
+<tr class="memdesc:a9d66ceb7a06f6dd27922015b755b1b8e"><td class="mdescLeft">&#160;</td><td class="mdescRight">A helper to record the next path rank to use (path deletions are hard because of our path FM-index)  <a href="#a9d66ceb7a06f6dd27922015b755b1b8e">More...</a><br /></td></tr>
+<tr class="separator:a9d66ceb7a06f6dd27922015b755b1b8e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p><a class="el" href="classbdsg_1_1ODGI.html">ODGI</a> (Optimized Dynamic Graph Index) is a good all-around HandleGraph implementation. It represents nodes as C++ objects stored in a vector, but aggressively bit-packs and delta-compresses edge and path step information within each node. Using separate node objects can reduce the need for defragmentation as in <a class="el" href="classbdsg_1_1PackedGraph.html">PackedGraph</a>, but some deletion operations are still lazy.</p>
+<p><a class="el" href="classbdsg_1_1ODGI.html">ODGI</a> is a good implementation to choose if you don't need your graph to be as small as <a class="el" href="classbdsg_1_1PackedGraph.html">PackedGraph</a> or as fast to access as <a class="el" href="classbdsg_1_1HashGraph.html">HashGraph</a>. </p>
+</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="aa10931aaf9f517e6c5063ab5aabd6e80"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa10931aaf9f517e6c5063ab5aabd6e80">&#9670;&nbsp;</a></span>ODGI()</h2>
 
@@ -660,7 +693,6 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Alter the node that the given handle corresponds to so the orientation indicated by the handle becomes the node's local forward orientation. Rewrites all edges pointing to the node and the node's sequence to reflect this. Invalidates all handles to the node (including the one passed). Returns a new, valid handle to the node in its new forward orientation. Note that it is possible for the node's ID to change. Does not update any stored paths. May change the ordering of the underlying graph.</p>
 <p>Alter the node that the given handle corresponds to so the orientation indicated by the handle becomes the node's local forward orientation. Rewrites all edges pointing to the node and the node's sequence to reflect this. Invalidates all handles to the node (including the one passed). Returns a new, valid handle to the node in its new forward orientation. Note that it is possible for the node's ID to change. Updates all stored paths. May change the ordering of the underlying graph. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a71433449cb13e22dc19caaf544b6d7bc">handlegraph::MutableHandleGraph</a>.</p>
@@ -1205,7 +1237,8 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>This is the interface for a handle graph with embedded paths where the paths can be modified. Note that if the <em>graph</em> can also be modified, the implementation will also need to inherit from MutableHandleGraph, via the combination MutablePathMutableHandleGraph interface. TODO: This is a very limited interface at the moment. It will probably need to be extended. Destroy the given path. Invalidates handles to the path and its node steps. </p>
+<p>This is the interface for a handle graph with embedded paths where the paths can be modified. Note that if the <em>graph</em> can also be modified, the implementation will also need to inherit from MutableHandleGraph, via the combination MutablePathMutableHandleGraph interface. TODO: This is a very limited interface at the moment. It will probably need to be extended. Destroy the given path. Invalidates handles to the path and its node steps.</p>
+<p>Destroy the given path. Invalidates handles to the path and its node steps. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a05a7303ef2f259c6384b0b9b1f9d3f56">handlegraph::MutablePathHandleGraph</a>.</p>
 
@@ -1239,8 +1272,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a766c2bd59741d0cdaad205f1a0eb93b5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a766c2bd59741d0cdaad205f1a0eb93b5">&#9670;&nbsp;</a></span>destroy_step()</h2>
+<a id="ae8154aa4f5f9b0e9aa0a80043c53cb2f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae8154aa4f5f9b0e9aa0a80043c53cb2f">&#9670;&nbsp;</a></span>destroy_step()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1252,8 +1285,18 @@ Private Attributes</h2></td></tr>
           <td class="memname">void bdsg::ODGI::destroy_step </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>step_handle</em></td><td>)</td>
+          <td class="paramname"><em>step_handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>clean_up_empty_path</em> = <code>true</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -1405,6 +1448,35 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="aa9f151b46b20a3c08314058c69c37ba4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa9f151b46b20a3c08314058c69c37ba4">&#9670;&nbsp;</a></span>edge_handle()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> bdsg::ODGI::edge_handle </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>right</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>A pair of handles can be used as an edge. When so used, the handles have a canonical order and orientation. </p>
+
+</div>
+</div>
 <a id="a32634eb3a1d22c1b0049d7941cc0ac90"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a32634eb3a1d22c1b0049d7941cc0ac90">&#9670;&nbsp;</a></span>edge_to_delta()</h2>
 
@@ -1440,6 +1512,62 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Helper to convert between ids and stored edge. </p>
+
+</div>
+</div>
+<a id="a0732e24fcd5aabb78e109aa92aa1509e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0732e24fcd5aabb78e109aa92aa1509e">&#9670;&nbsp;</a></span>find_metadata() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structbdsg_1_1ODGI_1_1path__metadata__t.html">ODGI::path_metadata_t</a> &amp; bdsg::ODGI::find_metadata </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Find the path metadata for a path. </p>
+
+</div>
+</div>
+<a id="a5b27bbcef4c2efe28b9ee26759a1aba1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5b27bbcef4c2efe28b9ee26759a1aba1">&#9670;&nbsp;</a></span>find_metadata() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="structbdsg_1_1ODGI_1_1path__metadata__t.html">ODGI::path_metadata_t</a> &amp; bdsg::ODGI::find_metadata </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Find the metadata for a path, read-only. </p>
 
 </div>
 </div>
@@ -1655,6 +1783,26 @@ Private Attributes</h2></td></tr>
 <p>Enumerate the path steps on a given handle (strand agnostic) </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a2bbdf56b268001c629cf000f5bd8bb9a">handlegraph::PathHandleGraph</a>.</p>
+
+</div>
+</div>
+<a id="a283642a6aa72294926826b3e429bcb34"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a283642a6aa72294926826b3e429bcb34">&#9670;&nbsp;</a></span>forward()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> bdsg::ODGI::forward </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the locally forward version of a handle. </p>
 
 </div>
 </div>
@@ -1980,26 +2128,6 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a8f19e1e243a7476bb02dbdbc0c7e4e3f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8f19e1e243a7476bb02dbdbc0c7e4e3f">&#9670;&nbsp;</a></span>get_path()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> bdsg::ODGI::get_path </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>step_handle</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Get a path handle (path ID) from a handle to an step on a path. </p>
-
-</div>
-</div>
 <a id="aaaf1a14fd17058c4d8582b8c7c1d03bd"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aaaf1a14fd17058c4d8582b8c7c1d03bd">&#9670;&nbsp;</a></span>get_path_count()</h2>
 
@@ -2083,7 +2211,7 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Returns a handle to the path that an step is on. </p>
+<p>Returns a handle to the path that a step is on. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a1d1ca9865da585257709f54769f5d6a9">handlegraph::PathHandleGraph</a>.</p>
 
@@ -2269,6 +2397,62 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a611a37a8f9cc6612e6fdf9039da6839f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a611a37a8f9cc6612e6fdf9039da6839f">&#9670;&nbsp;</a></span>has_linear_next_step()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool bdsg::ODGI::has_linear_next_step </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>step_handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Returns true if the step has a next step on the path that doesn't wrap around, else false. </p>
+
+</div>
+</div>
+<a id="a9e083851337fd6d17f4d198d6442fff9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9e083851337fd6d17f4d198d6442fff9">&#9670;&nbsp;</a></span>has_linear_previous_step()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool bdsg::ODGI::has_linear_previous_step </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>step_handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Returns true if the step has a previous step on the path that doesn't wrap around, else false. </p>
+
+</div>
+</div>
 <a id="aa5ec93e4c218d661208be27bb6dbcbac"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa5ec93e4c218d661208be27bb6dbcbac">&#9670;&nbsp;</a></span>has_next_step()</h2>
 
@@ -2293,7 +2477,7 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Returns true if the step is not the last step on the path, else false. </p>
+<p>Returns true if the step has a next step on the path, else false. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a81bf54cb4d07a0d47c84862ecebc349d">handlegraph::PathHandleGraph</a>.</p>
 
@@ -2353,9 +2537,7 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Get the locally forward version of a handle. </p>
-<p>Determine if a path name exists and is legal to get a path handle for.</p>
-<p>A pair of handles can be used as an edge. When so used, the handles have a canonical order and orientation. Such a pair can be viewed from either inward end handle and produce the outward handle you would arrive at. Determine if a path name exists and is legal to get a path handle for.</p>
+<p>Determine if a path name exists and is legal to get a path handle for. </p>
 <p>This is the interface for a handle graph that stores embedded paths. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#ab7de11c1e994bc104378c4b798013430">handlegraph::PathHandleGraph</a>.</p>
@@ -2386,7 +2568,7 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Returns true if the step is not the first step on the path, else false. </p>
+<p>Returns true if the step has a previous step on the path, else false. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a93a1ee451e750cb82f1711fd6c3db8cc">handlegraph::PathHandleGraph</a>.</p>
 
@@ -2447,6 +2629,41 @@ Private Attributes</h2></td></tr>
 <p>Add the given value to all node IDs. </p>
 
 <p>Reimplemented from <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a902b211a1f86645818b3da1cb64af0be">handlegraph::MutableHandleGraph</a>.</p>
+
+</div>
+</div>
+<a id="ab91a47ba26660fdd0022e193a5de05df"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab91a47ba26660fdd0022e193a5de05df">&#9670;&nbsp;</a></span>insert_step()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> bdsg::ODGI::insert_step </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>before</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>after</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>to_insert</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Insert a visit to a node to the given path between the given steps. Returns a handle to the new step on the path which is appended. Handles to prior steps on the path, and to other paths, must remain valid. </p>
 
 </div>
 </div>
@@ -2788,6 +3005,34 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="af23d11fddc9cb68d5b80b4b557954bbe"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af23d11fddc9cb68d5b80b4b557954bbe">&#9670;&nbsp;</a></span>path_to_rank()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t bdsg::ODGI::path_to_rank </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the 0-based rank encoded by a path handle. </p>
+
+</div>
+</div>
 <a id="a74b5764a3b881b921ce745fd8e53d1ab"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a74b5764a3b881b921ce745fd8e53d1ab">&#9670;&nbsp;</a></span>prepend_step()</h2>
 
@@ -2852,6 +3097,35 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>get the node id for the node with the given backing rank </p>
+
+</div>
+</div>
+<a id="a8541c8178fd0a21db8579db55b53ca39"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8541c8178fd0a21db8579db55b53ca39">&#9670;&nbsp;</a></span>rank_to_path()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> bdsg::ODGI::rank_to_path </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>rank</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the path handle encoding the given 0-based rank. </p>
+<p>Get the path handle encodign the given 0-based rank. </p>
 
 </div>
 </div>
@@ -3229,7 +3503,7 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <a id="a803a41f3012e735d81272826acdac236"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a803a41f3012e735d81272826acdac236">&#9670;&nbsp;</a></span>to_gfa()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a803a41f3012e735d81272826acdac236">&#9670;&nbsp;</a></span>to_gfa() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3245,6 +3519,74 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Convert to GFA (for debugging) </p>
+
+</div>
+</div>
+<a id="a683d1879ff05c9e27f1586cb8f61376f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a683d1879ff05c9e27f1586cb8f61376f">&#9670;&nbsp;</a></span>to_gfa() <span class="overload">[2/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void bdsg::ODGI::to_gfa </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Convert to GFA and send to the given filename, or "-" for standard output (the default). </p>
+
+</div>
+</div>
+<a id="ab7efc962237f615ababad29f06d98c9b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab7efc962237f615ababad29f06d98c9b">&#9670;&nbsp;</a></span>to_gfa() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string bdsg::ODGI::to_gfa </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Convert to GFA and return as a string. </p>
+
+</div>
+</div>
+<a id="aa1d6a4235afe99439e8a323cc142ffc2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa1d6a4235afe99439e8a323cc142ffc2">&#9670;&nbsp;</a></span>traverse_edge_handle()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> bdsg::ODGI::traverse_edge_handle </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>edge</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>left</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>View the given edge handle from either inward end handle and produce the outward handle you would arrive at. </p>
 
 </div>
 </div>
@@ -3412,8 +3754,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a9afadd1464c1817fa40ecdc991c4f9bc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9afadd1464c1817fa40ecdc991c4f9bc">&#9670;&nbsp;</a></span>_path_handle_next</h2>
+<a id="a9d66ceb7a06f6dd27922015b755b1b8e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9d66ceb7a06f6dd27922015b755b1b8e">&#9670;&nbsp;</a></span>_path_rank_next</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3422,7 +3764,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">uint64_t bdsg::ODGI::_path_handle_next = 0</td>
+          <td class="memname">uint64_t bdsg::ODGI::_path_rank_next = 0</td>
         </tr>
       </table>
   </td>
@@ -3432,7 +3774,7 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>A helper to record the next path handle (path deletions are hard because of our path FM-index) </p>
+<p>A helper to record the next path rank to use (path deletions are hard because of our path FM-index) </p>
 
 </div>
 </div>
@@ -3532,8 +3874,8 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ae7d1b996a2ea9f70cc0285313cf7b168"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae7d1b996a2ea9f70cc0285313cf7b168">&#9670;&nbsp;</a></span>path_name_map</h2>
+<a id="a427c27fc015bebd3177ffafc8517c728"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a427c27fc015bebd3177ffafc8517c728">&#9670;&nbsp;</a></span>path_name_map</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3542,7 +3884,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">string_hash_map&lt;std::string, uint64_t&gt; bdsg::ODGI::path_name_map</td>
+          <td class="memname">string_hash_map&lt;std::string, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&gt; bdsg::ODGI::path_name_map</td>
         </tr>
       </table>
   </td>

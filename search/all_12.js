@@ -18,6 +18,7 @@ var searchData=
   ['rank_5foffset',['RANK_OFFSET',['../structvg_1_1MIPayload.html#a1c107b598c0ae7b664835ad93f64ef92',1,'vg::MIPayload']]],
   ['rank_5fto_5fhandle',['rank_to_handle',['../classhandlegraph_1_1RankedHandleGraph.html#aacf6651545adbd407082a539222f8a69',1,'handlegraph::RankedHandleGraph']]],
   ['rank_5fto_5fid',['rank_to_id',['../classxg_1_1XG.html#aee052f301d8cae7b30c50c115c6b950b',1,'xg::XG::rank_to_id()'],['../classbdsg_1_1ODGI.html#a2629006a078b90f4e6306d6bc8c133be',1,'bdsg::ODGI::rank_to_id()'],['../classhandlegraph_1_1RankedHandleGraph.html#a5bf563241454b21539effcad11406ec9',1,'handlegraph::RankedHandleGraph::rank_to_id()']]],
+  ['rank_5fto_5fpath',['rank_to_path',['../classbdsg_1_1ODGI.html#a8541c8178fd0a21db8579db55b53ca39',1,'bdsg::ODGI']]],
   ['rank_5fwidth',['RANK_WIDTH',['../structvg_1_1MIPayload.html#a2e74f84561f3edeb0ec68b0dc4571b6f',1,'vg::MIPayload']]],
   ['rankedhandlegraph',['RankedHandleGraph',['../classhandlegraph_1_1RankedHandleGraph.html',1,'handlegraph::RankedHandleGraph'],['../namespacevg.html#a215e44b59d26cf0745f02218dfd902a2',1,'vg::RankedHandleGraph()']]],
   ['rare_5fvariant_5fsimplifier_2ecpp',['rare_variant_simplifier.cpp',['../rare__variant__simplifier_8cpp.html',1,'']]],

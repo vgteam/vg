@@ -26,7 +26,7 @@ var searchData=
   ['_5foffset',['_offset',['../classvg_1_1position__t.html#a9a84544deb3e4063fcf024c5bf894d16',1,'vg::position_t']]],
   ['_5fpath',['_path',['../classvg_1_1subpath__t.html#ada5bdc5ea2348b439272c166911dd5d3',1,'vg::subpath_t']]],
   ['_5fpath_5fcount',['_path_count',['../classbdsg_1_1ODGI.html#ac40a397647ed92d84ea2bb418bad40bb',1,'bdsg::ODGI']]],
-  ['_5fpath_5fhandle_5fnext',['_path_handle_next',['../classbdsg_1_1ODGI.html#a9afadd1464c1817fa40ecdc991c4f9bc',1,'bdsg::ODGI']]],
+  ['_5fpath_5frank_5fnext',['_path_rank_next',['../classbdsg_1_1ODGI.html#a9d66ceb7a06f6dd27922015b755b1b8e',1,'bdsg::ODGI']]],
   ['_5fpaths',['_paths',['../classvg_1_1Paths.html#a5857b70582a67d2819f5e5db23a984cf',1,'vg::Paths']]],
   ['_5fposition',['_position',['../classvg_1_1path__mapping__t.html#a0fbd0d2e397a143b0e85122705a1277c',1,'vg::path_mapping_t']]],
   ['_5fposix_5fc_5fsource',['_POSIX_C_SOURCE',['../crash_8cpp.html#a3024ccd4a9af5109d24e6c57565d74a1',1,'_POSIX_C_SOURCE():&#160;crash.cpp'],['../main_8cpp.html#a3024ccd4a9af5109d24e6c57565d74a1',1,'_POSIX_C_SOURCE():&#160;main.cpp']]],

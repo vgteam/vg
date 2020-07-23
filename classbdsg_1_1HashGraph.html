@@ -370,7 +370,10 @@ Additional Inherited Members</h2></td></tr>
 <tr class="memitem:a2bbdf56b268001c629cf000f5bd8bb9a inherit pro_methods_classhandlegraph_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a2bbdf56b268001c629cf000f5bd8bb9a">for_each_step_on_handle_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;)&gt; &amp;iteratee) const =0</td></tr>
 <tr class="separator:a2bbdf56b268001c629cf000f5bd8bb9a inherit pro_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p><a class="el" href="classbdsg_1_1HashGraph.html">HashGraph</a> is a HandleGraph implementation designed for simplicity. Nodes are plain C++ objects stored in a hash map, which contain C++ vectors representing their adjacencies.</p>
+<p><a class="el" href="classbdsg_1_1HashGraph.html">HashGraph</a> is a good choice when fast access to or modification of a graph is required, but can use more memory than other graph implementations. </p>
+</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a1274ed4d36331b8cedd5c6fb6abb0e66"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1274ed4d36331b8cedd5c6fb6abb0e66">&#9670;&nbsp;</a></span>HashGraph() <span class="overload">[1/2]</span></h2>
 
@@ -2099,7 +2102,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Delete a segment of a path and rewrite it as some other sequence of steps. Returns a pair of step_handle_t's that indicate the range of the new segment in the path. The segment to delete should be designated by the first and the past-the-last step handle. If the step that is returned by path_begin is deleted, path_begin will now return the first step from the new segment or, in the case that the new segment is empty, segment_end. </p>
+<p>Delete a segment of a path and rewrite it as some other sequence of steps. Returns a pair of step_handle_t's that indicate the range of the new segment in the path. The segment to delete should be designated by the first (begin) and past-last (end) step handles. If the step that is returned by path_begin is deleted, path_begin will now return the first step from the new segment or, in the case that the new segment is empty, the step used as segment_end. Empty ranges consist of two copies of the same step handle. Empty ranges in empty paths consist of two copies of the end sentinel handle for the path. Rewriting an empty range inserts before the provided end handle. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#af28f1372aa6dad2654a22eb8463e2a07">handlegraph::MutablePathHandleGraph</a>.</p>
 

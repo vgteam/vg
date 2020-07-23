@@ -8,7 +8,7 @@ var searchData=
   ['edge_5fcoverage_5fbin_5foffset',['edge_coverage_bin_offset',['../classvg_1_1Packer.html#ab2f586cd7d0443b6ab3de98d321db4ac',1,'vg::Packer']]],
   ['edge_5fcoverage_5fbin_5fsize',['edge_coverage_bin_size',['../classvg_1_1Packer.html#a8d35d0868d13a974e038425f02c97b10',1,'vg::Packer']]],
   ['edge_5fdelta_5fto_5fid',['edge_delta_to_id',['../classbdsg_1_1ODGI.html#a2a47baa8c05034f7ea104b860f4bb500',1,'bdsg::ODGI']]],
-  ['edge_5fhandle',['edge_handle',['../classhandlegraph_1_1HandleGraph.html#a3766f1aca1cbdbf827f2a12aaf2078ec',1,'handlegraph::HandleGraph']]],
+  ['edge_5fhandle',['edge_handle',['../classbdsg_1_1ODGI.html#aa9f151b46b20a3c08314058c69c37ba4',1,'bdsg::ODGI::edge_handle()'],['../classhandlegraph_1_1HandleGraph.html#a3766f1aca1cbdbf827f2a12aaf2078ec',1,'handlegraph::HandleGraph::edge_handle()']]],
   ['edge_5findex',['edge_index',['../classvg_1_1Packer.html#aaac9a172415e1e7fbc419e5a7e13e985',1,'vg::Packer::edge_index()'],['../classxg_1_1XG.html#a184f3b8960859cee3ef5d929a4391e0b',1,'xg::XG::edge_index()'],['../classhandlegraph_1_1VectorizableHandleGraph.html#a5aa85bce7358af90d1e63d2060a50a39',1,'handlegraph::VectorizableHandleGraph::edge_index()']]],
   ['edge_5forientation',['edge_orientation',['../classxg_1_1XG.html#a8b60df344ef1f990d0d6e0ed4eb77b92',1,'xg::XG']]],
   ['edge_5frelative_5foffset',['edge_relative_offset',['../classxg_1_1XG.html#a3bbffb5a6cc0d70f7d20919c53af9520',1,'xg::XG']]],

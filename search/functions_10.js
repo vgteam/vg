@@ -94,6 +94,7 @@ var searchData=
   ['path_5fto_5fhandles',['path_to_handles',['../classvg_1_1Transcriptome.html#ad8380bf687a8940305d0a080466d44d0',1,'vg::Transcriptome']]],
   ['path_5fto_5finput_5fhaplotype',['path_to_input_haplotype',['../structhaplo_1_1linear__haplo__structure.html#acf88c54b278bcacae66383f2668970b2',1,'haplo::linear_haplo_structure']]],
   ['path_5fto_5flength',['path_to_length',['../namespacevg.html#a48108a0abc0fdfc187437d174f88e590',1,'vg::path_to_length(const Path &amp;path)'],['../namespacevg.html#a16b3cfa2fc1c70ce96f7ebc695c8766d',1,'vg::path_to_length(const path_t &amp;path)']]],
+  ['path_5fto_5frank',['path_to_rank',['../classbdsg_1_1ODGI.html#af23d11fddc9cb68d5b80b4b557954bbe',1,'bdsg::ODGI']]],
   ['path_5fto_5fstring',['path_to_string',['../namespacevg.html#afbe0993e79f4ef7bb4b37456b0b08402',1,'vg']]],
   ['pathbasedtraversalfinder',['PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html#ae9824d8e0620854391925d43c7200da6',1,'vg::PathBasedTraversalFinder']]],
   ['pathchunker',['PathChunker',['../classvg_1_1PathChunker.html#a5b31a6a4f865a99818f69be54b7f9e40',1,'vg::PathChunker']]],

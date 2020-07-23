@@ -18,7 +18,7 @@ var searchData=
   ['edge_5fcoverage_5fciv',['edge_coverage_civ',['../classvg_1_1Packer.html#a11f2e82fc82448717a4e7ad63b777f27',1,'vg::Packer']]],
   ['edge_5fcoverage_5fdynamic',['edge_coverage_dynamic',['../classvg_1_1Packer.html#a5338d62c679b5173b571e2dd54e2c566',1,'vg::Packer']]],
   ['edge_5fdelta_5fto_5fid',['edge_delta_to_id',['../classbdsg_1_1ODGI.html#a2a47baa8c05034f7ea104b860f4bb500',1,'bdsg::ODGI']]],
-  ['edge_5fhandle',['edge_handle',['../classhandlegraph_1_1HandleGraph.html#a3766f1aca1cbdbf827f2a12aaf2078ec',1,'handlegraph::HandleGraph']]],
+  ['edge_5fhandle',['edge_handle',['../classbdsg_1_1ODGI.html#aa9f151b46b20a3c08314058c69c37ba4',1,'bdsg::ODGI::edge_handle()'],['../classhandlegraph_1_1HandleGraph.html#a3766f1aca1cbdbf827f2a12aaf2078ec',1,'handlegraph::HandleGraph::edge_handle()']]],
   ['edge_5fhelper',['edge_helper',['../structbdsg_1_1ODGI_1_1edge__helper.html',1,'bdsg::ODGI']]],
   ['edge_5findex',['edge_index',['../classvg_1_1VG.html#a2e2c02a8216f0bb9b3a78e985845ea1b',1,'vg::VG::edge_index()'],['../classvg_1_1Packer.html#aaac9a172415e1e7fbc419e5a7e13e985',1,'vg::Packer::edge_index()'],['../classxg_1_1XG.html#a184f3b8960859cee3ef5d929a4391e0b',1,'xg::XG::edge_index()'],['../classhandlegraph_1_1VectorizableHandleGraph.html#a5aa85bce7358af90d1e63d2060a50a39',1,'handlegraph::VectorizableHandleGraph::edge_index()']]],
   ['edge_5flists_5fiv',['edge_lists_iv',['../classbdsg_1_1PackedGraph.html#a32a1c95f63982dd19386e5b84b69d866',1,'bdsg::PackedGraph']]],
