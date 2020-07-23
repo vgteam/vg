@@ -22,7 +22,7 @@
 #include <cmath>
 
 //#define debug
-//#define print_minimizers
+#define print_minimizers
 
 namespace vg {
 
@@ -573,10 +573,11 @@ double uncapped_mapq = mapq;
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
     set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
 
-    // Apply the caps
-    mapq = min(mapq, mapq_explored_cap);
+    // Apply the caps and transformations
+    mapq = round(0.85 * min(mapq_explored_cap, min(mapq, 70.0)));
 
 #ifdef debug
+    cerr << "Explored cap is " << mapq_explored_cap << endl;
     cerr << "MAPQ is " << mapq << endl;
 #endif
         
@@ -1841,8 +1842,8 @@ vector<pair<bool, bool>> mapping_was_rescued;
             // And the cap we actually applied (possibly from the pair partner)
             set_annotation(to_annotate, "mapq_applied_cap", mapq_cap);
 
-            // Apply the cap
-            read_mapq = min(read_mapq, mapq_cap);
+            // Apply the cap and transformation
+            read_mapq = round(0.85 * min(mapq_cap, min(read_mapq, 70.0)));
         }
         
 #ifdef debug
@@ -2428,9 +2429,14 @@ double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<s
         }
     });
     
+#ifdef debug
+    cerr << "log10prob after all minimizers is " << c.back() << endl;
+#endif
+    
     assert(!isinf(c.back()));
     // Conver to Phred.
-    return -c.back() * 10;
+    double result = -c.back() * 10;
+    return result;
 }
 
 void MinimizerMapper::for_each_aglomeration_interval(const vector<Minimizer>& minimizers,
@@ -2496,15 +2502,35 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_interval(const vector<Mi
     const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
     size_t left, size_t right) {
     
-    // We don't allow zero length intervals
-    assert(left < right);
+#ifdef debug
+    cerr << "Compute log10 probability in interval " << left << "-" << right << endl;
+#endif
+    
+    if (left == right) {
+        // 0-length intervals need no disruption.
+        return 0;
+    }
     
     // Start with the first column
     double p = get_log10_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, left);
+#ifdef debug
+    cerr << "\tlog10 probability at column " << left << ": " << p << endl;
+#endif
     for(size_t i = left + 1 ; i < right; i++) {
         // OR up probability of all the other columns
-        p = add_log10(get_log10_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, i), p);
+        double col_p = get_log10_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, i);
+#ifdef debug
+        cerr << "\tlog10 probability at column " << i << ": " << col_p << endl;
+#endif
+        p = add_log10(col_p, p);
+#ifdef debug
+        cerr << "\tRunning total OR: " << p << endl;
+#endif
     }
+    
+    // Make sure that we don't go above certainty when our bases are really bad
+    // and OR ~= sum assumption breaks down due to non-tiny probabilities.
+    p = std::min(p, 0.0);
     
     // Return the result
     return p;
@@ -2516,29 +2542,53 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_column(const vector<Mini
     const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
     size_t index) {
     
-    // Base cost is quality.
-    double p = -(uint8_t)quality_bytes[index] / 10;
+#ifdef debug
+    cerr << "\tCompute log10 probability at column " << index << endl;
+#endif
+    
+    // Base cost is quality. Make sure to compute a non-integral answer.
+    double p = -(uint8_t)quality_bytes[index] / 10.0;
+#ifdef debug
+    cerr << "\t\tBase log10 probability from quality: " << p << endl;
+#endif
     for (auto it = disrupt_begin; it != disrupt_end; ++it) {
         // For each minimizer to disrupt
         auto m = minimizers[*it];
         
+#ifdef debug
+        cerr << "\t\tRelative rank " << (it - disrupt_begin) << " is minimizer " << m.value.key.decode(m.length) << endl;
+#endif
+        
         if (!(m.forward_offset() <= index && index < m.forward_offset() + m.length)) {
-            // Index is out of range of the minimizer
-        }
-        
-        // How many new possible minimizers would an error here create in this agglomeration,
-        // to compete with its minimizer?
-        // No more than one per position in a minimizer sequence.
-        // No more than 1 per base from the start of the agglomeration to here, inclusive.
-        // No more than 1 per base from here to the last base of the agglomeration, inclusive.
-        size_t possible_minimizers = min((size_t) m.length,
-                                         min(index - m.agglomeration_start + 1,
-                                         (m.agglomeration_start + m.agglomeration_length) - index));
+            // Index is out of range of the minimizer itself. We're in the flank.
+#ifdef debug
+            cerr << "\t\t\tColumn " << index << " is in flank." << endl;
+#endif
+            // How many new possible minimizers would an error here create in this agglomeration,
+            // to compete with its minimizer?
+            // No more than one per position in a minimizer sequence.
+            // No more than 1 per base from the start of the agglomeration to here, inclusive.
+            // No more than 1 per base from here to the last base of the agglomeration, inclusive.
+            size_t possible_minimizers = min((size_t) m.length,
+                                             min(index - m.agglomeration_start + 1,
+                                             (m.agglomeration_start + m.agglomeration_length) - index));
 
-        // Account for at least one of them beating the minimizer.
-        p += phred_for_at_least_one(m.value.hash, possible_minimizers);
-        
-        // TODO: handle N somehow??? It can occur outside the minimizer itself, here in the flank.
+            // Account for at least one of them beating the minimizer.
+            double any_beat_phred = phred_for_at_least_one(m.value.hash, possible_minimizers);
+            // Make sure to convert to log10 probability
+            double any_beat_log10_prob = -any_beat_phred / 10;
+            
+#ifdef debug
+            cerr << "\t\t\tBeat hash " << m.value.hash << " at least 1 time in " << possible_minimizers << " gives log10 probability: " << any_beat_log10_prob << endl;
+#endif
+            
+            p += any_beat_log10_prob;
+            
+            // TODO: handle N somehow??? It can occur outside the minimizer itself, here in the flank.
+        }
+#ifdef debug
+        cerr << "\t\t\tRunning AND log10 prob: " << p << endl;
+#endif
     }
     
     return p;
