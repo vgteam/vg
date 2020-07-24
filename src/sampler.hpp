@@ -2,6 +2,7 @@
 #define VG_SIMULATOR_HPP_INCLUDED
 
 #include <iostream>
+#include <iomanip>
 #include <map>
 #include <unordered_map>
 #include <vector>
@@ -185,6 +186,9 @@ public:
     /// Sample a pair of reads an alignments
     pair<Alignment, Alignment> sample_read_pair();
     
+    /// Print out a TSV of the fraction of fragments from different paths
+    void print_path_usage(ostream& out) const;
+    
 private:
     template<class From, class To>
     class MarkovDistribution {
@@ -208,6 +212,8 @@ private:
         unordered_map<From, vector<size_t>> cond_distrs;
         
     };
+    
+    void print_path_usage_internal(ostream& out, const vector<size_t>& counts) const;
     
     NGSSimulator(void) = delete;
     
@@ -331,6 +337,8 @@ private:
     
     /// Restrict reads to just these paths (path-only mode) if nonempty.
     vector<string> source_paths;
+    
+    vector<vector<size_t>> source_path_frag_counts;
 };
     
 /**

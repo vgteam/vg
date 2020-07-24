@@ -768,6 +768,14 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         path_sampler = vg::discrete_distribution<>(expression_values.begin(), expression_values.end());
     }
     
+    // prepare to count the number of fragments sampled from each path
+    if (!source_paths.empty()) {
+        source_path_frag_counts.resize(get_thread_count());
+        for (auto& thread_frag_counts : source_path_frag_counts) {
+            thread_frag_counts.resize(source_paths.size(), 0);
+        }
+    }
+    
     // memoize phred conversions
     phred_prob.resize(256);
     for (int i = 1; i < phred_prob.size(); i++) {
@@ -845,6 +853,42 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
 #ifdef debug_ngs_sim
     cerr << "finished initializing simulator" << endl;
 #endif
+}
+
+void NGSSimulator::print_path_usage(ostream& out) const {
+    if (sample_paths.empty()) {
+        return;
+    }
+    if (source_path_frag_counts.size() == 1) {
+        print_path_usage_internal(out, source_path_frag_counts.front());
+    }
+    else {
+        // combine the per-thread counts
+        vector<size_t> counts(sample_paths.size(), 0);
+        for (const thread_counts& source_path_frag_counts) {
+            for (size_t i = 0; i < thread_counts.size(); ++i) {
+                counts[i] += thread_counts[i];
+            }
+        }
+        print_path_usage_internal(out, counts);
+    }
+}
+
+void NGSSimulator::print_path_usage_internal(ostream& out, const vector<size_t>& counts) const {
+    // set the precision
+    out << std::fixed;
+    out << std::setprecision(4);
+    
+    // get total for computing FPM
+    size_t total = 0;
+    for (auto path_count : counts) {
+        total += path_count;
+    }
+    double denom = total / 1000000.0;
+    out << "path\tcount\tfrags_per_million" << endl;
+    for (size_t i = 0; i < counts.size(); ++i) {
+        out << sample_paths[i] << '\t' << counts[i] << '\t' << (path_count / denom) << endl;
+    }
 }
 
 Alignment NGSSimulator::sample_read() {
@@ -1540,7 +1584,14 @@ void NGSSimulator::apply_insertion(Alignment& aln, const pos_t& pos) {
 }
 
 size_t NGSSimulator::sample_path() {
-    return source_paths.empty() ? numeric_limits<size_t>::max() : path_sampler(prng);
+    if (source_paths.empty()) {
+        return numeric_limits<size_t>::max();
+    }
+    else {
+        size_t path_idx = path_sampler(prng);
+        source_path_frag_counts[omp_get_thread_num()][path_idx]++;
+        return path_idx;
+    }
 }
 
 void NGSSimulator::sample_start_pos(const size_t& source_path_idx, const int64_t& fragment_length,
