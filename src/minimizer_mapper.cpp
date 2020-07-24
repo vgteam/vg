@@ -1466,7 +1466,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         for (char c : aln1.quality()) {
             cerr << (char)(c+33);
         }
-        cerr << "\t" << all_clusters.size() << "\t" << 0 << "\t" << 0 << "\t?";
+        cerr << "\t" << max_fragment_num << "\t" << 0 << "\t" << 0 << "\t?";
         for (size_t i = 0 ; i < minimizers_by_read[0].size() ; i++) {
             auto& minimizer = minimizers_by_read[0][i];
             cerr << "\t"
@@ -1491,7 +1491,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         for (char c : aln2.quality()) {
             cerr << (char)(c+33);
         }
-        cerr << "\t" << all_clusters.size() << "\t" << 0 << "\t" << 0 << "\t?";
+        cerr << "\t" << max_fragment_num << "\t" << 0 << "\t" << 0 << "\t?";
         for (size_t i = 0 ; i < minimizers_by_read[1].size() ; i++) {
             auto& minimizer = minimizers_by_read[1][i];
             cerr << "\t"
@@ -1974,7 +1974,7 @@ vector<pair<bool, bool>> mapping_was_rescued;
     for (char c : aln1.quality()) {
         cerr << (char)(c+33);
     }
-    cerr << "\t" << all_clusters.size() << "\t" << mapping_was_rescued[0].first << "\t" << mapping_was_rescued[0].second << "\t" << distances.front();
+    cerr << "\t" << max_fragment_num << "\t" << mapping_was_rescued[0].first << "\t" << mapping_was_rescued[0].second << "\t" << distances.front();
     for (size_t i = 0 ; i < minimizers_by_read[0].size() ; i++) {
         auto& minimizer = minimizers_by_read[0][i];
         cerr << "\t"
@@ -1998,7 +1998,7 @@ vector<pair<bool, bool>> mapping_was_rescued;
     for (char c : aln2.quality()) {
         cerr << (char)(c+33);
     }
-    cerr << "\t" << all_clusters.size() << "\t" << mapping_was_rescued[0].second << "\t" << mapping_was_rescued[0].first << "\t" << distances.front();
+    cerr << "\t" << max_fragment_num << "\t" << mapping_was_rescued[0].second << "\t" << mapping_was_rescued[0].first << "\t" << distances.front();
     for (size_t i = 0 ; i < minimizers_by_read[1].size() ; i++) {
         auto& minimizer = minimizers_by_read[1][i];
         cerr << "\t"
