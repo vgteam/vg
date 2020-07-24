@@ -856,7 +856,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
 }
 
 void NGSSimulator::print_path_usage(ostream& out) const {
-    if (sample_paths.empty()) {
+    if (source_paths.empty()) {
         return;
     }
     if (source_path_frag_counts.size() == 1) {
@@ -864,8 +864,8 @@ void NGSSimulator::print_path_usage(ostream& out) const {
     }
     else {
         // combine the per-thread counts
-        vector<size_t> counts(sample_paths.size(), 0);
-        for (const thread_counts& source_path_frag_counts) {
+        vector<size_t> counts(source_paths.size(), 0);
+        for (const auto& thread_counts : source_path_frag_counts) {
             for (size_t i = 0; i < thread_counts.size(); ++i) {
                 counts[i] += thread_counts[i];
             }
@@ -887,7 +887,7 @@ void NGSSimulator::print_path_usage_internal(ostream& out, const vector<size_t>&
     double denom = total / 1000000.0;
     out << "path\tcount\tfrags_per_million" << endl;
     for (size_t i = 0; i < counts.size(); ++i) {
-        out << sample_paths[i] << '\t' << counts[i] << '\t' << (path_count / denom) << endl;
+        out << source_paths[i] << '\t' << counts[i] << '\t' << (counts[i] / denom) << endl;
     }
 }
 
