@@ -768,10 +768,10 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         path_sampler = vg::discrete_distribution<>(expression_values.begin(), expression_values.end());
     }
     
-    // memoize phred conversions
-    phred_prob.resize(256);
-    for (int i = 1; i < phred_prob.size(); i++) {
-        phred_prob[i] = error_multiplier * phred_to_prob(i);
+    // memoize pre-error-multiplied phred conversions
+    phred_prob.resize(numeric_limits<uint8_t>::max() + 1);
+    for (int i = 0; i < phred_prob.size(); i++) {
+        phred_prob[i] = error_multiplier * phred_to_prob((uint8_t) i);
     }
     
     for (size_t i = 0; i < alphabet.size(); i++) {

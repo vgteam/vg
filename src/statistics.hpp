@@ -99,8 +99,18 @@ inline double add_log10(double i, double j) {
  */
 double phred_for_at_least_one(size_t p, size_t n);
 
-/// How many events should we allow in phred_for_at_least_one?
-/// Should be >= our longest supported minimizer index.
+/**
+ * Assume that we have n independent random events that occur with probability
+ * p each (p is interpreted as a real number between 0 at 0 and 1 at its
+ * maximum value). Return an approximate probability for at least one event
+ * occurring as a raw probability.
+ *
+ * n must be <= MAX_AT_LEAST_ONE_EVENTS.
+ */
+double prob_for_at_least_one(size_t p, size_t n);
+
+/// How many events should we allow in phred_for_at_least_one and
+/// prob_for_at_least_one? Should be >= our longest supported minimizer index.
 constexpr static size_t MAX_AT_LEAST_ONE_EVENTS = 32;
 /// Use this many bits for approximate probabilities.
 constexpr static size_t AT_LEAST_ONE_PRECISION = 8; 
@@ -136,9 +146,12 @@ inline double logprob_invert(double logprob) {
     return prob_to_logprob(1.0 - logprob_to_prob(logprob));
 }
 
-/// Convert integer Phred quality score to probability of wrongness.
-inline double phred_to_prob(int phred) {
-    return pow(10, -((double)phred) / 10);
+/// Convert 8-bit Phred quality score to probability of wrongness, using a lookup table.
+double phred_to_prob(uint8_t phred);
+
+/// Convert floating point Phred quality score to probability of wrongness.
+inline double phred_to_prob(double phred) {
+    return pow(10, -phred / 10);
 }
 
 /// Convert probability of wrongness to integer Phred quality score.

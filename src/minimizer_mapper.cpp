@@ -2510,46 +2510,44 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_interval(const vector<Mi
         // 0-length intervals need no disruption.
         return 0;
     }
-    
-    // Start with the first column
-    double p = get_log10_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, left);
+   
+    // Ww eant an OR over all the columns, so we compute an AND of NOT all the columns, and then NOT at the end. 
+    // Start with the first column.
+    double p = 1.0 - get_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, left);
 #ifdef debug
-    cerr << "\tlog10 probability at column " << left << ": " << p << endl;
+    cerr << "\tProbability not disrupted at column " << left << ": " << p << endl;
 #endif
     for(size_t i = left + 1 ; i < right; i++) {
         // OR up probability of all the other columns
-        double col_p = get_log10_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, i);
+        double col_p = 1.0 - get_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, i);
 #ifdef debug
-        cerr << "\tlog10 probability at column " << i << ": " << col_p << endl;
+        cerr << "\tProbability not disrupted at column " << i << ": " << col_p << endl;
 #endif
-        p = add_log10(col_p, p);
+        p *= col_p;
 #ifdef debug
-        cerr << "\tRunning total OR: " << p << endl;
+        cerr << "\tRunning AND of not disrupted anywhere: " << p << endl;
 #endif
     }
     
-    // Make sure that we don't go above certainty when our bases are really bad
-    // and OR ~= sum assumption breaks down due to non-tiny probabilities.
-    p = std::min(p, 0.0);
-    
-    // Return the result
-    return p;
+    // NOT the AND of NOT, so we actually OR over the columns.
+    // Also convert to log10prob.
+    return log10(1.0 - p);
  
 }
 
-double MinimizerMapper::get_log10_prob_of_disruption_in_column(const vector<Minimizer>& minimizers,
+double MinimizerMapper::get_prob_of_disruption_in_column(const vector<Minimizer>& minimizers,
     const string& sequence, const string& quality_bytes,
     const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
     size_t index) {
     
 #ifdef debug
-    cerr << "\tCompute log10 probability at column " << index << endl;
+    cerr << "\tCompute probability at column " << index << endl;
 #endif
     
     // Base cost is quality. Make sure to compute a non-integral answer.
-    double p = -(uint8_t)quality_bytes[index] / 10.0;
+    double p = phred_to_prob((uint8_t)quality_bytes[index]);
 #ifdef debug
-    cerr << "\t\tBase log10 probability from quality: " << p << endl;
+    cerr << "\t\tBase probability from quality: " << p << endl;
 #endif
     for (auto it = disrupt_begin; it != disrupt_end; ++it) {
         // For each minimizer to disrupt
@@ -2574,20 +2572,18 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_column(const vector<Mini
                                              (m.agglomeration_start + m.agglomeration_length) - index));
 
             // Account for at least one of them beating the minimizer.
-            double any_beat_phred = phred_for_at_least_one(m.value.hash, possible_minimizers);
-            // Make sure to convert to log10 probability
-            double any_beat_log10_prob = -any_beat_phred / 10;
+            double any_beat_prob = prob_for_at_least_one(m.value.hash, possible_minimizers);
             
 #ifdef debug
-            cerr << "\t\t\tBeat hash " << m.value.hash << " at least 1 time in " << possible_minimizers << " gives log10 probability: " << any_beat_log10_prob << endl;
+            cerr << "\t\t\tBeat hash " << m.value.hash << " at least 1 time in " << possible_minimizers << " gives probability: " << any_beat_prob << endl;
 #endif
             
-            p += any_beat_log10_prob;
+            p *= any_beat_prob;
             
             // TODO: handle N somehow??? It can occur outside the minimizer itself, here in the flank.
         }
 #ifdef debug
-        cerr << "\t\t\tRunning AND log10 prob: " << p << endl;
+        cerr << "\t\t\tRunning AND prob: " << p << endl;
 #endif
     }
     
