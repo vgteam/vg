@@ -675,7 +675,7 @@ double uncapped_mapq = mapq;
     if (track_correctness) {
         cerr << "\t" << funnel.last_correct_stage() << endl;
     } else {
-        cerr << endl;
+        cerr << "\t" << "?" << endl;
     }
 #endif
 #ifdef debug
@@ -1775,8 +1775,9 @@ vector<pair<bool, bool>> mapping_was_rescued;
             get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index, multiplicities) / 2;
 
         //Cap mapq at 1 / # equivalent or better fragment clusters
+        //Note that 0 values here are meant to actually cap at 0!
         if (better_cluster_count_mappings.size() != 0 && better_cluster_count_mappings.front() > 0) {
-            fragment_cluster_cap = round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front())));
+            fragment_cluster_cap = max(0.0, round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front()))));
         }
 
         //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
