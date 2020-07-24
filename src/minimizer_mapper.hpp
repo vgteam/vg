@@ -397,9 +397,12 @@ protected:
      *
      * If left_tails is true, the trees read out of the left sides of the
      * gapless extension. Otherwise they read out of the right side.
+     *
+     * As a side effect, saves the length of the longest detectable gap in an
+     * alignment of a tail to the forest into the provided location, if set.
      */
     vector<TreeSubgraph> get_tail_forest(const GaplessExtension& extended_seed,
-        size_t read_length, bool left_tails) const;
+        size_t read_length, bool left_tails, size_t* longest_detectable_gap = nullptr) const;
         
     /**
      * Find the best alignment of the given sequence against any of the trees
@@ -415,10 +418,12 @@ protected:
      * If pin_left is true, pin the alignment on the left to the root of each
      * tree. Otherwise pin it on the right to the root of each tree.
      *
+     * Limits the length of the longest gap to longest_detectable_gap.
+     *
      * Returns alingments in gbwt_graph space.
      */
     pair<Path, size_t> get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees, const string& sequence,
-        const Position& default_position, bool pin_left) const;
+        const Position& default_position, bool pin_left, size_t longest_detectable_gap) const;
         
     /// We define a type for shared-tail lists of Mappings, to avoid constantly
     /// copying Path objects.

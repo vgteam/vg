@@ -768,6 +768,7 @@ size_t GSSWAligner::longest_detectable_gap(const Alignment& alignment, const str
 
 size_t GSSWAligner::longest_detectable_gap(size_t read_length, size_t read_pos) const {
     // algebraic solution for when score is > 0 assuming perfect match other than gap
+    assert(read_length >= read_pos);
     int64_t overhang_length = min(read_pos, read_length - read_pos);
     int64_t numer = match * overhang_length + full_length_bonus;
     int64_t gap_length = (numer - gap_open) / gap_extension + 1;
