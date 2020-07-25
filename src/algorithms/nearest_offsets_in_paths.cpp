@@ -15,8 +15,7 @@ using namespace std;
 
 unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_paths(const PathPositionHandleGraph* graph,
                                                                                   const pos_t& pos,
-                                                                                  int64_t max_search,
-                                                                                  bool adjust_by_search_dist) {
+                                                                                  int64_t max_search) {
     
     // init the return value
     unordered_map<path_handle_t, vector<pair<size_t, bool>>> return_val;
@@ -61,12 +60,9 @@ unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_path
             int64_t path_offset = graph->get_position_of_step(step);
             
             if (rev_on_path != search_left) {
-                path_offset += graph->get_length(oriented);
-                if (adjust_by_search_dist) {
-                    path_offset += dist;
-                }
+                path_offset += graph->get_length(oriented) + dist;
             }
-            else if (adjust_by_search_dist) {
+            else {
                 path_offset -= dist;
             }
             

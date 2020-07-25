@@ -1,5 +1,6 @@
 #include "alignment_path_offsets.hpp"
 
+//#define debug_mpaln_offsets
 
 namespace vg {
 namespace algorithms {
@@ -81,11 +82,20 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
         for (size_t j = 0; j < subpath.path().mapping_size(); ++j) {
             // get the positions on paths that this mapping touches
             pos_t mapping_pos = make_pos_t(subpath.path().mapping(j).position());
-            subpath_search_results[j] = nearest_offsets_in_paths(&graph, mapping_pos, 0, false);
+            subpath_search_results[j] = nearest_offsets_in_paths(&graph, mapping_pos, 0);
             // make sure that offsets are stored in increasing order
             for (pair<const path_handle_t, vector<pair<size_t, bool>>>& search_record : subpath_search_results[j]) {
                 sort(search_record.second.begin(), search_record.second.end());
             }
+#ifdef debug_mpaln_offsets
+            cerr << "subpath " << i << ", mapping " << j << " path locations" << endl;
+            for (const auto& pps : subpath_search_results[j]) {
+                cerr << graph.get_path_name(pps.first) << endl;
+                for (const auto& pp : pps.second) {
+                    cerr << "\t" << pp.first << " " << pp.second << endl;
+                }
+            }
+#endif
         }
     }
     
@@ -110,6 +120,10 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
                             
                             // we're now covering this path for future search results
                             covered_fwd[i].insert(path_pos.first);
+                            
+#ifdef debug_mpaln_offsets
+                            cerr << "found fwd pass pos, subpath " << i << ", mapping " << j << ", path " << graph.get_path_name(path_pos.first) << ", pos " << path_offset.first << " " << path_offset.second << endl;
+#endif
                             
                             break;
                         }
@@ -149,7 +163,9 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
                             return_val[path_pos.first].emplace_back(path_offset.first - mapping_len,
                                                                     path_offset.second);
                             
-                            
+#ifdef debug_mpaln_offsets
+                            cerr << "found rev pass pos, subpath " << i << ", mapping " << j << ", path " << graph.get_path_name(path_pos.first) << ", pos " << path_offset.first - mapping_len << " " << path_offset.second << endl;
+#endif
                             // we're now covering this path for future search results
                             covered_rev[i].insert(path_pos.first);
                             
