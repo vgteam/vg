@@ -15,6 +15,8 @@
 #include "../alignment.hpp"
 #include "../vg.hpp"
 #include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -185,17 +187,18 @@ int main_gampcompare(int argc, char** argv) {
             auto& true_positions = f->second;
             auto mapped_positions = algorithms::multipath_alignment_path_offsets(*path_position_handle_graph,
                                                                                  mp_aln);
-            
             for (auto it = true_positions.begin(); it != true_positions.end() && !correct; ++it) {
-                if (mapped_positions.count(it->first)) {
+                // TODO: it really should be possible to do this with only path handles instead of names
+                auto path_handle = path_position_handle_graph->get_path_handle(it->first);
+                if (mapped_positions.count(path_handle)) {
                     // the true and mapped positions share this path
                     auto& path_true_positions = it->second;
-                    auto& path_mapped_positions = mapped_positions[it->first];
+                    auto& path_mapped_positions = mapped_positions[path_handle];
                     // check all pairs of positions
                     for (size_t i = 0; i < path_true_positions.size() && !correct; ++i) {
                         for (size_t j = 0; j < path_mapped_positions.size() && !correct; ++j) {
                             if (path_true_positions[i].second == path_mapped_positions[j].second
-                                && abs(path_true_positions[i].first - path_mapped_positions[j].first) <= range) {
+                                && abs<int64_t>(path_true_positions[i].first - path_mapped_positions[j].first) <= range) {
                                 // there is a pair of positions on the same strand of the same path
                                 // within the distance limit
                                 correct = true;
@@ -215,14 +218,13 @@ int main_gampcompare(int argc, char** argv) {
         buffer.emplace_back(correct, proto_mp_aln.mapping_quality(), move(*proto_mp_aln.mutable_name()));
         if (buffer.size() > buffer_size) {
 #pragma omp critical
-            flush_text_buffer(buffer);
-#endif
+            flush_buffer(buffer);
         }
     };
     
     function<void(Alignment&)> evaluate_gam_correctness = [&](Alignment& aln) {
         // TODO: kinda ugly, but whatever
-        mulipath_alignment_t mp_aln;
+        multipath_alignment_t mp_aln;
         to_multipath_alignment(aln, mp_aln);
         MultipathAlignment proto_mp_aln;
         to_proto_multipath_alignment(mp_aln, proto_mp_aln);

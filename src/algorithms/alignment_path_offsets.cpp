@@ -70,7 +70,7 @@ unordered_map<path_handle_t, vector<pair<size_t, bool> > >
 multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
                                  const multipath_alignment_t& mp_aln) {
     
-    using path_positions_t = unordered_map<path_handle_t, vector<pair<size_t, bool>>;
+    using path_positions_t = unordered_map<path_handle_t, vector<pair<size_t, bool>>>;
     
     // collect the search results for each mapping on each subpath
     vector<vector<path_positions_t>> search_results(mp_aln.subpath_size());
@@ -78,10 +78,10 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
         const subpath_t& subpath = mp_aln.subpath(i);
         auto& subpath_search_results = search_results[i];
         subpath_search_results.resize(subpath.path().mapping_size());
-        for (size_t j = 0; j < subpath.path().mapping_size()) {
+        for (size_t j = 0; j < subpath.path().mapping_size(); ++j) {
             // get the positions on paths that this mapping touches
-            pos_t mapping_pos = make_pos_t(subpath.mapping(j).position());
-            subpath_search_results[j] = nearest_offsets_in_paths(graph, mapping_pos, 0, false);
+            pos_t mapping_pos = make_pos_t(subpath.path().mapping(j).position());
+            subpath_search_results[j] = nearest_offsets_in_paths(&graph, mapping_pos, 0, false);
             // make sure that offsets are stored in increasing order
             for (pair<const path_handle_t, vector<pair<size_t, bool>>>& search_record : subpath_search_results[j]) {
                 sort(search_record.second.begin(), search_record.second.end());
@@ -145,7 +145,8 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
                     for (const auto& path_offset : path_pos.second) {
                         if (path_offset.second) {
                             // there's a position on the reverse strand of this path
-                            return_val[path_pos.first].emplace_back(path_offset.first - mapping_from_length(mp_aln.subpath(i).mapping(j)),
+                            auto mapping_len = mapping_from_length(mp_aln.subpath(i).path().mapping(j));
+                            return_val[path_pos.first].emplace_back(path_offset.first - mapping_len,
                                                                     path_offset.second);
                             
                             

@@ -3,6 +3,7 @@
 #include "../handle.hpp"
 #include "../position.hpp"
 #include "../path.hpp"
+#include "../multipath_alignment.hpp"
 #include <vg/vg.pb.h>
 #include <functional>
 #include "nearest_offsets_in_paths.hpp"
