@@ -20,6 +20,14 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
                        bool nearby,
                        size_t search_limit = 0);
 
+/// Find the position of a multipath alignment on paths. Returns the lowest offset
+/// position on a path for each contiguous stretch of the multipath alignment, but
+/// multiple positions on the same path may be returned if the multipath alignment
+/// is disconnected or fans out toward the sources or sinks.
+unordered_map<path_handle_t, vector<pair<size_t, bool> > >
+multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
+                                 const multipath_alignment_t& mp_aln);
+
 /// Use the graph to annotate an Alignment with the first
 /// position it touches on each reference path. Thread safe.
 ///

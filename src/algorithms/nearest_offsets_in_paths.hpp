@@ -27,7 +27,8 @@ using namespace std;
 /// subject to the given max search distance, a mapping from path name to
 /// all positions on each path where that pos_t occurs.
 unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_paths(const PathPositionHandleGraph* graph,
-                                                                                  const pos_t& pos, int64_t max_search);
+                                                                                  const pos_t& pos, int64_t max_search,
+                                                                                  bool adjust_by_search_dist = true);
     
 /// Wrapper for the above to support some earlier code. Only looks for paths
 /// that directly touch the position, and returns the paths by name.
