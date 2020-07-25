@@ -21,7 +21,8 @@
 #include <algorithm>
 #include <cmath>
 
-//#define debug
+#define debug
+#define debug_dump_graph
 
 namespace vg {
 
@@ -3034,6 +3035,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
 #else
             cerr << endl;
 #endif
+            cerr << "Limit gap length to " << longest_detectable_gap << " bp" << endl;
 #endif
             
             // X-drop align, accounting for full length bonus.

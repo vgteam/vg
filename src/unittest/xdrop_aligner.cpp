@@ -366,6 +366,38 @@ TEST_CASE("XdropAligner can align pinned left across a large gap that occurrs im
     REQUIRE(aln.score() == read.size() + 10 - 6 - 50);
 }
 
+TEST_CASE("XdropAligner can align pinned left across an insertion with extra graph at the end", "[xdrop][alignment][mapping]") {
+    
+    VG graph;
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
+    
+    auto h1 = graph.create_handle("AATGAGAAAGGAAAAAGCTTTGGGAAAGTAGCTAAGCAGAGGATGCTTCTTAAAAAATGTCAAAAAAA");
+        
+    string read = string("CACATATGTCACTAGGAATGAGAAAGGAAAAAGCTTTGGGAAAGTAGCTAAGCAGAGGATGCTTCTTAAAAAATGTC");
+    Alignment aln;
+    aln.set_sequence(read);
+    
+    // Align without xdrop
+    aligner.align_pinned(aln, graph, true, false);
+    cerr << pb2json(aln) << endl;
+    auto no_xdrop_score = aln.score();
+    
+    // Align with xdrop
+    aligner.align_pinned(aln, graph, true, true);
+    
+    cerr << pb2json(aln) << endl;
+    
+    // Score should be the same with and without xdrop.
+    REQUIRE(aln.score() == no_xdrop_score);
+    
+    // Make sure we got the right score.
+    // Account for full length bonus, one gap open, 15 gap extends, and the lack of matches for those.
+    REQUIRE(aln.score() == read.size() + 10 - 6 - 15 - 16);
+}
+
 TEST_CASE("XdropAligner can align pinned right", "[xdrop][alignment][mapping]") {
     
     VG graph;
