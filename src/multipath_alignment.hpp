@@ -59,7 +59,7 @@ namespace vg {
     // TODO: the metadata could be removed and only added to the protobuf at serialization time
     class multipath_alignment_t {
     public:
-        multipath_alignment_t() = default;
+        multipath_alignment_t();
         multipath_alignment_t(const multipath_alignment_t&) = default;
         multipath_alignment_t(multipath_alignment_t&&) = default;
         ~multipath_alignment_t();
