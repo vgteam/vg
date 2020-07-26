@@ -198,7 +198,7 @@ int main_gampcompare(int argc, char** argv) {
                     for (size_t i = 0; i < path_true_positions.size() && !correct; ++i) {
                         for (size_t j = 0; j < path_mapped_positions.size() && !correct; ++j) {
                             if (path_true_positions[i].second == path_mapped_positions[j].second
-                                && abs<int>(path_true_positions[i].first - path_mapped_positions[j].first) <= range) {
+                                && abs<int64_t>(path_true_positions[i].first - path_mapped_positions[j].first) <= range) {
                                 // there is a pair of positions on the same strand of the same path
                                 // within the distance limit
                                 correct = true;
