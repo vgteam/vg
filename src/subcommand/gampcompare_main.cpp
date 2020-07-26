@@ -101,7 +101,7 @@ int main_gampcompare(int argc, char** argv) {
     string test_file_name = get_input_file_name(optind, argc, argv);
     string truth_file_name = get_input_file_name(optind, argc, argv);
 
-    if ((truth_file_name == "-") + (test_file_name == "-") + (graph_file_name == "-") <= 1) {
+    if ((truth_file_name == "-") + (test_file_name == "-") + (graph_file_name == "-") > 1) {
         cerr << "error[vg gampcompare]: Standard input can only be used for one input file" << endl;
         exit(1);
     }
