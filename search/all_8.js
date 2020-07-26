@@ -148,6 +148,7 @@ var searchData=
   ['help_5ffilter',['help_filter',['../filter__main_8cpp.html#a9072d5dfad52adc43da1d2a700be313b',1,'filter_main.cpp']]],
   ['help_5ffind',['help_find',['../find__main_8cpp.html#a61f46a85b426fbf3e48cdffc07d107f8',1,'find_main.cpp']]],
   ['help_5fgamcompare',['help_gamcompare',['../gamcompare__main_8cpp.html#a33c9728d9a784c1ae54baae635b6e56d',1,'gamcompare_main.cpp']]],
+  ['help_5fgampcompare',['help_gampcompare',['../gampcompare__main_8cpp.html#a4eb570f78fda3fc79752c40fccb794d9',1,'gampcompare_main.cpp']]],
   ['help_5fgamsort',['help_gamsort',['../gamsort__main_8cpp.html#ab37435867b2e79dc2fd17af9f6b3667b',1,'gamsort_main.cpp']]],
   ['help_5fgbwt',['help_gbwt',['../gbwt__main_8cpp.html#a73013ddacba7ab20beed9e8022b2b57b',1,'gbwt_main.cpp']]],
   ['help_5fgenotype',['help_genotype',['../genotype__main_8cpp.html#a7d9960cb294ff9984b99ed7816f06323',1,'genotype_main.cpp']]],

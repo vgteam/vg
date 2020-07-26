@@ -97,6 +97,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a87bcc94b84ca7c52611468e4154447f3"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a87bcc94b84ca7c52611468e4154447f3">alignment_path_offsets</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool just_min, bool nearby, size_t search_limit=0)</td></tr>
 <tr class="memdesc:a87bcc94b84ca7c52611468e4154447f3"><td class="mdescLeft">&#160;</td><td class="mdescRight">gives just the path positions of the alignment  <a href="#a87bcc94b84ca7c52611468e4154447f3">More...</a><br /></td></tr>
 <tr class="separator:a87bcc94b84ca7c52611468e4154447f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2272ae58e5cb88a5a7a4feaf63d07954"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a2272ae58e5cb88a5a7a4feaf63d07954">multipath_alignment_path_offsets</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln)</td></tr>
+<tr class="separator:a2272ae58e5cb88a5a7a4feaf63d07954"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af3299d4c737e2a9e839f19c10a857790"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#af3299d4c737e2a9e839f19c10a857790">annotate_with_initial_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t search_limit)</td></tr>
 <tr class="separator:af3299d4c737e2a9e839f19c10a857790"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afa008e81b421e1d0df315441a3feac25"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afa008e81b421e1d0df315441a3feac25">annotate_with_initial_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns, size_t search_limit)</td></tr>
@@ -3266,6 +3268,35 @@ template&lt;class DistHeuristic &gt; </div>
 </div><div class="memdoc">
 
 <p>use the embedded paths to get an estimated minimum distance between the positions </p>
+
+</div>
+</div>
+<a id="a2272ae58e5cb88a5a7a4feaf63d07954"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2272ae58e5cb88a5a7a4feaf63d07954">&#9670;&nbsp;</a></span>multipath_alignment_path_offsets()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; vg::algorithms::multipath_alignment_path_offsets </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>mp_aln</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Find the position of a multipath alignment on paths. Returns the lowest offset position on a path for each contiguous stretch of the multipath alignment, but multiple positions on the same path may be returned if the multipath alignment is disconnected or fans out toward the sources or sinks. </p>
 
 </div>
 </div>

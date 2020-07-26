@@ -28,6 +28,7 @@ var searchData=
   ['gamcompare_5fmain_2ecpp',['gamcompare_main.cpp',['../gamcompare__main_8cpp.html',1,'']]],
   ['gamindex',['GAMIndex',['../namespacevg.html#a9b677be2f409ffcbefd5d9f6149c80c1',1,'vg']]],
   ['gamma_5fln',['gamma_ln',['../namespacevg.html#a05748ab256c93e2393252aa8ebbdde3d',1,'vg']]],
+  ['gampcompare_5fmain_2ecpp',['gampcompare_main.cpp',['../gampcompare__main_8cpp.html',1,'']]],
   ['gamsort_5fmain_2ecpp',['gamsort_main.cpp',['../gamsort__main_8cpp.html',1,'']]],
   ['gamsorter',['GAMSorter',['../namespacevg.html#a6c00bf57d75db83e41ac19a88882c043',1,'vg']]],
   ['gap_5fextension',['gap_extension',['../classvg_1_1GSSWAligner.html#afd2379af50d751eee892a10529d64ffb',1,'vg::GSSWAligner::gap_extension()'],['../classvg_1_1SSWAligner.html#a2248e3e561aab8d3b1036d51850b3c2f',1,'vg::SSWAligner::gap_extension()']]],
