@@ -45,7 +45,7 @@ void help_chunk(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE       use this graph or xg index to chunk subgraphs" << endl
-         << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction" << endl
+         << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction (for -T)" << endl
          << "    -a, --gam-name FILE      chunk this gam file instead of the graph (multiple allowed)" << endl
          << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
          << "path chunking:" << endl

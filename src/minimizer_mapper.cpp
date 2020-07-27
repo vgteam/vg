@@ -21,7 +21,8 @@
 #include <algorithm>
 #include <cmath>
 
-//#define debug
+#define debug
+#define debug_dump_graph
 
 namespace vg {
 
@@ -2145,8 +2146,9 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         this->extender.unfold_haplotypes(rescue_nodes, haplotype_paths, align_graph);
 
         // Align to the subgraph.
+        size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
         this->get_regular_aligner()->align_xdrop(rescued_alignment, align_graph,
-                                                 std::vector<MaximalExactMatch>(), false);
+                                                 std::vector<MaximalExactMatch>(), false, gap_limit);
         this->fix_dozeu_score(rescued_alignment, align_graph, std::vector<handle_t>());
 
         // Get the corresponding alignment to the original graph.
@@ -2175,8 +2177,9 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
     if (!topological_order.empty()) {
         if (rescue_algorithm == rescue_dozeu) {
+            size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
             get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
-                                               dozeu_seed, false);
+                                               dozeu_seed, false, gap_limit);
             this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
         } else {
             get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
@@ -2201,7 +2204,8 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     // Align to the subgraph.
     // TODO: Map the seed to the dagified subgraph.
     if (this->rescue_algorithm == rescue_dozeu) {
-        get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false);
+        size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
+        get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false, gap_limit);
         this->fix_dozeu_score(rescued_alignment, dagified, std::vector<handle_t>());
     } else if (this->rescue_algorithm == rescue_gssw) {
         get_regular_aligner()->align(rescued_alignment, dagified, true);
@@ -2818,30 +2822,36 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
            
             if (extended_seeds[extended_seed_num].read_interval.first != 0) {
                 // There is a left tail
+                
+                // Have scratch for the longest detectable gap
+                size_t longest_detectable_gap;
     
                 // Get the forest of all left tail placements
-                auto forest = get_tail_forest(extended_seeds[extended_seed_num], aln.sequence().size(), true);
+                auto forest = get_tail_forest(extended_seeds[extended_seed_num], aln.sequence().size(), true, &longest_detectable_gap);
            
                 // Grab the part of the read sequence that comes before the extension
                 string before_sequence = aln.sequence().substr(0, extended_seeds[extended_seed_num].read_interval.first);
                 
                 // Do right-pinned alignment
                 left_tail_result = std::move(get_best_alignment_against_any_tree(forest, before_sequence,
-                    extended_seeds[extended_seed_num].starting_position(gbwt_graph), false));
+                    extended_seeds[extended_seed_num].starting_position(gbwt_graph), false, longest_detectable_gap));
             }
             
             if (extended_seeds[extended_seed_num].read_interval.second != aln.sequence().size()) {
                 // There is a right tail
                 
+                // Have scratch for the longest detectable gap
+                size_t longest_detectable_gap;
+                
                 // Get the forest of all right tail placements
-                auto forest = get_tail_forest(extended_seeds[extended_seed_num], aln.sequence().size(), false);
+                auto forest = get_tail_forest(extended_seeds[extended_seed_num], aln.sequence().size(), false, &longest_detectable_gap);
             
                 // Find the sequence
                 string trailing_sequence = aln.sequence().substr(extended_seeds[extended_seed_num].read_interval.second);
         
                 // Do left-pinned alignment
                 right_tail_result = std::move(get_best_alignment_against_any_tree(forest, trailing_sequence,
-                    extended_seeds[extended_seed_num].tail_position(gbwt_graph), true));
+                    extended_seeds[extended_seed_num].tail_position(gbwt_graph), true, longest_detectable_gap));
             }
 
             // Compute total score
@@ -2972,7 +2982,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
 }
 
 pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees,
-    const string& sequence, const Position& default_position, bool pin_left) const {
+    const string& sequence, const Position& default_position, bool pin_left, size_t longest_detectable_gap) const {
    
     // We want the best alignment, to the base graph, done against any target path
     Path best_path;
@@ -3025,11 +3035,13 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
 #else
             cerr << endl;
 #endif
+            cerr << "Limit gap length to " << longest_detectable_gap << " bp" << endl;
 #endif
             
             // X-drop align, accounting for full length bonus.
             // We *always* do left-pinned alignment internally, since that's the shape of trees we get.
-            get_regular_aligner()->align_pinned(current_alignment, subgraph, true, true);
+            // Make sure to pass through the gap length limit so we don't just get the default.
+            get_regular_aligner()->align_pinned(current_alignment, subgraph, true, true, longest_detectable_gap);
             
 #ifdef debug
             cerr << "\tScore: " << current_alignment.score() << endl;
@@ -3062,7 +3074,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
 }
 
 vector<TreeSubgraph> MinimizerMapper::get_tail_forest(const GaplessExtension& extended_seed,
-    size_t read_length, bool left_tails) const {
+    size_t read_length, bool left_tails, size_t* longest_detectable_gap) const {
 
     // We will fill this in with all the trees we return
     vector<TreeSubgraph> to_return;
@@ -3118,8 +3130,17 @@ vector<TreeSubgraph> MinimizerMapper::get_tail_forest(const GaplessExtension& ex
     // Decide if the start node will end up included in the tree, or if we cut it all off with the offset.
     bool start_included = (from.offset() < gbwt_graph.get_length(start_handle));
     
+    // Make sure we have a place to store the longest detectable gap
+    size_t gap_limit;
+    if (!longest_detectable_gap) {
+        longest_detectable_gap = &gap_limit;
+    }
+    
+    // Work it out because we need it for the limit of our search distance
+    *longest_detectable_gap = get_regular_aligner()->longest_detectable_gap(read_length, tail_length);
+    
     // How long should we search? It should be the longest detectable gap plus the remaining sequence.
-    size_t search_limit = get_regular_aligner()->longest_detectable_gap(tail_length, read_length) + tail_length;
+    size_t search_limit = *longest_detectable_gap + tail_length;
     
     // Do a DFS over the haplotypes in the GBWT out to that distance.
     dfs_gbwt(*base_state, from.offset(), search_limit, [&](const handle_t& entered) {
