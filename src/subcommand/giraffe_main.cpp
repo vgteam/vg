@@ -1171,6 +1171,10 @@ int main_giraffe(int argc, char** argv) {
                 //TODO: What do we do if we haven't finalized the distribution?
                 if (!minimizer_mapper.fragment_distr_is_finalized()){
                     cerr << "warning[vg::giraffe]: Finalizing fragment length distribution before reaching maximum sample size" << endl;
+                    cerr << "                      mapped " << minimizer_mapper.get_fragment_length_sample_size() 
+                         << " reads single ended with " << ambiguous_pair_buffer.size() << " pairs of reads left unmapped" << endl;
+                    cerr << "                      mean: " << minimizer_mapper.get_fragment_length_mean() << ", stdev: " 
+                         << minimizer_mapper.get_fragment_length_stdev() << endl;
                     minimizer_mapper.finalize_fragment_length_distr();
                 }
                 for (pair<Alignment, Alignment>& alignment_pair : ambiguous_pair_buffer) {
