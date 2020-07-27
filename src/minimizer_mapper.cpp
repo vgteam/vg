@@ -1726,12 +1726,13 @@ vector<pair<bool, bool>> mapping_was_rescued;
         funnels[1].substage("mapq");
     }
     
-    // Compute raw esplored caps (witn 2.0 scaling, like for single-end) and raw group caps.
+    // Compute raw explored caps (with 2.0 scaling, like for single-end) and raw group caps.
     // Non-capping caps stay at infinity.
     vector<double> mapq_explored_caps(2, std::numeric_limits<float>::infinity());
     vector<double> mapq_score_groups(2, std::numeric_limits<float>::infinity());
-    // We also have one fragment_cluster_cap across both ends
-    double fragment_cluster_cap = std::numeric_limits<float>::infinity();
+    // We also have one fragment_cluster_cap across both ends.
+    // This MKUST start at -inf to preserve current behavior.
+    double fragment_cluster_cap = -std::numeric_limits<float>::infinity();
     // And one base uncapped MAPQ
     double uncapped_mapq = 0;
  
@@ -1774,10 +1775,10 @@ vector<pair<bool, bool>> mapping_was_rescued;
         uncapped_mapq = scores[0] == 0 ? 0 : 
             get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index, multiplicities) / 2;
 
-        //Cap mapq at 1 / # equivalent or better fragment clusters
-        //Note that 0 values here are meant to actually cap at 0!
+        //Cap mapq at 1 / # equivalent or better fragment clusters, excluding self
         if (better_cluster_count_mappings.size() != 0 && better_cluster_count_mappings.front() > 0) {
-            fragment_cluster_cap = max(0.0, round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front()))));
+            // This is -0 if better_cluster_count_mappings.front() == 1
+            fragment_cluster_cap = round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front())));
         }
 
         //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
@@ -1808,11 +1809,16 @@ vector<pair<bool, bool>> mapping_was_rescued;
             set_annotation(to_annotate, "mapq_score_group", mapq_score_groups[read_num]);
         }
         
+        // Have a function to transform interesting cap values to uncapped.
+        auto preprocess_cap = [&](double cap) {
+            return (cap != 0.0 && cap != -0.0 && cap != -numeric_limits<double>::infinity()) ? cap : numeric_limits<double>::infinity();
+        };
+        
         for (auto read_num : {0, 1}) {
             // For each fragment
 
             // Compute the overall cap for just this read, now that the individual cap components are filled in for both reads.
-            double mapq_cap = std::min(fragment_cluster_cap, std::min(mapq_score_groups[read_num] / 2.0, (mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0));
+            double mapq_cap = std::min(preprocess_cap(fragment_cluster_cap), std::min(preprocess_cap(mapq_score_groups[read_num] / 2.0), (mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0));
             
             // Find the MAPQ to cap
             double read_mapq = uncapped_mapq;
