@@ -92,9 +92,14 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a5b12189ad9dcf0a4656a321fcf5ff840"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a5b12189ad9dcf0a4656a321fcf5ff840">sample_read_pair</a> ()</td></tr>
 <tr class="memdesc:a5b12189ad9dcf0a4656a321fcf5ff840"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sample a pair of reads an alignments.  <a href="#a5b12189ad9dcf0a4656a321fcf5ff840">More...</a><br /></td></tr>
 <tr class="separator:a5b12189ad9dcf0a4656a321fcf5ff840"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeaec9a5723a82bcfc1fdf7faf5b83690"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#aeaec9a5723a82bcfc1fdf7faf5b83690">print_path_usage</a> (ostream &amp;out) const</td></tr>
+<tr class="memdesc:aeaec9a5723a82bcfc1fdf7faf5b83690"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print out a TSV of the fraction of fragments from different paths.  <a href="#aeaec9a5723a82bcfc1fdf7faf5b83690">More...</a><br /></td></tr>
+<tr class="separator:aeaec9a5723a82bcfc1fdf7faf5b83690"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
+<tr class="memitem:aeaf471fcbfd6ef4f675067994cb1f3d1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#aeaf471fcbfd6ef4f675067994cb1f3d1">print_path_usage_internal</a> (ostream &amp;out, const vector&lt; size_t &gt; &amp;counts) const</td></tr>
+<tr class="separator:aeaf471fcbfd6ef4f675067994cb1f3d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5417af00068600ab1e6d0acb24836698"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a5417af00068600ab1e6d0acb24836698">NGSSimulator</a> (void)=delete</td></tr>
 <tr class="separator:a5417af00068600ab1e6d0acb24836698"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8f34614e3dc660e31d26d9c18970e736"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a8f34614e3dc660e31d26d9c18970e736">record_read_quality</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool read_2=false)</td></tr>
@@ -217,6 +222,8 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:ac377f66a4c6d84f5cb660950d56022ff"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a></td></tr>
 <tr class="memdesc:ac377f66a4c6d84f5cb660950d56022ff"><td class="mdescLeft">&#160;</td><td class="mdescRight">Restrict reads to just these paths (path-only mode) if nonempty.  <a href="#ac377f66a4c6d84f5cb660950d56022ff">More...</a><br /></td></tr>
 <tr class="separator:ac377f66a4c6d84f5cb660950d56022ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1ce688e0d7bb2a50e8218bd177bcbdd2"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a1ce688e0d7bb2a50e8218bd177bcbdd2">source_path_frag_counts</a></td></tr>
+<tr class="separator:a1ce688e0d7bb2a50e8218bd177bcbdd2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-attribs"></a>
 Static Private Attributes</h2></td></tr>
@@ -882,6 +889,62 @@ Static Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Get an unclashing read name. </p>
+
+</div>
+</div>
+<a id="aeaec9a5723a82bcfc1fdf7faf5b83690"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeaec9a5723a82bcfc1fdf7faf5b83690">&#9670;&nbsp;</a></span>print_path_usage()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::NGSSimulator::print_path_usage </td>
+          <td>(</td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Print out a TSV of the fraction of fragments from different paths. </p>
+
+</div>
+</div>
+<a id="aeaf471fcbfd6ef4f675067994cb1f3d1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeaf471fcbfd6ef4f675067994cb1f3d1">&#9670;&nbsp;</a></span>print_path_usage_internal()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::NGSSimulator::print_path_usage_internal </td>
+          <td>(</td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>counts</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -1746,6 +1809,28 @@ Static Private Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">size_t vg::NGSSimulator::seed</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1ce688e0d7bb2a50e8218bd177bcbdd2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1ce688e0d7bb2a50e8218bd177bcbdd2">&#9670;&nbsp;</a></span>source_path_frag_counts</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;vector&lt;size_t&gt; &gt; vg::NGSSimulator::source_path_frag_counts</td>
         </tr>
       </table>
   </td>
