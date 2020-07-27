@@ -675,7 +675,7 @@ double uncapped_mapq = mapq;
     if (track_correctness) {
         cerr << "\t" << funnel.last_correct_stage() << endl;
     } else {
-        cerr << endl;
+        cerr << "\t" << "?" << endl;
     }
 #endif
 #ifdef debug
@@ -1725,13 +1725,16 @@ vector<pair<bool, bool>> mapping_was_rescued;
         funnels[0].substage("mapq");
         funnels[1].substage("mapq");
     }
-#ifdef print_minimizers
-    double uncapped_mapq = -std::numeric_limits<float>::infinity();
+    
+    // Compute raw explored caps (with 2.0 scaling, like for single-end) and raw group caps.
+    // Non-capping caps stay at infinity.
+    vector<double> mapq_explored_caps(2, std::numeric_limits<float>::infinity());
+    vector<double> mapq_score_groups(2, std::numeric_limits<float>::infinity());
+    // We also have one fragment_cluster_cap across both ends.
+    // This MKUST start at -inf to preserve current behavior.
     double fragment_cluster_cap = -std::numeric_limits<float>::infinity();
-    vector<double> mapq_extend_caps(1, -std::numeric_limits<float>::infinity());
-    double mapq_score_group_1 = -std::numeric_limits<float>::infinity();
-    double mapq_score_group_2 = -std::numeric_limits<float>::infinity();
-#endif
+    // And one base uncapped MAPQ
+    double uncapped_mapq = 0;
  
     if (mappings.first.empty()) {
         //If we didn't get an alignment, return empty alignments
@@ -1766,41 +1769,23 @@ vector<pair<bool, bool>> mapping_was_rescued;
 #endif
 
         size_t winning_index;
-        // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
-        // If either of the mappings was duplicated in other pairs, use the group scores to determine mapq
         const vector<double>* multiplicities = paired_multiplicities.size() == scores.size() ? &paired_multiplicities : nullptr; 
-        // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
+        // Compute base MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
         // If either of the mappings was duplicated in other pairs, use the group scores to determine mapq
-        double mapq = scores[0] == 0 ? 0 : 
+        uncapped_mapq = scores[0] == 0 ? 0 : 
             get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index, multiplicities) / 2;
-#ifdef print_minimizers
-        uncapped_mapq = mapq;
-#endif
 
-        //Cap mapq at 1 / # equivalent or better fragment clusters
+        //Cap mapq at 1 / # equivalent or better fragment clusters, excluding self
         if (better_cluster_count_mappings.size() != 0 && better_cluster_count_mappings.front() > 0) {
-            mapq = min(mapq,round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front()))));
-        }
-#ifdef print_minimizers
-        if (better_cluster_count_mappings.size() != 0 && better_cluster_count_mappings.front() > 0) {
+            // This is -0 if better_cluster_count_mappings.front() == 1
             fragment_cluster_cap = round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front())));
         }
-#endif
 
         //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
         //of the group of duplicated alignments
-        double mapq_group1 = scores_group_1.size() <= 1 ? mapq : 
-            min(mapq, get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index) / 2);
-        double mapq_group2 = scores_group_2.size() <= 1 ? mapq : 
-            min(mapq, get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index) / 2);
-
-    
-#ifdef print_minimizers
-    mapq_score_group_1 = scores_group_1.size() <= 1 ? -std::numeric_limits<float>::infinity() : get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index);
-    mapq_score_group_2 = scores_group_2.size() <= 1 ? -std::numeric_limits<float>::infinity() : get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index);
-#endif
-        // Compute one MAPQ cap across all the fragments
-        double mapq_cap = -std::numeric_limits<float>::infinity();
+        mapq_score_groups[0] = scores_group_1.size() <= 1 ? std::numeric_limits<float>::infinity() : get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index);
+        mapq_score_groups[1] = scores_group_2.size() <= 1 ? std::numeric_limits<float>::infinity() : get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index);
+        
         for (auto read_num : {0, 1}) {
             // For each fragment
 
@@ -1813,31 +1798,30 @@ vector<pair<bool, bool>> mapping_was_rescued;
                     explored_minimizers.push_back(i);
                 }
             }
-            // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
+            // Compute exploration cap on MAPQ. TODO: avoid needing to pass as much stuff along.
             double mapq_explored_cap = 2 * faster_cap(minimizers_by_read[read_num], explored_minimizers, aln.sequence(), aln.quality());
 
-#ifdef print_minimizers
-            mapq_extend_caps[read_num] = mapq_explored_cap;
-#endif
+            mapq_explored_caps[read_num] = mapq_explored_cap;
 
             // Remember the caps
             auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
             set_annotation(to_annotate, "mapq_explored_cap", mapq_explored_cap);
-
-            // Compute the cap. It should be the higher of the caps for the two reads 
-            // (unless one has no minimizers, i.e. if it was rescued) 
-            // The individual cap values are either actual numbers or +inf, so the cap can't stay as -inf.
-            mapq_cap = mapq_explored_cap == numeric_limits<double>::infinity() ? mapq_cap : max(mapq_cap, mapq_explored_cap);
+            set_annotation(to_annotate, "mapq_score_group", mapq_score_groups[read_num]);
         }
-        mapq_cap = mapq_cap == -std::numeric_limits<float>::infinity() ? numeric_limits<double>::infinity() : mapq_cap;
-
+        
+        // Have a function to transform interesting cap values to uncapped.
+        auto preprocess_cap = [&](double cap) {
+            return (cap != 0.0 && cap != -0.0 && cap != -numeric_limits<double>::infinity()) ? cap : numeric_limits<double>::infinity();
+        };
+        
         for (auto read_num : {0, 1}) {
             // For each fragment
-            // Find the source read
-            auto& aln = read_num == 0 ? aln1 : aln2;
 
+            // Compute the overall cap for just this read, now that the individual cap components are filled in for both reads.
+            double mapq_cap = std::min(preprocess_cap(fragment_cluster_cap), std::min(preprocess_cap(mapq_score_groups[read_num] / 2.0), (mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0));
+            
             // Find the MAPQ to cap
-            auto& read_mapq = read_num == 0 ? mapq_group1 : mapq_group2;
+            double read_mapq = uncapped_mapq;
             
             // Remember the uncapped MAPQ
             auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
@@ -1845,17 +1829,20 @@ vector<pair<bool, bool>> mapping_was_rescued;
             // And the cap we actually applied (possibly from the pair partner)
             set_annotation(to_annotate, "mapq_applied_cap", mapq_cap);
 
-            // Apply the cap and transformation
-            read_mapq = round(0.85 * min(mapq_cap, min(read_mapq, 70.0)));
+            // Apply the cap, and limit to 0-60
+            read_mapq = max(min(mapq_cap, min(read_mapq, 60.0)), 0.0);
+            
+            // Save the MAPQ
+            to_annotate.set_mapping_quality(read_mapq);
+            
+#ifdef debug
+            cerr << "MAPQ for read " << read_num << " is " << read_mapq << ", was " << uncapped_mapq
+                << " capped by fragment cluster cap " << fragment_cluster_cap
+                << ", score group cap " << (mapq_score_groups[read_num] / 2.0)
+                << ", combined explored cap " << ((mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0)  << endl;
+#endif  
         }
         
-#ifdef debug
-        cerr << "MAPQ is " << mapq << ", capped group MAPQ scores are " << mapq_group1 << " and " << mapq_group2 << endl;
-#endif
-
-        mappings.first.front().set_mapping_quality(max(min(mapq_group1, 60.0), 0.0)) ;
-        mappings.second.front().set_mapping_quality(max(min(mapq_group2, 60.0), 0.0)) ;
-    
         //Annotate top pair with its fragment distance, fragment length distrubution, and secondary scores
         set_annotation(mappings.first.front(), "fragment_length", (double) distances.front());
         set_annotation(mappings.second.front(), "fragment_length", (double) distances.front());
@@ -1987,7 +1974,8 @@ vector<pair<bool, bool>> mapping_was_rescued;
          if (minimizer_explored_by_read[0].contains(i)) {
              assert(minimizer.hits<=hard_hit_cap) ;
          }
-    } cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_group_1 << "\t" << mapq_extend_caps[0] << "\t" << mappings.first.front().mapping_quality();  
+    }
+    cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[0] << "\t" << mapq_explored_caps[0] << "\t" << mappings.first.front().mapping_quality();  
     if (track_correctness) {
         cerr << "\t" << funnels[0].last_correct_stage() << endl;
     } else {
@@ -2012,7 +2000,7 @@ vector<pair<bool, bool>> mapping_was_rescued;
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_group_2 << "\t" << mapq_extend_caps[1] << "\t" << mappings.second.front().mapping_quality();
+    cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[1] << "\t" << mapq_explored_caps[1] << "\t" << mappings.second.front().mapping_quality();
     if (track_correctness) {
         cerr << "\t" << funnels[1].last_correct_stage() << endl;
     } else {
