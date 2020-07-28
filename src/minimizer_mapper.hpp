@@ -160,7 +160,16 @@ public:
             fragment_length_distr.force_parameters(fragment_length_distr.mean(), fragment_length_distr.std_dev());
         } 
     }
+    double get_fragment_length_mean() const { return fragment_length_distr.mean(); }
+    double get_fragment_length_stdev() const {return fragment_length_distr.std_dev(); }
+    size_t get_fragment_length_sample_size() const { return fragment_length_distr.curr_sample_size(); }
 
+    /**
+     * Get the distance limit for the given read length
+     */
+    size_t get_distance_limit(size_t read_length) const {
+        return max(distance_limit, read_length + 50);
+    }
 protected:
 
     /**
@@ -297,12 +306,6 @@ protected:
      */
     void extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const;
 
-    /**
-     * Get the distance limit for the given read length
-     */
-    size_t get_distance_limit(size_t read_length) {
-        return max(distance_limit, read_length + 50);
-    }
 
 //-----------------------------------------------------------------------------
 
