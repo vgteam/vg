@@ -382,14 +382,11 @@ TEST_CASE("XdropAligner can align pinned left across an insertion with extra gra
     
     // Align without xdrop
     aligner.align_pinned(aln, graph, true, false);
-    cerr << pb2json(aln) << endl;
     auto no_xdrop_score = aln.score();
     
     // Align with xdrop
     aligner.align_pinned(aln, graph, true, true);
-    
-    cerr << pb2json(aln) << endl;
-    
+        
     // Score should be the same with and without xdrop.
     REQUIRE(aln.score() == no_xdrop_score);
     
