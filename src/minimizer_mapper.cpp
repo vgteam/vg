@@ -1730,11 +1730,8 @@ vector<pair<bool, bool>> mapping_was_rescued;
     // Non-capping caps stay at infinity.
     vector<double> mapq_explored_caps(2, std::numeric_limits<float>::infinity());
     vector<double> mapq_score_groups(2, std::numeric_limits<float>::infinity());
-#ifdef print_minimizers
     // We also have one fragment_cluster_cap across both ends.
-    // This MUST start at -inf to preserve current behavior.
-    double fragment_cluster_cap = -std::numeric_limits<float>::infinity();
-#endif
+    double fragment_cluster_cap = std::numeric_limits<float>::infinity();
     // And one base uncapped MAPQ
     double uncapped_mapq = 0;
  
@@ -1777,13 +1774,26 @@ vector<pair<bool, bool>> mapping_was_rescued;
         uncapped_mapq = scores[0] == 0 ? 0 : 
             get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index, multiplicities) / 2;
 
-#ifdef print_minimizers
-        //Cap mapq at 1 / # equivalent or better fragment clusters, excluding self
-        if (better_cluster_count_mappings.size() != 0 && better_cluster_count_mappings.front() > 0) {
-            // This is -0 if better_cluster_count_mappings.front() == 1
-            fragment_cluster_cap = round(prob_to_phred((1.0 / (double) better_cluster_count_mappings.front())));
+        //Cap mapq at 1 - 1 / # equivalent or better fragment clusters, excluding self
+        if (better_cluster_count_mappings.size() != 0) {
+            if (better_cluster_count_mappings.front() == 1) {
+                // One cluster excluding us is equivalent or better.
+                // Old logic gave a -0 which was interpreted as uncapped.
+                // So leave uncapped.
+            } else if (better_cluster_count_mappings.front() > 1) {
+                // To exactly match the behavior we want, we need to calculate and round the old, backward version of the cap
+                double backward_cap = round(prob_to_phred(1.0 / (double) better_cluster_count_mappings.front()));
+                if (backward_cap == 0.0 || backward_cap == -0.0) {
+                    // Leave uncapped
+                } else {
+                    // Actually compute the cap the right way around
+                    // TODO: why is this a sensible cap?
+                    fragment_cluster_cap = prob_to_phred(1.0 - (1.0 / (double) better_cluster_count_mappings.front()));
+                    // Leave zeros in here and don't round.
+                    // TODO: should we be working from the rounded backward_cap insteaad to replicate the precision loss?
+                }
+            }
         }
-#endif
 
         //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
         //of the group of duplicated alignments
@@ -1815,14 +1825,14 @@ vector<pair<bool, bool>> mapping_was_rescued;
         
         // Have a function to transform interesting cap values to uncapped.
         auto preprocess_cap = [&](double cap) {
-            return (cap != 0.0 && cap != -0.0 && cap != -numeric_limits<double>::infinity()) ? cap : numeric_limits<double>::infinity();
+            return (cap != -numeric_limits<double>::infinity()) ? cap : numeric_limits<double>::infinity();
         };
         
         for (auto read_num : {0, 1}) {
             // For each fragment
 
             // Compute the overall cap for just this read, now that the individual cap components are filled in for both reads.
-            double mapq_cap = std::min(preprocess_cap(mapq_score_groups[read_num] / 2.0), (mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0);
+            double mapq_cap = std::min(preprocess_cap(mapq_score_groups[read_num] / 2.0), std::min(fragment_cluster_cap, (mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0));
             
             // Find the MAPQ to cap
             double read_mapq = uncapped_mapq;
@@ -1841,7 +1851,8 @@ vector<pair<bool, bool>> mapping_was_rescued;
             
 #ifdef debug
             cerr << "MAPQ for read " << read_num << " is " << read_mapq << ", was " << uncapped_mapq
-                << " capped by score group cap " << (mapq_score_groups[read_num] / 2.0)
+                << " capped by fragment cluster cap " << fragment_cluster_cap
+                << ", score group cap " << (mapq_score_groups[read_num] / 2.0)
                 << ", combined explored cap " << ((mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0)  << endl;
 #endif  
         }
