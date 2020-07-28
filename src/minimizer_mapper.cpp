@@ -1781,17 +1781,11 @@ vector<pair<bool, bool>> mapping_was_rescued;
                 // Old logic gave a -0 which was interpreted as uncapped.
                 // So leave uncapped.
             } else if (better_cluster_count_mappings.front() > 1) {
-                // To exactly match the behavior we want, we need to calculate and round the old, backward version of the cap
-                double backward_cap = round(prob_to_phred(1.0 / (double) better_cluster_count_mappings.front()));
-                if (backward_cap == 0.0 || backward_cap == -0.0) {
-                    // Leave uncapped
-                } else {
-                    // Actually compute the cap the right way around
-                    // TODO: why is this a sensible cap?
-                    fragment_cluster_cap = prob_to_phred(1.0 - (1.0 / (double) better_cluster_count_mappings.front()));
-                    // Leave zeros in here and don't round.
-                    // TODO: should we be working from the rounded backward_cap insteaad to replicate the precision loss?
-                }
+                // Actually compute the cap the right way around
+                // TODO: why is this a sensible cap?
+                fragment_cluster_cap = prob_to_phred(1.0 - (1.0 / (double) better_cluster_count_mappings.front()));
+                // Leave zeros in here and don't round.
+                // TODO: should we be working from the rounded backward_cap insteaad to replicate the precision loss?
             }
         }
 
