@@ -208,6 +208,17 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
             present_in_any_extended_cluster |= cluster.present;
             
+#ifdef debug
+            cerr << "Extensions:" << endl;
+            for (auto& e : cluster_extensions.back()) {
+                cerr << "\tRead " << e.read_interval.first << "-" << e.read_interval.second << " with " << e.mismatch_positions.size() << " mismatches:";
+                for (auto& pos : e.mismatch_positions) {
+                    cerr << " " << pos;
+                }
+                cerr << endl;
+            }
+#endif
+            
             if (track_provenance) {
                 // Record with the funnel that the previous group became a group of this size.
                 // Don't bother recording the seed to extension matching...
@@ -333,10 +344,19 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
                 //Fill in the best alignments from the extension
                 this->extension_to_alignment(extensions.front(), best_alignment);
+                
+#ifdef debug
+                cerr << "Produced alignment directly from full length gapless extension " << extension_num << endl;
+#endif
 
                 if (extensions.size() > 1) {
                     //Do the same thing for the second extension, if one exists
                     this->extension_to_alignment(extensions.back(), second_best_alignment);
+                    
+#ifdef debug
+                    cerr << "Produced additional alignment directly from full length gapless extension " << extension_num << endl;
+#endif
+                    
                 }
 
                 if (track_provenance) {
@@ -354,6 +374,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 // second_best_extension, if there is a second best
                 find_optimal_tail_alignments(aln, extensions, best_alignment, second_best_alignment);
 
+#ifdef debug
+                cerr << "Did dynamic programming for gapless extension " << extension_num << endl;
+#endif
                 
                 if (track_provenance) {
                     // We're done chaining. Next alignment may not go through this substage.
@@ -385,7 +408,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 }
             }
 #ifdef debug
-                cerr << "Found best alignment from gapless extension " << extension_num << ": " << pb2json(best_alignment) << endl;
+            cerr << "Found best alignment from gapless extension " << extension_num << ": " << pb2json(best_alignment) << endl;
 #endif
 
             alignments.push_back(std::move(best_alignment));
@@ -940,6 +963,17 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                                                     cluster.fragment);
                     present_in_any_extended_cluster_by_read[read_num] |= cluster.present;
                     
+#ifdef debug
+                    cerr << "Extensions:" << endl;
+                    for (auto& e : cluster_extensions.back().first) {
+                        cerr << "\tRead " << e.read_interval.first << "-" << e.read_interval.second << " with " << e.mismatch_positions.size() << " mismatches:";
+                        for (auto& pos : e.mismatch_positions) {
+                            cerr << " " << pos;
+                        }
+                        cerr << endl;
+                    }
+#endif
+                    
                     if (track_provenance) {
                         // Record with the funnel that the previous group became a group of this size.
                         // Don't bother recording the seed to extension matching...
@@ -1035,10 +1069,18 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
                     //Fill in the best alignments from the extension
                     this->extension_to_alignment(extensions.front(), best_alignment);
+                    
+#ifdef debug
+                    cerr << "Produced alignment directly from full length gapless extension " << extension_num << endl;
+#endif
 
                     if (extensions.size() > 1) {
                         //Do the same thing for the second extension, if one exists
                         this->extension_to_alignment(extensions.back(), second_best_alignment);
+                        
+#ifdef debug
+                        cerr << "Produced additional alignment directly from full length gapless extension " << extension_num << endl;
+#endif
                     }
 
                     if (track_provenance) {
@@ -2769,9 +2811,10 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::pair<s
 
 void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& best, Alignment& second_best) const {
 
-#ifdef debug
-    cerr << "Trying to find tail alignments for " << extended_seeds.size() << " extended seeds" << endl;
-#endif
+    // Count how many extensions appeat to be full-length (0 tail on both
+    // sides). We want to actually align some tails, so we assume the no-tail
+    // ones have the highest scores and make sure to process 1 past them.
+    size_t tailless_extensions = 0;
 
     // Make paths for all the extensions
     vector<Path> extension_paths;
@@ -2784,7 +2827,16 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
         // And the extension's score
         extension_path_scores.push_back(get_regular_aligner()->score_partial_alignment(aln, gbwt_graph, extension_paths.back(),
             aln.sequence().begin() + extended_seed.read_interval.first));
+            
+        if (extended_seed.read_interval.first == 0 && extended_seed.read_interval.second == aln.sequence().size()) {
+            // This extension has no tails.
+            tailless_extensions++;
+        }
     }
+    
+#ifdef debug
+    cerr << "Trying to find tail alignments for " << extended_seeds.size() << " extended seeds, " << tailless_extensions << " tailless" << endl;
+#endif
     
     // We will keep the winning alignment here, in pieces
     Path winning_left;
@@ -2799,7 +2851,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     
     // Handle each extension in the set
     process_until_threshold_b(extended_seeds, extension_path_scores,
-        extension_score_threshold, 1, max_local_extensions,
+        extension_score_threshold, tailless_extensions + 1, max_local_extensions,
         (function<double(size_t)>) [&](size_t extended_seed_num) {
        
             // This extended seed looks good enough.
@@ -2819,7 +2871,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             pair<Path, int64_t> left_tail_result {{}, 0};
             // And a right tail path and score
             pair<Path, int64_t> right_tail_result {{}, 0};
-           
+            
             if (extended_seeds[extended_seed_num].read_interval.first != 0) {
                 // There is a left tail
                 
@@ -2853,9 +2905,13 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 right_tail_result = std::move(get_best_alignment_against_any_tree(forest, trailing_sequence,
                     extended_seeds[extended_seed_num].tail_position(gbwt_graph), true, longest_detectable_gap));
             }
-
+            
             // Compute total score
             size_t total_score = extension_path_scores[extended_seed_num] + left_tail_result.second + right_tail_result.second;
+            
+#ifdef debug
+            cerr << "Extended seed " << extended_seed_num << " has left tail of " << extended_seeds[extended_seed_num].read_interval.first << "bp and right tail of " << (aln.sequence().size() - extended_seeds[extended_seed_num].read_interval.second) << "bp for total score " << total_score << endl;
+#endif
 
             //Get the node ids of the beginning and end of each alignment
 
