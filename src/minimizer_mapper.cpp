@@ -1785,7 +1785,6 @@ vector<pair<bool, bool>> mapping_was_rescued;
                 // TODO: why is this a sensible cap?
                 fragment_cluster_cap = prob_to_phred(1.0 - (1.0 / (double) better_cluster_count_mappings.front()));
                 // Leave zeros in here and don't round.
-                // TODO: should we be working from the rounded backward_cap insteaad to replicate the precision loss?
             }
         }
 
