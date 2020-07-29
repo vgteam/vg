@@ -237,10 +237,10 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a6e3ec6685f98622b35391ae0d8bac180"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab3256c8c0ebc49ff72af298684580fa4"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab3256c8c0ebc49ff72af298684580fa4">find_connecting_paths</a> (const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, size_t read_length) const</td></tr>
 <tr class="separator:ab3256c8c0ebc49ff72af298684580fa4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a52ffe043bb4a0f598e0fe76f3f7ca301"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a52ffe043bb4a0f598e0fe76f3f7ca301">get_tail_forest</a> (const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;extended_seed, size_t read_length, bool left_tails) const</td></tr>
-<tr class="separator:a52ffe043bb4a0f598e0fe76f3f7ca301"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5520caca736306020df277dc3293eec8"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a5520caca736306020df277dc3293eec8">get_best_alignment_against_any_tree</a> (const vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &amp;trees, const string &amp;sequence, const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;default_position, bool pin_left) const</td></tr>
-<tr class="separator:a5520caca736306020df277dc3293eec8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afdbaa5b2938d0050476d078d336286cf"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#afdbaa5b2938d0050476d078d336286cf">get_tail_forest</a> (const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;extended_seed, size_t read_length, bool left_tails, size_t *longest_detectable_gap=nullptr) const</td></tr>
+<tr class="separator:afdbaa5b2938d0050476d078d336286cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a27c0f83c455839a01b2d8e427fc98911"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a27c0f83c455839a01b2d8e427fc98911">get_best_alignment_against_any_tree</a> (const vector&lt; <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> &gt; &amp;trees, const string &amp;sequence, const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;default_position, bool pin_left, size_t longest_detectable_gap) const</td></tr>
+<tr class="separator:a27c0f83c455839a01b2d8e427fc98911"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4355a2ecfe99c02410f92093efc77ce4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4355a2ecfe99c02410f92093efc77ce4">dfs_gbwt</a> (const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;from, size_t walk_distance, const function&lt; void(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;enter_handle, const function&lt; void(void)&gt; exit_handle) const</td></tr>
 <tr class="separator:a4355a2ecfe99c02410f92093efc77ce4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a657e584de6e57a3f6f15616f245e39ef"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a657e584de6e57a3f6f15616f245e39ef">dfs_gbwt</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> from_handle, size_t from_offset, size_t walk_distance, const function&lt; void(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;enter_handle, const function&lt; void(void)&gt; exit_handle) const</td></tr>
@@ -1035,8 +1035,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a5520caca736306020df277dc3293eec8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5520caca736306020df277dc3293eec8">&#9670;&nbsp;</a></span>get_best_alignment_against_any_tree()</h2>
+<a id="a27c0f83c455839a01b2d8e427fc98911"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a27c0f83c455839a01b2d8e427fc98911">&#9670;&nbsp;</a></span>get_best_alignment_against_any_tree()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1066,7 +1066,13 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>pin_left</em>&#160;</td>
+          <td class="paramname"><em>pin_left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>longest_detectable_gap</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1084,6 +1090,7 @@ Additional Inherited Members</h2></td></tr>
 <p>If no mapping is possible (for example, because there are no trees), produce a pure insert at default_position.</p>
 <p><a class="el" href="structvg_1_1Alignment.html">Alignment</a> is always pinned.</p>
 <p>If pin_left is true, pin the alignment on the left to the root of each tree. Otherwise pin it on the right to the root of each tree.</p>
+<p>Limits the length of the longest gap to longest_detectable_gap.</p>
 <p>Returns alingments in gbwt_graph space. </p>
 
 </div>
@@ -1190,8 +1197,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a52ffe043bb4a0f598e0fe76f3f7ca301"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a52ffe043bb4a0f598e0fe76f3f7ca301">&#9670;&nbsp;</a></span>get_tail_forest()</h2>
+<a id="afdbaa5b2938d0050476d078d336286cf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afdbaa5b2938d0050476d078d336286cf">&#9670;&nbsp;</a></span>get_tail_forest()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1215,7 +1222,13 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>left_tails</em>&#160;</td>
+          <td class="paramname"><em>left_tails</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t *&#160;</td>
+          <td class="paramname"><em>longest_detectable_gap</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1233,7 +1246,8 @@ Additional Inherited Members</h2></td></tr>
 <p>If the gapless extension starts or ends at a node boundary, there may be multiple trees produced, each with a distinct root.</p>
 <p>If the gapless extension abuts the edge of the read, an empty forest will be produced.</p>
 <p>Each tree is represented as a <a class="el" href="classvg_1_1TreeSubgraph.html">TreeSubgraph</a> over our gbwt_graph.</p>
-<p>If left_tails is true, the trees read out of the left sides of the gapless extension. Otherwise they read out of the right side. </p>
+<p>If left_tails is true, the trees read out of the left sides of the gapless extension. Otherwise they read out of the right side.</p>
+<p>As a side effect, saves the length of the longest detectable gap in an alignment of a tail to the forest into the provided location, if set. </p>
 
 </div>
 </div>
