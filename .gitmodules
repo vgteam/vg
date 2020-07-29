@@ -40,9 +40,6 @@
 [submodule "deps/DYNAMIC"]
 	path = deps/DYNAMIC
 	url = https://github.com/vgteam/DYNAMIC
-[submodule "deps/raptor"]
-	path = deps/raptor
-	url = https://github.com/vgteam/raptor.git
 [submodule "deps/snappy"]
 	path = deps/snappy
 	url = https://github.com/google/snappy.git

@@ -47,7 +47,7 @@ First, obtain the repo and its submodules:
     git clone --recursive https://github.com/vgteam/vg.git
     cd vg
     
-Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need `jq`, `bc` and `rs`. On Ubuntu, you should be able to do:
+Then, install VG's dependencies. You'll need the protobuf, jansson, and raptor2 development libraries installed, and to run the tests you will need `jq`, `bc` and `rs`. On Ubuntu, you should be able to do:
 
     make get-deps
     
@@ -55,6 +55,7 @@ On other distros, you will need to perform the equivalent of:
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libprotobuf-dev libjansson-dev \
+                         raptor2-utils libraptor2-dev \
                          automake libtool jq bc rs curl unzip redland-utils \
                          librdf-dev bison flex gawk lzma-dev liblzma-dev liblz4-dev \
                          libffi-dev libcairo-dev
@@ -88,7 +89,7 @@ VG depends on a number of packages being installed on the system where it is bei
 
 You can use MacPorts to install VG's dependencies:
 
-    sudo port install libtool protobuf3-cpp jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo libomp
+    sudo port install libtool protobuf3-cpp jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison raptor2 gperftools md5sha1sum rasqal gmake autogen cairo libomp
     
 
 ##### Using Homebrew

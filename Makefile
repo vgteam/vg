@@ -206,7 +206,6 @@ CONFIGURATION_OBJ =
 
 
 
-RAPTOR_DIR:=deps/raptor
 JEMALLOC_DIR:=deps/jemalloc
 LOCKFREE_MALLOC_DIR:=deps/lockfree-malloc
 SDSL_DIR:=deps/sdsl-lite
@@ -268,7 +267,6 @@ LIB_DEPS += $(LIB_DIR)/libgssw.a
 LIB_DEPS += $(LIB_DIR)/libvcfh.a
 LIB_DEPS += $(LIB_DIR)/libsonlib.a
 LIB_DEPS += $(LIB_DIR)/libpinchesandcacti.a
-LIB_DEPS += $(LIB_DIR)/libraptor2.a
 LIB_DEPS += $(LIB_DIR)/libfml.a
 LIB_DEPS += $(LIB_DIR)/libsublinearLS.a
 LIB_DEPS += $(LIB_DIR)/libstructures.a
@@ -306,8 +304,9 @@ DEPS += $(INC_DIR)/backward.hpp
 DEPS += $(INC_DIR)/dozeu/dozeu.h
 DEPS += $(INC_DIR)/mmmultimap.hpp
 DEPS += $(INC_DIR)/ips4o.hpp
-DEPS += $(INC_DIR)/raptor2/raptor2.h
 DEPS += $(INC_DIR)/BooPHF.h
+# Include cleanups not needed by libraries
+DEPS += $(LIB_DIR)/cleaned_old_raptor_v001
 
 # Only depend on these files for the final linking stage.	
 # These libraries provide no headers to affect the vg build.	
@@ -355,7 +354,7 @@ get-deps:
 # And we have submodule deps to build
 deps: $(DEPS)
 
-test: $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(VCFLIB_DIR)/bin/vcf2tsv $(FASTAHACK_DIR)/fastahack $(BIN_DIR)/rapper
+test: $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(VCFLIB_DIR)/bin/vcf2tsv $(FASTAHACK_DIR)/fastahack
 	. ./source_me.sh && cd test && prove -v t
 
 docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp
@@ -449,6 +448,13 @@ $(LIB_DIR)/cleaned_old_protobuf_v003: $(wildcard $(LIB_DIR)/libproto*) $(wildcar
 	+rm -f $(LIB_DIR)/libproto* $(LIB_DIR)/pkgconfig/protobuf* $(BIN_DIR)/protoc
 	+rm -Rf $(INC_DIR)/google/protobuf deps/protobuf
 	+touch $(LIB_DIR)/cleaned_old_protobuf_v003
+    
+# We have this target to clean up the old Raptor we used to have.
+$(LIB_DIR)/cleaned_old_raptor_v001: $(wildcard $(LIB_DIR)/libraptor*) $(wildcard $(INC_DIR)/raptor2/*) $(wildcard $(BIN_DIR)/rapper)
+	+rm -f $(LIB_DIR)/cleaned_old_raptor*
+	+rm -f $(LIB_DIR)/libraptor* $(BIN_DIR)/rapper 
+	+rm -Rf $(INC_DIR)/raptor2
+	+touch $(LIB_DIR)/cleaned_old_raptor_v001
 	
 $(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
 	+rm -f $(CWD)/$(INC_DIR)/vg.pb.h $(CWD)/$(INC_DIR)/vg/vg.pb.h
@@ -528,23 +534,6 @@ $(LIB_DIR)/libsonlib.a: $(CWD)/$(DEP_DIR)/sonLib/C/inc/*.h $(CWD)/$(DEP_DIR)/son
 
 $(LIB_DIR)/libpinchesandcacti.a: $(LIB_DIR)/libsonlib.a $(CWD)/$(DEP_DIR)/pinchesAndCacti/inc/*.h $(CWD)/$(DEP_DIR)/pinchesAndCacti/impl/*.c
 	+. ./source_me.sh && cd $(DEP_DIR)/pinchesAndCacti && $(MAKE) $(FILTER) && cd $(CWD)/$(DEP_DIR)/sonLib && cp lib/stPinchesAndCacti.a $(CWD)/$(LIB_DIR)/libpinchesandcacti.a && cp lib/3EdgeConnected.a $(CWD)/$(LIB_DIR)/lib3edgeconnected.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
-
-# When building raptor we need to make sure to pre-generate and fix up the lexer
-# We also need to clear out its cmake stuff in case it found a wrong Bison and cached it.
-$(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/* $(wildcard $(RAPTOR_DIR)/build/*)
-	which bison
-	+. ./source_me.sh && cd $(RAPTOR_DIR)/build && rm -Rf CMakeCache.txt CMakeFiles CTestTestfile.cmake Makefile cmake_install.cmake src tests utils && cmake .. && rm -f src/turtle_parser.c && rm -f src/turtle_lexer.c && make turtle_lexer_tgt && make -f src/CMakeFiles/raptor2.dir/build.make src/turtle_lexer.c && sed -i.bak '/yycleanup/d' src/turtle_lexer.c && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR)
-	+touch $(LIB_DIR)/libraptor2.a
-
-# We need rapper from Raptor for the tests
-$(BIN_DIR)/rapper: $(LIB_DIR)/libraptor2.a
-	+cp $(RAPTOR_DIR)/build/utils/rapper $(BIN_DIR)/
-
-# The Raptor header needs to be newer than the library.
-# Mac Travis managed to get an old header with a new binary.
-$(INC_DIR)/raptor2/raptor2.h: $(LIB_DIR)/libraptor2.a $(RAPTOR_DIR)/build/*
-	+cd $(RAPTOR_DIR)/build && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
-	+touch $(INC_DIR)/raptor2/raptor2.h
 
 $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp $(STRUCTURES_DIR)/Makefile 
 	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) clean && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
@@ -813,10 +802,10 @@ clean: clean-rocksdb clean-vcflib
 	cd $(DEP_DIR) && cd vowpal_wabbit && $(MAKE) clean
 	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
 	cd $(DEP_DIR) && cd libhandlegraph && $(MAKE) clean
-	cd $(DEP_DIR) && cd libvgio && $(MAKE) clean 
-	cd $(DEP_DIR) && cd raptor && cd build && find . -not \( -name '.gitignore' -or -name 'pkg.m4' \) -delete
-    # lru_cache is never built because it is header-only
-    # bash-tap is never built either
+	cd $(DEP_DIR) && cd libvgio && $(MAKE) clean
+
+# lru_cache is never built because it is header-only
+# bash-tap is never built either
 
 clean-rocksdb:
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean

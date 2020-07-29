@@ -96,6 +96,7 @@ addons:
       - wget 
       - gtk-doc-tools
       - raptor2-utils
+      - libraptor2-dev
       - rasqal-utils
       - bison
       - flex
