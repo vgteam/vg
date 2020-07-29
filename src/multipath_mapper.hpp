@@ -370,7 +370,7 @@ namespace vg {
         /// Guarantees that the resulting multipath_alignment_t is in topological order.
         void make_nontrivial_multipath_alignment(const Alignment& alignment, const HandleGraph& subgraph,
                                                  const function<pair<id_t, bool>(id_t)>& translator,
-                                                 SnarlManager& snarl_manager, multipath_alignment_t& multipath_aln_out) const;
+                                                 multipath_alignment_t& multipath_aln_out) const;
         
         /// Remove the full length bonus from all source or sink subpaths that received it
         void strip_full_length_bonuses(multipath_alignment_t& multipath_aln) const;

@@ -14,7 +14,7 @@
 
 #include "../vg.hpp"
 #include "../deconstructor.hpp"
-#include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -147,7 +147,7 @@ int main_deconstruct(int argc, char** argv){
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
     } else {
-        CactusSnarlFinder finder(*graph);
+        IntegratedSnarlFinder finder(*graph);
         if (show_progress) {
             cerr << "Finding snarls" << endl;
         }
