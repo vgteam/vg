@@ -51,12 +51,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 #ifdef debug
     cerr << "Read " << aln.name() << ": " << aln.sequence() << endl;
 #endif
-#ifdef print_minimizers
-    cerr << aln.sequence() << "\t";
-    for (char c : aln.quality()) {
-        cerr << (char)(c+33);
-    }
-#endif
 
     // Make a new funnel instrumenter to watch us map this read.
     Funnel funnel;
@@ -93,9 +87,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
 #ifdef debug
     cerr << "Found " << clusters.size() << " clusters" << endl;
-#endif
-#ifdef print_minimizers
-    cerr << "\t" << clusters.size();
 #endif
     
     // We will set a score cutoff based on the best, but move it down to the
@@ -658,6 +649,11 @@ double uncapped_mapq = mapq;
     }
     
 #ifdef print_minimizers
+    cerr << aln.sequence() << "\t";
+    for (char c : aln.quality()) {
+        cerr << (char)(c+33);
+    }
+    cerr << "\t" << clusters.size();
     for (size_t i = 0 ; i < minimizers.size() ; i++) {
         auto& minimizer = minimizers[i];
         cerr << "\t"
@@ -671,7 +667,7 @@ double uncapped_mapq = mapq;
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << probability_mapping_lost.front();
+    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << probability_mapping_lost.front() << "\t" << mappings.front().mapping_quality();
     if (track_correctness) {
         cerr << "\t" << funnel.last_correct_stage() << endl;
     } else {
