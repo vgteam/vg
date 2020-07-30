@@ -22,6 +22,7 @@
 #include <cmath>
 
 //#define debug
+//#define debug_dump_graph
 
 namespace vg {
 
@@ -203,6 +204,17 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
             present_in_any_extended_cluster |= cluster.present;
             
+#ifdef debug
+            cerr << "Extensions:" << endl;
+            for (auto& e : cluster_extensions.back()) {
+                cerr << "\tRead " << e.read_interval.first << "-" << e.read_interval.second << " with " << e.mismatch_positions.size() << " mismatches:";
+                for (auto& pos : e.mismatch_positions) {
+                    cerr << " " << pos;
+                }
+                cerr << endl;
+            }
+#endif
+            
             if (track_provenance) {
                 // Record with the funnel that the previous group became a group of this size.
                 // Don't bother recording the seed to extension matching...
@@ -323,10 +335,19 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
                 //Fill in the best alignments from the extension
                 this->extension_to_alignment(extensions.front(), best_alignment);
+                
+#ifdef debug
+                cerr << "Produced alignment directly from full length gapless extension " << extension_num << endl;
+#endif
 
                 if (extensions.size() > 1) {
                     //Do the same thing for the second extension, if one exists
                     this->extension_to_alignment(extensions.back(), second_best_alignment);
+                    
+#ifdef debug
+                    cerr << "Produced additional alignment directly from full length gapless extension " << extension_num << endl;
+#endif
+                    
                 }
 
                 if (track_provenance) {
@@ -344,6 +365,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 // second_best_extension, if there is a second best
                 find_optimal_tail_alignments(aln, extensions, best_alignment, second_best_alignment);
 
+#ifdef debug
+                cerr << "Did dynamic programming for gapless extension " << extension_num << endl;
+#endif
                 
                 if (track_provenance) {
                     // We're done chaining. Next alignment may not go through this substage.
@@ -375,7 +399,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 }
             }
 #ifdef debug
-                cerr << "Found best alignment from gapless extension " << extension_num << ": " << pb2json(best_alignment) << endl;
+            cerr << "Found best alignment from gapless extension " << extension_num << ": " << pb2json(best_alignment) << endl;
 #endif
 
             alignments.push_back(std::move(best_alignment));
@@ -927,6 +951,17 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                                                     cluster.fragment);
                     present_in_any_extended_cluster_by_read[read_num] |= cluster.present;
                     
+#ifdef debug
+                    cerr << "Extensions:" << endl;
+                    for (auto& e : cluster_extensions.back().first) {
+                        cerr << "\tRead " << e.read_interval.first << "-" << e.read_interval.second << " with " << e.mismatch_positions.size() << " mismatches:";
+                        for (auto& pos : e.mismatch_positions) {
+                            cerr << " " << pos;
+                        }
+                        cerr << endl;
+                    }
+#endif
+                    
                     if (track_provenance) {
                         // Record with the funnel that the previous group became a group of this size.
                         // Don't bother recording the seed to extension matching...
@@ -1016,10 +1051,18 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
                     //Fill in the best alignments from the extension
                     this->extension_to_alignment(extensions.front(), best_alignment);
+                    
+#ifdef debug
+                    cerr << "Produced alignment directly from full length gapless extension " << extension_num << endl;
+#endif
 
                     if (extensions.size() > 1) {
                         //Do the same thing for the second extension, if one exists
                         this->extension_to_alignment(extensions.back(), second_best_alignment);
+                        
+#ifdef debug
+                        cerr << "Produced additional alignment directly from full length gapless extension " << extension_num << endl;
+#endif
                     }
 
                     if (track_provenance) {
@@ -2127,8 +2170,9 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         this->extender.unfold_haplotypes(rescue_nodes, haplotype_paths, align_graph);
 
         // Align to the subgraph.
+        size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
         this->get_regular_aligner()->align_xdrop(rescued_alignment, align_graph,
-                                                 std::vector<MaximalExactMatch>(), false);
+                                                 std::vector<MaximalExactMatch>(), false, gap_limit);
         this->fix_dozeu_score(rescued_alignment, align_graph, std::vector<handle_t>());
 
         // Get the corresponding alignment to the original graph.
@@ -2157,8 +2201,9 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
     if (!topological_order.empty()) {
         if (rescue_algorithm == rescue_dozeu) {
+            size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
             get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
-                                               dozeu_seed, false);
+                                               dozeu_seed, false, gap_limit);
             this->fix_dozeu_score(rescued_alignment, cached_graph, topological_order);
         } else {
             get_regular_aligner()->align(rescued_alignment, cached_graph, topological_order);
@@ -2183,7 +2228,8 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     // Align to the subgraph.
     // TODO: Map the seed to the dagified subgraph.
     if (this->rescue_algorithm == rescue_dozeu) {
-        get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false);
+        size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
+        get_regular_aligner()->align_xdrop(rescued_alignment, dagified, std::vector<MaximalExactMatch>(), false, gap_limit);
         this->fix_dozeu_score(rescued_alignment, dagified, std::vector<handle_t>());
     } else if (this->rescue_algorithm == rescue_gssw) {
         get_regular_aligner()->align(rescued_alignment, dagified, true);
@@ -2747,9 +2793,10 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::pair<s
 
 void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& best, Alignment& second_best) const {
 
-#ifdef debug
-    cerr << "Trying to find tail alignments for " << extended_seeds.size() << " extended seeds" << endl;
-#endif
+    // Count how many extensions appeat to be full-length (0 tail on both
+    // sides). We want to actually align some tails, so we assume the no-tail
+    // ones have the highest scores and make sure to process 1 past them.
+    size_t tailless_extensions = 0;
 
     // Make paths for all the extensions
     vector<Path> extension_paths;
@@ -2762,7 +2809,16 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
         // And the extension's score
         extension_path_scores.push_back(get_regular_aligner()->score_partial_alignment(aln, gbwt_graph, extension_paths.back(),
             aln.sequence().begin() + extended_seed.read_interval.first));
+            
+        if (extended_seed.read_interval.first == 0 && extended_seed.read_interval.second == aln.sequence().size()) {
+            // This extension has no tails.
+            tailless_extensions++;
+        }
     }
+    
+#ifdef debug
+    cerr << "Trying to find tail alignments for " << extended_seeds.size() << " extended seeds, " << tailless_extensions << " tailless" << endl;
+#endif
     
     // We will keep the winning alignment here, in pieces
     Path winning_left;
@@ -2777,7 +2833,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     
     // Handle each extension in the set
     process_until_threshold_b(extended_seeds, extension_path_scores,
-        extension_score_threshold, 1, max_local_extensions,
+        extension_score_threshold, tailless_extensions + 1, max_local_extensions,
         (function<double(size_t)>) [&](size_t extended_seed_num) {
        
             // This extended seed looks good enough.
@@ -2797,37 +2853,47 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             pair<Path, int64_t> left_tail_result {{}, 0};
             // And a right tail path and score
             pair<Path, int64_t> right_tail_result {{}, 0};
-           
+            
             if (extended_seeds[extended_seed_num].read_interval.first != 0) {
                 // There is a left tail
+                
+                // Have scratch for the longest detectable gap
+                size_t longest_detectable_gap;
     
                 // Get the forest of all left tail placements
-                auto forest = get_tail_forest(extended_seeds[extended_seed_num], aln.sequence().size(), true);
+                auto forest = get_tail_forest(extended_seeds[extended_seed_num], aln.sequence().size(), true, &longest_detectable_gap);
            
                 // Grab the part of the read sequence that comes before the extension
                 string before_sequence = aln.sequence().substr(0, extended_seeds[extended_seed_num].read_interval.first);
                 
                 // Do right-pinned alignment
                 left_tail_result = std::move(get_best_alignment_against_any_tree(forest, before_sequence,
-                    extended_seeds[extended_seed_num].starting_position(gbwt_graph), false));
+                    extended_seeds[extended_seed_num].starting_position(gbwt_graph), false, longest_detectable_gap));
             }
             
             if (extended_seeds[extended_seed_num].read_interval.second != aln.sequence().size()) {
                 // There is a right tail
                 
+                // Have scratch for the longest detectable gap
+                size_t longest_detectable_gap;
+                
                 // Get the forest of all right tail placements
-                auto forest = get_tail_forest(extended_seeds[extended_seed_num], aln.sequence().size(), false);
+                auto forest = get_tail_forest(extended_seeds[extended_seed_num], aln.sequence().size(), false, &longest_detectable_gap);
             
                 // Find the sequence
                 string trailing_sequence = aln.sequence().substr(extended_seeds[extended_seed_num].read_interval.second);
         
                 // Do left-pinned alignment
                 right_tail_result = std::move(get_best_alignment_against_any_tree(forest, trailing_sequence,
-                    extended_seeds[extended_seed_num].tail_position(gbwt_graph), true));
+                    extended_seeds[extended_seed_num].tail_position(gbwt_graph), true, longest_detectable_gap));
             }
-
+            
             // Compute total score
             size_t total_score = extension_path_scores[extended_seed_num] + left_tail_result.second + right_tail_result.second;
+            
+#ifdef debug
+            cerr << "Extended seed " << extended_seed_num << " has left tail of " << extended_seeds[extended_seed_num].read_interval.first << "bp and right tail of " << (aln.sequence().size() - extended_seeds[extended_seed_num].read_interval.second) << "bp for total score " << total_score << endl;
+#endif
 
             //Get the node ids of the beginning and end of each alignment
 
@@ -2954,7 +3020,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
 }
 
 pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees,
-    const string& sequence, const Position& default_position, bool pin_left) const {
+    const string& sequence, const Position& default_position, bool pin_left, size_t longest_detectable_gap) const {
    
     // We want the best alignment, to the base graph, done against any target path
     Path best_path;
@@ -3007,11 +3073,13 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
 #else
             cerr << endl;
 #endif
+            cerr << "Limit gap length to " << longest_detectable_gap << " bp" << endl;
 #endif
             
             // X-drop align, accounting for full length bonus.
             // We *always* do left-pinned alignment internally, since that's the shape of trees we get.
-            get_regular_aligner()->align_pinned(current_alignment, subgraph, true, true);
+            // Make sure to pass through the gap length limit so we don't just get the default.
+            get_regular_aligner()->align_pinned(current_alignment, subgraph, true, true, longest_detectable_gap);
             
 #ifdef debug
             cerr << "\tScore: " << current_alignment.score() << endl;
@@ -3044,7 +3112,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
 }
 
 vector<TreeSubgraph> MinimizerMapper::get_tail_forest(const GaplessExtension& extended_seed,
-    size_t read_length, bool left_tails) const {
+    size_t read_length, bool left_tails, size_t* longest_detectable_gap) const {
 
     // We will fill this in with all the trees we return
     vector<TreeSubgraph> to_return;
@@ -3100,8 +3168,17 @@ vector<TreeSubgraph> MinimizerMapper::get_tail_forest(const GaplessExtension& ex
     // Decide if the start node will end up included in the tree, or if we cut it all off with the offset.
     bool start_included = (from.offset() < gbwt_graph.get_length(start_handle));
     
+    // Make sure we have a place to store the longest detectable gap
+    size_t gap_limit;
+    if (!longest_detectable_gap) {
+        longest_detectable_gap = &gap_limit;
+    }
+    
+    // Work it out because we need it for the limit of our search distance
+    *longest_detectable_gap = get_regular_aligner()->longest_detectable_gap(read_length, tail_length);
+    
     // How long should we search? It should be the longest detectable gap plus the remaining sequence.
-    size_t search_limit = get_regular_aligner()->longest_detectable_gap(tail_length, read_length) + tail_length;
+    size_t search_limit = *longest_detectable_gap + tail_length;
     
     // Do a DFS over the haplotypes in the GBWT out to that distance.
     dfs_gbwt(*base_state, from.offset(), search_limit, [&](const handle_t& entered) {

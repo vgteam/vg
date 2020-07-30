@@ -1903,7 +1903,7 @@ namespace vg {
     }
 
     TEST_CASE("multipath_alignment_path_offsets can identify multiple positions on a path when appropriate",
-              "[multipath][newmultipath]") {
+              "[multipath]") {
         
         bdsg::HashGraph build_graph;
         
