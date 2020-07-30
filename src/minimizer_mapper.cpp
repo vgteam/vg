@@ -1785,9 +1785,9 @@ vector<pair<bool, bool>> mapping_was_rescued;
         }
 
         //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
-        //of the group of duplicated alignments
-        mapq_score_groups[0] = scores_group_1.size() <= 1 ? std::numeric_limits<float>::infinity() : get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index);
-        mapq_score_groups[1] = scores_group_2.size() <= 1 ? std::numeric_limits<float>::infinity() : get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index);
+        //of the group of duplicated alignments. Always compute this even if not quite sensible.
+        mapq_score_groups[0] = get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index);
+        mapq_score_groups[1] = get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index);
         
         for (auto read_num : {0, 1}) {
             // For each fragment
