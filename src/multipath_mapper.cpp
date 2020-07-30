@@ -887,7 +887,33 @@ namespace vg {
     }
     
     size_t MultipathMapper::pseudo_length(const multipath_alignment_t& multipath_aln) const {
-        return optimal_alignment_score(multipath_aln);
+        Alignment alignment;
+        optimal_alignment(multipath_aln, alignment);
+        const Path& path = alignment.path();
+        
+        int64_t net_matches = 0;
+        for (size_t i = 0; i < path.mapping_size(); i++) {
+            const Mapping& mapping = path.mapping(i);
+            for (size_t j = 0; j < mapping.edit_size(); j++) {
+                const Edit& edit = mapping.edit(j);
+                
+                // skip soft clips
+                if (((i == 0 && j == 0) || (i == path.mapping_size() - 1 && j == mapping.edit_size() - 1))
+                    && edit.from_length() == 0 && edit.to_length() > 0) {
+                    continue;
+                }
+                
+                // add matches and subtract mismatches/indels
+                if (edit.from_length() == edit.to_length() && edit.sequence().empty()) {
+                    net_matches += edit.from_length();
+                }
+                else {
+                    net_matches -= max(edit.from_length(), edit.to_length());
+                }
+            }
+        }
+        
+        return max<int64_t>(0, net_matches);
     }
     
     // make the memo live in this .o file
