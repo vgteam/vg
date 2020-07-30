@@ -186,8 +186,8 @@ public:
     /// Sample a pair of reads an alignments
     pair<Alignment, Alignment> sample_read_pair();
     
-    /// Print out a TSV of the fraction of fragments from different paths
-    void print_path_usage(ostream& out) const;
+    /// Open up a stream to output read positions to
+    void connect_to_position_file(const string& filename);
     
 private:
     template<class From, class To>
@@ -212,9 +212,7 @@ private:
         unordered_map<From, vector<size_t>> cond_distrs;
         
     };
-    
-    void print_path_usage_internal(ostream& out, const vector<size_t>& counts) const;
-    
+        
     NGSSimulator(void) = delete;
     
     /// DNA alphabet
@@ -248,6 +246,10 @@ private:
     
     /// Return the index of a path if using source_paths or else numeric_limits<size_t>::max()
     size_t sample_path();
+    
+    /// Ouput a sampled position to the path position file
+    void register_sampled_position(const Alignment& aln, const string& path_name,
+                                   size_t offset, bool is_reverse);
     
     /// Sample an appropriate starting position according to the mode. Updates the arguments.
     /// Providing a negative number for fragment length indicates no fragment length restrictions.
@@ -338,7 +340,7 @@ private:
     /// Restrict reads to just these paths (path-only mode) if nonempty.
     vector<string> source_paths;
     
-    vector<vector<size_t>> source_path_frag_counts;
+    ofstream position_file;
 };
     
 /**
