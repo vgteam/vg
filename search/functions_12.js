@@ -67,6 +67,7 @@ var searchData=
   ['register_5floader_5fsaver_5fxg',['register_loader_saver_xg',['../namespacevg_1_1io.html#a7a23bf45ec66db4b724b7f8a9f223c33',1,'vg::io']]],
   ['register_5foption',['register_option',['../classvg_1_1Configurable.html#afa7bba48c6289ea9b9095acd79a5658e',1,'vg::Configurable']]],
   ['register_5fprotobuf',['register_protobuf',['../classvg_1_1io_1_1Registry.html#ae4880fe254039bfe44b73b9050ce0abc',1,'vg::io::Registry']]],
+  ['register_5fsampled_5fposition',['register_sampled_position',['../classvg_1_1NGSSimulator.html#ab9adc2b15f1d2c31301e5801e773dcbd',1,'vg::NGSSimulator']]],
   ['register_5fsaver',['register_saver',['../classvg_1_1io_1_1Registry.html#a1bba520da840207b627aface669b80c6',1,'vg::io::Registry']]],
   ['regress',['regress',['../namespacevg.html#aab16fbb8659a66f16f2004fcc3e8f9db',1,'vg']]],
   ['regularize',['regularize',['../classvg_1_1SnarlManager.html#ae5015eacc04d12d02ef5196fb23f3075',1,'vg::SnarlManager']]],

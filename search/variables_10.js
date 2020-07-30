@@ -98,6 +98,7 @@ var searchData=
   ['pos_5fto_5fqual',['pos_to_qual',['../classvg_1_1Filter.html#a619f209f11dd2e9b9ce72db535d402fe',1,'vg::Filter']]],
   ['pos_5fto_5ftrans',['pos_to_trans',['../classvg_1_1Translator.html#ae41a08cff51e5f56aff61136b4c520f0',1,'vg::Translator']]],
   ['position',['position',['../structvg_1_1BREAKPOINT.html#a082deeca85819680dc38ceddf6ccbce7',1,'vg::BREAKPOINT::position()'],['../structvg_1_1Mapping.html#a2017c8c72a90df9044e14422a0799c86',1,'vg::Mapping::position()'],['../structvg_1_1KmerMatch.html#af0853c79fa538e1d94090514fd217feb',1,'vg::KmerMatch::position()']]],
+  ['position_5ffile',['position_file',['../classvg_1_1NGSSimulator.html#a46a332d871425d98495b0b1215ad88e5',1,'vg::NGSSimulator']]],
   ['positions',['positions',['../classvg_1_1MEMChainModel.html#ab273ba5c21fc25422f873dd5d4fd37c3',1,'vg::MEMChainModel::positions()'],['../classvg_1_1AlignmentChainModelVertex.html#a5b770fe52ded0e65dbfe6af4865a7d58',1,'vg::AlignmentChainModelVertex::positions()'],['../classvg_1_1AlignmentChainModel.html#ac37666966f063162a7bbcbb0b285ce6b',1,'vg::AlignmentChainModel::positions()'],['../classvg_1_1MaximalExactMatch.html#afd57ff44231f95d0ea6ef6d4ba24608e',1,'vg::MaximalExactMatch::positions()']]],
   ['posterior',['posterior',['../structvg_1_1PoissonSupportSnarlCaller_1_1PoissonCallInfo.html#aae17dc073a03b6fc72eef3b281608b68',1,'vg::PoissonSupportSnarlCaller::PoissonCallInfo']]],
   ['precollapse_5forder_5flength_5fhits',['precollapse_order_length_hits',['../classvg_1_1BaseMapper.html#aaf81156cb8c76c2e961b767a782dda59',1,'vg::BaseMapper']]],
