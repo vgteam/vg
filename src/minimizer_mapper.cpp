@@ -3668,10 +3668,18 @@ vector<TreeSubgraph> MinimizerMapper::get_tail_forest(const GaplessExtension& ex
     
     // Work it out because we need it for the limit of our search distance
     *longest_detectable_gap = get_regular_aligner()->longest_detectable_gap(read_length, tail_length);
+
+#ifdef debug
+    cerr << "Tail length: " << tail_length << " Read length: " << read_length << " Longest detectable gap: " << *longest_detectable_gap << endl;
+#endif
     
     // How long should we search? It should be the longest detectable gap plus the remaining sequence.
     size_t search_limit = *longest_detectable_gap + tail_length;
     
+#ifdef debug
+    cerr << "Search limit: now " << search_limit << endl;
+#endif
+
     // Do a DFS over the haplotypes in the GBWT out to that distance.
     dfs_gbwt(*base_state, from.offset(), search_limit, [&](const handle_t& entered) {
         // Enter a new handle.
@@ -3782,15 +3790,16 @@ void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from
     size_t distance_to_node_end = gbwt_graph.get_length(from_handle) - from_offset;
     
 #ifdef debug
-    cerr << "DFS starting at offset " << from_offset << " on node of length "
+    cerr << "DFS starting at offset " << from_offset << " on node "
+        << gbwt_graph.get_id(from_handle) << " " << gbwt_graph.get_is_reverse(from_handle) << " of length "
         << gbwt_graph.get_length(from_handle) << " leaving " << distance_to_node_end << " bp" << endl;
 #endif
 
 
     // Have a recursive function that does the DFS. We fire the enter and exit
     // callbacks, and the user can keep their own stack.
-    function<void(const gbwt::SearchState&, size_t, bool)> recursive_dfs = [&](const gbwt::SearchState& here_state,
-        size_t used_distance, bool hide_root) {
+    function<void(const gbwt::SearchState&, size_t, bool, bool)> recursive_dfs = [&](const gbwt::SearchState& here_state,
+        size_t used_distance, bool hide_root, bool root_measured_already) {
         
         handle_t here_handle = gbwt_graph.node_to_handle(here_state.node);
         
@@ -3804,8 +3813,18 @@ void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from
             enter_handle(here_handle);
         }
         
-        // Up the used distance with our length
-        used_distance += gbwt_graph.get_length(here_handle);
+        if (!root_measured_already) {
+            // Up the used distance with our length
+            used_distance += gbwt_graph.get_length(here_handle);
+
+#ifdef debug
+            cerr << "Node was " << gbwt_graph.get_length(here_handle) << " bp; Used " << used_distance << "/" << walk_distance << " bp distance" << endl;
+#endif
+        } else {
+#ifdef debug
+            cerr << "Node was already measured; Used " << used_distance << "/" << walk_distance << " bp distance" << endl;
+#endif
+        }
         
         if (used_distance < walk_distance) {
             // If we haven't used up all our distance yet
@@ -3815,7 +3834,7 @@ void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from
                 
                 // Otherwise, do it with the new distance value.
                 // Don't hide the root on any child subtrees; only the top root can need hiding.
-                recursive_dfs(there_state, used_distance, false);
+                recursive_dfs(there_state, used_distance, false, false);
                 
                 return true;
             });
@@ -3835,7 +3854,9 @@ void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from
     // Start the DFS with our stating node, consuming the distance from our
     // offset to its end. Don't show the root state to the user if we don't
     // actually visit any bases on that node.
-    recursive_dfs(start_state, distance_to_node_end, distance_to_node_end == 0);
+    // Make sure we don't count the length of the root node inside the DFS,
+    // since we are already feeding it in.
+    recursive_dfs(start_state, distance_to_node_end, distance_to_node_end == 0, true);
 
 }
 
