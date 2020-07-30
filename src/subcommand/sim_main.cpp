@@ -118,7 +118,8 @@ void help_sim(char** argv) {
          << "    -g, --gbwt-name FILE        use samples from this GBWT index" << endl
          << "    -T, --tx-expr-file FILE     simulate from an expression profile formatted as RSEM output (cannot also give -P)" << endl
          << "    -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i (required for -T on haplotype transcripts)" << endl
-         << "    -u, --unsheared             sample from unsheared fragments" << endl;
+         << "    -u, --unsheared             sample from unsheared fragments" << endl
+         << "    -E, --path-usage FILE       output a TSV with the number of fragments simulated from each path (requires -F)" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -150,6 +151,7 @@ int main_sim(int argc, char** argv) {
     double error_scale_factor = 1.0;
     string fastq_name;
     string fastq_2_name;
+    string path_usage_filename;
 
     // What path should we sample from? Empty string = the whole graph.
     vector<string> path_names;
@@ -205,11 +207,12 @@ int main_sim(int argc, char** argv) {
             {"frag-len", required_argument, 0, 'p'},
             {"frag-std-dev", required_argument, 0, 'v'},
             {"threads", required_argument, 0, 't'},
+            {"path-usage", required_argument, 0, 'E'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nud:F:P:Am:R:g:T:H:S:It:",
+        c = getopt_long (argc, argv, "hrl:n:s:e:i:fax:Jp:v:Nud:F:P:Am:R:g:T:H:S:It:E:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -355,6 +358,10 @@ int main_sim(int argc, char** argv) {
         case 't':
             threads = parse<int>(optarg);
             break;
+                
+        case 'E':
+            path_usage_filename = optarg;
+            break;
             
         case 'h':
         case '?':
@@ -422,7 +429,22 @@ int main_sim(int argc, char** argv) {
         std::cerr << "Loading graph " << xg_name << std::endl;
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
-
+    
+    ofstream path_usage_stream;
+    if (!path_usage_filename.empty()) {
+        if (fastq_name.empty()) {
+            cerr << "[vg sim] error: path usage table is not available unless using trained simulation (-F)" << endl;
+            exit(1);
+        }
+        else {
+            path_usage_stream.open(path_usage_filename);
+            if (!path_usage_stream) {
+                cerr << "[vg sim] error: could not open " << path_usage_filename << endl;
+                exit(1);
+            }
+        }
+    }
+    
     // Deal with path names. Do this before we create paths to represent threads.
     if (any_path) {
         if (progress) {
@@ -777,6 +799,10 @@ int main_sim(int argc, char** argv) {
                     cout << read.sequence() << endl;
                 }
             }
+        }
+        
+        if (path_usage_stream.is_open()) {
+            sampler.print_path_usage(path_usage_stream);
         }
     }
     

@@ -7,13 +7,16 @@
 #include <iostream>
 
 #include <gbwt/dynamic_gbwt.h>
+#include "xg.hpp"
 
+#include "bdsg/hash_graph.hpp"
 #include "../haplotypes.hpp"
 #include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "../vg.hpp"
 #include "../multipath_alignment.hpp"
 #include "../utility.hpp"
+#include "../algorithms/alignment_path_offsets.hpp"
 
 #include "catch.hpp"
 
@@ -1896,6 +1899,144 @@ namespace vg {
             REQUIRE(mapping_is_match(alns[0].path().mapping(4)));
             
             
+        }
+    }
+
+    TEST_CASE("multipath_alignment_path_offsets can identify multiple positions on a path when appropriate",
+              "[multipath]") {
+        
+        bdsg::HashGraph build_graph;
+        
+        handle_t h1 = build_graph.create_handle("AA");
+        handle_t h2 = build_graph.create_handle("AA");
+        handle_t h3 = build_graph.create_handle("AA");
+        
+        build_graph.create_edge(h1, h2);
+        build_graph.create_edge(h1, h3);
+        build_graph.create_edge(h2, h3);
+        
+        path_handle_t p = build_graph.create_path_handle("p");
+        
+        build_graph.append_step(p, h1);
+        build_graph.append_step(p, h2);
+        build_graph.append_step(p, h3);
+        
+        xg::XG graph;
+        graph.from_path_handle_graph(build_graph);
+        h1 = graph.get_handle(build_graph.get_id(h1));
+        h2 = graph.get_handle(build_graph.get_id(h2));
+        h3 = graph.get_handle(build_graph.get_id(h3));
+        p = graph.get_path_handle("p");
+        
+        SECTION("Multiple paths can be found on the forward strand") {
+            
+            multipath_alignment_t mp_aln;
+            mp_aln.set_sequence("AAAA");
+                        
+            mp_aln.add_subpath();
+            mp_aln.add_subpath();
+            mp_aln.add_subpath();
+            
+            subpath_t* s0 = mp_aln.mutable_subpath(0);
+            subpath_t* s1 = mp_aln.mutable_subpath(1);
+            subpath_t* s2 = mp_aln.mutable_subpath(2);
+            
+            path_mapping_t* m0 = s0->mutable_path()->add_mapping();
+            m0->mutable_position()->set_node_id(graph.get_id(h1));
+            edit_t* e0 = m0->add_edit();
+            e0->set_from_length(2);
+            e0->set_to_length(2);
+            s0->add_next(2);
+            
+            path_mapping_t* m1 = s1->mutable_path()->add_mapping();
+            m1->mutable_position()->set_node_id(graph.get_id(h2));
+            edit_t* e1 = m1->add_edit();
+            e1->set_from_length(2);
+            e1->set_to_length(2);
+            s2->add_next(2);
+            
+            path_mapping_t* m2 = s2->mutable_path()->add_mapping();
+            m2->mutable_position()->set_node_id(graph.get_id(h3));
+            edit_t* e2 = m2->add_edit();
+            e2->set_from_length(2);
+            e2->set_to_length(2);
+                        
+            auto path_positions = algorithms::multipath_alignment_path_offsets(graph, mp_aln);
+            
+            REQUIRE(path_positions.size() == 1);
+            REQUIRE(path_positions.count(p));
+            
+            auto& positions = path_positions[p];
+            
+            REQUIRE(positions.size() == 2);
+            bool found1 = false, found2 = false;
+            for (auto pos : positions) {
+                if (pos.first == 0 && !pos.second) {
+                    found1 = true;
+                }
+                if (pos.first == 2 && !pos.second) {
+                    found2 = true;
+                }
+            }
+            REQUIRE(found1);
+            REQUIRE(found2);
+        }
+        
+        SECTION("Multiple paths can be found on the reverse strand") {
+                        
+            multipath_alignment_t mp_aln;
+            mp_aln.set_sequence("AAAA");
+            
+            mp_aln.add_subpath();
+            mp_aln.add_subpath();
+            mp_aln.add_subpath();
+            
+            subpath_t* s0 = mp_aln.mutable_subpath(0);
+            subpath_t* s1 = mp_aln.mutable_subpath(1);
+            subpath_t* s2 = mp_aln.mutable_subpath(2);
+            
+            path_mapping_t* m0 = s0->mutable_path()->add_mapping();
+            m0->mutable_position()->set_node_id(graph.get_id(h3));
+            m0->mutable_position()->set_is_reverse(true);
+            edit_t* e0 = m0->add_edit();
+            e0->set_from_length(2);
+            e0->set_to_length(2);
+            s0->add_next(1);
+            s0->add_next(2);
+            
+            path_mapping_t* m1 = s1->mutable_path()->add_mapping();
+            m1->mutable_position()->set_node_id(graph.get_id(h2));
+            m1->mutable_position()->set_is_reverse(true);
+            edit_t* e1 = m1->add_edit();
+            e1->set_from_length(2);
+            e1->set_to_length(2);
+            
+            path_mapping_t* m2 = s2->mutable_path()->add_mapping();
+            m2->mutable_position()->set_node_id(graph.get_id(h1));
+            m2->mutable_position()->set_is_reverse(true);
+            edit_t* e2 = m2->add_edit();
+            e2->set_from_length(2);
+            e2->set_to_length(2);
+            
+            auto path_positions = algorithms::multipath_alignment_path_offsets(graph, mp_aln);
+            
+            REQUIRE(path_positions.size() == 1);
+            REQUIRE(path_positions.count(p));
+            
+            auto& positions = path_positions[p];
+            
+            REQUIRE(positions.size() == 2);
+            bool found1 = false, found2 = false;
+            for (auto pos : positions) {
+                if (pos.first == 0 && pos.second) {
+                    found1 = true;
+                }
+                if (pos.first == 2 && pos.second) {
+                    found2 = true;
+                }
+            }
+            REQUIRE(found1);
+            REQUIRE(found2);
         }
     }
 }

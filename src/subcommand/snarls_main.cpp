@@ -28,7 +28,7 @@ void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
-         << "    -A, --algorithm NAME   compute snarls using 'cactus' or 'integrated' algorithms (default: cactus)" << endl
+         << "    -A, --algorithm NAME   compute snarls using 'cactus' or 'integrated' algorithms (default: integrated)" << endl
          << "    -p, --pathnames        output variant paths as SnarlTraversals to STDOUT" << endl
          << "    -r, --traversals FILE  output SnarlTraversals for ultrabubbles." << endl
          << "    -l, --leaf-only        restrict traversals to leaf ultrabubbles." << endl
@@ -52,7 +52,7 @@ int main_snarl(int argc, char** argv) {
 
     static const int buffer_size = 100;
     
-    string algorithm = "cactus";
+    string algorithm = "integrated";
     string traversal_file;
     bool leaf_only = false;
     bool top_level_only = false;

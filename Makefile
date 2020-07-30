@@ -763,7 +763,12 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 		rm $${TESTDIR}/empty.proto $${TESTDIR}/empty.pb.h $${TESTDIR}/empty.pb.cc; \
 		rmdir $${TESTDIR}; \
 	fi;
-	
+
+# A note about Protobuf:
+# We have a lot of logic here to make sure that the protoc we have henerates headers with exactly the same
+# version requirements as the headers we already have.
+# If not, we regenerate them.
+# Doesn't handle Protobuf 3.12.3 weirdness; just make clean if you change flavors of Protobuf 3.12.3.
 	
 	
 	

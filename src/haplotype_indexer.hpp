@@ -130,13 +130,17 @@ public:
         bool delete_graph) const;
     
     /**
-     * Build a GBWT from the embedded non-alt paths in the graph.
+     * Build a GBWT from the embedded non-alt paths in the graph. Use
+     * paths_as_samples to choose whether we treat the paths as contigs or
+     * samples.
      */
     std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const PathHandleGraph* graph) const;
 
     /**
-     * Build a GBWT with each alignment as a thread over a separate sample
-     * in the same contig.
+     * Build a GBWT from the alignments. Each distinct alignment name becomes
+     * a sample in the GBWT metadata. If there are multiple alignments with
+     * the same name, the corresponding GBWT path names will have the same
+     * sample identifier but different values in the count field.
      *
      * aln_format can be "GAM" or "GAF"
      */

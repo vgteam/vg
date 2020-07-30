@@ -160,7 +160,16 @@ public:
             fragment_length_distr.force_parameters(fragment_length_distr.mean(), fragment_length_distr.std_dev());
         } 
     }
+    double get_fragment_length_mean() const { return fragment_length_distr.mean(); }
+    double get_fragment_length_stdev() const {return fragment_length_distr.std_dev(); }
+    size_t get_fragment_length_sample_size() const { return fragment_length_distr.curr_sample_size(); }
 
+    /**
+     * Get the distance limit for the given read length
+     */
+    size_t get_distance_limit(size_t read_length) const {
+        return max(distance_limit, read_length + 50);
+    }
 protected:
 
     /**
@@ -308,12 +317,6 @@ protected:
      */
     void extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const;
 
-    /**
-     * Get the distance limit for the given read length
-     */
-    size_t get_distance_limit(size_t read_length) {
-        return max(distance_limit, read_length + 50);
-    }
 
 //-----------------------------------------------------------------------------
 
@@ -492,9 +495,12 @@ protected:
      *
      * If left_tails is true, the trees read out of the left sides of the
      * gapless extension. Otherwise they read out of the right side.
+     *
+     * As a side effect, saves the length of the longest detectable gap in an
+     * alignment of a tail to the forest into the provided location, if set.
      */
     vector<TreeSubgraph> get_tail_forest(const GaplessExtension& extended_seed,
-        size_t read_length, bool left_tails) const;
+        size_t read_length, bool left_tails, size_t* longest_detectable_gap = nullptr) const;
         
     /**
      * Find the best alignment of the given sequence against any of the trees
@@ -510,10 +516,12 @@ protected:
      * If pin_left is true, pin the alignment on the left to the root of each
      * tree. Otherwise pin it on the right to the root of each tree.
      *
+     * Limits the length of the longest gap to longest_detectable_gap.
+     *
      * Returns alingments in gbwt_graph space.
      */
     pair<Path, size_t> get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees, const string& sequence,
-        const Position& default_position, bool pin_left) const;
+        const Position& default_position, bool pin_left, size_t longest_detectable_gap) const;
         
     /// We define a type for shared-tail lists of Mappings, to avoid constantly
     /// copying Path objects.
