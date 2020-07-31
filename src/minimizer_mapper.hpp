@@ -137,13 +137,13 @@ public:
     bool track_correctness = false;
 
     ////How many stdevs from fragment length distr mean do we cluster together?
-    size_t paired_distance_stdevs = 2; 
+    double paired_distance_stdevs = 2.0; 
 
     ///How close does an alignment have to be to the best alignment for us to rescue on it
     size_t paired_rescue_score_limit = 0.9;
 
     ///How many stdevs from the mean do we extract a subgraph from?
-    size_t rescue_subgraph_stdevs = 3;
+    double rescue_subgraph_stdevs = 3.5;
 
     /// For paired end mapping, how many times should we attempt rescue (per read)?
     size_t max_rescue_attempts = 15;
