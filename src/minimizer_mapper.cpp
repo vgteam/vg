@@ -821,7 +821,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         max_fragment_num = std::max(max_fragment_num, cluster.fragment);
     }
 #ifdef debug
-    cerr << "Found " << max_fragment_num << " fragment clusters" << endl;
+    cerr << "Found " << max_fragment_num + 1 << " fragment clusters" << endl;
 #endif
     vector<bool> has_first_read (max_fragment_num+1, false);//For each fragment cluster, does it have a cluster for the first read
     vector<bool> fragment_cluster_has_pair (max_fragment_num+1, false);//Does a fragment cluster have both reads
