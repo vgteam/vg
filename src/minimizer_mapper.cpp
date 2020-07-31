@@ -21,7 +21,7 @@
 #include <algorithm>
 #include <cmath>
 
-//#define debug
+#define debug
 //#define print_minimizers
 //#define debug_dump_graph
 
@@ -1184,44 +1184,43 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 
                 
                 size_t fragment_num = cluster_extensions[extension_num].second;
+                    
+                // Have a function to process the best and second best alignments we obtained
+                auto observe_alignment = [&](Alignment& aln) {
+                    auto& best_score = read_num == 0 ? best_alignment_scores.first : best_alignment_scores.second;
+                    best_score = max(best_score, aln.score());
+                    
+                    auto& alignment_list = read_num == 0 ? alignments[fragment_num].first : alignments[fragment_num].second;
+                    alignment_list.emplace_back(std::move(aln));
+                    
+                    auto& indices_list = read_num == 0 ? alignment_indices[fragment_num].first : alignment_indices[fragment_num].second;
+                    indices_list.emplace_back(curr_funnel_index);
+                    curr_funnel_index++;
+
+                    if (track_provenance) {
+                        funnels[read_num].project(extension_num);
+                        funnels[read_num].score(extension_num, alignment_list.back().score());
+                    }
+                    
+#ifdef debug
+                    cerr << "Produced fragment option " << fragment_num << " end " << read_num << " alignment with score " << alignment_list.back().score() << ": " << pb2json(alignment_list.back()) << endl;
+#endif
+                };
+                
                 if (second_best_alignment.score() != 0 && 
                     second_best_alignment.score() > best_alignment.score() * 0.8) {
                     //If there is a second extension and its score is at least 0.8 of the best score
-                    read_num == 0 ? best_alignment_scores.first = max(best_alignment_scores.first, second_best_alignment.score())
-                                  : best_alignment_scores.second = max(best_alignment_scores.second, second_best_alignment.score());
-                    read_num == 0 ? alignments[fragment_num ].first.emplace_back(std::move(second_best_alignment) ) :
-                                    alignments[fragment_num ].second.emplace_back(std::move(second_best_alignment));
-                    read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
-                                  : alignment_indices[fragment_num].second.emplace_back(curr_funnel_index);
-                        curr_funnel_index++;
-
-                    if (track_provenance) {
-        
-                        funnels[read_num].project(extension_num);
-                        read_num == 0 ? funnels[read_num].score(extension_num, alignments[fragment_num ].first.back().score()) :
-                                        funnels[read_num].score(extension_num, alignments[fragment_num].second.back().score());
-                    }
+                    observe_alignment(second_best_alignment);
+                    
                 }
-
-                read_num == 0 ? best_alignment_scores.first = max(best_alignment_scores.first, best_alignment.score())
-                              : best_alignment_scores.second = max(best_alignment_scores.second, best_alignment.score());
-                read_num == 0 ? alignments[fragment_num].first.emplace_back(std::move(best_alignment))
-                              : alignments[fragment_num].second.emplace_back(std::move(best_alignment));
-                read_num == 0 ? alignment_indices[fragment_num].first.emplace_back(curr_funnel_index)
-                              : alignment_indices[fragment_num].second.emplace_back(curr_funnel_index);
-
-                curr_funnel_index++; 
+                
+                // There's always a best alignment
+                observe_alignment(best_alignment);
 
                 if (track_provenance) {
-
-                    funnels[read_num].project(extension_num);
-                    read_num == 0 ? funnels[read_num].score(extension_num, alignments[fragment_num].first.back().score())
-                                  : funnels[read_num].score(extension_num, alignments[fragment_num].second.back().score());
-                    
                     // We're done with this input item
                     funnels[read_num].processed_input();
                 }
-
                 
                 for (size_t i = 0 ; i < minimizer_extended_cluster_count_by_read[read_num][extension_num].size() ; i++) {
                     if (minimizer_extended_cluster_count_by_read[read_num][extension_num][i] > 0) {
@@ -2492,6 +2491,7 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
     return *min_cost_at;
 }
 
+#undef debug
 double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored,
     const string& sequence, const string& quality_bytes) {
 
@@ -2743,6 +2743,7 @@ double MinimizerMapper::get_prob_of_disruption_in_column(const vector<Minimizer>
     
     return p;
 }
+#define debug
 
 //-----------------------------------------------------------------------------
 
@@ -2752,6 +2753,10 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
 
     // We are traversing the same small subgraph repeatedly, so it's better to use a cache.
     gbwtgraph::CachedGBWTGraph cached_graph(this->gbwt_graph);
+
+#ifdef debug
+    cerr << "Attempt rescue from: " << pb2json(aligned_read) << endl;
+#endif
 
     // Find all nodes within a reasonable range from aligned_read.
     std::unordered_set<id_t> rescue_nodes;
@@ -2871,6 +2876,10 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         pos.set_node_id(sub_graph.get_id(handle));
         pos.set_is_reverse(sub_graph.get_is_reverse(handle));
     }
+    
+#ifdef debug
+    cerr << "Rescue result: " << pb2json(rescued_alignment) << endl;
+#endif
 }
 
 GaplessExtender::cluster_type MinimizerMapper::seeds_in_subgraph(const std::vector<Minimizer>& minimizers,
