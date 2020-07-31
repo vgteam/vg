@@ -120,6 +120,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a692470c7551c4966126aa7bf357e60a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4ae627a418357792cd5b9f6d6b9cc19c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4ae627a418357792cd5b9f6d6b9cc19c">finalize_fragment_length_distr</a> ()</td></tr>
 <tr class="separator:a4ae627a418357792cd5b9f6d6b9cc19c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7f1925a1c2071ed65c543cc25b4d4f02"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a7f1925a1c2071ed65c543cc25b4d4f02">force_fragment_length_distr</a> (double mean, double <a class="el" href="namespacevg.html#a11df8bd14dab3c0cfb7ecfa377a362f5">stdev</a>)</td></tr>
+<tr class="separator:a7f1925a1c2071ed65c543cc25b4d4f02"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1e08dfa10f620ef44d102123b38b8fe8"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a1e08dfa10f620ef44d102123b38b8fe8">get_fragment_length_mean</a> () const</td></tr>
 <tr class="separator:a1e08dfa10f620ef44d102123b38b8fe8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae048c4929acb22eabd55f54ac3cc6f18"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ae048c4929acb22eabd55f54ac3cc6f18">get_fragment_length_stdev</a> () const</td></tr>
@@ -1007,6 +1009,42 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>When we use dozeu for rescue, the reported alignment score is incorrect. 1) Dozeu only gives the full-length bonus once. 2) There is no penalty for a softclip at the edge of the subgraph. This function calculates the score correctly. If the score is &lt;= 0, we realign the read using GSSW. TODO: This should be unnecessary. </p>
+
+</div>
+</div>
+<a id="a7f1925a1c2071ed65c543cc25b4d4f02"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7f1925a1c2071ed65c543cc25b4d4f02">&#9670;&nbsp;</a></span>force_fragment_length_distr()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::force_fragment_length_distr </td>
+          <td>(</td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>mean</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>stdev</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>

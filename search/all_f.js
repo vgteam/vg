@@ -74,6 +74,8 @@ var searchData=
   ['opt_5ffan_5fout_5fqual',['OPT_FAN_OUT_QUAL',['../mpmap__main_8cpp.html#a63b2b9f4e4cf89c48efc91e7ffff29ea',1,'mpmap_main.cpp']]],
   ['opt_5ffields',['opt_fields',['../structgafkluge_1_1GafRecord.html#a999647c3cab6cb89fdaaae902c867b8b',1,'gafkluge::GafRecord']]],
   ['opt_5fforce_5fhaplotype_5fcount',['OPT_FORCE_HAPLOTYPE_COUNT',['../mpmap__main_8cpp.html#a2b98cdcb665cd0cb6dcab27cd9b4b38c',1,'mpmap_main.cpp']]],
+  ['opt_5ffragment_5fmean',['OPT_FRAGMENT_MEAN',['../giraffe__main_8cpp.html#aa055926d6478a0b8608fa875b2820bcc',1,'giraffe_main.cpp']]],
+  ['opt_5ffragment_5fstdev',['OPT_FRAGMENT_STDEV',['../giraffe__main_8cpp.html#adde7a058ded8363842b583d1dc0869ea',1,'giraffe_main.cpp']]],
   ['opt_5fgreedy_5fmem_5frestart_5fmax_5flcp',['OPT_GREEDY_MEM_RESTART_MAX_LCP',['../mpmap__main_8cpp.html#ac967783d971258300927dbeb273934b6',1,'mpmap_main.cpp']]],
   ['opt_5fgreedy_5fmin_5fdist',['OPT_GREEDY_MIN_DIST',['../mpmap__main_8cpp.html#ab2c8c5abc8f0978ad62ffa9700eb2bda',1,'mpmap_main.cpp']]],
   ['opt_5fhard_5fhit_5fmax_5fmultiplier',['OPT_HARD_HIT_MAX_MULTIPLIER',['../mpmap__main_8cpp.html#a714607df71e90bb572044f3632cc1ac4',1,'mpmap_main.cpp']]],

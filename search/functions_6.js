@@ -163,7 +163,7 @@ var searchData=
   ['for_5fpath_5frange',['for_path_range',['../classxg_1_1XG.html#a2ba1a725e15e5693156a5870701ceac0',1,'xg::XG']]],
   ['for_5frange',['for_range',['../classvg_1_1Index.html#a6c41050546814a9e9fbc72f39c882e0b',1,'vg::Index']]],
   ['force_5fclose',['force_close',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#ac677874552857f22f89ee9571eb183db',1,'vg::io::BlockedGzipOutputStream']]],
-  ['force_5ffragment_5flength_5fdistr',['force_fragment_length_distr',['../classvg_1_1PairedEndMapper.html#ac2731944023ede8d7fb00379ffd8ecbf',1,'vg::PairedEndMapper']]],
+  ['force_5ffragment_5flength_5fdistr',['force_fragment_length_distr',['../classvg_1_1PairedEndMapper.html#ac2731944023ede8d7fb00379ffd8ecbf',1,'vg::PairedEndMapper::force_fragment_length_distr()'],['../classvg_1_1MinimizerMapper.html#a7f1925a1c2071ed65c543cc25b4d4f02',1,'vg::MinimizerMapper::force_fragment_length_distr()']]],
   ['force_5fparameters',['force_parameters',['../classvg_1_1FragmentLengthDistribution.html#a5751543486d54066f30e943ec188b279',1,'vg::FragmentLengthDistribution']]],
   ['format',['format',['../classVectorizer.html#a30aa5bafd8a44b2e1259245b6e046062',1,'Vectorizer']]],
   ['format_5fmemory',['format_memory',['../namespacebdsg.html#ac182567e588792dc529e8419df44e651',1,'bdsg']]],
