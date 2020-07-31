@@ -343,6 +343,8 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_REPORT_NAME 1002
     #define OPT_TRACK_PROVENANCE 1003
     #define OPT_TRACK_CORRECTNESS 1004
+    #define OPT_FRAGMENT_MEAN 1005
+    #define OPT_FRAGMENT_STDEV 1006
     
 
     // initialize parameters with their default options
@@ -390,6 +392,12 @@ int main_giraffe(int argc, char** argv) {
     Range<int> rescue_attempts = 15;
     // Which rescue algorithm do we use?
     MinimizerMapper::RescueAlgorithm rescue_algorithm = MinimizerMapper::rescue_dozeu;
+    //Did we force the fragment length distribution?
+    bool forced_mean = false;
+    //And if so what is it?
+    double fragment_mean = 0.0;
+    bool forced_stdev = false;
+    double fragment_stdev = 0.0;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -473,6 +481,8 @@ int main_giraffe(int argc, char** argv) {
             {"no-dp", no_argument, 0, 'O'},
             {"rescue-attempts", required_argument, 0, 'r'},
             {"rescue-algorithm", required_argument, 0, 'A'},
+            {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
+            {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
             {"threads", required_argument, 0, 't'},
@@ -772,6 +782,16 @@ int main_giraffe(int argc, char** argv) {
                 }
                 break;
 
+            case OPT_FRAGMENT_MEAN:
+                forced_mean = true;
+                fragment_mean = parse<double>(optarg);
+                break;
+
+            case OPT_FRAGMENT_STDEV:
+                forced_stdev = true;
+                fragment_stdev = parse<double>(optarg);
+                break;
+
             case OPT_TRACK_PROVENANCE:
                 track_provenance = true;
                 break;
@@ -890,6 +910,15 @@ int main_giraffe(int argc, char** argv) {
         exit(1);
     }
 
+    if ((forced_mean && ! forced_stdev) || (!forced_mean && forced_stdev)) {
+        cerr << "warning:[vg giraffe] Both a mean and standard deviation must be specified for the fragment length distribution" << endl;
+        cerr << "                   Detecting fragment length distribution automatically" << endl;
+        forced_mean = false;
+        forced_stdev = false;
+        fragment_mean = 0.0;
+        fragment_stdev = 0.0;
+    }
+
     // create in-memory objects
     
     // If we are tracking correctness, we will fill this in with a graph for
@@ -939,6 +968,10 @@ int main_giraffe(int argc, char** argv) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
     MinimizerMapper minimizer_mapper(*gbwt_graph, minimizer_indexes, *distance_index, positional_graph);
+    if (forced_mean && forced_stdev) {
+        minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
+    }
+
     
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
