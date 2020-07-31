@@ -768,14 +768,6 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
         path_sampler = vg::discrete_distribution<>(expression_values.begin(), expression_values.end());
     }
     
-    // prepare to count the number of fragments sampled from each path
-    if (!source_paths.empty()) {
-        source_path_frag_counts.resize(get_thread_count());
-        for (auto& thread_frag_counts : source_path_frag_counts) {
-            thread_frag_counts.resize(source_paths.size(), 0);
-        }
-    }
-    
     // memoize phred conversions
     phred_prob.resize(256);
     for (int i = 1; i < phred_prob.size(); i++) {
@@ -855,39 +847,29 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
 #endif
 }
 
-void NGSSimulator::print_path_usage(ostream& out) const {
+void NGSSimulator::connect_to_position_file(const string& filename) {
     if (source_paths.empty()) {
+        cerr << "warning:[NGSSimulator] path position file will not be created because not simulating from paths" << endl;
         return;
     }
-    if (source_path_frag_counts.size() == 1) {
-        print_path_usage_internal(out, source_path_frag_counts.front());
+    position_file.open(filename);
+    if (!position_file) {
+        cerr << "error:[NGSSimulator] failed to open position file: " << filename << endl;
+        exit(1);
     }
-    else {
-        // combine the per-thread counts
-        vector<size_t> counts(source_paths.size(), 0);
-        for (const auto& thread_counts : source_path_frag_counts) {
-            for (size_t i = 0; i < thread_counts.size(); ++i) {
-                counts[i] += thread_counts[i];
-            }
-        }
-        print_path_usage_internal(out, counts);
-    }
+    position_file << "read\tpath\toffset\treverse" << endl;
 }
 
-void NGSSimulator::print_path_usage_internal(ostream& out, const vector<size_t>& counts) const {
-    // set the precision
-    out << std::fixed;
-    out << std::setprecision(4);
-    
-    // get total for computing FPM
-    size_t total = 0;
-    for (auto path_count : counts) {
-        total += path_count;
-    }
-    double denom = total / 1000000.0;
-    out << "path\tcount\tfrags_per_million" << endl;
-    for (size_t i = 0; i < counts.size(); ++i) {
-        out << source_paths[i] << '\t' << counts[i] << '\t' << (counts[i] / denom) << endl;
+void NGSSimulator::register_sampled_position(const Alignment& aln, const string& path_name,
+                                             size_t offset, bool is_reverse) {
+    if (position_file.is_open()) {
+        // we're recording positions
+        if (is_reverse) {
+            // get the position of the end instead of the start
+            offset -= path_from_length(aln.path()) - 1;
+        }
+#pragma omp critical
+        position_file << aln.name() << '\t' << path_name << '\t' << offset << '\t' << is_reverse << endl;
     }
 }
 
@@ -920,17 +902,20 @@ Alignment NGSSimulator::sample_read() {
         source_path = source_paths[source_path_idx];
     }
     
+    // This is our offset along the source path, if in use
+    size_t sampled_offset;
+    // And our direction to go along the source path, if in use
+    bool sampled_is_reverse;
+    
     // attempt samples until we get one that succeeds without walking
     // off the end of the graph
     while (!aln.has_path()) {
-        // This is our offset along the source path, if in use
-        size_t offset;
-        // And our direction to go along the source path, if in use
-        bool is_reverse;
-        // And our position in the graph, which we use whether there's a source path or not.
+        // Populate the sample positions
         pos_t pos;
-        // Populate them
-        sample_start_pos(source_path_idx, -1, offset, is_reverse, pos);
+        sample_start_pos(source_path_idx, -1, sampled_offset, sampled_is_reverse, pos);
+        // copy the values so that we can change them without forgetting the start location
+        size_t offset = sampled_offset;
+        bool is_reverse = sampled_is_reverse;
         // align the first end at this position on the source path or graph
         sample_read_internal(aln, offset, is_reverse, pos, source_path);
         
@@ -947,6 +932,8 @@ Alignment NGSSimulator::sample_read() {
     apply_N_mask(*aln.mutable_sequence(), qual_and_masks.second);
     
     algorithms::annotate_with_initial_path_positions(graph, aln);
+    
+    register_sampled_position(aln, source_path, sampled_offset, sampled_is_reverse);
     return aln;
 }
 
@@ -993,6 +980,13 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         fragment_length = min<int64_t>(fragment_length, graph.get_path_length(graph.get_path_handle(source_path)));
     }
     
+    // This is our offset along the source path, if in use
+    size_t sampled_offset;
+    // And our direction to go along the source path, if in use
+    bool sampled_is_reverse;
+    
+    size_t walked_offset;
+    
     if (fragment_length < transition_distrs_1.size()) {
         // the fragment is shorter than the sequencing length
         qual_and_mask_pair.first.first.resize(fragment_length);
@@ -1014,21 +1008,19 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
                  aln_pair.second.mutable_quality()->end());
     
     while (!aln_pair.first.has_path() || !aln_pair.second.has_path()) {
-        // This is our offset along the source path, if in use
-        size_t offset;
-        // And our direction to go along the source path, if in use
-        bool is_reverse;
-        // And our position in the graph, which we use whether there's a source path or not.
+
+        // Populate the sample positions
         pos_t pos;
-        // Populate them
-        sample_start_pos(source_path_idx, fragment_length, offset, is_reverse, pos);
-        
+        sample_start_pos(source_path_idx, fragment_length, sampled_offset, sampled_is_reverse, pos);
+        // copy them so we can modify without losing the start pos info
+        walked_offset = sampled_offset;
+        bool is_reverse = sampled_is_reverse;
 #ifdef debug_ngs_sim
         cerr << "sampled start pos " << pos << ", is reverse " << is_reverse << ", offset " << offset << endl;
 #endif
         
         // align the first end at this position on the source path or graph
-        sample_read_internal(aln_pair.first, offset, is_reverse, pos, source_path);
+        sample_read_internal(aln_pair.first, walked_offset, is_reverse, pos, source_path);
         
         if (retry_on_Ns) {
             if (aln_pair.first.sequence().find('N') != string::npos) {
@@ -1052,7 +1044,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
 #endif
         if (remaining_length >= 0) {
             // we need to move forward from the end of the first read
-            if (advance_by_distance(offset, is_reverse, pos, remaining_length, source_path)) {
+            if (advance_by_distance(walked_offset, is_reverse, pos, remaining_length, source_path)) {
 #ifdef debug_ngs_sim
                 cerr << "rejecting sample because insert is off of path" << endl;
 #endif
@@ -1066,7 +1058,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             // Make sure to update the offset along the path as well. If offset
             // and is_reverse aren't being used (becasue we aren't in path
             // mode), the result won't be used either.
-            offset += is_reverse ? walk_length : -walk_length;
+            walked_offset += is_reverse ? walk_length : -walk_length;
         }
         // guard against running off the end of nodes
         // XXX this should not be happening
@@ -1079,7 +1071,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         }
 
         // align the second end starting at the walked position
-        sample_read_internal(aln_pair.second, offset, is_reverse, pos, source_path); 
+        sample_read_internal(aln_pair.second, walked_offset, is_reverse, pos, source_path);
         
         if (retry_on_Ns) {
             if (aln_pair.second.sequence().find('N') != string::npos) {
@@ -1090,7 +1082,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     }
     
     // unreverse the second read in the pair
-    aln_pair.second = reverse_complement_alignment(aln_pair.second, [&](id_t node_id) {
+    reverse_complement_alignment_in_place(&aln_pair.second, [&](id_t node_id) {
         return graph.get_length(graph.get_handle(node_id));
     });
     
@@ -1100,6 +1092,12 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         
     algorithms::annotate_with_initial_path_positions(graph, aln_pair.first);
     algorithms::annotate_with_initial_path_positions(graph, aln_pair.second);
+    
+    // take back the final base that we sampled
+    walked_offset += sampled_is_reverse ? 1 : -1;
+    register_sampled_position(aln_pair.first, source_path, sampled_offset, sampled_is_reverse);
+    register_sampled_position(aln_pair.second, source_path, walked_offset, !sampled_is_reverse);
+    
     return aln_pair;
 }
 
@@ -1589,7 +1587,6 @@ size_t NGSSimulator::sample_path() {
     }
     else {
         size_t path_idx = path_sampler(prng);
-        source_path_frag_counts[omp_get_thread_num()][path_idx]++;
         return path_idx;
     }
 }

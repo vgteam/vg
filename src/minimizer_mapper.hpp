@@ -160,6 +160,9 @@ public:
             fragment_length_distr.force_parameters(fragment_length_distr.mean(), fragment_length_distr.std_dev());
         } 
     }
+    void force_fragment_length_distr(double mean, double stdev) {
+        fragment_length_distr.force_parameters(mean, stdev);
+    }
     double get_fragment_length_mean() const { return fragment_length_distr.mean(); }
     double get_fragment_length_stdev() const {return fragment_length_distr.std_dev(); }
     size_t get_fragment_length_sample_size() const { return fragment_length_distr.curr_sample_size(); }
