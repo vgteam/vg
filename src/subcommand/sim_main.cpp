@@ -119,7 +119,7 @@ void help_sim(char** argv) {
          << "    -T, --tx-expr-file FILE     simulate from an expression profile formatted as RSEM output (cannot also give -P)" << endl
          << "    -H, --haplo-tx-file FILE    transcript origin info table from vg rna -i (required for -T on haplotype transcripts)" << endl
          << "    -u, --unsheared             sample from unsheared fragments" << endl
-         << "    -E, --path-usage FILE       output a TSV with the number of fragments simulated from each path (requires -F)" << endl;
+         << "    -E, --path-pos-file FILE    output a TSV with sampled position on path of each read (requires -F)" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -151,7 +151,7 @@ int main_sim(int argc, char** argv) {
     double error_scale_factor = 1.0;
     string fastq_name;
     string fastq_2_name;
-    string path_usage_filename;
+    string path_pos_filename;
 
     // What path should we sample from? Empty string = the whole graph.
     vector<string> path_names;
@@ -360,7 +360,7 @@ int main_sim(int argc, char** argv) {
             break;
                 
         case 'E':
-            path_usage_filename = optarg;
+            path_pos_filename = optarg;
             break;
             
         case 'h':
@@ -430,19 +430,9 @@ int main_sim(int argc, char** argv) {
     }
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
     
-    ofstream path_usage_stream;
-    if (!path_usage_filename.empty()) {
-        if (fastq_name.empty()) {
-            cerr << "[vg sim] error: path usage table is not available unless using trained simulation (-F)" << endl;
-            exit(1);
-        }
-        else {
-            path_usage_stream.open(path_usage_filename);
-            if (!path_usage_stream) {
-                cerr << "[vg sim] error: could not open " << path_usage_filename << endl;
-                exit(1);
-            }
-        }
+    if (!path_pos_filename.empty() && fastq_name.empty()) {
+        cerr << "[vg sim] error: path usage table is not available unless using trained simulation (-F)" << endl;
+        exit(1);
     }
     
     // Deal with path names. Do this before we create paths to represent threads.
@@ -769,6 +759,10 @@ int main_sim(int argc, char** argv) {
                              unsheared_fragments,
                              seed_val);
         
+        if (!path_pos_filename.empty()) {
+            sampler.connect_to_position_file(path_pos_filename);
+        }
+        
         unique_ptr<AlignmentEmitter> alignment_emitter = get_non_hts_alignment_emitter("-", json_out ? "JSON" : "GAM",
                                                                                        map<string, int64_t>(), get_thread_count());
         
@@ -799,10 +793,6 @@ int main_sim(int argc, char** argv) {
                     cout << read.sequence() << endl;
                 }
             }
-        }
-        
-        if (path_usage_stream.is_open()) {
-            sampler.print_path_usage(path_usage_stream);
         }
     }
     
