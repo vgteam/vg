@@ -1003,6 +1003,16 @@ namespace vg {
             log_mle_max_exponential_shapes.push_back(log(max_exp_params.second));
                         
 #ifdef debug_report_startup_training
+            unordered_map<size_t, size_t> length_counts;
+            for (auto length : pseudo_lengths) {
+                length_counts[round(length)]++;
+            }
+            vector<pair<size_t, size_t>> sorted_length_counts(length_counts.begin(), length_counts.end());
+            sort(sorted_length_counts.begin(), sorted_length_counts.end());
+            cerr << "date for length " << simulated_read_length << endl;
+            for (auto length_count : sorted_length_counts) {
+                cerr << "\t" << length_count.first << ": " << length_count.second << endl;
+            }
             cerr << "trained parameters for length " << simulated_read_length << ": " << endl;
             cerr << "\tweibull scale: " << get<0>(weibull_params) << endl;
             cerr << "\tweibull shape: " << get<1>(weibull_params) << endl;
