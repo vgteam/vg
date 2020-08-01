@@ -119,10 +119,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:a60ac9a1eba5b7ca5a0bd1f196a8dc94d"><td class="mdescLeft">&#160;</td><td class="mdescRight">For priority queues.  <a href="#a60ac9a1eba5b7ca5a0bd1f196a8dc94d">More...</a><br /></td></tr>
 <tr class="separator:a60ac9a1eba5b7ca5a0bd1f196a8dc94d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af2acf967c1b81204f8f5cea754ae1ae1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#af2acf967c1b81204f8f5cea754ae1ae1">operator==</a> (const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;another) const</td></tr>
-<tr class="memdesc:af2acf967c1b81204f8f5cea754ae1ae1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Two extensions are equal if the same read interval matches the same search state.  <a href="#af2acf967c1b81204f8f5cea754ae1ae1">More...</a><br /></td></tr>
 <tr class="separator:af2acf967c1b81204f8f5cea754ae1ae1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5fc94cd2cfd5898459cac75c65be55a5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessExtension.html#a5fc94cd2cfd5898459cac75c65be55a5">operator!=</a> (const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;another) const</td></tr>
-<tr class="memdesc:a5fc94cd2cfd5898459cac75c65be55a5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Two extensions are not equal if the state or the read is different.  <a href="#a5fc94cd2cfd5898459cac75c65be55a5">More...</a><br /></td></tr>
+<tr class="memdesc:a5fc94cd2cfd5898459cac75c65be55a5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Two extensions are not equal if the state, the read interval, or the node offset is different.  <a href="#a5fc94cd2cfd5898459cac75c65be55a5">More...</a><br /></td></tr>
 <tr class="separator:a5fc94cd2cfd5898459cac75c65be55a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
@@ -366,7 +365,7 @@ Public Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Two extensions are not equal if the state or the read is different. </p>
+<p>Two extensions are not equal if the state, the read interval, or the node offset is different. </p>
 
 </div>
 </div>
@@ -421,8 +420,7 @@ Public Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Two extensions are equal if the same read interval matches the same search state. </p>
+<p>Two extensions are equal if the same read interval matches the same search state with the same node offset. </p>
 
 </div>
 </div>

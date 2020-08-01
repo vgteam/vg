@@ -116,6 +116,8 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memitem:a5c568cad31cb0cc1007ef05183c197ab"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a5c568cad31cb0cc1007ef05183c197ab">get_read_offset</a> (<a class="el" href="classvg_1_1GaplessExtender.html#a8891a422c7921863c589850636d9f252">seed_type</a> seed)</td></tr>
 <tr class="memdesc:a5c568cad31cb0cc1007ef05183c197ab"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the read offset from a seed.  <a href="#a5c568cad31cb0cc1007ef05183c197ab">More...</a><br /></td></tr>
 <tr class="separator:a5c568cad31cb0cc1007ef05183c197ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0381d55bcbba7e1ea297dc9a915dac1d"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a0381d55bcbba7e1ea297dc9a915dac1d">full_length_extensions</a> (const std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;result, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>)</td></tr>
+<tr class="separator:a0381d55bcbba7e1ea297dc9a915dac1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -133,7 +135,7 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:a3d436577897604304729afc521928ee8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>A class that supports haplotype-consistent seed extension using GBWTGraph. Each seed is a pair of matching read/graph positions and each extension is a gapless alignment of an interval of the read to a haplotype. A cluster is an unordered set of distinct seeds. Seeds in the same node with the same (read_offset - node_offset) difference are considered equivalent. All seeds in a cluster should correspond to the same alignment or positions near it. <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> also needs an <a class="el" href="classvg_1_1Aligner.html">Aligner</a> object for scoring the extension candidates. </p>
+<div class="textblock"><p>A class that supports haplotype-consistent seed extension using GBWTGraph. Each seed is a pair of matching read/graph positions and each extension is a gapless alignment of an interval of the read to a haplotype. A cluster is an unordered set of distinct seeds. Seeds in the same node with the same (read_offset - node_offset) difference are considered equivalent. <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> also needs an <a class="el" href="classvg_1_1Aligner.html">Aligner</a> object for scoring the extension candidates. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="a7ac1326772ac23e766774279d39e9c04"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7ac1326772ac23e766774279d39e9c04">&#9670;&nbsp;</a></span>cluster_type</h2>
@@ -265,7 +267,44 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Find the highest-scoring extension for each seed in the cluster. If there is a full-length extension with at most max_mismatches mismatches, return the (up to two) best full-length extensions with at most overlap_threshold overlap, sorted by score in descending order. If that is not possible, trim the extensions to maximize score, sort them by read interval, and remove duplicates. Allow any number of mismatches in the initial node, at least max_mismatches mismatches in the entire extension, and at least max_mismatches / 2 mismatches on each flank. Use the provided CachedGBWTGraph or allocate a new one. </p>
+<p>Find the highest-scoring extension for each seed in the cluster. If there is a full-length extension with at most max_mismatches mismatches, sort them in descending order by score and return the best non-overlapping full-length extensions. Two extensions overlap if the fraction of identical base mappings is greater than overlap_threshold. If there are no good enough full-length extensions, trim the extensions to maximize the score and remove duplicates. In this case, the extensions are sorted by read interval. Use <a class="el" href="classvg_1_1GaplessExtender.html#a0381d55bcbba7e1ea297dc9a915dac1d">full_length_extensions()</a> to determine the type of the returned extension set. Allow any number of mismatches in the initial node, at least max_mismatches mismatches in the entire extension, and at least max_mismatches / 2 mismatches on each flank. Use the provided CachedGBWTGraph or allocate a new one. </p>
+
+</div>
+</div>
+<a id="a0381d55bcbba7e1ea297dc9a915dac1d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0381d55bcbba7e1ea297dc9a915dac1d">&#9670;&nbsp;</a></span>full_length_extensions()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::GaplessExtender::full_length_extensions </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>result</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_mismatches</em> = <code><a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a></code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Determine whether the extension set contains non-overlapping full-length extensions sorted in descending order by score. Use the same value of max_mismatches as in <a class="el" href="classvg_1_1GaplessExtender.html#aa8a27641953b262ee165cdce0041f886">extend()</a>. </p>
 
 </div>
 </div>
