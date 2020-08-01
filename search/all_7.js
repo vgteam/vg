@@ -287,6 +287,7 @@ var searchData=
   ['get_5fregistry',['get_registry',['../classvg_1_1subcommand_1_1Subcommand.html#a0e3707f1f4e9ce445faea71fddd61a00',1,'vg::subcommand::Subcommand']]],
   ['get_5fregular_5faligner',['get_regular_aligner',['../classvg_1_1AlignerClient.html#a981d1611f55817d7c375a5665666e408',1,'vg::AlignerClient']]],
   ['get_5frelease',['get_release',['../classvg_1_1Version.html#a3e99ae82ab6bcc07d982012d731e7091',1,'vg::Version']]],
+  ['get_5frescue_5fgraph_5ffrom_5fpaths',['get_rescue_graph_from_paths',['../classvg_1_1MultipathMapper.html#a655c6fb1dc987ac5f430007594d7bb42',1,'vg::MultipathMapper']]],
   ['get_5fresolver',['get_resolver',['../classvg_1_1io_1_1Registry.html#a45f5ca692e2d85618f2081e7aa967730',1,'vg::io::Registry']]],
   ['get_5froot',['get_root',['../classvg_1_1TreeSubgraph.html#a16b12e54e0c87d9a84f4d3a809a8171b',1,'vg::TreeSubgraph']]],
   ['get_5frr_5fmemo',['get_rr_memo',['../classvg_1_1MultipathMapper.html#a42169ca0715c4c784584ba3d2a5d34bb',1,'vg::MultipathMapper']]],

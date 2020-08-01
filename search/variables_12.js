@@ -54,6 +54,7 @@ var searchData=
   ['report_5fgroup_5fmapq',['report_group_mapq',['../classvg_1_1MultipathMapper.html#a42577bd89395f56ea2045c378b745456',1,'vg::MultipathMapper']]],
   ['rescore',['rescore',['../classvg_1_1ReadFilter.html#ab3b47fbeff165aa3fb4fdff25d2cb6fb',1,'vg::ReadFilter']]],
   ['rescue_5falgorithm',['rescue_algorithm',['../classvg_1_1MinimizerMapper.html#a17f800e4588567e473ea18a55bd186b9',1,'vg::MinimizerMapper']]],
+  ['rescue_5fgraph_5fstd_5fdevs',['rescue_graph_std_devs',['../classvg_1_1MultipathMapper.html#aab3573cb5d2878a13b0a40d427e8c943',1,'vg::MultipathMapper']]],
   ['rescue_5fonly_5fanchor_5fmax',['rescue_only_anchor_max',['../classvg_1_1MultipathMapper.html#acd7c1016549d1f96af13b9c317f239f3',1,'vg::MultipathMapper']]],
   ['rescue_5fonly_5fmin',['rescue_only_min',['../classvg_1_1MultipathMapper.html#a2ad423f9fc1a81bbe31e9c25992de378',1,'vg::MultipathMapper']]],
   ['rescue_5fsubgraph_5fstdevs',['rescue_subgraph_stdevs',['../classvg_1_1MinimizerMapper.html#a19f9bf5af66cbc96a3d1fdd2e5e83dda',1,'vg::MinimizerMapper']]],

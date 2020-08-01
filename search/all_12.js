@@ -215,6 +215,7 @@ var searchData=
   ['rescore',['rescore',['../classvg_1_1ReadFilter.html#ab3b47fbeff165aa3fb4fdff25d2cb6fb',1,'vg::ReadFilter']]],
   ['rescue_5falgorithm',['rescue_algorithm',['../classvg_1_1MinimizerMapper.html#a17f800e4588567e473ea18a55bd186b9',1,'vg::MinimizerMapper']]],
   ['rescue_5fdozeu',['rescue_dozeu',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4a4120cab71587100aa2d1308010fec524',1,'vg::MinimizerMapper']]],
+  ['rescue_5fgraph_5fstd_5fdevs',['rescue_graph_std_devs',['../classvg_1_1MultipathMapper.html#aab3573cb5d2878a13b0a40d427e8c943',1,'vg::MultipathMapper']]],
   ['rescue_5fgssw',['rescue_gssw',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4aa3089b08bc714c195447adf06eff27d9',1,'vg::MinimizerMapper']]],
   ['rescue_5fhaplotypes',['rescue_haplotypes',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4a164e85180cee59af15aee042c5dc3a18',1,'vg::MinimizerMapper']]],
   ['rescue_5fhigh_5fcount_5forder_5flength_5fmems',['rescue_high_count_order_length_mems',['../classvg_1_1BaseMapper.html#aa7a71951ec7acdbf2c31ae9318ceb035',1,'vg::BaseMapper']]],
