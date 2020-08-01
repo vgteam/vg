@@ -88,12 +88,13 @@ struct GaplessExtension
         return (this->score < another.score);
     }
 
-    /// Two extensions are equal if the same read interval matches the same search state.
+    /// Two extensions are equal if the same read interval matches the same search state
+    /// with the same node offset.
     bool operator==(const GaplessExtension& another) const {
-        return (this->read_interval == another.read_interval && this->state == another.state);
+        return (this->read_interval == another.read_interval && this->state == another.state && this->offset == another.offset);
     }
 
-    /// Two extensions are not equal if the state or the read is different.
+    /// Two extensions are not equal if the state, the read interval, or the node offset is different.
     bool operator!=(const GaplessExtension& another) const {
         return !(this->operator==(another));
     }

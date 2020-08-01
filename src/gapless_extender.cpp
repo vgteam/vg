@@ -311,7 +311,13 @@ void remove_duplicates(std::vector<GaplessExtension>& result) {
         if (a.state.forward.node != b.state.forward.node) {
             return (a.state.forward.node < b.state.forward.node);
         }
-        return (a.state.backward.range < b.state.backward.range);
+        if (a.state.backward.range != b.state.backward.range) {
+           return (a.state.backward.range < b.state.backward.range);
+        }
+        if (a.state.forward.range != b.state.forward.range) {
+           return (a.state.forward.range < b.state.forward.range);
+        }
+        return (a.offset < b.offset);
     };
     std::sort(result.begin(), result.end(), sort_order);
     size_t tail = 0;
