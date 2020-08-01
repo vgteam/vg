@@ -129,10 +129,10 @@ namespace vg {
         size_t max_p_value_memo_size = 500;
         size_t band_padding_memo_size = 2000;
         bool use_weibull_calibration = false;
-        double max_exponential_rate_intercept = 0.7612;
-        double max_exponential_rate_slope = 0.0001496;
-        double max_exponential_shape_intercept = 12.37;
-        double max_exponential_shape_slope = 0.007191;
+        double max_exponential_rate_intercept = 0.612045;
+        double max_exponential_rate_slope = 0.000555181;
+        double max_exponential_shape_intercept = 12.136;
+        double max_exponential_shape_slope = 0.0113637;
         double weibull_scale_intercept = 1.05;
         double weibull_scale_slope = 0.0601;
         double weibull_shape_intercept = -0.176;

@@ -956,6 +956,11 @@ namespace vg {
         bool reset_quality_adjustments = adjust_alignments_for_base_quality;
         adjust_alignments_for_base_quality = false;
         
+        // these p-values will eventually be used internally where the scores still have the bonus applied, so we
+        // want to make sure we don't strip them off here
+        bool reset_strip_bonuses = strip_bonuses;
+        strip_bonuses = false;
+        
         // and we expect small MEMs, so don't filter them out
         int reset_min_mem_length = min_mem_length;
         size_t reset_min_clustering_mem_length = min_clustering_mem_length;
@@ -1009,7 +1014,7 @@ namespace vg {
             }
             vector<pair<size_t, size_t>> sorted_length_counts(length_counts.begin(), length_counts.end());
             sort(sorted_length_counts.begin(), sorted_length_counts.end());
-            cerr << "date for length " << simulated_read_length << endl;
+            cerr << "data for length " << simulated_read_length << endl;
             for (auto length_count : sorted_length_counts) {
                 cerr << "\t" << length_count.first << ": " << length_count.second << endl;
             }
@@ -1062,6 +1067,7 @@ namespace vg {
         
         // reset mapping parameters to their original values
         adjust_alignments_for_base_quality = reset_quality_adjustments;
+        strip_bonuses = reset_strip_bonuses;
         min_clustering_mem_length = reset_min_clustering_mem_length;
         min_mem_length = reset_min_mem_length;
         max_alt_mappings = reset_max_alt_mappings;
