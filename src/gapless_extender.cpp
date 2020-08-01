@@ -267,8 +267,8 @@ void match_backward(GaplessExtension& match, const std::string& seq, gbwtgraph::
 }
 
 // Sort full-length extensions by internal_score, remove ones that are not
-// full-length alignments, remove duplicates, and return the best two
-// extensions that have sufficiently low overlap.
+// full-length alignments, remove duplicates, and return the best extensions
+// that have sufficiently low overlap.
 void handle_full_length(const HandleGraph& graph, std::vector<GaplessExtension>& result, double overlap_threshold) {
     std::sort(result.begin(), result.end(), [](const GaplessExtension& a, const GaplessExtension& b) -> bool {
         if (a.full() && b.full()) {
@@ -281,20 +281,20 @@ void handle_full_length(const HandleGraph& graph, std::vector<GaplessExtension>&
         if (!(result[i].full())) {
             break; // No remaining full-length extensions.
         }
-        if (tail == 0) {
-            tail = 1; // Best extension.
-        } else {
-            if (result[i] == result.front()) {
-                continue; // Duplicate.
-            }
-            if (result[i].overlap(graph, result.front()) <= overlap_threshold * result.front().length()) {
-                if (i > tail) {
-                    result[tail] = std::move(result[i]);
-                }
-                tail++;
-                break; // Found a non-overlapping extension.
+        bool overlap = false;
+        for (size_t prev = 0; prev < tail; prev++) {
+            if (result[i].overlap(graph, result[prev]) > overlap_threshold * result[prev].length()) {
+                overlap = true;
+                break;
             }
         }
+        if (overlap) {
+            continue;
+        }
+        if (i > tail) {
+            result[tail] = std::move(result[i]);
+        }
+        tail++;
     }
     result.resize(tail);
 }
@@ -657,8 +657,8 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
         }
     }
 
-    // If we have a good enough full-length alignment, return the best two sufficiently
-    // distinct full-length alingments.
+    // If we have a good enough full-length alignment, return the best sufficiently
+    // distinct full-length alignments.
     if (best_alignment < result.size() && result[best_alignment].internal_score <= max_mismatches) {
         handle_full_length(*cache, result, overlap_threshold);
         find_mismatches(sequence, *cache, result);
@@ -685,6 +685,12 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
     }
 
     return result;
+}
+
+//------------------------------------------------------------------------------
+
+bool GaplessExtender::full_length_extensions(const std::vector<GaplessExtension>& result, size_t max_mismatches) {
+    return (result.size() > 0 && result.front().full() && result.front().mismatches() <= max_mismatches);
 }
 
 //------------------------------------------------------------------------------
