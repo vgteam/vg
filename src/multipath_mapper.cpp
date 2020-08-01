@@ -3513,17 +3513,6 @@ namespace vg {
         }
         
 #ifdef debug_multipath_mapper_alignment
-        cerr << "making multipath alignment MEM graph" << endl;
-#endif
-        
-        // construct a graph that summarizes reachability between MEMs
-        
-        function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
-            handle_t original = align_digraph->get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
-            return make_pair(graph->get_id(original), graph->get_is_reverse(original));
-        };
-        
-#ifdef debug_multipath_mapper_alignment
         cerr << "final alignment graph:" << endl;
         align_dag->for_each_handle([&](const handle_t& h) {
             auto tr = translator(align_dag->get_id(h));
@@ -3535,6 +3524,17 @@ namespace vg {
                 cerr << "\t " << align_dag->get_id(n) << " " << (align_dag->get_is_reverse(n) ? "-" : "+") << " <-" << endl;
             });
         });
+#endif
+        
+        // construct a graph that summarizes reachability between MEMs
+        
+        function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
+            handle_t original = align_digraph->get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
+            return make_pair(graph->get_id(original), graph->get_is_reverse(original));
+        };
+        
+#ifdef debug_multipath_mapper_alignment
+        cerr << "making multipath alignment MEM graph" << endl;
 #endif
         
         MultipathAlignmentGraph multi_aln_graph(*align_dag, graph_mems, translator, max_branch_trim_length, gcsa, fanouts);
