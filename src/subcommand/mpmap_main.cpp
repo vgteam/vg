@@ -153,6 +153,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_FAN_OUT_QUAL 1025
     #define OPT_MAX_FANS_OUT 1026
     #define OPT_FAN_OUT_DIFF 1027
+    #define OPT_PATH_RESCUE_GRAPH 1028
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -179,6 +180,8 @@ int main_mpmap(int argc, char** argv) {
     int max_single_end_map_attempts_very_short = 16;
     int max_single_end_mappings_for_rescue = max_single_end_map_attempts;
     int max_rescue_attempts = 10;
+    double rescue_graph_std_devs = 6.0;
+    bool get_rescue_graph_from_paths = false;
     int population_max_paths = 10;
     int population_paths_hard_cap = 1000;
     bool top_tracebacks = false;
@@ -325,6 +328,7 @@ int main_mpmap(int argc, char** argv) {
             {"max-rescues", required_argument, 0, OPT_MAX_RESCUE_ATTEMPTS},
             {"max-secondary-rescues", required_argument, 0, OPT_SECONDARY_RESCUE_ATTEMPTS},
             {"secondary-diff", required_argument, 0, OPT_SECONDARY_MAX_DIFF},
+            {"path-rescue-graph", no_argument, 0, OPT_PATH_RESCUE_GRAPH},
             {"no-calibrate", no_argument, 0, 'B'},
             {"max-p-val", required_argument, 0, 'P'},
             {"mq-max", required_argument, 0, 'Q'},
@@ -432,6 +436,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_SECONDARY_MAX_DIFF:
                 secondary_rescue_score_diff = parse<double>(optarg);
+                break;
+                
+            case OPT_PATH_RESCUE_GRAPH:
+                get_rescue_graph_from_paths = true;;
                 break;
                 
             case 1: // --linear-index
@@ -1453,6 +1461,11 @@ int main_mpmap(int argc, char** argv) {
     if (path_handle_graph->get_path_count() == 0 && distance_index_name.empty()) {
         cerr << "warning:[vg mpmap] Using a distance index (-d) for clustering is highly recommended for graphs that lack embedded paths. Speed and accuracy are likely to suffer severely without one." << endl;
     }
+    else if (path_handle_graph->get_path_count() == 0
+             && get_rescue_graph_from_paths
+             && (interleaved_input || !fastq_name_2.empty())) {
+        cerr << "warning:[vg mpmap] Identifying rescue subgraphs using embedded paths (--path-rescue-graph) is impossible on graphs that lack embedded paths. Pair rescue will not be used on this graph, potentially hurting accuracy." << endl;
+    }
     
     bdsg::PathPositionOverlayHelper overlay_helper;
     PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
@@ -1622,6 +1635,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.rescue_only_min = rescue_only_min;
     multipath_mapper.rescue_only_anchor_max = rescue_only_anchor_max;
     multipath_mapper.fragment_length_warning_factor = fragment_length_warning_factor;
+    multipath_mapper.get_rescue_graph_from_paths = get_rescue_graph_from_paths;
+    multipath_mapper.rescue_graph_std_devs = rescue_graph_std_devs;
     
     // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;

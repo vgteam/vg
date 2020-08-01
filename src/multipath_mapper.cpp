@@ -624,37 +624,25 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "attemping pair rescue in " << (rescue_forward ? "forward" : "backward") << " direction from " << debug_string(multipath_aln) << endl;
 #endif
+        bdsg::HashGraph rescue_graph;
+        extract_rescue_graph(multipath_aln, other_aln, rescue_forward, &rescue_graph);
         
-        // get the position to jump from and the distance to jump
-        Alignment opt_anchoring_aln;
-        optimal_alignment(multipath_aln, opt_anchoring_aln);
-        pos_t pos_from = rescue_forward ? initial_position(opt_anchoring_aln.path()) : final_position(opt_anchoring_aln.path());
-        int64_t jump_dist = rescue_forward ? fragment_length_distr.mean() - other_aln.sequence().size() : -fragment_length_distr.mean();
-        
-        // get the seed position(s) for the rescue by jumping along paths
-        vector<pos_t> jump_positions = algorithms::jump_along_closest_path(xindex, pos_from, jump_dist, 250);
-        
-#ifdef debug_multipath_mapper
-        cerr << "found jump positions:" << endl;
-        for (pos_t& pos : jump_positions) {
-            cerr << "\t" << pos << endl;
-        }
-#endif
-        if (jump_positions.empty()) {
+        if (rescue_graph.get_node_count() == 0) {
             return false;
         }
         
-        // pull out the graph around the position(s) we jumped to
-        bdsg::HashGraph rescue_graph;
-        vector<size_t> backward_dist(jump_positions.size(), 6 * fragment_length_distr.std_dev());
-        vector<size_t> forward_dist(jump_positions.size(), 6 * fragment_length_distr.std_dev() + other_aln.sequence().size());
-        algorithms::extract_containing_graph(xindex, &rescue_graph, jump_positions, backward_dist, forward_dist,
-                                             num_alt_alns > 1 ? reversing_walk_length : 0);
-        
 #ifdef debug_multipath_mapper
         cerr << "got rescue graph" << endl;
+        rescue_graph.for_each_handle([&](const handle_t& h) {
+            cerr << rescue_graph.get_id(h) << " " << rescue_graph.get_sequence(h) << endl;
+            rescue_graph.follow_edges(h, true, [&](const handle_t& p) {
+                cerr << "\t" << rescue_graph.get_id(p) << (rescue_graph.get_is_reverse(p) ? "-" : "+") << " <-" << endl;
+            });
+            rescue_graph.follow_edges(h, false, [&](const handle_t& n) {
+                cerr << "\t-> " << rescue_graph.get_id(n) << (rescue_graph.get_is_reverse(n) ? "-" : "+") << endl;
+            });
+        });
 #endif
-        
         
         // TODO: repetitive code with multipath_align
         
@@ -745,6 +733,133 @@ namespace vg {
         
         return true;
     }
+
+    void MultipathMapper::extract_rescue_graph(const multipath_alignment_t& multipath_aln, const Alignment& other_aln,
+                                               bool rescue_forward, MutableHandleGraph* rescue_graph) const {
+        
+        // get the position to jump from and the distance to jump
+        Alignment opt_anchoring_aln;
+        optimal_alignment(multipath_aln, opt_anchoring_aln);
+                
+        if (get_rescue_graph_from_paths || !distance_index) {
+            // we're either not using the distance index or we don't have one
+            
+            pos_t pos_from = rescue_forward ? initial_position(opt_anchoring_aln.path()) : final_position(opt_anchoring_aln.path());
+            int64_t jump_dist = rescue_forward ? fragment_length_distr.mean() : -fragment_length_distr.mean();
+            
+            // get the seed position(s) for the rescue by jumping along paths
+            vector<pos_t> jump_positions = algorithms::jump_along_closest_path(xindex, pos_from, jump_dist, 250);
+            
+#ifdef debug_multipath_mapper
+            cerr << "found jump positions:" << endl;
+            for (pos_t& pos : jump_positions) {
+                cerr << "\t" << pos << endl;
+            }
+#endif
+            if (jump_positions.empty()) {
+                return;
+            }
+            
+            size_t search_dist_bwd, search_dist_fwd;
+            if (rescue_forward) {
+                search_dist_bwd = size_t(round(rescue_graph_std_devs * fragment_length_distr.std_dev())) + other_aln.sequence().size();
+                search_dist_fwd = rescue_graph_std_devs * fragment_length_distr.std_dev();
+            }
+            else {
+                search_dist_bwd = rescue_graph_std_devs * fragment_length_distr.std_dev();
+                search_dist_fwd = size_t(round(rescue_graph_std_devs * fragment_length_distr.std_dev())) + other_aln.sequence().size();
+            }
+            
+            vector<size_t> backward_dist(jump_positions.size(), search_dist_bwd);
+            vector<size_t> forward_dist(jump_positions.size(), search_dist_fwd);
+            algorithms::extract_containing_graph(xindex, rescue_graph, jump_positions, backward_dist, forward_dist,
+                                                 num_alt_alns > 1 ? reversing_walk_length : 0);
+            
+        }
+        else {
+            // we have a distance index and we want to use it
+            
+            // get the set of nodes that we want to extrat
+            unordered_set<id_t> subgraph_nodes_to_add;
+            int64_t min_distance = max(0.0, fragment_length_distr.mean() - other_aln.sequence().size()
+                                       - rescue_graph_std_devs * fragment_length_distr.std_dev());
+            int64_t max_distance = fragment_length_distr.mean() + rescue_graph_std_devs * fragment_length_distr.std_dev();
+            distance_index->subgraph_in_range(opt_anchoring_aln.path(), xindex, min_distance, max_distance,
+                                              subgraph_nodes_to_add, rescue_forward);
+            
+            
+#ifdef debug_multipath_mapper
+            cerr << "got distance based rescue graph:" << endl;
+            for (auto nid : subgraph_nodes_to_add) {
+                cerr << "\t" << nid << endl;
+            }
+#endif
+            
+            // this algorithm is better matched to the GBWTGraph, we need to extract the subgraph manually now.
+            // we'll use an algorithm that tries to follow edges to find nodes. this way we minimize calls to XG's
+            // get_handle, and we have to follow all edges anyway to add them
+            
+            while (!subgraph_nodes_to_add.empty()) {
+                // there's at least one node that we haven't added yet
+                
+                // initialize a search out from an arbitrary unadded node
+                id_t node_id = *subgraph_nodes_to_add.begin();
+                subgraph_nodes_to_add.erase(node_id);
+                handle_t start_handle = xindex->get_handle(node_id);
+                rescue_graph->create_handle(xindex->get_sequence(start_handle),
+                                            xindex->get_id(start_handle));
+                vector<handle_t> stack(1, start_handle);
+#ifdef debug_multipath_mapper
+                cerr << "initializing extraction search at node " << node_id << endl;
+#endif
+                while (!stack.empty()) {
+                    handle_t super_handle = stack.back();
+                    stack.pop_back();
+                    for (bool go_left : {true, false}) {
+                        xindex->follow_edges(super_handle, go_left, [&](const handle_t& neighbor) {
+                            
+                            if (subgraph_nodes_to_add.count(xindex->get_id(neighbor))) {
+                                // we've found a new node that we haven't added yet, add it to the graph
+                                // and the queue, and erase from the nodes left to add
+                                subgraph_nodes_to_add.erase(xindex->get_id(neighbor));
+                                rescue_graph->create_handle(xindex->get_sequence(xindex->forward(neighbor)),
+                                                            xindex->get_id(neighbor));
+                                stack.push_back(neighbor);
+#ifdef debug_multipath_mapper
+                                cerr << "reached " << xindex->get_id(neighbor) << " from searching" << endl;
+#endif
+                            }
+                            
+                            if (rescue_graph->has_node(xindex->get_id(neighbor))) {
+                                // we always know that the handle we're coming from is in the subgraph, it
+                                // seems that this neighbor is as well, so add the edge
+                                
+                                handle_t sub_handle = rescue_graph->get_handle(xindex->get_id(super_handle),
+                                                                               xindex->get_is_reverse(super_handle));
+                                handle_t sub_neighbor = rescue_graph->get_handle(xindex->get_id(neighbor),
+                                                                                 xindex->get_is_reverse(neighbor));
+                                
+                                // edges automatically deduplicate, so don't worry about checking whether
+                                // it exists
+                                if (go_left) {
+#ifdef debug_multipath_mapper
+                                    cerr << "create edge " << rescue_graph->get_id(sub_neighbor) << (rescue_graph->get_is_reverse(sub_neighbor) ? "-" : "+") << " -> " << rescue_graph->get_id(sub_handle) << (rescue_graph->get_is_reverse(sub_handle) ? "-" : "+")  << endl;
+#endif
+                                    rescue_graph->create_edge(sub_neighbor, sub_handle);
+                                }
+                                else {
+#ifdef debug_multipath_mapper
+                                    cerr << "create edge " << rescue_graph->get_id(sub_handle) << (rescue_graph->get_is_reverse(sub_handle) ? "-" : "+") << " -> " << rescue_graph->get_id(sub_neighbor) << (rescue_graph->get_is_reverse(sub_neighbor) ? "-" : "+")  << endl;
+#endif
+                                    rescue_graph->create_edge(sub_handle, sub_neighbor);
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
     
     void MultipathMapper::init_band_padding_memo() {
         band_padding_memo.clear();
@@ -772,7 +887,33 @@ namespace vg {
     }
     
     size_t MultipathMapper::pseudo_length(const multipath_alignment_t& multipath_aln) const {
-        return optimal_alignment_score(multipath_aln);
+        Alignment alignment;
+        optimal_alignment(multipath_aln, alignment);
+        const Path& path = alignment.path();
+        
+        int64_t net_matches = 0;
+        for (size_t i = 0; i < path.mapping_size(); i++) {
+            const Mapping& mapping = path.mapping(i);
+            for (size_t j = 0; j < mapping.edit_size(); j++) {
+                const Edit& edit = mapping.edit(j);
+                
+                // skip soft clips
+                if (((i == 0 && j == 0) || (i == path.mapping_size() - 1 && j == mapping.edit_size() - 1))
+                    && edit.from_length() == 0 && edit.to_length() > 0) {
+                    continue;
+                }
+                
+                // add matches and subtract mismatches/indels
+                if (edit.from_length() == edit.to_length() && edit.sequence().empty()) {
+                    net_matches += edit.from_length();
+                }
+                else {
+                    net_matches -= max(edit.from_length(), edit.to_length());
+                }
+            }
+        }
+        
+        return max<int64_t>(0, net_matches);
     }
     
     // make the memo live in this .o file
