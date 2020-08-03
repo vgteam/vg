@@ -143,7 +143,7 @@ public:
     size_t paired_rescue_score_limit = 0.9;
 
     ///How many stdevs from the mean do we extract a subgraph from?
-    double rescue_subgraph_stdevs = 3.5;
+    double rescue_subgraph_stdevs = 4.0;
 
     /// For paired end mapping, how many times should we attempt rescue (per read)?
     size_t max_rescue_attempts = 15;
