@@ -349,13 +349,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             Alignment best_alignment = aln;
             Alignment second_best_alignment = aln;
 
-            // Determine if we got full-length alignments or local alignments.
-            bool full_length_extensions = (extensions.size() <= 2);
-            for (auto& extension : extensions) {
-                full_length_extensions &= extension.full();
-            }
-
-            if (full_length_extensions) {
+            if (GaplessExtender::full_length_extensions(extensions)) {
                 // We got full-length extensions, so directly convert to an Alignment.
                 
                 if (track_provenance) {
@@ -371,7 +365,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
                 if (extensions.size() > 1) {
                     //Do the same thing for the second extension, if one exists
-                    this->extension_to_alignment(extensions.back(), second_best_alignment);
+                    this->extension_to_alignment(extensions[1], second_best_alignment);
                     
 #ifdef debug
                     cerr << "Produced additional alignment directly from full length gapless extension " << extension_num << endl;
@@ -1128,13 +1122,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 Alignment second_best_alignment = aln;
                 
 
-                // Determine if we got full-length alignments or local alignments.
-                bool full_length_extensions = (extensions.size() <= 2);
-                for (auto& extension : extensions) {
-                    full_length_extensions &= extension.full();
-                }
-
-                if (full_length_extensions) {
+                if (GaplessExtender::full_length_extensions(extensions)) {
                     // We got full-length extensions, so directly convert to an Alignment.
                     
                     if (track_provenance) {
@@ -1150,7 +1138,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
                     if (extensions.size() > 1) {
                         //Do the same thing for the second extension, if one exists
-                        this->extension_to_alignment(extensions.back(), second_best_alignment);
+                        this->extension_to_alignment(extensions[1], second_best_alignment);
                         
 #ifdef debug
                         cerr << "Produced additional alignment directly from full length gapless extension " << extension_num << endl;
@@ -2779,16 +2767,10 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     // Find all seeds in the subgraph and try to get a full-length extension.
     GaplessExtender::cluster_type seeds = this->seeds_in_subgraph(minimizers, rescue_nodes);
     std::vector<GaplessExtension> extensions = this->extender.extend(seeds, rescued_alignment.sequence(), &cached_graph);
-    size_t best = extensions.size();
-    for (size_t i = 0; i < extensions.size(); i++) {
-        if (best >= extensions.size() || extensions[i].score > extensions[best].score) {
-            best = i;
-        }
-    }
 
     // If we have a full-length extension, use it as the rescued alignment.
-    if (best < extensions.size() && extensions[best].full()) {
-        this->extension_to_alignment(extensions[best], rescued_alignment);
+    if (GaplessExtender::full_length_extensions(extensions)) {
+        this->extension_to_alignment(extensions.front(), rescued_alignment);
         return;
     }
 
@@ -2808,6 +2790,14 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         // Get the corresponding alignment to the original graph.
         this->extender.transform_alignment(rescued_alignment, haplotype_paths);
         return;
+    }
+
+    // Determine the best extension.
+    size_t best = extensions.size();
+    for (size_t i = 0; i < extensions.size(); i++) {
+        if (best >= extensions.size() || extensions[i].score > extensions[best].score) {
+            best = i;
+        }
     }
 
     // Use the best extension as a seed for dozeu.
@@ -3188,13 +3178,9 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
     if (extended_seeds.empty()) {
         // TODO: We should never see an empty group of extensions
         return 0;
-    } else if (extended_seeds.front().full()) {
-        // These are length matches. We already have the score.
-        int best_score = 0;
-        for (auto& extension : extended_seeds) {
-            best_score = max(best_score, extension.score);
-        }
-        return best_score;
+    } else if (GaplessExtender::full_length_extensions(extended_seeds)) {
+        // These are full-length matches. We already have the score.
+        return extended_seeds.front().score;
     } else {
         // This is a collection of one or more non-full-length extended seeds.
         

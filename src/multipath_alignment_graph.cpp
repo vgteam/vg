@@ -769,6 +769,10 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 cerr << "performing DFS to walk out match" << endl;
 #endif
                 
+                // TODO: magic constant
+                size_t matches_found = 0;
+                size_t max_matches_walked = 32;
+                
                 // stack for DFS, each record contains tuples of
                 // (read begin, node offset, next node index, next node handles, fan-out index)
                 vector<tuple<string::const_iterator, size_t, size_t, vector<handle_t>, size_t>> stack;
@@ -778,7 +782,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 if (fanout_breaks && fanout_breaks->count(hit.first)) {
                     fanout_size = fanout_breaks->at(hit.first).size();
                 }
-                while (!stack.empty()) {
+                while (!stack.empty() && matches_found < max_matches_walked) {
                     auto& back = stack.back();
                     if (get<2>(back) == get<3>(back).size()) {
 #ifdef debug_multipath_alignment
@@ -838,6 +842,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                         cerr << "reached end of read sequence, converting into path node(s) starting at idx " << path_nodes.size() << endl;
 #endif
                         assert(fanout_idx == fanout_size);
+                        ++matches_found;
                         
                         path_t path;
                         int64_t path_length = end - begin;
@@ -3372,10 +3377,11 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         // compute the weight of edges and node matches
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& from_node = path_nodes.at(i);
-            node_weights[i] = aligner->match * (from_node.end - from_node.begin)
-            + aligner->full_length_bonus * ((from_node.begin == alignment.sequence().begin())
-                                            + (from_node.end == alignment.sequence().end()));
-            
+            node_weights[i] = (aligner->score_exact_match(from_node.begin, from_node.end,
+                                                          alignment.quality().begin() + (from_node.begin - alignment.sequence().begin()))
+                               + aligner->full_length_bonus * ((from_node.begin == alignment.sequence().begin())
+                                                               + (from_node.end == alignment.sequence().end())));
+                        
             for (const pair<size_t, size_t>& edge : from_node.edges) {
                 PathNode& to_node = path_nodes.at(edge.first);
                 

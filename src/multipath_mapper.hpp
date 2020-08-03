@@ -146,6 +146,8 @@ namespace vg {
         size_t plausible_rescue_cluster_coverage_diff = 5;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
+        bool get_rescue_graph_from_paths = true;
+        double rescue_graph_std_devs = 6.0;
         double mapq_scaling_factor = 1.0;
         bool report_group_mapq = false;
         // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
@@ -170,6 +172,7 @@ namespace vg {
         int32_t secondary_rescue_subopt_diff = 10;
         size_t min_median_mem_coverage_for_split = 0;
         bool suppress_cluster_merging = false;
+        bool suppress_multicomponent_splitting = false;
         size_t alt_anchor_max_length_diff = 5;
         bool dynamic_max_alt_alns = false;
         bool simplify_topologies = false;
@@ -227,6 +230,9 @@ namespace vg {
         bool attempt_rescue(const multipath_alignment_t& multipath_aln, const Alignment& other_aln,
                             bool rescue_forward, multipath_alignment_t& rescue_multipath_aln);
         
+        /// Use the algorithm implied by the mapper settings to extract a subgraph to perform a rescue alignment against
+        void extract_rescue_graph(const multipath_alignment_t& multipath_aln, const Alignment& other_aln,
+                                  bool rescue_forward, MutableHandleGraph* rescue_graph) const;
         
         /// After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform
         /// multipath alignment.
