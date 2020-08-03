@@ -345,9 +345,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             
             auto& extensions = cluster_extensions[extension_num];
             
-            // Get an Alignments best_ and second_best_alignment of it somehow, and throw it in.
-            Alignment best_alignment = aln;
-            Alignment second_best_alignment = aln;
+            // Collect the top alignments. Make sure we have at least one always, starting with unaligned.
+            vector<Alignment> best_alignments(1, aln);
 
             if (GaplessExtender::full_length_extensions(extensions)) {
                 // We got full-length extensions, so directly convert to an Alignment.
@@ -355,24 +354,26 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 if (track_provenance) {
                     funnel.substage("direct");
                 }
-
-                //Fill in the best alignments from the extension
-                this->extension_to_alignment(extensions.front(), best_alignment);
+                
+                //Fill in the best alignments from the extension. We know the top one is always full length and exists.
+                this->extension_to_alignment(extensions.front(), best_alignments.front());
                 
 #ifdef debug
                 cerr << "Produced alignment directly from full length gapless extension " << extension_num << endl;
 #endif
-
-                if (extensions.size() > 1) {
-                    //Do the same thing for the second extension, if one exists
-                    this->extension_to_alignment(extensions[1], second_best_alignment);
+                
+                for (auto next_ext_it = extensions.begin() + 1; next_ext_it != extensions.end() && next_ext_it->full(); ++next_ext_it) {
+                    // For all subsequent full length extensions, make them into alignments too.
+                    // We want them all to go on to the pairing stage so we don't miss a possible pairing in a tandem repeat.
+                    best_alignments.emplace_back(aln);
+                    this->extension_to_alignment(extensions[1], best_alignments.back());
                     
 #ifdef debug
-                    cerr << "Produced additional alignment directly from full length gapless extension " << extension_num << endl;
+                    cerr << "Produced additional alignment directly from full length gapless extension " << (next_ext_it - extensions.begin()) << endl;
 #endif
                     
                 }
-
+                
                 if (track_provenance) {
                     // Stop the current substage
                     funnel.substage_stop();
@@ -384,9 +385,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     funnel.substage("chain");
                 }
                 
-                // Do the DP and compute alignment into best_alignment and
-                // second_best_extension, if there is a second best
-                find_optimal_tail_alignments(aln, extensions, best_alignment, second_best_alignment);
+                // Do the DP and compute up to 2 alignments
+                best_alignments.emplace_back(aln);
+                find_optimal_tail_alignments(aln, extensions, best_alignments[0], best_alignments[1]);
 
 #ifdef debug
                 cerr << "Did dynamic programming for gapless extension " << extension_num << endl;
@@ -400,16 +401,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 // We would do chaining but it is disabled.
                 // Leave best_alignment unaligned
             }
-            
-            
-            
-            if (second_best_alignment.score() != 0 && 
-                second_best_alignment.score() > best_alignment.score() * 0.8) {
-                //If there is a second extension and its score is at least 0.8 of the best score, bring it along
-#ifdef debug
-                cerr << "Found second best alignment from gapless extension " << extension_num << ": " << pb2json(second_best_alignment) << endl;
-#endif
-                alignments.emplace_back(std::move(second_best_alignment));
+           
+            // Have a function to process the best alignments we obtained
+            auto observe_alignment = [&](Alignment& aln) {
+                alignments.emplace_back(std::move(aln));
                 alignments_to_source.push_back(extension_num);
                 probability_alignment_lost.push_back(probability_cluster_lost[extension_num]);
 
@@ -417,23 +412,22 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     
                     funnel.project(extension_num);
                     funnel.score(alignments.size() - 1, alignments.back().score());
-                    // We're done with this input item
-                    funnel.processed_input();
                 }
-            }
 #ifdef debug
-            cerr << "Found best alignment from gapless extension " << extension_num << ": " << pb2json(best_alignment) << endl;
+                cerr << "Produced alignment from gapless extension " << extension_num << " with score " << alignments.back().score() << ": " << pb2json(alignments.back()) << endl;
 #endif
+            };
+            
+            // There's always a best alignment
+            observe_alignment(best_alignments[0]);
+            
+            for(auto aln_it = best_alignments.begin() + 1; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
+                //For each additional alignment with score at least 0.8 of the best score
+                observe_alignment(*aln_it);
+            }
 
-            alignments.push_back(std::move(best_alignment));
-            alignments_to_source.push_back(extension_num);
-            probability_alignment_lost.push_back(probability_cluster_lost[extension_num]);
-
+           
             if (track_provenance) {
-
-                funnel.project(extension_num);
-                funnel.score(alignments.size() - 1, alignments.back().score());
-                
                 // We're done with this input item
                 funnel.processed_input();
             }
@@ -1117,11 +1111,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 
                 auto& extensions = cluster_extensions[extension_num].first;
                 
-                // Get an Alignments best_ and second_best_alignment of it somehow, and throw it in.
-                Alignment best_alignment = aln;
-                Alignment second_best_alignment = aln;
+                // Collect the top alignments. Make sure we have at least one always, starting with unaligned.
+                vector<Alignment> best_alignments(1, aln);
                 
-
                 if (GaplessExtender::full_length_extensions(extensions)) {
                     // We got full-length extensions, so directly convert to an Alignment.
                     
@@ -1129,20 +1121,23 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         funnels[read_num].substage("direct");
                     }
 
-                    //Fill in the best alignments from the extension
-                    this->extension_to_alignment(extensions.front(), best_alignment);
+                    //Fill in the best alignments from the extension. We know the top one is always full length and exists.
+                    this->extension_to_alignment(extensions.front(), best_alignments.front());
                     
 #ifdef debug
                     cerr << "Produced alignment directly from full length gapless extension " << extension_num << endl;
 #endif
-
-                    if (extensions.size() > 1) {
-                        //Do the same thing for the second extension, if one exists
-                        this->extension_to_alignment(extensions[1], second_best_alignment);
+                    
+                    for (auto next_ext_it = extensions.begin() + 1; next_ext_it != extensions.end() && next_ext_it->full(); ++next_ext_it) {
+                        // For all subsequent full length extensions, make them into alignments too.
+                        // We want them all to go on to the pairing stage so we don't miss a possible pairing in a tandem repeat.
+                        best_alignments.emplace_back(aln);
+                        this->extension_to_alignment(extensions[1], best_alignments.back());
                         
 #ifdef debug
-                        cerr << "Produced additional alignment directly from full length gapless extension " << extension_num << endl;
+                        cerr << "Produced additional alignment directly from full length gapless extension " << (next_ext_it - extensions.begin()) << endl;
 #endif
+                        
                     }
 
                     if (track_provenance) {
@@ -1156,9 +1151,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         funnels[read_num].substage("chain");
                     }
                     
-                    // Do the DP and compute alignment into best_alignment and
-                    // second_best_alignment, if there is a second best
-                    find_optimal_tail_alignments(aln, extensions, best_alignment, second_best_alignment);
+                    // Do the DP and compute up to 2 alignments
+                    best_alignments.emplace_back(aln);
+                    find_optimal_tail_alignments(aln, extensions, best_alignments[0], best_alignments[1]);
 
                     
                     if (track_provenance) {
@@ -1167,13 +1162,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     }
                 } else {
                     // We would do chaining but it is disabled.
-                    // Leave best_alignment unaligned
+                    // Leave best_alignments unaligned
                 }
                 
                 
                 size_t fragment_num = cluster_extensions[extension_num].second;
                     
-                // Have a function to process the best and second best alignments we obtained
+                // Have a function to process the best alignments we obtained
                 auto observe_alignment = [&](Alignment& aln) {
                     auto& best_score = read_num == 0 ? best_alignment_scores.first : best_alignment_scores.second;
                     best_score = max(best_score, aln.score());
@@ -1195,15 +1190,13 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #endif
                 };
                 
-                if (second_best_alignment.score() != 0 && 
-                    second_best_alignment.score() > best_alignment.score() * 0.8) {
-                    //If there is a second extension and its score is at least 0.8 of the best score
-                    observe_alignment(second_best_alignment);
-                    
-                }
-                
                 // There's always a best alignment
-                observe_alignment(best_alignment);
+                observe_alignment(best_alignments[0]);
+                
+                for(auto aln_it = best_alignments.begin() + 1; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
+                    //For each additional extension with score at least 0.8 of the best score
+                    observe_alignment(*aln_it);
+                }
 
                 if (track_provenance) {
                     // We're done with this input item
