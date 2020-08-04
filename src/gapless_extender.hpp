@@ -88,12 +88,13 @@ struct GaplessExtension
         return (this->score < another.score);
     }
 
-    /// Two extensions are equal if the same read interval matches the same search state.
+    /// Two extensions are equal if the same read interval matches the same search state
+    /// with the same node offset.
     bool operator==(const GaplessExtension& another) const {
-        return (this->read_interval == another.read_interval && this->state == another.state);
+        return (this->read_interval == another.read_interval && this->state == another.state && this->offset == another.offset);
     }
 
-    /// Two extensions are not equal if the state or the read is different.
+    /// Two extensions are not equal if the state, the read interval, or the node offset is different.
     bool operator!=(const GaplessExtension& another) const {
         return !(this->operator==(another));
     }
@@ -106,8 +107,7 @@ struct GaplessExtension
  * is a pair of matching read/graph positions and each extension is a gapless alignment
  * of an interval of the read to a haplotype.
  * A cluster is an unordered set of distinct seeds. Seeds in the same node with the same
- * (read_offset - node_offset) difference are considered equivalent. All seeds in a cluster
- * should correspond to the same alignment or positions near it.
+ * (read_offset - node_offset) difference are considered equivalent.
  * GaplessExtender also needs an Aligner object for scoring the extension candidates.
  */
 class GaplessExtender {
@@ -158,17 +158,28 @@ public:
     /**
      * Find the highest-scoring extension for each seed in the cluster.
      * If there is a full-length extension with at most max_mismatches
-     * mismatches, return the (up to two) best full-length extensions with
-     * at most overlap_threshold overlap, sorted by score in descending
-     * order.
-     * If that is not possible, trim the extensions to maximize score,
-     * sort them by read interval, and remove duplicates.
+     * mismatches, sort them in descending order by score and return the
+     * best non-overlapping full-length extensions. Two extensions overlap
+     * if the fraction of identical base mappings is greater than
+     * overlap_threshold.
+     * If there are no good enough full-length extensions, trim the
+     * extensions to maximize the score and remove duplicates. In this
+     * case, the extensions are sorted by read interval.
+     * Use full_length_extensions() to determine the type of the returned
+     * extension set.
      * Allow any number of mismatches in the initial node, at least
      * max_mismatches mismatches in the entire extension, and at least
      * max_mismatches / 2 mismatches on each flank.
      * Use the provided CachedGBWTGraph or allocate a new one.
      */
     std::vector<GaplessExtension> extend(cluster_type& cluster, const std::string& sequence, const gbwtgraph::CachedGBWTGraph* cache = nullptr, size_t max_mismatches = MAX_MISMATCHES, double overlap_threshold = OVERLAP_THRESHOLD) const;
+
+    /**
+     * Determine whether the extension set contains non-overlapping
+     * full-length extensions sorted in descending order by score. Use
+     * the same value of max_mismatches as in extend().
+     */
+    static bool full_length_extensions(const std::vector<GaplessExtension>& result, size_t max_mismatches = MAX_MISMATCHES);
 
     /**
      * Find the distinct local haplotypes in the given subgraph and return the corresponding paths.

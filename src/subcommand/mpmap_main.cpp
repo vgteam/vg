@@ -271,6 +271,7 @@ int main_mpmap(int argc, char** argv) {
     int secondary_rescue_subopt_diff = 35;
     int min_median_mem_coverage_for_split = 0;
     bool suppress_cluster_merging = false;
+    bool suppress_multicomponent_splitting = false;
     bool dynamic_max_alt_alns = true;
     bool simplify_topologies = true;
     int max_alignment_gap = 5000;
@@ -832,6 +833,12 @@ int main_mpmap(int argc, char** argv) {
         reseed_diff = 0.8;
         // but actually only use this other MEM algorithm if we have base qualities
         use_fanout_match_alg = true;
+        
+        // removing too many bases of matches distorts the multipath alignment
+        // graph's pruning algorithms for very short reads
+        max_branch_trim_length = 1;
+        snarl_cut_size = 2;
+        suboptimal_path_exponent = 1.5;
     }
     else if (read_length != "short") {
         // short is the default
@@ -853,6 +860,11 @@ int main_mpmap(int argc, char** argv) {
         }
         likelihood_approx_exp = 3.5;
         mapq_scaling_factor = 0.5;
+        if (read_length == "very-short") {
+            // we'll allow multicomponent alignments so that the two sides of a shRNA
+            // can be one alignment
+            suppress_multicomponent_splitting = true;
+        }
     }
     else if (nt_type != "dna") {
         // DNA is the default
@@ -1618,6 +1630,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.num_mapping_attempts = max_map_attempts;
     multipath_mapper.min_median_mem_coverage_for_split = min_median_mem_coverage_for_split;
     multipath_mapper.suppress_cluster_merging = suppress_cluster_merging;
+    multipath_mapper.suppress_multicomponent_splitting = suppress_multicomponent_splitting;
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
     multipath_mapper.reversing_walk_length = reversing_walk_length;
     multipath_mapper.max_alt_mappings = max_num_mappings;
