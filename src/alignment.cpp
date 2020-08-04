@@ -1759,7 +1759,7 @@ void parse_bed_regions(istream& bedstream,
 
         if (ss.fail()) {
             // Skip lines that can't be parsed
-            cerr << "Error parsing bed line " << line << ": " << row << endl;
+            cerr << "warning: Error parsing bed line " << line << ", skipping: " << row << endl;
             continue;
         } 
         
@@ -1768,6 +1768,18 @@ void parse_bed_regions(istream& bedstream,
             // That's not the case, so complain and skip the region.
             cerr << "warning: path \"" << seq << "\" is not circular, skipping end-spanning region on line "
                 << line << ": " << row << endl;
+            continue;
+        }
+        
+        if (ebuf > graph->get_path_length(path_handle)) {
+            // Skip ends that are too late
+            cerr << "warning: out of range path end " << ebuf << " in bed line " << line << ", skipping: " << row << endl;
+            continue;
+        }
+        
+        if (sbuf >= graph->get_path_length(path_handle)) {
+            // Skip starts that are too late
+            cerr << "warning: out of range path start " << sbuf << " in bed line " << line << ", skipping: " << row << endl;
             continue;
         }
         
