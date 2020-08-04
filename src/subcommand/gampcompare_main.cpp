@@ -29,6 +29,7 @@ void help_gampcompare(char** argv) {
          << "    -G, --gam                alignments are in GAM format rather than GAMP" << endl
          << "    -r, --range N            distance within which to consider reads correct [100]" << endl
          << "    -a, --aligner STR        aligner name for TSV output [\"vg\"]" << endl
+         << "    -d, --distance           report minimum distance along a path rather than correctness" << endl
          << "    -t, --threads N          number of threads to use [1]" << endl;
 }
 
@@ -44,6 +45,7 @@ int main_gampcompare(int argc, char** argv) {
     string aligner_name = "vg";
     int buffer_size = 10000;
     bool gam_input = false;
+    bool report_distance = false;
 
     int c;
     optind = 2;
@@ -54,12 +56,13 @@ int main_gampcompare(int argc, char** argv) {
             {"range", required_argument, 0, 'r'},
             {"gam", no_argument, 0, 'G'},
             {"aligner", required_argument, 0, 'a'},
+            {"distance", required_argument, 0, 'd'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hr:a:t:G",
+        c = getopt_long (argc, argv, "hr:a:t:Gd",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -150,22 +153,33 @@ int main_gampcompare(int argc, char** argv) {
     }
     
     // A buffer we use for the TSV output
-    vector<vector<tuple<bool, int64_t, string>>> buffers(get_thread_count());
+    vector<vector<tuple<int64_t, int64_t, string>>> buffers(get_thread_count());
     
     // We have an output function to dump all the reads in the text buffer in TSV
-    auto flush_buffer = [&](vector<tuple<bool, int64_t, string>>& buffer) {
+    auto flush_buffer = [&](vector<tuple<int64_t, int64_t, string>>& buffer) {
         // We print exactly one header line.
         static bool header_printed = false;
         // Output TSV to standard out in the format plot-qq.R needs.
         if (!header_printed) {
             // It needs a header
-            cout << "correct\tmq\taligner\tread" << endl;
+            if (report_distance) {
+                cout << "distance";
+            }
+            else {
+                cout << "correct";
+            }
+            cout << "\tmq\taligner\tread" << endl;
             header_printed = true;
         }
-        
         for (auto& result : buffer) {
             // Dump each alignment
-            cout << get<0>(result) << '\t' << get<1>(result) << '\t' << aligner_name << '\t' << get<2>(result) << endl;
+            if (report_distance) {
+                cout << get<0>(result);
+            }
+            else {
+                cout << (get<0>(result) <= range);
+            }
+            cout << '\t' << get<1>(result) << '\t' << aligner_name << '\t' << get<2>(result) << endl;
         }
         buffer.clear();
     };
@@ -177,7 +191,7 @@ int main_gampcompare(int argc, char** argv) {
     function<void(MultipathAlignment&)> evaluate_correctness = [&](MultipathAlignment& proto_mp_aln) {
         
         // check the multipath mapping for correctness
-        bool correct = false;
+        int64_t abs_dist = numeric_limits<int64_t>::max();
         auto f = true_positions.find(proto_mp_aln.name());
         if (f != true_positions.end()) {
             
@@ -187,7 +201,7 @@ int main_gampcompare(int argc, char** argv) {
             auto& true_positions = f->second;
             auto mapped_positions = algorithms::multipath_alignment_path_offsets(*path_position_handle_graph,
                                                                                  mp_aln);
-            for (auto it = true_positions.begin(); it != true_positions.end() && !correct; ++it) {
+            for (auto it = true_positions.begin(); it != true_positions.end(); ++it) {
                 // TODO: it really should be possible to do this with only path handles instead of names
                 auto path_handle = path_position_handle_graph->get_path_handle(it->first);
                 if (mapped_positions.count(path_handle)) {
@@ -195,13 +209,11 @@ int main_gampcompare(int argc, char** argv) {
                     auto& path_true_positions = it->second;
                     auto& path_mapped_positions = mapped_positions[path_handle];
                     // check all pairs of positions
-                    for (size_t i = 0; i < path_true_positions.size() && !correct; ++i) {
-                        for (size_t j = 0; j < path_mapped_positions.size() && !correct; ++j) {
-                            if (path_true_positions[i].second == path_mapped_positions[j].second
-                                && abs<int64_t>(path_true_positions[i].first - path_mapped_positions[j].first) <= range) {
+                    for (size_t i = 0; i < path_true_positions.size(); ++i) {
+                        for (size_t j = 0; j < path_mapped_positions.size(); ++j) {
+                            if (path_true_positions[i].second == path_mapped_positions[j].second) {
                                 // there is a pair of positions on the same strand of the same path
-                                // within the distance limit
-                                correct = true;
+                                abs_dist = min<int64_t>(abs_dist, path_true_positions[i].first - path_mapped_positions[j].first);
                             }
                         }
                     }
@@ -209,13 +221,13 @@ int main_gampcompare(int argc, char** argv) {
             }
         }
         
-        if (correct) {
+        if (abs_dist <= range) {
             correct_counts[omp_get_thread_num()]++;
         }
         
         // put the result on the IO buffer
         auto& buffer = buffers[omp_get_thread_num()];
-        buffer.emplace_back(correct, proto_mp_aln.mapping_quality(), move(*proto_mp_aln.mutable_name()));
+        buffer.emplace_back(abs_dist, proto_mp_aln.mapping_quality(), move(*proto_mp_aln.mutable_name()));
         if (buffer.size() > buffer_size) {
 #pragma omp critical
             flush_buffer(buffer);
