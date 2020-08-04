@@ -139,7 +139,8 @@ namespace vg {
         double weibull_shape_slope = 0.199;
         double weibull_offset_intercept = 2.342;
         double weibull_offset_slope = 0.07168;
-        double max_mapping_p_value = 0.001;
+        double max_mapping_p_value = 0.0001;
+        double max_rescue_p_value = 0.1;
         size_t max_alt_mappings = 1;
         size_t max_single_end_mappings_for_rescue = 64;
         size_t max_rescue_attempts = 32;

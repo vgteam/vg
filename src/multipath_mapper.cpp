@@ -723,9 +723,9 @@ namespace vg {
         
         auto p_val = random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size());
         
-        if (p_val >= max_mapping_p_value * 10.0) {
+        if (p_val >= max_rescue_p_value) {
 #ifdef debug_multipath_mapper
-            cerr << "rescue fails because p value " << p_val << " >= " <<  (max_mapping_p_value * 10.0) << endl;
+            cerr << "rescue fails because p value " << p_val << " >= " <<  max_rescue_p_value << endl;
 #endif
             return false;
         }
