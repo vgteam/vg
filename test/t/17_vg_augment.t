@@ -85,7 +85,7 @@ vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
 is $(vg augment flat.vg 2snp.gam -i -S | vg paths -d -v - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
 
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTATCTGGAGTTCTATTATATCCCAACTCTCTG/' | vg view -Fv - >2err.vg
-vg sim -l 30 -x 2err.vg -n 10 -a >2err.sim
+vg sim -l 30 -x 2err.vg -n 20 -a >2err.sim
 vg map -g flat.gcsa -x flat.xg -G 2err.sim -k 8 >2err.gam
 cat 2snp.gam 2err.gam > 4edits.gam
 vg augment flat.vg 2snp.gam -S | vg view - | grep S | awk '{print $3}' | sort >  2snp_default.nodes
