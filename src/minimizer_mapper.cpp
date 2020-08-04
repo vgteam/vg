@@ -546,9 +546,9 @@ double uncapped_mapq = mapq;
     cerr << "uncapped MAPQ is " << mapq << endl;
 #endif
     
-    if (probability_mapping_lost.front() > 0) {
-        mapq = min(mapq,round(prob_to_phred(probability_mapping_lost.front())));
-    }
+    double cluster_lost_cap = probability_mapping_lost.front() <= 0 ? std::numeric_limits<float>::infinity() :
+                              round(prob_to_phred(probability_mapping_lost.front()));
+    mapq = min(mapq, cluster_lost_cap);
     
     // TODO: give SmallBitset iterators so we can use it instead of an index vector.
     vector<size_t> explored_minimizers;
@@ -667,7 +667,7 @@ double uncapped_mapq = mapq;
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << probability_mapping_lost.front() << "\t" << mappings.front().mapping_quality();
+    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << cluster_lost_cap << "\t" << mappings.front().mapping_quality();
     if (track_correctness) {
         cerr << "\t" << funnel.last_correct_stage() << endl;
     } else {
@@ -1866,6 +1866,7 @@ vector<pair<bool, bool>> mapping_was_rescued;
     double fragment_cluster_cap = std::numeric_limits<float>::infinity();
     // And one base uncapped MAPQ
     double uncapped_mapq = 0;
+    double new_cluster_cap = numeric_limits<double>::infinity();
  
     if (mappings.first.empty()) {
         //If we didn't get an alignment, return empty alignments
@@ -1925,7 +1926,7 @@ vector<pair<bool, bool>> mapping_was_rescued;
         //cluster that didn't get extended
         //For rescued alignments, if the correct rescuer was in an equivalently good fragment cluster that
         //had clusters of the same reads
-        double new_cluster_cap = round(prob_to_phred(probability_mapping_lost.front()));
+        new_cluster_cap = round(prob_to_phred(probability_mapping_lost.front()));
 
         //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
         //of the group of duplicated alignments. Always compute this even if not quite sensible.
