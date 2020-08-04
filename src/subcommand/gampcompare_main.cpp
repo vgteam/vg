@@ -78,6 +78,10 @@ int main_gampcompare(int argc, char** argv) {
         case 'a':
             aligner_name = optarg;
             break;
+                
+        case 'd':
+            report_distance = true;
+            break;
 
         case 't':
             threads = parse<int>(optarg);
