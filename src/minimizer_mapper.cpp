@@ -366,7 +366,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     // For all subsequent full length extensions, make them into alignments too.
                     // We want them all to go on to the pairing stage so we don't miss a possible pairing in a tandem repeat.
                     best_alignments.emplace_back(aln);
-                    this->extension_to_alignment(extensions[1], best_alignments.back());
+                    this->extension_to_alignment(*next_ext_it, best_alignments.back());
                     
 #ifdef debug
                     cerr << "Produced additional alignment directly from full length gapless extension " << (next_ext_it - extensions.begin()) << endl;
@@ -1132,7 +1132,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         // For all subsequent full length extensions, make them into alignments too.
                         // We want them all to go on to the pairing stage so we don't miss a possible pairing in a tandem repeat.
                         best_alignments.emplace_back(aln);
-                        this->extension_to_alignment(extensions[1], best_alignments.back());
+                        this->extension_to_alignment(*next_ext_it, best_alignments.back());
                         
 #ifdef debug
                         cerr << "Produced additional alignment directly from full length gapless extension " << (next_ext_it - extensions.begin()) << endl;
