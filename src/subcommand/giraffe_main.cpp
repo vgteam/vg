@@ -325,6 +325,10 @@ void help_giraffe(char** argv) {
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw / haplotypes) [dozeu]" << endl
+    << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
+    << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
+    << "  --paired-distance-limit FLOAT cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean [2.0]" << endl
+    << "  --rescue-subgraph-size FLOAT  search for rescued alignments FLOAT standard deviations greater than the mean [4.0]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
@@ -345,6 +349,8 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_TRACK_CORRECTNESS 1004
     #define OPT_FRAGMENT_MEAN 1005
     #define OPT_FRAGMENT_STDEV 1006
+    #define OPT_CLUSTER_STDEV 1007
+    #define OPT_RESCUE_STDEV 1008
     
 
     // initialize parameters with their default options
@@ -398,6 +404,10 @@ int main_giraffe(int argc, char** argv) {
     double fragment_mean = 0.0;
     bool forced_stdev = false;
     double fragment_stdev = 0.0;
+    //How many sdevs to we look out when clustering pairs?
+    double cluster_stdev = 2.0;
+    //How many stdevs do we look out when rescuing? 
+    double rescue_stdev = 4.0;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -481,6 +491,8 @@ int main_giraffe(int argc, char** argv) {
             {"no-dp", no_argument, 0, 'O'},
             {"rescue-attempts", required_argument, 0, 'r'},
             {"rescue-algorithm", required_argument, 0, 'A'},
+            {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
+            {"rescue-subgraph-size", required_argument, 0, OPT_RESCUE_STDEV },
             {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
             {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
@@ -790,6 +802,14 @@ int main_giraffe(int argc, char** argv) {
             case OPT_FRAGMENT_STDEV:
                 forced_stdev = true;
                 fragment_stdev = parse<double>(optarg);
+                break;
+
+            case OPT_CLUSTER_STDEV:
+                cluster_stdev = parse<double>(optarg);
+                break;
+
+            case OPT_RESCUE_STDEV:
+                rescue_stdev = parse<double>(optarg);
                 break;
 
             case OPT_TRACK_PROVENANCE:
@@ -1113,9 +1133,17 @@ int main_giraffe(int argc, char** argv) {
         minimizer_mapper.track_correctness = track_correctness;
 
         if (show_progress && paired) {
+            if (forced_mean && forced_stdev) {
+                cerr << "--fragment-mean " << fragment_mean << endl; 
+                cerr << "--fragment-stdev " << fragment_stdev << endl;
+            }
+            cerr << "--paired-distance-limit " << cluster_stdev << endl;
+            cerr << "--rescue-subgraph-size " << rescue_stdev << endl;
             cerr << "--rescue-attempts " << rescue_attempts << endl;
             cerr << "--rescue-algorithm " << algorithm_names[rescue_algorithm] << endl;
         }
+        minimizer_mapper.paired_distance_stdevs = cluster_stdev;
+        minimizer_mapper.rescue_subgraph_stdevs = rescue_stdev;
         minimizer_mapper.max_rescue_attempts = rescue_attempts;
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
 
