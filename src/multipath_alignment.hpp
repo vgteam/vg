@@ -60,11 +60,11 @@ namespace vg {
     class multipath_alignment_t {
     public:
         multipath_alignment_t();
-        multipath_alignment_t(const multipath_alignment_t&) = default;
-        multipath_alignment_t(multipath_alignment_t&&) = default;
+        multipath_alignment_t(const multipath_alignment_t& other);
+        multipath_alignment_t(multipath_alignment_t&& other);
         ~multipath_alignment_t();
-        multipath_alignment_t& operator=(const multipath_alignment_t&) = default;
-        multipath_alignment_t& operator=(multipath_alignment_t&&) = default;
+        multipath_alignment_t& operator=(const multipath_alignment_t& other);
+        multipath_alignment_t& operator=(multipath_alignment_t&& other);
         inline const string& sequence() const;
         inline string* mutable_sequence();
         inline void set_sequence(const string& s);
