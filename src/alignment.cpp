@@ -1773,13 +1773,15 @@ void parse_bed_regions(istream& bedstream,
         
         if (ebuf > graph->get_path_length(path_handle)) {
             // Skip ends that are too late
-            cerr << "warning: out of range path end " << ebuf << " in bed line " << line << ", skipping: " << row << endl;
+            cerr << "warning: out of range path end " << ebuf << " > " << graph->get_path_length(path_handle)
+                << " in bed line " << line << ", skipping: " << row << endl;
             continue;
         }
         
         if (sbuf >= graph->get_path_length(path_handle)) {
             // Skip starts that are too late
-            cerr << "warning: out of range path start " << sbuf << " in bed line " << line << ", skipping: " << row << endl;
+            cerr << "warning: out of range path start " << sbuf << " >= " << graph->get_path_length(path_handle)
+                << " in bed line " << line << ", skipping: " << row << endl;
             continue;
         }
         
