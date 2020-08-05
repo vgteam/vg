@@ -866,7 +866,7 @@ void NGSSimulator::register_sampled_position(const Alignment& aln, const string&
         // we're recording positions
         if (is_reverse) {
             // get the position of the end instead of the start
-            offset -= path_from_length(aln.path()) - 1;
+            offset -= path_from_length(aln.path());
         }
 #pragma omp critical
         position_file << aln.name() << '\t' << path_name << '\t' << offset << '\t' << is_reverse << endl;
@@ -903,7 +903,7 @@ Alignment NGSSimulator::sample_read() {
     }
     
     // This is our offset along the source path, if in use
-    size_t sampled_offset;
+    int64_t sampled_offset;
     // And our direction to go along the source path, if in use
     bool sampled_is_reverse;
     
@@ -914,7 +914,7 @@ Alignment NGSSimulator::sample_read() {
         pos_t pos;
         sample_start_pos(source_path_idx, -1, sampled_offset, sampled_is_reverse, pos);
         // copy the values so that we can change them without forgetting the start location
-        size_t offset = sampled_offset;
+        int64_t offset = sampled_offset;
         bool is_reverse = sampled_is_reverse;
         // align the first end at this position on the source path or graph
         sample_read_internal(aln, offset, is_reverse, pos, source_path);
@@ -981,11 +981,11 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     }
     
     // This is our offset along the source path, if in use
-    size_t sampled_offset;
+    int64_t sampled_offset;
     // And our direction to go along the source path, if in use
     bool sampled_is_reverse;
     
-    size_t walked_offset;
+    int64_t walked_offset;
     
     if (fragment_length < transition_distrs_1.size()) {
         // the fragment is shorter than the sequencing length
@@ -1016,7 +1016,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         walked_offset = sampled_offset;
         bool is_reverse = sampled_is_reverse;
 #ifdef debug_ngs_sim
-        cerr << "sampled start pos " << pos << ", is reverse " << is_reverse << ", offset " << offset << endl;
+        cerr << "sampled start pos " << pos << ", is reverse " << is_reverse << ", offset " << walked_offset << endl;
 #endif
         
         // align the first end at this position on the source path or graph
@@ -1036,9 +1036,37 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             continue;
         }
         
+#ifdef debug_ngs_sim
+        cerr << "after first read, walked offset is " << walked_offset << endl;
+#endif
+        
         // walk out the unsequenced part of the fragment in the graph
         int64_t remaining_length = fragment_length - (aln_pair.first.quality().size() +
                                                       aln_pair.second.quality().size());
+        
+//        if (source_path_idx != numeric_limits<size_t>::max()) {
+//            // because of the way the advance function works, it actually won't advance to the past-the-last
+//            // position beyond the end of a path (it would require using
+//            handle_t path_final_handle;
+//            if (is_reverse) {
+//                path_final_handle = graph.get_handle_of_step(graph.path_begin(graph.get_path_handle(source_path)));
+//            }
+//            else {
+//                path_final_handle = graph.get_handle_of_step(graph.path_back(graph.get_path_handle(source_path)));
+//            }
+//            const Mapping& aln_final_mapping = aln_pair.first.path().mapping(aln_pair.first.path().mapping_size() - 1);
+//            if (aln_final_mapping.position().node_id() == graph.get_id(path_final_handle)
+//                && mapping_from_length(aln_final_mapping) == graph.get_length(path_final_handle)) {
+//                if (is_reverse) {
+//                    get_offset(pos)--;
+//                    walked_offset--;
+//                }
+//                else {
+//                    get_offset(pos)++;
+//                    walked_offset++;
+//                }
+//            }
+//        }
 #ifdef debug_ngs_sim
         cerr << "walking " << remaining_length << " to start of next read in pair" << endl;
 #endif
@@ -1059,7 +1087,15 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             // and is_reverse aren't being used (becasue we aren't in path
             // mode), the result won't be used either.
             walked_offset += is_reverse ? walk_length : -walk_length;
+            
+
+#ifdef debug_ngs_sim
+            cerr << "walked backwards, walk length " << walk_length << ", is rev " << is_reverse << ", walked offset " << walked_offset << endl;
+#endif
         }
+#ifdef debug_ngs_sim
+        cerr << "after moving for the fragment length walked offset is " << walked_offset << endl;
+#endif
         // guard against running off the end of nodes
         // XXX this should not be happening
         // it seems to occur in some graphs due to the behavior of advance_by_distance
@@ -1072,6 +1108,10 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
 
         // align the second end starting at the walked position
         sample_read_internal(aln_pair.second, walked_offset, is_reverse, pos, source_path);
+        
+#ifdef debug_ngs_sim
+        cerr << "after second read, walked offset is " << walked_offset << endl;
+#endif
         
         if (retry_on_Ns) {
             if (aln_pair.second.sequence().find('N') != string::npos) {
@@ -1094,14 +1134,13 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     algorithms::annotate_with_initial_path_positions(graph, aln_pair.second);
     
     // take back the final base that we sampled
-    walked_offset += sampled_is_reverse ? 1 : -1;
-    register_sampled_position(aln_pair.first, source_path, sampled_offset, sampled_is_reverse);
-    register_sampled_position(aln_pair.second, source_path, walked_offset, !sampled_is_reverse);
+    register_sampled_position(aln_pair.first, source_path, sampled_offset + sampled_is_reverse, sampled_is_reverse);
+    register_sampled_position(aln_pair.second, source_path, walked_offset + sampled_is_reverse, !sampled_is_reverse);
     
     return aln_pair;
 }
 
-void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is_reverse, pos_t& curr_pos,
+void NGSSimulator::sample_read_internal(Alignment& aln, int64_t& offset, bool& is_reverse, pos_t& curr_pos,
                                         const string& source_path) {
     
     // we will accept a read that cannot be extended to the full read length if we're simulating from
@@ -1242,7 +1281,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
 #endif
 }
 
-bool NGSSimulator::advance(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char, const string& source_path) {
+bool NGSSimulator::advance(int64_t& offset, bool& is_reverse, pos_t& pos, char& graph_char, const string& source_path) {
     if (source_path.empty()) {
         return advance_on_graph(pos, graph_char);
     } else {
@@ -1270,22 +1309,22 @@ bool NGSSimulator::advance_on_graph(pos_t& pos, char& graph_char) {
     return false;
 }
 
-bool NGSSimulator::advance_on_path(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char, const string& source_path) {
+bool NGSSimulator::advance_on_path(int64_t& offset, bool& is_reverse, pos_t& pos, char& graph_char, const string& source_path) {
     size_t path_length = graph.get_path_length(graph.get_path_handle(source_path));
     if (is_reverse) {
         // Go left on the path
-        if (offset == 0) {
+        offset--;
+        if (offset < 0) {
             // We hit the end
             return true;
         }
-        offset--;
     } else {
         // Go right on the path
-        if (offset == path_length - 1) {
+        offset++;
+        if (offset == path_length) {
             // We hit the end
             return true;
         }
-        offset++;
     }
     
     // Set position according to position on path
@@ -1297,7 +1336,7 @@ bool NGSSimulator::advance_on_path(size_t& offset, bool& is_reverse, pos_t& pos,
     return false;
 }
 
-bool NGSSimulator::advance_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance,
+bool NGSSimulator::advance_by_distance(int64_t& offset, bool& is_reverse, pos_t& pos, int64_t distance,
                                        const string& source_path) {
     if (source_path.empty()) {
         return advance_on_graph_by_distance(pos, distance);
@@ -1307,7 +1346,7 @@ bool NGSSimulator::advance_by_distance(size_t& offset, bool& is_reverse, pos_t& 
 }
 
 
-bool NGSSimulator::advance_on_graph_by_distance(pos_t& pos, size_t distance) {
+bool NGSSimulator::advance_on_graph_by_distance(pos_t& pos, int64_t distance) {
     int64_t remaining = distance;
     handle_t handle = graph.get_handle(id(pos), is_rev(pos));
     int64_t node_length = graph.get_length(handle) - offset(pos);
@@ -1332,44 +1371,35 @@ bool NGSSimulator::advance_on_graph_by_distance(pos_t& pos, size_t distance) {
     return false;
 }
 
-bool NGSSimulator::advance_on_path_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance,
+bool NGSSimulator::advance_on_path_by_distance(int64_t& offset, bool& is_reverse, pos_t& pos, int64_t distance,
                                                const string& source_path) {
     
     size_t path_length = graph.get_path_length(graph.get_path_handle(source_path));
     if (is_reverse) {
         // Go left on the path
-        if (offset < distance) {
+        offset -= distance;
+        if (offset < 0) {
             // We hit the beginning
-            offset = 0;
-        }
-        else {
-            offset -= distance;
+            return true;
         }
     } else {
         // Go right on the path
-        if (offset + distance >= path_length) {
+        offset += distance;
+        if (offset >= path_length) {
             // We hit the end
-            offset = path_length - 1;
-        }
-        else {
-            offset += distance;
+            return true;
         }
     }
     
     // Set position according to position on path
     pos = position_at(&graph, source_path, offset, is_reverse);
     
-    // TODO: the behavior has changed so that this never returns true anymore
     return false;
 }
 
-pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
+pos_t NGSSimulator::walk_backwards(const Path& path, int64_t distance) {
     // Starting at the past-the-end of the path, walk back to the given nonzero distance.
     // Walking back the whole path length puts you at the start of the path.
-    
-    distance = min<size_t>(distance, path_from_length(path));
-    assert(distance > 0);
-
     // walk backwards until we find the mapping it's on
     int64_t remaining = distance;
     int64_t mapping_idx = path.mapping_size() - 1;
@@ -1402,7 +1432,7 @@ pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
         
         // How many extra bases did this mapping have when we got past where we wanted to be?
         auto extra_bases = prefix_to_length - remaining_flipped;
-        
+                
         // Take all the non-extra bases of the mapping.
         offset += mapping.edit(edit_idx).to_length() - extra_bases;
     } else {
@@ -1592,7 +1622,7 @@ size_t NGSSimulator::sample_path() {
 }
 
 void NGSSimulator::sample_start_pos(const size_t& source_path_idx, const int64_t& fragment_length,
-                                    size_t& offset, bool& is_reverse, pos_t& pos) {
+                                    int64_t& offset, bool& is_reverse, pos_t& pos) {
     if (source_paths.empty()) {
         pos = sample_start_graph_pos();
         offset = 0;
@@ -1615,11 +1645,11 @@ pos_t NGSSimulator::sample_start_graph_pos() {
     return make_pos_t(id, rev, node_offset);
 }
 
-tuple<size_t, bool, pos_t> NGSSimulator::sample_start_path_pos(const size_t& source_path_idx,
+tuple<int64_t, bool, pos_t> NGSSimulator::sample_start_path_pos(const size_t& source_path_idx,
                                                                const int64_t& fragment_length) {
-    size_t path_length = graph.get_path_length(graph.get_path_handle(source_paths[source_path_idx]));
+    int64_t path_length = graph.get_path_length(graph.get_path_handle(source_paths[source_path_idx]));
     bool rev = strand_sampler(prng);
-    size_t offset;
+    int64_t offset;
     if (sample_unsheared_paths || path_length < transition_distrs_1.size() ||
         (fragment_length > 0 && fragment_length >= path_length)) {
         if (rev) {

@@ -241,7 +241,7 @@ private:
     /// the iteration and update of curr_pos) in path node. Otherwise, in whole
     /// graph mode, they are ignored and curr_pos is used to traverse the graph
     /// directly.
-    void sample_read_internal(Alignment& aln, size_t& offset, bool& is_reverse, pos_t& curr_pos,
+    void sample_read_internal(Alignment& aln, int64_t& offset, bool& is_reverse, pos_t& curr_pos,
                               const string& source_path);
     
     /// Return the index of a path if using source_paths or else numeric_limits<size_t>::max()
@@ -254,14 +254,14 @@ private:
     /// Sample an appropriate starting position according to the mode. Updates the arguments.
     /// Providing a negative number for fragment length indicates no fragment length restrictions.
     void sample_start_pos(const size_t& source_path_idx, const int64_t& fragment_length,
-                          size_t& offset, bool& is_reverse, pos_t& pos);
+                          int64_t& offset, bool& is_reverse, pos_t& pos);
     
     /// Get a random position in the graph
     pos_t sample_start_graph_pos();
     /// Get a random position along the source path. Enforce fragment length restrictions if argument
     /// is positive.
-    tuple<size_t, bool, pos_t> sample_start_path_pos(const size_t& source_path_idx,
-                                                     const int64_t& fragment_length);
+    tuple<int64_t, bool, pos_t> sample_start_path_pos(const size_t& source_path_idx,
+                                                      const int64_t& fragment_length);
     
     /// Get an unclashing read name
     string get_read_name();
@@ -269,20 +269,20 @@ private:
     /// Move forward one position in either the source path or the graph,
     /// depending on mode. Update the arguments. Return true if we can't because
     /// we hit a tip or false otherwise
-    bool advance(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char, const string& source_path);
+    bool advance(int64_t& offset, bool& is_reverse, pos_t& pos, char& graph_char, const string& source_path);
     /// Move forward a certain distance in either the source path or the graph,
     /// depending on mode. Update the arguments. Return true if we can't because
     /// we hit a tip or false otherwise
-    bool advance_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance,
+    bool advance_by_distance(int64_t& offset, bool& is_reverse, pos_t& pos, int64_t distance,
                              const string& source_path);
     
     /// Move forward one position in the source path, return true if we can't
     /// because we hit a tip or false otherwise
-    bool advance_on_path(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char,
+    bool advance_on_path(int64_t& offset, bool& is_reverse, pos_t& pos, char& graph_char,
                          const string& source_path);
     /// Move forward a certain distance in the source path, return true if we
     /// can't because we hit a tip or false otherwise
-    bool advance_on_path_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance,
+    bool advance_on_path_by_distance(int64_t& offset, bool& is_reverse, pos_t& pos, int64_t distance,
         const string& source_path);
     
     /// Move forward one position in the graph along a random path, return true if we can't
@@ -290,13 +290,13 @@ private:
     bool advance_on_graph(pos_t& pos, char& graph_char);
     /// Move forward a certain distance in the graph along a random path, return true if we
     /// can't because we hit a tip or false otherwise
-    bool advance_on_graph_by_distance(pos_t& pos, size_t distance);
+    bool advance_on_graph_by_distance(pos_t& pos, int64_t distance);
     
     /// Mask out bases with 'N's if the mask is true
     void apply_N_mask(string& sequence, const vector<bool>& n_mask);
     
     /// Returns the position a given distance from the end of the path, walking backwards
-    pos_t walk_backwards(const Path& path, size_t distance);
+    pos_t walk_backwards(const Path& path, int64_t distance);
     /// Add a deletion to the alignment
     void apply_deletion(Alignment& aln, const pos_t& pos);
     /// Add an insertion to the alignment
