@@ -154,6 +154,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_MAX_FANS_OUT 1026
     #define OPT_FAN_OUT_DIFF 1027
     #define OPT_PATH_RESCUE_GRAPH 1028
+    #define OPT_MAX_RESCUE_P_VALUE 1029
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -250,7 +251,8 @@ int main_mpmap(int argc, char** argv) {
     bool same_strand = false;
     bool suppress_mismapping_detection = false;
     bool auto_calibrate_mismapping_detection = true;
-    double max_mapping_p_value = 0.00001;
+    double max_mapping_p_value = 0.0001;
+    double max_rescue_p_value = 0.1;
     size_t num_calibration_simulations = 100;
     vector<size_t> calibration_read_lengths{50, 100, 150, 250, 450};
     bool use_weibull_calibration = false;
@@ -332,6 +334,7 @@ int main_mpmap(int argc, char** argv) {
             {"path-rescue-graph", no_argument, 0, OPT_PATH_RESCUE_GRAPH},
             {"no-calibrate", no_argument, 0, 'B'},
             {"max-p-val", required_argument, 0, 'P'},
+            {"max-rescue-p-val", required_argument, 0, OPT_MAX_RESCUE_P_VALUE},
             {"mq-max", required_argument, 0, 'Q'},
             {"report-group-mapq", no_argument, 0, 'U'},
             {"padding-mult", required_argument, 0, OPT_BAND_PADDING_MULTIPLIER},
@@ -555,6 +558,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'P':
                 max_mapping_p_value = parse<double>(optarg);
+                break;
+                
+            case OPT_MAX_RESCUE_P_VALUE:
+                max_rescue_p_value = parse<double>(optarg);
                 break;
                 
             case 'Q':
@@ -1039,6 +1046,11 @@ int main_mpmap(int argc, char** argv) {
     
     if (max_mapping_p_value <= 0.0) {
         cerr << "error:[vg mpmap] Max mapping p-value (-P) set to " << max_mapping_p_value << ", must set to a positive number." << endl;
+        exit(1);
+    }
+    
+    if (max_rescue_p_value <= 0.0) {
+        cerr << "error:[vg mpmap] Max mapping p-value (--max-rescue-p-val) set to " << max_rescue_p_value << ", must set to a positive number." << endl;
         exit(1);
     }
     
@@ -1595,6 +1607,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.precollapse_order_length_hits = precollapse_order_length_hits;
     multipath_mapper.max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
     multipath_mapper.max_mapping_p_value = max_mapping_p_value;
+    multipath_mapper.max_rescue_p_value = max_rescue_p_value;
     multipath_mapper.suppress_mismapping_detection = suppress_mismapping_detection;
     if (min_clustering_mem_length) {
         multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
