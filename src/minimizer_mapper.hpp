@@ -90,6 +90,9 @@ public:
     /// of total score
     double minimizer_score_fraction = 0.7;
 
+    ///Accept at least this many clusters
+    size_t min_extensions = 2;
+
     /// How many clusters should we align?
     size_t max_extensions = 800;
 

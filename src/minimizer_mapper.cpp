@@ -120,6 +120,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     size_t curr_score = 0;
     size_t curr_kept = 0;
     size_t curr_count = 0;
+
+    size_t kept_cluster_count = 0;
     
     //Process clusters sorted by both score and read coverage
     process_until_threshold_c<Cluster, double>(clusters, [&](size_t i) -> double {
@@ -128,7 +130,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             return ((clusters[a].coverage > clusters[b].coverage) ||
                     (clusters[a].coverage == clusters[b].coverage && clusters[a].score > clusters[b].score));
         },
-        cluster_coverage_threshold, 1, max_extensions,
+        cluster_coverage_threshold, min_extensions, max_extensions,
         [&](size_t cluster_num) {
             // Handle sufficiently good clusters in descending coverage order
             
@@ -139,7 +141,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             }
             
             // First check against the additional score filter
-            if (cluster_score_threshold != 0 && cluster.score < cluster_score_cutoff) {
+            if (cluster_score_threshold != 0 && cluster.score < cluster_score_cutoff && kept_cluster_count >= min_extensions) {
                 //If the score isn't good enough, ignore this cluster
                 if (track_provenance) {
                     funnel.fail("cluster-score", cluster_num, cluster.score);
@@ -217,6 +219,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             
             // Extend seed hits in the cluster into one or more gapless extensions
             cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())));
+            kept_cluster_count ++;
             
 #ifdef debug
             cerr << "Extensions:" << endl;
@@ -955,6 +958,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
         minimizer_explored_by_read[read_num] = SmallBitset(minimizers.size());
         minimizer_aligned_count_by_read[read_num].resize(minimizers.size(), 0);
+        size_t kept_cluster_count = 0;
         
         //Process clusters sorted by both score and read coverage
         process_until_threshold_c<Cluster, double>(clusters, [&](size_t i) -> double {
@@ -982,7 +986,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     return clusters[a].score > clusters[b].score;
                 }
             },
-            0, 1, max_extensions,
+            0, min_extensions, max_extensions,
             [&](size_t cluster_num) {
                 // Handle sufficiently good clusters 
                 Cluster& cluster = clusters[cluster_num];
@@ -993,14 +997,14 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     //Or if it is the best cluster
                     
                     // First check against the additional score filter
-                    if (cluster_coverage_threshold != 0 && cluster.coverage < cluster_coverage_cutoff) {
+                    if (cluster_coverage_threshold != 0 && cluster.coverage < cluster_coverage_cutoff && kept_cluster_count >= min_extensions) {
                         //If the coverage isn't good enough, ignore this cluster
                         if (track_provenance) {
                             funnels[read_num].fail("cluster-coverage", cluster_num, cluster.coverage);
                         }
                         return false;
                     }
-                    if (cluster_score_threshold != 0 && cluster.score < cluster_score_cutoff) {
+                    if (cluster_score_threshold != 0 && cluster.score < cluster_score_cutoff && kept_cluster_count >= min_extensions) {
                         //If the score isn't good enough, ignore this cluster
                         if (track_provenance) {
                             funnels[read_num].pass("cluster-coverage", cluster_num, cluster.coverage);
@@ -1041,6 +1045,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     cluster_extensions.emplace_back(std::move(extender.extend(seed_matchings, aln.sequence())), 
                                                     cluster.fragment);
                     
+                    kept_cluster_count++;
 #ifdef debug
                     cerr << "Extensions:" << endl;
                     for (auto& e : cluster_extensions.back().first) {
