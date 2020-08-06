@@ -1330,12 +1330,22 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             });
     if (curr_total_count != 0) {
         double probability_lost = 1.0 - ((double) curr_kept_count / (double) curr_total_count);
+        double probability_lost_first = 1.0 - ((double) curr_kept_first_count / (double) curr_total_count);
+        double probability_lost_second = 1.0 - ((double) curr_kept_second_count / (double) curr_total_count);
         for (size_t last_fragment_num : fragment_clusters_with_same_score) {
             assert(probability_fragment_cluster_lost[last_fragment_num] == std::numeric_limits<float>::infinity());
             probability_fragment_cluster_lost[last_fragment_num] = probability_lost;
+            probability_first_cluster_lost[last_fragment_num] = probability_lost_first;
+            probability_second_cluster_lost[last_fragment_num] = probability_lost_second;
         }
     }
     for (auto& x : probability_fragment_cluster_lost) {
+        assert(x != std::numeric_limits<float>::infinity());
+    }
+    for (auto& x : probability_first_cluster_lost) {
+        assert(x != std::numeric_limits<float>::infinity());
+    }
+    for (auto& x : probability_second_cluster_lost) {
         assert(x != std::numeric_limits<float>::infinity());
     }
 
