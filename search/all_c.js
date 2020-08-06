@@ -37,6 +37,7 @@ var searchData=
   ['likelihoods',['likelihoods',['../classvg_1_1VG.html#ada5821862279a350885f5368a54a5cba',1,'vg::VG']]],
   ['likely_5fmate_5fpositions',['likely_mate_positions',['../classvg_1_1Mapper.html#a77e11337e9d2aed7a7ffdbb01e1ddd01',1,'vg::Mapper']]],
   ['likely_5fmismapping',['likely_mismapping',['../classvg_1_1MultipathMapper.html#a30d9d4d69c937777d844baf2d60aed45',1,'vg::MultipathMapper']]],
+  ['likely_5fmisrescue',['likely_misrescue',['../classvg_1_1MultipathMapper.html#af0f679cfdca87e7a4d150c4f4c2b329a',1,'vg::MultipathMapper']]],
   ['linear_5fhaplo_5fstructure',['linear_haplo_structure',['../structhaplo_1_1linear__haplo__structure.html',1,'haplo::linear_haplo_structure'],['../structhaplo_1_1linear__haplo__structure.html#abde17ce1452b109275975bf0e4f2d51c',1,'haplo::linear_haplo_structure::linear_haplo_structure()']]],
   ['linearscoreprovider',['LinearScoreProvider',['../classhaplo_1_1LinearScoreProvider.html',1,'haplo::LinearScoreProvider'],['../classhaplo_1_1LinearScoreProvider.html#a096c19ba7e847bdeb344e79d487ba675',1,'haplo::LinearScoreProvider::LinearScoreProvider()']]],
   ['linearunrepresentable',['linearUnrepresentable',['../classhaplo_1_1linear__haplo__structure_1_1linearUnrepresentable.html',1,'haplo::linear_haplo_structure']]],

@@ -82,6 +82,7 @@ var searchData=
   ['opt_5fmax_5ffans_5fout',['OPT_MAX_FANS_OUT',['../mpmap__main_8cpp.html#af23caedc131b49443146ebb1aa947728',1,'mpmap_main.cpp']]],
   ['opt_5fmax_5fpaths',['OPT_MAX_PATHS',['../mpmap__main_8cpp.html#a22ebe5149ddd91818874b5863ab26af0',1,'mpmap_main.cpp']]],
   ['opt_5fmax_5frescue_5fattempts',['OPT_MAX_RESCUE_ATTEMPTS',['../mpmap__main_8cpp.html#a01622674e6cd85d2b1d18b9ad353b7d5',1,'mpmap_main.cpp']]],
+  ['opt_5fmax_5frescue_5fp_5fvalue',['OPT_MAX_RESCUE_P_VALUE',['../mpmap__main_8cpp.html#a2f3fd1ec93d65c325e4c7a23f910096c',1,'mpmap_main.cpp']]],
   ['opt_5fmin_5fdist_5fcluster',['OPT_MIN_DIST_CLUSTER',['../mpmap__main_8cpp.html#a6a4cfbe743edfb7bb7866bf370c1a85b',1,'mpmap_main.cpp']]],
   ['opt_5fno_5fcluster',['OPT_NO_CLUSTER',['../mpmap__main_8cpp.html#a819f2221fe8ecbdde55f41e801ee526f',1,'mpmap_main.cpp']]],
   ['opt_5fno_5fgreedy_5fmem_5frestarts',['OPT_NO_GREEDY_MEM_RESTARTS',['../mpmap__main_8cpp.html#a795fe85937dd7884864a324a2e4e7e9c',1,'mpmap_main.cpp']]],
