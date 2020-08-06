@@ -926,13 +926,23 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #endif
 
         // Retain clusters only if their score is better than this, in addition to the coverage cutoff
-        double cluster_score_cutoff = 0.0, cluster_coverage_cutoff = 0.0;
+        double cluster_score_cutoff = 0.0, cluster_coverage_cutoff = 0.0, second_best_cluster_score = 0.0;
         for (auto& cluster : clusters) {
-            cluster_score_cutoff = std::max(cluster_score_cutoff, cluster.score);
             cluster_coverage_cutoff = std::max(cluster_coverage_cutoff, cluster.coverage);
+
+            if (cluster.score > cluster_score_cutoff) {
+                second_best_cluster_score = cluster_score_cutoff;
+                cluster_score_cutoff = cluster.score;
+            } else if (cluster.score > second_best_cluster_score) {
+                second_best_cluster_score = cluster.score;
+            }
         }
         cluster_score_cutoff -= cluster_score_threshold;
         cluster_coverage_cutoff -= cluster_coverage_threshold;
+
+        if (cluster_score_cutoff - pad_cluster_score_threshold < second_best_cluster_score) {
+            cluster_score_cutoff = std::min(cluster_score_cutoff, second_best_cluster_score);
+        }
 
         if (track_provenance) {
             // Now we go from clusters to gapless extensions
