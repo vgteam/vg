@@ -439,6 +439,9 @@ namespace vg {
         /// Would an alignment this good be expected against a graph this big by chance alone
         bool likely_mismapping(const multipath_alignment_t& multipath_aln);
         
+        /// Would an alignment this good be expected against a graph this big by chance alone
+        bool likely_misrescue(const multipath_alignment_t& multipath_aln);
+        
         /// A scaling of a score so that it approximately follows the distribution of the longest match in p-value test
         size_t pseudo_length(const multipath_alignment_t& multipath_aln) const;
         

@@ -721,11 +721,9 @@ namespace vg {
             return false;
         }
         
-        auto p_val = random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size());
-        
-        if (p_val >= max_rescue_p_value) {
+        if (likely_misrescue(rescue_multipath_aln)) {
 #ifdef debug_multipath_mapper
-            cerr << "rescue fails because p value " << p_val << " >= " <<  max_rescue_p_value << endl;
+            cerr << "rescue fails with p value above " << max_rescue_p_value << endl;
 #endif
             return false;
         }
@@ -874,7 +872,7 @@ namespace vg {
     
     bool MultipathMapper::likely_mismapping(const multipath_alignment_t& multipath_aln) {
         if (!suppress_mismapping_detection) {
-            // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
+            
             auto p_val = random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size());
             
 #ifdef debug_multipath_mapper
@@ -887,6 +885,17 @@ namespace vg {
             return false;
         }
     }
+
+    bool MultipathMapper::likely_misrescue(const multipath_alignment_t& multipath_aln) {
+        auto p_val = random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size());
+        
+#ifdef debug_multipath_mapper
+        cerr << "effective match length of rescued read " << multipath_aln.sequence() << " is " << pseudo_length(multipath_aln) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << p_val << endl;
+#endif
+        
+        return p_val > max_rescue_p_value;
+    }
+
     
     size_t MultipathMapper::pseudo_length(const multipath_alignment_t& multipath_aln) const {
         return optimal_alignment_score(multipath_aln);
@@ -1882,8 +1891,9 @@ namespace vg {
                                              multipath_aln_pairs_out, duplicate_pairs, fanouts1.get(), fanouts2.get());
                 
                 // do we produce at least one good looking pair alignments from the clustered clusters?
-                if (multipath_aln_pairs_out.empty() ? true : (likely_mismapping(multipath_aln_pairs_out.front().first) ||
-                                                              likely_mismapping(multipath_aln_pairs_out.front().second))) {
+                if (multipath_aln_pairs_out.empty()
+                    || likely_mismapping(multipath_aln_pairs_out.front().first)
+                    || likely_mismapping(multipath_aln_pairs_out.front().second)) {
                     
 #ifdef debug_multipath_mapper
                     cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
@@ -1908,24 +1918,15 @@ namespace vg {
                         merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, rescue_aln_pairs, rescue_distances,
                                                rescue_multiplicities);
                         
-                        // if we still haven't found mappings that are distinguishable from matches to random sequences,
-                        // don't let them have any mapping quality
-                        if (likely_mismapping(multipath_aln_pairs_out.front().first) ||
-                            likely_mismapping(multipath_aln_pairs_out.front().second)) {
-                            multipath_aln_pairs_out.front().first.set_mapping_quality(0);
-                            multipath_aln_pairs_out.front().second.set_mapping_quality(0);
-                        }
-                        else {
-                            // TODO: is this still necessary with the multiplicity code?
-                            // also account for the possiblity that we selected the wrong ends to rescue with
-                            cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
-                                                                      cluster_graphs1, cluster_graphs2, false);
-                            
-                            // and for the possibility that we missed the correct cluster because of hit sub-sampling
-                            // within the MEMs of the cluster
-                            cap_mapping_quality_by_hit_sampling_probability(multipath_aln_pairs_out, cluster_pairs,
-                                                                            cluster_graphs1, cluster_graphs2, false);
-                        }
+                        // TODO: is this still necessary with the multiplicity code?
+                        // also account for the possiblity that we selected the wrong ends to rescue with
+                        cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
+                                                                  cluster_graphs1, cluster_graphs2, false);
+                        
+                        // and for the possibility that we missed the correct cluster because of hit sub-sampling
+                        // within the MEMs of the cluster
+                        cap_mapping_quality_by_hit_sampling_probability(multipath_aln_pairs_out, cluster_pairs,
+                                                                        cluster_graphs1, cluster_graphs2, false);
                     }
                     else {
                         // rescue didn't find any consistent mappings, revert to the single ended mappings

@@ -85,7 +85,7 @@ void help_mpmap(char** argv) {
     << "  -D, --frag-stddev FLOAT       standard deviation for a pre-determined fragment length distribution (also requires -I)" << endl
     << "  -B, --no-calibrate            do not auto-calibrate mismapping dectection" << endl
     << "  -G, --gam-input FILE          input GAM (for stdin, use -)" << endl
-    //<< "  -P, --max-p-val FLOAT         background model p-value must be less than this to avoid mismapping detection [0.00001]" << endl
+    //<< "  -P, --max-p-val FLOAT         background model p-value must be less than this to avoid mismapping detection [0.0001]" << endl
     << "  -U, --report-group-mapq       add an annotation for the collective mapping quality of all reported alignments" << endl
     //<< "      --padding-mult FLOAT      pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
     << "  -u, --map-attempts INT        perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
@@ -252,7 +252,7 @@ int main_mpmap(int argc, char** argv) {
     bool suppress_mismapping_detection = false;
     bool auto_calibrate_mismapping_detection = true;
     double max_mapping_p_value = 0.0001;
-    double max_rescue_p_value = 0.1;
+    double max_rescue_p_value = 0.03;
     size_t num_calibration_simulations = 100;
     vector<size_t> calibration_read_lengths{50, 100, 150, 250, 450};
     bool use_weibull_calibration = false;
