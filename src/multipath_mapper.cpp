@@ -721,11 +721,9 @@ namespace vg {
             return false;
         }
         
-        auto p_val = random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size());
-        
-        if (p_val >= max_mapping_p_value * 0.1) {
+        if (likely_misrescue(rescue_multipath_aln)) {
 #ifdef debug_multipath_mapper
-            cerr << "rescue fails because p value " << p_val << " >= " <<  (max_mapping_p_value * 0.1) << endl;
+            cerr << "rescue fails with p value above " << max_rescue_p_value << endl;
 #endif
             return false;
         }
@@ -874,7 +872,7 @@ namespace vg {
     
     bool MultipathMapper::likely_mismapping(const multipath_alignment_t& multipath_aln) {
         if (!suppress_mismapping_detection) {
-            // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
+            
             auto p_val = random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size());
             
 #ifdef debug_multipath_mapper
@@ -887,35 +885,20 @@ namespace vg {
             return false;
         }
     }
+
+    bool MultipathMapper::likely_misrescue(const multipath_alignment_t& multipath_aln) {
+        auto p_val = random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size());
+        
+#ifdef debug_multipath_mapper
+        cerr << "effective match length of rescued read " << multipath_aln.sequence() << " is " << pseudo_length(multipath_aln) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << p_val << endl;
+#endif
+        
+        return p_val > max_rescue_p_value;
+    }
+
     
     size_t MultipathMapper::pseudo_length(const multipath_alignment_t& multipath_aln) const {
-        Alignment alignment;
-        optimal_alignment(multipath_aln, alignment);
-        const Path& path = alignment.path();
-        
-        int64_t net_matches = 0;
-        for (size_t i = 0; i < path.mapping_size(); i++) {
-            const Mapping& mapping = path.mapping(i);
-            for (size_t j = 0; j < mapping.edit_size(); j++) {
-                const Edit& edit = mapping.edit(j);
-                
-                // skip soft clips
-                if (((i == 0 && j == 0) || (i == path.mapping_size() - 1 && j == mapping.edit_size() - 1))
-                    && edit.from_length() == 0 && edit.to_length() > 0) {
-                    continue;
-                }
-                
-                // add matches and subtract mismatches/indels
-                if (edit.from_length() == edit.to_length() && edit.sequence().empty()) {
-                    net_matches += edit.from_length();
-                }
-                else {
-                    net_matches -= max(edit.from_length(), edit.to_length());
-                }
-            }
-        }
-        
-        return max<int64_t>(0, net_matches);
+        return optimal_alignment_score(multipath_aln);
     }
     
     // make the memo live in this .o file
@@ -957,6 +940,11 @@ namespace vg {
         // with no base qualities
         bool reset_quality_adjustments = adjust_alignments_for_base_quality;
         adjust_alignments_for_base_quality = false;
+        
+        // these p-values will eventually be used internally where the scores still have the bonus applied, so we
+        // want to make sure we don't strip them off here
+        bool reset_strip_bonuses = strip_bonuses;
+        strip_bonuses = false;
         
         // and we expect small MEMs, so don't filter them out
         int reset_min_mem_length = min_mem_length;
@@ -1005,6 +993,16 @@ namespace vg {
             log_mle_max_exponential_shapes.push_back(log(max_exp_params.second));
                         
 #ifdef debug_report_startup_training
+            unordered_map<size_t, size_t> length_counts;
+            for (auto length : pseudo_lengths) {
+                length_counts[round(length)]++;
+            }
+            vector<pair<size_t, size_t>> sorted_length_counts(length_counts.begin(), length_counts.end());
+            sort(sorted_length_counts.begin(), sorted_length_counts.end());
+            cerr << "data for length " << simulated_read_length << endl;
+            for (auto length_count : sorted_length_counts) {
+                cerr << "\t" << length_count.first << ": " << length_count.second << endl;
+            }
             cerr << "trained parameters for length " << simulated_read_length << ": " << endl;
             cerr << "\tweibull scale: " << get<0>(weibull_params) << endl;
             cerr << "\tweibull shape: " << get<1>(weibull_params) << endl;
@@ -1054,6 +1052,7 @@ namespace vg {
         
         // reset mapping parameters to their original values
         adjust_alignments_for_base_quality = reset_quality_adjustments;
+        strip_bonuses = reset_strip_bonuses;
         min_clustering_mem_length = reset_min_clustering_mem_length;
         min_mem_length = reset_min_mem_length;
         max_alt_mappings = reset_max_alt_mappings;
@@ -1892,8 +1891,9 @@ namespace vg {
                                              multipath_aln_pairs_out, duplicate_pairs, fanouts1.get(), fanouts2.get());
                 
                 // do we produce at least one good looking pair alignments from the clustered clusters?
-                if (multipath_aln_pairs_out.empty() ? true : (likely_mismapping(multipath_aln_pairs_out.front().first) ||
-                                                              likely_mismapping(multipath_aln_pairs_out.front().second))) {
+                if (multipath_aln_pairs_out.empty()
+                    || likely_mismapping(multipath_aln_pairs_out.front().first)
+                    || likely_mismapping(multipath_aln_pairs_out.front().second)) {
                     
 #ifdef debug_multipath_mapper
                     cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
@@ -1918,24 +1918,15 @@ namespace vg {
                         merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, rescue_aln_pairs, rescue_distances,
                                                rescue_multiplicities);
                         
-                        // if we still haven't found mappings that are distinguishable from matches to random sequences,
-                        // don't let them have any mapping quality
-                        if (likely_mismapping(multipath_aln_pairs_out.front().first) ||
-                            likely_mismapping(multipath_aln_pairs_out.front().second)) {
-                            multipath_aln_pairs_out.front().first.set_mapping_quality(0);
-                            multipath_aln_pairs_out.front().second.set_mapping_quality(0);
-                        }
-                        else {
-                            // TODO: is this still necessary with the multiplicity code?
-                            // also account for the possiblity that we selected the wrong ends to rescue with
-                            cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
-                                                                      cluster_graphs1, cluster_graphs2, false);
-                            
-                            // and for the possibility that we missed the correct cluster because of hit sub-sampling
-                            // within the MEMs of the cluster
-                            cap_mapping_quality_by_hit_sampling_probability(multipath_aln_pairs_out, cluster_pairs,
-                                                                            cluster_graphs1, cluster_graphs2, false);
-                        }
+                        // TODO: is this still necessary with the multiplicity code?
+                        // also account for the possiblity that we selected the wrong ends to rescue with
+                        cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
+                                                                  cluster_graphs1, cluster_graphs2, false);
+                        
+                        // and for the possibility that we missed the correct cluster because of hit sub-sampling
+                        // within the MEMs of the cluster
+                        cap_mapping_quality_by_hit_sampling_probability(multipath_aln_pairs_out, cluster_pairs,
+                                                                        cluster_graphs1, cluster_graphs2, false);
                     }
                     else {
                         // rescue didn't find any consistent mappings, revert to the single ended mappings
