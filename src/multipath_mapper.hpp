@@ -339,7 +339,8 @@ namespace vg {
         /// Properly handles multipath_alignment_ts that are unmapped.
         /// Does not depend on or guarantee topological order in the multipath_alignment_ts.
         void split_multicomponent_alignments(vector<multipath_alignment_t>& multipath_alns_out,
-                                             vector<size_t>* cluster_idxs = nullptr) const;
+                                             vector<size_t>* cluster_idxs = nullptr,
+                                             vector<double>* multiplicities = nullptr) const;
         
         /// If there are any multipath_alignment_ts with multiple connected components, split them
         /// up and add them to the return vector, also measure the distance between them and add
@@ -347,7 +348,8 @@ namespace vg {
         /// Properly handles multipath_alignment_ts that are unmapped.
         /// Does not depend on or guarantee topological order in the multipath_alignment_ts.
         void split_multicomponent_alignments(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                             vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
+                                             vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                             vector<double>& multiplicities) const;
         
         
         /// Make a multipath alignment of the read against the indicated graph and add it to

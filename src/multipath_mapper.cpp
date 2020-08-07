@@ -4,7 +4,7 @@
 //
 //
 
-#define debug_multipath_mapper
+//#define debug_multipath_mapper
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
@@ -484,7 +484,7 @@ namespace vg {
         
         if (!suppress_multicomponent_splitting) {
             // split up any alignments that ended up being disconnected
-            split_multicomponent_alignments(multipath_alns_out, cluster_idxs);
+            split_multicomponent_alignments(multipath_alns_out, cluster_idxs, &multiplicities_out);
         }
         
 #ifdef debug_multipath_mapper
@@ -2086,7 +2086,8 @@ namespace vg {
     }
     
     void MultipathMapper::split_multicomponent_alignments(vector<multipath_alignment_t>& multipath_alns_out,
-                                                          vector<size_t>* cluster_idxs) const {
+                                                          vector<size_t>* cluster_idxs,
+                                                          vector<double>* multiplicities) const {
         
         size_t num_original_alns = multipath_alns_out.size();
         for (size_t i = 0; i < num_original_alns; i++) {
@@ -2105,6 +2106,9 @@ namespace vg {
                     // also label the split alignment with its cluster of origin, if we're keeping track of that
                     if (cluster_idxs) {
                         cluster_idxs->emplace_back(cluster_idxs->at(i));
+                    }
+                    if (multiplicities) {
+                        multiplicities->emplace_back(multiplicities->at(i));
                     }
                 }
                 // put the first component into the original location
@@ -2510,7 +2514,8 @@ namespace vg {
     }
     
     void MultipathMapper::split_multicomponent_alignments(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const {
+                                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                          vector<double>& pair_multiplicities) const {
         
         size_t original_num_pairs = multipath_aln_pairs_out.size();
         for (size_t i = 0; i < original_num_pairs; i++) {
@@ -2609,6 +2614,7 @@ namespace vg {
                             // append the rest of them to the end
                             multipath_aln_pairs_out.emplace_back(move(split_multipath_aln_pair));
                             cluster_pairs.emplace_back(cluster_pairs[i].first, dist);
+                            pair_multiplicities.emplace_back(pair_multiplicities[i]);
                         }
                     }
                 }
@@ -2746,7 +2752,7 @@ namespace vg {
         
         if (!suppress_multicomponent_splitting) {
             // split up any multi-component multipath alignments
-            split_multicomponent_alignments(multipath_aln_pairs_out, cluster_pairs);
+            split_multicomponent_alignments(multipath_aln_pairs_out, cluster_pairs, pair_multiplicities);
         }
         
         // downstream algorithms assume multipath alignments are topologically sorted (including the scoring
@@ -3625,6 +3631,13 @@ namespace vg {
                                                            MappingQualityMethod mapq_method,
                                                            vector<size_t>* cluster_idxs,
                                                            vector<double>* multiplicities) const {
+        if (cluster_idxs) {
+            assert(cluster_idxs->size() == multipath_alns.size());
+        }
+        if (multiplicities) {
+            assert(multiplicities->size() == multipath_alns.size());
+        }
+        
         if (multipath_alns.empty()) {
             return;
         }
@@ -3912,7 +3925,7 @@ namespace vg {
             cerr << "\t" << scores[i] << " " << (aln.path().mapping_size() ? make_pos_t(aln.path().mapping(0).position()) : pos_t()) << endl;
         }
 #endif
-        cerr << "mults " << multiplicities << endl;
+
         if (mapq_method != None) {
             // Sometimes we are passed None, which means to not update the MAPQs at all. But otherwise, we do MAPQs.
             // Compute and set the mapping quality
@@ -3920,7 +3933,6 @@ namespace vg {
                                                                             multiplicities);
             multipath_alns.front().set_mapping_quality(min<int32_t>(uncapped_mapq, max_mapping_quality));
         }
-        cerr << "finish computing mapq" << endl;
         
         if (report_group_mapq) {
             size_t num_reporting = min(multipath_alns.size(), max_alt_mappings);
