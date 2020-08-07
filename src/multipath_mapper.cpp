@@ -4,7 +4,7 @@
 //
 //
 
-//#define debug_multipath_mapper
+#define debug_multipath_mapper
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
@@ -1578,9 +1578,11 @@ namespace vg {
                 const auto& rescued_cluster_pair = rescued_distances[i];
                 double hit_multiplicity;
                 if (rescued_cluster_pair.first.first == cluster_graphs1.size()) {
+                    // the read 1 mapping is from a rescue, get the hit sampling multiplicity for read 2
                     hit_multiplicity = hit_sampling_multiplicity(get<1>(cluster_graphs2[rescued_cluster_pair.first.second]));
                 }
                 else {
+                    // the read 2 mapping is from a rescue, get the hit sampling multiplicity for read 1
                     hit_multiplicity = hit_sampling_multiplicity(get<1>(cluster_graphs1[rescued_cluster_pair.first.first]));
                 }
                 rescued_multiplicities.push_back(rescue_multiplicity * hit_multiplicity);
@@ -2687,8 +2689,8 @@ namespace vg {
             // create multipath alignments to fill
             multipath_aln_pairs_out.emplace_back();
             pair_multiplicities.push_back(pair_hit_sampling_multiplicity(get<1>(cluster_graphs1[cluster_pair.first.first]),
-                                                                         get<1>(cluster_graphs1[cluster_pair.first.second])));
-            
+                                                                         get<1>(cluster_graphs2[cluster_pair.first.second])));
+                        
             auto prev_1 = previous_multipath_alns_1.find(cluster_pair.first.first);
             if (prev_1 == previous_multipath_alns_1.end()) {
                 // we haven't done this alignment yet, so we have to complete it for the first time
@@ -3360,6 +3362,12 @@ namespace vg {
             align_dag = dagified;
         }
         
+        // a function to translate from the transformed graphs ID space to the original graph's
+        function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
+            handle_t original = align_digraph->get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
+            return make_pair(graph->get_id(original), graph->get_is_reverse(original));
+        };
+        
 #ifdef debug_multipath_mapper_alignment
         cerr << "final alignment graph:" << endl;
         align_dag->for_each_handle([&](const handle_t& h) {
@@ -3375,11 +3383,6 @@ namespace vg {
 #endif
         
         // construct a graph that summarizes reachability between MEMs
-        
-        function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
-            handle_t original = align_digraph->get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
-            return make_pair(graph->get_id(original), graph->get_is_reverse(original));
-        };
         
 #ifdef debug_multipath_mapper_alignment
         cerr << "making multipath alignment MEM graph" << endl;
@@ -3885,6 +3888,9 @@ namespace vg {
                 if (cluster_idxs) {
                     (*cluster_idxs)[i - removed_so_far] = (*cluster_idxs)[i];
                 }
+                if (multiplicities) {
+                    (*multiplicities)[i - removed_so_far] = (*multiplicities)[i];
+                }
             }
         }
         if (removed_so_far) {
@@ -3892,6 +3898,9 @@ namespace vg {
             scores.resize(scores.size() - removed_so_far);
             if (cluster_idxs) {
                 cluster_idxs->resize(cluster_idxs->size() - removed_so_far);
+            }
+            if (multiplicities) {
+                multiplicities->resize(multiplicities->size() - removed_so_far);
             }
         }
         
@@ -3903,7 +3912,7 @@ namespace vg {
             cerr << "\t" << scores[i] << " " << (aln.path().mapping_size() ? make_pos_t(aln.path().mapping(0).position()) : pos_t()) << endl;
         }
 #endif
-        
+        cerr << "mults " << multiplicities << endl;
         if (mapq_method != None) {
             // Sometimes we are passed None, which means to not update the MAPQs at all. But otherwise, we do MAPQs.
             // Compute and set the mapping quality
@@ -3911,6 +3920,7 @@ namespace vg {
                                                                             multiplicities);
             multipath_alns.front().set_mapping_quality(min<int32_t>(uncapped_mapq, max_mapping_quality));
         }
+        cerr << "finish computing mapq" << endl;
         
         if (report_group_mapq) {
             size_t num_reporting = min(multipath_alns.size(), max_alt_mappings);
@@ -3939,6 +3949,9 @@ namespace vg {
 #endif
         
         assert(multipath_aln_pairs.size() == cluster_pairs.size());
+        if (multiplicities) {
+            assert(multipath_aln_pairs.size() == multiplicities->size());
+        }
         
         if (multipath_aln_pairs.empty()) {
             return;
