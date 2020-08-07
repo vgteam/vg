@@ -146,7 +146,21 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 if (track_provenance) {
                     funnel.fail("cluster-score", cluster_num, cluster.score);
                 }
-                
+
+                //Keep track of how many clusters of each score
+                if (cluster.coverage == curr_coverage &&
+                    cluster.score == curr_score) {
+                    curr_count++;
+                } else {
+                    //If this is a cluster that has scores different than the previous one
+                    for (size_t i = 0 ; i < curr_kept ; i++ ) {
+                        probability_cluster_lost.push_back(1.0 - (double(curr_kept) / double(curr_count)));
+                    }
+                    curr_coverage = cluster.coverage;
+                    curr_score = cluster.score;
+                    curr_kept = 0;
+                    curr_count = 1;
+                }  
                 // Record MAPQ implications of not extending this cluster.
 #ifdef debug
             cerr << "Cluster " << cluster_num << " fails cluster score cutoff" <<  endl;
