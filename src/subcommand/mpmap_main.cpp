@@ -86,7 +86,7 @@ void help_mpmap(char** argv) {
     << "  -D, --frag-stddev FLOAT       standard deviation for a pre-determined fragment length distribution (also requires -I)" << endl
     //<< "  -B, --no-calibrate            do not auto-calibrate mismapping dectection" << endl
     << "  -G, --gam-input FILE          input GAM (for stdin, use -)" << endl
-    //<< "  -P, --max-p-val FLOAT         background model p-value must be less than this to avoid mismapping detection [0.00001]" << endl
+    //<< "  -P, --max-p-val FLOAT         background model p-value must be less than this to avoid mismapping detection [0.0001]" << endl
     << "  -U, --report-group-mapq       add an annotation for the collective mapping quality of all reported alignments" << endl
     //<< "      --padding-mult FLOAT      pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
     << "  -u, --map-attempts INT        perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
@@ -155,7 +155,8 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_MAX_FANS_OUT 1026
     #define OPT_FAN_OUT_DIFF 1027
     #define OPT_PATH_RESCUE_GRAPH 1028
-    #define OPT_ALT_PATHS 1020
+    #define OPT_MAX_RESCUE_P_VALUE 1029
+    #define OPT_ALT_PATHS 1030
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -253,7 +254,8 @@ int main_mpmap(int argc, char** argv) {
     bool same_strand = false;
     bool suppress_mismapping_detection = false;
     bool auto_calibrate_mismapping_detection = true;
-    double max_mapping_p_value = 0.00001;
+    double max_mapping_p_value = 0.0001;
+    double max_rescue_p_value = 0.03;
     size_t num_calibration_simulations = 100;
     vector<size_t> calibration_read_lengths{50, 100, 150, 250, 450};
     bool use_weibull_calibration = false;
@@ -335,6 +337,7 @@ int main_mpmap(int argc, char** argv) {
             {"path-rescue-graph", no_argument, 0, OPT_PATH_RESCUE_GRAPH},
             {"no-calibrate", no_argument, 0, 'B'},
             {"max-p-val", required_argument, 0, 'P'},
+            {"max-rescue-p-val", required_argument, 0, OPT_MAX_RESCUE_P_VALUE},
             {"mq-max", required_argument, 0, 'Q'},
             {"agglomerate-alns", no_argument, 0, 'a'},
             {"report-group-mapq", no_argument, 0, 'U'},
@@ -559,6 +562,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'P':
                 max_mapping_p_value = parse<double>(optarg);
+                break;
+                
+            case OPT_MAX_RESCUE_P_VALUE:
+                max_rescue_p_value = parse<double>(optarg);
                 break;
                 
             case 'Q':
@@ -1043,6 +1050,11 @@ int main_mpmap(int argc, char** argv) {
     
     if (max_mapping_p_value <= 0.0) {
         cerr << "error:[vg mpmap] Max mapping p-value (-P) set to " << max_mapping_p_value << ", must set to a positive number." << endl;
+        exit(1);
+    }
+    
+    if (max_rescue_p_value <= 0.0) {
+        cerr << "error:[vg mpmap] Max mapping p-value (--max-rescue-p-val) set to " << max_rescue_p_value << ", must set to a positive number." << endl;
         exit(1);
     }
     
@@ -1603,6 +1615,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.precollapse_order_length_hits = precollapse_order_length_hits;
     multipath_mapper.max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
     multipath_mapper.max_mapping_p_value = max_mapping_p_value;
+    multipath_mapper.max_rescue_p_value = max_rescue_p_value;
     multipath_mapper.suppress_mismapping_detection = suppress_mismapping_detection;
     if (min_clustering_mem_length) {
         multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
