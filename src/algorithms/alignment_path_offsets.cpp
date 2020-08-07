@@ -197,11 +197,13 @@ void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignmen
         for (auto& path : positions) { ordered.push_back(path.first); }
         std::sort(ordered.begin(), ordered.end(), [](const path_handle_t& a, const path_handle_t& b) { return as_integer(a) < as_integer(b); });
         for (auto& path : ordered) {
-            auto& p = positions[path];
-            Position* refpos = aln.add_refpos();
-            refpos->set_name(graph.get_path_name(path));
-            refpos->set_offset(p.front().first);
-            refpos->set_is_reverse(p.front().second);
+            for (auto& p : positions[path]) {
+                // Add each determined refpos
+                Position* refpos = aln.add_refpos();
+                refpos->set_name(graph.get_path_name(path));
+                refpos->set_offset(p.first);
+                refpos->set_is_reverse(p.second);
+            }
         }
     }
 }
