@@ -30,6 +30,7 @@ void help_annotate(char** argv) {
          << "    -a, --gam FILE         file of Alignments to annotate (required)" << endl
          << "    -x, --xg-name FILE     xg index of the graph against which the Alignments are aligned (required)" << endl
          << "    -p, --positions        annotate alignments with reference positions" << endl
+         << "    -m, --multi-position   annotate alignments with multiple reference positions" << endl
          << "    -l, --search-limit N   when annotating with positions, search this far for paths (default: read length)" << endl
          << "    -b, --bed-name FILE    annotate alignments with overlapping region names from this BED. May repeat." << endl
          << "    -n, --novelty          output TSV table with header describing how much of each Alignment is novel" << endl
@@ -92,6 +93,7 @@ int main_annotate(int argc, char** argv) {
     vector<string> gff_names;
     string gam_name;
     bool add_positions = false;
+    bool add_multiple_positions = false;
     size_t search_limit = 0;
     bool novelty = false;
     bool output_ggff = false;
@@ -104,6 +106,7 @@ int main_annotate(int argc, char** argv) {
         {
             {"gam", required_argument, 0, 'a'},
             {"positions", no_argument, 0, 'p'},
+            {"multi-positions", no_argument, 0, 'm'},
             {"search-limit", required_argument, 0, 'l'},
             {"xg-name", required_argument, 0, 'x'},
             {"bed-name", required_argument, 0, 'b'},
@@ -117,7 +120,7 @@ int main_annotate(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:pl:b:f:gs:nt:h",
+        c = getopt_long (argc, argv, "hx:a:pml:b:f:gs:nt:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -152,6 +155,11 @@ int main_annotate(int argc, char** argv) {
 
         case 'p':
             add_positions = true;
+            break;
+            
+        case 'm':
+            add_positions = true;
+            add_multiple_positions = true;
             break;
             
         case 'l':
@@ -314,7 +322,13 @@ int main_annotate(int argc, char** argv) {
                     if (add_positions) {
                         // Annotate it with its initial position on each path it touches
                         aln.clear_refpos();
-                        algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln);
+                        if (add_multiple_positions) {
+                            // One position per node
+                            algorithms::annotate_with_node_path_positions(*mapper.xindex, aln, search_limit);
+                        } else {
+                            // One position per alignment
+                            algorithms::annotate_with_initial_path_positions(*mapper.xindex, aln, search_limit);
+                        }
                     }
                     
                     if (!features_on_node.empty()) {

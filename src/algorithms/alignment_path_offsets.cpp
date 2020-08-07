@@ -181,8 +181,17 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
 }
 
 void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit) {
+    annotate_with_path_positions(graph, aln, true, search_limit);
+}
+
+void annotate_with_node_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit) {
+    annotate_with_path_positions(graph, aln, false, search_limit);
+}
+
+void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, bool just_min, size_t search_limit) {
     if (!aln.refpos_size()) {
-        unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions = alignment_path_offsets(graph, aln, true, false, search_limit);
+        // Get requested path positions
+        unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions = alignment_path_offsets(graph, aln, just_min, false, search_limit);
         // emit them in order of the path handle
         vector<path_handle_t> ordered;
         for (auto& path : positions) { ordered.push_back(path.first); }
