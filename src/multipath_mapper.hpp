@@ -255,8 +255,9 @@ namespace vg {
         void align_to_cluster_graph_pairs(const Alignment& alignment1, const Alignment& alignment2,
                                           vector<clustergraph_t>& cluster_graphs1,
                                           vector<clustergraph_t>& cluster_graphs2,
-                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                          vector<double>& pair_multiplicities,
                                           vector<pair<size_t, size_t>>& duplicate_pairs_out,
                                           const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
         
@@ -266,7 +267,6 @@ namespace vg {
         bool align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
                                                  vector<clustergraph_t>& cluster_graphs1,
                                                  vector<clustergraph_t>& cluster_graphs2,
-                                                 bool block_rescue_from_1, bool block_rescue_from_2,
                                                  vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances_out,
                                                  vector<double>& pair_multiplicities_out,
@@ -280,11 +280,13 @@ namespace vg {
                                             vector<pair<size_t, size_t>>& duplicate_pairs,
                                             vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                             vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                            vector<double>& pair_multiplicities,
                                             const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
         
         /// Merge the rescued mappings into the output vector and deduplicate pairs
         void merge_rescued_mappings(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                    vector<double>& pair_multiplicities,
                                     vector<pair<multipath_alignment_t, multipath_alignment_t>>& rescued_multipath_aln_pairs,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs,
                                     vector<double>& rescued_multiplicities) const;
@@ -376,7 +378,7 @@ namespace vg {
         /// Allows multipath alignments where the best single path alignment is leaving the read unmapped.
         /// multipath_alignment_ts MUST be topologically sorted.
         void sort_and_compute_mapping_quality(vector<multipath_alignment_t>& multipath_alns, MappingQualityMethod mapq_method,
-                                              vector<size_t>* cluster_idxs = nullptr, vector<double>* multiplicities) const;
+                                              vector<size_t>* cluster_idxs = nullptr, vector<double>* multiplicities = nullptr) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the multipath_alignment_t object
         /// If there are ties between scores, breaks them by the expected distance between pairs as computed by the

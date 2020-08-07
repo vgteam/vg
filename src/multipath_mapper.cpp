@@ -1162,7 +1162,6 @@ namespace vg {
     bool MultipathMapper::align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
                                                               vector<clustergraph_t>& cluster_graphs1,
                                                               vector<clustergraph_t>& cluster_graphs2,
-                                                              bool block_rescue_from_1, bool block_rescue_from_2,
                                                               vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                               vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
                                                               vector<double>& pair_multiplicities,
@@ -1172,16 +1171,12 @@ namespace vg {
         vector<multipath_alignment_t> multipath_alns_1, multipath_alns_2;
         vector<size_t> cluster_idxs_1, cluster_idxs_2;
         vector<double> multiplicities_1, multiplicities_2;
-        if (!block_rescue_from_1) {
-            align_to_cluster_graphs(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                    cluster_graphs1, multipath_alns_1, multiplicities_1, max_single_end_mappings_for_rescue,
-                                    fanouts1, &cluster_idxs_1);
-        }
-        if (!block_rescue_from_2) {
-            align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                    cluster_graphs2, multipath_alns_2, multiplicities_2, max_single_end_mappings_for_rescue,
-                                    fanouts2, &cluster_idxs_2);
-        }
+        align_to_cluster_graphs(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
+                                cluster_graphs1, multipath_alns_1, multiplicities_1, max_single_end_mappings_for_rescue,
+                                fanouts1, &cluster_idxs_1);
+        align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
+                                cluster_graphs2, multipath_alns_2, multiplicities_2, max_single_end_mappings_for_rescue,
+                                fanouts2, &cluster_idxs_2);
         
         if (!multipath_alns_1.empty() &&
             !multipath_alns_2.empty() &&
@@ -1208,8 +1203,8 @@ namespace vg {
         int32_t top_score_1 = multipath_alns_1.empty() ? 0 : optimal_alignment_score(multipath_alns_1.front());
         int32_t top_score_2 = multipath_alns_2.empty() ? 0 : optimal_alignment_score(multipath_alns_2.front());
         
-        size_t num_rescuable_alns_1 = block_rescue_from_1 ? 0 : multipath_alns_1.size();
-        size_t num_rescuable_alns_2 = block_rescue_from_2 ? 0 : multipath_alns_2.size();
+        size_t num_rescuable_alns_1 = multipath_alns_1.size();
+        size_t num_rescuable_alns_2 = multipath_alns_2.size();
         for (size_t i = 0; i < num_rescuable_alns_1; i++){
             if (likely_mismapping(multipath_alns_1[i]) ||
                 (i > 0 ? optimal_alignment_score(multipath_alns_1[i]) < top_score_1 - max_score_diff : false)) {
@@ -1439,13 +1434,13 @@ namespace vg {
                                                          vector<pair<size_t, size_t>>& duplicate_pairs,
                                                          vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                         vector<double>& pair_multiplicities,
                                                          const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2) {
         
 #ifdef debug_multipath_mapper
         cerr << "using rescue to find secondary mappings" << endl;
 #endif
 
-        
         unordered_set<size_t> paired_clusters_1, paired_clusters_2;
         
         for (size_t i = 0; i < multipath_aln_pairs_out.size(); i++) {
@@ -1576,11 +1571,19 @@ namespace vg {
             }
             
             // estimate how many of these alignments there probably are in total
-            double multiplicity = double(num_rescuable) / double(num_rescues);
+            double rescue_multiplicity = double(num_rescuable) / double(num_rescues);
             
-            // fill out the multiplicity vector to match
+            // fill out the multiplicity with estimated multiplicity based on rescue and hit sampling
             for (size_t i = num_preexisting_pairs; i < rescued_secondaries.size(); ++i) {
-                rescued_multiplicities.push_back(multiplicity);
+                const auto& rescued_cluster_pair = rescued_distances[i];
+                double hit_multiplicity;
+                if (rescued_cluster_pair.first.first == cluster_graphs1.size()) {
+                    hit_multiplicity = hit_sampling_multiplicity(get<1>(cluster_graphs2[rescued_cluster_pair.first.second]));
+                }
+                else {
+                    hit_multiplicity = hit_sampling_multiplicity(get<1>(cluster_graphs1[rescued_cluster_pair.first.first]));
+                }
+                rescued_multiplicities.push_back(rescue_multiplicity * hit_multiplicity);
             }
             
 //#pragma omp atomic
@@ -1662,8 +1665,8 @@ namespace vg {
             }
             
             // merge the rescued secondaries into the return vector
-            merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, rescued_secondaries, rescued_distances,
-                                   rescued_multiplicities);
+            merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, pair_multiplicities,
+                                   rescued_secondaries, rescued_distances, rescued_multiplicities);
         } else {
 #ifdef debug_multipath_mapper
             cerr << "no rescues succeeded" << endl;
@@ -1787,139 +1790,136 @@ namespace vg {
         }
 #endif
         
-        if (multipath_aln_pairs_out.empty()) {
-            // we haven't already obtained a paired mapping by rescuing into a repeat, so we should try to get one
-            // by cluster pairing
-            
-            cluster_pairs = get_cluster_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, &(*distance_measurer));
-            
+        // we haven't already obtained a paired mapping by rescuing into a repeat, so we should try to get one
+        // by cluster pairing
+        
+        cluster_pairs = get_cluster_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, &(*distance_measurer));
+        
 #ifdef debug_multipath_mapper
-            cerr << "obtained cluster pairs:" << endl;
-            for (int i = 0; i < cluster_pairs.size(); i++) {
-                cerr << "\tpair "  << i << " at distance " << cluster_pairs[i].second << endl;
-                cerr << "\t\t read 1 (cluster " << cluster_pairs[i].first.first <<  ")" << endl;
-                for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[cluster_pairs[i].first.first])) {
-                    cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
-                }
-                cerr << "\t\t read 2 (cluster " << cluster_pairs[i].first.second << ")" << endl;
-                for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[cluster_pairs[i].first.second])) {
-                    cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
-                }
+        cerr << "obtained cluster pairs:" << endl;
+        for (int i = 0; i < cluster_pairs.size(); i++) {
+            cerr << "\tpair "  << i << " at distance " << cluster_pairs[i].second << endl;
+            cerr << "\t\t read 1 (cluster " << cluster_pairs[i].first.first <<  ")" << endl;
+            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[cluster_pairs[i].first.first])) {
+                cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
+            cerr << "\t\t read 2 (cluster " << cluster_pairs[i].first.second << ")" << endl;
+            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[cluster_pairs[i].first.second])) {
+                cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
+            }
+        }
 #endif
+        
+        // do we find any pairs that satisfy the distance requirements?
+        if (!cluster_pairs.empty()) {
+            // We got some pairs that satisfy the distance requirements.
             
-            // do we find any pairs that satisfy the distance requirements?
-            if (!cluster_pairs.empty()) {
-                // We got some pairs that satisfy the distance requirements.
+            // only perform the mappings that satisfy the expectations on distance
+            
+            align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                         multipath_aln_pairs_out, cluster_pairs, pair_multiplicities,
+                                         duplicate_pairs, fanouts1.get(), fanouts2.get());
+            
+            // do we produce at least one good looking pair alignments from the clustered clusters?
+            if (multipath_aln_pairs_out.empty()
+                || !((!likely_mismapping(multipath_aln_pairs_out.front().first) && !likely_misrescue(multipath_aln_pairs_out.front().second)) ||
+                     (!likely_misrescue(multipath_aln_pairs_out.front().first) && !likely_mismapping(multipath_aln_pairs_out.front().second)))) {
                 
-                // only perform the mappings that satisfy the expectations on distance
-                
-                align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
-                                             multipath_aln_pairs_out, duplicate_pairs, fanouts1.get(), fanouts2.get());
-                
-                // do we produce at least one good looking pair alignments from the clustered clusters?
-                if (multipath_aln_pairs_out.empty()
-                    || likely_mismapping(multipath_aln_pairs_out.front().first)
-                    || likely_mismapping(multipath_aln_pairs_out.front().second)) {
-                    
 #ifdef debug_multipath_mapper
-                    cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
+                cerr << "pair may be mismapped, attempting individual end mappings" << endl;
 #endif
-                    // we're not happy with the pairs we got, try to get a good pair by rescuing from single ended alignments
-                    // but block rescue from any sides that we already tried rescue from in the repeat rescue routine
-                    
-                    vector<pair<multipath_alignment_t, multipath_alignment_t>> rescue_aln_pairs;
-                    vector<pair<pair<size_t, size_t>, int64_t>> rescue_distances;
-                    vector<double> rescue_multiplicities;
-                    bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                                       do_repeat_rescue_from_1, do_repeat_rescue_from_2,
-                                                                       rescue_aln_pairs, rescue_distances, rescue_multiplicities,
-                                                                       fanouts1.get(), fanouts2.get());
-                    
-                    // if we find consistent pairs by rescue, merge the two lists
-                    if (rescued) {
+                // we're not happy with the pairs we got, try to get a good pair by rescuing from single ended alignments
+                
+                vector<pair<multipath_alignment_t, multipath_alignment_t>> rescue_aln_pairs;
+                vector<pair<pair<size_t, size_t>, int64_t>> rescue_distances;
+                vector<double> rescue_multiplicities;
+                bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                                   rescue_aln_pairs, rescue_distances, rescue_multiplicities,
+                                                                   fanouts1.get(), fanouts2.get());
+                
+                // if we find consistent pairs by rescue, merge the two lists
+                if (rescued) {
 #ifdef debug_multipath_mapper
-                        cerr << "found some rescue pairs, merging into current list of consistent mappings" << endl;
+                    cerr << "found some rescue pairs, merging into current list of consistent mappings" << endl;
 #endif
-
-                        merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, rescue_aln_pairs, rescue_distances,
-                                               rescue_multiplicities);
-                        
-                        // TODO: is this still necessary with the multiplicity code?
-                        // also account for the possiblity that we selected the wrong ends to rescue with
-                        cap_mapping_quality_by_rescue_probability(0, multipath_aln_pairs_out, cluster_pairs,
-                                                                  cluster_graphs1, cluster_graphs2, false);
-                        
-                        // and for the possibility that we missed the correct cluster because of hit sub-sampling
-                        // within the MEMs of the cluster
-                        cap_mapping_quality_by_hit_sampling_probability(multipath_aln_pairs_out, cluster_pairs,
-                                                                        cluster_graphs1, cluster_graphs2, false);
-                    }
-                    else {
-                        // rescue didn't find any consistent mappings, revert to the single ended mappings
-                        std::swap(multipath_aln_pairs_out, rescue_aln_pairs);
-                        
-                        // Don't sort and compute mapping quality; preserve the single-ended MAPQs
-                    }
+                    
+                    merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, pair_multiplicities,
+                                           rescue_aln_pairs, rescue_distances, rescue_multiplicities);
+                    
+//                    // TODO: is this still necessary with the multiplicity code?
+//                    // also account for the possiblity that we selected the wrong ends to rescue with
+//                    cap_mapping_quality_by_rescue_probability(0, multipath_aln_pairs_out, cluster_pairs,
+//                                                              cluster_graphs1, cluster_graphs2, false);
+//
+//                    // and for the possibility that we missed the correct cluster because of hit sub-sampling
+//                    // within the MEMs of the cluster
+//                    cap_mapping_quality_by_hit_sampling_probability(multipath_aln_pairs_out, cluster_pairs,
+//                                                                    cluster_graphs1, cluster_graphs2, false);
                 }
                 else {
-                
-                    // We don't think any of our hits are likely to be mismapped
+                    // rescue didn't find any consistent mappings, revert to the single ended mappings
+                    std::swap(multipath_aln_pairs_out, rescue_aln_pairs);
                     
-                    // does it look like we might be overconfident about this pair because of our clustering strategy
-                    bool do_secondary_rescue = (multipath_aln_pairs_out.front().first.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff &&
-                                                multipath_aln_pairs_out.front().second.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff);
-                    
-                    if (do_secondary_rescue) {
-                        // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
-                        // so we use this routine to use rescue on other very good looking independent end clusters
-                        attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                       duplicate_pairs, multipath_aln_pairs_out, cluster_pairs,
-                                                       fanouts1.get(), fanouts2.get());
-                        
-                        // TODO: is this still necessary with the multiplicity code?
-                        // account for the possiblity that we selected the wrong ends to rescue with
-                        cap_mapping_quality_by_rescue_probability(0, multipath_aln_pairs_out, cluster_pairs,
-                                                                  cluster_graphs1, cluster_graphs2, true);
-                    }
-                    
-                    // account for the possibility that we missed the correct cluster because of hit sub-sampling
-                    // within the MEMs of the cluster
-                    cap_mapping_quality_by_hit_sampling_probability(multipath_aln_pairs_out, cluster_pairs,
-                                                                    cluster_graphs1, cluster_graphs2, do_secondary_rescue);
-                    
+                    // Don't sort and compute mapping quality; preserve the single-ended MAPQs
                 }
             }
             else {
-                // We got no pairs that satisfy the distance requirements
                 
-                // revert to independent single ended mappings, but skip any rescues that we already tried
+                // We don't think any of our hits are likely to be mismapped
                 
-#ifdef debug_multipath_mapper
-                cerr << "could not find a consistent pair, reverting to single ended mapping" << endl;
-#endif
+                // does it look like we might be overconfident about this pair because of our clustering strategy
+//                bool do_secondary_rescue = (multipath_aln_pairs_out.front().first.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff &&
+//                                            multipath_aln_pairs_out.front().second.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff);
                 
-                // have it record the multiplicities, even though we don't need them in thiss code path
-                vector<double> multiplicities;
-                
-                bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                                   do_repeat_rescue_from_1, do_repeat_rescue_from_2,
-                                                                   multipath_aln_pairs_out, cluster_pairs, multiplicities,
-                                                                   fanouts1.get(), fanouts2.get());
-                
-                if (rescued) {
-                    // We found valid pairs from rescue
-                
-                    // TODO: is this still necessary with the multiplicity code?
-                    // account for the possiblity that we selected the wrong ends to rescue with
-                    cap_mapping_quality_by_rescue_probability(0, multipath_aln_pairs_out, cluster_pairs,
-                                                              cluster_graphs1, cluster_graphs2, false);
+//                if (do_secondary_rescue) {
+                if (multipath_aln_pairs_out.front().first.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff &&
+                    multipath_aln_pairs_out.front().second.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff) {
+                    // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
+                    // so we use this routine to use rescue on other very good looking independent end clusters
+                    attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                   duplicate_pairs, multipath_aln_pairs_out, cluster_pairs,
+                                                   pair_multiplicities, fanouts1.get(), fanouts2.get());
+                    
+//                    // TODO: is this still necessary with the multiplicity code?
+//                    // account for the possiblity that we selected the wrong ends to rescue with
+//                    cap_mapping_quality_by_rescue_probability(0, multipath_aln_pairs_out, cluster_pairs,
+//                                                              cluster_graphs1, cluster_graphs2, true);
                 }
                 
-                // Otherwise, we are just using single-end alignments, so don't
-                // sort and compute mapping qualities. Leave the single-ended
-                // MAPQs.
+//                // account for the possibility that we missed the correct cluster because of hit sub-sampling
+//                // within the MEMs of the cluster
+//                cap_mapping_quality_by_hit_sampling_probability(multipath_aln_pairs_out, cluster_pairs,
+//                                                                cluster_graphs1, cluster_graphs2, do_secondary_rescue);
+                
             }
+        }
+        else {
+            // We got no pairs that satisfy the distance requirements
+            
+            // revert to independent single ended mappings, but skip any rescues that we already tried
+            
+#ifdef debug_multipath_mapper
+            cerr << "could not find a consistent pair, reverting to single ended mapping" << endl;
+#endif
+            
+            // have it record the multiplicities, even though we don't need them in thiss code path
+            vector<double> rescue_multiplicities;
+            bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                               multipath_aln_pairs_out, cluster_pairs, rescue_multiplicities,
+                                                               fanouts1.get(), fanouts2.get());
+            
+//            if (rescued) {
+//                // We found valid pairs from rescue
+//
+//                // TODO: is this still necessary with the multiplicity code?
+//                // account for the possiblity that we selected the wrong ends to rescue with
+//                cap_mapping_quality_by_rescue_probability(0, multipath_aln_pairs_out, cluster_pairs,
+//                                                          cluster_graphs1, cluster_graphs2, false);
+//            }
+            
+            // Otherwise, we are just using single-end alignments, so don't
+            // sort and compute mapping qualities. Leave the single-ended
+            // MAPQs.
         }
         
         if (multipath_aln_pairs_out.empty()) {
@@ -2115,14 +2115,12 @@ namespace vg {
 
     void MultipathMapper::merge_rescued_mappings(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                 vector<double>& pair_multiplicities,
                                                  vector<pair<multipath_alignment_t, multipath_alignment_t>>& rescued_multipath_aln_pairs,
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs,
                                                  vector<double>& rescued_multiplicities) const {
                 
         size_t num_unrescued_pairs = multipath_aln_pairs_out.size();
-        
-        // give all the original mappings a multiplicity of 1
-        vector<double> merged_multiplicities(num_unrescued_pairs, 1.0);
         
         for (size_t j = 0; j < rescued_multipath_aln_pairs.size(); j++) {
             
@@ -2138,26 +2136,22 @@ namespace vg {
                         cerr << "found a duplicate" << endl;
 #endif
                         duplicate = true;
-                        // TODO: should i take the max of the multiplicities, or let it stay at 1?
                         break;
                     }
                 }
             }
             
-            // TODO: does it make more sense to give a duplicate a multiplicity of 1 or the estimated rescue multiplicity?
-            // currently using 1
-            
             if (!duplicate) {
 #ifdef debug_multipath_mapper
                 cerr << "no duplicate, adding to return vector if distance is finite and positive" << endl;
 #endif
-                cluster_pairs.emplace_back(rescued_cluster_pairs[j]);
                 multipath_aln_pairs_out.emplace_back(move(rescued_multipath_aln_pairs[j]));
-                merged_multiplicities.emplace_back(rescued_multiplicities[j]);
+                cluster_pairs.emplace_back(rescued_cluster_pairs[j]);
+                pair_multiplicities.emplace_back(rescued_multiplicities[j]);
             }
         }
         
-        sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, nullptr, &merged_multiplicities);
+        sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, nullptr, &pair_multiplicities);
     }
 
     double MultipathMapper::estimate_missed_rescue_multiplicity(size_t which_pair,
@@ -2185,7 +2179,7 @@ namespace vg {
             cerr << "the optimal alignment is a rescue, checking if we need to cap the mapping quality" << endl;
 #endif
             
-            vector<clustergraph_t>& anchor_clusters = opt_aln_1_is_rescued ? cluster_graphs2 : cluster_graphs1;
+            const vector<clustergraph_t>& anchor_clusters = opt_aln_1_is_rescued ? cluster_graphs2 : cluster_graphs1;
             size_t anchor_idx = opt_aln_1_is_rescued ? cluster_pairs[which_pair].first.second : cluster_pairs[which_pair].first.first;
             
             // find the range of clusters that could plausibly be about as good as the one that rescue succeeded from
@@ -2475,7 +2469,7 @@ namespace vg {
                                                                           const vector<size_t>& cluster_idxs,
                                                                           const vector<clustergraph_t>& cluster_graphs) const {
         
-        clustergraph_t& opt_cluster = cluster_graphs[cluster_idxs.front()];
+        const clustergraph_t& opt_cluster = cluster_graphs[cluster_idxs.front()];
         
         // what is the chance that we would have missed a cluster with the same MEMs because of hit sub-sampling
         double prob_missing_equiv_cluster = prob_equivalent_clusters_hits_missed(get<1>(opt_cluster));
@@ -2623,8 +2617,9 @@ namespace vg {
     void MultipathMapper::align_to_cluster_graph_pairs(const Alignment& alignment1, const Alignment& alignment2,
                                                        vector<clustergraph_t>& cluster_graphs1,
                                                        vector<clustergraph_t>& cluster_graphs2,
-                                                       vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                        vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                                       vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                       vector<double>& pair_multiplicities,
                                                        vector<pair<size_t, size_t>>& duplicate_pairs_out,
                                                        const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2) {
         
@@ -2680,7 +2675,7 @@ namespace vg {
             if (get_pair_approx_likelihood(cluster_pair) < mem_coverage_min_ratio * get_pair_approx_likelihood(cluster_pairs.front())
                 || num_mappings >= num_mappings_to_compute) {
                 
-                // remove the rest of the cluster pairs so we maintain the invariant that there are the
+                // remove the rest of the cluster pairs to establish the invariant that there are the
                 // same number of cluster pairs as alternate mappings
                 cluster_pairs.resize(i);
                 
@@ -2691,6 +2686,8 @@ namespace vg {
 #endif
             // create multipath alignments to fill
             multipath_aln_pairs_out.emplace_back();
+            pair_multiplicities.push_back(pair_hit_sampling_multiplicity(get<1>(cluster_graphs1[cluster_pair.first.first]),
+                                                                         get<1>(cluster_graphs1[cluster_pair.first.second])));
             
             auto prev_1 = previous_multipath_alns_1.find(cluster_pair.first.first);
             if (prev_1 == previous_multipath_alns_1.end()) {
@@ -2758,7 +2755,8 @@ namespace vg {
         }
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score
-        sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, &duplicate_pairs_out);
+        sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs,
+                                         &duplicate_pairs_out, &pair_multiplicities);
         
 #ifdef debug_validate_multipath_alignments
         for (pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair : multipath_aln_pairs_out) {
