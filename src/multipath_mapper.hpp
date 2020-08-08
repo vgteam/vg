@@ -129,17 +129,18 @@ namespace vg {
         size_t max_p_value_memo_size = 500;
         size_t band_padding_memo_size = 2000;
         bool use_weibull_calibration = false;
-        double max_exponential_rate_intercept = 0.7612;
-        double max_exponential_rate_slope = 0.0001496;
-        double max_exponential_shape_intercept = 12.37;
-        double max_exponential_shape_slope = 0.007191;
+        double max_exponential_rate_intercept = 0.612045;
+        double max_exponential_rate_slope = 0.000555181;
+        double max_exponential_shape_intercept = 12.136;
+        double max_exponential_shape_slope = 0.0113637;
         double weibull_scale_intercept = 1.05;
         double weibull_scale_slope = 0.0601;
         double weibull_shape_intercept = -0.176;
         double weibull_shape_slope = 0.199;
         double weibull_offset_intercept = 2.342;
         double weibull_offset_slope = 0.07168;
-        double max_mapping_p_value = 0.00001;
+        double max_mapping_p_value = 0.0001;
+        double max_rescue_p_value = 0.1;
         size_t max_alt_mappings = 1;
         size_t max_single_end_mappings_for_rescue = 64;
         size_t max_rescue_attempts = 32;
@@ -437,6 +438,9 @@ namespace vg {
         
         /// Would an alignment this good be expected against a graph this big by chance alone
         bool likely_mismapping(const multipath_alignment_t& multipath_aln);
+        
+        /// Would an alignment this good be expected against a graph this big by chance alone
+        bool likely_misrescue(const multipath_alignment_t& multipath_aln);
         
         /// A scaling of a score so that it approximately follows the distribution of the longest match in p-value test
         size_t pseudo_length(const multipath_alignment_t& multipath_aln) const;

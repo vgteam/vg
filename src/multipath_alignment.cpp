@@ -22,6 +22,54 @@ namespace vg {
         // i don't understand why this is necessary, but somehow mapq is getting defaulted to 160?
     }
 
+    multipath_alignment_t::multipath_alignment_t(const multipath_alignment_t& other) {
+        *this = other;
+    }
+
+    multipath_alignment_t::multipath_alignment_t(multipath_alignment_t&& other) {
+        *this = move(other);
+    }
+
+    multipath_alignment_t& multipath_alignment_t::operator=(const multipath_alignment_t& other) {
+        _sequence = other._sequence;
+        _quality = other._quality;
+        _subpath = other._subpath;
+        _mapping_quality = other._mapping_quality;
+        _start = other._start;
+        other.for_each_annotation([&](const string& name, anno_type_t type, const void* annotation) {
+            switch (type) {
+                case Null:
+                    set_annotation(name);
+                    break;
+                case Double:
+                    set_annotation(name, *((const double*) annotation));
+                    break;
+                case Bool:
+                    set_annotation(name, *((const bool*) annotation));
+                    break;
+                case String:
+                    set_annotation(name, *((const string*) annotation));
+                    break;
+                default:
+                    cerr << "error: unrecognized annotation type" << endl;
+                    exit(1);
+                    break;
+            }
+        });
+        return *this;
+    }
+
+    multipath_alignment_t& multipath_alignment_t::operator=(multipath_alignment_t&& other) {
+        _sequence = move(other._sequence);
+        _quality = move(other._quality);
+        _subpath = move(other._subpath);
+        _mapping_quality = move(other._mapping_quality);
+        _start = move(other._start);
+        _annotation = move(other._annotation);
+        other._annotation.clear();
+        return *this;
+    }
+
     multipath_alignment_t::~multipath_alignment_t() {
         while (!_annotation.empty()) {
             clear_annotation(_annotation.begin()->first);
