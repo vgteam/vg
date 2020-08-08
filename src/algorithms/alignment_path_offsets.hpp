@@ -56,9 +56,9 @@ void annotate_with_node_path_positions(const PathPositionHandleGraph& graph, Ali
 /// path. Thread safe.
 ///
 /// If just_min is set, gives the minimum position on each path. Else, gives
-/// all Mapping start positions on each path. If nearby is set, will search for
-/// a nearby path of no path is actually touched. Respects search_limit in bp
-/// in that case. If search_limit is 0, read length is used.
+/// all Mapping start positions on each path. If no positions on the path are
+/// found, looks for nearby path positions in graph space. Respects
+/// search_limit in bp in that case. If search_limit is 0, read length is used.
 void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, bool just_min, size_t search_limit = 0);
 
 /// Use the graph annotate Alignments with the first position
