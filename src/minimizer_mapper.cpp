@@ -2777,52 +2777,138 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::pair<s
 
 //-----------------------------------------------------------------------------
 
-void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& best, Alignment& second_best) const {
+// (value, cost)
+typedef std::pair<uint32_t, int32_t> pareto_point;
 
-    // Count how many extensions appeat to be full-length (0 tail on both
-    // sides). We want to actually align some tails, so we assume the no-tail
-    // ones have the highest scores and make sure to process 1 past them.
-    size_t tailless_extensions = 0;
+void find_pareto_frontier(std::vector<pareto_point>& v) {
+    if(v.empty()) {
+        return;
+    }
+    std::sort(v.begin(), v.end(), [](pareto_point a, pareto_point b) {
+        return (a.second < b.second || (a.second == b.second && a.first > b.first));
+    });
+    size_t tail = 1;
+    for (size_t i = 1; i < v.size(); i++) {
+        if (v[i].first <= v[tail - 1].first) {
+            continue;
+        }
+        v[tail] = v[i];
+        tail++;
+    }
+    v.resize(tail);
+    std::sort(v.begin(), v.end());
+}
 
-    // Make paths for all the extensions
-    vector<Path> extension_paths;
-    vector<double> extension_path_scores;
-    extension_paths.reserve(extended_seeds.size());
-    extension_path_scores.reserve(extended_seeds.size());
-    for (auto& extended_seed : extended_seeds) {
-        // Compute the path for each extension
-        extension_paths.push_back(extended_seed.to_path(gbwt_graph, aln.sequence()));
-        // And the extension's score
-        extension_path_scores.push_back(get_regular_aligner()->score_partial_alignment(aln, gbwt_graph, extension_paths.back(),
-            aln.sequence().begin() + extended_seed.read_interval.first));
-            
-        if (extended_seed.read_interval.first == 0 && extended_seed.read_interval.second == aln.sequence().size()) {
-            // This extension has no tails.
-            tailless_extensions++;
+// Positive gap penalty if there is a gap.
+int32_t gap_penalty(size_t length, const Aligner* aligner) {
+    return (length == 0 ? 0 : aligner->gap_open + (length - 1) * aligner->gap_extension);
+}
+
+// Positive penalty for a number of mismatches.
+int32_t mismatch_penalty(size_t n, const Aligner* aligner) {
+    return n * (aligner->match + aligner->mismatch);
+}
+
+// Positive gap penalty, assuming that there is always a gap.
+int32_t gap_penalty(size_t start, size_t limit, const Aligner* aligner) {
+    return (start >= limit ? aligner->gap_open : aligner->gap_open + (limit - start - 1) * aligner->gap_extension);
+}
+
+// Positive flank penalty based on taking a gap to the end or to the Pareto frontier.
+int32_t flank_penalty(size_t length, const std::vector<pareto_point>& frontier, const Aligner* aligner) {
+    int32_t result = gap_penalty(length, aligner);
+    for (size_t i = 0; i < frontier.size(); i++) {
+        int32_t candidate = frontier[i].second + gap_penalty(frontier[i].first, length, aligner);
+        result = std::min(result, candidate);
+        if (frontier[i].first >= length) {
+            break;
         }
     }
-    
+    return result;
+}
+
+void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& best, Alignment& second_best) const {
+
+    // We assume that full-length extensions have the highest scores.
+    // We align all full-length extensions and at least one partial extension.
+    // We also want to align at least two extensions, unless the best
+    // extension is partial and no other extension is promising enough.
+    size_t min_extensions = 1;
+    for (const GaplessExtension& extension : extended_seeds) {
+        if (extension.full()) {
+            min_extensions++;
+        }
+    }
+    if (min_extensions < 2) {
+        min_extensions = 2;
+    }
+
+    // (length, penalty) pairs sorted by length. Pareto frontiers for the
+    // number of bp we can align at each end and the corresponding alignment
+    // score penalty. This assumes that we take a gap from read end to
+    // extension end and then an extension.
+    const Aligner* aligner = this->get_regular_aligner();
+    std::vector<pareto_point> left_frontier, right_frontier;
+    for (const GaplessExtension& extension : extended_seeds) {
+        if (extension.full()) {
+            continue;
+        }
+        int32_t left_penalty = gap_penalty(extension.read_interval.first, aligner);
+        int32_t mid_penalty = mismatch_penalty(extension.mismatches(), aligner);
+        int32_t right_penalty = gap_penalty(aln.sequence().length() - extension.read_interval.second, aligner);
+        left_frontier.push_back(pareto_point(extension.read_interval.second, mid_penalty + left_penalty));
+        right_frontier.push_back(pareto_point(aln.sequence().length() - extension.read_interval.first, mid_penalty + right_penalty));
+    }
+    find_pareto_frontier(left_frontier);
+    find_pareto_frontier(right_frontier);
+
 #ifdef debug
-    cerr << "Trying to find tail alignments for " << extended_seeds.size() << " extended seeds, " << tailless_extensions << " tailless" << endl;
+    cerr << "Trying to find " << min_extensions << " tail alignments for " << extended_seeds.size() << " extended seeds" << endl;
 #endif
     
     // We will keep the winning alignment here, in pieces
     Path winning_left;
     Path winning_middle;
     Path winning_right;
-    size_t winning_score = 0;
+    int32_t winning_score = 0;
 
     Path second_left;
     Path second_middle;
     Path second_right;
-    size_t second_score = 0;
+    int32_t second_score = 0;
     
     // Handle each extension in the set
-    process_until_threshold_b(extended_seeds, extension_path_scores,
-        extension_score_threshold, tailless_extensions + 1, max_local_extensions,
-        (function<double(size_t)>) [&](size_t extended_seed_num) {
+    size_t partial_extensions_aligned = 0;
+    process_until_threshold_a<GaplessExtension, double>(extended_seeds,
+        [&](size_t extended_seed_num) -> double {
+            return static_cast<double>(extended_seeds[extended_seed_num].score);
+        }, extension_score_threshold, min_extensions, max_local_extensions,
+        [&](size_t extended_seed_num) -> bool {
        
             // This extended seed looks good enough.
+            const GaplessExtension& extension = extended_seeds[extended_seed_num];
+
+            // We only align one partial extension, unless the subsequent ones
+            // look more promising than the best alignment we have found so far.
+            // The estimate is based on taking a gap to read end or to another
+            // extension on the Pareto frontier, for both ends.
+            if (!extension.full()) {
+                if (partial_extensions_aligned > 0) {
+                    int32_t score_estimate = aln.sequence().length() * aligner->match + 2 * aligner->full_length_bonus -
+                        mismatch_penalty(extension.mismatches(), aligner);
+                    if (!extension.left_full) {
+                        score_estimate -= flank_penalty(extension.read_interval.first, left_frontier, aligner);
+                    }
+                    if (!extension.right_full) {
+                        score_estimate -= flank_penalty(aln.sequence().length() - extension.read_interval.second,
+                            right_frontier, aligner);
+                    }
+                    if (score_estimate <= winning_score) {
+                        return true;
+                    }
+                }
+                partial_extensions_aligned++;
+            }
             
             // TODO: We don't track this filter with the funnel because it
             // operates within a single "item" (i.e. cluster/extension set).
@@ -2840,70 +2926,68 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             // And a right tail path and score
             pair<Path, int64_t> right_tail_result {{}, 0};
             
-            if (extended_seeds[extended_seed_num].read_interval.first != 0) {
+            if (!extension.left_full) {
                 // There is a left tail
                 
                 // Have scratch for the longest detectable gap
                 size_t longest_detectable_gap;
     
                 // Get the forest of all left tail placements
-                auto forest = get_tail_forest(extended_seeds[extended_seed_num], aln.sequence().size(), true, &longest_detectable_gap);
+                auto forest = get_tail_forest(extension, aln.sequence().size(), true, &longest_detectable_gap);
            
                 // Grab the part of the read sequence that comes before the extension
-                string before_sequence = aln.sequence().substr(0, extended_seeds[extended_seed_num].read_interval.first);
+                string before_sequence = aln.sequence().substr(0, extension.read_interval.first);
                 
                 // Do right-pinned alignment
                 left_tail_result = std::move(get_best_alignment_against_any_tree(forest, before_sequence,
-                    extended_seeds[extended_seed_num].starting_position(gbwt_graph), false, longest_detectable_gap));
+                    extension.starting_position(gbwt_graph), false, longest_detectable_gap));
             }
             
-            if (extended_seeds[extended_seed_num].read_interval.second != aln.sequence().size()) {
+            if (!extension.right_full) {
                 // There is a right tail
                 
                 // Have scratch for the longest detectable gap
                 size_t longest_detectable_gap;
                 
                 // Get the forest of all right tail placements
-                auto forest = get_tail_forest(extended_seeds[extended_seed_num], aln.sequence().size(), false, &longest_detectable_gap);
+                auto forest = get_tail_forest(extension, aln.sequence().size(), false, &longest_detectable_gap);
             
                 // Find the sequence
-                string trailing_sequence = aln.sequence().substr(extended_seeds[extended_seed_num].read_interval.second);
+                string trailing_sequence = aln.sequence().substr(extension.read_interval.second);
         
                 // Do left-pinned alignment
                 right_tail_result = std::move(get_best_alignment_against_any_tree(forest, trailing_sequence,
-                    extended_seeds[extended_seed_num].tail_position(gbwt_graph), true, longest_detectable_gap));
+                    extension.tail_position(gbwt_graph), true, longest_detectable_gap));
             }
             
             // Compute total score
-            size_t total_score = extension_path_scores[extended_seed_num] + left_tail_result.second + right_tail_result.second;
+            int32_t total_score = extension.score + left_tail_result.second + right_tail_result.second;
             
 #ifdef debug
-            cerr << "Extended seed " << extended_seed_num << " has left tail of " << extended_seeds[extended_seed_num].read_interval.first << "bp and right tail of " << (aln.sequence().size() - extended_seeds[extended_seed_num].read_interval.second) << "bp for total score " << total_score << endl;
+            cerr << "Extended seed " << extended_seed_num << " has left tail of " << extension.read_interval.first << "bp and right tail of " << (aln.sequence().size() - extension.read_interval.second) << "bp for total score " << total_score << endl;
 #endif
 
-            //Get the node ids of the beginning and end of each alignment
-
+            // Get the node ids of the beginning and end of each alignment
             id_t winning_start = winning_score == 0 ? 0 : (winning_left.mapping_size() == 0
                                           ? winning_middle.mapping(0).position().node_id()
                                           : winning_left.mapping(0).position().node_id());
             id_t current_start = left_tail_result.first.mapping_size() == 0
-                                     ? extension_paths[extended_seed_num].mapping(0).position().node_id()
+                                     ? gbwt_graph.get_id(extension.path.front())
                                      : left_tail_result.first.mapping(0).position().node_id();
             id_t winning_end = winning_score == 0 ? 0 : (winning_right.mapping_size() == 0
                                   ? winning_middle.mapping(winning_middle.mapping_size() - 1).position().node_id()
                                   : winning_right.mapping(winning_right.mapping_size()-1).position().node_id());
             id_t current_end = right_tail_result.first.mapping_size() == 0
-                                ? extension_paths[extended_seed_num].mapping(extension_paths[extended_seed_num].mapping_size() - 1).position().node_id()
+                                ? gbwt_graph.get_id(extension.path.back())
                                 : right_tail_result.first.mapping(right_tail_result.first.mapping_size()-1).position().node_id();
-            //Is this left tail different from the currently winning left tail?
+
+            // Is this left tail different from the currently winning left tail?
             bool different_left = winning_start != current_start;
             bool different_right = winning_end != current_end;
-
 
             if (total_score > winning_score || winning_score == 0) {
                 // This is the new best alignment seen so far.
 
-                
                 if (winning_score != 0 && different_left && different_right) {
                 //The previous best scoring alignment replaces the second best
                     second_score = winning_score;
@@ -2916,7 +3000,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 winning_score = total_score;
                 // And the path parts
                 winning_left = std::move(left_tail_result.first);
-                winning_middle = std::move(extension_paths[extended_seed_num]);
+                winning_middle = extension.to_path(gbwt_graph, aln.sequence());
                 winning_right = std::move(right_tail_result.first);
 
             } else if ((total_score > second_score || second_score == 0) && different_left && different_right) {
@@ -2927,7 +3011,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 second_score = total_score;
                 // And the path parts
                 second_left = std::move(left_tail_result.first);
-                second_middle = std::move(extension_paths[extended_seed_num]);
+                second_middle = extension.to_path(gbwt_graph, aln.sequence());
                 second_right = std::move(right_tail_result.first);
             }
 
@@ -3004,6 +3088,8 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     // Compute the identity from the path.
     second_best.set_identity(identity(second_best.path()));
 }
+
+//-----------------------------------------------------------------------------
 
 pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees,
     const string& sequence, const Position& default_position, bool pin_left, size_t longest_detectable_gap) const {
