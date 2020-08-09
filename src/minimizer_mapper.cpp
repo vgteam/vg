@@ -2829,10 +2829,11 @@ int32_t flank_penalty(size_t length, const std::vector<pareto_point>& frontier, 
 
 void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& best, Alignment& second_best) const {
 
-    // We assume that full-length extensions have the highest scores.
-    // We align all full-length extensions and at least one partial extension.
-    // We also want to align at least two extensions, unless the best
-    // extension is partial and no other extension is promising enough.
+    // This assumes that full-length extensions have the highest scores.
+    // We want to align at least two extensions and at least one
+    // partial extension. However, we do not want to align more than one
+    // partial extension, unless the score is very close to the best
+    // extension or the extension looks very promising.
     size_t min_extensions = 1;
     for (const GaplessExtension& extension : extended_seeds) {
         if (extension.full()) {
@@ -2878,7 +2879,8 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     int32_t second_score = 0;
     
     // Handle each extension in the set
-    size_t partial_extensions_aligned = 0;
+    bool partial_extension_aligned = false;
+    int32_t threshold = -1;
     process_until_threshold_a<GaplessExtension, double>(extended_seeds,
         [&](size_t extended_seed_num) -> double {
             return static_cast<double>(extended_seeds[extended_seed_num].score);
@@ -2888,12 +2890,20 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
             // This extended seed looks good enough.
             const GaplessExtension& extension = extended_seeds[extended_seed_num];
 
-            // We only align one partial extension, unless the subsequent ones
-            // look more promising than the best alignment we have found so far.
+            // Extensions with score at most this will not be aligned,
+            // unless we do not have enough alignments.
+            if (threshold < 0) {
+                threshold = extension.score - extension_score_threshold;
+            }
+
+            // Identify the special case: We already have aligned a partial
+            // extension and the current score is too far below the best
+            // extension. We do not want to align further partial extensions,
+            // unless they look very promising.
             // The estimate is based on taking a gap to read end or to another
             // extension on the Pareto frontier, for both ends.
             if (!extension.full()) {
-                if (partial_extensions_aligned > 0) {
+                if (partial_extension_aligned && extension.score <= threshold) {
                     int32_t score_estimate = aln.sequence().length() * aligner->match + 2 * aligner->full_length_bonus -
                         mismatch_penalty(extension.mismatches(), aligner);
                     if (!extension.left_full) {
@@ -2907,7 +2917,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                         return true;
                     }
                 }
-                partial_extensions_aligned++;
+                partial_extension_aligned = true;
             }
             
             // TODO: We don't track this filter with the funnel because it
