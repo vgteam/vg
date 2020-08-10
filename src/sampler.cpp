@@ -771,7 +771,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     // memoize phred conversions
     phred_prob.resize(256);
     for (int i = 1; i < phred_prob.size(); i++) {
-        phred_prob[i] = error_multiplier * phred_to_prob(i);
+        phred_prob[i] = error_multiplier * phred_to_prob((uint8_t)i);
     }
     
     for (size_t i = 0; i < alphabet.size(); i++) {
