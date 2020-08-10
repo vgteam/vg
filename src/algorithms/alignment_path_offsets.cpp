@@ -181,18 +181,29 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
 }
 
 void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit) {
+    annotate_with_path_positions(graph, aln, true, search_limit);
+}
+
+void annotate_with_node_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit) {
+    annotate_with_path_positions(graph, aln, false, search_limit);
+}
+
+void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, bool just_min, size_t search_limit) {
     if (!aln.refpos_size()) {
-        unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions = alignment_path_offsets(graph, aln, true, false, search_limit);
+        // Get requested path positions
+        unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions = alignment_path_offsets(graph, aln, just_min, false, search_limit);
         // emit them in order of the path handle
         vector<path_handle_t> ordered;
         for (auto& path : positions) { ordered.push_back(path.first); }
         std::sort(ordered.begin(), ordered.end(), [](const path_handle_t& a, const path_handle_t& b) { return as_integer(a) < as_integer(b); });
         for (auto& path : ordered) {
-            auto& p = positions[path];
-            Position* refpos = aln.add_refpos();
-            refpos->set_name(graph.get_path_name(path));
-            refpos->set_offset(p.front().first);
-            refpos->set_is_reverse(p.front().second);
+            for (auto& p : positions[path]) {
+                // Add each determined refpos
+                Position* refpos = aln.add_refpos();
+                refpos->set_name(graph.get_path_name(path));
+                refpos->set_offset(p.first);
+                refpos->set_is_reverse(p.second);
+            }
         }
     }
 }

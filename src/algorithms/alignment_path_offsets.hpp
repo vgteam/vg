@@ -13,7 +13,12 @@ namespace algorithms {
 
 using namespace std;
 
-/// gives just the path positions of the alignment
+/// Gives the path positions of the alignment. If just_min is set, gives the
+/// minimum position on each path. Else, gives all Mapping start positions on
+/// each path. If nearby is set, will search for a nearby path. Will recurse
+/// with nearby set if it is not set on initial call and no positions are
+/// found. Respects search_limit in bp in that case. If search_limit is 0, read
+/// length is used.
 unordered_map<path_handle_t, vector<pair<size_t, bool> > >
 alignment_path_offsets(const PathPositionHandleGraph& graph,
                        const Alignment& aln,
@@ -36,6 +41,25 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
 /// alignment does not actually touch any paths. If 0, the alignment's
 /// sequence length is used.
 void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit = 0);
+
+/// Use the graph to annotate an Alignment with the first
+/// position it touches on each node it visits in each reference path. Thread
+/// safe. If no nodes on any path are visited, searches for a nearby path
+/// position to use.
+///
+/// search_limit gives the maximum distance to search for a path if the
+/// alignment does not actually touch any paths. If 0, the alignment's
+/// sequence length is used.
+void annotate_with_node_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit = 0);
+
+/// Use the graph to annotate an Alignment with positions on each reference
+/// path. Thread safe.
+///
+/// If just_min is set, gives the minimum position on each path. Else, gives
+/// all Mapping start positions on each path. If no positions on the path are
+/// found, looks for nearby path positions in graph space. Respects
+/// search_limit in bp in that case. If search_limit is 0, read length is used.
+void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, bool just_min, size_t search_limit = 0);
 
 /// Use the graph annotate Alignments with the first position
 /// they touch on each reference path. Thread safe.
