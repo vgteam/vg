@@ -57,7 +57,7 @@ var searchData=
   ['window_5flength',['window_length',['../classvg_1_1Filter.html#ad719ad4c073cbe1298c9911e1c1cb329',1,'vg::Filter']]],
   ['window_5fof_5fid',['window_of_id',['../classvg_1_1StreamIndexBase.html#a320b27d89fbc1a74574cc00befe1e7fe',1,'vg::StreamIndexBase']]],
   ['window_5fshift',['WINDOW_SHIFT',['../classvg_1_1StreamIndexBase.html#abfcccdbb508967165d185181eb95588a',1,'vg::StreamIndexBase']]],
-  ['window_5fsize',['window_size',['../classvg_1_1WindowedVcfBuffer.html#a898deb05050ba62533e294b7cf959fe3',1,'vg::WindowedVcfBuffer']]],
+  ['window_5fsize',['window_size',['../classvg_1_1WindowedVcfBuffer.html#a898deb05050ba62533e294b7cf959fe3',1,'vg::WindowedVcfBuffer::window_size()'],['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a7fb1665349757422a2868159d2b66437',1,'vg::MinimizerMapper::Minimizer::window_size()']]],
   ['window_5ft',['window_t',['../classvg_1_1StreamIndexBase.html#ad94010282265d6d8743f31ed5b3e98ce',1,'vg::StreamIndexBase']]],
   ['window_5fto_5fstart',['window_to_start',['../classvg_1_1StreamIndexBase.html#a47fab2baab7953595105558d0fcba4e2',1,'vg::StreamIndexBase']]],
   ['windowedvcfbuffer',['WindowedVcfBuffer',['../classvg_1_1WindowedVcfBuffer.html',1,'vg::WindowedVcfBuffer'],['../classvg_1_1WindowedVcfBuffer.html#a7d7af1d1441bab6c687bdf1be7fc4675',1,'vg::WindowedVcfBuffer::WindowedVcfBuffer(vcflib::VariantCallFile *file, size_t window_size)'],['../classvg_1_1WindowedVcfBuffer.html#aa57da13990d5983d5e8aa787dfe56995',1,'vg::WindowedVcfBuffer::WindowedVcfBuffer(const WindowedVcfBuffer &amp;other)=delete']]],

@@ -20,6 +20,7 @@ var searchData=
   ['widest_5fdijkstra',['widest_dijkstra',['../namespacevg_1_1algorithms.html#a08c6d85f2dc09c22c5d14ed81808769e',1,'vg::algorithms']]],
   ['window_5fbreaking_5fquality',['window_breaking_quality',['../classvg_1_1MinimizerMapper.html#abb97488378272853b8f6bbd4f089bb9b',1,'vg::MinimizerMapper']]],
   ['window_5fof_5fid',['window_of_id',['../classvg_1_1StreamIndexBase.html#a320b27d89fbc1a74574cc00befe1e7fe',1,'vg::StreamIndexBase']]],
+  ['window_5fsize',['window_size',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a7fb1665349757422a2868159d2b66437',1,'vg::MinimizerMapper::Minimizer']]],
   ['windowedvcfbuffer',['WindowedVcfBuffer',['../classvg_1_1WindowedVcfBuffer.html#a7d7af1d1441bab6c687bdf1be7fc4675',1,'vg::WindowedVcfBuffer::WindowedVcfBuffer(vcflib::VariantCallFile *file, size_t window_size)'],['../classvg_1_1WindowedVcfBuffer.html#aa57da13990d5983d5e8aa787dfe56995',1,'vg::WindowedVcfBuffer::WindowedVcfBuffer(const WindowedVcfBuffer &amp;other)=delete']]],
   ['with_5fcache_5fentry',['with_cache_entry',['../classvg_1_1IndexedVG.html#ac14226d9ccd03cb99af9a08cef31d6ff',1,'vg::IndexedVG']]],
   ['with_5fcursor',['with_cursor',['../classvg_1_1IndexedVG.html#af380961c8e8b342ba8f688c2f073de2e',1,'vg::IndexedVG']]],

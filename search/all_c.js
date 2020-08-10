@@ -74,6 +74,7 @@ var searchData=
   ['locked_5fnodes',['locked_nodes',['../classvg_1_1GraphSynchronizer_1_1Lock.html#acfb5bf6caa6040ec1028250324296355',1,'vg::GraphSynchronizer::Lock::locked_nodes()'],['../classvg_1_1GraphSynchronizer.html#a275e3112ec47229a197e3ecc118771c4',1,'vg::GraphSynchronizer::locked_nodes()']]],
   ['locus',['Locus',['../structvg_1_1Locus.html',1,'vg::Locus'],['../structvg_1_1Alignment.html#afe47b70cd7b78e97a9cf18e9c60ef4f0',1,'vg::Alignment::locus()']]],
   ['locus_5fto_5fvariant',['locus_to_variant',['../classvg_1_1Genotyper.html#a55c456d612728331007f2f6c4307195f',1,'vg::Genotyper']]],
+  ['log10_5fadd_5fone',['log10_add_one',['../namespacevg.html#a16b2b6e110a2f72a871c309b888b013c',1,'vg']]],
   ['log10_5fto_5fln',['log10_to_ln',['../namespacevg.html#a48d9ec9295afc7457506af4ddaf44217',1,'vg']]],
   ['log_5fbase',['log_base',['../classvg_1_1GSSWAligner.html#a5a1a7e6edc3764ff32f7815999d6345f',1,'vg::GSSWAligner']]],
   ['log_5fcontinue_5ffactor',['log_continue_factor',['../structhaplo_1_1haploMath_1_1RRMemo.html#a4a3dacc819f40fd7e5063821b133028d',1,'haplo::haploMath::RRMemo']]],

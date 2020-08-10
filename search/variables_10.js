@@ -7,7 +7,7 @@ var searchData=
   ['pad_5fcluster_5fscore_5fthreshold',['pad_cluster_score_threshold',['../classvg_1_1MinimizerMapper.html#a70b206dc58a148a69657303ff292199f',1,'vg::MinimizerMapper']]],
   ['pair_5frescue_5fhang_5fthreshold',['pair_rescue_hang_threshold',['../classvg_1_1Mapper.html#a92e1f4de4e6ce576e09005713d1c1cd1',1,'vg::Mapper']]],
   ['pair_5frescue_5fretry_5fthreshold',['pair_rescue_retry_threshold',['../classvg_1_1Mapper.html#a36ed72fe5d33907a75992011ff9ae244',1,'vg::Mapper']]],
-  ['paired_5fdistance_5fstdevs',['paired_distance_stdevs',['../classvg_1_1MinimizerMapper.html#a61613e65071df4d62bd48bf0537c1bfd',1,'vg::MinimizerMapper']]],
+  ['paired_5fdistance_5fstdevs',['paired_distance_stdevs',['../classvg_1_1MinimizerMapper.html#a94bd867270265d26c4f2abfbd730f316',1,'vg::MinimizerMapper']]],
   ['paired_5fread_5fname',['paired_read_name',['../structvg_1_1MultipathAlignment.html#a0664790bf6bd37af413697cddff370fb',1,'vg::MultipathAlignment']]],
   ['paired_5frescue_5fscore_5flimit',['paired_rescue_score_limit',['../classvg_1_1MinimizerMapper.html#a0d202640acf03548aa1f902ec4faf731',1,'vg::MinimizerMapper']]],
   ['parent',['parent',['../structvg_1_1SnarlManager_1_1SnarlRecord.html#ae00d40d340f5114917a9f6ca1cec0460',1,'vg::SnarlManager::SnarlRecord::parent()'],['../structvg_1_1TreeNode.html#a4eb11d266cabbae3e6728d2918c80996',1,'vg::TreeNode::parent()'],['../structvg_1_1Snarl.html#a054af14a2fccdda2209ef9a8f19aa032',1,'vg::Snarl::parent()']]],

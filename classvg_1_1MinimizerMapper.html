@@ -149,6 +149,9 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aaf577b72776f431ec4dc5faac505322e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5696bfb7029ca88ec04d0f849365b34f"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a5696bfb7029ca88ec04d0f849365b34f">minimizer_score_fraction</a> = 0.7</td></tr>
 <tr class="separator:a5696bfb7029ca88ec04d0f849365b34f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a03f18247f88d4817feef2d25a46fd5ca"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a03f18247f88d4817feef2d25a46fd5ca">min_extensions</a> = 2</td></tr>
+<tr class="memdesc:a03f18247f88d4817feef2d25a46fd5ca"><td class="mdescLeft">&#160;</td><td class="mdescRight">Accept at least this many clusters.  <a href="#a03f18247f88d4817feef2d25a46fd5ca">More...</a><br /></td></tr>
+<tr class="separator:a03f18247f88d4817feef2d25a46fd5ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5d03747a37700e9a3f73c308709f70d1"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a5d03747a37700e9a3f73c308709f70d1">max_extensions</a> = 800</td></tr>
 <tr class="memdesc:a5d03747a37700e9a3f73c308709f70d1"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many clusters should we align?  <a href="#a5d03747a37700e9a3f73c308709f70d1">More...</a><br /></td></tr>
 <tr class="separator:a5d03747a37700e9a3f73c308709f70d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -182,14 +185,14 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aeabec85347521c1f42ef51e0453c4e5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7896c6cccfa011c4fbad1b916d30052e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a7896c6cccfa011c4fbad1b916d30052e">track_correctness</a> = false</td></tr>
 <tr class="separator:a7896c6cccfa011c4fbad1b916d30052e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a61613e65071df4d62bd48bf0537c1bfd"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a61613e65071df4d62bd48bf0537c1bfd">paired_distance_stdevs</a> = 2</td></tr>
-<tr class="separator:a61613e65071df4d62bd48bf0537c1bfd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a94bd867270265d26c4f2abfbd730f316"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a94bd867270265d26c4f2abfbd730f316">paired_distance_stdevs</a> = 2.0</td></tr>
+<tr class="separator:a94bd867270265d26c4f2abfbd730f316"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d202640acf03548aa1f902ec4faf731"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0d202640acf03548aa1f902ec4faf731">paired_rescue_score_limit</a> = 0.9</td></tr>
 <tr class="memdesc:a0d202640acf03548aa1f902ec4faf731"><td class="mdescLeft">&#160;</td><td class="mdescRight">How close does an alignment have to be to the best alignment for us to rescue on it.  <a href="#a0d202640acf03548aa1f902ec4faf731">More...</a><br /></td></tr>
 <tr class="separator:a0d202640acf03548aa1f902ec4faf731"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a19f9bf5af66cbc96a3d1fdd2e5e83dda"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a19f9bf5af66cbc96a3d1fdd2e5e83dda">rescue_subgraph_stdevs</a> = 3</td></tr>
-<tr class="memdesc:a19f9bf5af66cbc96a3d1fdd2e5e83dda"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many stdevs from the mean do we extract a subgraph from?  <a href="#a19f9bf5af66cbc96a3d1fdd2e5e83dda">More...</a><br /></td></tr>
-<tr class="separator:a19f9bf5af66cbc96a3d1fdd2e5e83dda"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a411fb85396b07aab41fabc8e34b92481"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a411fb85396b07aab41fabc8e34b92481">rescue_subgraph_stdevs</a> = 4.0</td></tr>
+<tr class="memdesc:a411fb85396b07aab41fabc8e34b92481"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many stdevs from the mean do we extract a subgraph from?  <a href="#a411fb85396b07aab41fabc8e34b92481">More...</a><br /></td></tr>
+<tr class="separator:a411fb85396b07aab41fabc8e34b92481"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0985bcf3a1ed28098bf0271b251dd6e2">max_rescue_attempts</a> = 15</td></tr>
 <tr class="memdesc:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">For paired end mapping, how many times should we attempt rescue (per read)?  <a href="#a0985bcf3a1ed28098bf0271b251dd6e2">More...</a><br /></td></tr>
 <tr class="separator:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -233,8 +236,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:ae68add551501e3b58c9329d9297d620d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a33fac2713ca1929fc6f870f4bb9e82b8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a33fac2713ca1929fc6f870f4bb9e82b8">extension_to_alignment</a> (const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;extension, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment) const</td></tr>
 <tr class="separator:a33fac2713ca1929fc6f870f4bb9e82b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac861bd6bd13e84585765ca5e27dd5d0b"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ac861bd6bd13e84585765ca5e27dd5d0b">compute_mapq_caps</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;present_in_any_extended_cluster)</td></tr>
-<tr class="separator:ac861bd6bd13e84585765ca5e27dd5d0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a827c2936a317f2a2dbc1d744aff6c0e1"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a827c2936a317f2a2dbc1d744aff6c0e1">compute_mapq_caps</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;explored)</td></tr>
+<tr class="separator:a827c2936a317f2a2dbc1d744aff6c0e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6e3ec6685f98622b35391ae0d8bac180"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6e3ec6685f98622b35391ae0d8bac180">find_optimal_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;best, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;second_best) const</td></tr>
 <tr class="separator:a6e3ec6685f98622b35391ae0d8bac180"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab3256c8c0ebc49ff72af298684580fa4"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab3256c8c0ebc49ff72af298684580fa4">find_connecting_paths</a> (const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, size_t read_length) const</td></tr>
@@ -272,6 +275,14 @@ Protected Member Functions</h2></td></tr>
 Static Protected Member Functions</h2></td></tr>
 <tr class="memitem:abb97488378272853b8f6bbd4f089bb9b"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#abb97488378272853b8f6bbd4f089bb9b">window_breaking_quality</a> (const vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, vector&lt; size_t &gt; &amp;broken, const string &amp;sequence, const string &amp;quality_bytes)</td></tr>
 <tr class="separator:abb97488378272853b8f6bbd4f089bb9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0c1f5347f2991ee66e1aacf8217e6fe8"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0c1f5347f2991ee66e1aacf8217e6fe8">faster_cap</a> (const vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, vector&lt; size_t &gt; &amp;minimizers_explored, const string &amp;sequence, const string &amp;quality_bytes)</td></tr>
+<tr class="separator:a0c1f5347f2991ee66e1aacf8217e6fe8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad5c8d304e57ed9724de861cab2b317b1"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ad5c8d304e57ed9724de861cab2b317b1">for_each_aglomeration_interval</a> (const vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const string &amp;sequence, const string &amp;quality_bytes, const vector&lt; size_t &gt; &amp;minimizer_indices, const function&lt; void(size_t, size_t, size_t, size_t)&gt; &amp;iteratee)</td></tr>
+<tr class="separator:ad5c8d304e57ed9724de861cab2b317b1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a63e5c830801160c6e7a6cf8ea24f71ca"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a63e5c830801160c6e7a6cf8ea24f71ca">get_log10_prob_of_disruption_in_interval</a> (const vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const string &amp;sequence, const string &amp;quality_bytes, const vector&lt; size_t &gt;::iterator &amp;disrupt_begin, const vector&lt; size_t &gt;::iterator &amp;disrupt_end, size_t left, size_t right)</td></tr>
+<tr class="separator:a63e5c830801160c6e7a6cf8ea24f71ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a569e07330274ebe7c62c52cd3b5cd39f"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a569e07330274ebe7c62c52cd3b5cd39f">get_prob_of_disruption_in_column</a> (const vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const string &amp;sequence, const string &amp;quality_bytes, const vector&lt; size_t &gt;::iterator &amp;disrupt_begin, const vector&lt; size_t &gt;::iterator &amp;disrupt_end, size_t index)</td></tr>
+<tr class="separator:a569e07330274ebe7c62c52cd3b5cd39f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2c8ab02743227cb2550fcfd295043253"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a2c8ab02743227cb2550fcfd295043253">score_extension_group</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, int gap_open_penalty, int gap_extend_penalty)</td></tr>
 <tr class="separator:a2c8ab02743227cb2550fcfd295043253"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab3008803e2ce57d5bbcd6a077f9dcde6"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab3008803e2ce57d5bbcd6a077f9dcde6">immutable_path_from_length</a> (const <a class="el" href="classvg_1_1MinimizerMapper.html#af12f40d8ae25f153fba1dc122fda29f0">ImmutablePath</a> &amp;path)</td></tr>
@@ -493,8 +504,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ac861bd6bd13e84585765ca5e27dd5d0b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac861bd6bd13e84585765ca5e27dd5d0b">&#9670;&nbsp;</a></span>compute_mapq_caps()</h2>
+<a id="a827c2936a317f2a2dbc1d744aff6c0e1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a827c2936a317f2a2dbc1d744aff6c0e1">&#9670;&nbsp;</a></span>compute_mapq_caps()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -518,7 +529,7 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;&#160;</td>
-          <td class="paramname"><em>present_in_any_extended_cluster</em>&#160;</td>
+          <td class="paramname"><em>explored</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -532,7 +543,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Compute MAPQ caps based on all minimizers present in extended clusters.</p>
+<p>Compute MAPQ caps based on all minimizers that are explored, for some definition of explored.</p>
 <p>Needs access to the input alignment for sequence and quality information.</p>
 <p>Returns only an "extended" cap at the moment. </p>
 
@@ -774,6 +785,61 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a0c1f5347f2991ee66e1aacf8217e6fe8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0c1f5347f2991ee66e1aacf8217e6fe8">&#9670;&nbsp;</a></span>faster_cap()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MinimizerMapper::faster_cap </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers_explored</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>sequence</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>quality_bytes</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Compute a bound on the Phred score probability of a mapping beign wrong due to base errors and unlocated minimizer hits prevented us from finding the true alignment.</p>
+<p>Algorithm uses a "sweep line" dynamic programming approach. For a read with minimizers aligned to it: </p><pre class="fragment">         000000000011111111112222222222
+         012345678901234567890123456789
+</pre><p> Read: ****************************** <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> 1: ***** <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> 2: ***** <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> 3: ***** <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> 4: *****</p>
+<p>For each distinct read interval of overlapping minimizers, e.g. in the example the intervals 3,4,5; 6,7; 8,9,10; 18,19,20; 21,22; and 23,24,25 we consider base errors that would result in the minimizers in the interval being incorrect</p>
+<p>We use dynamic programming sweeping left-to-right over the intervals to compute the probability of the minimum number of base errors needed to disrupt all the minimizers.</p>
+<p>Will sort minimizers_explored (which is indices into minimizers) by minimizer start position. </p>
+
+</div>
+</div>
 <a id="a4ae627a418357792cd5b9f6d6b9cc19c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4ae627a418357792cd5b9f6d6b9cc19c">&#9670;&nbsp;</a></span>finalize_fragment_length_distr()</h2>
 
@@ -1012,6 +1078,63 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="ad5c8d304e57ed9724de861cab2b317b1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad5c8d304e57ed9724de861cab2b317b1">&#9670;&nbsp;</a></span>for_each_aglomeration_interval()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::for_each_aglomeration_interval </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>sequence</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>quality_bytes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizer_indices</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(size_t, size_t, size_t, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Given a collection of minimizers, and a list of the minimizers we actually care about (as indices into the collection), iterate over common intervals of overlapping minimizer agglomerations.</p>
+<p>Calls the given callback with (left, right, bottom, top), where left is the first base of the agglomeration interval (inclusive), right is the last base of the agglomeration interval (exclusive), bottom is the index of the first minimizer with an agglomeration in the interval and top is the index of the last minimizer with an agglomeration in the interval (exclusive).</p>
+<p>Note that bottom and top are offsets into minimizer_indices, <b>NOT</b> minimizers itself. Only contiguous ranges in minimizer_indices actually make sense. </p>
+
+</div>
+</div>
 <a id="a7f1925a1c2071ed65c543cc25b4d4f02"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7f1925a1c2071ed65c543cc25b4d4f02">&#9670;&nbsp;</a></span>force_fragment_length_distr()</h2>
 
@@ -1232,6 +1355,140 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a63e5c830801160c6e7a6cf8ea24f71ca"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a63e5c830801160c6e7a6cf8ea24f71ca">&#9670;&nbsp;</a></span>get_log10_prob_of_disruption_in_interval()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MinimizerMapper::get_log10_prob_of_disruption_in_interval </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>sequence</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>quality_bytes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; size_t &gt;::iterator &amp;&#160;</td>
+          <td class="paramname"><em>disrupt_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; size_t &gt;::iterator &amp;&#160;</td>
+          <td class="paramname"><em>disrupt_end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>right</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Gives the log10 prob of a base error in the given interval of the read, accounting for the disruption of specified minimizers.</p>
+<p>minimizers is the collection of all minimizers</p>
+<p>disrupt_begin and disrupt_end are iterators defining a sequence of <b>indices</b> of minimizers in minimizers that are disrupted.</p>
+<p>left and right are the inclusive and exclusive bounds of the interval of the read where the disruption occurs. </p>
+
+</div>
+</div>
+<a id="a569e07330274ebe7c62c52cd3b5cd39f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a569e07330274ebe7c62c52cd3b5cd39f">&#9670;&nbsp;</a></span>get_prob_of_disruption_in_column()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MinimizerMapper::get_prob_of_disruption_in_column </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>sequence</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>quality_bytes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; size_t &gt;::iterator &amp;&#160;</td>
+          <td class="paramname"><em>disrupt_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; size_t &gt;::iterator &amp;&#160;</td>
+          <td class="paramname"><em>disrupt_end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>index</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Gives the raw probability of a base error in the given column of the read, accounting for the disruption of specified minimizers.</p>
+<p>minimizers is the collection of all minimizers</p>
+<p>disrupt_begin and disrupt_end are iterators defining a sequence of <b>indices</b> of minimizers in minimizers that are disrupted.</p>
+<p>index is the position in the read where the disruption occurs. </p>
 
 </div>
 </div>
@@ -2292,6 +2549,22 @@ template&lt;typename Item , typename Score &gt; </div>
 
 </div>
 </div>
+<a id="a03f18247f88d4817feef2d25a46fd5ca"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a03f18247f88d4817feef2d25a46fd5ca">&#9670;&nbsp;</a></span>min_extensions</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::min_extensions = 2</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Accept at least this many clusters. </p>
+
+</div>
+</div>
 <a id="a8158d7661a52252dd77e2ec0dcaa1964"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a8158d7661a52252dd77e2ec0dcaa1964">&#9670;&nbsp;</a></span>minimizer_indexes</h2>
 
@@ -2343,14 +2616,14 @@ template&lt;typename Item , typename Score &gt; </div>
 
 </div>
 </div>
-<a id="a61613e65071df4d62bd48bf0537c1bfd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a61613e65071df4d62bd48bf0537c1bfd">&#9670;&nbsp;</a></span>paired_distance_stdevs</h2>
+<a id="a94bd867270265d26c4f2abfbd730f316"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a94bd867270265d26c4f2abfbd730f316">&#9670;&nbsp;</a></span>paired_distance_stdevs</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::MinimizerMapper::paired_distance_stdevs = 2</td>
+          <td class="memname">double vg::MinimizerMapper::paired_distance_stdevs = 2.0</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -2425,14 +2698,14 @@ template&lt;typename Item , typename Score &gt; </div>
 
 </div>
 </div>
-<a id="a19f9bf5af66cbc96a3d1fdd2e5e83dda"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a19f9bf5af66cbc96a3d1fdd2e5e83dda">&#9670;&nbsp;</a></span>rescue_subgraph_stdevs</h2>
+<a id="a411fb85396b07aab41fabc8e34b92481"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a411fb85396b07aab41fabc8e34b92481">&#9670;&nbsp;</a></span>rescue_subgraph_stdevs</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::MinimizerMapper::rescue_subgraph_stdevs = 3</td>
+          <td class="memname">double vg::MinimizerMapper::rescue_subgraph_stdevs = 4.0</td>
         </tr>
       </table>
 </div><div class="memdoc">

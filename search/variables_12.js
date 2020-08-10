@@ -57,7 +57,7 @@ var searchData=
   ['rescue_5fgraph_5fstd_5fdevs',['rescue_graph_std_devs',['../classvg_1_1MultipathMapper.html#aab3573cb5d2878a13b0a40d427e8c943',1,'vg::MultipathMapper']]],
   ['rescue_5fonly_5fanchor_5fmax',['rescue_only_anchor_max',['../classvg_1_1MultipathMapper.html#acd7c1016549d1f96af13b9c317f239f3',1,'vg::MultipathMapper']]],
   ['rescue_5fonly_5fmin',['rescue_only_min',['../classvg_1_1MultipathMapper.html#a2ad423f9fc1a81bbe31e9c25992de378',1,'vg::MultipathMapper']]],
-  ['rescue_5fsubgraph_5fstdevs',['rescue_subgraph_stdevs',['../classvg_1_1MinimizerMapper.html#a19f9bf5af66cbc96a3d1fdd2e5e83dda',1,'vg::MinimizerMapper']]],
+  ['rescue_5fsubgraph_5fstdevs',['rescue_subgraph_stdevs',['../classvg_1_1MinimizerMapper.html#a411fb85396b07aab41fabc8e34b92481',1,'vg::MinimizerMapper']]],
   ['reserved',['reserved',['../structvg_1_1Alignment.html#a8374111b6348509e8e9ecca0cd1ac046',1,'vg::Alignment']]],
   ['reset_5fchain_5fparent',['reset_chain_parent',['../structvg_1_1Range.html#ae7094ff81d6898f0c8e8b7883f316bd9',1,'vg::Range']]],
   ['restrained_5fgraph_5fextraction',['restrained_graph_extraction',['../classvg_1_1MultipathMapper.html#a0ad5a21ab0cf3c77e3905e299b7d26c4',1,'vg::MultipathMapper']]],
