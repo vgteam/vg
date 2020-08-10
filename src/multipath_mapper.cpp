@@ -138,11 +138,11 @@ namespace vg {
             
             multipath_alns_out.front().set_mapping_quality(0);
         }
-        else {
-            // account for the possiblity that we missed the correct cluster due to sub-sampling MEM hits
-            // within the cluster
-            cap_mapping_quality_by_hit_sampling_probability(multipath_alns_out, cluster_idxs, cluster_graphs);
-        }
+//        else {
+//            // account for the possiblity that we missed the correct cluster due to sub-sampling MEM hits
+//            // within the cluster
+//            cap_mapping_quality_by_hit_sampling_probability(multipath_alns_out, cluster_idxs, cluster_graphs);
+//        }
         
         // if we computed extra alignments to get a mapping quality, remove them
         if (multipath_alns_out.size() > max_alt_mappings) {
@@ -788,14 +788,6 @@ namespace vg {
             distance_index->subgraph_in_range(opt_anchoring_aln.path(), xindex, min_distance, max_distance,
                                               subgraph_nodes_to_add, rescue_forward);
             
-            
-#ifdef debug_multipath_mapper
-            cerr << "got distance based rescue graph:" << endl;
-            for (auto nid : subgraph_nodes_to_add) {
-                cerr << "\t" << nid << endl;
-            }
-#endif
-            
             // this algorithm is better matched to the GBWTGraph, we need to extract the subgraph manually now.
             // we'll use an algorithm that tries to follow edges to find nodes. this way we minimize calls to XG's
             // get_handle, and we have to follow all edges anyway to add them
@@ -810,9 +802,6 @@ namespace vg {
                 rescue_graph->create_handle(xindex->get_sequence(start_handle),
                                             xindex->get_id(start_handle));
                 vector<handle_t> stack(1, start_handle);
-#ifdef debug_multipath_mapper
-                cerr << "initializing extraction search at node " << node_id << endl;
-#endif
                 while (!stack.empty()) {
                     handle_t super_handle = stack.back();
                     stack.pop_back();
@@ -826,9 +815,6 @@ namespace vg {
                                 rescue_graph->create_handle(xindex->get_sequence(xindex->forward(neighbor)),
                                                             xindex->get_id(neighbor));
                                 stack.push_back(neighbor);
-#ifdef debug_multipath_mapper
-                                cerr << "reached " << xindex->get_id(neighbor) << " from searching" << endl;
-#endif
                             }
                             
                             if (rescue_graph->has_node(xindex->get_id(neighbor))) {
@@ -843,15 +829,9 @@ namespace vg {
                                 // edges automatically deduplicate, so don't worry about checking whether
                                 // it exists
                                 if (go_left) {
-#ifdef debug_multipath_mapper
-                                    cerr << "create edge " << rescue_graph->get_id(sub_neighbor) << (rescue_graph->get_is_reverse(sub_neighbor) ? "-" : "+") << " -> " << rescue_graph->get_id(sub_handle) << (rescue_graph->get_is_reverse(sub_handle) ? "-" : "+")  << endl;
-#endif
                                     rescue_graph->create_edge(sub_neighbor, sub_handle);
                                 }
                                 else {
-#ifdef debug_multipath_mapper
-                                    cerr << "create edge " << rescue_graph->get_id(sub_handle) << (rescue_graph->get_is_reverse(sub_handle) ? "-" : "+") << " -> " << rescue_graph->get_id(sub_neighbor) << (rescue_graph->get_is_reverse(sub_neighbor) ? "-" : "+")  << endl;
-#endif
                                     rescue_graph->create_edge(sub_handle, sub_neighbor);
                                 }
                             }
@@ -1720,18 +1700,18 @@ namespace vg {
         }
 #endif
         
-        // TODO: this method of identifying a unique mapping is fragile to having a low
-        // count noise MEM. it might be worth fixing this if we ever want to reenable it
-        
-        // find the count of the most unique match among the MEMs to assess how repetitive the sequence is
-        size_t min_match_count_1 = numeric_limits<int64_t>::max();
-        size_t min_match_count_2 = numeric_limits<int64_t>::max();
-        for (const MaximalExactMatch& mem : mems1) {
-            min_match_count_1 = min(min_match_count_1, mem.match_count);
-        }
-        for (const MaximalExactMatch& mem : mems2) {
-            min_match_count_2 = min(min_match_count_2, mem.match_count);
-        }
+//        // TODO: this method of identifying a unique mapping is fragile to having a low
+//        // count noise MEM. it might be worth fixing this if we ever want to reenable it
+//
+//        // find the count of the most unique match among the MEMs to assess how repetitive the sequence is
+//        size_t min_match_count_1 = numeric_limits<int64_t>::max();
+//        size_t min_match_count_2 = numeric_limits<int64_t>::max();
+//        for (const MaximalExactMatch& mem : mems1) {
+//            min_match_count_1 = min(min_match_count_1, mem.match_count);
+//        }
+//        for (const MaximalExactMatch& mem : mems2) {
+//            min_match_count_2 = min(min_match_count_2, mem.match_count);
+//        }
         
         // initialize cluster variables
         vector<memcluster_t> clusters1, clusters2;
@@ -1755,8 +1735,6 @@ namespace vg {
             distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
                                                                                                       &path_component_index));
         }
-
-
         
 #ifdef debug_multipath_mapper
         cerr << "clustering MEMs on both read ends..." << endl;
@@ -1824,8 +1802,10 @@ namespace vg {
             
             // do we produce at least one good looking pair alignments from the clustered clusters?
             if (multipath_aln_pairs_out.empty()
-                || !((!likely_mismapping(multipath_aln_pairs_out.front().first) && !likely_misrescue(multipath_aln_pairs_out.front().second)) ||
-                     (!likely_misrescue(multipath_aln_pairs_out.front().first) && !likely_mismapping(multipath_aln_pairs_out.front().second)))) {
+                || likely_mismapping(multipath_aln_pairs_out.front().first)
+                || likely_mismapping(multipath_aln_pairs_out.front().second)) {
+//                || !((!likely_mismapping(multipath_aln_pairs_out.front().first) && !likely_misrescue(multipath_aln_pairs_out.front().second)) ||
+//                     (!likely_misrescue(multipath_aln_pairs_out.front().first) && !likely_mismapping(multipath_aln_pairs_out.front().second)))) {
                 
 #ifdef debug_multipath_mapper
                 cerr << "pair may be mismapped, attempting individual end mappings" << endl;
