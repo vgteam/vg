@@ -1,6 +1,7 @@
 var searchData=
 [
   ['param_5ftype',['param_type',['../classvg_1_1discrete__distribution.html#a923a04239b0ceb7026d193aa671100e4',1,'vg::discrete_distribution']]],
+  ['pareto_5fpoint',['pareto_point',['../namespacevg.html#a1aa2d026eb3edc0c692e19e5a493feef',1,'vg']]],
   ['path_5fchunk_5ft',['path_chunk_t',['../classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02',1,'vg::Surjector']]],
   ['path_5fhandle_5ft',['path_handle_t',['../namespacevg.html#aaf7aeec04909c1aac0ad991764d48e24',1,'vg::path_handle_t()'],['../namespacevg_1_1io.html#a5cab7a1a96fc203865d8ca67a372b24f',1,'vg::io::path_handle_t()']]],
   ['path_5ftype',['path_type',['../classvg_1_1PhaseUnfolder.html#a402b0f84990279594bfbb1cd71ffd8e5',1,'vg::PhaseUnfolder']]],

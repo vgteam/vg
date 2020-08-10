@@ -34,6 +34,7 @@ var searchData=
   ['gap_5fextension',['gap_extension',['../classvg_1_1GSSWAligner.html#afd2379af50d751eee892a10529d64ffb',1,'vg::GSSWAligner::gap_extension()'],['../classvg_1_1SSWAligner.html#a2248e3e561aab8d3b1036d51850b3c2f',1,'vg::SSWAligner::gap_extension()']]],
   ['gap_5fmemo_5fmax_5fsize',['gap_memo_max_size',['../classvg_1_1MultipathMapper.html#a864cc168b7061cf1885ef61785e474d3',1,'vg::MultipathMapper']]],
   ['gap_5fopen',['gap_open',['../classvg_1_1GSSWAligner.html#aa5c0a63b73ad2ff8ec8f05062c768c22',1,'vg::GSSWAligner::gap_open()'],['../classvg_1_1SSWAligner.html#a15398a23880418599e81370d485fec0f',1,'vg::SSWAligner::gap_open()']]],
+  ['gap_5fpenalty',['gap_penalty',['../namespacevg.html#aa4440aef25c50cbf88a2ba4de9efcdd1',1,'vg::gap_penalty(size_t length, const Aligner *aligner)'],['../namespacevg.html#a3fd7485742302c90960d1c8a8d3e6185',1,'vg::gap_penalty(size_t start, size_t limit, const Aligner *aligner)']]],
   ['gapless_5fextender_2ecpp',['gapless_extender.cpp',['../gapless__extender_8cpp.html',1,'']]],
   ['gapless_5fextender_2ehpp',['gapless_extender.hpp',['../gapless__extender_8hpp.html',1,'']]],
   ['gaplessextender',['GaplessExtender',['../classvg_1_1GaplessExtender.html',1,'vg::GaplessExtender'],['../classvg_1_1GaplessExtender.html#a497cc4e85c6433a3e41f04895703f271',1,'vg::GaplessExtender::GaplessExtender()'],['../classvg_1_1GaplessExtender.html#aaebc8d221df2787a68023fce2d99290a',1,'vg::GaplessExtender::GaplessExtender(const gbwtgraph::GBWTGraph &amp;graph, const Aligner &amp;aligner)']]],

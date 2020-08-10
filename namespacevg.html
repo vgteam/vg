@@ -667,6 +667,8 @@ Typedefs</h2></td></tr>
 <tr class="separator:a449aa64ac606119e59f71cecb8a3b218"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a31b8b476fb46de6667b26514b7b24fd2"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a> = vector&lt; gbwt::node_type &gt;</td></tr>
 <tr class="separator:a31b8b476fb46de6667b26514b7b24fd2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1aa2d026eb3edc0c692e19e5a493feef"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; uint32_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1aa2d026eb3edc0c692e19e5a493feef">pareto_point</a></td></tr>
+<tr class="separator:a1aa2d026eb3edc0c692e19e5a493feef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aceea01d66677e39af71921f1bb1911f0"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> = vector&lt; pair&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *, bool &gt; &gt;</td></tr>
 <tr class="separator:aceea01d66677e39af71921f1bb1911f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7392de2ef03532b2ec3461ebb178c75a"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7392de2ef03532b2ec3461ebb178c75a">real_t</a> = long double</td></tr>
@@ -1279,6 +1281,16 @@ Functions</h2></td></tr>
 <tr class="memitem:a8cd30aaebcab130194ac375f23e6f098"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8cd30aaebcab130194ac375f23e6f098">get_current_vmem_kb</a> ()</td></tr>
 <tr class="memdesc:a8cd30aaebcab130194ac375f23e6f098"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the current virtual memory size, in kb, or 0 if unsupported.  <a href="#a8cd30aaebcab130194ac375f23e6f098">More...</a><br /></td></tr>
 <tr class="separator:a8cd30aaebcab130194ac375f23e6f098"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a58408db350131b4fad832e72a3bff499"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a58408db350131b4fad832e72a3bff499">find_pareto_frontier</a> (std::vector&lt; <a class="el" href="namespacevg.html#a1aa2d026eb3edc0c692e19e5a493feef">pareto_point</a> &gt; &amp;v)</td></tr>
+<tr class="separator:a58408db350131b4fad832e72a3bff499"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa4440aef25c50cbf88a2ba4de9efcdd1"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa4440aef25c50cbf88a2ba4de9efcdd1">gap_penalty</a> (size_t length, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *aligner)</td></tr>
+<tr class="separator:aa4440aef25c50cbf88a2ba4de9efcdd1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4eaee99ea8b364d9db9a650665139125"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4eaee99ea8b364d9db9a650665139125">mismatch_penalty</a> (size_t n, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *aligner)</td></tr>
+<tr class="separator:a4eaee99ea8b364d9db9a650665139125"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3fd7485742302c90960d1c8a8d3e6185"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3fd7485742302c90960d1c8a8d3e6185">gap_penalty</a> (size_t start, size_t limit, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *aligner)</td></tr>
+<tr class="separator:a3fd7485742302c90960d1c8a8d3e6185"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9ab59092397ce6ec3e694c658408b465"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9ab59092397ce6ec3e694c658408b465">flank_penalty</a> (size_t length, const std::vector&lt; <a class="el" href="namespacevg.html#a1aa2d026eb3edc0c692e19e5a493feef">pareto_point</a> &gt; &amp;frontier, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *aligner)</td></tr>
+<tr class="separator:a9ab59092397ce6ec3e694c658408b465"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3ca9ccb5a2301ed1ce48f6334b3c4937"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3ca9ccb5a2301ed1ce48f6334b3c4937">topologically_order_subpaths</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
 <tr class="memdesc:a3ca9ccb5a2301ed1ce48f6334b3c4937"><td class="mdescLeft">&#160;</td><td class="mdescRight">Put subpaths in topological order (assumed to be true for other algorithms)  <a href="#a3ca9ccb5a2301ed1ce48f6334b3c4937">More...</a><br /></td></tr>
 <tr class="separator:a3ca9ccb5a2301ed1ce48f6334b3c4937"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2336,6 +2348,20 @@ Variables</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Represents an offset along the sequence of a <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data. ">Node</a>. Offsets are size_t. </p>
+
+</div>
+</div>
+<a id="a1aa2d026eb3edc0c692e19e5a493feef"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1aa2d026eb3edc0c692e19e5a493feef">&#9670;&nbsp;</a></span>pareto_point</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef std::pair&lt;uint32_t, int32_t&gt; <a class="el" href="namespacevg.html#a1aa2d026eb3edc0c692e19e5a493feef">vg::pareto_point</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -6967,6 +6993,24 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
+<a id="a58408db350131b4fad832e72a3bff499"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a58408db350131b4fad832e72a3bff499">&#9670;&nbsp;</a></span>find_pareto_frontier()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::find_pareto_frontier </td>
+          <td>(</td>
+          <td class="paramtype">std::vector&lt; <a class="el" href="namespacevg.html#a1aa2d026eb3edc0c692e19e5a493feef">pareto_point</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>v</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a0b4f86bb616e609804ac37215714d499"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0b4f86bb616e609804ac37215714d499">&#9670;&nbsp;</a></span>finish_gbwt_constuction()</h2>
 
@@ -7197,6 +7241,40 @@ template&lt;class RandomIt &gt; </div>
           <td class="paramtype">const vector&lt; double &gt; &amp;&#160;</td>
           <td class="paramname"><em>y</em></td><td>)</td>
           <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9ab59092397ce6ec3e694c658408b465"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9ab59092397ce6ec3e694c658408b465">&#9670;&nbsp;</a></span>flank_penalty()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t vg::flank_penalty </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="namespacevg.html#a1aa2d026eb3edc0c692e19e5a493feef">pareto_point</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>frontier</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *&#160;</td>
+          <td class="paramname"><em>aligner</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -7671,6 +7749,68 @@ template&lt;typename Annotated &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Calculate the natural log of the gamma function of the given argument. </p>
+
+</div>
+</div>
+<a id="aa4440aef25c50cbf88a2ba4de9efcdd1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa4440aef25c50cbf88a2ba4de9efcdd1">&#9670;&nbsp;</a></span>gap_penalty() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t vg::gap_penalty </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *&#160;</td>
+          <td class="paramname"><em>aligner</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a3fd7485742302c90960d1c8a8d3e6185"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3fd7485742302c90960d1c8a8d3e6185">&#9670;&nbsp;</a></span>gap_penalty() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t vg::gap_penalty </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>start</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>limit</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *&#160;</td>
+          <td class="paramname"><em>aligner</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -11638,6 +11778,34 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 </div><div class="memdoc">
 
 <p>Find the min distance in the path offsets where the path orientation is the same and different. </p>
+
+</div>
+</div>
+<a id="a4eaee99ea8b364d9db9a650665139125"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4eaee99ea8b364d9db9a650665139125">&#9670;&nbsp;</a></span>mismatch_penalty()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t vg::mismatch_penalty </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>n</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *&#160;</td>
+          <td class="paramname"><em>aligner</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>

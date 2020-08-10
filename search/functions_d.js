@@ -185,6 +185,7 @@ var searchData=
   ['mindistanceclusterer',['MinDistanceClusterer',['../classvg_1_1MinDistanceClusterer.html#ace4b150ada4a32d6729e64e03871aa30',1,'vg::MinDistanceClusterer']]],
   ['minimizermapper',['MinimizerMapper',['../classvg_1_1MinimizerMapper.html#a4133862618010a5b1c54b1dd94732b21',1,'vg::MinimizerMapper']]],
   ['minimumdistanceindex',['MinimumDistanceIndex',['../classvg_1_1MinimumDistanceIndex.html#a4ce5f7b06d0e85afda5104b5cf5eff16',1,'vg::MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph *graph, const SnarlManager *snarl_manager, int64_t cap=0)'],['../classvg_1_1MinimumDistanceIndex.html#a6b970ddf56bf164b201d6a61620ff001',1,'vg::MinimumDistanceIndex::MinimumDistanceIndex(istream &amp;in)'],['../classvg_1_1MinimumDistanceIndex.html#a8ae49234a4f69d23ac362357d4699ba0',1,'vg::MinimumDistanceIndex::MinimumDistanceIndex()']]],
+  ['mismatch_5fpenalty',['mismatch_penalty',['../namespacevg.html#a4eaee99ea8b364d9db9a650665139125',1,'vg']]],
   ['mismatches',['mismatches',['../structvg_1_1GaplessExtension.html#a4898e2fabc109703f497e19f10bb164a',1,'vg::GaplessExtension']]],
   ['mode_5fname',['mode_name',['../prune__main_8cpp.html#a9b89c7a3b7a8efd51b246bc312140bb8',1,'prune_main.cpp']]],
   ['modular_5fexponent',['modular_exponent',['../namespacevg.html#abc8f8791be2575164e6070e1cef39b4e',1,'vg']]],
