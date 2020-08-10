@@ -90,6 +90,9 @@ public:
     /// of total score
     double minimizer_score_fraction = 0.7;
 
+    ///Accept at least this many clusters
+    size_t min_extensions = 2;
+
     /// How many clusters should we align?
     size_t max_extensions = 800;
 
@@ -137,13 +140,13 @@ public:
     bool track_correctness = false;
 
     ////How many stdevs from fragment length distr mean do we cluster together?
-    size_t paired_distance_stdevs = 2; 
+    double paired_distance_stdevs = 2.0; 
 
     ///How close does an alignment have to be to the best alignment for us to rescue on it
     size_t paired_rescue_score_limit = 0.9;
 
     ///How many stdevs from the mean do we extract a subgraph from?
-    size_t rescue_subgraph_stdevs = 3;
+    double rescue_subgraph_stdevs = 4.0;
 
     /// For paired end mapping, how many times should we attempt rescue (per read)?
     size_t max_rescue_attempts = 15;
@@ -181,7 +184,7 @@ protected:
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
-        size_t agglomeration_length; // What is the region of consecutive windows this minimizer instance is minimal in?
+        size_t agglomeration_length; // What is the length in bp of the region of consecutive windows this minimizer instance is minimal in?
         size_t hits; // How many hits does the minimizer have?
         const gbwtgraph::hit_type* occs;
         int32_t length; // How long is the minimizer (index's k)
@@ -203,6 +206,17 @@ protected:
                 // We already have the position of the first base.
                 return this->value.offset;
             }
+        }
+        
+        /// How many bases are in a window for which a minimizer is chosen?
+        inline size_t window_size() const {
+            return length + candidates_per_window - 1;
+        }
+        
+        /// How many different windows are in this minimizer's agglomeration?
+        inline size_t agglomeration_window_count() const {
+            // Work out the length of a whole window, and then from that and the window count get the overall length.
+            return agglomeration_length - window_size() + 1;
         }
     };
     
@@ -250,17 +264,17 @@ protected:
      */
     void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
 
-   /**
-    * Score the set of extensions for each cluster using score_extension_group().
-    * Return the scores in the same order as the extensions.
-    */
-   std::vector<int> score_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
+    /**
+     * Score the set of extensions for each cluster using score_extension_group().
+     * Return the scores in the same order as the extensions.
+     */
+    std::vector<int> score_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
 
-   /**
-    * Score the set of extensions for each cluster using score_extension_group().
-    * Return the scores in the same order as the extensions.
-    */
-   std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
+    /**
+     * Score the set of extensions for each cluster using score_extension_group().
+     * Return the scores in the same order as the extensions.
+     */
+    std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
 
 //-----------------------------------------------------------------------------
 
@@ -313,7 +327,7 @@ protected:
 //-----------------------------------------------------------------------------
 
     /**
-     * Compute MAPQ caps based on all minimizers present in extended clusters.
+     * Compute MAPQ caps based on all minimizers that are explored, for some definition of explored.
      *
      * Needs access to the input alignment for sequence and quality
      * information.
@@ -321,7 +335,7 @@ protected:
      * Returns only an "extended" cap at the moment.
      */
     double compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
-                             const SmallBitset& present_in_any_extended_cluster);
+                             const SmallBitset& explored);
 
     /**
      * Compute a bound on the Phred score probability of having created the
@@ -344,6 +358,90 @@ protected:
      */
     static double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
         const string& sequence, const string& quality_bytes);
+    
+    /**
+     * Compute a bound on the Phred score probability of a mapping beign wrong
+     * due to base errors and unlocated minimizer hits prevented us from
+     * finding the true alignment.
+     *  
+     * Algorithm uses a "sweep line" dynamic programming approach.
+     * For a read with minimizers aligned to it:
+     *
+     *              000000000011111111112222222222
+     *              012345678901234567890123456789
+     * Read:        ******************************
+     * Minimizer 1:    *****
+     * Minimizer 2:       *****
+     * Minimizer 3:                   *****
+     * Minimizer 4:                      *****
+     *
+     * For each distinct read interval of overlapping minimizers, e.g. in the
+     * example the intervals 3,4,5; 6,7; 8,9,10; 18,19,20; 21,22; and 23,24,25
+     * we consider base errors that would result in the minimizers in the
+     * interval being incorrect
+     *
+     * We use dynamic programming sweeping left-to-right over the intervals to
+     * compute the probability of the minimum number of base errors needed to
+     * disrupt all the minimizers.
+     *
+     * Will sort minimizers_explored (which is indices into minimizers) by
+     * minimizer start position.
+     */
+    static double faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored, const string& sequence, const string& quality_bytes);
+    
+    /**
+     * Given a collection of minimizers, and a list of the minimizers we
+     * actually care about (as indices into the collection), iterate over
+     * common intervals of overlapping minimizer agglomerations.
+     *   
+     * Calls the given callback with (left, right, bottom, top), where left is
+     * the first base of the agglomeration interval (inclusive), right is the
+     * last base of the agglomeration interval (exclusive), bottom is the index
+     * of the first minimizer with an agglomeration in the interval and top is
+     * the index of the last minimizer with an agglomeration in the interval
+     * (exclusive).
+     *
+     * Note that bottom and top are offsets into minimizer_indices, **NOT**
+     * minimizers itself. Only contiguous ranges in minimizer_indices actually
+     * make sense.
+     */
+    static void for_each_aglomeration_interval(const vector<Minimizer>& minimizers,
+        const string& sequence, const string& quality_bytes,
+        const vector<size_t>& minimizer_indices,
+        const function<void(size_t, size_t, size_t, size_t)>& iteratee);      
+    
+    /**
+     * Gives the log10 prob of a base error in the given interval of the read,
+     * accounting for the disruption of specified minimizers.
+     * 
+     * minimizers is the collection of all minimizers
+     *
+     * disrupt_begin and disrupt_end are iterators defining a sequence of
+     * **indices** of minimizers in minimizers that are disrupted.
+     *
+     * left and right are the inclusive and exclusive bounds of the interval
+     * of the read where the disruption occurs.
+     */
+    static double get_log10_prob_of_disruption_in_interval(const vector<Minimizer>& minimizers,
+        const string& sequence, const string& quality_bytes,
+        const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
+        size_t left, size_t right);
+    
+    /**
+     * Gives the raw probability of a base error in the given column of the
+     * read, accounting for the disruption of specified minimizers.
+     * 
+     * minimizers is the collection of all minimizers
+     *
+     * disrupt_begin and disrupt_end are iterators defining a sequence of
+     * **indices** of minimizers in minimizers that are disrupted.
+     *
+     * index is the position in the read where the disruption occurs.
+     */
+    static double get_prob_of_disruption_in_column(const vector<Minimizer>& minimizers,
+        const string& sequence, const string& quality_bytes,
+        const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
+        size_t index);
     
     /**
      * Score the given group of gapless extensions. Determines the best score

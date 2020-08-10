@@ -304,7 +304,7 @@ private:
     /// Add a match/mismatch to the alignment
     void apply_aligned_base(Alignment& aln, const pos_t& pos, char graph_char, char read_char);
     
-    /// Memo for Phred -> probability conversion
+    /// Memo for pre-multiplied Phred -> probability conversion
     vector<double> phred_prob;
     
     /// A Markov distribution for each read position indicating quality and whether the base is an 'N'
