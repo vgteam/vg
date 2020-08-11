@@ -393,41 +393,20 @@ namespace vg {
                                               vector<pair<size_t, size_t>>* duplicate_pairs_out = nullptr,
                                               vector<double>* pair_multiplicities = nullptr) const;
 
-        /// Estimates the probability that the correct cluster was not chosen as a cluster to rescue from and caps the
-        /// mapping quality to the minimum of the current mapping quality and this probability (in Phred scale)
-        void cap_mapping_quality_by_rescue_probability(size_t which_pair,
-                                                       vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                                       const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                                       const vector<clustergraph_t>& cluster_graphs1,
-                                                       const vector<clustergraph_t>& cluster_graphs2,
-                                                       bool from_secondary_rescue) const;
-        
+        /// Estimates the number of equivalent mappings (including this one), which we may not have seen due to
+        /// unexplored rescues.
         double estimate_missed_rescue_multiplicity(size_t which_pair,
                                                    const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                    const vector<clustergraph_t>& cluster_graphs1,
                                                    const vector<clustergraph_t>& cluster_graphs2,
                                                    bool from_secondary_rescue) const;
         
-        /// Estimates the probability that the correct cluster was not identified because of sub-sampling MEM hits and
-        /// caps the mapping quality to this probability (in Phred scale)
-        void cap_mapping_quality_by_hit_sampling_probability(vector<multipath_alignment_t>& multipath_alns_out,
-                                                             const vector<size_t>& cluster_idxs,
-                                                             const vector<clustergraph_t>& cluster_graphs) const;
-        
-        /// Estimates the probability that the correct cluster pair was not identified because of sub-sampling MEM hits and
-        /// caps the mapping quality to this probability (in Phred scale)
-        void cap_mapping_quality_by_hit_sampling_probability(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                                             const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                                             const vector<clustergraph_t>& cluster_graphs1,
-                                                             const vector<clustergraph_t>& cluster_graphs2,
-                                                             bool did_secondary_rescue) const;
-        
-        /// Estimates the probability that a cluster with the same hits would have been missed because of
-        /// subsampling high-count SMEMs
-        double prob_equivalent_clusters_hits_missed(const memcluster_t& cluster) const;
-        
+        /// Estimates the number of equivalent mappings (including this one), which we may not have seen due to
+        /// limits on the numbers of hits returns for a MEM
         double hit_sampling_multiplicity(const memcluster_t& cluster) const;
         
+        /// Estimates the number of equivalent pair mappings (including this one), which we may not have seen due to
+        /// limits on the numbers of hits returns for a MEM
         double pair_hit_sampling_multiplicity(const memcluster_t& cluster_1, const memcluster_t& cluster_2) const;
         
         /// Computes the log-likelihood of a given fragment length in the trained distribution
