@@ -105,6 +105,7 @@ namespace vg {
         // parameters
         
         size_t max_branch_trim_length = 1;
+        bool agglomerate_multipath_alns = false;
         int64_t max_snarl_cut_size = 5;
         bool suppress_tail_anchors = false;
         size_t min_tail_anchor_length = 3;
@@ -242,6 +243,7 @@ namespace vg {
                                      MappingQualityMethod mapq_method,
                                      vector<clustergraph_t>& cluster_graphs,
                                      vector<multipath_alignment_t>& multipath_alns_out,
+                                     vector<double>& multiplicities_out,
                                      size_t num_mapping_attempts,
                                      const match_fanouts_t* fanouts = nullptr,
                                      vector<size_t>* cluster_idxs = nullptr);
@@ -253,8 +255,9 @@ namespace vg {
         void align_to_cluster_graph_pairs(const Alignment& alignment1, const Alignment& alignment2,
                                           vector<clustergraph_t>& cluster_graphs1,
                                           vector<clustergraph_t>& cluster_graphs2,
-                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                          vector<double>& pair_multiplicities,
                                           vector<pair<size_t, size_t>>& duplicate_pairs_out,
                                           const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
         
@@ -264,7 +267,6 @@ namespace vg {
         bool align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
                                                  vector<clustergraph_t>& cluster_graphs1,
                                                  vector<clustergraph_t>& cluster_graphs2,
-                                                 bool block_rescue_from_1, bool block_rescue_from_2,
                                                  vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances_out,
                                                  vector<double>& pair_multiplicities_out,
@@ -278,24 +280,13 @@ namespace vg {
                                             vector<pair<size_t, size_t>>& duplicate_pairs,
                                             vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                             vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                            vector<double>& pair_multiplicities,
                                             const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
-        
-        /// Cluster and extract subgraphs for (possibly) only one end, meant to be a non-repeat, and use them to rescue
-        /// an alignment for the other end, meant to be a repeat.
-        /// Produces topologically sorted multipath_alignment_ts.
-        void attempt_rescue_of_repeat_from_non_repeat(const Alignment& alignment1, const Alignment& alignment2,
-                                                      const vector<MaximalExactMatch>& mems1, const vector<MaximalExactMatch>& mems2,
-                                                      bool do_repeat_rescue_from_1, bool do_repeat_rescue_from_2,
-                                                      vector<memcluster_t>& clusters1, vector<memcluster_t>& clusters2,
-                                                      vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
-                                                      vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                                      vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
-                                                      OrientedDistanceMeasurer& distance_measurer,
-                                                      const match_fanouts_t* fanouts1, const match_fanouts_t* fanouts2);
         
         /// Merge the rescued mappings into the output vector and deduplicate pairs
         void merge_rescued_mappings(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                    vector<double>& pair_multiplicities,
                                     vector<pair<multipath_alignment_t, multipath_alignment_t>>& rescued_multipath_aln_pairs,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs,
                                     vector<double>& rescued_multiplicities) const;
@@ -348,7 +339,8 @@ namespace vg {
         /// Properly handles multipath_alignment_ts that are unmapped.
         /// Does not depend on or guarantee topological order in the multipath_alignment_ts.
         void split_multicomponent_alignments(vector<multipath_alignment_t>& multipath_alns_out,
-                                             vector<size_t>* cluster_idxs = nullptr) const;
+                                             vector<size_t>* cluster_idxs = nullptr,
+                                             vector<double>* multiplicities = nullptr) const;
         
         /// If there are any multipath_alignment_ts with multiple connected components, split them
         /// up and add them to the return vector, also measure the distance between them and add
@@ -356,8 +348,24 @@ namespace vg {
         /// Properly handles multipath_alignment_ts that are unmapped.
         /// Does not depend on or guarantee topological order in the multipath_alignment_ts.
         void split_multicomponent_alignments(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                             vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
+                                             vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                             vector<double>& multiplicities) const;
         
+        /// Combine all of the significant alignments into one. Requires alignments to be sorted by
+        /// significance already
+        void agglomerate_alignments(vector<multipath_alignment_t>& multipath_alns_out,
+                                    vector<double>* multiplicities = nullptr) const;
+        
+        /// Combine all of the significant alignments into one pair. Requires alignments to be sorted by
+        /// significance already
+        void agglomerate_alignment_pairs(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                         vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                         vector<double>& multiplicities) const;
+        
+        /// The internal agglomeration procedure
+        void agglomerate(size_t idx, multipath_alignment_t& agglomerating, const multipath_alignment_t& multipath_aln,
+                         vector<size_t>& agglomerated_group, unordered_set<pos_t>& agg_start_positions,
+                         unordered_set<pos_t>& agg_end_positions) const;
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
@@ -377,17 +385,25 @@ namespace vg {
         /// Remove the full length bonus from all source or sink subpaths that received it
         void strip_full_length_bonuses(multipath_alignment_t& multipath_aln) const;
         
+        /// Returns a vector of log-likelihoods for each mapping
+        vector<double> mapping_likelihoods(vector<multipath_alignment_t>& multipath_alns) const;
+        
+        /// Returns a vector of log-likelihoods for each pair mapping
+        vector<double> pair_mapping_likelihoods(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
+                                                const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
+        
         /// Compute a mapping quality from a list of scores, using the selected method.
         /// Optionally considers non-present duplicates of the scores encoded as multiplicities
         int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method,
                                                         bool have_qualities, const vector<double>* multiplicities = nullptr) const;
+        
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the multipath_alignment_t object
         /// Optionally also sorts a vector of indexes to keep track of the cluster-of-origin
         /// Allows multipath alignments where the best single path alignment is leaving the read unmapped.
         /// multipath_alignment_ts MUST be topologically sorted.
         void sort_and_compute_mapping_quality(vector<multipath_alignment_t>& multipath_alns, MappingQualityMethod mapq_method,
-                                              vector<size_t>* cluster_idxs = nullptr) const;
+                                              vector<size_t>* cluster_idxs = nullptr, vector<double>* multiplicities = nullptr) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the multipath_alignment_t object
         /// If there are ties between scores, breaks them by the expected distance between pairs as computed by the
@@ -399,36 +415,22 @@ namespace vg {
                                               vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                               vector<pair<size_t, size_t>>* duplicate_pairs_out = nullptr,
                                               vector<double>* pair_multiplicities = nullptr) const;
-
-        /// Estimates the probability that the correct cluster was not chosen as a cluster to rescue from and caps the
-        /// mapping quality to the minimum of the current mapping quality and this probability (in Phred scale)
-        void cap_mapping_quality_by_rescue_probability(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                                       vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                                       vector<clustergraph_t>& cluster_graphs1,
-                                                       vector<clustergraph_t>& cluster_graphs2,
-                                                       bool from_secondary_rescue) const;
         
-        /// Estimates the probability that the correct cluster was not identified because of sub-sampling MEM hits and
-        /// caps the mapping quality to this probability (in Phred scale)
-        void cap_mapping_quality_by_hit_sampling_probability(vector<multipath_alignment_t>& multipath_alns_out,
-                                                             vector<size_t>& cluster_idxs,
-                                                             vector<clustergraph_t>& cluster_graphs) const;
+        /// Estimates the number of equivalent mappings (including this one), which we may not have seen due to
+        /// unexplored rescues.
+        double estimate_missed_rescue_multiplicity(size_t which_pair,
+                                                   const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                   const vector<clustergraph_t>& cluster_graphs1,
+                                                   const vector<clustergraph_t>& cluster_graphs2,
+                                                   bool from_secondary_rescue) const;
         
-        /// Estimates the probability that the correct cluster pair was not identified because of sub-sampling MEM hits and
-        /// caps the mapping quality to this probability (in Phred scale)
-        void cap_mapping_quality_by_hit_sampling_probability(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
-                                                             vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                                             vector<clustergraph_t>& cluster_graphs1,
-                                                             vector<clustergraph_t>& cluster_graphs2,
-                                                             bool did_secondary_rescue) const;
+        /// Estimates the number of equivalent mappings (including this one), which we may not have seen due to
+        /// limits on the numbers of hits returns for a MEM
+        double hit_sampling_multiplicity(const memcluster_t& cluster) const;
         
-        /// Reorganizes the fan-out breaks into the format that MultipathAlignmentGraph wants it in
-        match_fanouts_t record_fanouts(const vector<MaximalExactMatch>& mems,
-                                       vector<deque<pair<string::const_iterator, char>>>& fanouts) const;
-        
-        /// Estimates the probability that a cluster with the same hits would have been missed because of
-        /// subsampling high-count SMEMs
-        double prob_equivalent_clusters_hits_missed(const memcluster_t& cluster) const;
+        /// Estimates the number of equivalent pair mappings (including this one), which we may not have seen due to
+        /// limits on the numbers of hits returns for a MEM
+        double pair_hit_sampling_multiplicity(const memcluster_t& cluster_1, const memcluster_t& cluster_2) const;
         
         /// Computes the log-likelihood of a given fragment length in the trained distribution
         double fragment_length_log_likelihood(int64_t length) const;
@@ -447,6 +449,10 @@ namespace vg {
         
         /// The approximate p-value for a match length of the given size against the current graph
         double random_match_p_value(size_t match_length, size_t read_length);
+        
+        /// Reorganizes the fan-out breaks into the format that MultipathAlignmentGraph wants it in
+        match_fanouts_t record_fanouts(const vector<MaximalExactMatch>& mems,
+                                       vector<deque<pair<string::const_iterator, char>>>& fanouts) const;
         
         /// Compute the approximate distance between two multipath alignments
         /// If either is unmapped, or the distance cannot be obtained, returns numeric_limits<int64_t>::max()

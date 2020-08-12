@@ -2064,6 +2064,29 @@ namespace vg {
             identify_start_subpaths(sub_multipath_aln);
         }
     }
+
+    void append_multipath_alignment(multipath_alignment_t& multipath_aln,
+                                    const multipath_alignment_t& to_append) {
+        
+        size_t original_size = multipath_aln.subpath().size();
+        for (const subpath_t& appending_subpath : to_append.subpath()) {
+            subpath_t* new_subpath = multipath_aln.add_subpath();
+            new_subpath->set_score(appending_subpath.score());
+            *new_subpath->mutable_path() = appending_subpath.path();
+            new_subpath->mutable_next()->reserve(appending_subpath.next_size());
+            for (auto n : appending_subpath.next()) {
+                new_subpath->add_next(n + original_size);
+            }
+        }
+        if (multipath_aln.start_size() != 0 && to_append.start_size() != 0) {
+            for (auto s : to_append.start()) {
+                multipath_aln.add_start(s + original_size);
+            }
+        }
+        else if (multipath_aln.start_size() != 0) {
+            identify_start_subpaths(multipath_aln);
+        }
+    }
     
     bool validate_multipath_alignment(const multipath_alignment_t& multipath_aln, const HandleGraph& handle_graph) {
         
