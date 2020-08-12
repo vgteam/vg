@@ -4,7 +4,7 @@
 //
 //
 
-#define debug_multipath_mapper
+//#define debug_multipath_mapper
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
@@ -113,16 +113,14 @@ namespace vg {
         
         // actually perform the alignments and post-process to meet multipath_alignment_t invariants
         // TODO: do i still need cluster_idx? i think it might have only been used for capping
-        vector<size_t> cluster_idxs;
         vector<double> multiplicities;
         align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, multiplicities,
-                                num_mapping_attempts, fanouts.get(), &cluster_idxs);
+                                num_mapping_attempts, fanouts.get());
         
         if (multipath_alns_out.empty()) {
             // add a null alignment so we know it wasn't mapped
             multipath_alns_out.emplace_back();
             cluster_graphs.emplace_back();
-            cluster_idxs.push_back(0);
             multiplicities.push_back(1.0);
             to_multipath_alignment(alignment, multipath_alns_out.back());
             
@@ -1253,11 +1251,11 @@ namespace vg {
 #ifdef debug_multipath_mapper
                     cerr << "checking duplication between mapped read1 " << i << " and rescued read1 " << j << endl;
 #endif
-                    if (abs(distance_between(multipath_alns_1[i], rescue_multipath_alns_1[j])) < 20) {
+                    if (share_terminal_positions(multipath_alns_1[i], rescue_multipath_alns_1[j])) {
 #ifdef debug_multipath_mapper
                         cerr << "found duplicate, now checking rescued read2 " << i << " and mapped read2 " << j << endl;
 #endif
-                        if (abs(distance_between(rescue_multipath_alns_2[i], multipath_alns_2[j])) < 20) {
+                        if (share_terminal_positions(rescue_multipath_alns_2[i], multipath_alns_2[j])) {
 #ifdef debug_multipath_mapper
                             cerr << "found duplicate, marking entire pair as duplicate" << endl;
 #endif
@@ -1609,8 +1607,8 @@ namespace vg {
             vector<bool> duplicate(rescued_secondaries.size(), false);
             for (size_t i = 1; i < rescued_secondaries.size(); i++) {
                 for (size_t j = 0; j < i; j++) {
-                    if (abs(distance_between(rescued_secondaries[i].first, rescued_secondaries[j].first)) < 20) {
-                        if (abs(distance_between(rescued_secondaries[i].second, rescued_secondaries[j].second)) < 20) {
+                    if (share_terminal_positions(rescued_secondaries[i].first, rescued_secondaries[j].first)) {
+                        if (share_terminal_positions(rescued_secondaries[i].second, rescued_secondaries[j].second)) {
                             duplicate[i] = true;
                             duplicate[j] = true;
                         }
@@ -2185,8 +2183,8 @@ namespace vg {
 #ifdef debug_multipath_mapper
                 cerr << "checking if rescue pair " << j << " is duplicate of original pair " << i << endl;
 #endif
-                if (abs(distance_between(multipath_aln_pairs_out[i].first, rescued_multipath_aln_pairs[j].first)) < 20) {
-                    if (abs(distance_between(multipath_aln_pairs_out[i].second, rescued_multipath_aln_pairs[j].second)) < 20) {
+                if (share_terminal_positions(multipath_aln_pairs_out[i].first, rescued_multipath_aln_pairs[j].first)) {
+                    if (share_terminal_positions(multipath_aln_pairs_out[i].second, rescued_multipath_aln_pairs[j].second)) {
 #ifdef debug_multipath_mapper
                         cerr << "found a duplicate" << endl;
 #endif
