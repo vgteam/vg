@@ -351,6 +351,21 @@ namespace vg {
                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                              vector<double>& multiplicities) const;
         
+        /// Combine all of the significant alignments into one. Requires alignments to be sorted by
+        /// significance already
+        void agglomerate_alignments(vector<multipath_alignment_t>& multipath_alns_out,
+                                    vector<double>* multiplicities = nullptr) const;
+        
+        /// Combine all of the significant alignments into one pair. Requires alignments to be sorted by
+        /// significance already
+        void agglomerate_alignment_pairs(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                         vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                         vector<double>& multiplicities) const;
+        
+        /// The internal agglomeration procedure
+        void agglomerate(size_t idx, multipath_alignment_t& agglomerating, const multipath_alignment_t& multipath_aln,
+                         vector<size_t>& agglomerated_group, unordered_set<pos_t>& agg_start_positions,
+                         unordered_set<pos_t>& agg_end_positions) const;
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
@@ -370,10 +385,18 @@ namespace vg {
         /// Remove the full length bonus from all source or sink subpaths that received it
         void strip_full_length_bonuses(multipath_alignment_t& multipath_aln) const;
         
+        /// Returns a vector of log-likelihoods for each mapping
+        vector<double> mapping_likelihoods(vector<multipath_alignment_t>& multipath_alns) const;
+        
+        /// Returns a vector of log-likelihoods for each pair mapping
+        vector<double> pair_mapping_likelihoods(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
+                                                const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
+        
         /// Compute a mapping quality from a list of scores, using the selected method.
         /// Optionally considers non-present duplicates of the scores encoded as multiplicities
         int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method,
                                                         bool have_qualities, const vector<double>* multiplicities = nullptr) const;
+        
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the multipath_alignment_t object
         /// Optionally also sorts a vector of indexes to keep track of the cluster-of-origin
@@ -392,7 +415,7 @@ namespace vg {
                                               vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                               vector<pair<size_t, size_t>>* duplicate_pairs_out = nullptr,
                                               vector<double>* pair_multiplicities = nullptr) const;
-
+        
         /// Estimates the number of equivalent mappings (including this one), which we may not have seen due to
         /// unexplored rescues.
         double estimate_missed_rescue_multiplicity(size_t which_pair,

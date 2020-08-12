@@ -4,7 +4,7 @@
 //
 //
 
-//#define debug_multipath_mapper
+#define debug_multipath_mapper
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
@@ -112,6 +112,7 @@ namespace vg {
         auto cluster_graphs = query_cluster_graphs(alignment, mems, clusters);
         
         // actually perform the alignments and post-process to meet multipath_alignment_t invariants
+        // TODO: do i still need cluster_idx? i think it might have only been used for capping
         vector<size_t> cluster_idxs;
         vector<double> multiplicities;
         align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, multiplicities,
@@ -128,6 +129,11 @@ namespace vg {
             // in case we're realigning GAMs that have paths already
             multipath_alns_out.back().clear_subpath();
             multipath_alns_out.back().clear_start();
+        }
+        
+        if (agglomerate_multipath_alns) {
+            // we want the disconnected alignments combined into one
+            agglomerate_alignments(multipath_alns_out, &multiplicities);
         }
         
         if (likely_mismapping(multipath_alns_out.front())) {
@@ -1201,11 +1207,6 @@ namespace vg {
         cerr << "rescuing from " << num_to_rescue_1 << " read1's and " << num_to_rescue_2 << " read2's" << endl;
 #endif
         
-        // TODO: this should be unnecessary once i make multiplicities travel with alignments everywhere
-//        // label all current pair multiplicities (usually none) with multiplicity 1
-//        pair_multiplicities.clear();
-//        pair_multiplicities.resize(multipath_aln_pairs_out.size(), 1.0);
-//
         // calculate the estimated multiplicity of a pair found from each of the two ends
         double estimated_multiplicity_from_1 = num_to_rescue_1 > 0 ? double(num_rescuable_alns_1) / num_to_rescue_1 : 1.0;
         double estimated_multiplicity_from_2 = num_to_rescue_2 > 0 ? double(num_rescuable_alns_2) / num_to_rescue_2 : 1.0;
@@ -1771,7 +1772,7 @@ namespace vg {
             }
         }
 #endif
-        
+        bool proper_paired = true;
         // do we find any pairs that satisfy the distance requirements?
         if (!cluster_pairs.empty()) {
             // We got some pairs that satisfy the distance requirements.
@@ -1811,6 +1812,7 @@ namespace vg {
                 }
                 else {
                     // rescue didn't find any consistent mappings, revert to the single ended mappings
+                    proper_paired = false;
                     std::swap(multipath_aln_pairs_out, rescue_aln_pairs);
                     
                     // Don't sort and compute mapping quality; preserve the single-ended MAPQs
@@ -1861,6 +1863,12 @@ namespace vg {
             multipath_aln_pairs_out.back().second.clear_start();
         }
         
+        // only agglomerate if the pairs are true pairs, otherwise gets too complicated
+        // to estimate mapping qualities
+        if (proper_paired && agglomerate_multipath_alns) {
+            agglomerate_alignment_pairs(multipath_aln_pairs_out, cluster_pairs, pair_multiplicities);
+        }
+        
         // if we computed extra alignments to get a mapping quality or investigate ambiguous clusters, remove them
         if (multipath_aln_pairs_out.size() > max_alt_mappings) {
             multipath_aln_pairs_out.resize(max_alt_mappings);
@@ -1882,7 +1890,6 @@ namespace vg {
         }
         
         // Compute the fragment length distribution.
-        // TODO: make this machine-readable instead of a copy-able string.
         string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.std_dev());
         
         for (pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair : multipath_aln_pairs_out) {
@@ -2005,6 +2012,126 @@ namespace vg {
                 alns_out[i].set_mapping_quality(0);
             }
         }
+    }
+
+    void MultipathMapper::agglomerate(size_t idx, multipath_alignment_t& agglomerating, const multipath_alignment_t& multipath_aln,
+                                      vector<size_t>& agglomerated_group, unordered_set<pos_t>& agg_start_positions,
+                                      unordered_set<pos_t>& agg_end_positions) const {
+        // does it look like we've already agglomerated a mapping at this position
+        vector<pos_t> start_positions, end_positions;
+        for (auto j : multipath_aln.start()) {
+            start_positions.emplace_back(initial_position(multipath_aln.subpath(j).path()));
+        }
+        for (size_t j = 0; j < multipath_aln.subpath_size(); ++j) {
+            if (multipath_aln.subpath(j).next_size() == 0) {
+                end_positions.emplace_back(final_position(multipath_aln.subpath(j).path()));
+            }
+        }
+        
+        bool do_agglomerate = true;
+        for (size_t j = 0; j < start_positions.size() && do_agglomerate; ++j) {
+            do_agglomerate = !agg_start_positions.count(start_positions[j]);
+        }
+        for (size_t j = 0; j < end_positions.size() && do_agglomerate; ++j) {
+            do_agglomerate = !agg_end_positions.count(end_positions[j]);
+        }
+        
+        if (do_agglomerate) {
+            // we want to merge this one in with the primary mapping
+            agglomerated_group.push_back(idx);
+            // skip the merge step if it's the first mapping
+            if (idx > 0) {
+                append_multipath_alignment(agglomerating, multipath_aln);
+            }
+            // record that the aggregated mapping now has these start and end positions
+            agg_start_positions.insert(start_positions.begin(), start_positions.end());
+            agg_end_positions.insert(end_positions.begin(), end_positions.end());
+        }
+    }
+
+    void MultipathMapper::agglomerate_alignments(vector<multipath_alignment_t>& multipath_alns_out,
+                                                 vector<double>* multiplicities) const {
+
+        // the likelihoods of each alignment, which we assume to be sorted
+        vector<double> scores = mapping_likelihoods(multipath_alns_out);
+        auto alnr = get_aligner(!multipath_alns_out.front().quality().empty());
+        double min_score = scores.front() - alnr->mapping_quality_score_diff(max_mapping_quality);
+        
+        size_t i;
+        vector<size_t> agglomerated_group;
+        unordered_set<pos_t> agg_start_positions, agg_end_positions;
+        for (i = 0; i < multipath_alns_out.size(); ++i) {
+            // is the score good enough to agglomerate?
+            if (scores[i] < min_score) {
+                // none of the following will be either
+                break;
+            }
+            
+            // apply the agglomeration procedure
+            agglomerate(i, multipath_alns_out.front(),
+                        multipath_alns_out[i], agglomerated_group,
+                        agg_start_positions, agg_end_positions);
+        }
+        
+        // figure out the mapping quality for the whole aggregated alignment
+        double raw_mapq = alnr->compute_group_mapping_quality(scores, agglomerated_group,
+                                                              multiplicities);
+        int32_t mapq = min<int32_t>(max_mapping_quality, int32_t(mapq_scaling_factor * raw_mapq));
+        
+        // move the remaining alignments up in the return vector and resize the remnants away
+        multipath_alns_out.front().set_mapping_quality(mapq);
+        for (size_t j = i, k = 1; j < multipath_alns_out.size(); ++j, ++k) {
+            multipath_alns_out[k] = move(multipath_alns_out[j]);
+        }
+        multipath_alns_out.resize(multipath_alns_out.size() - i + 1);
+    }
+
+    void MultipathMapper::agglomerate_alignment_pairs(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                                      vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                      vector<double>& multiplicities) const {
+        
+        // the likelihoods of each alignment, which we assume to be sorted
+        vector<double> scores = pair_mapping_likelihoods(multipath_aln_pairs_out, cluster_pairs);
+        auto alnr = get_aligner(!multipath_aln_pairs_out.front().first.quality().empty()
+                                && !multipath_aln_pairs_out.front().second.quality().empty());
+        double min_score = scores.front() - alnr->mapping_quality_score_diff(max_mapping_quality);
+        
+        size_t i;
+        vector<size_t> agglomerated_group_1, agglomerated_group_2;
+        unordered_set<pos_t> agg_start_positions_1, agg_end_positions_1, agg_start_positions_2, agg_end_positions_2;
+        for (i = 0; i < multipath_aln_pairs_out.size(); ++i) {
+            // is the score good enough to agglomerate?
+            if (scores[i] < min_score) {
+                // none of the following will be either
+                break;
+            }
+            
+            auto& multipath_aln_pair = multipath_aln_pairs_out[i];
+            
+            // repeat agglomeration procedure for both ends of the pair
+            agglomerate(i, multipath_aln_pairs_out.front().first,
+                        multipath_aln_pair.first, agglomerated_group_1,
+                        agg_start_positions_1, agg_end_positions_1);
+            agglomerate(i, multipath_aln_pairs_out.front().second,
+                        multipath_aln_pair.second, agglomerated_group_2,
+                        agg_start_positions_2, agg_end_positions_2);
+        }
+        
+        // figure out the mapping quality for the whole aggregated alignment
+        double raw_mapq_1 = alnr->compute_group_mapping_quality(scores, agglomerated_group_1,
+                                                                &multiplicities);
+        double raw_mapq_2 = alnr->compute_group_mapping_quality(scores, agglomerated_group_2,
+                                                                &multiplicities);
+        int32_t mapq_1 = min<int32_t>(max_mapping_quality, int32_t(mapq_scaling_factor * raw_mapq_1));
+        int32_t mapq_2 = min<int32_t>(max_mapping_quality, int32_t(mapq_scaling_factor * raw_mapq_2));
+        
+        // move the remaining alignments up in the return vector and resize the remnants away
+        multipath_aln_pairs_out.front().first.set_mapping_quality(mapq_1);
+        multipath_aln_pairs_out.front().second.set_mapping_quality(mapq_2);
+        for (size_t j = i, k = 1; j < multipath_aln_pairs_out.size(); ++j, ++k) {
+            multipath_aln_pairs_out[k] = move(multipath_aln_pairs_out[j]);
+        }
+        multipath_aln_pairs_out.resize(multipath_aln_pairs_out.size() - i + 1);
     }
     
     void MultipathMapper::split_multicomponent_alignments(vector<multipath_alignment_t>& multipath_alns_out,
@@ -3276,49 +3403,9 @@ namespace vg {
             }
         }
     }
-    
-    int32_t MultipathMapper::compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method,
-                                                                     bool have_qualities, const vector<double>* multiplicities) const {
-   
-        // We should never actually compute a MAPQ with the None method. If we try, it means something has gone wrong.
-        assert(mapq_method != None);
-   
-        auto aligner = get_aligner(have_qualities);
-        int32_t raw_mapq;
-        if (mapping_quality_method == Adaptive) {
-            raw_mapq = aligner->compute_mapping_quality(scores, scores.size() < 2 ? true :
-                                                        (scores[1] < scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)),
-                                                        multiplicities);
-        }
-        else {
-            raw_mapq = aligner->compute_mapping_quality(scores, mapping_quality_method == Approx, multiplicities);
-        }
-        
-        // arbitrary scaling, seems to help performance
-        raw_mapq *= mapq_scaling_factor;
-        
-#ifdef debug_multipath_mapper
-        cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
-#endif
 
-        return raw_mapq;
 
-    }
-    
-    void MultipathMapper::sort_and_compute_mapping_quality(vector<multipath_alignment_t>& multipath_alns,
-                                                           MappingQualityMethod mapq_method,
-                                                           vector<size_t>* cluster_idxs,
-                                                           vector<double>* multiplicities) const {
-        if (cluster_idxs) {
-            assert(cluster_idxs->size() == multipath_alns.size());
-        }
-        if (multiplicities) {
-            assert(multiplicities->size() == multipath_alns.size());
-        }
-        
-        if (multipath_alns.empty()) {
-            return;
-        }
+    vector<double> MultipathMapper::mapping_likelihoods(vector<multipath_alignment_t>& multipath_alns) const {
         
         // Only do the population MAPQ if it might disambiguate two paths
         // (since it's not as cheap as just using the score), or if we set the
@@ -3333,7 +3420,7 @@ namespace vg {
         double log_base = get_aligner(!multipath_alns.front().quality().empty())->log_base;
         
         // The score of the optimal Alignment for each multipath_alignment_t, not adjusted for population
-        vector<double> base_scores(multipath_alns.size(), 0.0);
+        vector<double> scores(multipath_alns.size(), 0.0);
         // The scores of the best Alignment for each multipath_alignment_t, adjusted for population.
         // These can be negative but will be bumped up to all be positive later.
         vector<double> pop_adjusted_scores;
@@ -3344,7 +3431,7 @@ namespace vg {
         // We need to track the score adjustments so we can compensate for
         // negative values, turning the largest penalty into a 0 bonus.
         double min_adjustment = numeric_limits<double>::max();
-
+        
         
         for (size_t i = 0; i < multipath_alns.size(); i++) {
             // Score all the multipath alignment candidates, optionally using
@@ -3374,14 +3461,14 @@ namespace vg {
                 // Just compute a single optimal alignment
                 alignments = optimal_alignments(multipath_alns[i], 1);
             }
-           
+            
 #ifdef debug_multipath_mapper
             cerr << "Got " << alignments.size() << " tracebacks for multipath " << i << endl;
 #endif
 #ifdef debug_multipath_mapper_alignment
             cerr << debug_string(multipath_alns[i]) << endl;
 #endif
-           
+            
             // Now, we may have been fed a multipath_alignment_t where the best
             // single path alignment is to leave it unmapped alltogether. Maybe
             // we cut out a really terrible bit of the alignment graph somehow.
@@ -3391,10 +3478,10 @@ namespace vg {
             // Collect the score of the optimal alignment, to use if population
             // scoring fails for a multipath alignment. Put it in the optimal
             // base score.
-            base_scores[i] = alignments.empty() ? 0 : alignments[0].score();
+            scores[i] = alignments.empty() ? 0 : alignments[0].score();
             
             if (query_population) {
-            
+                
                 // Work out the population size. Use the override, then try the score provider, and then fall back to the xg.
                 auto haplotype_count = force_haplotype_count;
                 
@@ -3431,23 +3518,23 @@ namespace vg {
                     
 #ifdef debug_multipath_mapper
                     cerr << "Got pop score " << pop_score.first << ", " << pop_score.second << " for alignment " << j
-                        << " score " << alignments[j].score() << " of multipath " << i << endl;
+                    << " score " << alignments[j].score() << " of multipath " << i << endl;
 #endif
 #ifdef debug_multipath_mapper_alignment
                     cerr << pb2json(alignments[j]) << endl;
 #endif
-
+                    
                     if (std::isnan(pop_score.first) && pop_score.second) {
                         // This shouldn't happen. Bail out on haplotype adjustment for this read and warn.
                         cerr << "warning:[vg::MultipathMapper]: NAN population score obtained for read "
-                            << alignments[j].name() << " with ostensibly successful query. Changing to failure." << endl;
+                        << alignments[j].name() << " with ostensibly successful query. Changing to failure." << endl;
                         pop_score.second = false;
                     }
                     
                     if (std::isnan(alignments[j].score())) {
                         // This is even worse! The alignment score itself is somehow NAN.
                         cerr << "warning:[vg::MultipathMapper]: NAN alignment score obtained in alignment being considered for read "
-                            << alignments[j].name() << ". This should never happen! Changing to failure." << endl;
+                        << alignments[j].name() << ". This should never happen! Changing to failure." << endl;
                         pop_score.second = false;
                     }
                     
@@ -3494,7 +3581,7 @@ namespace vg {
                 // we apply to the multipath's score to make it match the
                 // pop-adjusted score of the best-pop-adjusted-score linear
                 // alignment.
-                double adjustment = best_linearization_total_score - base_scores[i];
+                double adjustment = best_linearization_total_score - scores[i];
                 
                 // See if we have a new minimum adjustment value, for the adjustment applicable to the chosen traceback.
                 min_adjustment = min(min_adjustment, adjustment);
@@ -3533,7 +3620,293 @@ namespace vg {
         // Select whether to use base or adjusted scores depending on whether
         // we did population-aware alignment and succeeded for all the
         // multipath alignments.
-        auto& scores = (include_population_component && all_multipaths_pop_consistent) ? pop_adjusted_scores : base_scores;
+        if (include_population_component && all_multipaths_pop_consistent) {
+            scores = move(pop_adjusted_scores);
+        }
+        return scores;
+    }
+
+    vector<double> MultipathMapper::pair_mapping_likelihoods(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
+                                                             const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const {
+        
+        // Only do the population MAPQ if it might disambiguate two paths (since it's not
+        // as cheap as just using the score), or if we set the setting to always do it.
+        bool include_population_component = (use_population_mapqs &&
+                                             (multipath_aln_pairs.size() > 1 || always_check_population));
+        // Records whether, for each multipath alignment pair, at least one of
+        // the paths enumerated for each end followed only edges in the index.
+        // We count totally unmapped reads as pop consistent, as all 0 edges
+        // they cross are pop consistent.
+        bool all_multipaths_pop_consistent = true;
+        
+        double log_base = get_aligner(!multipath_aln_pairs.front().first.quality().empty() &&
+                                      !multipath_aln_pairs.front().second.quality().empty())->log_base;
+        
+        // the scores of the optimal alignments and fragments, ignoring population
+        vector<double> scores(multipath_aln_pairs.size(), 0.0);
+        
+        // the scores of the optimal alignments and fragments, accounting for population
+        vector<double> pop_adjusted_scores;
+        if (include_population_component) {
+            pop_adjusted_scores.resize(multipath_aln_pairs.size());
+        }
+        // population + fragment score, for when population adjustment is used, to make scores nonnegative
+        double min_extra_score = numeric_limits<double>::max();
+        // just fragment score, for running without population adjustment, to make scores nonnegative
+        double min_frag_score = numeric_limits<double>::max();
+        
+        
+        for (size_t i = 0; i < multipath_aln_pairs.size(); i++) {
+            // For each pair of read placements
+            pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair = multipath_aln_pairs[i];
+            
+            // We will query the population database for this alignment pair if it
+            // is turned on and it succeeded for the others.
+            bool query_population = include_population_component && all_multipaths_pop_consistent;
+            
+            // Generate the top alignments on each side, or the top
+            // population_max_paths alignments if we are doing multiple
+            // alignments for population scoring.
+            vector<vector<Alignment>> alignments(2);
+            
+            if (query_population) {
+                // We want to do population scoring
+                if (!top_tracebacks && haplo_score_provider->has_incremental_search()) {
+                    // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
+                    // Make sure to also always include the optimal alignment first, even if inconsistent.
+                    // Also pad out with population_max_paths inconsistent or unscorable paths
+                    alignments[0] = haplotype_consistent_alignments(multipath_aln_pair.first, *haplo_score_provider, population_max_paths,
+                                                                    population_paths_hard_cap, true);
+                    alignments[1] = haplotype_consistent_alignments(multipath_aln_pair.second, *haplo_score_provider, population_max_paths,
+                                                                    population_paths_hard_cap, true);
+                } else {
+                    // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
+                    alignments[0] = optimal_alignments(multipath_aln_pair.first, population_max_paths);
+                    alignments[1] = optimal_alignments(multipath_aln_pair.second, population_max_paths);
+                }
+            } else {
+                // Just compute a single optimal alignment
+                alignments[0] = optimal_alignments(multipath_aln_pair.first, 1);
+                alignments[1] = optimal_alignments(multipath_aln_pair.second, 1);
+            }
+            
+#ifdef debug_multipath_mapper
+            cerr << "Got " << alignments[0].size() << " and " << alignments[1].size() << " linearizations on each end" << endl;
+#endif
+            
+            // We used to fail an assert if either list of optimal alignments
+            // was empty, but now we handle it as if that side is an unmapped
+            // read with score 0.
+            
+            // Compute the optimal alignment score ignoring population
+            int32_t alignment_score = (alignments[0].empty() ? 0 : alignments[0][0].score()) +
+            (alignments[1].empty() ? 0 : alignments[1][0].score());
+            
+            // This is the contribution to the alignment's score from the fragment length distribution
+            double frag_score;
+            if (alignments[0].empty() || alignments[1].empty()) {
+                // Actually there should be no fragment score, because one or both ends are unmapped
+                frag_score = 0;
+            } else {
+                // compute the fragment distribution's contribution to the score
+                frag_score = fragment_length_log_likelihood(cluster_pairs[i].second) / log_base;
+            }
+            min_frag_score = min(frag_score, min_frag_score);
+            
+            // Record the base score, including fragment contribution
+            scores[i] = alignment_score + frag_score;
+            
+            if (query_population) {
+                // We also want to select the optimal population-scored alignment on each side and compute a pop-adjusted score.
+                
+                // Work out the population size. Use the override, then try the score provider, and then fall back to the xg.
+                auto haplotype_count = force_haplotype_count;
+                
+                if (haplotype_count == 0) {
+                    haplotype_count = haplo_score_provider->get_haplotype_count();
+                }
+                
+                if (haplotype_count == 0 || haplotype_count == -1) {
+                    // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
+                    //haplotype_count = xindex->get_haplotype_count();
+                }
+                
+                if (haplotype_count == 0 || haplotype_count == -1) {
+                    // We really should have a haplotype count
+                    throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
+                }
+                
+                // Make sure to grab the memo
+                auto& memo = get_rr_memo(recombination_penalty, haplotype_count);
+                
+                // Now we need to score the linearizations.
+                
+                // This is the best pop-adjusted linearization score for each end.
+                double best_total_score[2] = {0, 0};
+                // This is the pop score that goes with it
+                double best_pop_score[2] = {0, 0};
+                // We set this to true if we find a best linearization for each end.
+                bool have_best_linearization[2] = {false, false};
+                // Note that for unmapped reads, the total and pop scores will stay 0.
+                
+                for (int end : {0, 1}) {
+                    // For each read in the pair
+                    
+                    for (size_t j = 0; j < alignments[end].size(); j++) {
+                        // For each alignment of the read in this location
+                        
+                        // Pop score the alignment
+                        auto pop_score = haplo_score_provider->score(alignments[end][j].path(), memo);
+                        
+                        if (std::isnan(pop_score.first) && pop_score.second) {
+                            // This shouldn't happen. Bail out on haplotype adjustment for this read and warn.
+                            cerr << "warning:[vg::MultipathMapper]: NAN population adjusted score obtained for paired read "
+                            << alignments[end][j].name() << " with ostensibly successful query. Changing to failure." << endl;
+                            pop_score.second = false;
+                        }
+                        
+                        if (std::isnan(alignments[end][j].score())) {
+                            // This is even worse! The alignment score itself is somehow NAN.
+                            cerr << "warning:[vg::MultipathMapper]: NAN alignment score obtained in alignment being considered for paired read "
+                            << alignments[end][j].name() << ". This should never happen! Changing to failure." << endl;
+                            pop_score.second = false;
+                        }
+                        
+#ifdef debug_multipath_mapper
+                        cerr << "Linearization " << j << " on end " << end << " gets pop score " << pop_score.first
+                        << " and alignment score " << alignments[end][j].score() << endl;
+#endif
+                        
+                        if (pop_score.second) {
+                            // If the alignment was pop-score-able, mix it in as a candidate for the best linearization
+                            
+                            // Compute its pop-adjusted score.
+                            // Make sure to account for the aligner's log base to have consistent point values.
+                            double total_score = alignments[end][j].score() + pop_score.first / log_base;
+                            
+                            if (!have_best_linearization[end] || total_score > best_total_score[end]) {
+                                // This is the new best linearization
+                                
+                                best_total_score[end] = total_score;
+                                best_pop_score[end] = pop_score.first / log_base;
+                                have_best_linearization[end] = true;
+                            }
+                            
+                        }
+                    }
+                }
+                
+                if ((!alignments[0].empty() && !have_best_linearization[0]) ||
+                    (!alignments[1].empty() && !have_best_linearization[1])) {
+                    // If we couldn't find a linearization for each mapped end that we could score, bail on pop scoring.
+                    all_multipaths_pop_consistent = false;
+                    continue;
+                }
+                
+                // Compute the total pop adjusted score for this multipath_alignment_t
+                pop_adjusted_scores[i] = best_total_score[0] + best_total_score[1] + frag_score;
+                
+                // Save the pop scores without the base scores to the multipath alignments.
+                // TODO: Should we be annotating unmapped reads with 0 pop scores when the other read in the pair is mapped?
+                multipath_aln_pair.first.set_annotation("haplotype_score", best_pop_score[0]);
+                multipath_aln_pair.second.set_annotation("haplotype_score", best_pop_score[1]);
+                
+                assert(!std::isnan(best_total_score[0]));
+                assert(!std::isnan(best_total_score[1]));
+                assert(!std::isnan(frag_score));
+                assert(!std::isnan(pop_adjusted_scores[i]));
+                
+                // How much was extra over the score of the top-base-score alignment on each side?
+                // This might be negative if e.g. that alignment looks terrible population-wise but we take it anyway.
+                auto extra = pop_adjusted_scores[i] - alignment_score;
+                
+                // Record our extra score if it was a new minimum
+                min_extra_score = min(extra, min_extra_score);
+            }
+        }
+        
+        // Decide which scores to use depending on whether we have pop adjusted scores we want to use
+        if (include_population_component && all_multipaths_pop_consistent) {
+            scores = move(pop_adjusted_scores);
+        }
+        
+        for (auto& score : scores) {
+            // Pull the min frag or extra score out of the score so it will be nonnegative
+            score -= (include_population_component && all_multipaths_pop_consistent) ? min_extra_score : min_frag_score;
+        }
+        
+        if (include_population_component && all_multipaths_pop_consistent) {
+            // Record that we used the population score
+#ifdef debug_multipath_mapper
+            cerr << "Haplotype consistency score is being used." << endl;
+#endif
+            for (auto& multipath_aln_pair : multipath_aln_pairs) {
+                // We have to do it on each read in each pair.
+                // TODO: Come up with a simpler way to dump annotations in based on what happens during mapping.
+                multipath_aln_pair.first.set_annotation("haplotype_score_used", true);
+                multipath_aln_pair.second.set_annotation("haplotype_score_used", true);
+            }
+        } else {
+            // Clean up pop score annotations if present and remove scores from all the reads
+#ifdef debug_multipath_mapper
+            cerr << "Haplotype consistency score is not being used." << endl;
+#endif
+            for (auto& multipath_aln_pair : multipath_aln_pairs) {
+                // We have to do it on each read in each pair.
+                multipath_aln_pair.first.clear_annotation("haplotype_score_used");
+                multipath_aln_pair.first.clear_annotation("haplotype_score");
+                multipath_aln_pair.second.clear_annotation("haplotype_score_used");
+                multipath_aln_pair.second.clear_annotation("haplotype_score");
+            }
+        }
+        return scores;
+    }
+    
+    int32_t MultipathMapper::compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method,
+                                                                     bool have_qualities, const vector<double>* multiplicities) const {
+   
+        // We should never actually compute a MAPQ with the None method. If we try, it means something has gone wrong.
+        assert(mapq_method != None);
+   
+        auto aligner = get_aligner(have_qualities);
+        int32_t raw_mapq;
+        if (mapping_quality_method == Adaptive) {
+            raw_mapq = aligner->compute_mapping_quality(scores, scores.size() < 2 ? true :
+                                                        (scores[1] < scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)),
+                                                        multiplicities);
+        }
+        else {
+            raw_mapq = aligner->compute_mapping_quality(scores, mapping_quality_method == Approx, multiplicities);
+        }
+        
+        // arbitrary scaling, seems to help performance
+        raw_mapq *= mapq_scaling_factor;
+        
+#ifdef debug_multipath_mapper
+        cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
+#endif
+
+        return raw_mapq;
+
+    }
+    
+    void MultipathMapper::sort_and_compute_mapping_quality(vector<multipath_alignment_t>& multipath_alns,
+                                                           MappingQualityMethod mapq_method,
+                                                           vector<size_t>* cluster_idxs,
+                                                           vector<double>* multiplicities) const {
+        if (cluster_idxs) {
+            assert(cluster_idxs->size() == multipath_alns.size());
+        }
+        if (multiplicities) {
+            assert(multiplicities->size() == multipath_alns.size());
+        }
+        
+        if (multipath_alns.empty()) {
+            return;
+        }
+        
+        // get the log-likelihoods of each mapping
+        vector<double> scores = mapping_likelihoods(multipath_alns);
         
         // find the order of the scores
         vector<size_t> order(multipath_alns.size(), 0);
@@ -3551,7 +3924,7 @@ namespace vg {
             index[order[i]] = i;
         }
         
-        // put the scores, clusters-of-origin, and alignments in order
+        // put the scores, multiplicities, clusters-of-origin, and alignments in order
         for (size_t i = 0; i < multipath_alns.size(); i++) {
             while (index[i] != i) {
                 std::swap(scores[index[i]], scores[i]);
@@ -3618,7 +3991,8 @@ namespace vg {
             for (size_t i = 1; i < num_reporting; ++i) {
                 reporting_idxs[i] = i;
             }
-            double raw_mapq = get_aligner(!multipath_alns.front().quality().empty())->compute_group_mapping_quality(scores, reporting_idxs);
+            double raw_mapq = get_aligner(!multipath_alns.front().quality().empty())->compute_group_mapping_quality(scores, reporting_idxs,
+                                                                                                                    multiplicities);
             // TODO: for some reason set_annotation will accept a double but not an int
             double group_mapq = min<double>(max_mapping_quality, mapq_scaling_factor * raw_mapq);
             
@@ -3647,255 +4021,8 @@ namespace vg {
             return;
         }
         
-        // Only do the population MAPQ if it might disambiguate two paths (since it's not
-        // as cheap as just using the score), or if we set the setting to always do it.
-        bool include_population_component = (use_population_mapqs &&
-                                             (multipath_aln_pairs.size() > 1 || always_check_population));
-        // Records whether, for each multipath alignment pair, at least one of
-        // the paths enumerated for each end followed only edges in the index.
-        // We count totally unmapped reads as pop consistent, as all 0 edges
-        // they cross are pop consistent.
-        bool all_multipaths_pop_consistent = true;
-        
-        double log_base = get_aligner(!multipath_aln_pairs.front().first.quality().empty() &&
-                                      !multipath_aln_pairs.front().second.quality().empty())->log_base;
-        
-        // the scores of the optimal alignments and fragments, ignoring population
-        vector<double> base_scores(multipath_aln_pairs.size(), 0.0);
-        
-#ifdef debug_multipath_mapper
-        // trackers that let us keep track of the alignment and population components separately
-        vector<pair<double, double>> chosen_align_score(multipath_aln_pairs.size(),
-                                                        make_pair(numeric_limits<double>::quiet_NaN(),
-                                                                  numeric_limits<double>::quiet_NaN()));
-        vector<pair<double, double>> chosen_population_score(multipath_aln_pairs.size(),
-                                                             make_pair(numeric_limits<double>::quiet_NaN(),
-                                                                       numeric_limits<double>::quiet_NaN()));
-#endif
-        
-        // the scores of the optimal alignments and fragments, accounting for population
-        vector<double> pop_adjusted_scores;
-        if (include_population_component) {
-            pop_adjusted_scores.resize(multipath_aln_pairs.size());
-        }
-        // population + fragment score, for when population adjustment is used, to make scores nonnegative
-        double min_extra_score = numeric_limits<double>::max();
-        // just fragment score, for running without population adjustment, to make scores nonnegative
-        double min_frag_score = numeric_limits<double>::max();
-        
-        
-        for (size_t i = 0; i < multipath_aln_pairs.size(); i++) {
-            // For each pair of read placements
-            pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair = multipath_aln_pairs[i];
-            
-            // We will query the population database for this alignment pair if it
-            // is turned on and it succeeded for the others.
-            bool query_population = include_population_component && all_multipaths_pop_consistent;
-            
-            // Generate the top alignments on each side, or the top
-            // population_max_paths alignments if we are doing multiple
-            // alignments for population scoring.
-            vector<vector<Alignment>> alignments(2);
-            
-            if (query_population) {
-                // We want to do population scoring
-                if (!top_tracebacks && haplo_score_provider->has_incremental_search()) {
-                    // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
-                    // Make sure to also always include the optimal alignment first, even if inconsistent.
-                    // Also pad out with population_max_paths inconsistent or unscorable paths
-                    alignments[0] = haplotype_consistent_alignments(multipath_aln_pair.first, *haplo_score_provider, population_max_paths,
-                                                                    population_paths_hard_cap, true);
-                    alignments[1] = haplotype_consistent_alignments(multipath_aln_pair.second, *haplo_score_provider, population_max_paths,
-                                                                    population_paths_hard_cap, true);
-                } else {
-                    // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
-                    alignments[0] = optimal_alignments(multipath_aln_pair.first, population_max_paths);
-                    alignments[1] = optimal_alignments(multipath_aln_pair.second, population_max_paths);
-                }
-            } else {
-                // Just compute a single optimal alignment
-                alignments[0] = optimal_alignments(multipath_aln_pair.first, 1);
-                alignments[1] = optimal_alignments(multipath_aln_pair.second, 1);
-            }
-            
-#ifdef debug_multipath_mapper
-            cerr << "Got " << alignments[0].size() << " and " << alignments[1].size() << " linearizations on each end" << endl;
-#endif
-            
-            // We used to fail an assert if either list of optimal alignments
-            // was empty, but now we handle it as if that side is an unmapped
-            // read with score 0.
-            
-            // Compute the optimal alignment score ignoring population
-            int32_t alignment_score = (alignments[0].empty() ? 0 : alignments[0][0].score()) +
-                (alignments[1].empty() ? 0 : alignments[1][0].score());
-            
-            // This is the contribution to the alignment's score from the fragment length distribution
-            double frag_score;
-            if (alignments[0].empty() || alignments[1].empty()) {
-                // Actually there should be no fragment score, because one or both ends are unmapped
-                frag_score = 0;
-            } else {
-                // compute the fragment distribution's contribution to the score
-                frag_score = fragment_length_log_likelihood(cluster_pairs[i].second) / log_base;
-            }
-            min_frag_score = min(frag_score, min_frag_score);
-            
-            // Record the base score, including fragment contribution
-            base_scores[i] = alignment_score + frag_score;
-            
-            if (query_population) {
-                // We also want to select the optimal population-scored alignment on each side and compute a pop-adjusted score.
-                
-                // Work out the population size. Use the override, then try the score provider, and then fall back to the xg.
-                auto haplotype_count = force_haplotype_count;
-                
-                if (haplotype_count == 0) {
-                    haplotype_count = haplo_score_provider->get_haplotype_count();
-                }
-                
-                if (haplotype_count == 0 || haplotype_count == -1) {
-                    // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
-                    //haplotype_count = xindex->get_haplotype_count();
-                }
-                
-                if (haplotype_count == 0 || haplotype_count == -1) {
-                    // We really should have a haplotype count
-                    throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
-                }
-                
-                // Make sure to grab the memo
-                auto& memo = get_rr_memo(recombination_penalty, haplotype_count);
-                
-                // Now we need to score the linearizations.
-                
-                // This is the best pop-adjusted linearization score for each end.
-                double best_total_score[2] = {0, 0};
-                // This is the pop score that goes with it
-                double best_pop_score[2] = {0, 0};
-                // We set this to true if we find a best linearization for each end.
-                bool have_best_linearization[2] = {false, false};
-                // Note that for unmapped reads, the total and pop scores will stay 0.
-                
-                for (int end : {0, 1}) {
-                    // For each read in the pair
-                
-                    for (size_t j = 0; j < alignments[end].size(); j++) {
-                        // For each alignment of the read in this location
-                        
-                        // Pop score the alignment
-                        auto pop_score = haplo_score_provider->score(alignments[end][j].path(), memo);
-                        
-                        if (std::isnan(pop_score.first) && pop_score.second) {
-                            // This shouldn't happen. Bail out on haplotype adjustment for this read and warn.
-                            cerr << "warning:[vg::MultipathMapper]: NAN population adjusted score obtained for paired read "
-                                << alignments[end][j].name() << " with ostensibly successful query. Changing to failure." << endl;
-                            pop_score.second = false;
-                        }
-                        
-                        if (std::isnan(alignments[end][j].score())) {
-                            // This is even worse! The alignment score itself is somehow NAN.
-                            cerr << "warning:[vg::MultipathMapper]: NAN alignment score obtained in alignment being considered for paired read "
-                                << alignments[end][j].name() << ". This should never happen! Changing to failure." << endl;
-                            pop_score.second = false;
-                        }
-                        
-#ifdef debug_multipath_mapper
-                        cerr << "Linearization " << j << " on end " << end << " gets pop score " << pop_score.first
-                            << " and alignment score " << alignments[end][j].score() << endl;
-#endif
-                        
-                        if (pop_score.second) {
-                            // If the alignment was pop-score-able, mix it in as a candidate for the best linearization
-                            
-                            // Compute its pop-adjusted score.
-                            // Make sure to account for the aligner's log base to have consistent point values.
-                            double total_score = alignments[end][j].score() + pop_score.first / log_base;
-                            
-                            if (!have_best_linearization[end] || total_score > best_total_score[end]) {
-                                // This is the new best linearization
-                                
-                                best_total_score[end] = total_score;
-                                best_pop_score[end] = pop_score.first / log_base;
-                                have_best_linearization[end] = true;
-#ifdef debug_multipath_mapper
-
-                                if (end == 0) {
-                                    chosen_align_score[i].first = alignments[end][j].score();
-                                    chosen_population_score[i].first = pop_score.first / log_base;
-                                }
-                                else {
-                                    chosen_align_score[i].second = alignments[end][j].score();
-                                    chosen_population_score[i].second = pop_score.first / log_base;
-                                }
-#endif
-                            }
-                            
-                        }
-                    }
-                }
-                
-                if ((!alignments[0].empty() && !have_best_linearization[0]) ||
-                    (!alignments[1].empty() && !have_best_linearization[1])) {
-                    // If we couldn't find a linearization for each mapped end that we could score, bail on pop scoring.
-                    all_multipaths_pop_consistent = false;
-                    continue;
-                }
-                
-                // Compute the total pop adjusted score for this multipath_alignment_t
-                pop_adjusted_scores[i] = best_total_score[0] + best_total_score[1] + frag_score;
-                
-                // Save the pop scores without the base scores to the multipath alignments.
-                // TODO: Should we be annotating unmapped reads with 0 pop scores when the other read in the pair is mapped?
-                multipath_aln_pair.first.set_annotation("haplotype_score", best_pop_score[0]);
-                multipath_aln_pair.second.set_annotation("haplotype_score", best_pop_score[1]);
-                
-                assert(!std::isnan(best_total_score[0]));
-                assert(!std::isnan(best_total_score[1]));
-                assert(!std::isnan(frag_score));
-                assert(!std::isnan(pop_adjusted_scores[i]));
-                
-                // How much was extra over the score of the top-base-score alignment on each side?
-                // This might be negative if e.g. that alignment looks terrible population-wise but we take it anyway.
-                auto extra = pop_adjusted_scores[i] - alignment_score;
-                
-                // Record our extra score if it was a new minimum
-                min_extra_score = min(extra, min_extra_score);
-            }
-        }
-        
-        // Decide which scores to use depending on whether we have pop adjusted scores we want to use
-        auto& scores = (include_population_component && all_multipaths_pop_consistent) ? pop_adjusted_scores : base_scores;
-        
-        for (auto& score : scores) {
-            // Pull the min frag or extra score out of the score so it will be nonnegative
-            score -= (include_population_component && all_multipaths_pop_consistent) ? min_extra_score : min_frag_score;
-        }
-        
-        if (include_population_component && all_multipaths_pop_consistent) {
-            // Record that we used the population score
-#ifdef debug_multipath_mapper
-            cerr << "Haplotype consistency score is being used." << endl;
-#endif
-            for (auto& multipath_aln_pair : multipath_aln_pairs) {
-                // We have to do it on each read in each pair.
-                // TODO: Come up with a simpler way to dump annotations in based on what happens during mapping.
-                multipath_aln_pair.first.set_annotation("haplotype_score_used", true);
-                multipath_aln_pair.second.set_annotation("haplotype_score_used", true);
-            }
-        } else {
-            // Clean up pop score annotations if present and remove scores from all the reads
-#ifdef debug_multipath_mapper
-            cerr << "Haplotype consistency score is not being used." << endl;
-#endif
-            for (auto& multipath_aln_pair : multipath_aln_pairs) {
-                // We have to do it on each read in each pair.
-                multipath_aln_pair.first.clear_annotation("haplotype_score_used");
-                multipath_aln_pair.first.clear_annotation("haplotype_score");
-                multipath_aln_pair.second.clear_annotation("haplotype_score_used");
-                multipath_aln_pair.second.clear_annotation("haplotype_score");
-            }
-        }
+        // get the log-likelihoods of each mapping
+        vector<double> scores = pair_mapping_likelihoods(multipath_aln_pairs, cluster_pairs);
         
         // find the order of the scores
         vector<size_t> order(multipath_aln_pairs.size(), 0);
@@ -3922,10 +4049,6 @@ namespace vg {
                 std::swap(scores[index[i]], scores[i]);
                 std::swap(cluster_pairs[index[i]], cluster_pairs[i]);
                 std::swap(multipath_aln_pairs[index[i]], multipath_aln_pairs[i]);
-#ifdef debug_multipath_mapper
-                std::swap(chosen_align_score[index[i]], chosen_align_score[i]);
-                std::swap(chosen_population_score[index[i]], chosen_population_score[i]);
-#endif
                 if (multiplicities) {
                     std::swap((*multiplicities)[index[i]], (*multiplicities)[i]);
                 }
@@ -3946,9 +4069,6 @@ namespace vg {
             cerr << "\tpos:" << start1 << "(" << aln1.score() << ")-" << start2 << "(" << aln2.score() << ")"
                 << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
                 << ", length: " << cluster_pairs[i].second;
-            if (include_population_component && all_multipaths_pop_consistent) {
-                cerr << ", pop adjusted aligns: " << chosen_align_score[i].first << " " << chosen_align_score[i].second << ", population: " << chosen_population_score[i].first << " " << chosen_population_score[i].second;
-            }
             cerr << ", combined: " << scores[i];
             if (multiplicities) {
                 cerr << ", multiplicity: " << multiplicities->at(i);
@@ -4076,7 +4196,8 @@ namespace vg {
             }
             auto aligner = get_aligner(!multipath_aln_pairs.front().first.quality().empty() &&
                                        !multipath_aln_pairs.front().second.quality().empty());
-            double raw_mapq = aligner->compute_group_mapping_quality(scores, reporting_idxs);
+            double raw_mapq = aligner->compute_group_mapping_quality(scores, reporting_idxs,
+                                                                     multiplicities);
             
             // TODO: for some reason set_annotation will accept a double but not an int
             double group_mapq = min<double>(max_mapping_quality, mapq_scaling_factor * raw_mapq);

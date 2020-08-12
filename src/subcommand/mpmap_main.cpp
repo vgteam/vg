@@ -572,6 +572,10 @@ int main_mpmap(int argc, char** argv) {
                 max_mapq = parse<int>(optarg);
                 break;
                 
+            case 'a':
+                agglomerate_multipath_alns = true;
+                break;
+                
             case 'U':
                 report_group_mapq = true;
                 break;
