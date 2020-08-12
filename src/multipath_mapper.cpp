@@ -1835,8 +1835,15 @@ namespace vg {
                                            rescue_aln_pairs, rescue_distances, rescue_multiplicities);
 
                 }
-                else {
-                    // rescue didn't find any consistent mappings, revert to the single ended mappings
+                else if (!(!likely_mismapping(multipath_aln_pairs_out.front().first)
+                           && !likely_misrescue(multipath_aln_pairs_out.front().second)) &&
+                         !(!likely_misrescue(multipath_aln_pairs_out.front().first)
+                           && !likely_mismapping(multipath_aln_pairs_out.front().second))) {
+                    
+                    // rescue didn't find any consistent mappings and we didn't have any pairings
+                    // that we would have accepted from rescue beforehand. just take the single ended
+                    // mappings that were computed for the sake of rescue
+                    
                     proper_paired = false;
                     std::swap(multipath_aln_pairs_out, rescue_aln_pairs);
                     
@@ -1850,7 +1857,8 @@ namespace vg {
                 if (multipath_aln_pairs_out.front().first.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff &&
                     multipath_aln_pairs_out.front().second.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff) {
                     // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
-                    // so we use this routine to use rescue on other very good looking independent end clusters
+                    // or because of problems with the seeds. we use this routine to use rescue on other very good looking
+                    // independent end clusters
                     attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
                                                    duplicate_pairs, multipath_aln_pairs_out, cluster_pairs,
                                                    pair_multiplicities, fanouts1.get(), fanouts2.get());
@@ -2582,7 +2590,7 @@ namespace vg {
         
         if (!multipath_aln_pairs_out.empty()) {
             
-            int64_t likelihood_diff = round(aligner->mapping_quality_score_diff(unused_cluster_multiplicity_mq_limit));
+            double likelihood_diff = aligner->mapping_quality_score_diff(unused_cluster_multiplicity_mq_limit);
             double tail_likelihood = get_pair_approx_likelihood(cluster_pairs[multipath_aln_pairs_out.size() - 1]);
             
             // find clusters whose likelihoods are approximately the same as the low end of the clusters we aligned
