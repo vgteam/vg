@@ -201,6 +201,7 @@ var searchData=
   ['hint_5fpaths',['hint_paths',['../classvg_1_1CactusSnarlFinder.html#a380a95f5119b76793da6ba19320a1750',1,'vg::CactusSnarlFinder']]],
   ['hit_5fcap',['hit_cap',['../classvg_1_1MinimizerMapper.html#a1097206776713f059fca80f221b8478c',1,'vg::MinimizerMapper']]],
   ['hit_5fmax',['hit_max',['../classvg_1_1BaseMapper.html#a29b8cec81cc68e9d90405c42fbc8ef64',1,'vg::BaseMapper']]],
+  ['hit_5fsampling_5fmultiplicity',['hit_sampling_multiplicity',['../classvg_1_1MultipathMapper.html#aff9aac0ba02c4d78311fca6fe0a7631d',1,'vg::MultipathMapper']]],
   ['hit_5ft',['hit_t',['../classvg_1_1MEMClusterer.html#a679c48e684ac52020fb363aa946037c7',1,'vg::MEMClusterer']]],
   ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html',1,'vg::MEMClusterer::HitEdge'],['../classvg_1_1MEMClusterer_1_1HitEdge.html#adfc12ed7c93d550e05882555d0004235',1,'vg::MEMClusterer::HitEdge::HitEdge(size_t to_idx, int32_t weight, int64_t distance)'],['../classvg_1_1MEMClusterer_1_1HitEdge.html#a16766cbf34e0ec89d8bbdcd7f9d42988',1,'vg::MEMClusterer::HitEdge::HitEdge()=default']]],
   ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html',1,'vg::MEMClusterer::HitGraph'],['../classvg_1_1MEMClusterer_1_1HitGraph.html#a9895e95cdaa1b95876c79c07d29fe852',1,'vg::MEMClusterer::HitGraph::HitGraph()']]],

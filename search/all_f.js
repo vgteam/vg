@@ -64,6 +64,7 @@ var searchData=
   ['operator_3e',['operator&gt;',['../namespacevg.html#a955d56fb4c95213de77c1fcce44c77b8',1,'vg']]],
   ['operator_5b_5d',['operator[]',['../structhaplo_1_1gbwt__thread__t.html#a9dd1cb0268973121f00304ae34c7688d',1,'haplo::gbwt_thread_t::operator[](size_t i)'],['../structhaplo_1_1gbwt__thread__t.html#a0ebbbd89e60564e347b1bc441230786c',1,'haplo::gbwt_thread_t::operator[](size_t i) const']]],
   ['operator_7c_3d',['operator|=',['../classvg_1_1SmallBitset.html#a541303f562fa1579b94ceda2eda95927',1,'vg::SmallBitset']]],
+  ['opt_5falt_5fpaths',['OPT_ALT_PATHS',['../mpmap__main_8cpp.html#ae91368cb24911fe1546ae429d8715963',1,'mpmap_main.cpp']]],
   ['opt_5falways_5fcheck_5fpopulation',['OPT_ALWAYS_CHECK_POPULATION',['../mpmap__main_8cpp.html#a65c6fa4dc0d10a1eaa52a46cf7492f6f',1,'mpmap_main.cpp']]],
   ['opt_5fapprox_5fexp',['OPT_APPROX_EXP',['../mpmap__main_8cpp.html#a2a31a7f2f254185a590fb21601013459',1,'mpmap_main.cpp']]],
   ['opt_5fband_5fpadding_5fmultiplier',['OPT_BAND_PADDING_MULTIPLIER',['../mpmap__main_8cpp.html#a4e93612c9dd1d066ba7787a13c39d793',1,'mpmap_main.cpp']]],

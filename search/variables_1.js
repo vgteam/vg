@@ -10,6 +10,7 @@ var searchData=
   ['adjust_5falignments_5ffor_5fbase_5fquality',['adjust_alignments_for_base_quality',['../classvg_1_1AlignerClient.html#a25db3953c246e94a7e08ef59fc31b82f',1,'vg::AlignerClient']]],
   ['adjust_5ffor_5fbase_5fquality',['adjust_for_base_quality',['../classvg_1_1BandedGlobalAligner.html#a00b5ed0e20f4dd989bf5219b0273828e',1,'vg::BandedGlobalAligner']]],
   ['affinity',['affinity',['../structvg_1_1Genotyper_1_1Affinity.html#a77332c5a3e180693907d5b6d28c7ca32',1,'vg::Genotyper::Affinity']]],
+  ['agglomerate_5fmultipath_5falns',['agglomerate_multipath_alns',['../classvg_1_1MultipathMapper.html#ac2613ce4eada04721a135673d2d86981',1,'vg::MultipathMapper']]],
   ['agglomeration_5flength',['agglomeration_length',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a285f217813c237807f2bad3488bcc100',1,'vg::MinimizerMapper::Minimizer']]],
   ['agglomeration_5fstart',['agglomeration_start',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a16c1b60d11d598a235b00792df610ed8',1,'vg::MinimizerMapper::Minimizer']]],
   ['alg2name',['alg2name',['../classvg_1_1Genotyper.html#adc250029dd72b833de1042e972b2a8d7',1,'vg::Genotyper']]],

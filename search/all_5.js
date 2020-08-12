@@ -145,6 +145,7 @@ var searchData=
   ['estimate_5fedge_5fscore',['estimate_edge_score',['../classvg_1_1MEMClusterer.html#a941476ae17420e703a8ef743232643ab',1,'vg::MEMClusterer']]],
   ['estimate_5fgc_5fcontent',['estimate_gc_content',['../classvg_1_1BaseMapper.html#aa08b00e5a349252d013d76651f754f8d',1,'vg::BaseMapper']]],
   ['estimate_5fmax_5fpossible_5fmapping_5fquality',['estimate_max_possible_mapping_quality',['../classvg_1_1GSSWAligner.html#a1a15539f94b43518a2363332122254ef',1,'vg::GSSWAligner::estimate_max_possible_mapping_quality()'],['../classvg_1_1Mapper.html#ac8613c49c8390b280aef7323151a4fd8',1,'vg::Mapper::estimate_max_possible_mapping_quality()']]],
+  ['estimate_5fmissed_5frescue_5fmultiplicity',['estimate_missed_rescue_multiplicity',['../classvg_1_1MultipathMapper.html#a46edc0708ffa290b067a937c1876904c',1,'vg::MultipathMapper']]],
   ['estimate_5fnext_5fbest_5fscore',['estimate_next_best_score',['../classvg_1_1GSSWAligner.html#aa5cbf3bce1fe039727bf1e91581d7df1',1,'vg::GSSWAligner']]],
   ['ewens_5faf_5fprob_5fln',['ewens_af_prob_ln',['../namespacevg.html#a59d4b5d91539506f52c32664fc1c0ddd',1,'vg']]],
   ['exact',['exact',['../structvg_1_1GaplessExtension.html#aad05249efda81ed89bc782040bc3ba33',1,'vg::GaplessExtension::exact()'],['../namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39a71ab21548d5ec730cee91982aa78275e',1,'vg::Exact()']]],
