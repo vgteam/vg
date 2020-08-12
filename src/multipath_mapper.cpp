@@ -4,7 +4,7 @@
 //
 //
 
-//#define debug_multipath_mapper
+#define debug_multipath_mapper
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
@@ -470,6 +470,33 @@ namespace vg {
                             fanouts);
             multiplicities_out.emplace_back(hit_sampling_multiplicity(get<1>(cluster_graph)));
             num_mappings++;
+        }
+        
+        if (!multipath_alns_out.empty()) {
+            // find clusters whose likelihoods are approximately the same as the low end of the clusters we aligned
+            auto aligner = get_aligner(!alignment.quality().empty());
+            int64_t score_diff = round(aligner->mapping_quality_score_diff(unused_cluster_multiplicity_mq_limit));
+            int64_t max_tail_idx = multipath_alns_out.size();
+            while (max_tail_idx < cluster_graphs.size()
+                   && get<2>(cluster_graphs[max_tail_idx]) >= get<2>(cluster_graphs[multipath_alns_out.size() - 1]) - score_diff) {
+                ++max_tail_idx;
+            }
+            if (max_tail_idx > multipath_alns_out.size()) {
+                // there are some (nearly) identical cluster that we ignored, so we'll account for them in the multiplicity
+                
+                // find the clusters that are approximately the same
+                int64_t min_tail_idx = multipath_alns_out.size() - 1;
+                while (min_tail_idx > 0 &&
+                       get<2>(cluster_graphs[min_tail_idx - 1]) <= get<2>(cluster_graphs[multipath_alns_out.size() - 1]) + score_diff) {
+                    --min_tail_idx;
+                }
+                
+                // multiply their multiplicity by the inverse of the fraction aligned
+                double trunc_multiplicity = double(max_tail_idx - min_tail_idx) / double(multipath_alns_out.size() - min_tail_idx);
+                for (size_t i = min_tail_idx; i < multipath_alns_out.size(); ++i) {
+                    multiplicities_out[i] *= trunc_multiplicity;
+                }
+            }
         }
         
         if (cluster_idxs) {
@@ -2439,8 +2466,8 @@ namespace vg {
         auto aligner = get_aligner(!alignment1.quality().empty() && !alignment2.quality().empty());
         auto get_pair_approx_likelihood = [&](const pair<pair<size_t, size_t>, int64_t>& cluster_pair) {
             return ((get<2>(cluster_graphs1[cluster_pair.first.first])
-                     + get<2>(cluster_graphs2[cluster_pair.first.second])) * aligner->match * aligner->log_base
-                    + fragment_length_log_likelihood(cluster_pair.second));
+                     + get<2>(cluster_graphs2[cluster_pair.first.second])) * aligner->match
+                    + fragment_length_log_likelihood(cluster_pair.second) / aligner->log_base);
         };
         
         // sort the pairs descending by approximate likelihood
@@ -2551,6 +2578,36 @@ namespace vg {
             }
             
             num_mappings++;
+        }
+        
+        if (!multipath_aln_pairs_out.empty()) {
+            
+            int64_t likelihood_diff = round(aligner->mapping_quality_score_diff(unused_cluster_multiplicity_mq_limit));
+            double tail_likelihood = get_pair_approx_likelihood(cluster_pairs[multipath_aln_pairs_out.size() - 1]);
+            
+            // find clusters whose likelihoods are approximately the same as the low end of the clusters we aligned
+            int64_t max_tail_idx = multipath_aln_pairs_out.size();
+            while (max_tail_idx < cluster_pairs.size()
+                   && get_pair_approx_likelihood(cluster_pairs[max_tail_idx]) >= tail_likelihood - likelihood_diff) {
+                ++max_tail_idx;
+            }
+            
+            if (max_tail_idx > multipath_aln_pairs_out.size()) {
+                // there are some (nearly) identical cluster pairs that we ignored, so we'll account for them in the multiplicity
+                
+                // find the pairs that are approximately the same as the last
+                int64_t min_tail_idx = multipath_aln_pairs_out.size() - 1;
+                while (min_tail_idx > 0 &&
+                       get_pair_approx_likelihood(cluster_pairs[min_tail_idx]) <= tail_likelihood + likelihood_diff) {
+                    --min_tail_idx;
+                }
+                
+                // multiply their multiplicity by the inverse of the fraction aligned
+                double trunc_multiplicity = double(max_tail_idx - min_tail_idx) / double(multipath_aln_pairs_out.size() - min_tail_idx);
+                for (size_t i = min_tail_idx; i < multipath_aln_pairs_out.size(); ++i) {
+                    pair_multiplicities[i] *= trunc_multiplicity;
+                }
+            }
         }
         
         if (!suppress_multicomponent_splitting) {
@@ -3971,7 +4028,11 @@ namespace vg {
         for (size_t i = 0; i < scores.size(); i++) {
             Alignment aln;
             optimal_alignment(multipath_alns[i], aln);
-            cerr << "\t" << scores[i] << " " << (aln.path().mapping_size() ? make_pos_t(aln.path().mapping(0).position()) : pos_t()) << endl;
+            cerr << "\t" << scores[i] << " " << (aln.path().mapping_size() ? make_pos_t(aln.path().mapping(0).position()) : pos_t());
+            if (multiplicities) {
+                cerr << ", multiplicity " << multiplicities->at(i);
+            }
+            cerr << endl;
         }
 #endif
 
