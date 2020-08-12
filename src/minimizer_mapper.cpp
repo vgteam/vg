@@ -578,6 +578,7 @@ double uncapped_mapq = mapq;
     double mapq_explored_cap = 2 * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
 
     // Remember the uncapped MAPQ and the caps
+    set_annotation(mappings.front(),"secondary_scores", scores);
     set_annotation(mappings.front(), "mapq_uncapped", mapq);
     set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
 
@@ -684,7 +685,8 @@ double uncapped_mapq = mapq;
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << cluster_lost_cap << "\t" << mappings.front().mapping_quality();
+    bool has_secondary = scores.size() > 1;
+    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << cluster_lost_cap << "\t" << mappings.front().mapping_quality() << "\t" << scores.front() << "\t" << has_secondary;
     if (track_correctness) {
         cerr << "\t" << funnel.last_correct_stage() << endl;
     } else {
