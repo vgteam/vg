@@ -119,7 +119,6 @@ var searchData=
   ['hex2bin',['hex2bin',['../bin2ascii_8h.html#a63db266c863090d6b7c179df1ea160f1',1,'bin2ascii.h']]],
   ['hfile_5finit',['hfile_init',['../hfile__internal_8hpp.html#abf020a8f3a695c1848cb3671855383b8',1,'hfile_internal.hpp']]],
   ['hfile_5fwrap',['hfile_wrap',['../namespacevg_1_1io.html#a62b10a042ea08faa5da35ff07183d49b',1,'vg::io::hfile_wrap(std::istream &amp;input)'],['../namespacevg_1_1io.html#a4fa9b57a79b55cf4eeb10806be649ede',1,'vg::io::hfile_wrap(std::ostream &amp;output)']]],
-  ['hit_5fsampling_5fmultiplicity',['hit_sampling_multiplicity',['../classvg_1_1MultipathMapper.html#aff9aac0ba02c4d78311fca6fe0a7631d',1,'vg::MultipathMapper']]],
   ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html#adfc12ed7c93d550e05882555d0004235',1,'vg::MEMClusterer::HitEdge::HitEdge(size_t to_idx, int32_t weight, int64_t distance)'],['../classvg_1_1MEMClusterer_1_1HitEdge.html#a16766cbf34e0ec89d8bbdcd7f9d42988',1,'vg::MEMClusterer::HitEdge::HitEdge()=default']]],
   ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a9895e95cdaa1b95876c79c07d29fe852',1,'vg::MEMClusterer::HitGraph']]],
   ['hitnode',['HitNode',['../classvg_1_1MEMClusterer_1_1HitNode.html#a3156b62ac2208fdac8d0b12475011472',1,'vg::MEMClusterer::HitNode::HitNode(const MaximalExactMatch &amp;mem, pos_t start_pos, int32_t score)'],['../classvg_1_1MEMClusterer_1_1HitNode.html#aaeb6e6e2bb1c2ce2cda76adce19a40d6',1,'vg::MEMClusterer::HitNode::HitNode()=default']]],

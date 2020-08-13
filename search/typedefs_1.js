@@ -3,7 +3,7 @@ var searchData=
   ['chain',['Chain',['../namespacevg.html#aceea01d66677e39af71921f1bb1911f0',1,'vg']]],
   ['clock',['clock',['../classvg_1_1Watchdog.html#a7ef04f4ac4f47f7bb02f7ac1b17feb09',1,'vg::Watchdog']]],
   ['cluster',['Cluster',['../classvg_1_1MinimizerMapper.html#a339fbfcd026d074287148843b42c646d',1,'vg::MinimizerMapper']]],
-  ['cluster_5ft',['cluster_t',['../classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d',1,'vg::MEMClusterer']]],
+  ['cluster_5ft',['cluster_t',['../classvg_1_1MEMClusterer.html#a846067e40dbd876a5344a62145c3326b',1,'vg::MEMClusterer']]],
   ['cluster_5ftype',['cluster_type',['../classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04',1,'vg::GaplessExtender']]],
   ['clustergraph_5ft',['clustergraph_t',['../classvg_1_1MultipathMapper.html#a936e50beb6616e5decca443b3c35ddde',1,'vg::MultipathMapper']]],
   ['code_5ftype',['code_type',['../structvg_1_1MIPayload.html#a9601701523086479bbb59d0d304cf71f',1,'vg::MIPayload']]],
