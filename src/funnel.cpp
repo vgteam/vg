@@ -196,6 +196,16 @@ void Funnel::tag_correct(size_t item) {
     stages.back().has_correct = true;
 }
 
+bool Funnel::is_correct(size_t item) const {
+    return stages.back().items[item].correct;
+}
+
+bool Funnel::was_correct(size_t prev_stage_item) const {
+    assert(stages.size() > 1);
+    auto& prev_stage = stages[stages.size() - 2];
+    return prev_stage.items[prev_stage_item].correct;
+}
+
 string Funnel::last_correct_stage() const {
     // Just do a linear scan backward through stages
     for (auto it = stages.rbegin(); it != stages.rend(); ++it) {

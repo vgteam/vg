@@ -353,6 +353,12 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             // This extension set is good enough.
             // Called in descending score order.
             
+#ifdef debug
+            cerr << "gapless extension group " << extension_num << " is good enough (score=" << cluster_extension_scores[extension_num] << ")" << endl;
+            if (track_correctness && funnel.was_correct(extension_num)) {
+                cerr << "\tCORRECT!" << endl; 
+            }
+#endif
             if (track_provenance) {
                 funnel.pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
                 funnel.pass("max-alignments", extension_num);
@@ -407,7 +413,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 find_optimal_tail_alignments(aln, extensions, best_alignments[0], best_alignments[1]);
 
 #ifdef debug
-                cerr << "Did dynamic programming for gapless extension " << extension_num << endl;
+                cerr << "Did dynamic programming for gapless extension group " << extension_num << endl;
 #endif
                 
                 if (track_provenance) {
@@ -431,7 +437,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     funnel.score(alignments.size() - 1, alignments.back().score());
                 }
 #ifdef debug
-                cerr << "Produced alignment from gapless extension " << extension_num << " with score " << alignments.back().score() << ": " << pb2json(alignments.back()) << endl;
+                cerr << "Produced alignment from gapless extension group " << extension_num << " with score " << alignments.back().score() << ": " << pb2json(alignments.back()) << endl;
 #endif
             };
             
@@ -466,7 +472,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 funnel.fail("max-alignments", extension_num);
             }
 #ifdef debug
-                cerr << "gapless extension " << extension_num << " failed because there were too many good extensions" << endl;
+                cerr << "gapless extension group " << extension_num << " failed because there were too many good extensions (score=" << cluster_extension_scores[extension_num] << ")" << endl;
+                if (track_correctness && funnel.was_correct(extension_num)) {
+                    cerr << "\tCORRECT!" << endl; 
+                }
 #endif
         }, [&](size_t extension_num) {
             // This extension is not good enough.
@@ -474,7 +483,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 funnel.fail("extension-set", extension_num, cluster_extension_scores[extension_num]);
             }
 #ifdef debug
-                cerr << "gapless extension " << extension_num << " failed because its score was not good enough (score=" << cluster_extension_scores[extension_num] << ")" << endl;
+                cerr << "gapless extension group " << extension_num << " failed because its score was not good enough (score=" << cluster_extension_scores[extension_num] << ")" << endl;
+                if (track_correctness && funnel.was_correct(extension_num)) {
+                    cerr << "\tCORRECT!" << endl; 
+                }
 #endif
         });
     

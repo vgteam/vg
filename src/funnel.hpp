@@ -110,6 +110,14 @@ public:
     /// Tag the given item as "correct" at the current stage. Future items that
     /// derive from it will also be tagged as correct.
     void tag_correct(size_t item);
+    
+    /// Return true if the given item at this stage is tagged correct, or
+    /// descends from an item that was tagged correct.
+    bool is_correct(size_t item) const;
+
+    /// Return true if the given item at the previous stage is tagged correct, or
+    /// descends from an item that was tagged correct.
+    bool was_correct(size_t prev_stage_item) const;
 
     /// Get the name of the most recent stage that had a correct-tagged item
     /// survive into it, or "none" if no items were ever tagged correct.
