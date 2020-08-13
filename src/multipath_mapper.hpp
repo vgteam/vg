@@ -190,8 +190,8 @@ namespace vg {
         //static size_t SECONDARY_RESCUE_ATTEMPT;
         //static size_t SECONDARY_RESCUE_TOTAL;
         
-        /// We often pass around clusters of MEMs and their graph positions.
-        using memcluster_t = vector<pair<const MaximalExactMatch*, pos_t>>;
+        /// We often pass around clusters of MEMs and their graph positions, paired with a multiplicity
+        using memcluster_t = pair<vector<pair<const MaximalExactMatch*, pos_t>>, double>;
         
         /// This represents a graph for a cluster, and holds a pointer to the
         /// actual extracted graph, a list of assigned MEMs, and the number of
@@ -313,20 +313,20 @@ namespace vg {
         /// Return a graph (on the heap) that contains a cluster. The paired bool
         /// indicates whether the graph is known to be connected (but it is possible
         /// for the graph to be connected and have it return false)
-        pair<bdsg::HashGraph*, bool> extract_cluster_graph(const Alignment& alignment, const memcluster_t& cluster);
+        pair<bdsg::HashGraph*, bool> extract_cluster_graph(const Alignment& alignment, const memcluster_t& mem_cluster);
         
         /// Extract a graph that is guaranteed to contain all local alignments that include
         /// the MEMs of the cluster.  The paired bool indicates whether the graph is
         /// known to be connected (but it is possible for the graph to be connected and have
         /// it return false)
-        pair<bdsg::HashGraph*, bool> extract_maximal_graph(const Alignment& alignment, const memcluster_t& cluster);
+        pair<bdsg::HashGraph*, bool> extract_maximal_graph(const Alignment& alignment, const memcluster_t& mem_cluster);
         
         /// Extract a graph with an algorithm that tries to extract not much more than what
         /// is required to contain the cluster in a single connected component (can be slower
         /// than the maximal algorithm for alignments that require large indels),  The paired bool
         /// indicates whether the graph is known to be connected (but it is possible
         /// for the graph to be connected and have it return false)
-        pair<bdsg::HashGraph*, bool> extract_restrained_graph(const Alignment& alignment, const memcluster_t& cluster);
+        pair<bdsg::HashGraph*, bool> extract_restrained_graph(const Alignment& alignment, const memcluster_t& mem_cluster);
         
         /// If there are any multipath_alignment_ts with multiple connected components, split them
         /// up and add them to the return vector.
@@ -420,11 +420,11 @@ namespace vg {
         
         /// Estimates the number of equivalent mappings (including this one), which we may not have seen due to
         /// limits on the numbers of hits returns for a MEM
-        double hit_sampling_multiplicity(const memcluster_t& cluster) const;
+        double cluster_multiplicity(const memcluster_t& cluster) const;
         
         /// Estimates the number of equivalent pair mappings (including this one), which we may not have seen due to
         /// limits on the numbers of hits returns for a MEM
-        double pair_hit_sampling_multiplicity(const memcluster_t& cluster_1, const memcluster_t& cluster_2) const;
+        double pair_cluster_multiplicity(const memcluster_t& cluster_1, const memcluster_t& cluster_2) const;
         
         /// Computes the log-likelihood of a given fragment length in the trained distribution
         double fragment_length_log_likelihood(int64_t length) const;

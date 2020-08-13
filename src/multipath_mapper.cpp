@@ -33,7 +33,7 @@ namespace vg {
     {
         // nothing to do
     }
-    
+
     MultipathMapper::~MultipathMapper() {
         
     }
@@ -338,7 +338,8 @@ namespace vg {
         // generate clusters
         return clusterer->clusters(alignment, mems, get_aligner(!alignment.quality().empty()),
                                    min_clustering_mem_length, max_mapping_quality, log_likelihood_approx_factor,
-                                   min_median_mem_coverage_for_split, 0.75, fanouts);;
+                                   min_median_mem_coverage_for_split, 0.75, unused_cluster_multiplicity_mq_limit,
+                                   fanouts);;
     }
     
     vector<MaximalExactMatch> MultipathMapper::find_mems(const Alignment& alignment,
@@ -378,7 +379,7 @@ namespace vg {
         // Find the clusters that have a tie for the longest MEM, and create alternate anchor points for those clusters
         vector<pair<size_t, size_t>> alt_anchors_1, alt_anchors_2;
         for (size_t i = 0; i < cluster_mems_1.size(); i++) {
-            auto& mem_cluster = *cluster_mems_1[i];
+            auto& mem_cluster = cluster_mems_1[i]->first;
             for (size_t j = 1; j < mem_cluster.size(); j++) {
                 if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
                     alt_anchors_1.emplace_back(i, j);
@@ -389,7 +390,7 @@ namespace vg {
             }
         }
         for (size_t i = 0; i < cluster_mems_2.size(); i++) {
-            auto& mem_cluster = *cluster_mems_2[i];
+            auto& mem_cluster = cluster_mems_2[i]->first;
             for (size_t j = 1; j < mem_cluster.size(); j++) {
                 if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
                     alt_anchors_2.emplace_back(i, j);
@@ -468,7 +469,7 @@ namespace vg {
             multipath_alns_out.emplace_back();
             multipath_align(alignment, get<0>(cluster_graph), get<1>(cluster_graph), multipath_alns_out.back(),
                             fanouts);
-            multiplicities_out.emplace_back(hit_sampling_multiplicity(get<1>(cluster_graph)));
+            multiplicities_out.emplace_back(cluster_multiplicity(get<1>(cluster_graph)));
             num_mappings++;
         }
         
@@ -927,7 +928,6 @@ namespace vg {
             return p_value;
         }
     }
-    
     
     void MultipathMapper::calibrate_mismapping_detection(size_t num_simulations, const vector<size_t>& simulated_read_lengths) {
         
@@ -1542,11 +1542,11 @@ namespace vg {
                 double hit_multiplicity;
                 if (rescued_cluster_pair.first.first == cluster_graphs1.size()) {
                     // the read 1 mapping is from a rescue, get the hit sampling multiplicity for read 2
-                    hit_multiplicity = hit_sampling_multiplicity(get<1>(cluster_graphs2[rescued_cluster_pair.first.second]));
+                    hit_multiplicity = cluster_multiplicity(get<1>(cluster_graphs2[rescued_cluster_pair.first.second]));
                 }
                 else {
                     // the read 2 mapping is from a rescue, get the hit sampling multiplicity for read 1
-                    hit_multiplicity = hit_sampling_multiplicity(get<1>(cluster_graphs1[rescued_cluster_pair.first.first]));
+                    hit_multiplicity = cluster_multiplicity(get<1>(cluster_graphs1[rescued_cluster_pair.first.first]));
                 }
                 rescued_multiplicities.push_back(rescue_multiplicity * hit_multiplicity);
             }
@@ -2285,17 +2285,17 @@ namespace vg {
         return multiplicity;
     }
 
-    double MultipathMapper::hit_sampling_multiplicity(const memcluster_t& cluster) const {
+    double MultipathMapper::cluster_multiplicity(const memcluster_t& cluster) const {
         double max_fraction_sampled = 0.0;
-        for (const pair<const MaximalExactMatch*, pos_t>& hit : cluster) {
+        for (const pair<const MaximalExactMatch*, pos_t>& hit : cluster.first) {
             const MaximalExactMatch& mem = *hit.first;
             max_fraction_sampled = max(max_fraction_sampled, double(mem.queried_count) / double(mem.match_count));
         }
-        return 1.0 / max_fraction_sampled;
+        return cluster.second / max_fraction_sampled;
     }
 
-    double MultipathMapper::pair_hit_sampling_multiplicity(const memcluster_t& cluster_1, const memcluster_t& cluster_2) const {
-        return min(hit_sampling_multiplicity(cluster_1), hit_sampling_multiplicity(cluster_2));
+    double MultipathMapper::pair_cluster_multiplicity(const memcluster_t& cluster_1, const memcluster_t& cluster_2) const {
+        return min(cluster_multiplicity(cluster_1), cluster_multiplicity(cluster_2));
     }
 
     MultipathMapper::match_fanouts_t MultipathMapper::record_fanouts(const vector<MaximalExactMatch>& mems,
@@ -2494,8 +2494,8 @@ namespace vg {
 #endif
             // create multipath alignments to fill
             multipath_aln_pairs_out.emplace_back();
-            pair_multiplicities.push_back(pair_hit_sampling_multiplicity(get<1>(cluster_graphs1[cluster_pair.first.first]),
-                                                                         get<1>(cluster_graphs2[cluster_pair.first.second])));
+            pair_multiplicities.push_back(pair_cluster_multiplicity(get<1>(cluster_graphs1[cluster_pair.first.first]),
+                                                                    get<1>(cluster_graphs2[cluster_pair.first.second])));
                         
             auto prev_1 = previous_multipath_alns_1.find(cluster_pair.first.first);
             if (prev_1 == previous_multipath_alns_1.end()) {
@@ -2616,10 +2616,12 @@ namespace vg {
         
     }
 
-    pair<bdsg::HashGraph*, bool> MultipathMapper::extract_maximal_graph(const Alignment& alignment, const memcluster_t& cluster) {
+    pair<bdsg::HashGraph*, bool> MultipathMapper::extract_maximal_graph(const Alignment& alignment, const memcluster_t& mem_cluster) {
         
         // Figure out the aligner to use
         auto aligner = get_aligner(!alignment.quality().empty());
+        // get the seed hits
+        const auto& cluster = mem_cluster.first;
         
         vector<pos_t> positions;
         vector<size_t> forward_max_dist;
@@ -2669,10 +2671,12 @@ namespace vg {
         return gap_length;
     }
 
-    pair<bdsg::HashGraph*, bool> MultipathMapper::extract_restrained_graph(const Alignment& alignment, const memcluster_t& cluster) {
+    pair<bdsg::HashGraph*, bool> MultipathMapper::extract_restrained_graph(const Alignment& alignment, const memcluster_t& mem_cluster) {
         
         // Figure out the aligner to use
         auto aligner = get_aligner(!alignment.quality().empty());
+        // get the seed hits
+        const auto& cluster = mem_cluster.first;
         
         // the MEMs are size sorted, we want to know the read order so we can
         // use the inter-MEM distance to figure out how much to extract
@@ -2779,12 +2783,12 @@ namespace vg {
         return make_pair(cluster_graph, connected);
     }
 
-    pair<bdsg::HashGraph*, bool> MultipathMapper::extract_cluster_graph(const Alignment& alignment, const memcluster_t& cluster) {
+    pair<bdsg::HashGraph*, bool> MultipathMapper::extract_cluster_graph(const Alignment& alignment, const memcluster_t& mem_cluster) {
         if (restrained_graph_extraction) {
-            return extract_restrained_graph(alignment, cluster);
+            return extract_restrained_graph(alignment, mem_cluster);
         }
         else {
-            return extract_maximal_graph(alignment, cluster);
+            return extract_maximal_graph(alignment, mem_cluster);
         }
     }
     
@@ -2806,7 +2810,8 @@ namespace vg {
         
         // to hold the clusters as they are (possibly) merged, bools indicate
         // whether we've verified that the graph is connected
-        unordered_map<size_t, pair<bdsg::HashGraph*, bool>> cluster_graphs;
+        // doubles are the cluster graph's multiplicity
+        unordered_map<size_t, tuple<bdsg::HashGraph*, bool, double>> cluster_graphs;
         
         // to keep track of which clusters have been merged
         UnionFind union_find(clusters.size(), false);
@@ -2823,15 +2828,16 @@ namespace vg {
             
             // gather the parameters for subgraph extraction from the MEM hits
             auto& cluster = clusters[i];
-            auto cluster_graph = extract_cluster_graph(alignment, cluster);
+            auto extracted = extract_cluster_graph(alignment, cluster);
+            tuple<bdsg::HashGraph*, bool, double> cluster_graph(extracted.first, extracted.second, cluster.second);
             
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
             unordered_set<size_t> overlapping_graphs;
             
             if (!do_merge_suppression) {
-                cluster_graph.first->for_each_handle([&](const handle_t& handle) {
-                    id_t node_id = cluster_graph.first->get_id(handle);
+                get<0>(cluster_graph)->for_each_handle([&](const handle_t& handle) {
+                    id_t node_id = get<0>(cluster_graph)->get_id(handle);
                     if (node_id_to_cluster.count(node_id)) {
                         overlapping_graphs.insert(node_id_to_cluster[node_id]);
                     }
@@ -2843,7 +2849,7 @@ namespace vg {
             }
             else {
                 // assign the hits to clusters
-                for (auto& mem_hit : cluster) {
+                for (auto& mem_hit : cluster.first) {
                     hit_to_cluster[mem_hit] = i;
                 }
             }
@@ -2878,31 +2884,38 @@ namespace vg {
                 
                 bdsg::HashGraph* merging_graph;
                 bool all_connected;
+                double multiplicity;
                 if (remaining_idx == i) {
                     // the new graph was chosen to remain, so add it to the record
                     cluster_graphs[i] = cluster_graph;
-                    merging_graph = cluster_graph.first;
-                    all_connected = cluster_graph.second;
+                    merging_graph = get<0>(cluster_graph);
+                    all_connected = get<1>(cluster_graph);
+                    multiplicity = get<2>(cluster_graph);
                 }
                 else {
                     // the new graph will be merged into an existing graph
-                    merging_graph = cluster_graphs[remaining_idx].first;
-                    all_connected = cluster_graphs[remaining_idx].second && cluster_graph.second;
-                    algorithms::extend(cluster_graph.first, merging_graph);
-                    delete cluster_graph.first;
+                    merging_graph = get<0>(cluster_graphs[remaining_idx]);
+                    
+                    // add in the new graph
+                    algorithms::extend(get<0>(cluster_graph), merging_graph);
+                    all_connected = get<1>(cluster_graphs[remaining_idx]) && get<1>(cluster_graph);
+                    multiplicity = min(get<2>(cluster_graphs[remaining_idx]), get<2>(cluster_graph));
+                    delete get<0>(cluster_graph);
                 }
                 
                 // merge any other chained graphs into the remaining graph
                 for (size_t j : overlapping_graphs) {
                     if (j != remaining_idx) {
                         auto removing_graph = cluster_graphs[j];
-                        algorithms::extend(removing_graph.first, merging_graph);
-                        all_connected = all_connected && removing_graph.second;
-                        delete removing_graph.first;
+                        algorithms::extend(get<0>(removing_graph), merging_graph);
+                        all_connected = all_connected && get<1>(removing_graph);
+                        multiplicity = min(multiplicity, get<2>(removing_graph));
+                        delete get<0>(removing_graph);
                         cluster_graphs.erase(j);
                     }
                 }
-                cluster_graphs[remaining_idx].second = all_connected;
+                get<1>(cluster_graphs[remaining_idx]) = all_connected;
+                get<2>(cluster_graphs[remaining_idx]) = multiplicity;
                 
                 // update the node-to-cluster mapping
                 merging_graph->for_each_handle([&](const handle_t& handle) {
@@ -2921,8 +2934,8 @@ namespace vg {
         
         size_t max_graph_idx = 0;
         for (const auto& cluster_graph : cluster_graphs) {
-            if (!cluster_graph.second.second) {
-                vector<unordered_set<id_t>> connected_components = algorithms::weakly_connected_components(cluster_graph.second.first);
+            if (!get<1>(cluster_graph.second)) {
+                vector<unordered_set<id_t>> connected_components = algorithms::weakly_connected_components(get<0>(cluster_graph.second));
                 if (connected_components.size() > 1) {
                     multicomponent_graphs.emplace_back(cluster_graph.first, std::move(connected_components));
                 }
@@ -2946,16 +2959,17 @@ namespace vg {
 #endif
             
             for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
-                cluster_graphs[max_graph_idx + i] = make_pair(new bdsg::HashGraph(), true);
+                cluster_graphs[max_graph_idx + i] = make_tuple(new bdsg::HashGraph(), true,
+                                                               get<2>(cluster_graphs[multicomponent_graph.first]));
             }
             
             // divvy up the nodes
-            auto joined_graph = cluster_graphs[multicomponent_graph.first].first;
+            auto joined_graph = get<0>(cluster_graphs[multicomponent_graph.first]);
             joined_graph->for_each_handle([&](const handle_t& handle) {
                 for (size_t j = 0; j < multicomponent_graph.second.size(); j++) {
                     if (multicomponent_graph.second[j].count(joined_graph->get_id(handle))) {
-                        cluster_graphs[max_graph_idx + j].first->create_handle(joined_graph->get_sequence(handle),
-                                                                               joined_graph->get_id(handle));
+                        get<0>(cluster_graphs[max_graph_idx + j])->create_handle(joined_graph->get_sequence(handle),
+                                                                                 joined_graph->get_id(handle));
                         // if we're suppressing cluster merging, we don't maintain this index
                         if (!do_merge_suppression) {
                             node_id_to_cluster[joined_graph->get_id(handle)] = max_graph_idx + j;
@@ -2970,7 +2984,7 @@ namespace vg {
             joined_graph->for_each_edge([&](const edge_t& edge) {
                 for (size_t j = 0; j < multicomponent_graph.second.size(); j++) {
                     if (multicomponent_graph.second[j].count(joined_graph->get_id(edge.first))) {
-                        auto comp_graph = cluster_graphs[max_graph_idx + j].first;
+                        auto comp_graph = get<0>(cluster_graphs[max_graph_idx + j]);
                         comp_graph->create_edge(comp_graph->get_handle(joined_graph->get_id(edge.first),
                                                                        joined_graph->get_is_reverse(edge.first)),
                                                 comp_graph->get_handle(joined_graph->get_id(edge.second),
@@ -2982,12 +2996,12 @@ namespace vg {
             });
             
             // remove the old graph
-            delete cluster_graphs[multicomponent_graph.first].first;
+            delete get<0>(cluster_graphs[multicomponent_graph.first]);
             cluster_graphs.erase(multicomponent_graph.first);
             
             if (do_merge_suppression) {
                 // we need to re-assign the hits to the new cluster graphs
-                for (auto& mem_hit : clusters[multicomponent_graph.first]) {
+                for (auto& mem_hit : clusters[multicomponent_graph.first].first) {
                     for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
                         if (multicomponent_graph.second[i].count(id(mem_hit.second))) {
                             hit_to_cluster[mem_hit] = max_graph_idx + i;
@@ -3009,7 +3023,8 @@ namespace vg {
             cerr << "adding cluster graph " << cluster_graph.first << " to return vector at index " << cluster_graphs_out.size() << endl;
 #endif
             cluster_to_idx[cluster_graph.first] = cluster_graphs_out.size();
-            cluster_graphs_out.emplace_back(cluster_graph.second.first, memcluster_t(), 0);
+            cluster_graphs_out.emplace_back(get<0>(cluster_graph.second), memcluster_t(), 0);
+            get<1>(cluster_graphs_out.back()).second = get<2>(cluster_graph.second);
         }
 
         
@@ -3023,7 +3038,7 @@ namespace vg {
                     id_t node_id = gcsa::Node::id(hit);
                     if (node_id_to_cluster.count(node_id)) {
                         size_t cluster_idx = cluster_to_idx[node_id_to_cluster[node_id]];
-                        get<1>(cluster_graphs_out[cluster_idx]).push_back(make_pair(&mem, make_pos_t(hit)));
+                        get<1>(cluster_graphs_out[cluster_idx]).first.push_back(make_pair(&mem, make_pos_t(hit)));
 #ifdef debug_multipath_mapper
                         cerr << "\tMEM " << mem.sequence() << " at " << make_pos_t(hit) << " found in cluster " << node_id_to_cluster[node_id] << " at index " << cluster_idx << endl;
 #endif
@@ -3057,7 +3072,7 @@ namespace vg {
                     // force the hits that generated a cluster to be assigned to it
                     auto iter = hit_to_cluster.find(mem_hit);
                     if (iter != hit_to_cluster.end()) {
-                        get<1>(cluster_graphs_out[cluster_to_idx[iter->second]]).push_back(mem_hit);
+                        get<1>(cluster_graphs_out[cluster_to_idx[iter->second]]).first.push_back(mem_hit);
 #ifdef debug_multipath_mapper
                         cerr << "\tMEM " << mem.sequence() << " at " << mem_hit.second << " assigned as seed to cluster at index " << cluster_to_idx[iter->second] << endl;
 #endif
@@ -3067,7 +3082,7 @@ namespace vg {
                         auto id_iter = node_id_to_cluster_idxs.find(id(mem_hit.second));
                         if (id_iter != node_id_to_cluster_idxs.end()) {
                             for (size_t cluster_idx : id_iter->second) {
-                                get<1>(cluster_graphs_out[cluster_idx]).push_back(mem_hit);
+                                get<1>(cluster_graphs_out[cluster_idx]).first.push_back(mem_hit);
 #ifdef debug_multipath_mapper
                                 cerr << "\tMEM " << mem.sequence() << " at " << mem_hit.second << " found in cluster at index " << cluster_idx << endl;
 #endif
@@ -3086,7 +3101,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
             cerr << "compute read coverage of cluster at index " << i << " to be " << get<2>(cluster_graph) << endl;
 #endif
-            sort(get<1>(cluster_graph).begin(), get<1>(cluster_graph).end(),
+            sort(get<1>(cluster_graph).first.begin(), get<1>(cluster_graph).first.end(),
                  [](const pair<const MaximalExactMatch*, pos_t>& hit_1,
                     const pair<const MaximalExactMatch*, pos_t>& hit_2) {
                 return hit_1.first->length() > hit_2.first->length() ||
@@ -3114,7 +3129,7 @@ namespace vg {
                                  wang_hash<pair<id_t, id_t>>()(node_range[get<0>(cluster_graph_1)]) < wang_hash<pair<id_t, id_t>>()(node_range[get<0>(cluster_graph_2)])));
                     });
         
-        return move(cluster_graphs_out);
+        return cluster_graphs_out;
         
         
     }
@@ -3136,9 +3151,9 @@ namespace vg {
         bool use_single_stranded = algorithms::is_single_stranded(graph);
         bool mem_strand = false;
         if (use_single_stranded) {
-            mem_strand = is_rev(graph_mems[0].second);
-            for (size_t i = 1; i < graph_mems.size(); i++) {
-                if (is_rev(graph_mems[i].second) != mem_strand) {
+            mem_strand = is_rev(graph_mems.first[0].second);
+            for (size_t i = 1; i < graph_mems.first.size(); i++) {
+                if (is_rev(graph_mems.first[i].second) != mem_strand) {
                     use_single_stranded = false;
                     break;
                 }
@@ -3353,13 +3368,13 @@ namespace vg {
     }
     
     int64_t MultipathMapper::read_coverage(const memcluster_t& mem_hits) {
-        if (mem_hits.empty()) {
+        if (mem_hits.first.empty()) {
             return 0;
         }
         
         vector<pair<string::const_iterator, string::const_iterator>> mem_read_segments;
-        mem_read_segments.reserve(mem_hits.size());
-        for (auto& mem_hit : mem_hits) {
+        mem_read_segments.reserve(mem_hits.first.size());
+        for (auto& mem_hit : mem_hits.first) {
             mem_read_segments.emplace_back(mem_hit.first->begin, mem_hit.first->end);
         }
         std::sort(mem_read_segments.begin(), mem_read_segments.end());
