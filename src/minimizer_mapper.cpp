@@ -22,7 +22,7 @@
 #include <cmath>
 
 //#define debug
-//#define print_minimizers
+#define print_minimizers
 //#define debug_dump_graph
 
 namespace vg {
@@ -685,8 +685,7 @@ double uncapped_mapq = mapq;
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    bool has_secondary = scores.size() > 1;
-    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << cluster_lost_cap << "\t" << mappings.front().mapping_quality() << "\t" << scores.front() << "\t" << has_secondary;
+    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << cluster_lost_cap << "\t" << mappings.front().mapping_quality() << "\t" << scores.front() << "\t" << scores.size() << "\t" << (scores.size() >=2 ? scores[1] : 0.0);
     if (track_correctness) {
         cerr << "\t" << funnel.last_correct_stage() << endl;
     } else {
