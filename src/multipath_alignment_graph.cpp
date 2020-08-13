@@ -710,8 +710,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             }
             else {
                 bool found_any_breaks = false;
-                for (size_t i = 0; i < hits.size() && !found_any_breaks; ++i) {
-                    found_any_breaks = fanout_breaks->count(hits[i].first);
+                for (size_t i = 0; i < hits.first.size() && !found_any_breaks; ++i) {
+                    found_any_breaks = fanout_breaks->count(hits.first[i].first);
                 }
                 filter_sub_mems_on_fly = !found_any_breaks;
             }
@@ -721,9 +721,9 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         }
         
         // walk the matches and filter out redundant sub-MEMs
-        for (int64_t i = 0; i < hits.size(); i++) {
+        for (int64_t i = 0; i < hits.first.size(); i++) {
             
-            const pair<const MaximalExactMatch*, pos_t>& hit = hits[i];
+            const pair<const MaximalExactMatch*, pos_t>& hit = hits.first[i];
             
             // the part of the read we're going to match
             string::const_iterator begin = hit.first->begin;
