@@ -42,8 +42,7 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
 
 //-----------------------------------------------------------------------------
 
-/// Print a sequence with base numbering
-static void dump_debug_sequence(ostream& out, const string& sequence) {
+void MinimizerMapper::dump_debug_sequence(ostream& out, const string& sequence) {
     int digits_needed = (int) ceil(log10(sequence.size()));
     for (int digit = digits_needed - 1; digit >= 0; digit--) {
         for (size_t i = 0; i < sequence.size(); i++) {
@@ -55,8 +54,7 @@ static void dump_debug_sequence(ostream& out, const string& sequence) {
     out << sequence << endl;
 }
 
-/// Dump all the gapless extensions in an extension set
-static void dump_debug_extension_set(const HandleGraph& graph, const Alignment& aln, const vector<GaplessExtension>& extended_seeds) {
+void MinimizerMapper::dump_debug_extension_set(const HandleGraph& graph, const Alignment& aln, const vector<GaplessExtension>& extended_seeds) {
     dump_debug_sequence(cerr, aln.sequence());
     
     for (auto& ext : extended_seeds) {
@@ -80,6 +78,50 @@ static void dump_debug_extension_set(const HandleGraph& graph, const Alignment& 
             cerr << " " << graph.get_id(h);
         }
         cerr << endl;
+    }
+}
+
+void MinimizerMapper::dump_debug_minimizers(const vector<MinimizerMapper::Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include) {
+
+    dump_debug_sequence(cerr, sequence);
+    
+    vector<size_t> all;
+    if (to_include == nullptr) {
+        // Synthesize a list of all minimizers
+        to_include = &all;
+        for (size_t i = 0; i < minimizers.size(); i++) {
+            all.push_back(i);
+        }
+        
+        // Sort minimizer subset so we go through minimizers in increasing order of start position
+        std::sort(all.begin(), all.end(), [&](size_t a, size_t b) {
+            // Return true if a must come before b, and false otherwise
+            return minimizers[a].forward_offset() < minimizers[b].forward_offset();
+        });
+    }
+    
+    // Dump minimizers
+    for (auto& index : *to_include) {
+        // For each minimizer
+        auto& m = minimizers[index];
+        for (size_t i = 0; i < m.agglomeration_start; i++) {
+            // Space until its agglomeration starts
+            cerr << ' ';
+        }
+        
+        for (size_t i = m.agglomeration_start; i < m.forward_offset(); i++) {
+            // Do the beginnign of the agglomeration
+            cerr << '-';
+        }
+        // Do the minimizer itself
+        cerr << m.value.key.decode(m.length);
+        for (size_t i = m.forward_offset() + m.length ; i < m.agglomeration_start + m.agglomeration_length; i++) {
+            // Do the tail end of the agglomeration
+            cerr << '-';
+        }
+        
+        // Tag with metadata
+        cerr << " (#" << index << ", " << m.hits << " hits)" << endl;
     }
 }
 
@@ -2583,30 +2625,8 @@ double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<s
 #endif
 
 #ifdef debug
-    // Dump read
-    dump_debug_sequence(cerr, sequence);
-    
-    // Dump minimizers
-    for (auto& explored_index : minimizers_explored) {
-        // For each explored minimizer
-        auto& m = minimizers[explored_index];
-        for (size_t i = 0; i < m.agglomeration_start; i++) {
-            // Space until its agglomeration starts
-            cerr << ' ';
-        }
-        
-        for (size_t i = m.agglomeration_start; i < m.forward_offset(); i++) {
-            // Do the beginnign of the agglomeration
-            cerr << '-';
-        }
-        // Do the minimizer itself
-        cerr << m.value.key.decode(m.length);
-        for (size_t i = m.forward_offset() + m.length ; i < m.agglomeration_start + m.agglomeration_length; i++) {
-            // Do the tail end of the agglomeration
-            cerr << '-';
-        }
-        cerr << endl;
-    }
+    cerr << "Explored minimizers:" << endl;
+    dump_debug_minimizers(minimizers, sequence, &minimizers_explored);
 #endif
 
     // Make a DP table holding the log10 probability of having an error disrupt each minimizer.
@@ -3071,6 +3091,11 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     // previous one.
     bool took_last = false;
 
+#ifdef debug
+    std::cerr << "All minimizers:" << std::endl;
+    dump_debug_minimizers(minimizers, aln.sequence());
+#endif
+
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
     std::vector<Seed> seeds;
@@ -3089,11 +3114,6 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         // Select the minimizer if it is informative enough or if the total score
         // of the selected minimizers is not high enough.
         const Minimizer& minimizer = minimizers[i];
-
-#ifdef debug
-        std::cerr << "Minimizer " << i << " = " << minimizer.value.key.decode(minimizer.length)
-             << " has " << minimizer.hits << " hits" << std::endl;
-#endif
 
         if (minimizer.hits == 0) {
             // A minimizer with no hits can't go on.
