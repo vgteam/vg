@@ -42,6 +42,49 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
 
 //-----------------------------------------------------------------------------
 
+/// Print a sequence with base numbering
+static void dump_debug_sequence(ostream& out, const string& sequence) {
+    int digits_needed = (int) ceil(log10(sequence.size()));
+    for (int digit = digits_needed - 1; digit >= 0; digit--) {
+        for (size_t i = 0; i < sequence.size(); i++) {
+            // Output the correct digit for this place in this number
+            out << (char) ('0' + (uint8_t) floor(i % (int) round(pow(10, digit + 1)) / pow(10, digit)));
+        }
+        out << endl;
+    }
+    out << sequence << endl;
+}
+
+/// Dump all the gapless extensions in an extension set
+static void dump_debug_extension_set(const HandleGraph& graph, const Alignment& aln, const vector<GaplessExtension>& extended_seeds) {
+    dump_debug_sequence(cerr, aln.sequence());
+    
+    for (auto& ext : extended_seeds) {
+        // For each extension
+        for (size_t i = 0; i < ext.read_interval.first; i++) {
+            // Space until it starts
+            cerr << ' ';
+        }
+        
+        for (size_t i = ext.read_interval.first; i < ext.read_interval.second; i++) {
+            if (std::find(ext.mismatch_positions.begin(), ext.mismatch_positions.end(), i) != ext.mismatch_positions.end()) {
+                // Has an error here
+                cerr << "*";
+            } else {
+                // A match
+                cerr << aln.sequence()[i];
+            }
+        }
+        cerr << " @";
+        for (const handle_t& h : ext.path) {
+            cerr << " " << graph.get_id(h);
+        }
+        cerr << endl;
+    }
+}
+
+//-----------------------------------------------------------------------------
+
 void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(map(aln));
@@ -356,7 +399,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 #ifdef debug
             cerr << "gapless extension group " << extension_num << " is good enough (score=" << cluster_extension_scores[extension_num] << ")" << endl;
             if (track_correctness && funnel.was_correct(extension_num)) {
-                cerr << "\tCORRECT!" << endl; 
+                cerr << "\tCORRECT!" << endl;
+                dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[extension_num]);
             }
 #endif
             if (track_provenance) {
@@ -474,7 +518,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 #ifdef debug
                 cerr << "gapless extension group " << extension_num << " failed because there were too many good extensions (score=" << cluster_extension_scores[extension_num] << ")" << endl;
                 if (track_correctness && funnel.was_correct(extension_num)) {
-                    cerr << "\tCORRECT!" << endl; 
+                    cerr << "\tCORRECT!" << endl;
+                    dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[extension_num]);
                 }
 #endif
         }, [&](size_t extension_num) {
@@ -485,7 +530,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 #ifdef debug
                 cerr << "gapless extension group " << extension_num << " failed because its score was not good enough (score=" << cluster_extension_scores[extension_num] << ")" << endl;
                 if (track_correctness && funnel.was_correct(extension_num)) {
-                    cerr << "\tCORRECT!" << endl; 
+                    cerr << "\tCORRECT!" << endl;
+                    dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[extension_num]);
                 }
 #endif
         });
@@ -2537,17 +2583,10 @@ double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<s
 #endif
 
 #ifdef debug
-    // Dump read and minimizers
-    int digits_needed = (int) ceil(log10(sequence.size()));
-    for (int digit = digits_needed - 1; digit >= 0; digit--) {
-        for (size_t i = 0; i < sequence.size(); i++) {
-            // Output the correct digit for this place in this number
-            cerr << (char) ('0' + (uint8_t) round(i % (int) round(pow(10, digit + 1)) / pow(10, digit)));
-        }
-        cerr << endl;
-    }
-    cerr << sequence << endl;
+    // Dump read
+    dump_debug_sequence(cerr, sequence);
     
+    // Dump minimizers
     for (auto& explored_index : minimizers_explored) {
         // For each explored minimizer
         auto& m = minimizers[explored_index];
