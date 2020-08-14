@@ -534,6 +534,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         if (track_provenance) {
             funnel.fail("max-multimaps", alignment_num);
         }
+        probability_mapping_lost.push_back(probability_alignment_lost[alignment_num]);
     }, [&](size_t alignment_num) {
         // This alignment does not have a sufficiently good score
         // Score threshold is 0; this should never happen
@@ -564,7 +565,7 @@ double uncapped_mapq = mapq;
 #endif
     
     double cluster_lost_cap = (probability_mapping_lost.front().first / probability_mapping_lost.front().second) <= 0 ? std::numeric_limits<float>::infinity() :
-                              round(prob_to_phred(probability_mapping_lost.front().first / probability_mapping_lost.front().second));
+                              round(prob_to_phred(1.0 - (probability_mapping_lost.front().first / probability_mapping_lost.front().second)));
     mapq = min(mapq, cluster_lost_cap);
     
     // TODO: give SmallBitset iterators so we can use it instead of an index vector.
@@ -685,7 +686,7 @@ double uncapped_mapq = mapq;
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << mappings.front().mapping_quality() << "\t";
+    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << cluster_lost_cap << "\t" << mappings.front().mapping_quality() << "\t";
     for (auto& prob : probability_mapping_lost) {
         cerr << prob.first << "/" << prob.second << ",";
     }
