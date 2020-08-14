@@ -116,8 +116,8 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     //For each cluster, what fraction of "equivalent" clusters did we keep?
     vector<pair<double, double>> probability_cluster_lost;
     //What is the score and coverage we are considering and how many reads
-    size_t curr_coverage = 0;
-    size_t curr_score = 0;
+    double curr_coverage = 0.0;
+    double curr_score = 0.0;
     size_t curr_kept = 0;
     size_t curr_count = 0;
 
