@@ -3180,17 +3180,18 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         }
 
         if (aln.refpos_size() != 0) {
-            // Take the first refpos as the true position.
-            auto& true_pos = aln.refpos(0);
-
             for (size_t i = 0; i < seeds.size(); i++) {
                 // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
                 auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, seeds[i].pos, 100);
-                for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
-                    // Look at all the ones on the path the read's true position is on.
-                    if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
-                        // Call this seed hit close enough to be correct
-                        funnel.tag_correct(i);
+                
+                for (auto& true_pos : aln.refpos()) {
+                    // For every annotated true position
+                    for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
+                        // Look at all the hit positions on the path the read's true position is on.
+                        if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
+                            // Call this seed hit close enough to be correct
+                            funnel.tag_correct(i);
+                        }
                     }
                 }
             }
