@@ -1536,19 +1536,19 @@ namespace vg {
             // estimate how many of these alignments there probably are in total
             double rescue_multiplicity = double(num_rescuable) / double(num_rescues);
             
-            // fill out the multiplicity with estimated multiplicity based on rescue and hit sampling
+            // fill out the multiplicity with estimated multiplicity based on rescue and cluster
             for (size_t i = num_preexisting_pairs; i < rescued_secondaries.size(); ++i) {
                 const auto& rescued_cluster_pair = rescued_distances[i];
-                double hit_multiplicity;
+                double clust_multiplicity;
                 if (rescued_cluster_pair.first.first == cluster_graphs1.size()) {
-                    // the read 1 mapping is from a rescue, get the hit sampling multiplicity for read 2
-                    hit_multiplicity = cluster_multiplicity(get<1>(cluster_graphs2[rescued_cluster_pair.first.second]));
+                    // the read 1 mapping is from a rescue, get the cluster multiplicity for read 2
+                    clust_multiplicity = cluster_multiplicity(get<1>(cluster_graphs2[rescued_cluster_pair.first.second]));
                 }
                 else {
-                    // the read 2 mapping is from a rescue, get the hit sampling multiplicity for read 1
-                    hit_multiplicity = cluster_multiplicity(get<1>(cluster_graphs1[rescued_cluster_pair.first.first]));
+                    // the read 2 mapping is from a rescue, get the cluster multiplicity for read 1
+                    clust_multiplicity = cluster_multiplicity(get<1>(cluster_graphs1[rescued_cluster_pair.first.first]));
                 }
-                rescued_multiplicities.push_back(rescue_multiplicity * hit_multiplicity);
+                rescued_multiplicities.push_back(rescue_multiplicity * clust_multiplicity);
             }
             
 //#pragma omp atomic
@@ -2477,6 +2477,11 @@ namespace vg {
         for (size_t i = 0; i < cluster_pairs.size(); ++i) {
             // For each cluster pair
             const pair<pair<size_t, size_t>, int64_t>& cluster_pair = cluster_pairs[i];
+            
+            // TODO: using a multiplier here instead of a difference is pretty ugly, really. it also has
+            // weird effects, like not producing any alignments if the log likelihood is negative (which
+            // shouldn't matter). but in practice that only happens on very small clusters with bad fragment
+            // lengths.
             
             // if we have a cluster graph pair with small enough MEM coverage
             // compared to the best one or we've made the maximum number of
