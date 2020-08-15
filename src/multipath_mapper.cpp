@@ -95,7 +95,7 @@ namespace vg {
         cerr << "obtained clusters:" << endl;
         for (int i = 0; i < clusters.size(); i++) {
             cerr << "\tcluster " << i << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : clusters[i]) {
+            for (pair<const MaximalExactMatch*, pos_t>  hit : clusters[i].first) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
                 if (fanouts.get() && fanouts->count(hit.first)) {
                     cerr << "\t\t\tfan-outs:" << endl;
@@ -1536,19 +1536,19 @@ namespace vg {
             // estimate how many of these alignments there probably are in total
             double rescue_multiplicity = double(num_rescuable) / double(num_rescues);
             
-            // fill out the multiplicity with estimated multiplicity based on rescue and hit sampling
+            // fill out the multiplicity with estimated multiplicity based on rescue and cluster
             for (size_t i = num_preexisting_pairs; i < rescued_secondaries.size(); ++i) {
                 const auto& rescued_cluster_pair = rescued_distances[i];
-                double hit_multiplicity;
+                double clust_multiplicity;
                 if (rescued_cluster_pair.first.first == cluster_graphs1.size()) {
-                    // the read 1 mapping is from a rescue, get the hit sampling multiplicity for read 2
-                    hit_multiplicity = cluster_multiplicity(get<1>(cluster_graphs2[rescued_cluster_pair.first.second]));
+                    // the read 1 mapping is from a rescue, get the cluster multiplicity for read 2
+                    clust_multiplicity = cluster_multiplicity(get<1>(cluster_graphs2[rescued_cluster_pair.first.second]));
                 }
                 else {
-                    // the read 2 mapping is from a rescue, get the hit sampling multiplicity for read 1
-                    hit_multiplicity = cluster_multiplicity(get<1>(cluster_graphs1[rescued_cluster_pair.first.first]));
+                    // the read 2 mapping is from a rescue, get the cluster multiplicity for read 1
+                    clust_multiplicity = cluster_multiplicity(get<1>(cluster_graphs1[rescued_cluster_pair.first.first]));
                 }
-                rescued_multiplicities.push_back(rescue_multiplicity * hit_multiplicity);
+                rescued_multiplicities.push_back(rescue_multiplicity * clust_multiplicity);
             }
             
 //#pragma omp atomic
@@ -1727,14 +1727,14 @@ namespace vg {
         cerr << "read 1" << endl;
         for (int i = 0; i < cluster_graphs1.size(); i++) {
             cerr << "\tcluster " << i << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[i])) {
+            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[i]).first) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
         }
         cerr << "read 2" << endl;
         for (int i = 0; i < cluster_graphs2.size(); i++) {
             cerr << "\tcluster " << i << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[i])) {
+            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[i]).first) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
         }
@@ -1750,11 +1750,11 @@ namespace vg {
         for (int i = 0; i < cluster_pairs.size(); i++) {
             cerr << "\tpair "  << i << " at distance " << cluster_pairs[i].second << endl;
             cerr << "\t\t read 1 (cluster " << cluster_pairs[i].first.first <<  ")" << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[cluster_pairs[i].first.first])) {
+            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[cluster_pairs[i].first.first]).first) {
                 cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
             cerr << "\t\t read 2 (cluster " << cluster_pairs[i].first.second << ")" << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[cluster_pairs[i].first.second])) {
+            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[cluster_pairs[i].first.second]).first) {
                 cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
         }
@@ -1797,10 +1797,11 @@ namespace vg {
                                            rescue_aln_pairs, rescue_distances, rescue_multiplicities);
 
                 }
-                else if (!(!likely_mismapping(multipath_aln_pairs_out.front().first)
-                           && !likely_misrescue(multipath_aln_pairs_out.front().second)) &&
-                         !(!likely_misrescue(multipath_aln_pairs_out.front().first)
-                           && !likely_mismapping(multipath_aln_pairs_out.front().second))) {
+                else if (multipath_aln_pairs_out.empty() ||
+                         (!(!likely_mismapping(multipath_aln_pairs_out.front().first) &&
+                            !likely_misrescue(multipath_aln_pairs_out.front().second)) ||
+                          !(!likely_misrescue(multipath_aln_pairs_out.front().first) &&
+                            !likely_mismapping(multipath_aln_pairs_out.front().second)))) {
                     
                     // rescue didn't find any consistent mappings and we didn't have any pairings
                     // that we would have accepted from rescue beforehand. just take the single ended
@@ -2476,6 +2477,11 @@ namespace vg {
         for (size_t i = 0; i < cluster_pairs.size(); ++i) {
             // For each cluster pair
             const pair<pair<size_t, size_t>, int64_t>& cluster_pair = cluster_pairs[i];
+            
+            // TODO: using a multiplier here instead of a difference is pretty ugly, really. it also has
+            // weird effects, like not producing any alignments if the log likelihood is negative (which
+            // shouldn't matter). but in practice that only happens on very small clusters with bad fragment
+            // lengths.
             
             // if we have a cluster graph pair with small enough MEM coverage
             // compared to the best one or we've made the maximum number of

@@ -1225,8 +1225,6 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
         });
     }
     
-    assert(returned_cluster_scores.size() == to_return.size());
-    
     // find out how many of the remaining clusters had similar score to the final
     // ones we're returning
     int32_t tail_equiv_diff = round(aligner->mapping_quality_score_diff(cluster_multiplicity_diff));
