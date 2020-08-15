@@ -72,7 +72,9 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
     
     // This will hold our MEMs and their start positions in the imaginary graph.
     // Note that this is also a memcluster_t
-    vector<pair<const MaximalExactMatch*, pos_t>> mem_hits;
+    pair<vector<pair<const MaximalExactMatch*, pos_t>>, double> mem_hits;
+    mem_hits.second = 1.0;
+    
     
     /*
     SECTION ("Works with right tail only") {
@@ -80,7 +82,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         // Make a MEM hit over all of node 1's sequence
         mems.emplace_back(query.sequence().begin(), query.sequence().begin() + 4, make_pair(5, 5), 1);
         // Drop it on node 1 where it should sit
-        mem_hits.emplace_back(&mems.back(), make_pos_t(1, false, 0));
+        mem_hits.first.emplace_back(&mems.back(), make_pos_t(1, false, 0));
         
         // Make the MultipathAlignmentGraph to test
         MultipathAlignmentGraph mpg(vg, mem_hits, identity);
@@ -175,7 +177,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         // Make a MEM hit over all of node 4's sequence
         mems.emplace_back(query.sequence().begin() + 5, query.sequence().begin() + 6, make_pair(5, 5), 1);
         // Drop it on node 4 where it should sit
-        mem_hits.emplace_back(&mems.back(), make_pos_t(4, false, 0));
+        mem_hits.first.emplace_back(&mems.back(), make_pos_t(4, false, 0));
         
         // Make the MultipathAlignmentGraph to test
         MultipathAlignmentGraph mpg(vg, mem_hits, identity);
@@ -269,7 +271,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         // Make a MEM hit over all of node 7's sequence
         mems.emplace_back(query.sequence().begin() + 7, query.sequence().begin() + 8, make_pair(5, 5), 1);
         // Drop it on node 7 where it should sit
-        mem_hits.emplace_back(&mems.back(), make_pos_t(7, false, 0));
+        mem_hits.first.emplace_back(&mems.back(), make_pos_t(7, false, 0));
         
         // Make the MultipathAlignmentGraph to test
         MultipathAlignmentGraph mpg(vg, mem_hits, identity);

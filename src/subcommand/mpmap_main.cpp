@@ -50,7 +50,7 @@ void help_mpmap(char** argv) {
     << "  -d, --dist-name FILE          use this snarl distance index for clustering" << endl
     //<< "      --linear-index FILE       use this sublinear Li and Stephens index file for population-based MAPQs" << endl
     //<< "      --linear-path PATH        use the given path name as the path that the linear index is against" << endl
-    << "  -s, --snarls FILE             align to alternate paths in these snarls" << endl
+    << "  -s, --snarls FILE             align to alternate paths in these snarls (unnecessary if providing -d)" << endl
     << "input:" << endl
     << "  -f, --fastq FILE              input FASTQ (possibly gzipped), can be given twice for paired ends (for stdin use -)" << endl
     << "  -i, --interleaved             input contains interleaved paired ends" << endl
@@ -59,6 +59,7 @@ void help_mpmap(char** argv) {
     << "  -l, --read-length TYPE        read length preset: 'very-short', 'short', or 'long' (approx. <50bp, 50-500bp, and >500bp) [short]" << endl
     << "  -e, --error-rate TYPE         error rate preset: 'low' or 'high' (approx. PHRED >20 and <20) [low]" << endl
     << "output:" << endl
+    << "  -a, --agglomerate-alns        combine separate multipath alignments into one (possibly disconnected) alignment" << endl
     << "  -S, --single-path-mode        output single-path alignments (GAM or GAF) instead of multipath alignments (GAMP)" << endl
     << "  -F, --single-path-fmt FMT     output in either 'gam' or 'gaf' format in single path mode [gam]" << endl
     << "  -N, --sample NAME             add this sample name to output" << endl
@@ -77,13 +78,13 @@ void help_mpmap(char** argv) {
     //<< "  -X, --snarl-max-cut INT       do not align to extra paths in a snarl if there is an exact match this long (0 for no limit) [5]" << endl
     //<< "  -a, --alt-paths INT           align to (up to) this many alternate paths in snarls [10]" << endl
     //<< "      --suppress-tail-anchors   don't produce extra anchors when aligning to alternate paths in snarls" << endl
-    << "  -T, --same-strand             read pairs are from the same strand of the DNA/RNA molecule" << endl
+    //<< "  -T, --same-strand             read pairs are from the same strand of the DNA/RNA molecule" << endl
     << "  -M, --max-multimaps INT       report (up to) this many mappings per read [1]" << endl
     << "  -Q, --mq-max INT              cap mapping quality estimates at this much [60]" << endl
     << "  -b, --frag-sample INT         look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
     << "  -I, --frag-mean FLOAT         mean for a pre-determined fragment length distribution (also requires -D)" << endl
     << "  -D, --frag-stddev FLOAT       standard deviation for a pre-determined fragment length distribution (also requires -I)" << endl
-    << "  -B, --no-calibrate            do not auto-calibrate mismapping dectection" << endl
+    //<< "  -B, --no-calibrate            do not auto-calibrate mismapping dectection" << endl
     << "  -G, --gam-input FILE          input GAM (for stdin, use -)" << endl
     //<< "  -P, --max-p-val FLOAT         background model p-value must be less than this to avoid mismapping detection [0.0001]" << endl
     << "  -U, --report-group-mapq       add an annotation for the collective mapping quality of all reported alignments" << endl
@@ -155,6 +156,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_FAN_OUT_DIFF 1027
     #define OPT_PATH_RESCUE_GRAPH 1028
     #define OPT_MAX_RESCUE_P_VALUE 1029
+    #define OPT_ALT_PATHS 1030
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -235,6 +237,7 @@ int main_mpmap(int argc, char** argv) {
     int max_dist_error = 12;
     int default_num_alt_alns = 10;
     int num_alt_alns = default_num_alt_alns;
+    bool agglomerate_multipath_alns = false;
     double suboptimal_path_exponent = 1.25;
     double likelihood_approx_exp = 10.0;
     double likelihood_approx_exp_arg = numeric_limits<double>::lowest();
@@ -255,7 +258,6 @@ int main_mpmap(int argc, char** argv) {
     double max_rescue_p_value = 0.03;
     size_t num_calibration_simulations = 100;
     vector<size_t> calibration_read_lengths{50, 100, 150, 250, 450};
-    bool use_weibull_calibration = false;
     size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
@@ -324,7 +326,7 @@ int main_mpmap(int argc, char** argv) {
             {"synth-tail-anchors", no_argument, 0, OPT_SUPPRESS_TAIL_ANCHORS},
             {"tvs-clusterer", no_argument, 0, 'v'},
             {"snarl-max-cut", required_argument, 0, 'X'},
-            {"alt-paths", required_argument, 0, 'a'},
+            {"alt-paths", required_argument, 0, OPT_ALT_PATHS},
             {"frag-sample", required_argument, 0, 'b'},
             {"frag-mean", required_argument, 0, 'I'},
             {"frag-stddev", required_argument, 0, 'D'},
@@ -336,6 +338,7 @@ int main_mpmap(int argc, char** argv) {
             {"max-p-val", required_argument, 0, 'P'},
             {"max-rescue-p-val", required_argument, 0, OPT_MAX_RESCUE_P_VALUE},
             {"mq-max", required_argument, 0, 'Q'},
+            {"agglomerate-alns", no_argument, 0, 'a'},
             {"report-group-mapq", no_argument, 0, 'U'},
             {"padding-mult", required_argument, 0, OPT_BAND_PADDING_MULTIPLIER},
             {"map-attempts", required_argument, 0, 'u'},
@@ -385,7 +388,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iSs:vX:u:a:b:I:D:BP:Q:UpM:r:W:K:F:c:C:R:En:l:e:q:z:w:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iSs:vX:u:b:I:D:BP:Q:UpM:r:W:K:F:c:C:R:En:l:e:q:z:w:o:y:L:mAt:Z:a",
                          long_options, &option_index);
 
 
@@ -536,7 +539,7 @@ int main_mpmap(int argc, char** argv) {
                 snarl_cut_size = parse<int>(optarg);
                 break;
                 
-            case 'a':
+            case OPT_ALT_PATHS:
                 num_alt_alns = parse<int>(optarg);
                 break;
                 
@@ -566,6 +569,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'Q':
                 max_mapq = parse<int>(optarg);
+                break;
+                
+            case 'a':
+                agglomerate_multipath_alns = true;
                 break;
                 
             case 'U':
@@ -1159,7 +1166,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (hard_hit_max < hit_max && hit_max && hard_hit_max) {
-        cerr << "warning:[vg mpmap] MEM hit query limit (-c) set to " << hit_max << ", which is higher than the threshold to ignore a MEM (" << hard_hit_max << ")" << endl;
+        cerr << "warning:[vg mpmap] MEM hit query limit (-c) set to " << hit_max << ", which is higher than the threshold to ignore a MEM (" << hard_hit_max << ")." << endl;
     }
     
     if (min_mem_length < 0) {
@@ -1168,7 +1175,11 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (single_path_format != default_single_path_format && !single_path_alignment_mode) {
-        cerr << "warning:[vg mpmap] Single path output format (-F) is ignored when not using single path alignment output (-S)" << endl;
+        cerr << "warning:[vg mpmap] Single path output format (-F) is ignored when not using single path alignment output (-S)." << endl;
+    }
+    
+    if (single_path_alignment_mode && agglomerate_multipath_alns) {
+        cerr << "warning:[vg mpmap] Disconnected alignments cannot be agglomerated (-a) in single path mode (-S)." << endl;
     }
     
     if (stripped_match_alg_strip_length <= 0) {
@@ -1621,7 +1632,6 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.max_mapping_quality = max_mapq;
     multipath_mapper.mapq_scaling_factor = mapq_scaling_factor;
     multipath_mapper.report_group_mapq = report_group_mapq;
-    multipath_mapper.use_weibull_calibration = use_weibull_calibration;
     // Use population MAPQs when we have the right option combination to make that sensible.
     multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
     multipath_mapper.population_max_paths = population_max_paths;
@@ -1672,6 +1682,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.dynamic_max_alt_alns = dynamic_max_alt_alns;
     multipath_mapper.simplify_topologies = simplify_topologies;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
+    multipath_mapper.agglomerate_multipath_alns = agglomerate_multipath_alns;
 
 #ifdef mpmap_instrument_mem_statistics
     multipath_mapper._mem_stats.open(MEM_STATS_FILE);

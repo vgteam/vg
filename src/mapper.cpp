@@ -2112,7 +2112,7 @@ void BaseMapper::rescue_high_count_order_length_mems(vector<MaximalExactMatch>& 
     for (size_t i = 0; i < mems.size(); i++) {
         if (mems[i].nodes.empty()) {
             unfilled_mem_ranges.emplace_back(i, 0);
-            while (i < mems.size() ? mems[i].nodes.empty() : false) {
+            while (i < mems.size() && mems[i].nodes.empty()) {
                 i++;
             }
             unfilled_mem_ranges.back().second = i;

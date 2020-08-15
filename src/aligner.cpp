@@ -490,7 +490,7 @@ double GSSWAligner::group_mapping_quality_exact(const vector<double>& scaled_sco
         
         total_log_sum_exp = add_log(total_log_sum_exp, multiple_score);
         
-        if (group_idx >= 0 ? i == group[group_idx] : false) {
+        if (group_idx >= 0 && i == group[group_idx]) {
             // this is the next index in the group
             group_idx--;
             if (multiplicities && multiplicities->at(i) > 1.0) {
