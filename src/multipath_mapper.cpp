@@ -95,7 +95,7 @@ namespace vg {
         cerr << "obtained clusters:" << endl;
         for (int i = 0; i < clusters.size(); i++) {
             cerr << "\tcluster " << i << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : clusters[i]) {
+            for (pair<const MaximalExactMatch*, pos_t>  hit : clusters[i].first) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
                 if (fanouts.get() && fanouts->count(hit.first)) {
                     cerr << "\t\t\tfan-outs:" << endl;
@@ -1727,14 +1727,14 @@ namespace vg {
         cerr << "read 1" << endl;
         for (int i = 0; i < cluster_graphs1.size(); i++) {
             cerr << "\tcluster " << i << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[i])) {
+            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[i]).first) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
         }
         cerr << "read 2" << endl;
         for (int i = 0; i < cluster_graphs2.size(); i++) {
             cerr << "\tcluster " << i << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[i])) {
+            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[i]).first) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
         }
@@ -1750,11 +1750,11 @@ namespace vg {
         for (int i = 0; i < cluster_pairs.size(); i++) {
             cerr << "\tpair "  << i << " at distance " << cluster_pairs[i].second << endl;
             cerr << "\t\t read 1 (cluster " << cluster_pairs[i].first.first <<  ")" << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[cluster_pairs[i].first.first])) {
+            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[cluster_pairs[i].first.first]).first) {
                 cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
             cerr << "\t\t read 2 (cluster " << cluster_pairs[i].first.second << ")" << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[cluster_pairs[i].first.second])) {
+            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[cluster_pairs[i].first.second]).first) {
                 cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
         }
@@ -1797,10 +1797,11 @@ namespace vg {
                                            rescue_aln_pairs, rescue_distances, rescue_multiplicities);
 
                 }
-                else if (!(!likely_mismapping(multipath_aln_pairs_out.front().first)
-                           && !likely_misrescue(multipath_aln_pairs_out.front().second)) &&
-                         !(!likely_misrescue(multipath_aln_pairs_out.front().first)
-                           && !likely_mismapping(multipath_aln_pairs_out.front().second))) {
+                else if (multipath_aln_pairs_out.empty() ||
+                         (!(!likely_mismapping(multipath_aln_pairs_out.front().first) &&
+                            !likely_misrescue(multipath_aln_pairs_out.front().second)) ||
+                          !(!likely_misrescue(multipath_aln_pairs_out.front().first) &&
+                            !likely_mismapping(multipath_aln_pairs_out.front().second)))) {
                     
                     // rescue didn't find any consistent mappings and we didn't have any pairings
                     // that we would have accepted from rescue beforehand. just take the single ended
