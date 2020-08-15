@@ -42,6 +42,91 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
 
 //-----------------------------------------------------------------------------
 
+void MinimizerMapper::dump_debug_sequence(ostream& out, const string& sequence) {
+    int digits_needed = (int) ceil(log10(sequence.size()));
+    for (int digit = digits_needed - 1; digit >= 0; digit--) {
+        for (size_t i = 0; i < sequence.size(); i++) {
+            // Output the correct digit for this place in this number
+            out << (char) ('0' + (uint8_t) floor(i % (int) round(pow(10, digit + 1)) / pow(10, digit)));
+        }
+        out << endl;
+    }
+    out << sequence << endl;
+}
+
+void MinimizerMapper::dump_debug_extension_set(const HandleGraph& graph, const Alignment& aln, const vector<GaplessExtension>& extended_seeds) {
+    dump_debug_sequence(cerr, aln.sequence());
+    
+    for (auto& ext : extended_seeds) {
+        // For each extension
+        for (size_t i = 0; i < ext.read_interval.first; i++) {
+            // Space until it starts
+            cerr << ' ';
+        }
+        
+        for (size_t i = ext.read_interval.first; i < ext.read_interval.second; i++) {
+            if (std::find(ext.mismatch_positions.begin(), ext.mismatch_positions.end(), i) != ext.mismatch_positions.end()) {
+                // Has an error here
+                cerr << "*";
+            } else {
+                // A match
+                cerr << aln.sequence()[i];
+            }
+        }
+        cerr << " @";
+        for (const handle_t& h : ext.path) {
+            cerr << " " << graph.get_id(h);
+        }
+        cerr << endl;
+    }
+}
+
+void MinimizerMapper::dump_debug_minimizers(const vector<MinimizerMapper::Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include) {
+
+    dump_debug_sequence(cerr, sequence);
+    
+    vector<size_t> all;
+    if (to_include == nullptr) {
+        // Synthesize a list of all minimizers
+        to_include = &all;
+        for (size_t i = 0; i < minimizers.size(); i++) {
+            all.push_back(i);
+        }
+        
+        // Sort minimizer subset so we go through minimizers in increasing order of start position
+        std::sort(all.begin(), all.end(), [&](size_t a, size_t b) {
+            // Return true if a must come before b, and false otherwise
+            return minimizers[a].forward_offset() < minimizers[b].forward_offset();
+        });
+    }
+    
+    // Dump minimizers
+    for (auto& index : *to_include) {
+        // For each minimizer
+        auto& m = minimizers[index];
+        for (size_t i = 0; i < m.agglomeration_start; i++) {
+            // Space until its agglomeration starts
+            cerr << ' ';
+        }
+        
+        for (size_t i = m.agglomeration_start; i < m.forward_offset(); i++) {
+            // Do the beginnign of the agglomeration
+            cerr << '-';
+        }
+        // Do the minimizer itself
+        cerr << m.value.key.decode(m.length);
+        for (size_t i = m.forward_offset() + m.length ; i < m.agglomeration_start + m.agglomeration_length; i++) {
+            // Do the tail end of the agglomeration
+            cerr << '-';
+        }
+        
+        // Tag with metadata
+        cerr << " (#" << index << ", " << m.hits << " hits)" << endl;
+    }
+}
+
+//-----------------------------------------------------------------------------
+
 void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(map(aln));
@@ -335,6 +420,13 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             // This extension set is good enough.
             // Called in descending score order.
             
+#ifdef debug
+            cerr << "gapless extension group " << extension_num << " is good enough (score=" << cluster_extension_scores[extension_num] << ")" << endl;
+            if (track_correctness && funnel.was_correct(extension_num)) {
+                cerr << "\tCORRECT!" << endl;
+                dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[extension_num]);
+            }
+#endif
             if (track_provenance) {
                 funnel.pass("extension-set", extension_num, cluster_extension_scores[extension_num]);
                 funnel.pass("max-alignments", extension_num);
@@ -389,7 +481,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 find_optimal_tail_alignments(aln, extensions, best_alignments[0], best_alignments[1]);
 
 #ifdef debug
-                cerr << "Did dynamic programming for gapless extension " << extension_num << endl;
+                cerr << "Did dynamic programming for gapless extension group " << extension_num << endl;
 #endif
                 
                 if (track_provenance) {
@@ -413,7 +505,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     funnel.score(alignments.size() - 1, alignments.back().score());
                 }
 #ifdef debug
-                cerr << "Produced alignment from gapless extension " << extension_num << " with score " << alignments.back().score() << ": " << pb2json(alignments.back()) << endl;
+                cerr << "Produced alignment from gapless extension group " << extension_num << " with score " << alignments.back().score() << ": " << pb2json(alignments.back()) << endl;
 #endif
             };
             
@@ -448,7 +540,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 funnel.fail("max-alignments", extension_num);
             }
 #ifdef debug
-                cerr << "gapless extension " << extension_num << " failed because there were too many good extensions" << endl;
+                cerr << "gapless extension group " << extension_num << " failed because there were too many good extensions (score=" << cluster_extension_scores[extension_num] << ")" << endl;
+                if (track_correctness && funnel.was_correct(extension_num)) {
+                    cerr << "\tCORRECT!" << endl;
+                    dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[extension_num]);
+                }
 #endif
         }, [&](size_t extension_num) {
             // This extension is not good enough.
@@ -456,7 +552,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 funnel.fail("extension-set", extension_num, cluster_extension_scores[extension_num]);
             }
 #ifdef debug
-                cerr << "gapless extension " << extension_num << " failed because its score was not good enough (score=" << cluster_extension_scores[extension_num] << ")" << endl;
+                cerr << "gapless extension group " << extension_num << " failed because its score was not good enough (score=" << cluster_extension_scores[extension_num] << ")" << endl;
+                if (track_correctness && funnel.was_correct(extension_num)) {
+                    cerr << "\tCORRECT!" << endl;
+                    dump_debug_extension_set(gbwt_graph, aln, cluster_extensions[extension_num]);
+                }
 #endif
         });
     
@@ -2517,37 +2617,8 @@ double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<s
 #endif
 
 #ifdef debug
-    // Dump read and minimizers
-    int digits_needed = (int) ceil(log10(sequence.size()));
-    for (int digit = digits_needed - 1; digit >= 0; digit--) {
-        for (size_t i = 0; i < sequence.size(); i++) {
-            // Output the correct digit for this place in this number
-            cerr << (char) ('0' + (uint8_t) round(i % (int) round(pow(10, digit + 1)) / pow(10, digit)));
-        }
-        cerr << endl;
-    }
-    cerr << sequence << endl;
-    
-    for (auto& explored_index : minimizers_explored) {
-        // For each explored minimizer
-        auto& m = minimizers[explored_index];
-        for (size_t i = 0; i < m.agglomeration_start; i++) {
-            // Space until its agglomeration starts
-            cerr << ' ';
-        }
-        
-        for (size_t i = m.agglomeration_start; i < m.forward_offset(); i++) {
-            // Do the beginnign of the agglomeration
-            cerr << '-';
-        }
-        // Do the minimizer itself
-        cerr << m.value.key.decode(m.length);
-        for (size_t i = m.forward_offset() + m.length ; i < m.agglomeration_start + m.agglomeration_length; i++) {
-            // Do the tail end of the agglomeration
-            cerr << '-';
-        }
-        cerr << endl;
-    }
+    cerr << "Explored minimizers:" << endl;
+    dump_debug_minimizers(minimizers, sequence, &minimizers_explored);
 #endif
 
     // Make a DP table holding the log10 probability of having an error disrupt each minimizer.
@@ -3012,6 +3083,11 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     // previous one.
     bool took_last = false;
 
+#ifdef debug
+    std::cerr << "All minimizers:" << std::endl;
+    dump_debug_minimizers(minimizers, aln.sequence());
+#endif
+
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
     std::vector<Seed> seeds;
@@ -3030,11 +3106,6 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         // Select the minimizer if it is informative enough or if the total score
         // of the selected minimizers is not high enough.
         const Minimizer& minimizer = minimizers[i];
-
-#ifdef debug
-        std::cerr << "Minimizer " << i << " = " << minimizer.value.key.decode(minimizer.length)
-             << " has " << minimizer.hits << " hits" << std::endl;
-#endif
 
         if (minimizer.hits == 0) {
             // A minimizer with no hits can't go on.
@@ -3121,17 +3192,18 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         }
 
         if (aln.refpos_size() != 0) {
-            // Take the first refpos as the true position.
-            auto& true_pos = aln.refpos(0);
-
             for (size_t i = 0; i < seeds.size(); i++) {
                 // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
                 auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, seeds[i].pos, 100);
-                for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
-                    // Look at all the ones on the path the read's true position is on.
-                    if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
-                        // Call this seed hit close enough to be correct
-                        funnel.tag_correct(i);
+                
+                for (auto& true_pos : aln.refpos()) {
+                    // For every annotated true position
+                    for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
+                        // Look at all the hit positions on the path the read's true position is on.
+                        if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
+                            // Call this seed hit close enough to be correct
+                            funnel.tag_correct(i);
+                        }
                     }
                 }
             }

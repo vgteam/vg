@@ -623,6 +623,17 @@ protected:
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
+        
+    // Internal debugging functions
+    
+    /// Dump all the given minimizers, with optional subset restriction
+    static void dump_debug_minimizers(const vector<Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include = nullptr);
+    
+    /// Dump all the extansions in an extension set
+    static void dump_debug_extension_set(const HandleGraph& graph, const Alignment& aln, const vector<GaplessExtension>& extended_seeds);
+    
+    /// Print a sequence with base numbering
+    static void dump_debug_sequence(ostream& out, const string& sequence);
 };
 
 template<typename Item, typename Score>
