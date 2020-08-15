@@ -1797,11 +1797,7 @@ namespace vg {
                                            rescue_aln_pairs, rescue_distances, rescue_multiplicities);
 
                 }
-                else if (multipath_aln_pairs_out.empty() ||
-                         (!(!likely_mismapping(multipath_aln_pairs_out.front().first) &&
-                            !likely_misrescue(multipath_aln_pairs_out.front().second)) ||
-                          !(!likely_misrescue(multipath_aln_pairs_out.front().first) &&
-                            !likely_mismapping(multipath_aln_pairs_out.front().second)))) {
+                else {
                     
                     // rescue didn't find any consistent mappings and we didn't have any pairings
                     // that we would have accepted from rescue beforehand. just take the single ended
