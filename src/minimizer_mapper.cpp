@@ -22,7 +22,7 @@
 #include <cmath>
 
 //#define debug
-#define print_minimizers
+//#define print_minimizers
 //#define debug_dump_graph
 
 namespace vg {
@@ -114,7 +114,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     //How many hits of each minimizer ended up in each extended cluster?
     vector<vector<size_t>> minimizer_extended_cluster_count; 
     //For each cluster, what fraction of "equivalent" clusters did we keep?
-    vector<pair<double, double>> probability_cluster_lost;
+    vector<pair<size_t, size_t>> probability_cluster_lost;
     //What is the score and coverage we are considering and how many reads
     double curr_coverage = 0.0;
     double curr_score = 0.0;
@@ -154,7 +154,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 } else {
                     //If this is a cluster that has scores different than the previous one
                     for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                        probability_cluster_lost.emplace_back(double(curr_kept) , double(curr_count));
+                        probability_cluster_lost.emplace_back(curr_kept , curr_count);
                     }
                     curr_coverage = cluster.coverage;
                     curr_score = cluster.score;
@@ -175,36 +175,18 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 funnel.processing_input(cluster_num);
             }
             if (cluster.coverage == curr_coverage &&
-                cluster.score == curr_score &&
-                curr_kept < max_extensions * 0.75) {
+                cluster.score == curr_score) {
                 curr_kept++;
                 curr_count++;
-            } else if (cluster.coverage != curr_coverage ||
-                    cluster.score != curr_score) {
+            } else {
                 //If this is a cluster that has scores different than the previous one
                 for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                    probability_cluster_lost.emplace_back(double(curr_kept) , double(curr_count));
+                    probability_cluster_lost.emplace_back(curr_kept , curr_count);
                 }
                 curr_coverage = cluster.coverage;
                 curr_score = cluster.score;
                 curr_kept = 1;
                 curr_count = 1;
-            } else {
-                //If this cluster is equivalent to the previous one and we already took enough
-                //equivalent clusters
-                curr_count ++;
-                
-#ifdef debug
-            cerr << "Cluster " << cluster_num << " fails because we took too many identical clusters" <<  endl;
-            cerr << "Covers " << clusters[cluster_num].coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
-            cerr << "Scores " << clusters[cluster_num].score << "/" << cluster_score_cutoff << endl;
-#endif
-                // TODO: we're not exactly failing max-extensions
-                if (track_provenance) {
-                    funnel.pass("cluster-coverage", cluster_num, cluster.coverage);
-                    funnel.fail("max-extensions", cluster_num);
-                }
-                return false;
             }
             
 
@@ -269,7 +251,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             } else {
     
                 for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                    probability_cluster_lost.emplace_back(double(curr_kept) , double(curr_count));
+                    probability_cluster_lost.emplace_back(curr_kept , curr_count);
                 }
                 curr_score = 0;
                 curr_coverage = 0;
@@ -289,7 +271,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 funnel.fail("cluster-coverage", cluster_num, clusters[cluster_num].coverage);
             }
             for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                probability_cluster_lost.emplace_back(double(curr_kept) , double(curr_count));
+                probability_cluster_lost.emplace_back(curr_kept , curr_count);
             }
             curr_kept = 0;
             curr_count = 0;
@@ -304,7 +286,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         });
         
     for (size_t i = 0 ; i < curr_kept ; i++ ) {
-        probability_cluster_lost.emplace_back(double(curr_kept) , double(curr_count));
+        probability_cluster_lost.emplace_back(curr_kept , curr_count);
     }
     std::vector<int> cluster_extension_scores = this->score_extensions(cluster_extensions, aln, funnel);
 
@@ -326,7 +308,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     vector<size_t> alignments_to_source;
     alignments_to_source.reserve(cluster_extensions.size());
     //probability_cluster_lost but ordered by alignment
-    vector<pair<double, double>> probability_alignment_lost;
+    vector<pair<size_t, size_t>> probability_alignment_lost;
     probability_alignment_lost.reserve(cluster_extensions.size());
 
     // Create a new alignment object to get rid of old annotations.
@@ -482,7 +464,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
         alignments_to_source.push_back(numeric_limits<size_t>::max());
-        probability_alignment_lost.emplace_back(0.0, 0.0);
+        probability_alignment_lost.emplace_back(0, 0);
         
         if (track_provenance) {
             // Say it came from nowhere
@@ -503,7 +485,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     vector<double> scores;
     scores.reserve(alignments.size());
     
-    vector<pair<double, double>> probability_mapping_lost;
+    vector<pair<size_t, size_t>> probability_mapping_lost;
     process_until_threshold_a(alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
         return alignments.at(i).score();
     }, 0, 1, max_multimaps, [&](size_t alignment_num) {
@@ -564,8 +546,9 @@ double uncapped_mapq = mapq;
     cerr << "uncapped MAPQ is " << mapq << endl;
 #endif
     
-    double cluster_lost_cap = (probability_mapping_lost.front().first / probability_mapping_lost.front().second) <= 0 ? std::numeric_limits<float>::infinity() :
-                              round(prob_to_phred(1.0 - (probability_mapping_lost.front().first / probability_mapping_lost.front().second)));
+    double probability_final_alignment_lost = 1.0 - ((double)probability_mapping_lost.front().first / (double)probability_mapping_lost.front().second);
+    double cluster_lost_cap = probability_final_alignment_lost <= 0 ? std::numeric_limits<float>::infinity() :
+                              round(prob_to_phred(probability_final_alignment_lost));
     mapq = min(mapq, cluster_lost_cap);
     
     // TODO: give SmallBitset iterators so we can use it instead of an index vector.
@@ -633,24 +616,24 @@ double uncapped_mapq = mapq;
             string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
             
             // Save the stats
-            set_annotation(mappings[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-            set_annotation(mappings[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-            
-            set_annotation(mappings[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-            set_annotation(mappings[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
-            
-            if (track_correctness) {
-                set_annotation(mappings[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                set_annotation(mappings[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                
-                set_annotation(mappings[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                set_annotation(mappings[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
-            }
-            
-            // Save the correct and non-correct filter statistics, even if
-            // everything is non-correct because correctness isn't computed
-            set_annotation(mappings[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-            set_annotation(mappings[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+            //set_annotation(mappings[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
+            //set_annotation(mappings[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
+            //
+            //set_annotation(mappings[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
+            //set_annotation(mappings[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+            //
+            //if (track_correctness) {
+            //    set_annotation(mappings[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
+            //    set_annotation(mappings[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
+            //    
+            //    set_annotation(mappings[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
+            //    set_annotation(mappings[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+            //}
+            //
+            //// Save the correct and non-correct filter statistics, even if
+            //// everything is non-correct because correctness isn't computed
+            //set_annotation(mappings[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+            //set_annotation(mappings[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
             
             filter_num++;
         });
@@ -1590,44 +1573,44 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                         
                         string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
                         
-                        if (read_num == 0) {
-                            // Save the stats
-                            set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-                            set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-                            set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-                            set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
-                            
-                            if (track_correctness) {
-                                set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                                set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                                set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                                set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
-                            }
-                            
-                            // Save the correct and non-correct filter statistics, even if
-                            // everything is non-correct because correctness isn't computed
-                            set_annotation(paired_mappings.first[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-                            set_annotation(paired_mappings.first[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
-                        
-                        } else {
-                            // Save the stats
-                            set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-                            set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-                            set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-                            set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
-                            
-                            if (track_correctness) {
-                                set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                                set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                                set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                                set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
-                            }
-                            
-                            // Save the correct and non-correct filter statistics, even if
-                            // everything is non-correct because correctness isn't computed
-                            set_annotation(paired_mappings.second[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-                            set_annotation(paired_mappings.second[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
-                        }
+                        //if (read_num == 0) {
+                        //    // Save the stats
+                        //    set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
+                        //    set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
+                        //    set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
+                        //    set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+                        //    
+                        //    if (track_correctness) {
+                        //        set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
+                        //        set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
+                        //        set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
+                        //        set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+                        //    }
+                        //    
+                        //    // Save the correct and non-correct filter statistics, even if
+                        //    // everything is non-correct because correctness isn't computed
+                        //    set_annotation(paired_mappings.first[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+                        //    set_annotation(paired_mappings.first[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+                        //
+                        //} else {
+                        //    // Save the stats
+                        //    set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
+                        //    set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
+                        //    set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
+                        //    set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+                        //    
+                        //    if (track_correctness) {
+                        //        set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
+                        //        set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
+                        //        set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
+                        //        set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+                        //    }
+                        //    
+                        //    // Save the correct and non-correct filter statistics, even if
+                        //    // everything is non-correct because correctness isn't computed
+                        //    set_annotation(paired_mappings.second[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+                        //    set_annotation(paired_mappings.second[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+                        //}
                         filter_num++;
                     });
                 }
@@ -2080,44 +2063,44 @@ vector<pair<bool, bool>> mapping_was_rescued;
                 
                 string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
                 
-                if (read_num == 0) {
-                    // Save the stats
-                    set_annotation(mappings.first[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-                    set_annotation(mappings.first[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-                    set_annotation(mappings.first[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-                    set_annotation(mappings.first[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
-                    
-                    if (track_correctness) {
-                        set_annotation(mappings.first[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                        set_annotation(mappings.first[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                        set_annotation(mappings.first[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                        set_annotation(mappings.first[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
-                    }
-                    
-                    // Save the correct and non-correct filter statistics, even if
-                    // everything is non-correct because correctness isn't computed
-                    set_annotation(mappings.first[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-                    set_annotation(mappings.first[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
-                
-                } else {
-                    // Save the stats
-                    set_annotation(mappings.second[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-                    set_annotation(mappings.second[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-                    set_annotation(mappings.second[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-                    set_annotation(mappings.second[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
-                    
-                    if (track_correctness) {
-                        set_annotation(mappings.second[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                        set_annotation(mappings.second[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                        set_annotation(mappings.second[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                        set_annotation(mappings.second[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
-                    }
-                    
-                    // Save the correct and non-correct filter statistics, even if
-                    // everything is non-correct because correctness isn't computed
-                    set_annotation(mappings.second[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-                    set_annotation(mappings.second[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
-                }
+                //if (read_num == 0) {
+                //    // Save the stats
+                //    set_annotation(mappings.first[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
+                //    set_annotation(mappings.first[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
+                //    set_annotation(mappings.first[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
+                //    set_annotation(mappings.first[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+                //    
+                //    if (track_correctness) {
+                //        set_annotation(mappings.first[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
+                //        set_annotation(mappings.first[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
+                //        set_annotation(mappings.first[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
+                //        set_annotation(mappings.first[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+                //    }
+                //    
+                //    // Save the correct and non-correct filter statistics, even if
+                //    // everything is non-correct because correctness isn't computed
+                //    set_annotation(mappings.first[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+                //    set_annotation(mappings.first[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+                //
+                //} else {
+                //    // Save the stats
+                //    set_annotation(mappings.second[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
+                //    set_annotation(mappings.second[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
+                //    set_annotation(mappings.second[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
+                //    set_annotation(mappings.second[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+                //    
+                //    if (track_correctness) {
+                //        set_annotation(mappings.second[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
+                //        set_annotation(mappings.second[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
+                //        set_annotation(mappings.second[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
+                //        set_annotation(mappings.second[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+                //    }
+                //    
+                //    // Save the correct and non-correct filter statistics, even if
+                //    // everything is non-correct because correctness isn't computed
+                //    set_annotation(mappings.second[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+                //    set_annotation(mappings.second[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+                //}
                 filter_num++;
             });
         }
