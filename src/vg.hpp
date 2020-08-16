@@ -1008,6 +1008,7 @@ public:
                 bool annotate_paths = false,
                 bool show_mappings = false,
                 bool simple_mode = false,
+                bool noseq_mode = false,
                 bool invert_edge_ports = false,
                 bool color_variants = false,
                 bool ultrabubble_labeling = false,
