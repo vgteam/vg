@@ -39,6 +39,7 @@ var searchData=
   ['opt_5fstrip_5fcount',['OPT_STRIP_COUNT',['../mpmap__main_8cpp.html#ad8233b7b00bc4fa0c87c4af3ed501cfd',1,'mpmap_main.cpp']]],
   ['opt_5fstrip_5flength',['OPT_STRIP_LENGTH',['../mpmap__main_8cpp.html#abe95d7c95e55ac2cc94394e657ce16fd',1,'mpmap_main.cpp']]],
   ['opt_5fstripped_5fmatch',['OPT_STRIPPED_MATCH',['../mpmap__main_8cpp.html#a241677bb449101778f187f6be8cdd2a0',1,'mpmap_main.cpp']]],
+  ['opt_5fsuppress_5fsuppression',['OPT_SUPPRESS_SUPPRESSION',['../mpmap__main_8cpp.html#a5642b35bcfa16b180f0e4e6dcf0536ad',1,'mpmap_main.cpp']]],
   ['opt_5fsuppress_5ftail_5fanchors',['OPT_SUPPRESS_TAIL_ANCHORS',['../mpmap__main_8cpp.html#a8ac418f2741d5efc457e6ab40a535262',1,'mpmap_main.cpp']]],
   ['opt_5ftop_5ftracebacks',['OPT_TOP_TRACEBACKS',['../mpmap__main_8cpp.html#a497dfa18c690f36ffeb9370dde515b7d',1,'mpmap_main.cpp']]],
   ['opt_5ftrack_5fcorrectness',['OPT_TRACK_CORRECTNESS',['../giraffe__main_8cpp.html#addc79dbf180e3b114b5e0e744ba1dd65',1,'giraffe_main.cpp']]],
