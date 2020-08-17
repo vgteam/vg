@@ -157,6 +157,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_PATH_RESCUE_GRAPH 1028
     #define OPT_MAX_RESCUE_P_VALUE 1029
     #define OPT_ALT_PATHS 1030
+    #define OPT_SUPPRESS_SUPPRESSION 1031
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -275,6 +276,7 @@ int main_mpmap(int argc, char** argv) {
     int secondary_rescue_subopt_diff = 35;
     int min_median_mem_coverage_for_split = 0;
     bool suppress_cluster_merging = false;
+    bool suppress_suppression = false;
     bool suppress_multicomponent_splitting = false;
     bool dynamic_max_alt_alns = true;
     bool simplify_topologies = true;
@@ -324,6 +326,7 @@ int main_mpmap(int argc, char** argv) {
             {"single-path-fmt", required_argument, 0, 'F'},
             {"snarls", required_argument, 0, 's'},
             {"synth-tail-anchors", no_argument, 0, OPT_SUPPRESS_TAIL_ANCHORS},
+            {"suppress-suppression", no_argument, 0, OPT_SUPPRESS_SUPPRESSION},
             {"tvs-clusterer", no_argument, 0, 'v'},
             {"snarl-max-cut", required_argument, 0, 'X'},
             {"alt-paths", required_argument, 0, OPT_ALT_PATHS},
@@ -528,6 +531,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_SUPPRESS_TAIL_ANCHORS:
                 synthesize_tail_anchors = true;
+                break;
+                
+            case OPT_SUPPRESS_SUPPRESSION:
+                suppress_suppression = true;
                 break;
                 
             case 'v':
@@ -874,7 +881,7 @@ int main_mpmap(int argc, char** argv) {
         }
         likelihood_approx_exp = 3.5;
         mapq_scaling_factor = 0.5;
-        if (read_length == "very-short") {
+        if (read_length == "very-short" && !suppress_suppression) {
             // we'll allow multicomponent alignments so that the two sides of a shRNA
             // can be one alignment
             suppress_multicomponent_splitting = true;
