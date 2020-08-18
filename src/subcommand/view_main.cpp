@@ -63,6 +63,7 @@ void help_view(char** argv) {
 
          << "    -d, --dot                  output dot format" << endl
          << "    -S, --simple-dot           simplify the dot output; remove node labels, simplify alignments" << endl
+         << "    -u, --noseq-dot            shows size information instead of sequence in the dot output" << endl
          << "    -e, --ascii-labels         use labels for paths or superbubbles with char/colors rather than emoji" << endl
          << "    -Y, --ultra-label          label nodes with emoji/colors that correspond to ultrabubbles" << endl
          << "    -m, --skip-missing         skip mappings to nodes not in the graph when drawing alignments" << endl
@@ -134,6 +135,7 @@ int main_view(int argc, char** argv) {
     bool invert_edge_ports_in_dot = false;
     bool show_mappings_in_dot = false;
     bool simple_dot = false;
+    bool noseq_dot = false;
     int seed_val = time(NULL);
     bool color_variants = false;
     bool ultrabubble_labeling = false;
@@ -177,6 +179,7 @@ int main_view(int argc, char** argv) {
                 {"invert-ports", no_argument, 0, 'I'},
                 {"show-mappings", no_argument, 0, 'M'},
                 {"simple-dot", no_argument, 0, 'S'},
+                {"noseq-dot", no_argument, 0, 'u'},
                 {"color", no_argument, 0, 'C'},
                 {"translation-in", no_argument, 0, 'Z'},
                 {"ultra-label", no_argument, 0, 'Y'},
@@ -197,7 +200,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZYmqQ:zXBREDx:kKe7:",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SuCZYmqQ:zXBREDx:kKe7:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -216,6 +219,10 @@ int main_view(int argc, char** argv) {
 
         case 'S':
             simple_dot = true;
+            break;
+
+        case 'u':
+            noseq_dot = true;
             break;
 
         case 'Y':
@@ -942,6 +949,7 @@ int main_view(int argc, char** argv) {
                         annotate_paths_in_dot,
                         show_mappings_in_dot,
                         simple_dot,
+                        noseq_dot,
                         invert_edge_ports_in_dot,
                         color_variants,
                         ultrabubble_labeling,
