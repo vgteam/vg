@@ -171,8 +171,8 @@ public:
     /// particular hit in the graph.
     using hit_t = pair<const MaximalExactMatch*, pos_t>;
     
-    /// Each cluster is a vector of hits.
-    using cluster_t = vector<hit_t>;
+    /// Each cluster is a vector of hits and a paired multiplicity
+    using cluster_t = pair<vector<hit_t>, double>;
     
     /// Represents the mismatches that were allowed in "MEMs" from the fanout
     /// match algorithm
@@ -188,6 +188,7 @@ public:
                                int32_t log_likelihood_approx_factor = 0,
                                size_t min_median_mem_coverage_for_split = 0,
                                double suboptimal_edge_pruning_factor = .75,
+                               double cluster_multiplicity_diff = 10.0,
                                const match_fanouts_t* fanouts = nullptr);
     
     /**
@@ -251,7 +252,8 @@ public:
                                int32_t max_qual_score,
                                int32_t log_likelihood_approx_factor,
                                size_t min_median_mem_coverage_for_split,
-                               double suboptimal_edge_pruning_factor);
+                               double suboptimal_edge_pruning_factor,
+                               double cluster_multiplicity_diff);
     
     vector<HitNode> nodes;
     

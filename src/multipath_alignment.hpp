@@ -301,7 +301,11 @@ namespace vg {
     void extract_sub_multipath_alignment(const multipath_alignment_t& multipath_aln,
                                          const vector<int64_t>& subpath_indexes,
                                          multipath_alignment_t& sub_multipath_aln);
-    
+
+    /// Add the subpaths of one multipath alignment onto another
+    void append_multipath_alignment(multipath_alignment_t& multipath_aln,
+                                    const multipath_alignment_t& to_append);
+
     /// Debugging function to check that multipath alignment meets the formalism's basic
     /// invariants. Returns true if multipath alignment is valid, else false. Does not
     /// validate alignment score.
