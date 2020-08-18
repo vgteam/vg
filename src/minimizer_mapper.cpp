@@ -22,7 +22,7 @@
 #include <cmath>
 
 //#define debug
-//#define print_minimizers
+#define print_minimizers
 //#define debug_dump_graph
 
 namespace vg {
@@ -199,7 +199,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     //How many hits of each minimizer ended up in each extended cluster?
     vector<vector<size_t>> minimizer_extended_cluster_count; 
     //For each cluster, what fraction of "equivalent" clusters did we keep?
-    vector<pair<size_t, size_t>> probability_cluster_lost;
+    vector<tuple<size_t, size_t, double>> probability_cluster_lost;
     //What is the score and coverage we are considering and how many reads
     double curr_coverage = 0.0;
     double curr_score = 0.0;
@@ -239,7 +239,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 } else {
                     //If this is a cluster that has scores different than the previous one
                     for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                        probability_cluster_lost.emplace_back(curr_kept , curr_count);
+                        probability_cluster_lost.emplace_back(curr_kept , curr_count, curr_score);
                     }
                     curr_coverage = cluster.coverage;
                     curr_score = cluster.score;
@@ -266,7 +266,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             } else {
                 //If this is a cluster that has scores different than the previous one
                 for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                    probability_cluster_lost.emplace_back(curr_kept , curr_count);
+                    probability_cluster_lost.emplace_back(curr_kept , curr_count, curr_score);
                 }
                 curr_coverage = cluster.coverage;
                 curr_score = cluster.score;
@@ -336,7 +336,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             } else {
     
                 for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                    probability_cluster_lost.emplace_back(curr_kept , curr_count);
+                    probability_cluster_lost.emplace_back(curr_kept , curr_count, curr_score);
                 }
                 curr_score = 0;
                 curr_coverage = 0;
@@ -356,7 +356,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 funnel.fail("cluster-coverage", cluster_num, clusters[cluster_num].coverage);
             }
             for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                probability_cluster_lost.emplace_back(curr_kept , curr_count);
+                probability_cluster_lost.emplace_back(curr_kept , curr_count, curr_score);
             }
             curr_kept = 0;
             curr_count = 0;
@@ -371,7 +371,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         });
         
     for (size_t i = 0 ; i < curr_kept ; i++ ) {
-        probability_cluster_lost.emplace_back(curr_kept , curr_count);
+        probability_cluster_lost.emplace_back(curr_kept , curr_count, curr_score);
     }
     std::vector<int> cluster_extension_scores = this->score_extensions(cluster_extensions, aln, funnel);
 
@@ -393,7 +393,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     vector<size_t> alignments_to_source;
     alignments_to_source.reserve(cluster_extensions.size());
     //probability_cluster_lost but ordered by alignment
-    vector<pair<size_t, size_t>> probability_alignment_lost;
+    vector<tuple<size_t, size_t, double>> probability_alignment_lost;
     probability_alignment_lost.reserve(cluster_extensions.size());
 
     // Create a new alignment object to get rid of old annotations.
@@ -564,7 +564,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
         alignments_to_source.push_back(numeric_limits<size_t>::max());
-        probability_alignment_lost.emplace_back(0, 0);
+        probability_alignment_lost.emplace_back(0, 0, 0.0);
         
         if (track_provenance) {
             // Say it came from nowhere
@@ -585,7 +585,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     vector<double> scores;
     scores.reserve(alignments.size());
     
-    vector<pair<size_t, size_t>> probability_mapping_lost;
+    vector<tuple<size_t, size_t, double>> probability_mapping_lost;
     process_until_threshold_a(alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
         return alignments.at(i).score();
     }, 0, 1, max_multimaps, [&](size_t alignment_num) {
@@ -646,7 +646,7 @@ double uncapped_mapq = mapq;
     cerr << "uncapped MAPQ is " << mapq << endl;
 #endif
     
-    double probability_final_alignment_lost = 1.0 - ((double)probability_mapping_lost.front().first / (double)probability_mapping_lost.front().second);
+    double probability_final_alignment_lost = 1.0 - ((double)std::get<0>(probability_mapping_lost.front()) / (double) std::get<1>(probability_mapping_lost.front()));
     double cluster_lost_cap = probability_final_alignment_lost <= 0 ? std::numeric_limits<float>::infinity() :
                               round(prob_to_phred(probability_final_alignment_lost));
     mapq = min(mapq, cluster_lost_cap);
@@ -771,7 +771,7 @@ double uncapped_mapq = mapq;
     }
     cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << cluster_lost_cap << "\t" << mappings.front().mapping_quality() << "\t";
     for (auto& prob : probability_mapping_lost) {
-        cerr << prob.first << "/" << prob.second << ",";
+        cerr << std::get<0>(prob) << "/" << std::get<1>(prob) << "/" << std::get<2>(prob) << ",";
     }
     cerr << "\t";
     for (auto& score : scores) {
@@ -1368,9 +1368,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     vector<size_t> fragment_clusters_with_same_score;//Which fragment clusters are in the current score group
     fragment_clusters_with_same_score.reserve(max_fragment_num+1);
     //1 - (# equivalent clusters kept / # equivalent clusters)
-    vector<double> probability_fragment_cluster_lost (max_fragment_num+1, std::numeric_limits<float>::infinity());
-    vector<double> probability_first_cluster_lost (max_fragment_num+1, std::numeric_limits<float>::infinity());
-    vector<double> probability_second_cluster_lost (max_fragment_num+1, std::numeric_limits<float>::infinity());
+    vector<tuple<size_t, size_t, double>> probability_fragment_cluster_lost (max_fragment_num+1);
+    vector<tuple<size_t, size_t, double>> probability_first_cluster_lost (max_fragment_num+1);
+    vector<tuple<size_t, size_t, double>> probability_second_cluster_lost (max_fragment_num+1);
 
 
     //Go through the fragment clusters in score order to count how many of each score we keep
@@ -1406,14 +1406,10 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
 
                 if (!same_as_last) {
-                    double probability_lost = 1.0 - ((double) curr_kept_count / (double) curr_total_count);
-                    double probability_lost_first = 1.0 - ((double) curr_kept_first_count / (double) curr_total_count);
-                    double probability_lost_second = 1.0 - ((double) curr_kept_second_count / (double) curr_total_count);
                     for (size_t last_fragment_num : fragment_clusters_with_same_score) {
-                        assert(probability_fragment_cluster_lost[last_fragment_num] == std::numeric_limits<float>::infinity());
-                        probability_fragment_cluster_lost[last_fragment_num] = probability_lost;
-                        probability_first_cluster_lost[last_fragment_num] = probability_lost_first;
-                        probability_second_cluster_lost[last_fragment_num] = probability_lost_second;
+                        probability_fragment_cluster_lost[last_fragment_num] = make_tuple(curr_kept_count, curr_total_count, curr_score.first+curr_score.second);
+                        probability_first_cluster_lost[last_fragment_num] = make_tuple(curr_kept_first_count, curr_total_count, curr_score.first+curr_score.second);
+                        probability_second_cluster_lost[last_fragment_num] = make_tuple(curr_kept_second_count, curr_total_count, curr_score.first+curr_score.second);
                     }
                     fragment_clusters_with_same_score.clear();
                     curr_score = make_pair(cluster_score_by_fragment.first[fragment_num],
@@ -1450,26 +1446,12 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                 assert(false);
             });
     if (curr_total_count != 0) {
-        double probability_lost = 1.0 - ((double) curr_kept_count / (double) curr_total_count);
-        double probability_lost_first = 1.0 - ((double) curr_kept_first_count / (double) curr_total_count);
-        double probability_lost_second = 1.0 - ((double) curr_kept_second_count / (double) curr_total_count);
         for (size_t last_fragment_num : fragment_clusters_with_same_score) {
-            assert(probability_fragment_cluster_lost[last_fragment_num] == std::numeric_limits<float>::infinity());
-            probability_fragment_cluster_lost[last_fragment_num] = probability_lost;
-            probability_first_cluster_lost[last_fragment_num] = probability_lost_first;
-            probability_second_cluster_lost[last_fragment_num] = probability_lost_second;
+            probability_fragment_cluster_lost[last_fragment_num] = make_tuple(curr_kept_count, curr_total_count, curr_score.first+curr_score.second);
+            probability_first_cluster_lost[last_fragment_num] = make_tuple(curr_kept_first_count, curr_total_count, curr_score.first+curr_score.second);
+            probability_second_cluster_lost[last_fragment_num] = make_tuple(curr_kept_second_count, curr_total_count, curr_score.first+curr_score.second);
         }
     }
-    for (auto& x : probability_fragment_cluster_lost) {
-        assert(x != std::numeric_limits<float>::infinity());
-    }
-    for (auto& x : probability_first_cluster_lost) {
-        assert(x != std::numeric_limits<float>::infinity());
-    }
-    for (auto& x : probability_second_cluster_lost) {
-        assert(x != std::numeric_limits<float>::infinity());
-    }
-
     
     
     if (track_provenance) {
@@ -1482,7 +1464,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> paired_alignments;
     paired_alignments.reserve(alignments.size());
 
-    vector<double> probability_alignment_lost;
+    vector<tuple<size_t, size_t, double>> probability_alignment_lost;
     probability_alignment_lost.reserve(alignments.size());
 
 #ifdef print_minimizers
@@ -1887,7 +1869,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     vector<double> scores_group_1;
     vector<double> scores_group_2;
     vector<int64_t> distances;
-    vector<double> probability_mapping_lost;
+    vector<tuple<size_t, size_t, double>> probability_mapping_lost;
     mappings.first.reserve(paired_alignments.size());
     mappings.second.reserve(paired_alignments.size());
     scores.reserve(paired_scores.size());
@@ -1897,6 +1879,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 
 #ifdef print_minimizers
 vector<pair<bool, bool>> mapping_was_rescued;
+vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
 #endif
 
     process_until_threshold_a(paired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
@@ -1906,6 +1889,7 @@ vector<pair<bool, bool>> mapping_was_rescued;
         // Called in score order
 
         pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = paired_alignments[alignment_num];
+        
         
         // Remember the score at its rank
         scores.emplace_back(paired_scores[alignment_num]);
@@ -1953,6 +1937,7 @@ vector<pair<bool, bool>> mapping_was_rescued;
 
 #ifdef print_minimizers
         mapping_was_rescued.emplace_back(alignment_was_rescued[alignment_num]);
+        pair_indices.push_back(index_pair);
 #endif
         
         if (track_provenance) {
@@ -1973,7 +1958,11 @@ vector<pair<bool, bool>> mapping_was_rescued;
         scores.emplace_back(paired_scores[alignment_num]);
         distances.emplace_back(fragment_distances[alignment_num]);
         probability_mapping_lost.emplace_back(probability_alignment_lost[alignment_num]);
-        
+ 
+#ifdef print_minimizers
+        pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = paired_alignments[alignment_num];
+        pair_indices.push_back(index_pair);
+#endif       
         if (track_provenance) {
             funnels[0].fail("max-multimaps", alignment_num);
             funnels[1].fail("max-multimaps", alignment_num);
@@ -2022,6 +2011,8 @@ vector<pair<bool, bool>> mapping_was_rescued;
         mappings.second.back().set_mapping_quality(0);
 #ifdef print_minimizers
         mapping_was_rescued.emplace_back(false, false);
+        pair_indices.emplace_back(make_pair(std::numeric_limits<size_t>::infinity(), std::numeric_limits<size_t>::infinity()), 
+                        make_pair(std::numeric_limits<size_t>::infinity(), std::numeric_limits<size_t>::infinity()));
 #endif
 
     } else {
@@ -2057,7 +2048,7 @@ vector<pair<bool, bool>> mapping_was_rescued;
         //cluster that didn't get extended
         //For rescued alignments, if the correct rescuer was in an equivalently good fragment cluster that
         //had clusters of the same reads
-        new_cluster_cap = round(prob_to_phred(probability_mapping_lost.front()));
+        new_cluster_cap = round(prob_to_phred(1.0 - (std::get<0>(probability_mapping_lost.front())/std::get<1>(probability_mapping_lost.front()) )));
 
         //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
         //of the group of duplicated alignments. Always compute this even if not quite sensible.
@@ -2232,6 +2223,15 @@ vector<pair<bool, bool>> mapping_was_rescued;
     }
  
 #ifdef print_minimizers
+
+    for (pair<pair<size_t, size_t>, pair<size_t, size_t>> indices : pair_indices) {
+        cerr << indices.first.first << "," << indices.first.second << "," << indices.second.first << "," << indices.second.second << ";";
+    }
+    cerr << "\t";
+    for (auto& score : scores) {
+        cerr << score << ",";
+    }
+    cerr << endl;
     if (distances.size() == 0) {
         distances.emplace_back(0);
     }
@@ -2254,6 +2254,21 @@ vector<pair<bool, bool>> mapping_was_rescued;
          }
     }
     cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[0] << "\t" << mapq_explored_caps[0] << "\t" << new_cluster_cap << "\t" << mappings.first.front().mapping_quality();  
+
+    cerr << "\t";
+    for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num++) {
+        for (Alignment& alignment : alignments[fragment_num].first) {
+            cerr << alignment.score() << ",";
+        }
+        cerr << ";";
+    }
+    cerr << "\t";
+    for (size_t fragment_num = 0 ; fragment_num < probability_fragment_cluster_lost.size() ; fragment_num++) {
+        cerr << std::get<0>(probability_fragment_cluster_lost[fragment_num]) << "/" << std::get<0>(probability_first_cluster_lost[fragment_num]) << "/"
+             << std::get<0>(probability_second_cluster_lost[fragment_num]) << "/" << std::get<1>(probability_fragment_cluster_lost[fragment_num]) << "/"
+             << std::get<2>(probability_fragment_cluster_lost[fragment_num]) << ";";
+
+    }
     if (track_correctness) {
         cerr << "\t" << funnels[0].last_correct_stage() << endl;
     } else {
@@ -2279,6 +2294,20 @@ vector<pair<bool, bool>> mapping_was_rescued;
          }
     }
     cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[1] << "\t" << mapq_explored_caps[1] << "\t" << new_cluster_cap << "\t" << mappings.second.front().mapping_quality();
+    cerr << "\t";
+    for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num++) {
+        for (Alignment& alignment : alignments[fragment_num].second) {
+            cerr << alignment.score() << ",";
+        }
+        cerr << ";";
+    }
+    cerr << "\t";
+    for (size_t fragment_num = 0 ; fragment_num < probability_fragment_cluster_lost.size() ; fragment_num++) {
+        cerr << std::get<0>(probability_fragment_cluster_lost[fragment_num]) << "/" << std::get<0>(probability_first_cluster_lost[fragment_num]) << "/"
+             << std::get<0>(probability_second_cluster_lost[fragment_num]) << "/" << std::get<1>(probability_fragment_cluster_lost[fragment_num]) << "/"
+             << std::get<2>(probability_fragment_cluster_lost[fragment_num]) << ";";
+
+    }
     if (track_correctness) {
         cerr << "\t" << funnels[1].last_correct_stage() << endl;
     } else {
