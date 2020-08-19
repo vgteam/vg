@@ -2224,14 +2224,6 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
  
 #ifdef print_minimizers
 
-    for (pair<pair<size_t, size_t>, pair<size_t, size_t>> indices : pair_indices) {
-        cerr << indices.first.first << "," << indices.first.second << "," << indices.second.first << "," << indices.second.second << ";";
-    }
-    cerr << "\t";
-    for (auto& score : scores) {
-        cerr << score << ",";
-    }
-    cerr << endl;
     if (distances.size() == 0) {
         distances.emplace_back(0);
     }
@@ -2239,7 +2231,8 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
     for (char c : aln1.quality()) {
         cerr << (char)(c+33);
     }
-    cerr << "\t" << max_fragment_num << "\t" << mapping_was_rescued[0].first << "\t" << mapping_was_rescued[0].second << "\t" << distances.front();
+    cerr << "\t" << max_fragment_num << "\t" << mapping_was_rescued[0].first << "\t" << mapping_was_rescued[0].second 
+         << "\t" << distances.front();
     for (size_t i = 0 ; i < minimizers_by_read[0].size() ; i++) {
         auto& minimizer = minimizers_by_read[0][i];
         cerr << "\t"
@@ -2253,22 +2246,24 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[0] << "\t" << mapq_explored_caps[0] << "\t" << new_cluster_cap << "\t" << mappings.first.front().mapping_quality();  
+    cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[0] << "\t" 
+         << mapq_explored_caps[0] << "\t" << new_cluster_cap << "\t" << mappings.first.front().mapping_quality() << "\t";  
+    for (size_t i = 0 ; i < pair_indices.size() ; i++) {
+        pair<pair<size_t, size_t>, pair<size_t, size_t>> indices = pair_indices[i];
+        Alignment& aln_1 = alignments[indices.first.first].first[indices.first.second];
+        Alignment& aln_2 = alignments[indices.second.first].second[indices.second.second];
 
-    cerr << "\t";
-    for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num++) {
-        for (Alignment& alignment : alignments[fragment_num].first) {
-            cerr << alignment.score() << ",";
-        }
-        cerr << ";";
-    }
-    cerr << "\t";
-    for (size_t fragment_num = 0 ; fragment_num < probability_fragment_cluster_lost.size() ; fragment_num++) {
-        cerr << std::get<0>(probability_fragment_cluster_lost[fragment_num]) << "/" << std::get<0>(probability_first_cluster_lost[fragment_num]) << "/"
-             << std::get<0>(probability_second_cluster_lost[fragment_num]) << "/" << std::get<1>(probability_fragment_cluster_lost[fragment_num]) << "/"
-             << std::get<2>(probability_fragment_cluster_lost[fragment_num]) << ";";
+        int64_t dist = distances[i];
+        assert(dist == distance_between(aln_1, aln_2)); 
+        double dev = dist - fragment_length_distr.mean();
+        double fragment_length_log_likelihood = (-dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev()) ) / get_aligner()->log_base;
 
+        assert(scores[i] == aln_1.score() + aln_2.score() + fragment_length_log_likelihood);
+
+        cerr << aln_1.score() << "," << aln_2.score() << "," << fragment_length_log_likelihood << "," << paired_multiplicities[i] << scores[i] << ";";
     }
+
+    
     if (track_correctness) {
         cerr << "\t" << funnels[0].last_correct_stage() << endl;
     } else {
@@ -2279,7 +2274,8 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
     for (char c : aln2.quality()) {
         cerr << (char)(c+33);
     }
-    cerr << "\t" << max_fragment_num << "\t" << mapping_was_rescued[0].second << "\t" << mapping_was_rescued[0].first << "\t" << distances.front();
+    cerr << "\t" << max_fragment_num << "\t" << mapping_was_rescued[0].second << "\t" << mapping_was_rescued[0].first 
+         << "\t" << distances.front();
     for (size_t i = 0 ; i < minimizers_by_read[1].size() ; i++) {
         auto& minimizer = minimizers_by_read[1][i];
         cerr << "\t"
@@ -2293,21 +2289,24 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[1] << "\t" << mapq_explored_caps[1] << "\t" << new_cluster_cap << "\t" << mappings.second.front().mapping_quality();
-    cerr << "\t";
-    for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num++) {
-        for (Alignment& alignment : alignments[fragment_num].second) {
-            cerr << alignment.score() << ",";
-        }
-        cerr << ";";
-    }
-    cerr << "\t";
-    for (size_t fragment_num = 0 ; fragment_num < probability_fragment_cluster_lost.size() ; fragment_num++) {
-        cerr << std::get<0>(probability_fragment_cluster_lost[fragment_num]) << "/" << std::get<0>(probability_first_cluster_lost[fragment_num]) << "/"
-             << std::get<0>(probability_second_cluster_lost[fragment_num]) << "/" << std::get<1>(probability_fragment_cluster_lost[fragment_num]) << "/"
-             << std::get<2>(probability_fragment_cluster_lost[fragment_num]) << ";";
+    cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[1] << "\t" 
+         << mapq_explored_caps[1] << "\t" << new_cluster_cap << "\t" << mappings.second.front().mapping_quality() << "\t";
 
+    for (size_t i = 0 ; i < pair_indices.size() ; i++) {
+        pair<pair<size_t, size_t>, pair<size_t, size_t>> indices = pair_indices[i];
+        Alignment& aln_1 = alignments[indices.first.first].first[indices.first.second];
+        Alignment& aln_2 = alignments[indices.second.first].second[indices.second.second];
+
+        int64_t dist = distances[i];
+        assert(dist == distance_between(aln_1, aln_2)); 
+        double dev = dist - fragment_length_distr.mean();
+        double fragment_length_log_likelihood = (-dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev()) ) / get_aligner()->log_base;
+
+        assert(scores[i] == aln_1.score() + aln_2.score() + fragment_length_log_likelihood);
+
+        cerr << aln_1.score() << "," << aln_2.score() << "," << fragment_length_log_likelihood << "," << scores[i] << ";";
     }
+
     if (track_correctness) {
         cerr << "\t" << funnels[1].last_correct_stage() << endl;
     } else {
