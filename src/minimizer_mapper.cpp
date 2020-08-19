@@ -22,7 +22,7 @@
 #include <cmath>
 
 //#define debug
-#define print_minimizers
+//#define print_minimizers
 //#define debug_dump_graph
 
 namespace vg {
@@ -633,11 +633,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     for (auto& score : scores) cerr << score << " ";
 #endif
 
-    size_t winning_index;
     assert(!mappings.empty());
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index) / 2;
+        get_regular_aligner()->compute_mapping_quality(scores, false) ;
 
 #ifdef print_minimizers
 double uncapped_mapq = mapq;
@@ -649,7 +648,7 @@ double uncapped_mapq = mapq;
     double probability_final_alignment_lost = 1.0 - ((double)std::get<0>(probability_mapping_lost.front()) / (double) std::get<1>(probability_mapping_lost.front()));
     double cluster_lost_cap = probability_final_alignment_lost <= 0 ? std::numeric_limits<float>::infinity() :
                               round(prob_to_phred(probability_final_alignment_lost));
-    mapq = min(mapq, cluster_lost_cap);
+    //mapq = min(mapq, cluster_lost_cap);
     
     // TODO: give SmallBitset iterators so we can use it instead of an index vector.
     vector<size_t> explored_minimizers;
@@ -659,7 +658,8 @@ double uncapped_mapq = mapq;
         }
     }
     // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
-    double mapq_explored_cap = 2 * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
+    double escape_bonus = mapq < 10000 ? 1.0 : 2.0;
+    double mapq_explored_cap = escape_bonus * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
 
     // Remember the uncapped MAPQ and the caps
     set_annotation(mappings.front(),"secondary_scores", scores);
@@ -667,7 +667,7 @@ double uncapped_mapq = mapq;
     set_annotation(mappings.front(), "mapq_explored_cap", mapq_explored_cap);
 
     // Apply the caps and transformations
-    mapq = round(0.85 * min(mapq_explored_cap, min(mapq, 70.0)));
+    mapq = round(min(mapq_explored_cap, min(mapq, 60.0)));
 
 #ifdef debug
     cerr << "Explored cap is " << mapq_explored_cap << endl;
@@ -2022,12 +2022,11 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         for (auto& score : scores) cerr << score << " ";
 #endif
 
-        size_t winning_index;
         const vector<double>* multiplicities = paired_multiplicities.size() == scores.size() ? &paired_multiplicities : nullptr; 
         // Compute base MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
         // If either of the mappings was duplicated in other pairs, use the group scores to determine mapq
         uncapped_mapq = scores[0] == 0 ? 0 : 
-            get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index, multiplicities) / 2;
+            get_regular_aligner()->compute_mapping_quality(scores, false, multiplicities);
 
         //Cap mapq at 1 - 1 / # equivalent or better fragment clusters, excluding self
         if (better_cluster_count_mappings.size() != 0) {
@@ -2052,8 +2051,8 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
 
         //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
         //of the group of duplicated alignments. Always compute this even if not quite sensible.
-        mapq_score_groups[0] = get_regular_aligner()->maximum_mapping_quality_exact(scores_group_1, &winning_index);
-        mapq_score_groups[1] = get_regular_aligner()->maximum_mapping_quality_exact(scores_group_2, &winning_index);
+        mapq_score_groups[0] = get_regular_aligner()->compute_mapping_quality(scores_group_1, false);
+        mapq_score_groups[1] = get_regular_aligner()->compute_mapping_quality(scores_group_2, false);
         
         for (auto read_num : {0, 1}) {
             // For each fragment
@@ -2068,7 +2067,7 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
                 }
             }
             // Compute exploration cap on MAPQ. TODO: avoid needing to pass as much stuff along.
-            double mapq_explored_cap = 2 * faster_cap(minimizers_by_read[read_num], explored_minimizers, aln.sequence(), aln.quality());
+            double mapq_explored_cap =  faster_cap(minimizers_by_read[read_num], explored_minimizers, aln.sequence(), aln.quality());
 
             mapq_explored_caps[read_num] = mapq_explored_cap;
 
@@ -2087,7 +2086,8 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
             // For each fragment
 
             // Compute the overall cap for just this read, now that the individual cap components are filled in for both reads.
-            double mapq_cap = std::min(preprocess_cap(mapq_score_groups[read_num] / 2.0), std::min(fragment_cluster_cap, (mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0));
+            double escape_bonus = uncapped_mapq < 10000 ? 1.0 : 2.0;
+            double mapq_cap = std::min(fragment_cluster_cap, ((mapq_explored_caps[0] + mapq_explored_caps[1])*escape_bonus) );
             
             // Find the MAPQ to cap
             double read_mapq = uncapped_mapq;
@@ -2099,7 +2099,7 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
             set_annotation(to_annotate, "mapq_applied_cap", mapq_cap);
 
             // Apply the cap, and limit to 0-60
-            read_mapq = max(min(mapq_cap, min(read_mapq, 60.0)), 0.0);
+            read_mapq = max(min(mapq_cap, min(read_mapq, 120.0)) / 2.0, 0.0);
             
             // Save the MAPQ
             to_annotate.set_mapping_quality(read_mapq);
@@ -2248,7 +2248,7 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
     }
     cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[0] << "\t" 
          << mapq_explored_caps[0] << "\t" << new_cluster_cap << "\t" << mappings.first.front().mapping_quality() << "\t";  
-    for (size_t i = 0 ; i < pair_indices.size() ; i++) {
+    for (size_t i = 0 ; i < scores.size() ; i++) {
         pair<pair<size_t, size_t>, pair<size_t, size_t>> indices = pair_indices[i];
         Alignment& aln_1 = alignments[indices.first.first].first[indices.first.second];
         Alignment& aln_2 = alignments[indices.second.first].second[indices.second.second];
@@ -2292,7 +2292,7 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
     cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[1] << "\t" 
          << mapq_explored_caps[1] << "\t" << new_cluster_cap << "\t" << mappings.second.front().mapping_quality() << "\t";
 
-    for (size_t i = 0 ; i < pair_indices.size() ; i++) {
+    for (size_t i = 0 ; i < scores.size() ; i++) {
         pair<pair<size_t, size_t>, pair<size_t, size_t>> indices = pair_indices[i];
         Alignment& aln_1 = alignments[indices.first.first].first[indices.first.second];
         Alignment& aln_2 = alignments[indices.second.first].second[indices.second.second];
