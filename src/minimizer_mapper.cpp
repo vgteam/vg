@@ -2515,6 +2515,11 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored,
     const string& sequence, const string& quality_bytes) {
 
+    // TODO: Maybe we should to something smarter if we do not have base qualities.
+    if (quality_bytes.empty()) {
+        return numeric_limits<double>::infinity();
+    }
+
     // Sort minimizer subset so we go through minimizers in increasing order of start position
     std::sort(minimizers_explored.begin(), minimizers_explored.end(), [&](size_t a, size_t b) {
         // Return true if a must come before b, and false otherwise
