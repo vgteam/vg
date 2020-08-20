@@ -2260,7 +2260,9 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
 
         assert(scores[i] == aln_1.score() + aln_2.score() + fragment_length_log_likelihood);
 
-        cerr << aln_1.score() << "," << aln_2.score() << "," << fragment_length_log_likelihood << "," << paired_multiplicities[i] << scores[i] << ";";
+        double multiplicity = paired_multiplicities.size() == scores.size() ? paired_multiplicities[i] : 1.0;
+
+        cerr << aln_1.score() << "," << aln_2.score() << "," << fragment_length_log_likelihood << "," << multiplicity << "," << scores[i] << ";";
     }
 
     
@@ -2304,7 +2306,9 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
 
         assert(scores[i] == aln_1.score() + aln_2.score() + fragment_length_log_likelihood);
 
-        cerr << aln_1.score() << "," << aln_2.score() << "," << fragment_length_log_likelihood << "," << scores[i] << ";";
+        double multiplicity = paired_multiplicities.size() == scores.size() ? paired_multiplicities[i] : 1.0;
+
+        cerr << aln_1.score() << "," << aln_2.score() << "," << fragment_length_log_likelihood << "," << multiplicity << "," << scores[i] << ";";
     }
 
     if (track_correctness) {
