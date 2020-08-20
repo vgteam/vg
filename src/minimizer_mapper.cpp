@@ -2639,6 +2639,11 @@ double MinimizerMapper::window_breaking_quality(const vector<Minimizer>& minimiz
 double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored,
     const string& sequence, const string& quality_bytes) {
 
+    // TODO: Maybe we should to something smarter if we do not have base qualities.
+    if (quality_bytes.empty()) {
+        return numeric_limits<double>::infinity();
+    }
+
     // Sort minimizer subset so we go through minimizers in increasing order of start position
     std::sort(minimizers_explored.begin(), minimizers_explored.end(), [&](size_t a, size_t b) {
         // Return true if a must come before b, and false otherwise
@@ -3607,21 +3612,42 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
         min_extensions = 2;
     }
 
-    // (length, penalty) pairs sorted by length. Pareto frontiers for the
-    // number of bp we can align at each end and the corresponding alignment
-    // score penalty. This assumes that we take a gap from read end to
-    // extension end and then an extension.
+    /*
+      (length, penalty) pairs sorted by length. Pareto frontiers for the
+      number of bp we can align at each end and the corresponding alignment
+      score penalty. We use three types of points:
+      1. A gap from the start/end of the read to the start/end of the
+         extension followed by the entire extension.
+      2. A gap from the start/end of the read to the start/end of the
+         extension followed by the extension until the first mismatch.
+      3. A k + w - 2 bp exact match at the start/end of the read.
+    */
     const Aligner* aligner = this->get_regular_aligner();
     std::vector<pareto_point> left_frontier, right_frontier;
-    for (const GaplessExtension& extension : extended_seeds) {
-        if (extension.full()) {
-            continue;
+    {
+        size_t seq_len = aln.sequence().length();
+        for (const GaplessExtension& extension : extended_seeds) {
+            if (extension.full()) {
+                continue;
+            }
+            int32_t left_penalty = gap_penalty(extension.read_interval.first, aligner);
+            int32_t mid_penalty = mismatch_penalty(extension.mismatches(), aligner);
+            int32_t right_penalty = gap_penalty(seq_len - extension.read_interval.second, aligner);
+            left_frontier.push_back(pareto_point(extension.read_interval.second, mid_penalty + left_penalty));
+            right_frontier.push_back(pareto_point(seq_len - extension.read_interval.first, mid_penalty + right_penalty));
+            if (extension.mismatches() > 0) {
+                left_frontier.push_back(pareto_point(extension.mismatch_positions.front(), left_penalty));
+                right_frontier.push_back(pareto_point(seq_len - extension.mismatch_positions.back() - 1, right_penalty));
+            }
         }
-        int32_t left_penalty = gap_penalty(extension.read_interval.first, aligner);
-        int32_t mid_penalty = mismatch_penalty(extension.mismatches(), aligner);
-        int32_t right_penalty = gap_penalty(aln.sequence().length() - extension.read_interval.second, aligner);
-        left_frontier.push_back(pareto_point(extension.read_interval.second, mid_penalty + left_penalty));
-        right_frontier.push_back(pareto_point(aln.sequence().length() - extension.read_interval.first, mid_penalty + right_penalty));
+        size_t min_k = this->minimizer_indexes.front()->k();
+        size_t min_w = this->minimizer_indexes.front()->w();
+        for (size_t i = 1; i < this->minimizer_indexes.size(); i++) {
+            min_k = std::min(min_k, this->minimizer_indexes[i]->k());
+            min_w = std::min(min_w, this->minimizer_indexes[i]->w());
+        }
+        left_frontier.push_back(pareto_point(min_k + min_w - 2, 0));
+        right_frontier.push_back(pareto_point(min_k + min_w - 2, 0));
     }
     find_pareto_frontier(left_frontier);
     find_pareto_frontier(right_frontier);
