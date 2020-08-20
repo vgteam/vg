@@ -33,8 +33,9 @@ void help_depth(char** argv) {
          << "    -p, --ref-path NAME    reference path to call on (multipile allowed.  defaults to all paths)" << endl
          << "    -b, --bin-size N       bin size (in bases) [1] (2 extra columns printed when N>1: bin-end-pos and stddev)" << endl
          << "    -d, --count-dels       count deletion edges within the bin as covering reference positions" << endl
-         << "  GAM coverage depth (print <mean> <stddev> for depth):" << endl
-         << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
+         << "  GAM/GAF coverage depth (print <mean> <stddev> for depth):" << endl
+         << "    -g, --gam FILE         read alignments from this GAM file (could be '-' for stdin)" << endl
+         << "    -a, --gaf FILE         read alignments from this GAF file (could be '-' for stdin)" << endl
          << "    -n, --max-nodes N      maximum nodes to consider [1000000]" << endl
          << "    -s, --random-seed N    random seed for sampling nodes to consider" << endl
          << "    -Q, --min-mapq N       ignore alignments with mapping quality < N [0]" << endl
@@ -56,6 +57,7 @@ int main_depth(int argc, char** argv) {
     bool count_dels = false;
     
     string gam_filename;
+    string gaf_filename;
     size_t max_nodes = 1000000;
     int random_seed = time(NULL);
     size_t min_mapq = 0;
@@ -72,6 +74,7 @@ int main_depth(int argc, char** argv) {
             {"bin-size", required_argument, 0, 'b'},
             {"count-dels", no_argument, 0, 'd'},
             {"gam", required_argument, 0, 'g'},
+            {"gaf", no_argument, 0, 'a'},
             {"max-nodes", required_argument, 0, 'n'},
             {"random-seed", required_argument, 0, 's'},
             {"min-mapq", required_argument, 0, 'Q'},
@@ -82,7 +85,7 @@ int main_depth(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:p:c:b:dg:n:s:m:t:",
+        c = getopt_long (argc, argv, "hk:p:c:b:dg:a:n:s:m:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -105,6 +108,9 @@ int main_depth(int argc, char** argv) {
             break;            
         case 'g':
             gam_filename = optarg;
+            break;
+        case 'a':
+            gaf_filename = optarg;
             break;
         case 'n':
             max_nodes = parse<size_t>(optarg);
@@ -144,8 +150,11 @@ int main_depth(int argc, char** argv) {
         return 1;
     }
 
-    if (pack_filename.empty() == gam_filename.empty() ) {
-        cerr << "error:[vg depth] Either a pack file (-k) or a gam file (-g) must be given" << endl;
+    size_t input_count = pack_filename.empty() ? 0 : 1;
+    if (!gam_filename.empty()) ++input_count;
+    if (!gaf_filename.empty()) ++input_count;
+    if (input_count != 1) {                                          
+        cerr << "error:[vg depth] Exactly one of a pack file (-k), a GAM file (-g), or a GAF file (-a) must be given" << endl;
         exit(1);
     }
 
@@ -205,12 +214,12 @@ int main_depth(int argc, char** argv) {
     }
 
     // Process the gam
-    if (!gam_filename.empty()) {
-        pair<double, double> gam_cov;
-        get_input_file(gam_filename, [&] (istream& gam_stream) {
-                gam_cov = algorithms::sample_gam_depth(*graph, gam_stream, max_nodes, random_seed, min_coverage, min_mapq);
-            });
-        cout << gam_cov.first << "\t" << sqrt(gam_cov.second) << endl;
+    if (!gam_filename.empty() || !gaf_filename.empty()) {
+        const string& mapping_filename = !gam_filename.empty() ? gam_filename : gaf_filename;
+        pair<double, double> mapping_cov;
+        mapping_cov = algorithms::sample_mapping_depth(*graph, mapping_filename, max_nodes, random_seed,
+                                                       min_coverage, min_mapq, !gam_filename.empty() ? "GAM" : "GAF");
+        cout << mapping_cov.first << "\t" << sqrt(mapping_cov.second) << endl;
     }
         
     return 0;

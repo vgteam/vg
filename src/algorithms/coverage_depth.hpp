@@ -53,14 +53,16 @@ BinnedDepthIndex binned_packed_depth_index(const Packer& packer,
 /// Query index created above
 pair<float, float> get_depth_from_index(const BinnedDepthIndex& depth_index, const string& path_name, size_t start_offset, size_t end_offset);
 
-/// Return the mean and variance of coverage of randomly sampled nodes from a GAM
+/// Return the mean and variance of coverage of randomly sampled nodes from a mappings file
 /// Nodes with less than min_coverage are ignored
+/// The input_filename can be - for stdin
 /// The stream is scanned in parallel with all threads
 /// max_nodes is used to keep memory down
-pair<double, double> sample_gam_depth(const HandleGraph& graph, istream& gam_stream, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq);
+/// valid formats are "GAM" and "GAF"
+pair<double, double> sample_mapping_depth(const HandleGraph& graph, const string& input_filename, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq, const string& format="GAM");
 
 /// As above, but read a vector instead of a stream
-pair<double, double> sample_gam_depth(const HandleGraph& graph, const vector<Alignment>& alignments, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq);
+pair<double, double> sample_mapping_depth(const HandleGraph& graph, const vector<Alignment>& alignments, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq);
 
 }
 }

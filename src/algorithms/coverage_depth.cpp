@@ -254,7 +254,7 @@ static pair<double, double> combine_and_average_node_coverages(const HandleGraph
 }
 
 
-pair<double, double> sample_gam_depth(const HandleGraph& graph, istream& gam_stream, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq) {
+pair<double, double> sample_mapping_depth(const HandleGraph& graph, const string& input_filename, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq, const string& format) {
     // one node counter per thread
     vector<unordered_map<nid_t, size_t>> node_coverages(get_thread_count(), sample_nodes(graph, max_nodes, random_seed));
 
@@ -263,9 +263,21 @@ pair<double, double> sample_gam_depth(const HandleGraph& graph, istream& gam_str
             update_sample_gam_depth(aln, node_coverages[omp_get_thread_num()]);
         }
     };
-    vg::io::for_each_parallel(gam_stream, aln_callback);
+    if (format == "GAM") {
+        get_input_file(input_filename, [&] (istream& gam_stream) {
+                vg::io::for_each_parallel(gam_stream, aln_callback);
+            });
+    } else if (format == "GAF") {
+        vg::io::gaf_unpaired_for_each_parallel(graph, input_filename, aln_callback);
+    } else {
+        throw runtime_error("vg::aglorithms::coverage_depth: Invalid format specified for sample_mapping_depth(): " +
+                            format + ". Valid options are GAM and GAF.");
+    }
+    
     return combine_and_average_node_coverages(graph, node_coverages, min_coverage);
 }
+
+
 
 pair<double, double> sample_gam_depth(const HandleGraph& graph, const vector<Alignment>& alignments, size_t max_nodes, size_t random_seed, size_t min_coverage, size_t min_mapq) {
     // one node counter per thread
