@@ -748,7 +748,7 @@ using namespace std;
         identify_start_subpaths(mp_aln);
         
 #ifdef debug_anchored_surject
-        cerr << "made multipath alignment " << pb2json(mp_aln) << endl;
+        cerr << "made multipath alignment " << debug_string(mp_aln) << endl;
 #endif
         
 #ifdef debug_validate_anchored_multipath_alignment
