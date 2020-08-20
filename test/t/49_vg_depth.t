@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 3
+plan tests 4
 
 vg construct -m 10 -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
@@ -17,5 +17,6 @@ vg pack -x flat.xg -o 2snp.gam.cx -g 2snp.gam
 is $(vg depth flat.vg -g 2snp.gam | awk '{print $1}') 18 "vg depth gets correct depth from gam"
 is $(vg depth flat.xg -k 2snp.gam.cx -b 100000 | awk '{print int($4)}') 18 "vg depth gets correct depth from pack"
 is $(vg depth flat.xg -k 2snp.gam.cx -b 10 | wc -l) 5 "vg depth gets correct number of bins"
-
-rm -f flat.vg flat.gcsa flat.xg 2snp.vg 2snp.sim 2snp.gam 2snp.gam.cx
+vg convert flat.vg -G 2snp.gam | gzip > 2snp.gaf.gz
+is $(vg depth flat.vg -a 2snp.gaf.gz | awk '{print $1}') 18 "vg depth gets correct depth from gaf"
+rm -f flat.vg flat.gcsa flat.xg 2snp.vg 2snp.sim 2snp.gam 2snp.gam.cx 2snp.gaf.gz
