@@ -658,7 +658,7 @@ double uncapped_mapq = mapq;
         }
     }
     // Compute caps on MAPQ. TODO: avoid needing to pass as much stuff along.
-    double escape_bonus = mapq < 10000 ? 1.0 : 2.0;
+    double escape_bonus = mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
     double mapq_explored_cap = escape_bonus * faster_cap(minimizers, explored_minimizers, aln.sequence(), aln.quality());
 
     // Remember the uncapped MAPQ and the caps
@@ -2086,7 +2086,7 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
             // For each fragment
 
             // Compute the overall cap for just this read, now that the individual cap components are filled in for both reads.
-            double escape_bonus = uncapped_mapq < 10000 ? 1.0 : 2.0;
+            double escape_bonus = uncapped_mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
             double mapq_cap = std::min(fragment_cluster_cap, ((mapq_explored_caps[0] + mapq_explored_caps[1])*escape_bonus) );
             
             // Find the MAPQ to cap
