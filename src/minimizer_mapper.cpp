@@ -977,29 +977,47 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     for (size_t i = 0 ; i < fragment_cluster_indices_by_score.size() ; i++) {
         fragment_cluster_indices_by_score[i] = i;
     }
-    //Sort by the sum of the score and coverage of the best cluster for each end
-    std::sort(fragment_cluster_indices_by_score.begin(), fragment_cluster_indices_by_score.end(), [&](size_t a, size_t b) {
-        return cluster_coverage_by_fragment.first[a] + cluster_coverage_by_fragment.second[a] 
-               + cluster_score_by_fragment.first[a] + cluster_score_by_fragment.second[a]  
-            > cluster_coverage_by_fragment.first[b] + cluster_coverage_by_fragment.second[b] 
-                + cluster_score_by_fragment.first[b] + cluster_score_by_fragment.second[b];  
+
+    //Sort by the score and coverage of the best cluster for each end
+    std::sort(fragment_cluster_indices_by_score.begin(), fragment_cluster_indices_by_score.end(), [&](size_t fragment_a, size_t fragment_b) {
+
+         double coverage_a = cluster_coverage_by_fragment.first[fragment_a]+cluster_coverage_by_fragment.second[fragment_a];
+         double coverage_b = cluster_coverage_by_fragment.first[fragment_b]+cluster_coverage_by_fragment.second[fragment_b];
+         double score_a = cluster_score_by_fragment.first[fragment_a]+cluster_score_by_fragment.second[fragment_a];
+         double score_b = cluster_score_by_fragment.first[fragment_b]+cluster_score_by_fragment.second[fragment_b];
+
+         if (fragment_cluster_has_pair[fragment_a] != fragment_cluster_has_pair[fragment_b]) {
+             return (bool) fragment_cluster_has_pair[fragment_a];
+         } else if (coverage_a != coverage_b){
+             return coverage_a > coverage_b;
+         } else {
+             return score_a > score_b;
+         }
     });
 
     // How many fragment clusters are at least as good as the one at each index
     vector<size_t> better_cluster_count (max_fragment_num+1); 
-    for (int j = fragment_cluster_indices_by_score.size() - 1 ; j >= 0 ; j--) {
-        size_t i = fragment_cluster_indices_by_score[j];
-        if (j == fragment_cluster_indices_by_score.size()-1) {
-            better_cluster_count[i] = j;
+    for (int rank = fragment_cluster_indices_by_score.size() - 1 ; rank >= 0 ; rank--) {
+        size_t fragment_num = fragment_cluster_indices_by_score[rank];
+        if (rank == fragment_cluster_indices_by_score.size()-1) {
+            better_cluster_count[fragment_num] = rank+1;
         } else {
-            size_t i2 = fragment_cluster_indices_by_score[j+1];
-            if(cluster_coverage_by_fragment.first[i] + cluster_coverage_by_fragment.second[i] + cluster_score_by_fragment.first[i] + cluster_score_by_fragment.second[i] 
-                == cluster_coverage_by_fragment.first[i2] + cluster_coverage_by_fragment.second[i2] + cluster_score_by_fragment.first[i2] + cluster_score_by_fragment.second[i2]) {
-                better_cluster_count[i] = better_cluster_count[i2];
+            size_t prev_fragment_num = fragment_cluster_indices_by_score[rank+1];
+            if(cluster_coverage_by_fragment.first[fragment_num] == cluster_coverage_by_fragment.first[prev_fragment_num] &&
+               cluster_coverage_by_fragment.second[fragment_num] == cluster_coverage_by_fragment.second[prev_fragment_num] && 
+               cluster_score_by_fragment.first[fragment_num] == cluster_score_by_fragment.first[prev_fragment_num] &&
+               cluster_score_by_fragment.second[fragment_num] == cluster_score_by_fragment.second[prev_fragment_num]) {
+                //If this is the same as the last cluster, it has the same count
+                better_cluster_count[fragment_num] = better_cluster_count[prev_fragment_num];
             } else {
-                better_cluster_count[i] = j;
+                //Otherwise, its count is the index
+                better_cluster_count[fragment_num] = rank+1;
             }
+            assert(better_cluster_count[fragment_num] <= better_cluster_count[prev_fragment_num]);
         }
+    }
+    for (size_t count : better_cluster_count) {
+        assert(count >= 1);
     }
 
     // To compute the windows that are explored, we need to get
@@ -1702,7 +1720,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         for (char c : aln1.quality()) {
             cerr << (char)(c+33);
         }
-        cerr << "\t" << max_fragment_num << "\t" << 0 << "\t" << 0 << "\t?";
+        cerr << "\t" << max_fragment_num+1 << "\t" << 0 << "\t" << 0 << "\t?";
         for (size_t i = 0 ; i < minimizers_by_read[0].size() ; i++) {
             auto& minimizer = minimizers_by_read[0][i];
             cerr << "\t"
@@ -1727,7 +1745,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
         for (char c : aln2.quality()) {
             cerr << (char)(c+33);
         }
-        cerr << "\t" << max_fragment_num << "\t" << 0 << "\t" << 0 << "\t?";
+        cerr << "\t" << max_fragment_num+1 << "\t" << 0 << "\t" << 0 << "\t?";
         for (size_t i = 0 ; i < minimizers_by_read[1].size() ; i++) {
             auto& minimizer = minimizers_by_read[1][i];
             cerr << "\t"
@@ -1804,7 +1822,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
                     paired_alignments.push_back(index_pair);
                     paired_scores.emplace_back(score);
                     fragment_distances.emplace_back(fragment_dist);
-                    better_cluster_count_alignment_pairs.emplace_back(0);
+                    better_cluster_count_alignment_pairs.emplace_back(better_cluster_count[std::get<0>(index)]);
                     rescued_from.push_back(found_first); 
 
                     if (found_first) {
@@ -1848,6 +1866,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }
 
     
+    for (auto& x : better_cluster_count_alignment_pairs) {
+        assert(x >= 1);
+    }
     
     if (track_provenance) {
         // Now say we are finding the winner(s)
@@ -1958,6 +1979,8 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         scores.emplace_back(paired_scores[alignment_num]);
         distances.emplace_back(fragment_distances[alignment_num]);
         probability_mapping_lost.emplace_back(probability_alignment_lost[alignment_num]);
+        better_cluster_count_mappings.emplace_back(better_cluster_count_alignment_pairs[alignment_num]);
+
  
 #ifdef print_minimizers
         pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = paired_alignments[alignment_num];
@@ -1973,6 +1996,9 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         assert(false);
     });
     
+    for (auto& x : better_cluster_count_mappings) {
+        assert (x >= 1);
+    }
     if (track_provenance) {
         funnels[0].substage("mapq");
         funnels[1].substage("mapq");
@@ -2248,6 +2274,8 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
     }
     cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[0] << "\t" 
          << mapq_explored_caps[0] << "\t" << new_cluster_cap << "\t" << mappings.first.front().mapping_quality() << "\t";  
+    assert(scores.size() == better_cluster_count_mappings.size());
+    assert(scores.size() == probability_mapping_lost.size());
     for (size_t i = 0 ; i < scores.size() ; i++) {
         pair<pair<size_t, size_t>, pair<size_t, size_t>> indices = pair_indices[i];
         Alignment& aln_1 = alignments[indices.first.first].first[indices.first.second];
@@ -2262,7 +2290,16 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
 
         double multiplicity = paired_multiplicities.size() == scores.size() ? paired_multiplicities[i] : 1.0;
 
-        cerr << aln_1.score() << "," << aln_2.score() << "," << fragment_length_log_likelihood << "," << multiplicity << "," << scores[i] << ";";
+        cerr << aln_1.score() << "," 
+             << aln_2.score() << "," 
+             << fragment_length_log_likelihood << "," 
+             << multiplicity << "," 
+             << better_cluster_count_mappings[i] << "," 
+             << std::get<0>(probability_mapping_lost[i]) << "," 
+             << std::get<1>(probability_mapping_lost[i]) << "," 
+             << std::get<2>(probability_mapping_lost[i]) << "," 
+             << scores[i] << ";";
+        assert(better_cluster_count_mappings[i] >= std::get<1>(probability_mapping_lost[i]));
     }
 
     
@@ -2308,7 +2345,15 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
 
         double multiplicity = paired_multiplicities.size() == scores.size() ? paired_multiplicities[i] : 1.0;
 
-        cerr << aln_1.score() << "," << aln_2.score() << "," << fragment_length_log_likelihood << "," << multiplicity << "," << scores[i] << ";";
+        cerr << aln_1.score() << "," 
+             << aln_2.score() << "," 
+             << fragment_length_log_likelihood << "," 
+             << multiplicity << "," 
+             << better_cluster_count_mappings[i] << "," 
+             << std::get<0>(probability_mapping_lost[i]) << "," 
+             << std::get<1>(probability_mapping_lost[i]) << "," 
+             << std::get<2>(probability_mapping_lost[i]) << "," 
+             << scores[i] << ";";
     }
 
     if (track_correctness) {
