@@ -1016,9 +1016,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             assert(better_cluster_count[fragment_num] <= better_cluster_count[prev_fragment_num]);
         }
     }
+#ifdef debug
     for (size_t count : better_cluster_count) {
         assert(count >= 1);
     }
+#endif
 
     // To compute the windows that are explored, we need to get
     // all the minimizers that are explored.
@@ -1866,9 +1868,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }
 
     
+#ifdef debug
     for (auto& x : better_cluster_count_alignment_pairs) {
         assert(x >= 1);
     }
+#endif
     
     if (track_provenance) {
         // Now say we are finding the winner(s)
@@ -1995,10 +1999,13 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         // Score threshold is 0; this should never happen
         assert(false);
     });
-    
+
+#ifdef debug
     for (auto& x : better_cluster_count_mappings) {
         assert (x >= 1);
     }
+#endif
+
     if (track_provenance) {
         funnels[0].substage("mapq");
         funnels[1].substage("mapq");
