@@ -23,7 +23,7 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, int ploidy, bo
     auto process_snarl = [&](const Snarl* snarl) {
 
         if (!snarl_manager.is_trivial(snarl, graph)) {
-            
+
 #ifdef debug
             cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
 #endif
@@ -227,7 +227,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream) const {
 void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                                    const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                                    const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                   const string& ref_path_name, int ref_offset) const {
+                                   const string& ref_path_name, int ref_offset, bool genotype_snarls) const {
   
     // convert traversal to string
     function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
@@ -275,6 +275,28 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         }
     }
 
+    // add on fixed number of uncalled traversals if we're making a ref-call
+    // with genotype_snarls set to true
+    if (genotype_snarls && site_traversals.size() <= 1) {
+        // note: we're adding all the strings here and sorting to make this deterministic
+        // at the cost of speed
+        map<string, const SnarlTraversal*> allele_map;
+        for (int i = 0; i < called_traversals.size(); ++i) {
+            string allele_string = trav_string(called_traversals[i]);
+            if (!allele_map.count(allele_string)) {
+                allele_map[allele_string] = &called_traversals[i];
+            }
+        }
+        // pick out the first "max_uncalled_alleles" traversals to add
+        int i = 0;
+        for (auto ai = allele_map.begin(); i < max_uncalled_alleles && ai != allele_map.end(); ++i, ++ai) {
+            if (!allele_to_gt.count(ai->first)) {
+                allele_to_gt[ai->first] = allele_to_gt.size();
+                site_traversals.push_back(*ai->second);
+            }
+        }
+    }
+
     out_variant.alt.resize(allele_to_gt.size() - 1);
     out_variant.alleles.resize(allele_to_gt.size());
     for (auto& allele_gt : allele_to_gt) {
@@ -308,9 +330,18 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     }
     genotype_vector.push_back(vcf_gt.str());
 
+    // if genotype_snarls, then we only flatten up to the snarl endpoints
+    // (this is when we are in genotyping mode and want consistent calls regardless of the sample)
+    int64_t flatten_len_s = 0;
+    int64_t flatten_len_e = 0;
+    if (genotype_snarls) {
+        flatten_len_s = graph.get_length(graph.get_handle(snarl.start().node_id())) - 1;
+        assert(flatten_len_s >= 0);
+        flatten_len_e = graph.get_length(graph.get_handle(snarl.end().node_id()));
+    }
     // clean up the alleles to not have so man common prefixes
-    flatten_common_allele_ends(out_variant, true);
-    flatten_common_allele_ends(out_variant, false);
+    flatten_common_allele_ends(out_variant, true, flatten_len_e);
+    flatten_common_allele_ends(out_variant, false, flatten_len_s);
 #ifdef debug
     for (int i = 0; i < site_traversals.size(); ++i) {
         cerr << " site trav[" << i << "]=" << pb2json(site_traversals[i]) << endl;
@@ -322,7 +353,7 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     // add some support info
     snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name, out_variant);
 
-    if (!out_variant.alt.empty()) {
+    if (!genotype_snarls || !out_variant.alt.empty()) {
         add_variant(out_variant);
     }
 }
@@ -390,7 +421,7 @@ tuple<size_t, size_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_r
     }
 }
 
-void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const {
+void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const {
     if (variant.alt.size() == 0) {
         return;
     }
@@ -401,6 +432,11 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
     // want to leave at least one in the reference position
     if (min_len > 0) {
         --min_len;
+    }
+
+    // apply the override
+    if (len_override > 0) {
+        min_len = len_override;
     }
 
     bool match = true;
@@ -958,7 +994,7 @@ bool LegacyCaller::call_snarl(const Snarl& snarl, int ploidy) {
                                                                            path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
             // emit our vcf variant
-            emit_variant(graph, snarl_caller, snarl, called_traversals, genotype, 0, call_info, path_name, ref_offsets.find(path_name)->second);
+            emit_variant(graph, snarl_caller, snarl, called_traversals, genotype, 0, call_info, path_name, ref_offsets.find(path_name)->second, false);
 
             was_called = true;
         }
@@ -1163,7 +1199,8 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        AlignmentEmitter* aln_emitter,
                        bool traversals_only,
                        bool gaf_output,
-                       size_t trav_padding) :
+                       size_t trav_padding,
+                       bool genotype_snarls) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
@@ -1171,7 +1208,8 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     traversal_finder(traversal_finder),
     ref_paths(ref_paths),
     traversals_only(traversals_only),
-    gaf_output(gaf_output)
+    gaf_output(gaf_output),
+    genotype_snarls(genotype_snarls)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
@@ -1337,7 +1375,7 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy) {
 
         if (!gaf_output) {
             emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
-                         ref_offsets[ref_path_name]);
+                         ref_offsets[ref_path_name], genotype_snarls);
         } else {
             emit_gaf_variant(graph, snarl, travs, trav_genotype);
         }
