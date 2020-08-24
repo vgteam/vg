@@ -16,6 +16,10 @@ vg paths -v tiny.mod.vg -X | vg view -a - | grep -v x | sort | vg view -JGa - >t
 vg translate -a tiny.paths.gam tiny.trans | vg view -a - | sort | vg view -JGa - >tiny.paths.trans.gam
 vg augment -Z tiny.trans.1 -i tiny.vg tiny.paths.trans.gam >tiny.mod.vg.1
 
+# Dump graphs
+vg mod -U 10 tiny.mod.vg | vg mod -c - | vg view -
+vg mod -U 10 tiny.mod.vg.1 | vg mod -c - | vg view -
+
 is $(vg mod -U 10 tiny.mod.vg | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg mod -U 10 tiny.mod.vg.1 | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "alignments used to modify a graph may be projected back to the original graph and used to regenerate the same graph"
 
 rm -Rf tiny.vg tiny.xg tiny.gcsa tiny.gcsa.lcp tiny.sim tiny.gam tiny.trans tiny.mod.vg tiny.trans.1 tiny.paths.gam tiny.paths.trans.gam tiny.mod.vg.1
