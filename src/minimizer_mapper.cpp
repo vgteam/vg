@@ -631,12 +631,24 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     cerr << "Picked best alignment " << pb2json(mappings[0]) << endl;
     cerr << "For scores ";
     for (auto& score : scores) cerr << score << " ";
+    assert(scores.size() == probability_mapping_lost.size());
 #endif
+
+    //Add multiplicities from count of clusters that we didn't explore
+    vector<double> multiplicities (scores.size(), 1.0);
+    for (size_t i = 0 ; i < probability_mapping_lost.size() ; i++) {
+        size_t clusters_kept, equivalent_clusters;
+        double score;
+        std::tie(clusters_kept, equivalent_clusters, score) = probability_mapping_lost[i];
+        if (clusters_kept < equivalent_clusters) {
+            multiplicities[i] = 1.0 + ((equivalent_clusters - clusters_kept) / clusters_kept);
+        }
+    }
 
     assert(!mappings.empty());
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_mapping_quality(scores, false) ;
+        get_regular_aligner()->compute_mapping_quality(scores, false, &multiplicities) ;
 
 #ifdef print_minimizers
 double uncapped_mapq = mapq;
@@ -645,9 +657,9 @@ double uncapped_mapq = mapq;
     cerr << "uncapped MAPQ is " << mapq << endl;
 #endif
     
-    double probability_final_alignment_lost = 1.0 - ((double)std::get<0>(probability_mapping_lost.front()) / (double) std::get<1>(probability_mapping_lost.front()));
-    double cluster_lost_cap = probability_final_alignment_lost <= 0 ? std::numeric_limits<float>::infinity() :
-                              round(prob_to_phred(probability_final_alignment_lost));
+    double probability_alignment_lost_as_cluster = 1.0 - ((double)std::get<0>(probability_mapping_lost.front()) / (double) std::get<1>(probability_mapping_lost.front()));
+    double cluster_lost_cap = probability_alignment_lost_as_cluster <= 0 ? std::numeric_limits<float>::infinity() :
+                              round(prob_to_phred(probability_alignment_lost_as_cluster));
     //mapq = min(mapq, cluster_lost_cap);
     
     // TODO: give SmallBitset iterators so we can use it instead of an index vector.
