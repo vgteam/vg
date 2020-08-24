@@ -9,6 +9,9 @@
 #include <functional>
 #include <iostream>
 #include <limits>
+#include "aligner.hpp"
+#include "mapper.hpp"
+
 
 /** 
  * \file funnel.hpp
@@ -151,6 +154,9 @@ public:
     /// Dump information from the Funnel as a dot-format Graphviz graph to the given stream.
     /// Illustrates stages and provenance.
     void to_dot(ostream& out);
+
+    /// Set an alignments annotations with the number of results at each stage
+    void annotate_mapped_alignment(Alignment& aln, bool track_correctness);
     
 protected:
     

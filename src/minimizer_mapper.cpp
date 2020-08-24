@@ -706,49 +706,7 @@ double uncapped_mapq = mapq;
     funnel.stop();
     
     if (track_provenance) {
-    
-        // Annotate with the number of results in play at each stage
-        funnel.for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
-            // Save the number of items
-            set_annotation(mappings[0], "stage_" + stage + "_results", (double)result_sizes.size());
-        });
-        
-        if (track_correctness) {
-            // And with the last stage at which we had any descendants of the correct seed hit locations
-            set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
-        }
-        
-        // Annotate with the performances of all the filters
-        // We need to track filter number
-        size_t filter_num = 0;
-        funnel.for_each_filter([&](const string& stage, const string& filter,
-            const Funnel::FilterPerformance& by_count, const Funnel::FilterPerformance& by_size,
-            const vector<double>& filter_statistics_correct, const vector<double>& filter_statistics_non_correct) {
-            
-            string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
-            
-            // Save the stats
-            //set_annotation(mappings[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-            //set_annotation(mappings[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-            //
-            //set_annotation(mappings[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-            //set_annotation(mappings[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
-            //
-            //if (track_correctness) {
-            //    set_annotation(mappings[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-            //    set_annotation(mappings[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-            //    
-            //    set_annotation(mappings[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-            //    set_annotation(mappings[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
-            //}
-            //
-            //// Save the correct and non-correct filter statistics, even if
-            //// everything is non-correct because correctness isn't computed
-            //set_annotation(mappings[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-            //set_annotation(mappings[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
-            
-            filter_num++;
-        });
+        funnel.annotate_mapped_alignment(mappings[0], track_correctness);
         
         // Annotate with parameters used for the filters.
         set_annotation(mappings[0], "param_hit-cap", (double) hit_cap);
@@ -1667,68 +1625,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             funnels[1].stop();
             
             if (track_provenance) {
-            
-                // Annotate with the number of results in play at each stage
-                for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
-                    funnels[read_num].for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
-                        // Save the number of items
-                        set_annotation(read_num == 0 ? paired_mappings.first[0] : paired_mappings.second[0], "stage_" + stage + "_results", (double)result_sizes.size());
-                    });
-                    if (track_correctness) {
-                        // And with the last stage at which we had any descendants of the correct seed hit locations
-                        set_annotation(read_num == 0 ? paired_mappings.first[0] : paired_mappings.second[0], "last_correct_stage", funnels[read_num].last_correct_stage());
-                    }
-                    // Annotate with the performances of all the filters
-                    // We need to track filter number
-                    size_t filter_num = 0;
-                    funnels[read_num].for_each_filter([&](const string& stage, const string& filter,
-                        const Funnel::FilterPerformance& by_count, const Funnel::FilterPerformance& by_size,
-                        const vector<double>& filter_statistics_correct, const vector<double>& filter_statistics_non_correct) {
-                        
-                        string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
-                        
-                        //if (read_num == 0) {
-                        //    // Save the stats
-                        //    set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-                        //    set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-                        //    set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-                        //    set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
-                        //    
-                        //    if (track_correctness) {
-                        //        set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                        //        set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                        //        set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                        //        set_annotation(paired_mappings.first[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
-                        //    }
-                        //    
-                        //    // Save the correct and non-correct filter statistics, even if
-                        //    // everything is non-correct because correctness isn't computed
-                        //    set_annotation(paired_mappings.first[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-                        //    set_annotation(paired_mappings.first[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
-                        //
-                        //} else {
-                        //    // Save the stats
-                        //    set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-                        //    set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-                        //    set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-                        //    set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
-                        //    
-                        //    if (track_correctness) {
-                        //        set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                        //        set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                        //        set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                        //        set_annotation(paired_mappings.second[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
-                        //    }
-                        //    
-                        //    // Save the correct and non-correct filter statistics, even if
-                        //    // everything is non-correct because correctness isn't computed
-                        //    set_annotation(paired_mappings.second[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-                        //    set_annotation(paired_mappings.second[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
-                        //}
-                        filter_num++;
-                    });
-                }
-            }
+                funnels[0].annotate_mapped_alignment(paired_mappings.first[0], track_correctness);
+                funnels[0].annotate_mapped_alignment(paired_mappings.second[0], track_correctness);
+           }
 #ifdef print_minimizers
         cerr << aln1.sequence() << "\t";
         for (char c : aln1.quality()) {
@@ -2179,69 +2078,8 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
     funnels[1].stop();
     
     if (track_provenance) {
-    
-        // Annotate with the number of results in play at each stage
-        for (size_t read_num = 0 ; read_num < 2 ; read_num++) {
-            funnels[read_num].for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
-                // Save the number of items
-                set_annotation(read_num == 0 ? mappings.first[0] : mappings.second[0], "stage_" + stage + "_results", (double)result_sizes.size());
-            });
-            if (track_correctness) {
-                // And with the last stage at which we had any descendants of the correct seed hit locations
-                set_annotation(read_num == 0 ? mappings.first[0] : mappings.second[0], "last_correct_stage", funnels[read_num].last_correct_stage());
-            }
-            // Annotate with the performances of all the filters
-            // We need to track filter number
-            size_t filter_num = 0;
-            funnels[read_num].for_each_filter([&](const string& stage, const string& filter,
-                const Funnel::FilterPerformance& by_count, const Funnel::FilterPerformance& by_size,
-                const vector<double>& filter_statistics_correct, const vector<double>& filter_statistics_non_correct) {
-                
-                string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
-                
-                //if (read_num == 0) {
-                //    // Save the stats
-                //    set_annotation(mappings.first[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-                //    set_annotation(mappings.first[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-                //    set_annotation(mappings.first[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-                //    set_annotation(mappings.first[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
-                //    
-                //    if (track_correctness) {
-                //        set_annotation(mappings.first[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                //        set_annotation(mappings.first[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                //        set_annotation(mappings.first[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                //        set_annotation(mappings.first[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
-                //    }
-                //    
-                //    // Save the correct and non-correct filter statistics, even if
-                //    // everything is non-correct because correctness isn't computed
-                //    set_annotation(mappings.first[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-                //    set_annotation(mappings.first[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
-                //
-                //} else {
-                //    // Save the stats
-                //    set_annotation(mappings.second[0], "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
-                //    set_annotation(mappings.second[0], "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
-                //    set_annotation(mappings.second[0], "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
-                //    set_annotation(mappings.second[0], "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
-                //    
-                //    if (track_correctness) {
-                //        set_annotation(mappings.second[0], "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
-                //        set_annotation(mappings.second[0], "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
-                //        set_annotation(mappings.second[0], "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
-                //        set_annotation(mappings.second[0], "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
-                //    }
-                //    
-                //    // Save the correct and non-correct filter statistics, even if
-                //    // everything is non-correct because correctness isn't computed
-                //    set_annotation(mappings.second[0], "filterstats_" + filter_id + "_correct", filter_statistics_correct);
-                //    set_annotation(mappings.second[0], "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
-                //}
-                filter_num++;
-            });
-        }
-        
-        
+        funnels[0].annotate_mapped_alignment(mappings.first[0], track_correctness);
+        funnels[1].annotate_mapped_alignment(mappings.second[0], track_correctness);
         
         // Annotate with parameters used for the filters.
         set_annotation(mappings.first[0] , "param_hit-cap", (double) hit_cap);
