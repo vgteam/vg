@@ -182,6 +182,17 @@ public:
     static bool full_length_extensions(const std::vector<GaplessExtension>& result, size_t max_mismatches = MAX_MISMATCHES);
 
     /**
+     * Trim mismatches from the extension to maximize the score. Returns true
+     * if the extension was trimmed.
+     */
+    static bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::CachedGBWTGraph& graph, const Aligner& aligner);
+
+    /**
+     * Sort the extensions from left to right. Remove duplicates and empty extensions.
+     */
+    static void remove_duplicates(std::vector<GaplessExtension>& result);
+
+    /**
      * Find the distinct local haplotypes in the given subgraph and return the corresponding paths.
      * For each path haplotype_paths[i], the output graph will contain node 2i + 1 with sequence
      * corresponding to the path and node 2i + 2 with the reverse complement of the sequence.

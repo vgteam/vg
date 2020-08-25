@@ -2902,7 +2902,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     // Find all seeds in the subgraph and try to get a full-length extension.
     GaplessExtender::cluster_type seeds = this->seeds_in_subgraph(minimizers, rescue_nodes);
     std::vector<GaplessExtension> extensions = this->extender.extend(seeds, rescued_alignment.sequence(), &cached_graph);
-    trim_extensions(extensions);
+    trim_extensions(extensions, &cached_graph);
 
     // If we have a full-length extension, use it as the rescued alignment.
     if (GaplessExtender::full_length_extensions(extensions)) {
@@ -3492,156 +3492,26 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
 
 }
 
-void MinimizerMapper::trim_extension(GaplessExtension& extension) const {
-    // Grab an aligner we can get scores from.
-    const Aligner* aligner = this->get_regular_aligner();
+void MinimizerMapper::trim_extensions(vector<GaplessExtension>& extensions, gbwtgraph::CachedGBWTGraph* cache) const {
 
-    // We need to remember how many bases we trim off the left and right for rewriting the path and the GBWT search state (if needed)
-    size_t left_trimmed = 0;
-    size_t right_trimmed = 0;
-
-    // Trim suffix. A negative-score suffix must start at a mismatch, so we go
-    // back through the mismatches to find the first one that gives a
-    // negative-score suffix, computing score from the end left.
-    int64_t suffix_score = 0;
-    if (extension.right_full) {
-        suffix_score += aligner->full_length_bonus;
+    unique_ptr<gbwtgraph::CachedGBWTGraph> local_cache;
+    if (cache == nullptr) {
+        // Use a local cache
+        local_cache = std::make_unique<gbwtgraph::CachedGBWTGraph>(gbwt_graph);
+        cache = local_cache.get();
     }
-    // What base in the read have we computed up/back through? May be off the end of the read.
-    // Read interval end is exclusive
-    size_t done_through = extension.read_interval.second;
-
-    // What's the mismatch at and after which we want to cut off the suffix? If no such position, use rend().
-    auto cut_suffix = extension.mismatch_positions.rend();
-
-    for (auto it = extension.mismatch_positions.rbegin(); it != extension.mismatch_positions.rend(); ++it) {
-        if (*it+1 < done_through) {
-            // Account for any matches from *it+1 to just before done_through (i.e. from where we were before up to this mismatch)
-            suffix_score += aligner->match * (done_through - (*it+1));
-        }
-        // Penalize for this mismatch
-        suffix_score -= aligner->mismatch;
-
-        if (suffix_score < 0) {
-            // This is a new earlier nexative-score suffix to drop.
-            cut_suffix = it;
-        }
+    
+    bool trimmed = false;
+    for (GaplessExtension& extension : extensions) {
+        trimmed |= GaplessExtender::trim_mismatches(extension, *cache, *(get_regular_aligner()));
     }
-
-    if (cut_suffix != extension.mismatch_positions.rend()) {
-        // We found a negative-score suffix to cut off. Do it.
-
-        // Work out how many bases we are trimming
-        right_trimmed = extension.read_interval.second - *cut_suffix;
-        
-        // Note where we stop now
-        extension.read_interval.second = *cut_suffix;
-        // It definitely isn't the end
-        extension.right_full = false;
-        // Make the reverse iterator forward and erase from there to end
-        extension.mismatch_positions.erase(cut_suffix.base(), extension.mismatch_positions.end());
-    }
-
-    // Now do the negative score prefixes
-    size_t prefix_score = 0;
-    if (extension.left_full) {
-        prefix_score += aligner->full_length_bonus;
-    }
-
-    done_through = 0;
-
-    // What's the mismatch at and before which we want to cut off the prefix? If no such position, use end().
-    auto cut_prefix = extension.mismatch_positions.end();
-
-    for (auto it = extension.mismatch_positions.begin(); it != extension.mismatch_positions.end(); ++it) {
-        if (*it > done_through) {
-            // Account for any matches from done_through to just before *it (i.e. from where we were before up to this mismatch)
-            prefix_score += aligner->match * (*it - done_through);
-        }
-        // Penalize for this mismatch
-        prefix_score -= aligner->mismatch;
-
-        if (prefix_score < 0) {
-            // This is a new later nexative-score prefix to drop.
-            cut_prefix = it;
-        }
-    }
-
-    if (cut_prefix != extension.mismatch_positions.end()) {
-        // We found a negative-score prefix to cut off. Do it.
-
-        // Work out how many bases we are trimming
-        left_trimmed = *cut_prefix + 1 - extension.read_interval.first;
-        
-        // Note where we start now
-        extension.read_interval.first = *cut_prefix + 1;
-        // It definitely isn't the beginning
-        extension.left_full = false;
-        // Erase from start to there, inclusive
-        extension.mismatch_positions.erase(extension.mismatch_positions.begin(), cut_prefix + 1);
-    }
-
-    // Now we need to fix up the path
-    bool path_modified = false;
-    if (left_trimmed > 0) {
-        // We may need to drop from the start of ther path
-        size_t remaining_dropped_bases = left_trimmed;
-
-        auto drop_up_to = extension.path.begin();
-        while (remaining_dropped_bases != 0) {
-            assert(drop_up_to != extension.path.end());
-            // Work out how many bases we can drop by dropping the next item
-            size_t can_drop = gbwt_graph.get_length(*drop_up_to) - extension.offset;
-            if (can_drop > remaining_dropped_bases) {
-                // Just need to adjust the offset instead.
-                extension.offset += remaining_dropped_bases;
-                remaining_dropped_bases = 0;
-            } else {
-                // Need to drop the whole node.
-                extension.offset = 0;
-                remaining_dropped_bases -= can_drop;
-            }
-            ++drop_up_to;
-        }
-
-        // Note if we are actually modifying the path at all (and need to redo the GBWTState)
-        path_modified = (drop_up_to != extension.path.begin());
-        
-        // Erase what we must of the path, if anything.
-        extension.path.erase(extension.path.begin(), drop_up_to);
-    }
-
-    if (right_trimmed > 0) {
-        // We need to walk back the end of the path but we don't know how much of the last node wasn't in use before.
-
-        // Just find the iterator on the path that contains the last base of the trimmed-down interval
-        size_t length_seen = 0;
-        auto it = extension.path.begin();
-        while (length_seen < (extension.read_interval.second - extension.read_interval.first) + extension.offset) {
-            // Until we've seen all the bases we actually need in the path, collect nodes into the part we keep
-            assert(it != extension.path.end());
-            length_seen += gbwt_graph.get_length(*it);
-            ++it;
-        }
-
-        // Note if we're modifying the path
-        path_modified |= (it != extension.path.end());
-
-        // Erase what we didn't need
-        extension.path.erase(it, extension.path.end());
-    }
-
-    if (path_modified) {
-        // Now we need to fix up the GBWT state, if we changed the path.
-        // We don't have retract, so just search up the whole path again.
-        extension.state = gbwt_graph.bd_find(extension.path); 
-    }
-}
-
-void MinimizerMapper::trim_extensions(vector<GaplessExtension>& extensions) const {
-    for (auto& e : extensions) {
-        // Trim each extension in the list.
-        trim_extension(e);
+    if (trimmed) {
+        GaplessExtender::remove_duplicates(extensions);
+        // Re-sort by goodness
+        std::sort(extensions.begin(), extensions.end(), [&](const GaplessExtension& a, const GaplessExtension b) {
+            // Return true if a must come before b because it is better
+            return a.score > b.score; 
+        });
     }
 }
 

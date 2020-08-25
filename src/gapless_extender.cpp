@@ -300,7 +300,7 @@ void handle_full_length(const HandleGraph& graph, std::vector<GaplessExtension>&
 }
 
 // Sort the extensions from left to right. Remove duplicates and empty extensions.
-void remove_duplicates(std::vector<GaplessExtension>& result) {
+void GaplessExtender::remove_duplicates(std::vector<GaplessExtension>& result) {
     auto sort_order = [](const GaplessExtension& a, const GaplessExtension& b) -> bool {
         if (a.read_interval != b.read_interval) {
             return (a.read_interval < b.read_interval);
@@ -389,7 +389,7 @@ std::vector<handle_t> get_path(gbwt::node_type reverse_first, const std::vector<
 
 // Trim mismatches from the extension to maximize the score. Returns true if the
 // extension was trimmed.
-bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::CachedGBWTGraph& graph, const Aligner& aligner) {
+bool GaplessExtender::trim_mismatches(GaplessExtension& extension, const gbwtgraph::CachedGBWTGraph& graph, const Aligner& aligner) {
 
     if (extension.exact()) {
         return false;
@@ -696,7 +696,29 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
 //------------------------------------------------------------------------------
 
 bool GaplessExtender::full_length_extensions(const std::vector<GaplessExtension>& result, size_t max_mismatches) {
-    return (result.size() > 0 && result.front().full() && result.front().mismatches() <= max_mismatches);
+    // Don't rely on them all being full length if it looks like a vector we would return that only has full length alignments.
+    // Actually check them all.
+
+    if (result.empty()) {
+        // Don't count nothing as all full length
+        return false;
+    }
+
+    if (result.front().mismatches() > max_mismatches) {
+        // If there are too many mismatchs in the best thing, it shouldn't count.
+        // We can fail early without touching all the extensions.
+        return false;
+    }
+
+    for (auto& ext : result) {
+        if (ext.full()) {
+            // If any extension isn't full length, they aren't all full length.
+            return false;
+        }
+    }
+
+    // If there aren't too many mismatches in the first one, and they all look full length, it's an all-full-length set.
+    return true;
 }
 
 //------------------------------------------------------------------------------

@@ -265,14 +265,10 @@ protected:
     void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
 
     /**
-     * Trim off negative-score prefixes and suffixes of the given gapless extension.
-     */
-    void trim_extension(GaplessExtension& extension) const;
-
-    /**
      * Trim off negative-score prefixes and suffixes of all the given gapless extensions.
+     * Can use/share an optional GBWT graph cache.
      */
-    void trim_extensions(vector<GaplessExtension>& extensions) const;
+    void trim_extensions(vector<GaplessExtension>& extensions, gbwtgraph::CachedGBWTGraph* cache = nullptr) const;
     
     /**
      * Score the set of extensions for each cluster using score_extension_group().
