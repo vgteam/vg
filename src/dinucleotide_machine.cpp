@@ -7,6 +7,12 @@
 
 #include "dinucleotide_machine.hpp"
 
+//#define debug_machine
+
+#ifdef debug_machine
+#include <bitset>
+#endif
+
 namespace vg {
     
 DinucleotideMachine::DinucleotideMachine() {
@@ -25,6 +31,17 @@ DinucleotideMachine::DinucleotideMachine() {
             transition_table[4 * i + j + 64] = (base << j) | (1 << (16 + j));
         }
     }
+    
+#ifdef debug_machine
+    cerr << "constructed transition table:" << endl;
+    for (size_t i = 0; i < 32; ++i) {
+        cerr << i << "\t" << bitset<8>(i);
+        for (size_t j = 0; j < 4; ++j) {
+            cerr << "\t" << bitset<32>(transition_table[4 * i + j]);
+        }
+        cerr << endl;
+    }
+#endif
     
     // build a translation table for
     for (size_t i = 0; i < 256; ++i) {
@@ -58,16 +75,23 @@ uint32_t DinucleotideMachine::init_state() const {
 }
 
 uint32_t DinucleotideMachine::update_state(uint32_t state, char next) const {
+#ifdef debug_machine
+    cerr << "transitioning with nt " << next << endl;
+#endif
     if (next == 'N') {
         // return the XN state
         return 1 << 20;
     }
     else {
         // merge the dinucleotide set according to it's final base
-        uint32_t next_state = state | (state >> 1);
-        next_state |= (next_state >> 2);
+        uint32_t transition_row = state | (state >> 4);
+        transition_row |= (transition_row >> 8);
         // merge in the XN and NA...NT states and transition
-        return transition_table[(((next_state & 0xff) | (state >> 16)) << 2) | nt_table[next]];
+        transition_row = (transition_row & 0xf) | (state >> 16);
+#ifdef debug_machine
+        cerr << "state " <<  bitset<32>(state) << " yields transition row " << bitset<8>(transition_row) << endl;
+#endif
+        return transition_table[(transition_row << 2) | nt_table[next]];
     }
 }
 

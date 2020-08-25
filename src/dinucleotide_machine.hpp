@@ -10,6 +10,7 @@
 #include <string>
 #include <limits>
 #include <cstdint>
+#include <iostream>
 
 namespace vg {
 
