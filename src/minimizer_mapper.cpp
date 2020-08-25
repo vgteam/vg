@@ -2827,7 +2827,7 @@ double MinimizerMapper::get_prob_of_disruption_in_column(const vector<Minimizer>
 #endif
     for (auto it = disrupt_begin; it != disrupt_end; ++it) {
         // For each minimizer to disrupt
-        auto m = minimizers[*it];
+        auto& m = minimizers[*it];
         
 #ifdef debug
         cerr << "\t\tRelative rank " << (it - disrupt_begin) << " is minimizer " << m.value.key.decode(m.length) << endl;
