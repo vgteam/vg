@@ -18,7 +18,6 @@ using namespace std;
 
 using bdsg::HashGraph;
 
-
 TEST_CASE("DinucleotideMachine can correctly detect simple dinucleotides",
           "[dinucleotide]") {
     
@@ -110,6 +109,55 @@ TEST_CASE("DinucleotideMachine can merge states correctly", "[dinucleotide]") {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+TEST_CASE("DinucleotideMachine handles N correctly", "[dinucleotide]") {
+    
+    DinucleotideMachine machine;
+    
+    auto state = machine.init_state();
+    state = machine.update_state(state, 'A');
+    state = machine.update_state(state, 'A');
+    state = machine.update_state(state, 'N');
+    
+    for (char nt1 : string("ACGT")) {
+        for (char nt2 : string("ACGT")) {
+            string di_nt{nt1, nt2};
+            REQUIRE(!machine.matches(state, di_nt));
+        }
+    }
+    
+    state = machine.update_state(state, 'N');
+
+    for (char nt1 : string("ACGT")) {
+        for (char nt2 : string("ACGT")) {
+            string di_nt{nt1, nt2};
+            REQUIRE(!machine.matches(state, di_nt));
+        }
+    }
+    
+    state = machine.update_state(state, 'A');
+    
+    for (char nt1 : string("ACGT")) {
+        for (char nt2 : string("ACGT")) {
+            string di_nt{nt1, nt2};
+            REQUIRE(!machine.matches(state, di_nt));
+        }
+    }
+    
+    state = machine.update_state(state, 'A');
+    
+    for (char nt1 : string("ACGT")) {
+        for (char nt2 : string("ACGT")) {
+            string di_nt{nt1, nt2};
+            if (nt1 == 'A' && nt2 == 'A') {
+                REQUIRE(machine.matches(state, di_nt));
+            }
+            else {
+                REQUIRE(!machine.matches(state, di_nt));
             }
         }
     }

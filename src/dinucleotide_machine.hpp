@@ -29,6 +29,7 @@ public:
     uint32_t init_state() const;
     
     /// Get the dinucleotide set that results from extending the set by the given character
+    /// Ns are valid, but will result in no matches
     uint32_t update_state(uint32_t state, char next) const;
     
     /// Get the union of two dinucleotide sets
@@ -43,7 +44,7 @@ public:
 private:
     
     // lookup table for transitions
-    uint32_t transition_table[128];
+    uint32_t transition_table[256];
     // ASCII-indexed conversion from char to table index
     uint32_t nt_table[256];
 };

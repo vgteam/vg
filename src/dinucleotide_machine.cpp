@@ -31,6 +31,11 @@ DinucleotideMachine::DinucleotideMachine() {
             transition_table[4 * i + j + 64] = (base << j) | (1 << (16 + j));
         }
     }
+    // handle transitions to the XN state (the lookup value for N indexes
+    // past the rest of the transition table)
+    for (size_t i = 128; i < 256; ++i) {
+        transition_table[i] = init_state();
+    }
     
 #ifdef debug_machine
     cerr << "constructed transition table:" << endl;
@@ -62,6 +67,12 @@ DinucleotideMachine::DinucleotideMachine() {
             case 'T':
                 nt_table[i] = 3;
                 break;
+            case 'n':
+            case 'N':
+                // this will cause us to index past the entire table into
+                // the XN state
+                nt_table[i] = 128;
+                break;
             default:
                 nt_table[i] = numeric_limits<uint32_t>::max();
                 break;
@@ -78,21 +89,16 @@ uint32_t DinucleotideMachine::update_state(uint32_t state, char next) const {
 #ifdef debug_machine
     cerr << "transitioning with nt " << next << endl;
 #endif
-    if (next == 'N') {
-        // return the XN state
-        return 1 << 20;
-    }
-    else {
-        // merge the dinucleotide set according to it's final base
-        uint32_t transition_row = state | (state >> 4);
-        transition_row |= (transition_row >> 8);
-        // merge in the XN and NA...NT states and transition
-        transition_row = (transition_row & 0xf) | (state >> 16);
+    // merge the dinucleotide set according to it's final base from positions [15,0]
+    uint32_t transition_row = state | (state >> 4);
+    transition_row |= (transition_row >> 8);
+    // merge in the XN and NA...NT states from positions [20,16]
+    transition_row = (transition_row & 0xf) | (state >> 16);
 #ifdef debug_machine
-        cerr << "state " <<  bitset<32>(state) << " yields transition row " << bitset<8>(transition_row) << endl;
+    cerr << "state " <<  bitset<32>(state) << " yields transition row " << bitset<8>(transition_row) << endl;
 #endif
-        return transition_table[(transition_row << 2) | nt_table[next]];
-    }
+    // do the transitions
+    return transition_table[(transition_row << 2) | nt_table[next]];
 }
 
 
