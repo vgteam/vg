@@ -693,11 +693,11 @@ using namespace std;
         if (ref_path_interval.first > 0) {
             --ref_path_interval.first;
         }
-        if (ref_path_interval.second < path_position_graph->get_path_length(path_handle)) {
+        if (ref_path_interval.second + 1 < path_position_graph->get_path_length(path_handle)) {
             ++ref_path_interval.second;
         }
 #ifdef debug_anchored_surject
-        cerr << "final path interval is " << ref_path_interval.first << ":" << ref_path_interval.second << endl;
+        cerr << "final path interval is " << ref_path_interval.first << ":" << ref_path_interval.second << " on path of length " << path_position_graph->get_path_length(path_handle) << endl;
 #endif
         
         // get the path graph corresponding to this interval
