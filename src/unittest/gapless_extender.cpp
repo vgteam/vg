@@ -989,5 +989,65 @@ TEST_CASE("Alignment transformations", "[gapless_extender]") {
 
 //------------------------------------------------------------------------------
 
+TEST_CASE("GaplessExtender::full_length_extensions works", "[gapless_extender]") {
+    
+    // Define a collection of fake GaplessExtensions to inspect
+    vector<GaplessExtension> extensions;
+    
+    SECTION("No gapless extensions means not full length") {
+        REQUIRE(GaplessExtender::full_length_extensions(extensions) == false);
+    }
+    
+    SECTION("One-base extensions not marked as full length aren't") {
+    
+        extensions.emplace_back();
+        extensions.back().read_interval.first = 1;
+        extensions.back().read_interval.second = 2;
+        extensions.back().score = 1;
+        
+        SECTION("A 1-base gapless extension that doesn't abut either read end isn't a full-length set") {
+            REQUIRE(GaplessExtender::full_length_extensions(extensions) == false);
+        }
+        
+        extensions.emplace_back();
+        extensions.back().read_interval.first = 2;
+        extensions.back().read_interval.second = 3;
+        extensions.back().score = 1;
+        
+        SECTION("Two 1-base gapless extensions that doesn't abut either read end isn't a full-length set") {
+            REQUIRE(GaplessExtender::full_length_extensions(extensions) == false);
+        }
+        
+    }
+
+    SECTION("Longer extensions marked as full-length are") {
+    
+        extensions.clear();
+
+        extensions.emplace_back();
+        extensions.back().read_interval.first = 0;
+        extensions.back().read_interval.second = 10;
+        extensions.back().score = 10 + 10; // Matches plus full length bonus
+        extensions.back().left_full = true;
+        extensions.back().right_full = true;
+        
+        SECTION("A single full-length extension is full length") {
+            REQUIRE(GaplessExtender::full_length_extensions(extensions) == true);
+        }
+        
+        // Make another one that has a mismatch
+        extensions.emplace_back(extensions.back());
+        extensions.back().score -= 5;
+        extensions.back().mismatch_positions.push_back(5);
+        
+        SECTION("Two full-length extensions are full length") {
+            REQUIRE(GaplessExtender::full_length_extensions(extensions) == true);
+        }
+        
+    }
+}
+
+//------------------------------------------------------------------------------
+
 }
 }

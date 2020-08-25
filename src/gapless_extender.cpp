@@ -711,7 +711,7 @@ bool GaplessExtender::full_length_extensions(const std::vector<GaplessExtension>
     }
 
     for (auto& ext : result) {
-        if (ext.full()) {
+        if (!ext.full()) {
             // If any extension isn't full length, they aren't all full length.
             return false;
         }
