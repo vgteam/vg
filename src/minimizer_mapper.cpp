@@ -3507,11 +3507,8 @@ void MinimizerMapper::trim_extensions(vector<GaplessExtension>& extensions, gbwt
     }
     if (trimmed) {
         GaplessExtender::remove_duplicates(extensions);
-        // Re-sort by goodness
-        std::sort(extensions.begin(), extensions.end(), [&](const GaplessExtension& a, const GaplessExtension b) {
-            // Return true if a must come before b because it is better
-            return a.score > b.score; 
-        });
+        // Leave sorted by order along the read, because if any got trimmed
+        // they aren't all full length anymore.
     }
 }
 
