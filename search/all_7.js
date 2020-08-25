@@ -76,6 +76,7 @@ var searchData=
   ['genotype_5flikelihood',['genotype_likelihood',['../classvg_1_1PoissonSupportSnarlCaller.html#ac261dd04096164e8811cc1641120347a',1,'vg::PoissonSupportSnarlCaller']]],
   ['genotype_5fmain_2ecpp',['genotype_main.cpp',['../genotype__main_8cpp.html',1,'']]],
   ['genotype_5fsnarl',['genotype_snarl',['../classvg_1_1Genotyper.html#ae6a3a060adcffc32724498bbfda2c771',1,'vg::Genotyper']]],
+  ['genotype_5fsnarls',['genotype_snarls',['../classvg_1_1FlowCaller.html#ae47f36ad1ec53a2381f970d159acbd64',1,'vg::FlowCaller']]],
   ['genotype_5fsvs',['genotype_svs',['../namespacevg.html#a7d3374c888c7c37f1de8370e151af7f9',1,'vg']]],
   ['genotypekit_2ecpp',['genotypekit.cpp',['../genotypekit_8cpp.html',1,'']]],
   ['genotypekit_2ehpp',['genotypekit.hpp',['../genotypekit_8hpp.html',1,'']]],

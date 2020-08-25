@@ -28,6 +28,7 @@ var searchData=
   ['gcsa_5find',['gcsa_ind',['../classvg_1_1Filter.html#ae98fe5c85ea704f1ef262b5556bbbbbb',1,'vg::Filter']]],
   ['genome',['genome',['../classvg_1_1MCMCCaller.html#ad4278b11272792c879ab3463b513ae1e',1,'vg::MCMCCaller']]],
   ['genotype',['genotype',['../structvg_1_1Locus.html#a144d9dc0f9d61910db33decca23e4755',1,'vg::Locus']]],
+  ['genotype_5fsnarls',['genotype_snarls',['../classvg_1_1FlowCaller.html#ae47f36ad1ec53a2381f970d159acbd64',1,'vg::FlowCaller']]],
   ['get_5fedge_5fsupport',['get_edge_support',['../classvg_1_1RepresentativeTraversalFinder.html#a452fdd307124349d6b65aa434bab48c7',1,'vg::RepresentativeTraversalFinder']]],
   ['get_5fhandle_5fmemo',['get_handle_memo',['../classvg_1_1MemoizingGraph.html#a522abfb6d16b8e96a77ff6f114275cf8',1,'vg::MemoizingGraph']]],
   ['get_5findex',['get_index',['../classvg_1_1RepresentativeTraversalFinder.html#a3e15061afb4437ec04334ed77732fa81',1,'vg::RepresentativeTraversalFinder']]],

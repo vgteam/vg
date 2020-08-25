@@ -100,6 +100,7 @@ var searchData=
   ['max_5ftarget_5ffactor',['max_target_factor',['../classvg_1_1Mapper.html#a5ecf825b76d29c8b8242d8167fae6cc4',1,'vg::Mapper']]],
   ['max_5ftrav_5fsize',['max_trav_size',['../structvg_1_1PoissonSupportSnarlCaller_1_1PoissonCallInfo.html#a4842f02f38903b12e0c7de54bf0482e3',1,'vg::PoissonSupportSnarlCaller::PoissonCallInfo']]],
   ['max_5ftraversal_5fcutoff',['max_traversal_cutoff',['../classvg_1_1VCFTraversalFinder.html#a2ece2a9a96c909c7859bd88d54daa559',1,'vg::VCFTraversalFinder']]],
+  ['max_5funcalled_5falleles',['max_uncalled_alleles',['../classvg_1_1VCFOutputCaller.html#acf04132e0a3cf52b5ba58a88f0b2d3d4',1,'vg::VCFOutputCaller']]],
   ['max_5fwalk',['max_walk',['../classvg_1_1PathOrientedDistanceMeasurer.html#a6d8dc74ae9eaaabf35ba1c89cfae8a11',1,'vg::PathOrientedDistanceMeasurer']]],
   ['max_5fwidth',['max_width',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a1c9c63ef04e84a236ba4e0ee28f14b72',1,'vg::MinimumDistanceIndex::SnarlIndex::max_width()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a3faed18fbd335fc253e2e1933602e741',1,'vg::MinimumDistanceIndex::ChainIndex::max_width()'],['../classvg_1_1RepresentativeTraversalFinder.html#aac2939337439d7566246889b3a4655c6',1,'vg::RepresentativeTraversalFinder::max_width()']]],
   ['max_5fxdrop_5fgap_5flength',['max_xdrop_gap_length',['../classvg_1_1Mapper.html#a2754b67772ef25cb66d06b66b8caeb55',1,'vg::Mapper']]],
