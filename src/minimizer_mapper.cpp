@@ -21,9 +21,9 @@
 #include <algorithm>
 #include <cmath>
 
-#define debug
+//#define debug
 //#define print_minimizers
-#define debug_dump_graph
+//#define debug_dump_graph
 
 namespace vg {
 
