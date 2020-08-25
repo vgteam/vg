@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 11
+plan tests 12
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -80,6 +80,13 @@ DIFF_COUNT=$(diff -y --suppress-common-lines baseline_gts1.txt gts1.txt | grep '
 LESS_EIGHT=$(if (( $DIFF_COUNT <= 8 )); then echo 1; else echo 0; fi)
 is "${LESS_EIGHT}" "1" "Fewer than 8 differences between called haploid and truncated true SV genotypes"
 
+# call all the snarls with -a
+vg call HGSVC_alts.xg -k HGSVC_alts.pack -s HG00514 -a > HGSVC2.vcf
+REF_COUNT_V=$(grep "0/0" HGSVC.vcf | wc -l)
+REF_COUNT_A=$(grep "0/0" HGSVC2.vcf | wc -l)
+# this probably doesn't need to be exact (coincidence?), but it works now
+is "${REF_COUNT_V}" "${REF_COUNT_A}" "Same number of reference calls with -a as with -v"
+
 # Output snarl traversals into a GBWT then genotype that
 vg call HGSVC_alts.xg -k HGSVC_alts.pack -s HG00514 -T | gzip > HGSVC_travs.gaf.gz
 vg index HGSVC_alts.xg -F HGSVC_travs.gaf.gz -G HGSVC_travs.gbwt
@@ -99,7 +106,7 @@ LESS_THREE=$(if (( $DIFF_COUNT < 3 )); then echo 1; else echo 0; fi)
 # there is some wobble here
 is "${LESS_THREE}" "1" "Fewer than 3 differences between allales called via traversals or directly"
 
-rm -f HGSVC_alts.vg HGSVC_alts.xg HGSVC_alts.pack HGSVC.vcf baseline_gts.txt gts.txt HGSVC1.vcf HGSVC_travs.gaf.gz HGSVC_travs.gbwt HGSVC_travs.vcf HGSVC_direct.vcf baseline_gts1.txt gts1.txt gts-travs.txt gts-direct.txt calls-travs.txt calls-direct.txt
+rm -f HGSVC_alts.vg HGSVC_alts.xg HGSVC_alts.pack HGSVC.vcf baseline_gts.txt gts.txt HGSVC1.vcf HGSVC2.vcf HGSVC_travs.gaf.gz HGSVC_travs.gbwt HGSVC_travs.vcf HGSVC_direct.vcf baseline_gts1.txt gts1.txt gts-travs.txt gts-direct.txt calls-travs.txt calls-direct.txt
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz > x.vg
 vg index -x x.xg x.vg -L

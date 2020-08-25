@@ -248,7 +248,7 @@ vg pack -x x.xg -g aln.gam -Q 5 -o aln.pack
 vg call x.xg -k aln.pack > graph_calls.vcf
 ```
 
-By default, `vg call` omits `0/0` variants and tries to normalize alleles to make the VCF more compact.  Both these steps can make it difficult to compare the outputs from different samples as the VCFs will have different coordinates even though they were created using the same graph.  The `-a` option addresses this by calling every snarl using the same coordinates and including reference calls.
+By default, `vg call` omits `0/0` variants and tries to normalize alleles to make the VCF more compact.  Both these steps can make it difficult to compare the outputs from different samples as the VCFs will have different coordinates even though they were created using the same graph.  The `-a` option addresses this by calling every snarl using the same coordinates and including reference calls.  Outputs for different samples can be combined with `bcftools merge -m all`.   
 ```
 vg call x.xg -k aln.pack -a > snarl_genotypes.vcf
 ```

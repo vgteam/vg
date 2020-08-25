@@ -353,7 +353,7 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     // add some support info
     snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name, out_variant);
 
-    if (!genotype_snarls || !out_variant.alt.empty()) {
+    if (genotype_snarls || !out_variant.alt.empty()) {
         add_variant(out_variant);
     }
 }
