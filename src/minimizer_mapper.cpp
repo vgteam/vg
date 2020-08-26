@@ -198,13 +198,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     SmallBitset minimizer_explored(minimizers.size());
     //How many hits of each minimizer ended up in each extended cluster?
     vector<vector<size_t>> minimizer_extended_cluster_count; 
-    //For each cluster, what fraction of "equivalent" clusters did we keep?
-    vector<tuple<size_t, size_t, double>> probability_cluster_lost;
-    //What is the score and coverage we are considering and how many reads
-    double curr_coverage = 0.0;
-    double curr_score = 0.0;
-    size_t curr_kept = 0;
-    size_t curr_count = 0;
 
     size_t kept_cluster_count = 0;
     
@@ -232,20 +225,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     funnel.fail("cluster-score", cluster_num, cluster.score);
                 }
 
-                //Keep track of how many clusters of each score
-                if (cluster.coverage == curr_coverage &&
-                    cluster.score == curr_score) {
-                    curr_count++;
-                } else {
-                    //If this is a cluster that has scores different than the previous one
-                    for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                        probability_cluster_lost.emplace_back(curr_kept , curr_count, curr_score);
-                    }
-                    curr_coverage = cluster.coverage;
-                    curr_score = cluster.score;
-                    curr_kept = 0;
-                    curr_count = 1;
-                }  
                 // Record MAPQ implications of not extending this cluster.
 #ifdef debug
             cerr << "Cluster " << cluster_num << " fails cluster score cutoff" <<  endl;
@@ -258,20 +237,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             if (track_provenance) {
                 funnel.pass("cluster-score", cluster_num, cluster.score);
                 funnel.processing_input(cluster_num);
-            }
-            if (cluster.coverage == curr_coverage &&
-                cluster.score == curr_score) {
-                curr_kept++;
-                curr_count++;
-            } else {
-                //If this is a cluster that has scores different than the previous one
-                for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                    probability_cluster_lost.emplace_back(curr_kept , curr_count, curr_score);
-                }
-                curr_coverage = cluster.coverage;
-                curr_score = cluster.score;
-                curr_kept = 1;
-                curr_count = 1;
             }
             
 
@@ -330,19 +295,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 funnel.pass("cluster-coverage", cluster_num, cluster.coverage);
                 funnel.fail("max-extensions", cluster_num);
             }
-            if (cluster.coverage == curr_coverage &&
-                cluster.score == curr_score) {
-                curr_count ++;
-            } else {
-    
-                for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                    probability_cluster_lost.emplace_back(curr_kept , curr_count, curr_score);
-                }
-                curr_score = 0;
-                curr_coverage = 0;
-                curr_kept = 0;
-                curr_count = 0;
-            }
             
 #ifdef debug
             cerr << "Cluster " << cluster_num << " passes cluster cutoffs but we have too many" <<  endl;
@@ -355,14 +307,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             if (track_provenance) {
                 funnel.fail("cluster-coverage", cluster_num, clusters[cluster_num].coverage);
             }
-            for (size_t i = 0 ; i < curr_kept ; i++ ) {
-                probability_cluster_lost.emplace_back(curr_kept , curr_count, curr_score);
-            }
-            curr_kept = 0;
-            curr_count = 0;
-            curr_score = 0;
-            curr_coverage = 0;
-            
 #ifdef debug
             cerr << "Cluster " << cluster_num << " fails cluster coverage cutoffs" <<  endl;
             cerr << "Covers " << clusters[cluster_num].coverage << "/best-" << cluster_coverage_threshold << " of read" << endl;
@@ -370,9 +314,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 #endif
         });
         
-    for (size_t i = 0 ; i < curr_kept ; i++ ) {
-        probability_cluster_lost.emplace_back(curr_kept , curr_count, curr_score);
-    }
     std::vector<int> cluster_extension_scores = this->score_extensions(cluster_extensions, aln, funnel);
 
     if (track_provenance) {
@@ -392,9 +333,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // numeric_limits<size_t>::max() for an unaligned alignment.
     vector<size_t> alignments_to_source;
     alignments_to_source.reserve(cluster_extensions.size());
-    //probability_cluster_lost but ordered by alignment
-    vector<tuple<size_t, size_t, double>> probability_alignment_lost;
-    probability_alignment_lost.reserve(cluster_extensions.size());
 
     // Create a new alignment object to get rid of old annotations.
     {
@@ -497,7 +435,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             auto observe_alignment = [&](Alignment& aln) {
                 alignments.emplace_back(std::move(aln));
                 alignments_to_source.push_back(extension_num);
-                probability_alignment_lost.push_back(probability_cluster_lost[extension_num]);
 
                 if (track_provenance) {
     
@@ -564,7 +501,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
         alignments_to_source.push_back(numeric_limits<size_t>::max());
-        probability_alignment_lost.emplace_back(0, 0, 0.0);
         
         if (track_provenance) {
             // Say it came from nowhere
@@ -585,7 +521,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     vector<double> scores;
     scores.reserve(alignments.size());
     
-    vector<tuple<size_t, size_t, double>> probability_mapping_lost;
     process_until_threshold_a(alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
         return alignments.at(i).score();
     }, 0, 1, max_multimaps, [&](size_t alignment_num) {
@@ -597,7 +532,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         
         // Remember the output alignment
         mappings.emplace_back(std::move(alignments[alignment_num]));
-        probability_mapping_lost.push_back(probability_alignment_lost[alignment_num]);
         
         if (track_provenance) {
             // Tell the funnel
@@ -616,7 +550,6 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         if (track_provenance) {
             funnel.fail("max-multimaps", alignment_num);
         }
-        probability_mapping_lost.push_back(probability_alignment_lost[alignment_num]);
     }, [&](size_t alignment_num) {
         // This alignment does not have a sufficiently good score
         // Score threshold is 0; this should never happen
@@ -631,24 +564,12 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     cerr << "Picked best alignment " << pb2json(mappings[0]) << endl;
     cerr << "For scores ";
     for (auto& score : scores) cerr << score << " ";
-    assert(scores.size() == probability_mapping_lost.size());
 #endif
-
-    //Add multiplicities from count of clusters that we didn't explore
-    vector<double> multiplicities (scores.size(), 0.0);
-    for (size_t i = 0 ; i < probability_mapping_lost.size() ; i++) {
-        size_t clusters_kept, equivalent_clusters;
-        double score;
-        std::tie(clusters_kept, equivalent_clusters, score) = probability_mapping_lost[i];
-        if (clusters_kept < equivalent_clusters) {
-            multiplicities[i] = 1.0 + ((equivalent_clusters - clusters_kept) / clusters_kept);
-        }
-    }
 
     assert(!mappings.empty());
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_mapping_quality(scores, false, &multiplicities) ;
+        get_regular_aligner()->compute_mapping_quality(scores, false) ;
 
 #ifdef print_minimizers
 double uncapped_mapq = mapq;
@@ -656,11 +577,6 @@ double uncapped_mapq = mapq;
 #ifdef debug
     cerr << "uncapped MAPQ is " << mapq << endl;
 #endif
-    
-    double probability_alignment_lost_as_cluster = 1.0 - ((double)std::get<0>(probability_mapping_lost.front()) / (double) std::get<1>(probability_mapping_lost.front()));
-    double cluster_lost_cap = probability_alignment_lost_as_cluster <= 0 ? std::numeric_limits<float>::infinity() :
-                              round(prob_to_phred(probability_alignment_lost_as_cluster));
-    //mapq = min(mapq, cluster_lost_cap);
     
     // TODO: give SmallBitset iterators so we can use it instead of an index vector.
     vector<size_t> explored_minimizers;
@@ -739,10 +655,7 @@ double uncapped_mapq = mapq;
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t" << cluster_lost_cap << "\t" << mappings.front().mapping_quality() << "\t";
-    for (auto& prob : probability_mapping_lost) {
-        cerr << std::get<0>(prob) << "/" << std::get<1>(prob) << "/" << std::get<2>(prob) << ",";
-    }
+    cerr << "\t" << uncapped_mapq << "\t" << mapq_explored_cap << "\t"  << mappings.front().mapping_quality() << "\t";
     cerr << "\t";
     for (auto& score : scores) {
         cerr << score << ",";
