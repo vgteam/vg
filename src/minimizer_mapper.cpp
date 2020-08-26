@@ -635,7 +635,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 #endif
 
     //Add multiplicities from count of clusters that we didn't explore
-    vector<double> multiplicities (scores.size(), 1.0);
+    vector<double> multiplicities (scores.size(), 0.0);
     for (size_t i = 0 ; i < probability_mapping_lost.size() ; i++) {
         size_t clusters_kept, equivalent_clusters;
         double score;
@@ -949,20 +949,11 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }
 
     //Sort by the score and coverage of the best cluster for each end
-    std::sort(fragment_cluster_indices_by_score.begin(), fragment_cluster_indices_by_score.end(), [&](size_t fragment_a, size_t fragment_b) {
-
-         double coverage_a = cluster_coverage_by_fragment.first[fragment_a]+cluster_coverage_by_fragment.second[fragment_a];
-         double coverage_b = cluster_coverage_by_fragment.first[fragment_b]+cluster_coverage_by_fragment.second[fragment_b];
-         double score_a = cluster_score_by_fragment.first[fragment_a]+cluster_score_by_fragment.second[fragment_a];
-         double score_b = cluster_score_by_fragment.first[fragment_b]+cluster_score_by_fragment.second[fragment_b];
-
-         if (fragment_cluster_has_pair[fragment_a] != fragment_cluster_has_pair[fragment_b]) {
-             return (bool) fragment_cluster_has_pair[fragment_a];
-         } else if (coverage_a != coverage_b){
-             return coverage_a > coverage_b;
-         } else {
-             return score_a > score_b;
-         }
+    std::sort(fragment_cluster_indices_by_score.begin(), fragment_cluster_indices_by_score.end(), [&](size_t a, size_t b) {
+        return cluster_coverage_by_fragment.first[a] + cluster_coverage_by_fragment.second[a] 
+               + cluster_score_by_fragment.first[a] + cluster_score_by_fragment.second[a]  
+            > cluster_coverage_by_fragment.first[b] + cluster_coverage_by_fragment.second[b] 
+                + cluster_score_by_fragment.first[b] + cluster_score_by_fragment.second[b];  
     });
 
     // How many fragment clusters are at least as good as the one at each index
@@ -973,17 +964,20 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             better_cluster_count[fragment_num] = rank+1;
         } else {
             size_t prev_fragment_num = fragment_cluster_indices_by_score[rank+1];
-            if(cluster_coverage_by_fragment.first[fragment_num] == cluster_coverage_by_fragment.first[prev_fragment_num] &&
-               cluster_coverage_by_fragment.second[fragment_num] == cluster_coverage_by_fragment.second[prev_fragment_num] && 
-               cluster_score_by_fragment.first[fragment_num] == cluster_score_by_fragment.first[prev_fragment_num] &&
-               cluster_score_by_fragment.second[fragment_num] == cluster_score_by_fragment.second[prev_fragment_num]) {
+            if(cluster_coverage_by_fragment.first[fragment_num] +
+                cluster_coverage_by_fragment.second[fragment_num] +
+                cluster_score_by_fragment.first[fragment_num] +  
+                cluster_score_by_fragment.second[fragment_num] == 
+                cluster_coverage_by_fragment.first[prev_fragment_num] +
+                cluster_coverage_by_fragment.second[prev_fragment_num] +
+                cluster_score_by_fragment.first[prev_fragment_num] &&
+                cluster_score_by_fragment.second[prev_fragment_num]) {
                 //If this is the same as the last cluster, it has the same count
                 better_cluster_count[fragment_num] = better_cluster_count[prev_fragment_num];
             } else {
                 //Otherwise, its count is the index
                 better_cluster_count[fragment_num] = rank+1;
             }
-            assert(better_cluster_count[fragment_num] <= better_cluster_count[prev_fragment_num]);
         }
     }
 #ifdef debug
