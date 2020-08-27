@@ -7,8 +7,10 @@
  */
 
 #include "algorithms/nearest_offsets_in_paths.hpp"
+#include "aligner.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gapless_extender.hpp"
+#include "mapper.hpp"
 #include "min_distance.hpp"
 #include "seed_clusterer.hpp"
 #include "snarls.hpp"

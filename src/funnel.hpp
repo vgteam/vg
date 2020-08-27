@@ -9,8 +9,8 @@
 #include <functional>
 #include <iostream>
 #include <limits>
-#include "aligner.hpp"
-#include "mapper.hpp"
+#include <vg/vg.pb.h>
+#include "annotation.hpp"
 
 
 /** 
@@ -156,7 +156,10 @@ public:
     void to_dot(ostream& out);
 
     /// Set an alignments annotations with the number of results at each stage
-    void annotate_mapped_alignment(Alignment& aln, bool track_correctness);
+    /// if annotate_correctness is true, also annotate the alignment with the
+    /// number of correct results at each stage. This assumes that we've been
+    /// tracking correctness all along
+    void annotate_mapped_alignment(Alignment& aln, bool annotate_correctness);
     
 protected:
     

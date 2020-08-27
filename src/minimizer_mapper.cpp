@@ -567,6 +567,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
     assert(!mappings.empty());
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
+    // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
         get_regular_aligner()->compute_mapping_quality(scores, false) ;
 
@@ -879,6 +880,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     // How many fragment clusters are at least as good as the one at each index
     vector<size_t> better_cluster_count (max_fragment_num+1); 
 
+    double prev_score_sum = 0.0;
     for (int rank = fragment_cluster_indices_by_score.size() - 1 ; rank >= 0 ; rank--) {
         //Go through fragment clusters in descending score order and count how many equivalent or
         //better clusters we found
@@ -887,20 +889,25 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             better_cluster_count[fragment_num] = rank+1;
         } else {
             size_t prev_fragment_num = fragment_cluster_indices_by_score[rank+1];
-            if(cluster_coverage_by_fragment.first[fragment_num] +
+            double curr_score_sum =  cluster_coverage_by_fragment.first[fragment_num] +
                 cluster_coverage_by_fragment.second[fragment_num] +
                 cluster_score_by_fragment.first[fragment_num] +  
-                cluster_score_by_fragment.second[fragment_num] == 
-                cluster_coverage_by_fragment.first[prev_fragment_num] +
-                cluster_coverage_by_fragment.second[prev_fragment_num] +
-                cluster_score_by_fragment.first[prev_fragment_num] &&
-                cluster_score_by_fragment.second[prev_fragment_num]) {
+                cluster_score_by_fragment.second[fragment_num];
+            if (curr_score_sum == prev_score_sum) {
                 //If this is the same as the last cluster, it has the same count
                 better_cluster_count[fragment_num] = better_cluster_count[prev_fragment_num];
             } else {
                 //Otherwise, its count is the index
                 better_cluster_count[fragment_num] = rank+1;
+                prev_score_sum == curr_score_sum;
             }
+#ifdef debug
+            assert(prev_score_sum == 
+                cluster_coverage_by_fragment.first[prev_fragment_num] +
+                cluster_coverage_by_fragment.second[prev_fragment_num] +
+                cluster_score_by_fragment.first[prev_fragment_num] +
+                cluster_score_by_fragment.second[prev_fragment_num]);
+#endif
         }
     }
 #ifdef debug
@@ -1289,6 +1296,8 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     vector<int64_t> fragment_distances;
     fragment_distances.reserve(alignments.size());
     
+    //For each pair of alignments in paired_alignments, how many equivalent or better fragment clusters
+    //did we find 
     vector<size_t> better_cluster_count_by_pairs;
 
 
@@ -1387,7 +1396,9 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     }
     size_t rescued_count_1 = 0;
     size_t rescued_count_2 = 0;
-    vector<bool> rescued_from; //True if we rescued from the first read
+    //for each alignment pair that we rescue, true if we rescued from the first read
+    //this will only have as many entries as rescued pairs
+    vector<bool> rescued_from; 
 
     if (!unpaired_alignments.empty()) {
         //If we found some clusters that had no pair in a fragment cluster
@@ -1628,6 +1639,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     scores.reserve(paired_scores.size());
     distances.reserve(fragment_distances.size());
 
+    //For each pair of alignments in mappings, how many equivalent or better fragment clusters were there
     vector<size_t> better_cluster_count_by_mappings;
 
 #ifdef print_minimizers
@@ -1778,7 +1790,8 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
 
         const vector<double>* multiplicities = paired_multiplicities.size() == scores.size() ? &paired_multiplicities : nullptr; 
         // Compute base MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
-        // If either of the mappings was duplicated in other pairs, use the group scores to determine mapq
+        // If all of the alignment pairs were found with rescue, use the multiplicities to determine mapq
+        // Use exact mapping quality
         uncapped_mapq = scores[0] == 0 ? 0 : 
             get_regular_aligner()->compute_mapping_quality(scores, false, multiplicities);
 

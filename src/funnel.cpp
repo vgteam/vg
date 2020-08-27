@@ -395,13 +395,13 @@ void Funnel::to_dot(ostream& out) {
 
     out << "}" << endl;
 }
-void Funnel::annotate_mapped_alignment(Alignment& aln, bool track_correctness) {
+void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness) {
     for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
         // Save the number of items
         set_annotation(aln, "stage_" + stage + "_results", (double)result_sizes.size());
     });
 
-    if (track_correctness) {
+    if (annotate_correctness) {
         // And with the last stage at which we had any descendants of the correct seed hit locations
         set_annotation(aln, "last_correct_stage", last_correct_stage());
     }
@@ -421,7 +421,7 @@ void Funnel::annotate_mapped_alignment(Alignment& aln, bool track_correctness) {
             set_annotation(aln, "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
             set_annotation(aln, "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
             
-            if (track_correctness) {
+            if (annotate_correctness) {
                 set_annotation(aln, "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
                 set_annotation(aln, "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
                 set_annotation(aln, "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
