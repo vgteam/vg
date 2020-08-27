@@ -464,11 +464,10 @@ protected:
     
     /**
      * Operating on the given input alignment, align the tails dangling off the
-     * given extended perfect-match seeds and produce an optimal alignment into
-     * the given output Alignment object, best, and the second best alignment
-     * into second_best.
+     * given extended perfect-match seeds and produce an optimal alignment and
+     * a second best alignment, plus more if more full-length extensions exist.
      */
-    void find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& best, Alignment& second_best) const; 
+    void find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, vector<Alignment>& out) const; 
     
     /**
      * Find for each pair of extended seeds all the haplotype-consistent graph
