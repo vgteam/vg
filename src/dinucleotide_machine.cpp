@@ -67,14 +67,10 @@ DinucleotideMachine::DinucleotideMachine() {
             case 'T':
                 nt_table[i] = 3;
                 break;
-            case 'n':
-            case 'N':
+            default:
                 // this will cause us to index past the entire table into
                 // the XN state
                 nt_table[i] = 128;
-                break;
-            default:
-                nt_table[i] = numeric_limits<uint32_t>::max();
                 break;
         }
     }
