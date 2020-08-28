@@ -114,8 +114,9 @@ namespace vg {
         // actually perform the alignments and post-process to meet multipath_alignment_t invariants
         // TODO: do i still need cluster_idx? i think it might have only been used for capping
         vector<double> multiplicities;
+        vector<size_t> cluster_idxs;
         align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, multiplicities,
-                                num_mapping_attempts, fanouts.get());
+                                num_mapping_attempts, fanouts.get(), &cluster_idxs);
         
         if (multipath_alns_out.empty()) {
             // add a null alignment so we know it wasn't mapped
@@ -127,6 +128,11 @@ namespace vg {
             // in case we're realigning GAMs that have paths already
             multipath_alns_out.back().clear_subpath();
             multipath_alns_out.back().clear_start();
+        }
+        
+        if (do_spliced_alignment) {
+            find_spliced_alignments(alignment, multipath_alns_out, multiplicities, cluster_idxs,
+                                    mems, cluster_graphs, fanouts.get());
         }
         
         if (agglomerate_multipath_alns) {
@@ -2008,6 +2014,216 @@ namespace vg {
                 alns_out[i].set_mapping_quality(0);
             }
         }
+    }
+
+    vector<pair<int64_t, int64_t>> MultipathMapper::covered_intervals(const Alignment& alignment,
+                                                                      const clustergraph_t& cluster) const {
+        
+        // convert MEM subsequences to integer intervals
+        vector<pair<int64_t, int64_t>> mem_intervals;
+        mem_intervals.reserve(get<1>(cluster).first.size());
+        for (const auto& hit : get<1>(cluster).first) {
+            mem_intervals.emplace_back(hit.first->begin - alignment.sequence().begin(),
+                                       hit.first->end - alignment.sequence().begin());
+        }
+        
+        // put them in order
+        sort(mem_intervals.begin(), mem_intervals.end());
+        
+        // do a sweep line
+        vector<pair<int64_t, int64_t>> interval_union;
+        int64_t begin, end;
+        tie(begin, end) = mem_intervals.front();
+        for (size_t i = 1; i < mem_intervals.size(); ++i) {
+            if (mem_intervals[i].first > end) {
+                interval_union.emplace_back(begin, end);
+                tie(begin, end) = mem_intervals[i];
+            }
+            else {
+                end = max(end, mem_intervals[i].second);
+            }
+        }
+        interval_union.emplace_back(begin, end);
+        return interval_union;
+    }
+
+    void MultipathMapper::identify_splice_alignment_candidates(const Alignment& alignment,
+                                                               const vector<multipath_alignment_t>& multipath_alns_out,
+                                                               const vector<size_t>& cluster_idxs,
+                                                               const vector<MaximalExactMatch>& mems,
+                                                               const vector<clustergraph_t>& cluster_graphs,
+                                                               const pair<int64_t, int64_t>& primary_interval, bool search_left,
+                                                               vector<size_t>& mp_aln_candidates_out,
+                                                               vector<size_t>& cluster_candidates_out,
+                                                               vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates_out) const {
+        
+        // TODO: should i generalize this to look for alignments of not only the primary?
+        
+        for (size_t i = 1; i < multipath_alns_out.size(); ++i) {
+            
+            // check that the alignment is mostly disjoint of the primary and that
+            // that the independent aligned portion is significant to call this a potential splice alignment
+            auto interval = aligned_interval(multipath_alns_out[i]);
+            if (search_left) {
+                if (interval.second < primary_interval.first + max_softclip_overlap &&
+                    min<int64_t>(interval.second, primary_interval.first) - interval.first >= min_softclip_length_for_splice) {
+                
+                    mp_aln_candidates_out.push_back(i);
+                }
+            }
+            else {
+                if (interval.first >= primary_interval.second - max_softclip_overlap &&
+                    interval.second - max<int64_t>(interval.first, primary_interval.second) >= min_softclip_length_for_splice) {
+                
+                    mp_aln_candidates_out.push_back(i);
+                }
+            }
+        }
+        
+        // if we already processed a cluster's alignment, we don't need to look at the cluster
+        unordered_set<size_t> clusters_already_used;
+        for (const auto& i : mp_aln_candidates_out) {
+            clusters_already_used.insert(cluster_idxs[i]);
+        }
+        
+        for (size_t i = 0; i < cluster_graphs.size(); ++i) {
+            if (clusters_already_used.count(i)) {
+                continue;
+            }
+            
+            auto intervals = covered_intervals(alignment, cluster_graphs[i]);
+            
+            // check to make sure cluster doesn't overlap too much with the alignment
+            // and also covers a sufficient part of the alignment's softclip
+            
+            if (search_left) {
+                int64_t overlap = intervals.back().second - primary_interval.first;
+                int64_t ind_cov = 0;
+                for (size_t i = 0; i < intervals.size(); ++i) {
+                    auto& interval = intervals[i];
+                    if (interval.first >= primary_interval.first) {
+                        break;
+                    }
+                    else if (interval.second >= primary_interval.first) {
+                        ind_cov += primary_interval.first - interval.first;
+                        break;
+                    }
+                    else {
+                        ind_cov += interval.second - interval.first;
+                    }
+                }
+                
+                if (overlap < max_softclip_overlap && ind_cov >= min_softclip_length_for_splice) {
+                    cluster_candidates_out.emplace_back(i);
+                }
+            }
+            else {
+                int64_t overlap = primary_interval.second - intervals.front().first;
+                int64_t ind_cov = 0;
+                for (int64_t i = intervals.size() - 1; i >= 0; --i) {
+                    auto& interval = intervals[i];
+                    if (interval.second <= primary_interval.second) {
+                        break;
+                    }
+                    else if (interval.first <= primary_interval.second) {
+                        ind_cov += interval.second - primary_interval.second;
+                        break;
+                    }
+                    else {
+                        ind_cov += interval.second - interval.first;
+                    }
+                }
+                
+                if (overlap < max_softclip_overlap && ind_cov >= min_softclip_length_for_splice) {
+                    cluster_candidates_out.emplace_back(i);
+                }
+            }
+        }
+        
+        // if we already processed a hit's cluster, we don't need to look at the hit
+        unordered_set<pair<const MaximalExactMatch*, pos_t>> hits_already_used;
+        for (const auto& i : cluster_candidates_out) {
+            for (const auto& hit : get<1>(cluster_graphs[i]).first) {
+                hits_already_used.insert(hit);
+            }
+        }
+        
+        // TODO: tie in mem fanouts?
+        
+        for (size_t i = 0; i < mems.size(); ++i) {
+            const auto& mem = mems[i];
+            if (mem.length() < min_softclip_length_for_splice) {
+                continue;
+            }
+            if (search_left) {
+                int64_t overlap = (mem.end - alignment.sequence().begin()) - primary_interval.first;
+                int64_t ind_cov = (min<int64_t>(mem.end - alignment.sequence().begin(), primary_interval.first)
+                                   - (mem.begin - alignment.sequence().begin()));
+                
+                if (overlap < max_softclip_overlap && ind_cov >= min_softclip_length_for_splice) {
+                    for (auto gcsa_node : mem.nodes) {
+                        pos_t pos = make_pos_t(gcsa_node);
+                        if (!hits_already_used.count(make_pair(&mem, pos))) {
+                            hit_candidates_out.emplace_back(&mem, pos);
+                        }
+                    }
+                }
+            }
+            else {
+                int64_t overlap = primary_interval.second - (mem.begin - alignment.sequence().begin());
+                int64_t ind_cov = ((mem.end - alignment.sequence().begin())
+                                   - max<int64_t>(mem.begin - alignment.sequence().begin(), primary_interval.second));
+                
+                if (overlap < max_softclip_overlap && ind_cov >= min_softclip_length_for_splice) {
+                    for (auto gcsa_node : mem.nodes) {
+                        pos_t pos = make_pos_t(gcsa_node);
+                        if (!hits_already_used.count(make_pair(&mem, pos))) {
+                            hit_candidates_out.emplace_back(&mem, pos);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    void MultipathMapper::find_spliced_alignments(const Alignment& alignment,
+                                                  vector<multipath_alignment_t>& multipath_alns_out,
+                                                  vector<double>& multiplicities,
+                                                  vector<size_t> cluster_idxs,
+                                                  const vector<MaximalExactMatch>& mems,
+                                                  const vector<clustergraph_t>& cluster_graphs,
+                                                  const match_fanouts_t* fanouts) const {
+        
+        if (multipath_alns_out.empty()) {
+            return;
+        }
+         
+        auto primary_interval = aligned_interval(multipath_alns_out.front());
+        bool search_left = primary_interval.first >= min_softclip_length_for_splice;
+        bool search_right = alignment.sequence().size() - primary_interval.second >= min_softclip_length_for_splice;
+        
+        if (!(search_left || search_right)) {
+            return;
+        }
+        
+        vector<size_t> left_mp_aln_candidates, right_mp_aln_candidates;
+        vector<size_t> left_cluster_candidates, right_cluster_candidates;
+        vector<pair<const MaximalExactMatch*, pos_t>> left_hit_candidates, right_hit_candidates;
+        
+        if (search_left) {
+            identify_splice_alignment_candidates(alignment, multipath_alns_out, cluster_idxs,
+                                                 mems, cluster_graphs, primary_interval, true,
+                                                 left_mp_aln_candidates, left_cluster_candidates,
+                                                 left_hit_candidates);
+        }
+        
+        if (search_right) {
+            identify_splice_alignment_candidates(alignment, multipath_alns_out, cluster_idxs,
+                                                 mems, cluster_graphs, primary_interval, false,
+                                                 right_mp_aln_candidates, right_cluster_candidates,
+                                                 right_hit_candidates);
+        }
+        
     }
 
     void MultipathMapper::agglomerate(size_t idx, multipath_alignment_t& agglomerating, const multipath_alignment_t& multipath_aln,

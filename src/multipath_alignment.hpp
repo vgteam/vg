@@ -200,6 +200,9 @@ namespace vg {
     vector<Alignment> haplotype_consistent_alignments(const multipath_alignment_t& multipath_aln, const haplo::ScoreProvider& score_provider,
         size_t soft_count, size_t hard_count, bool optimal_first = false);
     
+    /// The indexes on the read sequence of the portion of the read that is aligned outside of soft clips
+    pair<int64_t, int64_t> aligned_interval(const multipath_alignment_t& multipath_aln);
+
     /// Stores the reverse complement of a multipath_alignment_t in another multipath_alignment_t
     ///
     ///  Args:

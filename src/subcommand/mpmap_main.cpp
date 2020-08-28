@@ -158,6 +158,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_MAX_RESCUE_P_VALUE 1029
     #define OPT_ALT_PATHS 1030
     #define OPT_SUPPRESS_SUPPRESSION 1031
+    #define OPT_NOT_SPLICED 1032
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -284,6 +285,8 @@ int main_mpmap(int argc, char** argv) {
     bool use_pessimistic_tail_alignment = false;
     double pessimistic_gap_multiplier = 3.0;
     bool restrained_graph_extraction = false;
+    bool do_spliced_alignment = false;
+    bool override_spliced_alignment = false;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
     int gap_open_score_arg = std::numeric_limits<int>::min();
@@ -373,6 +376,7 @@ int main_mpmap(int argc, char** argv) {
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, OPT_PRUNE_EXP},
             {"long-read-scoring", no_argument, 0, 'E'},
+            {"not-spliced", no_argument, 0, OPT_NOT_SPLICED},
             {"read-length", required_argument, 0, 'l'},
             {"nt-type", required_argument, 0, 'n'},
             {"error-rate", required_argument, 0, 'e'},
@@ -719,6 +723,10 @@ int main_mpmap(int argc, char** argv) {
                 read_length = "long";
                 break;
                 
+            case OPT_NOT_SPLICED:
+                override_spliced_alignment = true;
+                break;
+                
             case 'l':
                 read_length = optarg;
                 break;
@@ -872,6 +880,11 @@ int main_mpmap(int argc, char** argv) {
         if (distance_index_name.empty()) {
             cerr << "warning:[vg mpmap] It is HIGHLY recommended to use a distance index (-d) for clustering on splice graphs. Both accuracy and speed will suffer without one." << endl;
         }
+        // we'll assume that there might be spliced alignments
+        if (!override_spliced_alignment) {
+            do_spliced_alignment = true;
+        }
+        
         // seed finding, cluster pruning, and rescue parameters tuned for a lower repeat content
         secondary_rescue_attempts = 1;
         max_single_end_mappings_for_rescue = 32;
@@ -1690,6 +1703,9 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.simplify_topologies = simplify_topologies;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
     multipath_mapper.agglomerate_multipath_alns = agglomerate_multipath_alns;
+    multipath_mapper.do_spliced_alignment = do_spliced_alignment;
+    multipath_mapper.min_softclip_length_for_splice = int(ceil(log(path_position_handle_graph->get_total_length()) / log(4.0))) + 2;
+    multipath_mapper.max_softclip_overlap = int(ceil(log(path_position_handle_graph->get_total_length()) / log(4.0))) / 2;
 
 #ifdef mpmap_instrument_mem_statistics
     multipath_mapper._mem_stats.open(MEM_STATS_FILE);

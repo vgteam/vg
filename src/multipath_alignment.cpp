@@ -1466,6 +1466,48 @@ namespace vg {
             
         return to_return;
     }
+
+
+    pair<int64_t, int64_t> aligned_interval(const multipath_alignment_t& multipath_aln) {
+        
+        int64_t min_softclip_left = numeric_limits<int64_t>::max();
+        int64_t min_softclip_right = numeric_limits<int64_t>::max();
+        
+        for (auto i : multipath_aln.start()) {
+            const auto& edit = multipath_aln.subpath(i).path().mapping(0).edit(0);
+            if (edit.from_length() == 0 && edit.to_length() != 0) {
+                min_softclip_left = min<int64_t>(min_softclip_left, edit.from_length());
+            }
+            else {
+                min_softclip_left = 0;
+            }
+        }
+        
+        vector<bool> is_sink(multipath_aln.subpath_size(), false);
+        for (const auto& subpath : multipath_aln.subpath()) {
+            if (subpath.next_size() == 0) {
+                
+                const auto& path = subpath.path();
+                const auto& mapping = path.mapping(path.mapping_size() - 1);
+                const auto& edit = mapping.edit(mapping.edit_size() - 1);
+                if (edit.from_length() == 0 && edit.to_length() != 0) {
+                    min_softclip_right = min<int64_t>(min_softclip_right, edit.from_length());
+                }
+                else {
+                    min_softclip_right = 0;
+                }
+            }
+        }
+        
+        if (min_softclip_left == numeric_limits<int64_t>::max()) {
+            min_softclip_left = 0;
+        }
+        if (min_softclip_right == numeric_limits<int64_t>::max()) {
+            min_softclip_right = 0;
+        }
+        return pair<int64_t, int64_t>(min_softclip_left,
+                                      multipath_aln.sequence().size() - min_softclip_right);
+    }
     
     /// Stores the reverse complement of a Subpath in another Subpath
     ///

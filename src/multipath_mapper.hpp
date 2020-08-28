@@ -183,6 +183,9 @@ namespace vg {
         size_t fragment_length_warning_factor = 0;
         size_t max_alignment_gap = 5000;
         bool suppress_mismapping_detection = false;
+        bool do_spliced_alignment = false;
+        int64_t min_softclip_length_for_splice = 16;
+        int64_t max_softclip_overlap = 8;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -328,6 +331,10 @@ namespace vg {
         /// for the graph to be connected and have it return false)
         pair<bdsg::HashGraph*, bool> extract_restrained_graph(const Alignment& alignment, const memcluster_t& mem_cluster);
         
+        /// Returns the union of the intervals on the read that a cluster cover in sorted order
+        vector<pair<int64_t, int64_t>> covered_intervals(const Alignment& alignment,
+                                                         const clustergraph_t& cluster) const;
+        
         /// If there are any multipath_alignment_ts with multiple connected components, split them
         /// up and add them to the return vector.
         /// Properly handles multipath_alignment_ts that are unmapped.
@@ -360,6 +367,21 @@ namespace vg {
         void agglomerate(size_t idx, multipath_alignment_t& agglomerating, const multipath_alignment_t& multipath_aln,
                          vector<size_t>& agglomerated_group, unordered_set<pos_t>& agg_start_positions,
                          unordered_set<pos_t>& agg_end_positions) const;
+        
+        void find_spliced_alignments(const Alignment& alignment, vector<multipath_alignment_t>& multipath_alns_out,
+                                     vector<double>& multiplicities, vector<size_t> cluster_idxs,
+                                     const vector<MaximalExactMatch>& mems, const vector<clustergraph_t>& cluster_graphs,
+                                     const match_fanouts_t* fanouts = nullptr) const;
+        
+        void identify_splice_alignment_candidates(const Alignment& alignment,
+                                                  const vector<multipath_alignment_t>& multipath_alns_out,
+                                                  const vector<size_t>& cluster_idxs,
+                                                  const vector<MaximalExactMatch>& mems,
+                                                  const vector<clustergraph_t>& cluster_graphs,
+                                                  const pair<int64_t, int64_t>& primary_interval, bool search_left,
+                                                  vector<size_t>& mp_aln_candidates_out,
+                                                  vector<size_t>& cluster_candidates_out,
+                                                  vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates_out) const;
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
