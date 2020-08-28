@@ -182,6 +182,27 @@ id_t IncrementalSubgraph::max_node_id() const {
     return extracted.size();
 }
 
+size_t IncrementalSubgraph::get_degree(const handle_t& handle, bool go_left) const {
+    bool left_edges = (go_left != get_is_reverse(handle)) != extract_left;
+    return (left_edges ? get<1>(extracted[order_of(handle)]) : get<2>(extracted[order_of(handle)])).size();
+}
+
+size_t IncrementalSubgraph::get_edge_count() const {
+    size_t count = 0;
+    for (const auto& record : extracted) {
+        count += get<1>(record).size();
+    }
+    return count;
+}
+
+char IncrementalSubgraph::get_base(const handle_t& handle, size_t index) const {
+    return graph->get_base(get_underlying_handle(handle), index);
+}
+
+string IncrementalSubgraph::get_subsequence(const handle_t& handle, size_t index, size_t size) const {
+    return graph->get_subsequence(get_underlying_handle(handle), index, size);
+}
+
 handle_t IncrementalSubgraph::get_underlying_handle(const handle_t& handle) const {
     auto underlying = get<0>(extracted[order_of(handle)]);
     return get_is_reverse(handle) ? graph->flip(underlying) : underlying;

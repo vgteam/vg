@@ -105,6 +105,30 @@ public:
     id_t max_node_id() const;
     
     ///////////////////////////////////
+    /// Optional HandleGraph interface
+    ///////////////////////////////////
+    
+    /// Get the number of edges on the right (go_left = false) or left (go_left
+    /// = true) side of the given handle. The default implementation is O(n) in
+    /// the number of edges returned, but graph implementations that track this
+    /// information more efficiently can override this method.
+    size_t get_degree(const handle_t& handle, bool go_left) const;
+    
+    /// Return the total number of edges in the graph. If not overridden,
+    /// counts them all in linear time.
+    size_t get_edge_count() const;
+    
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    char get_base(const handle_t& handle, size_t index) const;
+    
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    /// By default O(n) in the size of the handle's sequence, but can be overriden.
+    string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
+    
+    ///////////////////////////////////
     /// ExpandingOverlayGraph interface
     ///////////////////////////////////
     
