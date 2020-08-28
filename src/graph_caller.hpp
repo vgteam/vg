@@ -88,7 +88,7 @@ protected:
     void emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                      const string& ref_path_name, int ref_offset) const;
+                      const string& ref_path_name, int ref_offset, bool genotype_snarls) const;
 
     /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
     /// the bool is true if the snarl's backward on the path
@@ -96,7 +96,8 @@ protected:
                                                                                const string& ref_path_name) const;
 
     /// clean up the alleles to not share common prefixes / suffixes
-    void flatten_common_allele_ends(vcflib::Variant& variant, bool backward) const;
+    /// if len_override given, just do that many bases without thinking
+    void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const;
     
     /// output vcf
     mutable vcflib::VariantCallFile output_vcf;
@@ -106,6 +107,9 @@ protected:
 
     /// output buffers (1/thread) (for sorting)
     mutable vector<vector<vcflib::Variant>> output_variants;
+
+    /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
+    size_t max_uncalled_alleles = 5;
 };
 
 /**
@@ -306,7 +310,8 @@ public:
                AlignmentEmitter* aln_emitter,
                bool traversals_only,
                bool gaf_output,
-               size_t trav_padding);
+               size_t trav_padding,
+               bool genotype_snarls);
    
     virtual ~FlowCaller();
 
@@ -342,6 +347,11 @@ protected:
 
     /// toggle whether to output vcf or gaf
     bool gaf_output;
+
+    /// toggle whether to genotype every snarl
+    /// (by default, uncalled snarls are skipped, and coordinates are flattened
+    ///  out to minimize variant size -- this turns all that off)
+    bool genotype_snarls;
 };
 
 
