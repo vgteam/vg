@@ -780,7 +780,7 @@ size_t GSSWAligner::longest_detectable_gap(const Alignment& alignment) const {
     return longest_detectable_gap(alignment.sequence().size(), alignment.sequence().size() / 2);
 }
 
-int32_t GSSWAligner::score_gappy_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
+int32_t GSSWAligner::score_discontiguous_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
     bool strip_bonuses) const {
     
     int score = 0;
@@ -803,7 +803,9 @@ int32_t GSSWAligner::score_gappy_alignment(const Alignment& aln, const function<
                 score += score_exact_match(aln, read_offset, edit.to_length());
                 last_was_deletion = false;
             } else if (edit_is_sub(edit)) {
-                score -= mismatch * edit.sequence().size();
+                score -= score_mismatch(aln.sequence().begin() + read_offset,
+                                        aln.sequence().begin() + read_offset + edit.to_length(),
+                                        aln.quality().begin() + read_offset);
                 last_was_deletion = false;
             } else if (edit_is_deletion(edit)) {
                 if (last_was_deletion) {
@@ -861,8 +863,8 @@ int32_t GSSWAligner::score_gappy_alignment(const Alignment& aln, const function<
     return score;
 }
 
-int32_t GSSWAligner::score_ungapped_alignment(const Alignment& aln, bool strip_bonuses) const {
-    return score_gappy_alignment(aln, [](pos_t, pos_t, size_t){return (size_t) 0;}, strip_bonuses);
+int32_t GSSWAligner::score_contiguous_alignment(const Alignment& aln, bool strip_bonuses) const {
+    return score_discontiguous_alignment(aln, [](pos_t, pos_t, size_t){return (size_t) 0;}, strip_bonuses);
 }
 
 int32_t GSSWAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) const {

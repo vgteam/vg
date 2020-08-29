@@ -1,4 +1,4 @@
-#ifndef VG_PATH_HPP_INCLUDED
+    #ifndef VG_PATH_HPP_INCLUDED
 #define VG_PATH_HPP_INCLUDED
 
 #include <iostream>
@@ -352,11 +352,6 @@ void translate_oriented_node_ids(Path& path, const function<pair<id_t, bool>(id_
 pos_t initial_position(const Path& path);
 // the last position on the path
 pos_t final_position(const Path& path);
-
-// the position of the n-th base (measured in "to length") from either the start
-// or end of the path. if ignoring softclips, softclipped bases don't contribute
-// to the n-th ordinal position
-pos_t nth_position(const Path& path, int64_t n, bool from_end, bool ignore_softclip);
 
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);

@@ -25,6 +25,7 @@
 #include "path_component_index.hpp"
 #include "memoizing_graph.hpp"
 #include "statistics.hpp"
+#include "splicing.hpp"
 
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
@@ -186,6 +187,9 @@ namespace vg {
         bool do_spliced_alignment = false;
         int64_t min_softclip_length_for_splice = 16;
         int64_t max_softclip_overlap = 8;
+        int64_t max_splice_overhang = 3;
+        // about 500k
+        int64_t max_intron_length = 1 << 19;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -374,7 +378,7 @@ namespace vg {
                                      const match_fanouts_t* fanouts = nullptr) const;
         
         void identify_splice_alignment_candidates(const Alignment& alignment,
-                                                  const vector<multipath_alignment_t>& multipath_alns_out,
+                                                  const vector<multipath_alignment_t>& multipath_alns,
                                                   const vector<size_t>& cluster_idxs,
                                                   const vector<MaximalExactMatch>& mems,
                                                   const vector<clustergraph_t>& cluster_graphs,
@@ -382,6 +386,10 @@ namespace vg {
                                                   vector<size_t>& mp_aln_candidates_out,
                                                   vector<size_t>& cluster_candidates_out,
                                                   vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates_out) const;
+        
+        void test_splice_candidates(const Alignment& alignment, bool searching_left,
+                                    const vector<multipath_alignment_t>& multipath_alns,
+                                    const vector<size_t>& mp_aln_candidates) const;
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
@@ -475,6 +483,8 @@ namespace vg {
         int64_t distance_between(const multipath_alignment_t& multipath_aln_1, const multipath_alignment_t& multipath_aln_2,
                                  bool full_fragment = false, bool forward_strand = false) const;
         
+        int64_t distance(const pos_t& pos_1, const pos_t& pos_2) const;
+        
         /// Are two multipath alignments consistently placed based on the learned fragment length distribution?
         bool are_consistent(const multipath_alignment_t& multipath_aln_1, const multipath_alignment_t& multipath_aln_2) const;
         
@@ -504,6 +514,9 @@ namespace vg {
         /// return a vector of their breaks.
         vector<MaximalExactMatch> find_mems(const Alignment& alignment,
                                             vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks = nullptr);
+        
+        //
+        DinucleotideMachine dinuc_machine;
         
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;

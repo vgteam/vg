@@ -1082,6 +1082,15 @@ namespace vg {
         }
         return dist;
     }
+
+    int64_t MultipathMapper::distance(const pos_t& pos_1, const pos_t& pos_2) const {
+        if (distance_index) {
+            return distance_index->min_distance(pos_1, pos_2);
+        }
+        else {
+            return PathOrientedDistanceMeasurer(xindex).oriented_distance(pos_1, pos_2);
+        }
+    }
     
     bool MultipathMapper::is_consistent(int64_t distance) const {
         return (distance < fragment_length_distr.mean() + 10.0 * fragment_length_distr.std_dev()
@@ -2047,8 +2056,148 @@ namespace vg {
         return interval_union;
     }
 
+    void MultipathMapper::test_splice_candidates(const Alignment& alignment, bool searching_left,
+                                                 const vector<multipath_alignment_t>& multipath_alns,
+                                                 const vector<size_t>& mp_aln_candidates) const {
+        
+        //TODO: get rid of this
+        static const vector<string> left_motifs{"GT", "GC", "AT"};
+        static const vector<string> right_motifs{"AG", "AG", "AC"};
+        
+        // really this should be a pair of two splice objects plus the motif and distance
+        struct PutativeJoin {
+            pos_t anchor_search_pos;
+            pos_t anchor_splice_pos;
+            int64_t anchor_search_dist;
+            int64_t anchor_clip_length;
+            pos_t candidate_search_pos;
+            pos_t candidate_splice_pos;
+            int64_t candidate_search_dist;
+            int64_t candidate_clip_length;
+            int64_t estimated_splice_length;
+            size_t motif_idx;
+        };
+        
+        if (mp_aln_candidates.empty()) {
+            return;
+        }
+        
+        Alignment opt;
+        optimal_alignment(multipath_alns.front(), opt);
+        
+        // always ignore the softclip, which is what we're trying to realign
+        auto anchor_pos = trimmed_end(opt, max_splice_overhang, !searching_left, *xindex,
+                                      *get_aligner(opt.quality().empty()));
+        
+        const vector<string>& anchor_motifs = searching_left ? right_motifs : left_motifs;
+        const vector<string>& candidate_motifs = !searching_left ? right_motifs : left_motifs;
+        
+        SpliceRegion anchor_region(get<0>(anchor_pos), searching_left, 2 * max_splice_overhang, *xindex,
+                                   dinuc_machine, anchor_motifs);
+        
+        // records of (which motif, anchor pos, anchor clip, candidate pos, candidate clip, splice length)
+        
+        for (auto i : mp_aln_candidates) {
+            
+            vector<PutativeJoin> putative_joins;
+            
+            Alignment candidate_opt;
+            optimal_alignment(multipath_alns[i], candidate_opt);
+            
+            auto candidate_pos = trimmed_end(opt, max_splice_overhang, searching_left, *xindex,
+                                             *get_aligner(opt.quality().empty()));
+            
+            SpliceRegion candidate_region(get<0>(candidate_pos), !searching_left, 2 * max_splice_overhang,
+                                          *xindex, dinuc_machine, candidate_motifs);
+            
+            for (size_t j = 0; j < left_motifs.size(); ++j) {
+                
+                for (const auto& anchor_location : anchor_region.candidate_splice_sites(anchor_motifs[j])) {
+                    for (const auto& candidate_location : candidate_region.candidate_splice_sites(candidate_motifs[j])) {
+                        int64_t dist;
+                        if (searching_left) {
+                            dist = distance(candidate_location.first, anchor_location.first);
+                        }
+                        else {
+                            dist = distance(anchor_location.first, candidate_location.first);
+                        }
+                        if (dist < 0 || dist == numeric_limits<int64_t>::max()) {
+                            // the sites can't reach each other
+                            continue;
+                        }
+                        // TODO: a likelihood model for intron length?
+                        if (dist < max_intron_length) {
+                            putative_joins.emplace_back();
+                            auto& join = putative_joins.back();
+                            join.anchor_search_pos = get<0>(anchor_pos);
+                            join.anchor_splice_pos = anchor_location.first;
+                            join.anchor_search_dist = anchor_location.second;
+                            join.anchor_clip_length = get<1>(anchor_pos);
+                            join.candidate_search_pos = get<0>(candidate_pos);
+                            join.candidate_splice_pos = candidate_location.first;
+                            join.candidate_search_dist = candidate_location.second;
+                            join.candidate_clip_length = get<1>(candidate_pos);
+                            join.estimated_splice_length = dist;
+                            join.motif_idx = j;
+                        }
+                    }
+                }
+            }
+            
+            // TODO: reuse the SpliceRegions' subgraphs, which will guarantee acyclicity
+            
+            for (const auto& join : putative_joins) {
+                bdsg::HashGraph anchor_graph;
+                // +1 search dist for buffer
+                algorithms::extract_connecting_graph(xindex, &anchor_graph, join.anchor_search_dist + 1,
+                                                     join.anchor_search_pos, join.anchor_splice_pos, false, true, false);
+                Alignment anchor_aln;
+                if (searching_left) {
+                    anchor_aln.set_sequence(alignment.sequence().substr(0, join.anchor_clip_length));
+                    if (!alignment.quality().empty()) {
+                        anchor_aln.set_quality(alignment.quality().substr(0, join.anchor_clip_length));
+                    }
+                }
+                else {
+                    anchor_aln.set_sequence(alignment.sequence().substr(alignment.sequence().size() - join.anchor_clip_length,
+                                                                        join.anchor_clip_length));
+                    if (!alignment.quality().empty()) {
+                        anchor_aln.set_quality(alignment.quality().substr(alignment.quality().size() - join.anchor_clip_length,
+                                                                          join.anchor_clip_length));
+                    }
+                }
+                
+                get_aligner(!alignment.quality().empty())->align_global_banded(anchor_aln, anchor_graph, 1);
+                
+                // TODO: repetitive
+                
+                bdsg::HashGraph candidate_graph;
+                // +1 search dist for buffer
+                algorithms::extract_connecting_graph(xindex, &candidate_graph, join.candidate_search_dist + 1,
+                                                     join.candidate_search_pos, join.candidate_splice_pos, false, true, false);
+                Alignment candidate_aln;
+                if (searching_left) {
+                    candidate_aln.set_sequence(alignment.sequence().substr(alignment.sequence().size() - join.candidate_clip_length,
+                                                                           join.candidate_clip_length));
+                    if (!alignment.quality().empty()) {
+                        candidate_aln.set_quality(alignment.quality().substr(alignment.quality().size() - join.candidate_clip_length,
+                                                                             join.candidate_clip_length));
+                    }
+                }
+                else {
+                    candidate_aln.set_sequence(alignment.sequence().substr(0, join.candidate_clip_length));
+                    if (!alignment.quality().empty()) {
+                        candidate_aln.set_quality(alignment.quality().substr(0, join.candidate_clip_length));
+                    }
+                }
+                
+                get_aligner(!alignment.quality().empty())->align_global_banded(candidate_aln, candidate_graph, 1);
+            }
+        }
+    }
+
     void MultipathMapper::identify_splice_alignment_candidates(const Alignment& alignment,
-                                                               const vector<multipath_alignment_t>& multipath_alns_out,
+                                                               const vector<multipath_alignment_t>& multipath_alns,
                                                                const vector<size_t>& cluster_idxs,
                                                                const vector<MaximalExactMatch>& mems,
                                                                const vector<clustergraph_t>& cluster_graphs,
@@ -2059,11 +2208,11 @@ namespace vg {
         
         // TODO: should i generalize this to look for alignments of not only the primary?
         
-        for (size_t i = 1; i < multipath_alns_out.size(); ++i) {
+        for (size_t i = 1; i < multipath_alns.size(); ++i) {
             
             // check that the alignment is mostly disjoint of the primary and that
             // that the independent aligned portion is significant to call this a potential splice alignment
-            auto interval = aligned_interval(multipath_alns_out[i]);
+            auto interval = aligned_interval(multipath_alns[i]);
             if (search_left) {
                 if (interval.second < primary_interval.first + max_softclip_overlap &&
                     min<int64_t>(interval.second, primary_interval.first) - interval.first >= min_softclip_length_for_splice) {
@@ -2224,7 +2373,14 @@ namespace vg {
                                                  right_hit_candidates);
         }
         
+        
     }
+
+//    void MultipathMapper::align_up_to_splice_site() const {
+//
+//    }
+
+
 
     void MultipathMapper::agglomerate(size_t idx, multipath_alignment_t& agglomerating, const multipath_alignment_t& multipath_aln,
                                       vector<size_t>& agglomerated_group, unordered_set<pos_t>& agg_start_positions,

@@ -659,7 +659,7 @@ int main_sim(int argc, char** argv) {
         // We define a function to score a using the aligner
         auto rescore = [&] (Alignment& aln) {
             // Score using exact distance.
-            aln.set_score(rescorer.score_ungapped_alignment(aln, strip_bonuses));
+            aln.set_score(rescorer.score_contiguous_alignment(aln, strip_bonuses));
         };
         
         size_t max_iter = 1000;
@@ -770,8 +770,8 @@ int main_sim(int argc, char** argv) {
         for (size_t i = 0; i < num_reads; i++) {
             if (fragment_length) {
                 pair<Alignment, Alignment> read_pair = sampler.sample_read_pair();
-                read_pair.first.set_score(aligner.score_ungapped_alignment(read_pair.first, strip_bonuses));
-                read_pair.second.set_score(aligner.score_ungapped_alignment(read_pair.second, strip_bonuses));
+                read_pair.first.set_score(aligner.score_contiguous_alignment(read_pair.first, strip_bonuses));
+                read_pair.second.set_score(aligner.score_contiguous_alignment(read_pair.second, strip_bonuses));
                 
                 if (align_out) {
                     alignment_emitter->emit_pair(std::move(read_pair.first), std::move(read_pair.second));
@@ -783,7 +783,7 @@ int main_sim(int argc, char** argv) {
             }
             else {
                 Alignment read = sampler.sample_read();
-                read.set_score(aligner.score_ungapped_alignment(read, strip_bonuses));
+                read.set_score(aligner.score_contiguous_alignment(read, strip_bonuses));
                 
                 if (align_out) {
                     alignment_emitter->emit_single(std::move(read));

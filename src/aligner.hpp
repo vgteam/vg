@@ -242,14 +242,14 @@ namespace vg {
         /// length).
         ///
         /// May include full length bonus or not. TODO: bool flags are bad.
-        virtual int32_t score_gappy_alignment(const Alignment& aln,
+        virtual int32_t score_discontiguous_alignment(const Alignment& aln,
             const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
             bool strip_bonuses = false) const;
         
         /// Use the score values in the aligner to score the given alignment assuming
         /// that there are no gaps between Mappings in the Path
-        virtual int32_t score_ungapped_alignment(const Alignment& aln,
-                                                 bool strip_bonuses = false) const;
+        virtual int32_t score_contiguous_alignment(const Alignment& aln,
+                                                   bool strip_bonuses = false) const;
 
         /// Without necessarily rescoring the entire alignment, return the score
         /// of the given alignment with bonuses removed. Assumes that bonuses
