@@ -62,32 +62,56 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
         cerr << "extract " << graph.get_id(subgraph.get_underlying_handle(handle)) << " " << graph.get_is_reverse(subgraph.get_underlying_handle(handle)) << endl;
 #endif
     }
+    int64_t incr = search_left ? -1 : 1;
     
     // check if we match any motifs at this location and if so remember it
-    auto record_motif_matches = [&](const handle_t handle, const int64_t j,
+    auto record_motif_matches = [&](handle_t handle, int64_t j,
                                     const vector<uint32_t>& states) {
         for (size_t i = 0; i < splice_motifs.size(); ++i) {
             if (dinuc_machine.matches(states[j], (*motifs)[i])) {
-                auto underlying = subgraph.get_underlying_handle(handle);
-                pos_t pos(graph.get_id(underlying), graph.get_is_reverse(underlying), j + !search_left);
-                int64_t trav_dist = subgraph.distance_from_start(handle);
-                if (search_left) {
-                    trav_dist += states.size() - j;
+                if ((j == 0 && !search_left) || (j + 1 == states.size() && search_left)) {
+                    // we need to cross a node boundary to backtrack
+                    subgraph.follow_edges(handle, !search_left, [&](const handle_t& prev) {
+                        if (search_left) {
+                            if (subgraph.get_base(prev, 0) == (*motifs)[i].front()) {
+                                auto underlying = subgraph.get_underlying_handle(prev);
+                                pos_t pos(graph.get_id(underlying), graph.get_is_reverse(underlying), 1);
+                                int64_t trav_dist = subgraph.distance_from_start(prev) + subgraph.get_length(prev) - 1;
+                                motif_matches[splice_motifs[i]].emplace_back(pos, trav_dist);
+                            }
+                        }
+                        else {
+                            size_t k = subgraph.get_length(prev) - 1;
+                            if (subgraph.get_base(prev, k) == (*motifs)[i].front()) {
+                                auto underlying = subgraph.get_underlying_handle(prev);
+                                pos_t pos(graph.get_id(underlying), graph.get_is_reverse(underlying), k);
+                                int64_t trav_dist = subgraph.distance_from_start(prev) + k;
+                                motif_matches[splice_motifs[i]].emplace_back(pos, trav_dist);
+                            }
+                        }
+                    });
                 }
                 else {
-                    trav_dist += j + 1;
-                }
+                    auto underlying = subgraph.get_underlying_handle(handle);
+                    pos_t pos(graph.get_id(underlying), graph.get_is_reverse(underlying), j - 2 * incr + !search_left);
+                    int64_t trav_dist = subgraph.distance_from_start(handle);
+                    if (search_left) {
+                        trav_dist += states.size() - j - 2;
+                    }
+                    else {
+                        trav_dist += j - 1;
+                    }
 #ifdef debug_splice_region
-                cerr << "record match to " << splice_motifs[i] << " at " << pos << ", dist " << trav_dist << endl;
+                    cerr << "record match to " << splice_motifs[i] << " at " << pos << ", dist " << trav_dist << endl;
 #endif
-                motif_matches[splice_motifs[i]].emplace_back(pos, trav_dist);
+                    motif_matches[splice_motifs[i]].emplace_back(pos, trav_dist);
+                }
             }
         }
     };
     
     
     // now actually do the DP
-    int64_t incr = search_left ? -1 : 1;
     for (size_t i = 0; i < dinuc_states.size(); ++i) {
         
         handle_t here = dinuc_states[i].first;

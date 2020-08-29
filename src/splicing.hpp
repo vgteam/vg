@@ -21,8 +21,6 @@ using namespace std;
 class SpliceRegion {
 public:
     
-    // note: search distance is relative to the *start* of the motif, whereas
-    // the returned distances are relative to the *end* of the motif
     SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t search_dist,
                  const HandleGraph& graph,
                  const DinucleotideMachine& dinuc_machine,
@@ -30,15 +28,15 @@ public:
     SpliceRegion() = default;
     ~SpliceRegion() = default;
     
-    // returns the locations in the graph just past the location of a splice
-    // motif (in the direction of the intron) and the distance of that location
+    // returns the locations in the of a splice motif and the distance of those location
     // from the search position. crashes if given a motif that was not provided
     // to the constructor.
     const vector<pair<pos_t, int64_t>>& candidate_splice_sites(const string& motif) const;
     
+    pos_t motif_pos_to_splice_pos();
+    
 private:
 
-    //
     unordered_map<string, vector<pair<pos_t, int64_t>>> motif_matches;
     
 };
