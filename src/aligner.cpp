@@ -1447,6 +1447,7 @@ int32_t Aligner::score_partial_alignment(const Alignment& alignment, const Handl
     
     int32_t score = 0;
     string::const_iterator read_pos = seq_begin;
+    bool in_deletion = false;
     for (size_t i = 0; i < path.mapping_size(); i++) {
         const Mapping& mapping = path.mapping(i);
         
@@ -1471,10 +1472,15 @@ int32_t Aligner::score_partial_alignment(const Alignment& alignment, const Handl
                     if (read_pos + edit.from_length() == alignment.sequence().end()) {
                         score += full_length_bonus;
                     }
+                    in_deletion = false;
+                }
+                else if (in_deletion) {
+                    score -= edit.from_length() * gap_extension;
                 }
                 else {
                     // deletion
                     score -= gap_open + (edit.from_length() - 1) * gap_extension;
+                    in_deletion = true;
                 }
             }
             else if (edit.to_length() > 0) {
@@ -1484,6 +1490,7 @@ int32_t Aligner::score_partial_alignment(const Alignment& alignment, const Handl
                     // insert
                     score -= gap_open + (edit.to_length() - 1) * gap_extension;
                 }
+                in_deletion = false;
             }
             
             read_pos += edit.to_length();
@@ -2046,6 +2053,7 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
     string::const_iterator read_pos = seq_begin;
     string::const_iterator qual_pos = alignment.quality().begin() + (seq_begin - alignment.sequence().begin());
     
+    bool in_deletion = false;
     for (size_t i = 0; i < path.mapping_size(); i++) {
         const Mapping& mapping = path.mapping(i);
         
@@ -2073,10 +2081,15 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
                     if (read_pos + edit.from_length() == alignment.sequence().end()) {
                         score += full_length_bonus;
                     }
+                    in_deletion = false;
+                }
+                else if (in_deletion) {
+                    score -= edit.from_length() * gap_extension;
                 }
                 else {
                     // deletion
                     score -= gap_open + (edit.from_length() - 1) * gap_extension;
+                    in_deletion = true;
                 }
             }
             else if (edit.to_length() > 0) {
@@ -2086,6 +2099,7 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
                     // insert
                     score -= gap_open + (edit.to_length() - 1) * gap_extension;
                 }
+                in_deletion = false;
             }
             
             read_pos += edit.to_length();

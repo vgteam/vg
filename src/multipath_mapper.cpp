@@ -2148,7 +2148,7 @@ namespace vg {
             
             for (const auto& join : putative_joins) {
                 bdsg::HashGraph anchor_graph;
-                // +1 search dist for buffer
+                // +1 search dist buffer to pull in small alternate alleles
                 algorithms::extract_connecting_graph(xindex, &anchor_graph, join.anchor_search_dist + 1,
                                                      join.anchor_search_pos, join.anchor_splice_pos, false, true, false);
                 Alignment anchor_aln;
@@ -2172,7 +2172,7 @@ namespace vg {
                 // TODO: repetitive
                 
                 bdsg::HashGraph candidate_graph;
-                // +1 search dist for buffer
+                //  +1 search dist buffer to pull in small alternate alleles
                 algorithms::extract_connecting_graph(xindex, &candidate_graph, join.candidate_search_dist + 1,
                                                      join.candidate_search_pos, join.candidate_splice_pos, false, true, false);
                 Alignment candidate_aln;

@@ -8,6 +8,7 @@
 #include "splicing.hpp"
 
 //#define debug_splice_region
+//#define debug_trimming
 
 namespace vg {
    
@@ -170,8 +171,11 @@ const vector<pair<pos_t, int64_t>>& SpliceRegion::candidate_splice_sites(const s
 tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bool from_end,
                                            const HandleGraph& graph, const GSSWAligner& aligner) {
     
-    const Path& path = aln.path();
+#ifdef debug_trimming
+    cerr << "trimming alignment " << pb2json(aln) << " by " << len << ", from end? " << from_end << endl;
+#endif
     
+    const Path& path = aln.path();
     Path dummy_path;
     
     tuple<pos_t, int64_t, int32_t> return_val;
@@ -185,18 +189,26 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 len += final_mapping.edit(final_mapping.edit_size() - 1).to_length();
             }
             int64_t i = path.mapping_size() - 1;
-            while (i >= 0 && (len < mapping_to_length(path.mapping(i))
-                              || mapping_to_length(path.mapping(i)) == 0)) {
+            while (i >= 0 && (len > mapping_to_length(path.mapping(i))
+                              || mapping_from_length(path.mapping(i)) == 0)) {
                 auto to_length = mapping_to_length(path.mapping(i));
                 len = max<int64_t>(len - to_length, 0);
                 get<1>(return_val) += to_length;
+                
+#ifdef debug_trimming
+                cerr << "after mapping " << i << ", remaining length " << len << endl;
+#endif
                 
                 Mapping* dummy_mapping = dummy_path.add_mapping();
                 *dummy_mapping->mutable_edit() = path.mapping(i).edit();
                 --i;
             }
             if (i < 0) {
+#ifdef debug_trimming
+                cerr << "walked entire path" << endl;
+#endif
                 get<0>(return_val) = initial_position(path);
+                get<1>(return_val) = path_to_length(path);
                 dummy_path = path;
                 copied_full_path = true;
             }
@@ -205,26 +217,40 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 int64_t j = mapping.edit_size() - 1;
                 int64_t from_length = 0;
                 Mapping* dummy_mapping = nullptr;
-                while (j >= 0 && (len < mapping.edit(j).to_length()
+                while (j >= 0 && (len > mapping.edit(j).to_length()
                                   || mapping.edit(j).from_length() == 0)) {
                     auto to_length = mapping.edit(j).to_length();
                     len = max<int64_t>(len - to_length, 0);
                     get<1>(return_val) += to_length;
+                    from_length += mapping.edit(j).from_length();
                     
+#ifdef debug_trimming
+                    cerr << "after edit " << j << ", remaining length " << len << endl;
+#endif
                     if (!dummy_mapping) {
                         dummy_mapping = dummy_path.add_mapping();
-                        *dummy_mapping->add_edit() = mapping.edit(j);
                     }
+                    *dummy_mapping->add_edit() = mapping.edit(j);
                     --j;
                 }
                 if (j >= 0 && len > 0) {
-                    auto from_length = (len * mapping.edit(j).from_length()) / mapping.edit(j).to_length();
+                    auto last_from_length = (len * mapping.edit(j).from_length()) / mapping.edit(j).to_length();
                     get<1>(return_val) += len;
-                    from_length += from_length;
+                    from_length += last_from_length;
                     
+#ifdef debug_trimming
+                    cerr << "handling final (partial) edit with to length " << len << ", from length " << last_from_length << endl;
+#endif
+                    
+                    if (!dummy_mapping) {
+                        dummy_mapping = dummy_path.add_mapping();
+                    }
                     Edit* dummy_edit = dummy_mapping->add_edit();
-                    dummy_edit->set_from_length(from_length);
+                    dummy_edit->set_from_length(last_from_length);
                     dummy_edit->set_to_length(len);
+                    if (!mapping.edit(j).sequence().empty()) {
+                        dummy_edit->set_sequence(mapping.edit(j).sequence().substr(mapping.edit(j).to_length() - len, len));
+                    }
                 }
                 const Position& position = mapping.position();
                 get_id(get<0>(return_val)) = position.node_id();
@@ -238,18 +264,27 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 len += path.mapping(0).edit(0).to_length();
             }
             int64_t i = 0;
-            while (i < path.mapping_size() && (len < mapping_to_length(path.mapping(i))
+            while (i < path.mapping_size() && (len > mapping_to_length(path.mapping(i))
                                                || mapping_from_length(path.mapping(i)) == 0 )) {
+                
                 auto to_length = mapping_to_length(path.mapping(i));
                 len = max<int64_t>(len - to_length, 0);
                 get<1>(return_val) += to_length;
+                
+#ifdef debug_trimming
+                cerr << "after mapping " << i << ", remaining length " << len << endl;
+#endif
                 
                 Mapping* dummy_mapping = dummy_path.add_mapping();
                 *dummy_mapping->mutable_edit() = path.mapping(i).edit();
                 ++i;
             }
             if (i == path.mapping_size()) {
+#ifdef debug_trimming
+                cerr << "walked entire path" << endl;
+#endif
                 get<0>(return_val) = final_position(path);
+                get<1>(return_val) = path_to_length(path);
                 dummy_path = path;
                 copied_full_path = true;
             }
@@ -258,26 +293,41 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 int64_t j = 0;
                 int64_t from_length = 0;
                 Mapping* dummy_mapping = nullptr;
-                while (j < mapping.edit_size() && (len < mapping.edit(j).to_length()
+                while (j < mapping.edit_size() && (len > mapping.edit(j).to_length()
                                                    || mapping.edit(j).from_length() == 0)) {
                     auto to_length = mapping.edit(j).to_length();
                     len = max<int64_t>(len - to_length, 0);
                     get<1>(return_val) += to_length;
+                    from_length += mapping.edit(j).from_length();
+                    
+#ifdef debug_trimming
+                    cerr << "after edit " << j << ", remaining length " << len << endl;
+#endif
                     
                     if (!dummy_mapping) {
                         dummy_mapping = dummy_path.add_mapping();
-                        *dummy_mapping->add_edit() = mapping.edit(j);
                     }
+                    *dummy_mapping->add_edit() = mapping.edit(j);
                     ++j;
                 }
                 if (j != mapping.edit_size() && len > 0) {
-                    auto from_length = (len * mapping.edit(j).from_length()) / mapping.edit(j).to_length();
+                    auto last_from_length = (len * mapping.edit(j).from_length()) / mapping.edit(j).to_length();
                     get<1>(return_val) += len;
-                    from_length += from_length;
+                    from_length += last_from_length;
                     
+#ifdef debug_trimming
+                    cerr << "handling final (partial) edit with to length " << len << ", from length " << last_from_length << endl;
+#endif
+                    
+                    if (!dummy_mapping) {
+                        dummy_mapping = dummy_path.add_mapping();
+                    }
                     Edit* dummy_edit = dummy_mapping->add_edit();
-                    dummy_edit->set_from_length(from_length);
+                    dummy_edit->set_from_length(last_from_length);
                     dummy_edit->set_to_length(len);
+                    if (!mapping.edit(j).sequence().empty()) {
+                        dummy_edit->set_sequence(mapping.edit(j).sequence().substr(0, len));
+                    }
                 }
                 const Position& position = mapping.position();
                 get_id(get<0>(return_val)) = position.node_id();
@@ -289,7 +339,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
     
     string::const_iterator begin;
     if (from_end) {
-        aln.sequence().end() - get<1>(return_val);
+        begin = aln.sequence().end() - get<1>(return_val);
         // TODO: kind of inelegant
         if (!copied_full_path) {
             // the path was built in reverse, flip around
@@ -308,6 +358,9 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
     else {
         begin = aln.sequence().begin();
     }
+#ifdef debug_trimming
+    cerr << "scoring trimmed subpath " << pb2json(dummy_path) << ", with substring " << (begin - aln.sequence().begin()) << ":" << (begin - aln.sequence().begin()) + get<1>(return_val) << endl;
+#endif
     
     // TODO: refactor so we can either use the subgraph or use score_mismatch
     // rather than needing get_handle calls
