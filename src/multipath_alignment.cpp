@@ -192,6 +192,10 @@ namespace vg {
             for (size_t j = 0; j < subpath->next_size(); j++) {
                 subpath->set_next(j, index[subpath->next(j)]);
             }
+            for (size_t j = 0; j < subpath->connection_size(); ++j) {
+                connection_t* connection = subpath->mutable_connection(j);
+                connection->set_next(index[connection->next()]);
+            }
         }
         
         // translate the start nodes
@@ -283,7 +287,7 @@ namespace vg {
             // delete the end of the subpaths
             multipath_aln.mutable_subpath()->resize(multipath_aln.subpath_size() - removed_so_far.back());
             
-            // reassign the next indexes
+            // reassign the next and connection indexes
             for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
                 subpath_t& subpath = *multipath_aln.mutable_subpath(i);
                 size_t nexts_removed_so_far = 0;
@@ -294,7 +298,25 @@ namespace vg {
                     else {
                         subpath.set_next(j - nexts_removed_so_far, subpath.next(j) - removed_so_far[subpath.next(j)]);
                     }
+                }
+                if (nexts_removed_so_far) {
                     subpath.mutable_next()->resize(subpath.next_size() - nexts_removed_so_far);
+                }
+                size_t connections_removed_so_far = 0;
+                for (size_t j = 0; j < subpath.connection_size(); ++j) {
+                    if (is_empty[subpath.connection(j).next()]) {
+                        ++connections_removed_so_far;
+                    }
+                    else {
+                        connection_t* connection = subpath.mutable_connection(j);
+                        connection->set_next(connection->next() - removed_so_far[connection->next()]);
+                        if (connections_removed_so_far) {
+                            *subpath.mutable_connection(j - connections_removed_so_far) = *connection;
+                        }
+                    }
+                }
+                if (connections_removed_so_far) {
+                    subpath.mutable_next()->resize(subpath.connection_size() - connections_removed_so_far);
                 }
             }
             
@@ -323,6 +345,9 @@ namespace vg {
             const subpath_t& subpath = multipath_aln.subpath(i);
             for (size_t j = 0; j < subpath.next_size(); j++) {
                 has_incoming_edge[subpath.next(j)] = true;
+            }
+            for (const connection_t& connection : subpath.connection()) {
+                has_incoming_edge[connection.next()] = true;
             }
         }
         
@@ -1485,7 +1510,7 @@ namespace vg {
         
         vector<bool> is_sink(multipath_aln.subpath_size(), false);
         for (const auto& subpath : multipath_aln.subpath()) {
-            if (subpath.next_size() == 0) {
+            if (subpath.next_size() == 0 && subpath.connection_size() == 0) {
                 
                 const auto& path = subpath.path();
                 const auto& mapping = path.mapping(path.mapping_size() - 1);
@@ -1539,7 +1564,8 @@ namespace vg {
         // transfer the rest of the metadata directly
         rev_comp_out.set_mapping_quality(multipath_aln.mapping_quality());
         
-        vector< vector<size_t> > reverse_edge_lists(multipath_aln.subpath_size());
+        vector<vector<size_t>> reverse_edge_lists(multipath_aln.subpath_size());
+        vector<vector<pair<size_t, int32_t>>> reverse_connection_lists(multipath_aln.subpath_size());
         vector<size_t> reverse_starts;
         
         // remove subpaths to avoid duplicating
@@ -1551,10 +1577,13 @@ namespace vg {
             subpath_t* rc_subpath = rev_comp_out.add_subpath();
             rev_comp_subpath(subpath, node_length, *rc_subpath);
             
-            if (subpath.next_size() > 0) {
+            if (subpath.next_size() > 0 || subpath.connection_size() > 0) {
                 // collect edges by their target (for reversing)
                 for (size_t j = 0; j < subpath.next_size(); j++) {
                     reverse_edge_lists[subpath.next(j)].push_back(i);
+                }
+                for (const connection_t& connection : subpath.connection()) {
+                    reverse_connection_lists[connection.next()].emplace_back(i, connection.score());
                 }
             }
             else {
@@ -1569,6 +1598,12 @@ namespace vg {
             vector<size_t>& reverse_edge_list = reverse_edge_lists[multipath_aln.subpath_size() - i - 1];
             for (size_t j = 0; j < reverse_edge_list.size(); j++) {
                 rc_subpath->add_next(multipath_aln.subpath_size() - reverse_edge_list[j] - 1);
+            }
+            vector<pair<size_t, int32_t>>& reverse_connection_list = reverse_connection_lists[multipath_aln.subpath_size() - i - 1];
+            for (size_t j = 0; j < reverse_connection_list.size(); ++j) {
+                connection_t* connection = rc_subpath->add_connection();
+                connection->set_next(multipath_aln.subpath_size() - reverse_connection_list[j].first - 1);
+                connection->set_score(reverse_connection_list[j].second);
             }
         }
         
@@ -1594,7 +1629,8 @@ namespace vg {
         std::reverse(quality->begin(), quality->end());
         
         // current reverse edges
-        vector< vector<int64_t> > reverse_edge_lists(multipath_aln->subpath_size());
+        vector<vector<int64_t>> reverse_edge_lists(multipath_aln->subpath_size());
+        vector<vector<pair<size_t, int32_t>>> reverse_connection_lists(multipath_aln->subpath_size());
         // current sink nodes (will be starts)
         vector<int64_t> reverse_starts;
         
@@ -1605,9 +1641,13 @@ namespace vg {
             subpath_t* subpath_2 = multipath_aln->mutable_subpath(j);
             
             // add reverse edges for first subpath
-            if (subpath_1->next_size() > 0) {
+            if (subpath_1->next_size() > 0 || subpath_1->connection_size() > 0) {
                 for (int64_t k = 0; k < subpath_1->next_size(); k++) {
                     reverse_edge_lists[subpath_1->next(k)].push_back(i);
+                }
+                for (int64_t k = 0; k < subpath_1->connection_size(); k++) {
+                    const connection_t& connection = subpath_1->connection(k);
+                    reverse_connection_lists[connection.next()].emplace_back(i, connection.score());
                 }
             }
             else {
@@ -1615,9 +1655,13 @@ namespace vg {
             }
             
             // add reverse edges for second subpath
-            if (subpath_2->next_size() > 0) {
+            if (subpath_2->next_size() > 0 || subpath_2->connection_size() > 0) {
                 for (int64_t k = 0; k < subpath_2->next_size(); k++) {
                     reverse_edge_lists[subpath_2->next(k)].push_back(j);
+                }
+                for (int64_t k = 0; k < subpath_2->connection_size(); k++) {
+                    const connection_t& connection = subpath_2->connection(k);
+                    reverse_connection_lists[connection.next()].emplace_back(i, connection.score());
                 }
             }
             else {
@@ -1639,9 +1683,13 @@ namespace vg {
         // repeat process for the middle subpath if there is an odd number
         if (multipath_aln->subpath_size() % 2) {
             subpath_t* subpath = multipath_aln->mutable_subpath(subpath_swap_size);
-            if (subpath->next_size() > 0) {
+            if (subpath->next_size() > 0 || subpath->connection_size() > 0) {
                 for (int64_t k = 0; k < subpath->next_size(); k++) {
                     reverse_edge_lists[subpath->next(k)].push_back(subpath_swap_size);
+                }
+                for (int64_t k = 0; k < subpath->connection_size(); k++) {
+                    const connection_t& connection = subpath->connection(k);
+                    reverse_connection_lists[connection.next()].emplace_back(subpath_swap_size, connection.score());
                 }
             }
             else {
@@ -1654,10 +1702,14 @@ namespace vg {
         
         // add reversed edges
         for (int64_t i = 0, j = last; i < multipath_aln->subpath_size(); i++, j--) {
-            vector<int64_t> edges = reverse_edge_lists[j];
             subpath_t* subpath = multipath_aln->mutable_subpath(i);
-            for (int64_t k : edges) {
+            for (int64_t k : reverse_edge_lists[j]) {
                 subpath->add_next(last - k);
+            }
+            for (const auto& rev_connection : reverse_connection_lists[j]) {
+                connection_t* connection = subpath->add_connection();
+                connection->set_next(rev_connection.first);
+                connection->set_score(rev_connection.second);
             }
         }
         
@@ -2590,6 +2642,11 @@ namespace vg {
         
         out << "}" << endl;
     }
+
+    string debug_string(const connection_t& connection) {
+        string to_return = "{next: " + to_string(connection.next()) + ", score: " + to_string(connection.score()) + "}";
+        return to_return;
+    }
     
     string debug_string(const subpath_t& subpath) {
         string to_return = "{path: " + debug_string(subpath.path());
@@ -2600,6 +2657,16 @@ namespace vg {
                     to_return += ", ";
                 }
                 to_return += to_string(subpath.next(i));
+            }
+            to_return += "]";
+        }
+        if (!subpath.connection().empty()) {
+            to_return += ", connection: [";
+            for (size_t i = 0; i < subpath.connection_size(); ++i) {
+                if (i > 0) {
+                    to_return += ", ";
+                }
+                to_return += debug_string(subpath.connection(i));
             }
             to_return += "]";
         }

@@ -389,7 +389,7 @@ namespace vg {
         
         void test_splice_candidates(const Alignment& alignment, bool searching_left,
                                     const vector<multipath_alignment_t>& multipath_alns,
-                                    const vector<size_t>& mp_aln_candidates) const;
+                                    const vector<size_t>& mp_aln_candidates);
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.

@@ -26,6 +26,23 @@ namespace haplo {
 
 namespace vg {
 
+    class connection_t {
+    public:
+        connection_t() = default;
+        connection_t(const connection_t&) = default;
+        connection_t(connection_t&&) = default;
+        ~connection_t() = default;
+        connection_t& operator=(const connection_t&) = default;
+        connection_t& operator=(connection_t&&) = default;
+        inline int32_t next() const;
+        inline void set_next(int32_t n);
+        inline int32_t score() const;
+        inline void set_score(int32_t s);
+    private:
+        uint32_t _next;
+        int32_t _score;
+    };
+
     /*
      * STL implementations of the protobuf object for use in in-memory operations
      */
@@ -50,10 +67,20 @@ namespace vg {
         inline bool has_next() const;
         inline int32_t score() const;
         inline void set_score(int32_t s);
+        inline const vector<connection_t>& connection() const;
+        inline const connection_t& connection(size_t i) const;
+        inline vector<connection_t>* mutable_connection();
+        inline connection_t* mutable_connection(size_t i);
+        inline void set_connection(size_t i, const connection_t& c);
+        inline connection_t* add_connection();
+        inline void clear_connection();
+        inline size_t connection_size() const;
+        inline bool has_connection() const;
     private:
         path_t _path;
         vector<uint32_t> _next;
         int32_t _score;
+        vector<connection_t> _connection;
     };
 
     // TODO: the metadata could be removed and only added to the protobuf at serialization time
@@ -108,6 +135,7 @@ namespace vg {
         map<string, pair<anno_type_t, void*>> _annotation;
     };
 
+    string debug_string(const connection_t& connection);
     string debug_string(const subpath_t& subpath);
     string debug_string(const multipath_alignment_t& multipath_aln);
     
@@ -327,6 +355,22 @@ namespace vg {
      */
 
     /*
+     * connection_t
+     */
+    inline int32_t connection_t::next() const {
+        return _next;
+    }
+    inline void connection_t::set_next(int32_t n) {
+        _next = n;
+    }
+    inline int32_t connection_t::score() const {
+        return _score;
+    }
+    inline void connection_t::set_score(int32_t s) {
+        _score = s;
+    }
+
+    /*
      * subpath_t
      */
     inline const path_t& subpath_t::path() const {
@@ -367,6 +411,34 @@ namespace vg {
     }
     inline void subpath_t::set_score(int32_t s) {
         _score = s;
+    }
+    inline const vector<connection_t>& subpath_t::connection() const {
+        return _connection;
+    }
+    inline const connection_t& subpath_t::connection(size_t i) const {
+        return _connection[i];
+    }
+    inline vector<connection_t>* subpath_t::mutable_connection() {
+        return &_connection;
+    }
+    inline connection_t* subpath_t::mutable_connection(size_t i) {
+        return &_connection[i];
+    }
+    inline void subpath_t::set_connection(size_t i, const connection_t& c) {
+        _connection[i] = c;
+    }
+    inline connection_t* subpath_t::add_connection() {
+        _connection.emplace_back();
+        return &_connection.back();
+    }
+    inline void subpath_t::clear_connection() {
+        _connection.clear();
+    }
+    inline size_t subpath_t::connection_size() const {
+        return _connection.size();
+    }
+    inline bool subpath_t::has_connection() const {
+        return !_connection.empty();
     }
 
     /*

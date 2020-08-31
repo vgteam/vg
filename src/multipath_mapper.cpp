@@ -2058,7 +2058,7 @@ namespace vg {
 
     void MultipathMapper::test_splice_candidates(const Alignment& alignment, bool searching_left,
                                                  const vector<multipath_alignment_t>& multipath_alns,
-                                                 const vector<size_t>& mp_aln_candidates) const {
+                                                 const vector<size_t>& mp_aln_candidates) {
         
         //TODO: get rid of this
         static const vector<string> left_motifs{"GT", "GC", "AT"};
@@ -2070,10 +2070,12 @@ namespace vg {
             pos_t anchor_splice_pos;
             int64_t anchor_search_dist;
             int64_t anchor_clip_length;
+            int64_t anchor_trimmed_score;
             pos_t candidate_search_pos;
             pos_t candidate_splice_pos;
             int64_t candidate_search_dist;
             int64_t candidate_clip_length;
+            int64_t candidate_trimmed_score;
             int64_t estimated_splice_length;
             size_t motif_idx;
         };
@@ -2133,10 +2135,12 @@ namespace vg {
                             join.anchor_splice_pos = anchor_location.first;
                             join.anchor_search_dist = anchor_location.second;
                             join.anchor_clip_length = get<1>(anchor_pos);
+                            join.anchor_trimmed_score = get<2>(anchor_pos);
                             join.candidate_search_pos = get<0>(candidate_pos);
                             join.candidate_splice_pos = candidate_location.first;
                             join.candidate_search_dist = candidate_location.second;
                             join.candidate_clip_length = get<1>(candidate_pos);
+                            join.candidate_trimmed_score = get<2>(candidate_pos);
                             join.estimated_splice_length = dist;
                             join.motif_idx = j;
                         }
@@ -2192,6 +2196,15 @@ namespace vg {
                 }
                 
                 get_aligner(!alignment.quality().empty())->align_global_banded(candidate_aln, candidate_graph, 1);
+                
+                // TODO: add in a score for the splice motif
+                int64_t net_score = (candidate_opt.score() + anchor_aln.score() + candidate_aln.score()
+                                     - join.candidate_trimmed_score - join.anchor_trimmed_score);
+                
+                // TODO: this could get messy if i change the pseudolength function
+                // TODO: should i use only the length of the candidate region?
+                double p_val = random_match_p_value(net_score, alignment.sequence().size());
+                
             }
         }
     }
