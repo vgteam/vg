@@ -29,7 +29,8 @@ namespace vg {
         BaseMapper(graph, gcsa_index, lcp_array, haplo_score_provider),
         snarl_manager(snarl_manager),
         distance_index(distance_index),
-        path_component_index(graph)
+        path_component_index(graph),
+        splice_motifs(*get_regular_aligner())
     {
         // nothing to do
     }
@@ -883,6 +884,25 @@ namespace vg {
             band_padding_memo[i] = size_t(band_padding_multiplier * sqrt(i)) + 1;
         }
     }
+
+    void MultipathMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend,
+                                               int8_t full_length_bonus) {
+        AlignerClient::set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
+        splice_motifs.update_scoring(*get_regular_aligner());
+    }
+
+    void MultipathMapper::set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend,
+                                               int8_t full_length_bonus) {
+        AlignerClient::set_alignment_scores(matrix_stream, gap_open, gap_extend, full_length_bonus);
+        splice_motifs.update_scoring(*get_regular_aligner());
+    }
+
+    void MultipathMapper::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend,
+                                               int8_t full_length_bonus) {
+        AlignerClient::set_alignment_scores(score_matrix, gap_open, gap_extend, full_length_bonus);
+        splice_motifs.update_scoring(*get_regular_aligner());
+    }
+
     
     bool MultipathMapper::likely_mismapping(const multipath_alignment_t& multipath_aln) {
         if (!suppress_mismapping_detection) {
@@ -2060,10 +2080,6 @@ namespace vg {
                                                  const vector<multipath_alignment_t>& multipath_alns,
                                                  const vector<size_t>& mp_aln_candidates) {
         
-        //TODO: get rid of this
-        static const vector<string> left_motifs{"GT", "GC", "AT"};
-        static const vector<string> right_motifs{"AG", "AG", "AC"};
-        
         // really this should be a pair of two splice objects plus the motif and distance
         struct PutativeJoin {
             pos_t anchor_search_pos;
@@ -2091,14 +2107,9 @@ namespace vg {
         auto anchor_pos = trimmed_end(opt, max_splice_overhang, !searching_left, *xindex,
                                       *get_aligner(opt.quality().empty()));
         
-        const vector<string>& anchor_motifs = searching_left ? right_motifs : left_motifs;
-        const vector<string>& candidate_motifs = !searching_left ? right_motifs : left_motifs;
-        
         SpliceRegion anchor_region(get<0>(anchor_pos), searching_left, 2 * max_splice_overhang, *xindex,
-                                   dinuc_machine, anchor_motifs);
-        
-        // records of (which motif, anchor pos, anchor clip, candidate pos, candidate clip, splice length)
-        
+                                   dinuc_machine, splice_motifs);
+                
         for (auto i : mp_aln_candidates) {
             
             vector<PutativeJoin> putative_joins;
@@ -2110,12 +2121,12 @@ namespace vg {
                                              *get_aligner(opt.quality().empty()));
             
             SpliceRegion candidate_region(get<0>(candidate_pos), !searching_left, 2 * max_splice_overhang,
-                                          *xindex, dinuc_machine, candidate_motifs);
+                                          *xindex, dinuc_machine, splice_motifs);
             
-            for (size_t j = 0; j < left_motifs.size(); ++j) {
+            for (size_t j = 0; j < splice_motifs.size(); ++j) {
                 
-                for (const auto& anchor_location : anchor_region.candidate_splice_sites(anchor_motifs[j])) {
-                    for (const auto& candidate_location : candidate_region.candidate_splice_sites(candidate_motifs[j])) {
+                for (const auto& anchor_location : anchor_region.candidate_splice_sites(j)) {
+                    for (const auto& candidate_location : candidate_region.candidate_splice_sites(j)) {
                         int64_t dist;
                         if (searching_left) {
                             dist = distance(candidate_location.first, anchor_location.first);
@@ -2197,9 +2208,9 @@ namespace vg {
                 
                 get_aligner(!alignment.quality().empty())->align_global_banded(candidate_aln, candidate_graph, 1);
                 
-                // TODO: add in a score for the splice motif
                 int64_t net_score = (candidate_opt.score() + anchor_aln.score() + candidate_aln.score()
-                                     - join.candidate_trimmed_score - join.anchor_trimmed_score);
+                                     - join.candidate_trimmed_score - join.anchor_trimmed_score
+                                     + splice_motifs.score(join.motif_idx));
                 
                 // TODO: this could get messy if i change the pseudolength function
                 // TODO: should i use only the length of the candidate region?

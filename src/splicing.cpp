@@ -10,12 +10,89 @@
 //#define debug_splice_region
 //#define debug_trimming
 
+#ifdef debug_splice_region
+#import <bitset>
+#endif
+
 namespace vg {
-   
+
+SpliceMotifs::SpliceMotifs(const GSSWAligner& scorer) {
+    
+    vector<tuple<string, string, double>> default_motifs;
+    default_motifs.emplace_back("GT", "AG", 0.9924);
+    default_motifs.emplace_back("GC", "AG", 0.0069);
+    default_motifs.emplace_back("AT", "AC", 0.0005);
+    init(default_motifs, scorer);
+}
+
+SpliceMotifs::SpliceMotifs(const vector<tuple<string, string, double>>& motifs,
+                           const GSSWAligner& scorer) {
+    init(motifs, scorer);
+}
+
+size_t SpliceMotifs::size() const {
+    return data.size();
+}
+
+
+const string& SpliceMotifs::oriented_motif(size_t motif_num, bool left_side) const {
+    return left_side ? get<1>(data[motif_num]) : get<0>(data[motif_num]);
+}
+
+int32_t SpliceMotifs::score(size_t motif_num) const {
+    return get<2>(data[motif_num]);
+}
+
+void SpliceMotifs::update_scoring(const GSSWAligner& scorer) {
+    init(unaltered_data, scorer);
+}
+
+void SpliceMotifs::init(const vector<tuple<string, string, double>>& motifs,
+                        const GSSWAligner& scorer) {
+    
+    // TODO: does this normalization to 1 make sense?
+    double total_frequency = 0.0;
+    for (const auto& record : motifs) {
+        if (get<0>(record).size() != 2 || get<1>(record).size() != 2) {
+             cerr << "error:[SpliceMotifs] Splice motif " << get<0>(record) << "-" << get<1>(record) << " is not a pair of dinucleotides." << endl;
+        }
+        if (get<2>(record) < 0.0 || get<2>(record) > 1.0) {
+            cerr << "error:[SpliceMotifs] Frequency of splice motif " << get<0>(record) << "-" << get<1>(record) << " given as " << get<2>(record) << ". Must be a number between 0 and 1." << endl;
+        }
+        total_frequency += get<2>(record);
+    }
+    // a little slop for numerical imprecision
+    if (total_frequency > 1.000001) {
+        cerr << "error:[SpliceMotifs] Frequency of splice motifs sum to " << total_frequency << ". Must be a number between 0 and 1." << endl;
+    }
+    
+    // in case we're resetting
+    data.clear();
+    unaltered_data = motifs;
+    
+#ifdef debug_splice_region
+    cerr << "recording splice table" << endl;
+#endif
+    
+    data.reserve(motifs.size());
+    for (const auto& record : motifs) {
+        data.emplace_back();
+        get<0>(data.back()) = get<0>(record);
+        // reverse the second string because it's encountered in reverse when going into
+        // an intron
+        get<1>(data.back()) = string(get<1>(record).rbegin(), get<1>(record).rend());
+        // convert frequency to a log likelihood
+        get<2>(data.back()) = int32_t(round(log(get<2>(record)) / scorer.log_base));
+#ifdef debug_splice_region
+        cerr << "\t" << get<0>(data.back()) << "\t" << get<1>(data.back()) << "\t" << get<2>(data.back()) << endl;
+#endif
+    }
+}
+
 SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t search_dist,
                            const HandleGraph& graph,
                            const DinucleotideMachine& dinuc_machine,
-                           const vector<string>& splice_motifs) {
+                           const SpliceMotifs& splice_motifs) : motif_matches(splice_motifs.size()) {
     
 #ifdef debug_splice_region
     cerr << "constructing splice region" << endl;
@@ -23,24 +100,6 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
     
     // add a buffer of 2 bases for the dinucleotide itself
     search_dist += 2;
-    
-    // ensure that all of the motifs get an entry
-    for (const auto& motif : splice_motifs) {
-        motif_matches[motif];
-    }
-    
-    // TODO: make a splice table into an independent object?
-    
-    vector<string> rev_motifs;
-    auto motifs = &splice_motifs;
-    if (search_left) {
-        // we will actually need to look for the motifs in reverse
-        rev_motifs.reserve(splice_motifs.size());
-        for (const auto& motif : splice_motifs) {
-            rev_motifs.emplace_back(motif.rbegin(), motif.rend());
-        }
-        motifs = &rev_motifs;
-    }
     
     // extract the subgraph and initialize the DP structure
     
@@ -69,25 +128,31 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
     auto record_motif_matches = [&](handle_t handle, int64_t j,
                                     const vector<uint32_t>& states) {
         for (size_t i = 0; i < splice_motifs.size(); ++i) {
-            if (dinuc_machine.matches(states[j], (*motifs)[i])) {
+            if (dinuc_machine.matches(states[j], splice_motifs.oriented_motif(i, search_left))) {
                 if ((j == 0 && !search_left) || (j + 1 == states.size() && search_left)) {
                     // we need to cross a node boundary to backtrack
                     subgraph.follow_edges(handle, !search_left, [&](const handle_t& prev) {
                         if (search_left) {
-                            if (subgraph.get_base(prev, 0) == (*motifs)[i].front()) {
+                            if (subgraph.get_base(prev, 0) == splice_motifs.oriented_motif(i, true).front()) {
                                 auto underlying = subgraph.get_underlying_handle(prev);
                                 pos_t pos(graph.get_id(underlying), graph.get_is_reverse(underlying), 1);
                                 int64_t trav_dist = subgraph.distance_from_start(prev) + subgraph.get_length(prev) - 1;
-                                motif_matches[splice_motifs[i]].emplace_back(pos, trav_dist);
+                                motif_matches[i].emplace_back(pos, trav_dist);
+#ifdef debug_splice_region
+                                cerr << "record match to motif " << i << " at " << pos << ", dist " << trav_dist << endl;
+#endif
                             }
                         }
                         else {
                             size_t k = subgraph.get_length(prev) - 1;
-                            if (subgraph.get_base(prev, k) == (*motifs)[i].front()) {
+                            if (subgraph.get_base(prev, k) == splice_motifs.oriented_motif(i, false).front()) {
                                 auto underlying = subgraph.get_underlying_handle(prev);
                                 pos_t pos(graph.get_id(underlying), graph.get_is_reverse(underlying), k);
                                 int64_t trav_dist = subgraph.distance_from_start(prev) + k;
-                                motif_matches[splice_motifs[i]].emplace_back(pos, trav_dist);
+                                motif_matches[i].emplace_back(pos, trav_dist);
+#ifdef debug_splice_region
+                                cerr << "record match to motif " << i << " at " << pos << ", dist " << trav_dist << endl;
+#endif
                             }
                         }
                     });
@@ -103,9 +168,9 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
                         trav_dist += j - 1;
                     }
 #ifdef debug_splice_region
-                    cerr << "record match to " << splice_motifs[i] << " at " << pos << ", dist " << trav_dist << endl;
+                    cerr << "record match to motif " << i << " at " << pos << ", dist " << trav_dist << endl;
 #endif
-                    motif_matches[splice_motifs[i]].emplace_back(pos, trav_dist);
+                    motif_matches[i].emplace_back(pos, trav_dist);
                 }
             }
         }
@@ -164,8 +229,8 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
     }
 }
 
-const vector<pair<pos_t, int64_t>>& SpliceRegion::candidate_splice_sites(const string& motif) const {
-    return motif_matches.at(motif);
+const vector<pair<pos_t, int64_t>>& SpliceRegion::candidate_splice_sites(size_t motif_num) const {
+    return motif_matches[motif_num];
 }
 
 tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bool from_end,
