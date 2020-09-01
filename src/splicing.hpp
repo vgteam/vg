@@ -111,13 +111,21 @@ public:
     //////////////////////////
     
     /// Translates an aligned path to the underlying graph of the two incremental subgraphs
-    void translate_node_ids(Path& path) const;
+    /// Also returns the indexes of the left and right splice points. If either is not present,
+    /// the corresponding index is set to numeric_limits<size_t>::max()
+    pair<size_t, size_t> translate_node_ids(Path& path) const;
     
     /// Get the handle corresponding to the seed node of the left subgraph
     handle_t left_seed_node() const;
     
     /// Get the handle corresponding to the seed node of the right subgraph
     handle_t right_seed_node() const;
+    
+    /// Get the handle corresponding to the left side of the splice join
+    handle_t left_splice_node() const;
+    
+    /// Get the handle corresponding to the right side of the splice join
+    handle_t right_splice_node() const;
     
     //////////////////////////
     /// HandleGraph interface
@@ -183,6 +191,10 @@ public:
     
 private:
     
+    // the index subsequence of the underlying sequence that this handle corresponds
+    // to (on the same strand as the handle)
+    pair<size_t, size_t> underlying_interval(const handle_t& handle) const;
+    
     const HandleGraph* parent_graph;
     
     const IncrementalSubgraph* left_subgraph;
@@ -205,27 +217,27 @@ private:
     size_t num_left_handles;
 };
 
-/*
- * Struct to hold the relevant information for a detected candidate splice site
- */
-struct SpliceSide {
-public:
-    SpliceSide(const pos_t& search_pos, const pos_t& splice_pos, int64_t search_dist,
-               int64_t trim_length, int64_t trimmed_score);
-    SpliceSide() = default;
-    ~SpliceSide() = default;
-    
-    // where did we start looking for the splice site
-    pos_t search_pos;
-    // where is the splice motif
-    pos_t splice_pos;
-    // how far is the splice from the search pos in the graph
-    int64_t search_dist;
-    // how far is the splice from the end of the read
-    int64_t trim_length;
-    // how much is the score of the clipped region's alignment
-    int64_t trimmed_score;
-};
+///*
+// * Struct to hold the relevant information for a detected candidate splice site
+// */
+//struct SpliceSide {
+//public:
+//    SpliceSide(const pos_t& search_pos, const pos_t& splice_pos, int64_t search_dist,
+//               int64_t trim_length, int64_t trimmed_score);
+//    SpliceSide() = default;
+//    ~SpliceSide() = default;
+//
+//    // where did we start looking for the splice site
+//    pos_t search_pos;
+//    // where is the splice motif
+//    pos_t splice_pos;
+//    // how far is the splice from the search pos in the graph
+//    int64_t search_dist;
+//    // how far is the splice from the end of the read
+//    int64_t trim_length;
+//    // how much is the score of the clipped region's alignment
+//    int64_t trimmed_score;
+//};
 
 
 

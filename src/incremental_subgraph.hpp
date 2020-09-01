@@ -140,6 +140,8 @@ public:
     
 private:
     
+    pair<size_t, size_t> underlying_interval(size_t i) const;
+    
     /// direction we're extracting from the start pos
     bool extract_left;
     

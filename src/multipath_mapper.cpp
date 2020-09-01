@@ -2168,6 +2168,7 @@ namespace vg {
             
             for (const auto& join : putative_joins) {
                 
+                // graph is constructed
                 JoinedSpliceGraph joined_graph(*xindex,
                                                searching_left ? candidate_region.get_subgraph() : anchor_region.get_subgraph(),
                                                searching_left ? join.candidate_splice_node : join.anchor_splice_node,
@@ -2186,21 +2187,8 @@ namespace vg {
                     connecting_aln.set_quality(alignment.quality().substr(connect_begin, connect_len));
                 }
                 
-                // convert positions into the joined graph ID space
-                bdsg::HashGraph aln_graph;
-                pos_t left_pos(joined_graph.get_id(joined_graph.left_seed_node()), false,
-                               offset(searching_left ? join.candidate_search_pos : join.anchor_search_pos));
-                pos_t right_pos(joined_graph.get_id(joined_graph.right_seed_node()), false,
-                                offset(searching_left ? join.anchor_search_pos : join.candidate_search_pos));
-                
-                // get an alignment-worthy graph connecting the two positions
-                size_t dist = (join.anchor_search_dist + join.candidate_search_dist +
-                               get_aligner(!alignment.quality().empty())->longest_detectable_gap(connect_len));
-                algorithms::extract_connecting_graph(&joined_graph, &aln_graph, dist, left_pos, right_pos,
-                                                     false, true, false);
-                
                 // TODO: multi alignment?
-                get_aligner(!alignment.quality().empty())->align_global_banded(connecting_aln, aln_graph, 1);
+                get_aligner(!alignment.quality().empty())->align_global_banded(connecting_aln, joined_graph, 1);
                 
                 // the total score of extending the anchor by the candidate
                 int64_t net_score = (candidate_opt.score() + connecting_aln.score()
@@ -2211,6 +2199,12 @@ namespace vg {
                 // TODO: should i use only the length of the candidate region rather than the whole read?
                 double p_val = random_match_p_value(net_score, alignment.sequence().size());
                 
+                if (p_val >= max_mapping_p_value) {
+                    // this is not a statistically significant splicing event
+                    continue;
+                }
+                
+                joined_graph.translate_node_ids(*connecting_aln.mutable_path());
             }
         }
     }
