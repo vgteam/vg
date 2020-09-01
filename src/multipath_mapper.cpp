@@ -725,7 +725,7 @@ namespace vg {
         cerr << pb2json(aln) << endl;
 #endif
         
-        if (num_alt_alns > 1 && snarl_manager != nullptr) {
+        if (num_alt_alns > 1 && (snarl_manager != nullptr || distance_index != nullptr)) {
             // make an interesting multipath alignment by realigning the single path alignment inside snarls
             make_nontrivial_multipath_alignment(aln, *align_dag, translator, rescue_multipath_aln);
             
@@ -2083,12 +2083,14 @@ namespace vg {
         // really this should be a pair of two splice objects plus the motif and distance
         struct PutativeJoin {
             pos_t anchor_search_pos;
-            pos_t anchor_splice_pos;
+            handle_t anchor_splice_node;
+            size_t anchor_splice_offset;
             int64_t anchor_search_dist;
             int64_t anchor_clip_length;
             int64_t anchor_trimmed_score;
             pos_t candidate_search_pos;
-            pos_t candidate_splice_pos;
+            handle_t candidate_splice_node;
+            size_t candidate_splice_offset;
             int64_t candidate_search_dist;
             int64_t candidate_clip_length;
             int64_t candidate_trimmed_score;
@@ -2127,29 +2129,33 @@ namespace vg {
                 
                 for (const auto& anchor_location : anchor_region.candidate_splice_sites(j)) {
                     for (const auto& candidate_location : candidate_region.candidate_splice_sites(j)) {
-                        int64_t dist;
-                        if (searching_left) {
-                            dist = distance(candidate_location.first, anchor_location.first);
-                        }
-                        else {
-                            dist = distance(anchor_location.first, candidate_location.first);
-                        }
-                        if (dist < 0 || dist == numeric_limits<int64_t>::max()) {
-                            // the sites can't reach each other
-                            continue;
-                        }
+                        
+                        // convert to ID space of the whole graph
+                        auto a_under = anchor_region.get_subgraph().get_underlying_handle(get<0>(anchor_location));
+                        auto c_under = candidate_region.get_subgraph().get_underlying_handle(get<0>(candidate_location));
+                        pos_t a_pos(xindex->get_id(a_under), xindex->get_is_reverse(a_under),
+                                    get<1>(anchor_location));
+                        pos_t c_pos(xindex->get_id(c_under), xindex->get_is_reverse(c_under),
+                                    get<1>(candidate_location));
+                        
+                        int64_t dist = searching_left ? distance(c_pos, a_pos) : distance(a_pos, c_pos);
+
                         // TODO: a likelihood model for intron length?
-                        if (dist < max_intron_length) {
+                        if (dist >= 0 && dist != numeric_limits<int64_t>::max() &&
+                            dist < max_intron_length) {
+                            // the positions can reach each other in under the max length
                             putative_joins.emplace_back();
                             auto& join = putative_joins.back();
                             join.anchor_search_pos = get<0>(anchor_pos);
-                            join.anchor_splice_pos = anchor_location.first;
-                            join.anchor_search_dist = anchor_location.second;
+                            join.anchor_splice_node = get<0>(anchor_location);
+                            join.anchor_splice_offset = get<1>(anchor_location);
+                            join.anchor_search_dist = get<2>(anchor_location);
                             join.anchor_clip_length = get<1>(anchor_pos);
                             join.anchor_trimmed_score = get<2>(anchor_pos);
                             join.candidate_search_pos = get<0>(candidate_pos);
-                            join.candidate_splice_pos = candidate_location.first;
-                            join.candidate_search_dist = candidate_location.second;
+                            join.candidate_splice_node = get<0>(candidate_location);
+                            join.candidate_splice_offset = get<1>(candidate_location);
+                            join.candidate_search_dist = get<2>(candidate_location);
                             join.candidate_clip_length = get<1>(candidate_pos);
                             join.candidate_trimmed_score = get<2>(candidate_pos);
                             join.estimated_splice_length = dist;
@@ -2159,61 +2165,50 @@ namespace vg {
                 }
             }
             
-            // TODO: reuse the SpliceRegions' subgraphs, which will guarantee acyclicity
             
             for (const auto& join : putative_joins) {
-                bdsg::HashGraph anchor_graph;
-                // +1 search dist buffer to pull in small alternate alleles
-                algorithms::extract_connecting_graph(xindex, &anchor_graph, join.anchor_search_dist + 1,
-                                                     join.anchor_search_pos, join.anchor_splice_pos, false, true, false);
-                Alignment anchor_aln;
-                if (searching_left) {
-                    anchor_aln.set_sequence(alignment.sequence().substr(0, join.anchor_clip_length));
-                    if (!alignment.quality().empty()) {
-                        anchor_aln.set_quality(alignment.quality().substr(0, join.anchor_clip_length));
-                    }
-                }
-                else {
-                    anchor_aln.set_sequence(alignment.sequence().substr(alignment.sequence().size() - join.anchor_clip_length,
-                                                                        join.anchor_clip_length));
-                    if (!alignment.quality().empty()) {
-                        anchor_aln.set_quality(alignment.quality().substr(alignment.quality().size() - join.anchor_clip_length,
-                                                                          join.anchor_clip_length));
-                    }
-                }
                 
-                get_aligner(!alignment.quality().empty())->align_global_banded(anchor_aln, anchor_graph, 1);
+                JoinedSpliceGraph joined_graph(*xindex,
+                                               searching_left ? candidate_region.get_subgraph() : anchor_region.get_subgraph(),
+                                               searching_left ? join.candidate_splice_node : join.anchor_splice_node,
+                                               searching_left ? join.candidate_splice_offset : join.anchor_splice_offset,
+                                               searching_left ? anchor_region.get_subgraph() : candidate_region.get_subgraph(),
+                                               searching_left ? join.anchor_splice_node : join.candidate_splice_node,
+                                               searching_left ? join.anchor_splice_offset : join.candidate_splice_offset);
                 
-                // TODO: repetitive
+                size_t read_len = alignment.sequence().size();
+                size_t connect_len = join.anchor_clip_length + join.candidate_clip_length - read_len;
+                size_t connect_begin = read_len - (searching_left ? join.candidate_clip_length : join.anchor_clip_length);
                 
-                bdsg::HashGraph candidate_graph;
-                //  +1 search dist buffer to pull in small alternate alleles
-                algorithms::extract_connecting_graph(xindex, &candidate_graph, join.candidate_search_dist + 1,
-                                                     join.candidate_search_pos, join.candidate_splice_pos, false, true, false);
-                Alignment candidate_aln;
-                if (searching_left) {
-                    candidate_aln.set_sequence(alignment.sequence().substr(alignment.sequence().size() - join.candidate_clip_length,
-                                                                           join.candidate_clip_length));
-                    if (!alignment.quality().empty()) {
-                        candidate_aln.set_quality(alignment.quality().substr(alignment.quality().size() - join.candidate_clip_length,
-                                                                             join.candidate_clip_length));
-                    }
-                }
-                else {
-                    candidate_aln.set_sequence(alignment.sequence().substr(0, join.candidate_clip_length));
-                    if (!alignment.quality().empty()) {
-                        candidate_aln.set_quality(alignment.quality().substr(0, join.candidate_clip_length));
-                    }
+                Alignment connecting_aln;
+                connecting_aln.set_sequence(alignment.sequence().substr(connect_begin, connect_len));
+                if (!alignment.quality().empty()) {
+                    connecting_aln.set_quality(alignment.quality().substr(connect_begin, connect_len));
                 }
                 
-                get_aligner(!alignment.quality().empty())->align_global_banded(candidate_aln, candidate_graph, 1);
+                // convert positions into the joined graph ID space
+                bdsg::HashGraph aln_graph;
+                pos_t left_pos(joined_graph.get_id(joined_graph.left_seed_node()), false,
+                               offset(searching_left ? join.candidate_search_pos : join.anchor_search_pos));
+                pos_t right_pos(joined_graph.get_id(joined_graph.right_seed_node()), false,
+                                offset(searching_left ? join.anchor_search_pos : join.candidate_search_pos));
                 
-                int64_t net_score = (candidate_opt.score() + anchor_aln.score() + candidate_aln.score()
+                // get an alignment-worthy graph connecting the two positions
+                size_t dist = (join.anchor_search_dist + join.candidate_search_dist +
+                               get_aligner(!alignment.quality().empty())->longest_detectable_gap(connect_len));
+                algorithms::extract_connecting_graph(&joined_graph, &aln_graph, dist, left_pos, right_pos,
+                                                     false, true, false);
+                
+                // TODO: multi alignment?
+                get_aligner(!alignment.quality().empty())->align_global_banded(connecting_aln, aln_graph, 1);
+                
+                // the total score of extending the anchor by the candidate
+                int64_t net_score = (candidate_opt.score() + connecting_aln.score()
                                      - join.candidate_trimmed_score - join.anchor_trimmed_score
                                      + splice_motifs.score(join.motif_idx));
                 
                 // TODO: this could get messy if i change the pseudolength function
-                // TODO: should i use only the length of the candidate region?
+                // TODO: should i use only the length of the candidate region rather than the whole read?
                 double p_val = random_match_p_value(net_score, alignment.sequence().size());
                 
             }
@@ -3656,7 +3651,7 @@ namespace vg {
                                                         max_suboptimal_path_score_ratio, topological_order);
         }
         
-        if (snarl_manager) {
+        if (snarl_manager || distance_index) {
             // We want to do snarl cutting
             
             if (!suppress_tail_anchors) {

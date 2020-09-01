@@ -92,25 +92,25 @@ void SpliceMotifs::init(const vector<tuple<string, string, double>>& motifs,
 SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t search_dist,
                            const HandleGraph& graph,
                            const DinucleotideMachine& dinuc_machine,
-                           const SpliceMotifs& splice_motifs) : motif_matches(splice_motifs.size()) {
+                           const SpliceMotifs& splice_motifs)
+    : subgraph(graph, seed_pos, search_left, search_dist + 2), motif_matches(splice_motifs.size())
+{
     
 #ifdef debug_splice_region
     cerr << "constructing splice region" << endl;
 #endif
     
+    
     // add a buffer of 2 bases for the dinucleotide itself
+    // TODO: feels inelegant to do this here and in the initializer list
     search_dist += 2;
     
-    // extract the subgraph and initialize the DP structure
-    
-#ifdef debug_splice_region
-    cerr << "init subgraph with pos " << seed_pos << endl;
-#endif
-    
-    IncrementalSubgraph subgraph(graph, seed_pos, search_left, search_dist);
-    
-    vector<pair<handle_t, vector<uint32_t>>> dinuc_states;
+    // remember the starting location
     handle_t handle = subgraph.handle_at_order(0);
+    seed = pair<handle_t, size_t>(handle, offset(seed_pos));
+    
+    // extract the subgraph and initialize the DP structure
+    vector<pair<handle_t, vector<uint32_t>>> dinuc_states;
     dinuc_states.emplace_back(handle, vector<uint32_t>(subgraph.get_length(handle),
                                                        dinuc_machine.init_state()));
     
@@ -134,32 +134,26 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
                     subgraph.follow_edges(handle, !search_left, [&](const handle_t& prev) {
                         if (search_left) {
                             if (subgraph.get_base(prev, 0) == splice_motifs.oriented_motif(i, true).front()) {
-                                auto underlying = subgraph.get_underlying_handle(prev);
-                                pos_t pos(graph.get_id(underlying), graph.get_is_reverse(underlying), 1);
                                 int64_t trav_dist = subgraph.distance_from_start(prev) + subgraph.get_length(prev) - 1;
-                                motif_matches[i].emplace_back(pos, trav_dist);
+                                motif_matches[i].emplace_back(prev, 1, trav_dist);
 #ifdef debug_splice_region
-                                cerr << "record match to motif " << i << " at " << pos << ", dist " << trav_dist << endl;
+                                cerr << "record match to motif " << i << " at " << subgraph.order_of(prev) << ", dist " << trav_dist << endl;
 #endif
                             }
                         }
                         else {
                             size_t k = subgraph.get_length(prev) - 1;
                             if (subgraph.get_base(prev, k) == splice_motifs.oriented_motif(i, false).front()) {
-                                auto underlying = subgraph.get_underlying_handle(prev);
-                                pos_t pos(graph.get_id(underlying), graph.get_is_reverse(underlying), k);
                                 int64_t trav_dist = subgraph.distance_from_start(prev) + k;
-                                motif_matches[i].emplace_back(pos, trav_dist);
+                                motif_matches[i].emplace_back(prev, k, trav_dist);
 #ifdef debug_splice_region
-                                cerr << "record match to motif " << i << " at " << pos << ", dist " << trav_dist << endl;
+                                cerr << "record match to motif " << i << " at " << subgraph.order_of(prev) << ", dist " << trav_dist << endl;
 #endif
                             }
                         }
                     });
                 }
                 else {
-                    auto underlying = subgraph.get_underlying_handle(handle);
-                    pos_t pos(graph.get_id(underlying), graph.get_is_reverse(underlying), j - 2 * incr + !search_left);
                     int64_t trav_dist = subgraph.distance_from_start(handle);
                     if (search_left) {
                         trav_dist += states.size() - j - 2;
@@ -170,7 +164,7 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
 #ifdef debug_splice_region
                     cerr << "record match to motif " << i << " at " << pos << ", dist " << trav_dist << endl;
 #endif
-                    motif_matches[i].emplace_back(pos, trav_dist);
+                    motif_matches[i].emplace_back(handle, j - 2 * incr + !search_left, trav_dist);
                 }
             }
         }
@@ -229,8 +223,261 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
     }
 }
 
-const vector<pair<pos_t, int64_t>>& SpliceRegion::candidate_splice_sites(size_t motif_num) const {
+const IncrementalSubgraph& SpliceRegion::get_subgraph() const {
+    return subgraph;
+}
+
+const pair<handle_t, size_t>& SpliceRegion::get_seed_pos() const {
+    return seed;
+}
+
+const vector<tuple<handle_t, size_t, int64_t>>& SpliceRegion::candidate_splice_sites(size_t motif_num) const {
     return motif_matches[motif_num];
+}
+
+JoinedSpliceGraph::JoinedSpliceGraph(const HandleGraph& parent_graph,
+                                     const IncrementalSubgraph& left_subgraph,
+                                     handle_t left_splice_node, size_t left_splice_offset,
+                                     const IncrementalSubgraph& right_subgraph,
+                                     handle_t right_splice_node, size_t right_splice_offset)
+    : parent_graph(&parent_graph), left_subgraph(&left_subgraph), right_subgraph(&right_subgraph),
+      left_handle_trans(left_subgraph.get_node_count(), -1), right_handle_trans(right_subgraph.get_node_count(), -1),
+      left_splice_offset(left_splice_offset), right_splice_offset(right_splice_offset)
+{
+    // TODO: use the handle translator as scratch instead of these temporary vectors?
+    vector<bool> keep_left(left_subgraph.get_node_count(), false);
+    vector<bool> keep_right(right_subgraph.get_node_count(), false);
+    
+    keep_left[left_subgraph.order_of(left_splice_node)] = true;
+    vector<handle_t> stack(1, left_splice_node);
+    while (!stack.empty()) {
+        handle_t here = stack.back();
+        stack.pop_back();
+        left_subgraph.follow_edges(here, true, [&](const handle_t& prev) {
+            if (!keep_left[left_subgraph.order_of(prev)]) {
+                keep_left[left_subgraph.order_of(prev)] = true;
+                stack.emplace_back(prev);
+            }
+        });
+    }
+    
+    stack.emplace_back(right_splice_node);
+    keep_right[right_subgraph.order_of(right_splice_node)] = true;
+    // TODO: repetitive code
+    while (!stack.empty()) {
+        handle_t here = stack.back();
+        stack.pop_back();
+        right_subgraph.follow_edges(here, false, [&](const handle_t& prev) {
+            if (!keep_right[right_subgraph.order_of(prev)]) {
+                keep_right[right_subgraph.order_of(prev)] = true;
+                stack.emplace_back(prev);
+            }
+        });
+    }
+    
+    for (int64_t i = 0; i < left_subgraph.get_node_count(); ++i) {
+        if (keep_left[i]) {
+            left_handle_trans[i] = handle_idxs.size();
+            handle_idxs.push_back(i);
+        }
+    }
+    
+    num_left_handles = handle_idxs.size();
+    
+    // in reverse order
+    for (int64_t i = right_subgraph.get_node_count() - 1; i >= 0; --i) {
+        if (keep_right[i]) {
+            right_handle_trans[i] = handle_idxs.size();
+            handle_idxs.push_back(i);
+        }
+    }
+}
+
+void JoinedSpliceGraph::translate_node_ids(Path& path) const {
+    // TODO:
+}
+
+handle_t JoinedSpliceGraph::left_seed_node() const {
+    return handlegraph::number_bool_packing::pack(0, false);
+}
+
+handle_t JoinedSpliceGraph::right_seed_node() const {
+    return handlegraph::number_bool_packing::pack(handle_idxs.size() - 1, false);
+}
+
+bool JoinedSpliceGraph::has_node(id_t node_id) const {
+    return node_id >= 0 && node_id <= handle_idxs.size();
+}
+
+handle_t JoinedSpliceGraph::get_handle(const id_t& node_id, bool is_reverse) const {
+    return handlegraph::number_bool_packing::pack(node_id - 1, false);
+}
+
+id_t JoinedSpliceGraph::get_id(const handle_t& handle) const {
+    return handlegraph::number_bool_packing::unpack_number(handle) + 1;
+}
+
+bool JoinedSpliceGraph::get_is_reverse(const handle_t& handle) const {
+    return handlegraph::number_bool_packing::unpack_bit(handle);
+}
+
+handle_t JoinedSpliceGraph::flip(const handle_t& handle) const {
+    return handlegraph::number_bool_packing::toggle_bit(handle);
+}
+
+size_t JoinedSpliceGraph::get_length(const handle_t& handle) const {
+    size_t i = handlegraph::number_bool_packing::unpack_number(handle);
+    if (i + 1 < num_left_handles) {
+        return left_subgraph->get_length(left_subgraph->handle_at_order(handle_idxs[i]));
+    }
+    else if (i + 1 == num_left_handles) {
+        return left_splice_offset;
+    }
+    else if (i == num_left_handles) {
+        return right_subgraph->get_length(right_subgraph->handle_at_order(handle_idxs[i])) - right_splice_offset;
+    }
+    else {
+        return right_subgraph->get_length(right_subgraph->handle_at_order(handle_idxs[i]));
+    }
+}
+
+string JoinedSpliceGraph::get_sequence(const handle_t& handle) const {
+    size_t i = handlegraph::number_bool_packing::unpack_number(handle);
+    if (i + 1 < num_left_handles) {
+        return left_subgraph->get_sequence(left_subgraph->handle_at_order(handle_idxs[i]));
+    }
+    else if (i + 1 == num_left_handles) {
+        return left_subgraph->get_subsequence(left_subgraph->handle_at_order(handle_idxs[i]),
+                                             0, left_splice_offset);
+    }
+    else if (i == num_left_handles) {
+        handle_t underlying = right_subgraph->handle_at_order(handle_idxs[i]);
+        return right_subgraph->get_subsequence(underlying, right_splice_offset,
+                                               right_subgraph->get_length(underlying) - right_splice_offset);
+    }
+    else {
+        return right_subgraph->get_sequence(right_subgraph->handle_at_order(handle_idxs[i]));
+    }
+}
+
+bool JoinedSpliceGraph::follow_edges_impl(const handle_t& handle, bool go_left,
+                                          const function<bool(const handle_t&)>& iteratee) const {
+    
+    bool using_left_edges = go_left != get_is_reverse(handle);
+    size_t i = handlegraph::number_bool_packing::unpack_number(handle);
+        
+    auto traverse_within_subgraph = [&](const IncrementalSubgraph& subgraph,
+                                        const vector<int64_t>& handle_trans) {
+        // traverse within the subgraph
+        handle_t under = subgraph.handle_at_order(handle_idxs[i]);
+        if (get_is_reverse(handle)) {
+            under = subgraph.flip(under);
+        }
+        return subgraph.follow_edges(under, go_left, [&](const handle_t& next) {
+            // filter to only the handles that are included in the joined graph
+            int64_t translated = handle_trans[subgraph.order_of(next)];
+            if (translated != -1) {
+                return iteratee(handlegraph::number_bool_packing::pack(translated,
+                                                                       get_is_reverse(next)));
+            }
+            else {
+                return true;
+            }
+        });
+    };
+    
+    if (i + 1 < num_left_handles || (i + 1 == num_left_handles && using_left_edges)) {
+        // internal to the left subgraph
+        return traverse_within_subgraph(*left_subgraph, left_handle_trans);
+    }
+    else if (i > num_left_handles || (i == num_left_handles && !using_left_edges)) {
+        // internal to the right subgraph
+        return traverse_within_subgraph(*right_subgraph, right_handle_trans);
+    }
+    else if (i + 1 == num_left_handles) {
+        // leftward across the splice join
+        return iteratee(handlegraph::number_bool_packing::pack(num_left_handles - 1,
+                                                               get_is_reverse(handle)));
+    }
+    else {
+        // rightward across the splice join
+        return iteratee(handlegraph::number_bool_packing::pack(num_left_handles,
+                                                               get_is_reverse(handle)));
+    }
+}
+
+bool JoinedSpliceGraph::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee,
+                                             bool parallel) const {
+    bool keep_going = true;
+    for (size_t i = 0; i < handle_idxs.size() && keep_going; ++i) {
+        keep_going = iteratee(handlegraph::number_bool_packing::pack(i, false));
+    }
+    // not doing parallel, never expect to use it
+    return keep_going;
+}
+
+size_t JoinedSpliceGraph::get_node_count() const {
+    return handle_idxs.size();
+}
+
+id_t JoinedSpliceGraph::min_node_id() const {
+    return 1;
+}
+
+id_t JoinedSpliceGraph::max_node_id() const {
+    return handle_idxs.size();
+}
+
+char JoinedSpliceGraph::get_base(const handle_t& handle, size_t index) const {
+    // TODO: repetitive
+    size_t i = handlegraph::number_bool_packing::unpack_number(handle);
+    if (i < num_left_handles) {
+        auto under = left_subgraph->handle_at_order(handle_idxs[i]);
+        if (get_is_reverse(handle)) {
+            under = left_subgraph->flip(under);
+        }
+        if (i + 1 == num_left_handles && get_is_reverse(handle)) {
+            index += left_subgraph->get_length(under) - left_splice_offset;
+        }
+        return left_subgraph->get_base(under, index);
+    }
+    else {
+        auto under = right_subgraph->handle_at_order(handle_idxs[i]);
+        if (get_is_reverse(handle)) {
+            under = right_subgraph->flip(under);
+        }
+        if (i == num_left_handles && !get_is_reverse(handle)) {
+            index += right_splice_offset;
+        }
+        return right_subgraph->get_base(under, index);
+    }
+}
+
+string JoinedSpliceGraph::get_subsequence(const handle_t& handle, size_t index, size_t size) const {
+    // TODO: repetitive
+    size_t i = handlegraph::number_bool_packing::unpack_number(handle);
+    if (i < num_left_handles) {
+        auto under = left_subgraph->handle_at_order(handle_idxs[i]);
+        if (get_is_reverse(handle)) {
+            under = left_subgraph->flip(under);
+        }
+        if (i + 1 == num_left_handles && get_is_reverse(handle)) {
+            index += left_subgraph->get_length(under) - left_splice_offset;
+        }
+        size = min(size, left_subgraph->get_length(under) - index);
+        return left_subgraph->get_subsequence(under, index, size);
+    }
+    else {
+        auto under = right_subgraph->handle_at_order(handle_idxs[i]);
+        if (get_is_reverse(handle)) {
+            under = right_subgraph->flip(under);
+        }
+        if (i == num_left_handles && !get_is_reverse(handle)) {
+            index += right_splice_offset;
+        }
+        size = min(size, right_subgraph->get_length(under) - index);
+        return right_subgraph->get_subsequence(under, index, size);
+    }
 }
 
 tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bool from_end,

@@ -82,17 +82,11 @@ uint32_t DinucleotideMachine::init_state() const {
 }
 
 uint32_t DinucleotideMachine::update_state(uint32_t state, char next) const {
-#ifdef debug_machine
-    cerr << "transitioning with nt " << next << endl;
-#endif
     // merge the dinucleotide set according to it's final base from positions [15,0]
     uint32_t transition_row = state | (state >> 4);
     transition_row |= (transition_row >> 8);
     // merge in the XN and NA...NT states from positions [20,16]
     transition_row = (transition_row & 0xf) | (state >> 16);
-#ifdef debug_machine
-    cerr << "state " <<  bitset<32>(state) << " yields transition row " << bitset<8>(transition_row) << endl;
-#endif
     // do the transitions
     return transition_table[(transition_row << 2) | nt_table[next]];
 }

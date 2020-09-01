@@ -27,7 +27,6 @@ TEST_CASE("SpliceRegion can detect a splice site on a trivial example",
 
     DinucleotideMachine machine;
 
-
     pos_t pos(graph.get_id(h), false, 3);
     bool search_left = false;
     int64_t search_dist = 2;
@@ -50,10 +49,12 @@ TEST_CASE("SpliceRegion can detect a splice site on a trivial example",
     REQUIRE(m1.size() == 1);
     REQUIRE(m2.size() == 0);
 
-    REQUIRE(m0.front().first == pos_t(graph.get_id(h), false, 4));
-    REQUIRE(m0.front().second == 1);
-    REQUIRE(m1.front().first == pos_t(graph.get_id(h), false, 5));
-    REQUIRE(m1.front().second == 2);
+    REQUIRE(splice_region.get_subgraph().get_underlying_handle(get<0>(m0.front())) == h);
+    REQUIRE(get<1>(m0.front()) == 4);
+    REQUIRE(get<2>(m0.front()) == 1);
+    REQUIRE(splice_region.get_subgraph().get_underlying_handle(get<0>(m1.front())) == h);
+    REQUIRE(get<1>(m1.front()) == 5);
+    REQUIRE(get<2>(m1.front()) == 2);
 
 }
 
@@ -88,10 +89,12 @@ TEST_CASE("SpliceRegion can detect a splice site leftward",
     REQUIRE(m1.size() == 0);
     REQUIRE(m2.size() == 1);
 
-    REQUIRE(m0.front().first == pos_t(graph.get_id(h), false, 6));
-    REQUIRE(m0.front().second == 0);
-    REQUIRE(m2.front().first == pos_t(graph.get_id(h), false, 3));
-    REQUIRE(m2.front().second == 3);
+    REQUIRE(splice_region.get_subgraph().get_underlying_handle(get<0>(m0.front())) == h);
+    REQUIRE(get<1>(m0.front()) == 6);
+    REQUIRE(get<2>(m0.front()) == 0);
+    REQUIRE(splice_region.get_subgraph().get_underlying_handle(get<0>(m2.front())) == h);
+    REQUIRE(get<1>(m2.front()) == 3);
+    REQUIRE(get<2>(m2.front()) == 3);
 
 }
 
@@ -138,16 +141,25 @@ TEST_CASE("SpliceRegion can detect a splice sites across node boundaries",
     REQUIRE(m2.size() == 1);
     REQUIRE(m3.size() == 1);
 
-    REQUIRE(m0.front().first == pos_t(graph.get_id(h0), false, 2));
-    REQUIRE(m0.front().second == 2);
-    REQUIRE(m1.front().first == pos_t(graph.get_id(h0), false, 2));
-    REQUIRE(m1.front().second == 2);
-    REQUIRE(m1.back().first == pos_t(graph.get_id(h1), false, 0));
-    REQUIRE(m1.back().second == 3);
-    REQUIRE(m2.front().first == pos_t(graph.get_id(h3), false, 0));
-    REQUIRE(m2.front().second == 4);
-    REQUIRE(m3.front().first == pos_t(graph.get_id(h2), false, 0));
-    REQUIRE(m3.front().second == 3);
+    REQUIRE(splice_region.get_subgraph().get_underlying_handle(get<0>(m0.front())) == h0);
+    REQUIRE(get<1>(m0.front()) == 2);
+    REQUIRE(get<2>(m0.front()) == 2);
+    
+    REQUIRE(splice_region.get_subgraph().get_underlying_handle(get<0>(m1.front())) == h0);
+    REQUIRE(get<1>(m1.front()) == 2);
+    REQUIRE(get<2>(m1.front()) == 2);
+    
+    REQUIRE(splice_region.get_subgraph().get_underlying_handle(get<0>(m1.back())) == h1);
+    REQUIRE(get<1>(m1.back()) == 0);
+    REQUIRE(get<2>(m1.back()) == 3);
+    
+    REQUIRE(splice_region.get_subgraph().get_underlying_handle(get<0>(m2.front())) == h3);
+    REQUIRE(get<1>(m2.front()) == 0);
+    REQUIRE(get<2>(m2.front()) == 4);
+    
+    REQUIRE(splice_region.get_subgraph().get_underlying_handle(get<0>(m3.front())) == h2);
+    REQUIRE(get<1>(m3.front()) == 0);
+    REQUIRE(get<2>(m3.front()) == 3);
 
 }
 
@@ -190,10 +202,13 @@ TEST_CASE("SpliceRegion can detect a splice sites across node boundaries going l
     REQUIRE(m0.size() == 1);
     REQUIRE(m1.size() == 1);
 
-    REQUIRE(m0.front().first == pos_t(graph.get_id(h2), false, 1));
-    REQUIRE(m0.front().second == 2);
-    REQUIRE(m1.front().first == pos_t(graph.get_id(h1), false, 1));
-    REQUIRE(m1.front().second == 2);
+    REQUIRE(splice_region.get_subgraph().get_underlying_handle(get<0>(m0.front())) == h2);
+    REQUIRE(get<1>(m0.front()) == 1);
+    REQUIRE(get<2>(m0.front()) == 2);
+    
+    REQUIRE(splice_region.get_subgraph().get_underlying_handle(get<0>(m1.front())) == h1);
+    REQUIRE(get<1>(m1.front()) == 1);
+    REQUIRE(get<2>(m1.front()) == 2);
 
 }
 

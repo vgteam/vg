@@ -235,6 +235,9 @@ namespace vg {
         /// The longest gap detectable from any read position without soft-clipping
         size_t longest_detectable_gap(const Alignment& alignment) const;
         
+        /// The longest gap detectable from any read position without soft-clipping, for a generic read.
+        size_t longest_detectable_gap(size_t read_length) const;
+        
         /// Use the score values in the aligner to score the given alignment,
         /// scoring gaps caused by jumping between between nodes using a custom
         /// gap length estimation function (which takes the from position, the

@@ -780,6 +780,10 @@ size_t GSSWAligner::longest_detectable_gap(const Alignment& alignment) const {
     return longest_detectable_gap(alignment.sequence().size(), alignment.sequence().size() / 2);
 }
 
+size_t GSSWAligner::longest_detectable_gap(size_t read_length) const {
+    return longest_detectable_gap(read_length, read_length / 2);
+}
+
 int32_t GSSWAligner::score_discontiguous_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
     bool strip_bonuses) const {
     
