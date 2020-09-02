@@ -1848,6 +1848,11 @@ namespace vg {
             proper_paired = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
                                                                 multipath_aln_pairs_out, cluster_pairs, rescue_multiplicities,
                                                                 fanouts1.get(), fanouts2.get());
+            
+            if (proper_paired) {
+                // we'll want to remember the multiplicities
+                pair_multiplicities = move(rescue_multiplicities);
+            }
         }
         
         if (multipath_aln_pairs_out.empty()) {
