@@ -337,6 +337,13 @@ namespace vg {
     void append_multipath_alignment(multipath_alignment_t& multipath_aln,
                                     const multipath_alignment_t& to_append);
 
+    /// Returns all of the positions where a given sequence index occurs at a given graph
+    /// graph position (if any), where positions are represented as tuples of
+    /// (subpath index, mapping index, edit index, index within edit)
+    vector<tuple<int64_t, int64_t, int64_t, int64_t>>
+    search_multipath_alignment(const multipath_alignment_t& multipath_aln,
+                               const pos_t& graph_pos, int64_t seq_pos);
+
     /// Debugging function to check that multipath alignment meets the formalism's basic
     /// invariants. Returns true if multipath alignment is valid, else false. Does not
     /// validate alignment score.

@@ -2181,6 +2181,106 @@ namespace vg {
             identify_start_subpaths(multipath_aln);
         }
     }
+
+    vector<tuple<int64_t, int64_t, int64_t, int64_t>>
+    search_multipath_alignment(const multipath_alignment_t& multipath_aln,
+                               const pos_t& graph_pos, int64_t seq_pos) {
+        
+        vector<tuple<int64_t, int64_t, int64_t, int64_t>> return_val;
+        
+        vector<int64_t> subpath_seq_pos(multipath_aln.subpath_size(), 0);
+        
+        for (int64_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+            const subpath_t& subpath = multipath_aln.subpath(i);
+            const path_t& path = subpath.path();
+            int64_t to_length_here = subpath_seq_pos[i];
+            int64_t to_length_thru = to_length_here + path_to_length(subpath.path());
+            
+            // tell the next subpaths where they start
+            for (auto j : subpath.next()) {
+                subpath_seq_pos[j] = to_length_thru;
+            }
+            
+            if (to_length_here <= seq_pos && to_length_thru >= seq_pos) {
+                // this is where we might expect to find the sequence position
+                
+                for (int64_t j = 0; j < path.mapping_size(); ++j) {
+                    
+                    const auto& mapping = path.mapping(j);
+                    const auto& pos = mapping.position();
+                    
+                    if (pos.node_id() == id(graph_pos) && pos.is_reverse() == is_rev(graph_pos)) {
+                        int64_t offset_here = pos.offset();
+                        
+                        // this mapping is on the right node to be a match
+                        
+                        for (int64_t k = 0; k < mapping.edit_size(); ++k) {
+                            
+                            const auto& edit = mapping.edit(k);
+                            int64_t to_length_thru_edit = to_length_here + edit.to_length();
+                            int64_t offset_thru_edit = offset_here + edit.from_length();
+                            
+                            // does this edit contain both the sequence and graph positions (allowing
+                            // for a past-the-last position on the final edit)?
+                            if (to_length_here <= seq_pos &&
+                                (to_length_thru_edit > seq_pos || (to_length_thru_edit == seq_pos
+                                                                   && k + 1 == mapping.edit_size())) &&
+                                offset_here <= offset(graph_pos) &&
+                                (offset_thru_edit > offset(graph_pos) || (offset_thru_edit == offset(graph_pos)
+                                                                          && k + 1 == mapping.edit_size()))) {
+                                
+                                // are the offsets within the edit consistent with each other?
+                                int64_t graph_l = offset(graph_pos) - offset_here;
+                                int64_t seq_l = seq_pos - to_length_here;
+                                bool consistent = (graph_l == seq_l ||
+                                                   (graph_l == 0 && edit.from_length() == 0) ||
+                                                   (seq_l == 0 && edit.to_length() == 0));
+                                
+                                // handle some special cases of the past-the-last position to make canonical results
+                                // TODO: ugly
+                                bool must_place_here = true;
+                                if (consistent && k + 1 == mapping.edit_size() && to_length_thru_edit == seq_pos
+                                    && offset_thru_edit == offset(graph_pos)) {
+                                    // we're looking at locating this position at the past-the-last position on
+                                    // a mapping, but it might also exist at the first position of the next mapping.
+                                    // if so, we will canonicalize it to go there instead.
+                                    if (j + 1 < path.mapping_size()) {
+                                        // the next mapping is still on this subpath
+                                        const auto& next_pos = path.mapping(j + 1).position();
+                                        must_place_here &= (next_pos.node_id() != pos.node_id()
+                                                            || next_pos.is_reverse() != pos.is_reverse()
+                                                            || next_pos.offset() != offset_thru_edit);
+                                    }
+                                    else {
+                                        // we have to check the next subpaths
+                                        for (auto n : subpath.next()) {
+                                            const auto& next_pos = multipath_aln.subpath(n).path().mapping(0).position();
+                                            must_place_here &= (next_pos.node_id() != pos.node_id()
+                                                                || next_pos.is_reverse() != pos.is_reverse()
+                                                                || next_pos.offset() != offset_thru_edit);
+                                        }
+                                    }
+                                }
+                                
+                                if (consistent && must_place_here) {
+                                    // winner winner chicken dinner, record the match
+                                    int64_t l = max(seq_l, graph_l);
+                                    return_val.emplace_back(i, j, k, l);
+                                }
+                                
+                            }
+                            offset_here = offset_thru_edit;
+                            to_length_here = to_length_thru_edit;
+                        }
+                    }
+                    else {
+                        to_length_here += mapping_to_length(mapping);
+                    }
+                }
+            }
+        }
+        return return_val;
+    }
     
     bool validate_multipath_alignment(const multipath_alignment_t& multipath_aln, const HandleGraph& handle_graph) {
         
