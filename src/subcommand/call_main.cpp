@@ -39,6 +39,7 @@ void help_call(char** argv) {
        << "    -M, --trav-padding N    Extend each flank of traversals (from -T) with reference path by N bases if possible" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
+       << "    -a, --genotype-snarls   Genotype every snarl, including reference calls (use to compare multiple samples)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
        << "    -i, --ins-fasta FILE    Insertions fasta (required if VCF contains symbolic insertions)" << endl
        << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
@@ -72,6 +73,7 @@ int main_call(int argc, char** argv) {
     bool traversals_only = false;
     bool gaf_output = false;
     size_t trav_padding = 0;
+    bool genotype_snarls = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -95,6 +97,7 @@ int main_call(int argc, char** argv) {
             {"het-bias", required_argument, 0, 'b'},
             {"min-support", required_argument, 0, 'm'},
             {"vcf", required_argument, 0, 'v'},
+            {"genotype-snarls", no_argument, 0, 'a'},
             {"ref-fasta", required_argument, 0, 'f'},
             {"ins-fasta", required_argument, 0, 'i'},
             {"sample", required_argument, 0, 's'},            
@@ -115,7 +118,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:f:i:s:r:g:p:o:l:d:GTLM:t:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:af:i:s:r:g:p:o:l:d:GTLM:t:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -141,6 +144,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'v':
             vcf_filename = optarg;
+            break;
+        case 'a':
+            genotype_snarls = true;
             break;
         case 'f':
             ref_fasta_filename = optarg;
@@ -253,6 +259,11 @@ int main_call(int argc, char** argv) {
 
     if (trav_padding > 0 && traversals_only == false) {
         cerr << "error [vg call]: -M option can only be used in conjunction with -T" << endl;
+        return 1;
+    }
+
+    if (!vcf_filename.empty() && genotype_snarls) {
+        cerr << "error [vg call]: -v and -a options cannot be used together" << endl;
         return 1;
     }
     
@@ -491,7 +502,8 @@ int main_call(int argc, char** argv) {
                                                  alignment_emitter.get(),
                                                  traversals_only,
                                                  gaf_output,
-                                                 trav_padding);
+                                                 trav_padding,
+                                                 genotype_snarls);
         graph_caller = unique_ptr<GraphCaller>(flow_caller);
     }
 
