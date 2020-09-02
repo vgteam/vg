@@ -2389,12 +2389,6 @@ namespace vg {
         
     }
 
-//    void MultipathMapper::align_up_to_splice_site() const {
-//
-//    }
-
-
-
     void MultipathMapper::agglomerate(size_t idx, multipath_alignment_t& agglomerating, const multipath_alignment_t& multipath_aln,
                                       vector<size_t>& agglomerated_group, unordered_set<pos_t>& agg_start_positions,
                                       unordered_set<pos_t>& agg_end_positions) const {
