@@ -702,4 +702,16 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
     return return_val;
 }
 
+//multipath_alignment_t fuse_spliced_alignments(multipath_alignment_t&& left_mp_aln, multipath_alignment_t&& right_mp_aln,
+//                                              string::const_iterator left_bridge_point, const Path& splice_segment,
+//                                              int64_t splice_junction_idx) {
+//    
+//    pos_t pos_left = initial_position(splice_segment);
+//    pos_t pos_right = final_position(splice_segment);
+//
+//    
+//    vector<tuple<int64_t, int64_t, int64_t, int64_t>> left_locations
+//}
+
+
 }

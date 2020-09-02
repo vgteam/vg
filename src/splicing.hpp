@@ -240,9 +240,6 @@ private:
 //};
 
 
-
-
-
 // return the position of the base when trimming a given length from either the start
 // or the end of the alignment. softclips do not contributed to the total, and extra
 // will be trimmed to avoid splitting an insertion. also returns the total amount of
@@ -250,6 +247,10 @@ private:
 // be removed.
 tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bool from_end,
                                            const HandleGraph& graph, const GSSWAligner& aligner);
+
+//void fuse_spliced_alignments(multipath_alignment_t& fuse_into, multipath_alignment_t&& fuse_from,
+//                             string::const_iterator connecting_point, bool fuse_left, const Path& splice_segment,
+//                             int64_t splice_junction_idx);
 
 //void add_splice_connection(multipath_alignment_t& anchor_aln, const multipath_alignment_t& splice_aln,
 //                           const pos_t& anchor_pos, )
