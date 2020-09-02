@@ -2039,6 +2039,243 @@ namespace vg {
             REQUIRE(found2);
         }
     }
+
+    TEST_CASE("search_multipath_alignment finds positions in a multipath alignment", "[multipath][search]") {
+        
+        bdsg::HashGraph graph;
+        
+        handle_t h1 = graph.create_handle("TAGA");
+        handle_t h2 = graph.create_handle("ATCAA");
+        handle_t h3 = graph.create_handle("GG");
+        
+        graph.create_edge(h1, h2);
+        graph.create_edge(h2, h3);
+        
+        multipath_alignment_t mp_aln;
+        mp_aln.set_sequence("GAATTAATT");
+        
+        mp_aln.add_subpath();
+        mp_aln.add_subpath();
+        mp_aln.add_subpath();
+        mp_aln.add_subpath();
+        
+        subpath_t* s0 = mp_aln.mutable_subpath(0);
+        subpath_t* s1 = mp_aln.mutable_subpath(1);
+        subpath_t* s2 = mp_aln.mutable_subpath(2);
+        subpath_t* s3 = mp_aln.mutable_subpath(3);
+        
+        path_mapping_t* m0 = s0->mutable_path()->add_mapping();
+        m0->mutable_position()->set_node_id(graph.get_id(h1));
+        m0->mutable_position()->set_is_reverse(false);
+        m0->mutable_position()->set_offset(2);
+        edit_t* e0 = m0->add_edit();
+        e0->set_from_length(2);
+        e0->set_to_length(2);
+        
+        s0->add_next(1);
+        
+        path_mapping_t* m1 = s1->mutable_path()->add_mapping();
+        m1->mutable_position()->set_node_id(graph.get_id(h2));
+        m1->mutable_position()->set_is_reverse(false);
+        m1->mutable_position()->set_offset(0);
+        edit_t* e1 = m1->add_edit();
+        e1->set_from_length(1);
+        e1->set_to_length(1);
+        
+        path_mapping_t* m2 = s1->mutable_path()->add_mapping();
+        m2->mutable_position()->set_node_id(graph.get_id(h2));
+        m2->mutable_position()->set_is_reverse(false);
+        m2->mutable_position()->set_offset(1);
+        edit_t* e2 = m2->add_edit();
+        e2->set_from_length(1);
+        e2->set_to_length(1);
+        
+        edit_t* e3 = m2->add_edit();
+        e3->set_from_length(0);
+        e3->set_to_length(2);
+        e3->set_sequence("TA");
+        
+        edit_t* e4 = m2->add_edit();
+        e4->set_from_length(2);
+        e4->set_to_length(0);
+        
+        s1->add_next(2);
+        
+        path_mapping_t* m3 = s2->mutable_path()->add_mapping();
+        m3->mutable_position()->set_node_id(graph.get_id(h2));
+        m3->mutable_position()->set_is_reverse(false);
+        m3->mutable_position()->set_offset(4);
+        edit_t* e5 = m3->add_edit();
+        e5->set_from_length(1);
+        e5->set_to_length(1);
+        
+        s2->add_next(3);
+        
+        path_mapping_t* m4 = s3->mutable_path()->add_mapping();
+        m4->mutable_position()->set_node_id(graph.get_id(h3));
+        m4->mutable_position()->set_is_reverse(false);
+        m4->mutable_position()->set_offset(0);
+        edit_t* e6 = m4->add_edit();
+        e6->set_from_length(2);
+        e6->set_to_length(2);
+        e6->set_sequence("TT");
+        
+        //   s0  s1      s2 s3
+        //   m0  m1m2    m3 m4
+        //   GA  A|TTA--|A  TT
+        // TAGA  A|T--CA|A  GG
+        // h1    h2         h3
+        
+        SECTION("Simple test case") {
+
+            pos_t pos(graph.get_id(h1), false, 2);
+            int64_t seq_idx = 0;
+
+            auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
+
+            REQUIRE(search.size() == 1);
+            REQUIRE(get<0>(search.front()) == 0);
+            REQUIRE(get<1>(search.front()) == 0);
+            REQUIRE(get<2>(search.front()) == 0);
+            REQUIRE(get<3>(search.front()) == 0);
+        }
+
+        SECTION("Test case with offset within edit") {
+
+            pos_t pos(graph.get_id(h1), false, 3);
+            int64_t seq_idx = 1;
+
+            auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
+
+            REQUIRE(search.size() == 1);
+            REQUIRE(get<0>(search.front()) == 0);
+            REQUIRE(get<1>(search.front()) == 0);
+            REQUIRE(get<2>(search.front()) == 0);
+            REQUIRE(get<3>(search.front()) == 1);
+        }
+
+
+        SECTION("Test case with a past-the-last position") {
+
+            pos_t pos(graph.get_id(h1), false, 4);
+            int64_t seq_idx = 2;
+
+            auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
+
+            REQUIRE(search.size() == 1);
+            REQUIRE(get<0>(search.front()) == 0);
+            REQUIRE(get<1>(search.front()) == 0);
+            REQUIRE(get<2>(search.front()) == 0);
+            REQUIRE(get<3>(search.front()) == 2);
+        }
+
+        SECTION("Test with an insertion") {
+
+            pos_t pos(graph.get_id(h2), false, 2);
+            int64_t seq_idx = 5;
+
+            auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
+
+            REQUIRE(search.size() == 1);
+            REQUIRE(get<0>(search.front()) == 1);
+            REQUIRE(get<1>(search.front()) == 1);
+            REQUIRE(get<2>(search.front()) == 1);
+            REQUIRE(get<3>(search.front()) == 1);
+        }
+
+        SECTION("Test past-the-last of an insertion") {
+
+            pos_t pos(graph.get_id(h2), false, 2);
+            int64_t seq_idx = 6;
+
+            auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
+
+
+
+            REQUIRE(search.size() == 1);
+            REQUIRE(get<0>(search.front()) == 1);
+            REQUIRE(get<1>(search.front()) == 1);
+            REQUIRE(get<2>(search.front()) == 2);
+            REQUIRE(get<3>(search.front()) == 0);
+        }
+
+        SECTION("Test a deletion") {
+
+            pos_t pos(graph.get_id(h2), false, 3);
+            int64_t seq_idx = 6;
+
+            auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
+
+
+
+            REQUIRE(search.size() == 1);
+            REQUIRE(get<0>(search.front()) == 1);
+            REQUIRE(get<1>(search.front()) == 1);
+            REQUIRE(get<2>(search.front()) == 2);
+            REQUIRE(get<3>(search.front()) == 1);
+        }
+
+        SECTION("Test a past-the-last position between mappings of the same subpath") {
+
+            pos_t pos(graph.get_id(h2), false, 1);
+            int64_t seq_idx = 3;
+
+            auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
+
+            REQUIRE(search.size() == 1);
+            REQUIRE(get<0>(search.front()) == 1);
+            REQUIRE(get<1>(search.front()) == 1);
+            REQUIRE(get<2>(search.front()) == 0);
+            REQUIRE(get<3>(search.front()) == 0);
+        }
+
+        SECTION("Test a past-the-last position between mappings of different subpaths") {
+
+            pos_t pos(graph.get_id(h2), false, 4);
+            int64_t seq_idx = 6;
+
+            auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
+
+            REQUIRE(search.size() == 1);
+            REQUIRE(get<0>(search.front()) == 2);
+            REQUIRE(get<1>(search.front()) == 0);
+            REQUIRE(get<2>(search.front()) == 0);
+            REQUIRE(get<3>(search.front()) == 0);
+        }
+        
+        subpath_t* s4 = mp_aln.add_subpath();
+        mp_aln.mutable_subpath(2)->add_next(4);
+        
+        path_mapping_t* m5 = s4->mutable_path()->add_mapping();
+        m5->mutable_position()->set_node_id(graph.get_id(h3));
+        m5->mutable_position()->set_is_reverse(false);
+        m5->mutable_position()->set_offset(0);
+        edit_t* e7 = m5->add_edit();
+        e7->set_from_length(2);
+        e7->set_to_length(2);
+        e7->set_sequence("TT");
+                
+        SECTION("Test a search with multiple hits") {
+            
+            pos_t pos(graph.get_id(h3), false, 1);
+            int64_t seq_idx = 8;
+            
+            auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
+            
+            REQUIRE(search.size() == 2);
+            
+            bool found1 = get<0>(search.front()) == 3 || get<0>(search.back()) == 3;
+            bool found2 = get<0>(search.front()) == 4 || get<0>(search.back()) == 4;
+            REQUIRE(found1);
+            REQUIRE(found2);
+            REQUIRE(get<1>(search.front()) == 0);
+            REQUIRE(get<2>(search.front()) == 0);
+            REQUIRE(get<3>(search.front()) == 1);
+            REQUIRE(get<1>(search.back()) == 0);
+            REQUIRE(get<2>(search.back()) == 0);
+            REQUIRE(get<3>(search.back()) == 1);
+        }
+    }
 }
 
 

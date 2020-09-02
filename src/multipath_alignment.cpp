@@ -10,6 +10,7 @@
 #include <type_traits>
 
 //#define debug_multiple_tracebacks
+//#define debug_search
 //#define debug_verbose_validation
 
 using namespace std;
@@ -2191,6 +2192,9 @@ namespace vg {
         vector<int64_t> subpath_seq_pos(multipath_aln.subpath_size(), 0);
         
         for (int64_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+#ifdef debug_search
+            cerr << "subpath " << i << endl;
+#endif
             const subpath_t& subpath = multipath_aln.subpath(i);
             const path_t& path = subpath.path();
             int64_t to_length_here = subpath_seq_pos[i];
@@ -2204,13 +2208,25 @@ namespace vg {
             if (to_length_here <= seq_pos && to_length_thru >= seq_pos) {
                 // this is where we might expect to find the sequence position
                 
+#ifdef debug_search
+                cerr << "interval " << to_length_here << " " << to_length_thru << " covers seq pos " << seq_pos << endl;
+#endif
+                
                 for (int64_t j = 0; j < path.mapping_size(); ++j) {
+                    
+#ifdef debug_search
+                    cerr << "mapping " << j << endl;
+#endif
                     
                     const auto& mapping = path.mapping(j);
                     const auto& pos = mapping.position();
                     
                     if (pos.node_id() == id(graph_pos) && pos.is_reverse() == is_rev(graph_pos)) {
                         int64_t offset_here = pos.offset();
+                        
+#ifdef debug_search
+                        cerr << "position " << debug_string(pos) << " consistent with graph pos " << graph_pos << endl;
+#endif
                         
                         // this mapping is on the right node to be a match
                         
@@ -2220,14 +2236,20 @@ namespace vg {
                             int64_t to_length_thru_edit = to_length_here + edit.to_length();
                             int64_t offset_thru_edit = offset_here + edit.from_length();
                             
+#ifdef debug_search
+                            cerr << "edit " << k << ", to length interval " << to_length_here << " " << to_length_thru_edit << ", offset interval " << offset_here << " " << offset_thru_edit << endl;
+#endif
+                            
                             // does this edit contain both the sequence and graph positions (allowing
                             // for a past-the-last position on the final edit)?
                             if (to_length_here <= seq_pos &&
-                                (to_length_thru_edit > seq_pos || (to_length_thru_edit == seq_pos
-                                                                   && k + 1 == mapping.edit_size())) &&
+                                (to_length_thru_edit > seq_pos || (to_length_thru_edit == seq_pos &&
+                                                                   (k + 1 == mapping.edit_size() ||
+                                                                    to_length_here == to_length_thru_edit))) &&
                                 offset_here <= offset(graph_pos) &&
-                                (offset_thru_edit > offset(graph_pos) || (offset_thru_edit == offset(graph_pos)
-                                                                          && k + 1 == mapping.edit_size()))) {
+                                (offset_thru_edit > offset(graph_pos) || (offset_thru_edit == offset(graph_pos) &&
+                                                                          (k + 1 == mapping.edit_size() ||
+                                                                           offset_here == offset_thru_edit)))) {
                                 
                                 // are the offsets within the edit consistent with each other?
                                 int64_t graph_l = offset(graph_pos) - offset_here;
@@ -2235,6 +2257,10 @@ namespace vg {
                                 bool consistent = (graph_l == seq_l ||
                                                    (graph_l == 0 && edit.from_length() == 0) ||
                                                    (seq_l == 0 && edit.to_length() == 0));
+                                
+#ifdef debug_search
+                                cerr << "read interval " << to_length_here << " " << to_length_thru_edit << " covers seq pos " << seq_pos << ", offset interval " << offset_here << " " << offset_thru_edit << " covers offset "  << offset(graph_pos) << ", consistent? " << consistent << endl;
+#endif
                                 
                                 // handle some special cases of the past-the-last position to make canonical results
                                 // TODO: ugly
@@ -2244,6 +2270,10 @@ namespace vg {
                                     // we're looking at locating this position at the past-the-last position on
                                     // a mapping, but it might also exist at the first position of the next mapping.
                                     // if so, we will canonicalize it to go there instead.
+                                    
+#ifdef debug_search
+                                    cerr << "checking if must place past-the-last" << endl;
+#endif
                                     if (j + 1 < path.mapping_size()) {
                                         // the next mapping is still on this subpath
                                         const auto& next_pos = path.mapping(j + 1).position();
@@ -2265,6 +2295,10 @@ namespace vg {
                                 if (consistent && must_place_here) {
                                     // winner winner chicken dinner, record the match
                                     int64_t l = max(seq_l, graph_l);
+#ifdef debug_search
+                                    cerr << "recording match " << i << " " << j << " " << k << " " << l << endl;
+#endif
+                                    
                                     return_val.emplace_back(i, j, k, l);
                                 }
                                 
