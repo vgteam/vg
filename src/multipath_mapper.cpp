@@ -1338,6 +1338,12 @@ namespace vg {
             cerr << "failed to successfully rescue from either read end, reporting independent mappings" << endl;
 #endif
             
+            // agglomerate them them independently if necessary
+            if (agglomerate_multipath_alns) {
+                agglomerate_alignments(multipath_alns_1, &multiplicities_1);
+                agglomerate_alignments(multipath_alns_2, &multiplicities_2);
+            }
+            
             // rescue failed, so we just report these as independent mappings
             size_t num_pairs_to_report = min(max_alt_mappings, max(multipath_alns_1.size(), multipath_alns_2.size()));
             
@@ -1839,9 +1845,9 @@ namespace vg {
             
             // have it record the multiplicities, even though we don't need them in thiss code path
             vector<double> rescue_multiplicities;
-            align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                multipath_aln_pairs_out, cluster_pairs, rescue_multiplicities,
-                                                fanouts1.get(), fanouts2.get());
+            proper_paired = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                                multipath_aln_pairs_out, cluster_pairs, rescue_multiplicities,
+                                                                fanouts1.get(), fanouts2.get());
         }
         
         if (multipath_aln_pairs_out.empty()) {
@@ -3705,6 +3711,12 @@ namespace vg {
         for (size_t i = 0; i < multipath_aln_pairs.size(); i++) {
             // For each pair of read placements
             pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair = multipath_aln_pairs[i];
+            
+            if (multipath_aln_pair.first.sequence() == "GGTAAAAGACAACAAATATTAGCTTAAAATCTGCATATGTAGAATCATTTTCATTAGATTTAGAGCTTGAAGCCCTTATGCATGTTAGTAACATAAAATTT") {
+                cerr << "pair " << i << " of " << multipath_aln_pairs.size() << ", " << cluster_pairs.size() << endl;
+                cerr << "\t" << debug_string(multipath_aln_pair.first) << endl;
+                cerr << "\t" << debug_string(multipath_aln_pair.second) << endl;
+            }
             
             // We will query the population database for this alignment pair if it
             // is turned on and it succeeded for the others.
