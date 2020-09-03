@@ -3717,12 +3717,6 @@ namespace vg {
             // For each pair of read placements
             pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair = multipath_aln_pairs[i];
             
-            if (multipath_aln_pair.first.sequence() == "GGTAAAAGACAACAAATATTAGCTTAAAATCTGCATATGTAGAATCATTTTCATTAGATTTAGAGCTTGAAGCCCTTATGCATGTTAGTAACATAAAATTT") {
-                cerr << "pair " << i << " of " << multipath_aln_pairs.size() << ", " << cluster_pairs.size() << endl;
-                cerr << "\t" << debug_string(multipath_aln_pair.first) << endl;
-                cerr << "\t" << debug_string(multipath_aln_pair.second) << endl;
-            }
-            
             // We will query the population database for this alignment pair if it
             // is turned on and it succeeded for the others.
             bool query_population = include_population_component && all_multipaths_pop_consistent;
