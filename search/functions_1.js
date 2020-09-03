@@ -132,6 +132,7 @@ var searchData=
   ['aln_5fto_5fbseq',['aln_to_bseq',['../classvg_1_1SRPE.html#a8e090b6736fa63156b2769dca493ed12',1,'vg::SRPE']]],
   ['alttracebackstack',['AltTracebackStack',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#ade601513f78eb68ec75854ffe3947964',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['anchored_5ffilter',['anchored_filter',['../classvg_1_1Filter.html#a7e797bbf731c8120cf2df43e4355963a',1,'vg::Filter']]],
+  ['annotate_5fmapped_5falignment',['annotate_mapped_alignment',['../classvg_1_1Funnel.html#a835425e6527a844e11d1e4c59eaa0d6e',1,'vg::Funnel']]],
   ['annotate_5fwith_5finitial_5fpath_5fpositions',['annotate_with_initial_path_positions',['../namespacevg_1_1algorithms.html#af3299d4c737e2a9e839f19c10a857790',1,'vg::algorithms::annotate_with_initial_path_positions(const PathPositionHandleGraph &amp;graph, Alignment &amp;aln, size_t search_limit)'],['../namespacevg_1_1algorithms.html#afa008e81b421e1d0df315441a3feac25',1,'vg::algorithms::annotate_with_initial_path_positions(const PathPositionHandleGraph &amp;graph, vector&lt; Alignment &gt; &amp;alns, size_t search_limit)']]],
   ['annotate_5fwith_5fnode_5fpath_5fpositions',['annotate_with_node_path_positions',['../namespacevg_1_1algorithms.html#a64755c8f9f64f00d5df6600cfdd7c6c1',1,'vg::algorithms']]],
   ['annotate_5fwith_5fpath_5fpositions',['annotate_with_path_positions',['../namespacevg_1_1algorithms.html#a1c1d39d71c49cea6cbd67bf571ef69cc',1,'vg::algorithms']]],

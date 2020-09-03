@@ -139,6 +139,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a9cdacae4561ece776ba90e293299f930"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4e2ab6878393d0d9aaee56127844b06b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a4e2ab6878393d0d9aaee56127844b06b">tag_correct</a> (size_t item)</td></tr>
 <tr class="separator:a4e2ab6878393d0d9aaee56127844b06b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4296184811926cf97a42d52aaf3fc6f6"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a4296184811926cf97a42d52aaf3fc6f6">is_correct</a> (size_t item) const</td></tr>
+<tr class="separator:a4296184811926cf97a42d52aaf3fc6f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aac71f37530afee1b7e49770aff8cc53b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#aac71f37530afee1b7e49770aff8cc53b">was_correct</a> (size_t prev_stage_item) const</td></tr>
+<tr class="separator:aac71f37530afee1b7e49770aff8cc53b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a99b8a07d0b3a1d0649aae4090918bfad"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a99b8a07d0b3a1d0649aae4090918bfad">last_correct_stage</a> () const</td></tr>
 <tr class="separator:a99b8a07d0b3a1d0649aae4090918bfad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a933c8a296c5a680aa96b0b913c465250"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a933c8a296c5a680aa96b0b913c465250">latest</a> () const</td></tr>
@@ -151,6 +155,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:afc114c16e43a80739d292e03b65fa8ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab38eefb0fa53720d2ab80793a2c13762"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ab38eefb0fa53720d2ab80793a2c13762">to_dot</a> (ostream &amp;out)</td></tr>
 <tr class="separator:ab38eefb0fa53720d2ab80793a2c13762"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a835425e6527a844e11d1e4c59eaa0d6e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a835425e6527a844e11d1e4c59eaa0d6e">annotate_mapped_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool annotate_correctness)</td></tr>
+<tr class="separator:a835425e6527a844e11d1e4c59eaa0d6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
@@ -184,6 +190,35 @@ Protected Attributes</h2></td></tr>
 <p>An item may be a "group", with a certain size.</p>
 <p>We also can assign scores to items at a stage. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
+<a id="a835425e6527a844e11d1e4c59eaa0d6e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a835425e6527a844e11d1e4c59eaa0d6e">&#9670;&nbsp;</a></span>annotate_mapped_alignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::annotate_mapped_alignment </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>annotate_correctness</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Set an alignments annotations with the number of results at each stage if annotate_correctness is true, also annotate the alignment with the number of correct results at each stage. This assumes that we've been tracking correctness all along </p>
+
+</div>
+</div>
 <a id="a9d28d3fee3f8658d59a63c52338644e2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9d28d3fee3f8658d59a63c52338644e2">&#9670;&nbsp;</a></span>create_item()</h2>
 
@@ -358,6 +393,25 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Introduce the given number of new items, starting their own lines of provenance (default 1). </p>
+
+</div>
+</div>
+<a id="a4296184811926cf97a42d52aaf3fc6f6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4296184811926cf97a42d52aaf3fc6f6">&#9670;&nbsp;</a></span>is_correct()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Funnel::is_correct </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>item</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return true if the given item at this stage is tagged correct, or descends from an item that was tagged correct. </p>
 
 </div>
 </div>
@@ -770,6 +824,25 @@ template&lt;typename Iterator &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Dump information from the <a class="el" href="classvg_1_1Funnel.html">Funnel</a> as a dot-format Graphviz graph to the given stream. Illustrates stages and provenance. </p>
+
+</div>
+</div>
+<a id="aac71f37530afee1b7e49770aff8cc53b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aac71f37530afee1b7e49770aff8cc53b">&#9670;&nbsp;</a></span>was_correct()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Funnel::was_correct </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>prev_stage_item</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return true if the given item at the previous stage is tagged correct, or descends from an item that was tagged correct. </p>
 
 </div>
 </div>
