@@ -11,6 +11,7 @@
 
 //#define debug_multiple_tracebacks
 //#define debug_search
+//#define debug_trace
 //#define debug_verbose_validation
 
 using namespace std;
@@ -1947,13 +1948,16 @@ namespace vg {
             for (auto next : subpath.next()) {
                 in_degree[next]++;
             }
+            for (const auto& connection : subpath.connection()) {
+                in_degree[connection.next()]++;
+            }
         }
         
         vector<bool> removed(multipath_aln.subpath_size(), false);
         vector<size_t> removed_so_far(multipath_aln.subpath_size(), 0);
         
         auto get_mergeable_next = [&](const subpath_t& subpath) {
-            if (subpath.next_size() == 1) {
+            if (subpath.next_size() + subpath.connection_size() == 1) {
                 if (in_degree[subpath.next(0)] == 1) {
                     return int64_t(subpath.next(0));
                 }
@@ -2062,6 +2066,11 @@ namespace vg {
                 for (size_t j = 0; j < subpath->next_size(); j++) {
                     subpath->set_next(j, subpath->next(j) - removed_so_far[subpath->next(j)]);
                 }
+                
+                for (size_t j = 0; j < subpath->connection_size(); j++) {
+                    auto connection = subpath->mutable_connection(j);
+                    connection->set_next(connection->next() - removed_so_far[connection->next()]);
+                }
             }
             
             // update the indexes of the starts
@@ -2079,9 +2088,12 @@ namespace vg {
         
         for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
             const subpath_t& subpath = multipath_aln.subpath(i);
-            // collect edges by their target
+            // collect edges and connections by their target
             for (size_t j = 0; j < subpath.next_size(); j++) {
                 reverse_edge_lists[subpath.next(j)].push_back(i);
+            }
+            for (size_t j = 0; j < subpath.connection_size(); j++) {
+                reverse_edge_lists[subpath.connection(j).next()].push_back(i);
             }
         }
         
@@ -2107,6 +2119,13 @@ namespace vg {
                 const subpath_t& subpath = multipath_aln.subpath(at);
                 for (int64_t j = 0; j < subpath.next_size(); j++) {
                     int64_t idx = subpath.next(j);
+                    if (!collected[idx]) {
+                        collected[idx] = true;
+                        stack.push_back(idx);
+                    }
+                }
+                for (int64_t j = 0; j < subpath.connection_size(); j++) {
+                    int64_t idx = subpath.connection(j).next();
                     if (!collected[idx]) {
                         collected[idx] = true;
                         stack.push_back(idx);
@@ -2152,6 +2171,14 @@ namespace vg {
                     new_subpath->add_next(new_index[old_subpath.next(j)]);
                 }
             }
+            for (int64_t j = 0; j < old_subpath.connection_size(); j++) {
+                const connection_t& old_connection = old_subpath.connection(j);
+                if (new_index.count(old_connection.next())) {
+                    connection_t* new_connection = new_subpath->add_connection();
+                    new_connection->set_next(new_index[old_connection.next()]);
+                    new_connection->set_score(old_connection.score());
+                }
+            }
         }
         
         // assume that if we had starts labeled before, we want them again
@@ -2172,6 +2199,11 @@ namespace vg {
             for (auto n : appending_subpath.next()) {
                 new_subpath->add_next(n + original_size);
             }
+            for (const auto& c : appending_subpath.connection()) {
+                auto new_connection = new_subpath->add_connection();
+                new_connection->set_next(c.next() + original_size);
+                new_connection->set_score(c.score());
+            }
         }
         if (multipath_aln.start_size() != 0 && to_append.start_size() != 0) {
             for (auto s : to_append.start()) {
@@ -2187,6 +2219,10 @@ namespace vg {
     search_multipath_alignment(const multipath_alignment_t& multipath_aln,
                                const pos_t& graph_pos, int64_t seq_pos) {
         
+#ifdef debug_search
+        cerr << "starting search for " << graph_pos << " at seq pos " << seq_pos << endl;
+#endif
+        
         vector<tuple<int64_t, int64_t, int64_t, int64_t>> return_val;
         
         vector<int64_t> subpath_seq_pos(multipath_aln.subpath_size(), 0);
@@ -2199,7 +2235,6 @@ namespace vg {
             const path_t& path = subpath.path();
             int64_t to_length_here = subpath_seq_pos[i];
             int64_t to_length_thru = to_length_here + path_to_length(subpath.path());
-            
             // tell the next subpaths where they start
             for (auto j : subpath.next()) {
                 subpath_seq_pos[j] = to_length_thru;
@@ -2214,12 +2249,12 @@ namespace vg {
                 
                 for (int64_t j = 0; j < path.mapping_size(); ++j) {
                     
-#ifdef debug_search
-                    cerr << "mapping " << j << endl;
-#endif
-                    
                     const auto& mapping = path.mapping(j);
                     const auto& pos = mapping.position();
+                    
+#ifdef debug_search
+                    cerr << "mapping " << j << " at graph pos " << debug_string(pos) << endl;
+#endif
                     
                     if (pos.node_id() == id(graph_pos) && pos.is_reverse() == is_rev(graph_pos)) {
                         int64_t offset_here = pos.offset();
@@ -2320,6 +2355,10 @@ namespace vg {
     trace_path(const multipath_alignment_t& multipath_aln, const Path& path,
                int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx) {
         
+#ifdef debug_trace
+        cerr << "entering trace path algorithm" << endl;
+#endif
+        
         // the farthest match along the path
         tuple<int64_t, int64_t, int64_t> pfarthest(-1, -1, -1);
         // the position on the mp aln that corresponds to this match
@@ -2339,24 +2378,40 @@ namespace vg {
             tie(i, j, k, l, pj, pk, pl) = stack.back();
             stack.pop_back();
             
+#ifdef debug_trace
+            cerr << "destack (" << i << " " << j << " " << k << " " << l << ") (" << pj << " " << pk << " " << pl << ")" << endl;
+#endif
+            
             const subpath_t& subpath = multipath_aln.subpath(i);
             const path_t& mpath = subpath.path();
-            while (j < mpath.mapping_size() && pj < path.mapping_size()) {
+            bool reached_mismatch = false;
+            while (j < mpath.mapping_size() && pj < path.mapping_size() && !reached_mismatch) {
+                
+#ifdef debug_trace
+                cerr << "mp mapping " << j << ", p mapping " << pj << endl;
+#endif
                 
                 const auto& mmapping = mpath.mapping(j);
                 const auto& pmapping = path.mapping(pj);
+                
+                // TODO: these mappings can actually have positions that are inconsistent
+                // but checking for consistency is tricky at mapping boundaries that
+                // also correspond to node boundaries
                 
                 // skip over the subpath mapping if it's empty
                 bool mnonempty = false;
                 for (int64_t m = k, n = l; m < mmapping.edit_size() && !mnonempty; ++m) {
                     const auto& edit = mmapping.edit(m);
-                    int64_t rem = max(max<int64_t>(edit.from_length() - n, 0), max<int64_t>(edit.to_length() - n, 0));
+                    int64_t rem = max<int64_t>(max(edit.from_length() - n, edit.to_length() - n), 0);
                     if (rem) {
                         mnonempty = true;
                     }
                     n = 0;
                 }
                 if (!mnonempty) {
+#ifdef debug_trace
+                    cerr << "mp mapping is empty" << endl;
+#endif
                     l = k = 0;
                     ++j;
                     continue;
@@ -2365,13 +2420,16 @@ namespace vg {
                 bool pnonempty = false;
                 for (int64_t m = pk, n = pl; m < pmapping.edit_size() && !pnonempty; ++m) {
                     const auto& edit = pmapping.edit(m);
-                    int64_t rem = max(max<int64_t>(edit.from_length() - n, 0), max<int64_t>(edit.to_length() - n, 0));
+                    int64_t rem = max<int64_t>(max(edit.from_length() - n, edit.to_length() - n), 0);
                     if (rem) {
                         pnonempty = true;
                     }
                     n = 0;
                 }
                 if (!pnonempty) {
+#ifdef debug_trace
+                    cerr << "p mapping is empty" << endl;
+#endif
                     pl = pk = 0;
                     ++pj;
                     continue;
@@ -2392,32 +2450,47 @@ namespace vg {
                 // find the graph position on the path
                 const auto& ppos = pmapping.position();
                 int64_t poffset = ppos.offset();
-                for (int64_t m = 0; m < k; ++m) {
+                for (int64_t m = 0; m < pk; ++m) {
                     poffset += pmapping.edit(m).from_length();
                 }
                 if (pl > 0 && pmapping.edit(pk).from_length() > 0) {
                     poffset += pl;
                 }
                 
-                if (mpos.node_id() != ppos.node_id() && mpos.is_reverse() != ppos.is_reverse()
-                    && moffset != poffset) {
+#ifdef debug_trace
+                cerr << "mp pos " << mpos.node_id() << " " << mpos.is_reverse() << " " << moffset << ", p pos " << ppos.node_id() << " " << ppos.is_reverse() << " " << poffset << endl;
+#endif
+                
+                if (mpos.node_id() != ppos.node_id() || mpos.is_reverse() != ppos.is_reverse()
+                    || moffset != poffset) {
                     // these positions don't match
-                    break;
+                    reached_mismatch = true;
                 }
                 
+                bool extended_by_nonempty_edits = false;
+                
                 // try to match edits
-                while (k < mmapping.edit_size() && pk < pmapping.edit_size()) {
+                while (k < mmapping.edit_size() && pk < pmapping.edit_size() && !reached_mismatch) {
+#ifdef debug_trace
+                    cerr << "mp edit " << k << " " << l << ", p edit " << pk << " " << pl << endl;
+#endif
                     const auto& medit = mmapping.edit(k);
-                    const auto& pedit = mmapping.edit(pk);
+                    const auto& pedit = pmapping.edit(pk);
                     if (medit.from_length() == 0 && medit.to_length() == 0) {
                         // skip over an empty edit
                         l = 0;
                         ++k;
+#ifdef debug_trace
+                        cerr << "mp edit empty" << endl;
+#endif
                     }
                     else if (pedit.from_length() == 0 && pedit.to_length() == 0) {
                         // skip over an empty edit
                         pl = 0;
                         ++pk;
+#ifdef debug_trace
+                        cerr << "p edit empty" << endl;
+#endif
                     }
                     else if (((medit.from_length() == 0 && pedit.from_length() == 0)
                               || medit.from_length() - l == pedit.from_length() - pl) &&
@@ -2431,6 +2504,10 @@ namespace vg {
                         ++k;
                         pl = 0;
                         ++pk;
+                        
+#ifdef debug_trace
+                        cerr << "edits match" << endl;
+#endif
                     }
                     else if (((medit.from_length() == 0 && pedit.from_length() == 0)
                               || medit.from_length() - l <= pedit.from_length() - pl) &&
@@ -2443,7 +2520,13 @@ namespace vg {
                         l = 0;
                         ++k;
                         pl += max(medit.from_length() - l, medit.to_length() - l);
-                        break;
+                        if (pl == max(pedit.from_length(), pedit.to_length())) {
+                            pl = 0;
+                            ++pk;
+                        }
+#ifdef debug_trace
+                        cerr << "mp edit is prefix" << endl;
+#endif
                     }
                     else if (((medit.from_length() == 0 && pedit.from_length() == 0)
                               || medit.from_length() - l >= pedit.from_length() - pl) &&
@@ -2454,13 +2537,22 @@ namespace vg {
                                   == pedit.sequence().substr(pl, pedit.to_length() - pl)))) {
                         // path edit is a prefix of subpath edit
                         l += max(pedit.from_length() - pl, pedit.to_length() - pl);
+                        if (l == max(medit.from_length(), medit.to_length())) {
+                            l = 0;
+                            ++k;
+                        }
                         pl = 0;
                         ++pk;
-                        break;
+#ifdef debug_trace
+                        cerr << "p edit is prefix" << endl;
+#endif
                     }
                     else {
                         // the edits do not match
-                        break;
+                        reached_mismatch = true;
+#ifdef debug_trace
+                        cerr << "edits mismatch" << endl;
+#endif
                     }
                 }
                 
@@ -2468,10 +2560,16 @@ namespace vg {
                 if (k == mmapping.edit_size()) {
                     l = k = 0;
                     ++j;
+#ifdef debug_trace
+                    cerr << "finished mp mapping" << endl;
+#endif
                 }
                 if (pk == pmapping.edit_size()) {
                     pl = pk = 0;
                     ++pj;
+#ifdef debug_trace
+                    cerr << "finished p mapping" << endl;
+#endif
                 }
             }
             // how far did we get along the path by walking this subpath?
@@ -2488,8 +2586,8 @@ namespace vg {
                 // we've found the farthest point possible
                 break;
             }
-            if (j == mpath.mapping_size()) {
-                // queue up searches along the next subpath
+            if (j == mpath.mapping_size() && !reached_mismatch) {
+                // we got to the end of the subpath without exhausting our match
                 for (auto n : subpath.next()) {
                     if (!stacked[n]) {
                         stacked[n] = true;

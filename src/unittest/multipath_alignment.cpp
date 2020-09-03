@@ -2040,7 +2040,7 @@ namespace vg {
         }
     }
 
-    TEST_CASE("search_multipath_alignment finds positions in a multipath alignment", "[multipath][search]") {
+    TEST_CASE("Multipath alignments can be searched for positions and traced with paths", "[multipath][search]") {
         
         bdsg::HashGraph graph;
         
@@ -2242,20 +2242,20 @@ namespace vg {
             REQUIRE(get<2>(search.front()) == 0);
             REQUIRE(get<3>(search.front()) == 0);
         }
-        
-        subpath_t* s4 = mp_aln.add_subpath();
-        mp_aln.mutable_subpath(2)->add_next(4);
-        
-        path_mapping_t* m5 = s4->mutable_path()->add_mapping();
-        m5->mutable_position()->set_node_id(graph.get_id(h3));
-        m5->mutable_position()->set_is_reverse(false);
-        m5->mutable_position()->set_offset(0);
-        edit_t* e7 = m5->add_edit();
-        e7->set_from_length(2);
-        e7->set_to_length(2);
-        e7->set_sequence("TT");
                 
         SECTION("Test a search with multiple hits") {
+            
+            subpath_t* s4 = mp_aln.add_subpath();
+            mp_aln.mutable_subpath(2)->add_next(4);
+            
+            path_mapping_t* m5 = s4->mutable_path()->add_mapping();
+            m5->mutable_position()->set_node_id(graph.get_id(h3));
+            m5->mutable_position()->set_is_reverse(false);
+            m5->mutable_position()->set_offset(0);
+            edit_t* e7 = m5->add_edit();
+            e7->set_from_length(2);
+            e7->set_to_length(2);
+            e7->set_sequence("TT");
             
             pos_t pos(graph.get_id(h3), false, 1);
             int64_t seq_idx = 8;
@@ -2275,6 +2275,204 @@ namespace vg {
             REQUIRE(get<2>(search.back()) == 0);
             REQUIRE(get<3>(search.back()) == 1);
         }
+        
+        SECTION("Paths can be traced from search positions") {
+            
+            Path path;
+            
+            Mapping* pm = path.add_mapping();
+            pm->mutable_position()->set_node_id(graph.get_id(h1));
+            pm->mutable_position()->set_is_reverse(false);
+            pm->mutable_position()->set_offset(2);
+            
+            Edit* pe = pm->add_edit();
+            pe->set_from_length(1);
+            pe->set_to_length(1);
+            
+            pos_t pos(graph.get_id(h1), false, 2);
+            int64_t seq_idx = 0;
+            
+            int64_t i, j, k, l;
+            auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
+            REQUIRE(search.size() == 1);
+            tie(i, j, k, l) = search.front();
+            auto trace = trace_path(mp_aln, path, i, j, k, l);
+            
+            REQUIRE(get<0>(trace.first) == 0);
+            REQUIRE(get<1>(trace.first) == 0);
+            REQUIRE(get<2>(trace.first) == 0);
+            REQUIRE(get<3>(trace.first) == 1);
+            REQUIRE(get<0>(trace.second) == 1);
+            REQUIRE(get<1>(trace.second) == 0);
+            REQUIRE(get<2>(trace.second) == 0);;
+            
+            pe->set_from_length(2);
+            pe->set_to_length(2);
+            
+            search = search_multipath_alignment(mp_aln, pos, seq_idx);
+            REQUIRE(search.size() == 1);
+            tie(i, j, k, l) = search.front();
+            trace = trace_path(mp_aln, path, i, j, k, l);
+            
+            REQUIRE(get<0>(trace.first) == 0);
+            REQUIRE(get<1>(trace.first) == 1);
+            REQUIRE(get<2>(trace.first) == 0);
+            REQUIRE(get<3>(trace.first) == 0);
+            REQUIRE(get<0>(trace.second) == 1);
+            REQUIRE(get<1>(trace.second) == 0);
+            REQUIRE(get<2>(trace.second) == 0);
+            
+            pm->mutable_position()->set_offset(3);
+            get_offset(pos) = 3;
+            seq_idx = 1;
+            
+            search = search_multipath_alignment(mp_aln, pos, seq_idx);
+            REQUIRE(search.size() == 1);
+            tie(i, j, k, l) = search.front();
+            trace = trace_path(mp_aln, path, i, j, k, l);
+            
+            REQUIRE(get<0>(trace.first) == 0);
+            REQUIRE(get<1>(trace.first) == 1);
+            REQUIRE(get<2>(trace.first) == 0);
+            REQUIRE(get<3>(trace.first) == 0);
+            REQUIRE(get<0>(trace.second) == 1);
+            REQUIRE(get<1>(trace.second) == 0);
+            REQUIRE(get<2>(trace.second) == 0);
+            
+            pm->mutable_position()->set_node_id(graph.get_id(h2));
+            pm->mutable_position()->set_offset(0);
+            pe->set_from_length(2);
+            pe->set_to_length(2);
+            get_id(pos) = graph.get_id(h2);
+            get_offset(pos) = 0;
+            seq_idx = 2;
+            
+            search = search_multipath_alignment(mp_aln, pos, seq_idx);
+            REQUIRE(search.size() == 1);
+            tie(i, j, k, l) = search.front();
+            trace = trace_path(mp_aln, path, i, j, k, l);
+            
+            REQUIRE(get<0>(trace.first) == 1);
+            REQUIRE(get<1>(trace.first) == 1);
+            REQUIRE(get<2>(trace.first) == 1);
+            REQUIRE(get<3>(trace.first) == 0);
+            REQUIRE(get<0>(trace.second) == 1);
+            REQUIRE(get<1>(trace.second) == 0);
+            REQUIRE(get<2>(trace.second) == 0);
+            
+            Edit* pe2 = pm->add_edit();
+            pe2->set_from_length(0);
+            pe2->set_to_length(1);
+            pe2->set_sequence("T");
+            
+            Mapping* pm2 = path.add_mapping();
+            pm2->mutable_position()->set_node_id(graph.get_id(h2));
+            pm2->mutable_position()->set_is_reverse(false);
+            pm2->mutable_position()->set_offset(2);
+            
+            Edit* pe3 = pm2->add_edit();
+            pe3->set_from_length(0);
+            pe3->set_to_length(1);
+            pe3->set_sequence("A");
+            
+            Edit* pe4 = pm2->add_edit();
+            pe4->set_from_length(2);
+            pe4->set_to_length(0);
+            
+            search = search_multipath_alignment(mp_aln, pos, seq_idx);
+            REQUIRE(search.size() == 1);
+            tie(i, j, k, l) = search.front();
+            trace = trace_path(mp_aln, path, i, j, k, l);
+
+            REQUIRE(get<0>(trace.first) == 1);
+            REQUIRE(get<1>(trace.first) == 2);
+            REQUIRE(get<2>(trace.first) == 0);
+            REQUIRE(get<3>(trace.first) == 0);
+            REQUIRE(get<0>(trace.second) == 2);
+            REQUIRE(get<1>(trace.second) == 0);
+            REQUIRE(get<2>(trace.second) == 0);
+            
+            Edit* pe5 = pm2->add_edit();
+            pe5->set_from_length(0);
+            pe5->set_to_length(5);
+            pe5->set_sequence("AAAAA");
+            
+            search = search_multipath_alignment(mp_aln, pos, seq_idx);
+            REQUIRE(search.size() == 1);
+            tie(i, j, k, l) = search.front();
+            trace = trace_path(mp_aln, path, i, j, k, l);
+            
+            REQUIRE(get<0>(trace.first) == 1);
+            REQUIRE(get<1>(trace.first) == 2);
+            REQUIRE(get<2>(trace.first) == 0);
+            REQUIRE(get<3>(trace.first) == 0);
+            REQUIRE(get<0>(trace.second) == 1);
+            REQUIRE(get<1>(trace.second) == 2);
+            REQUIRE(get<2>(trace.second) == 0);
+            
+            //cerr << i << " " << j << " " << k << " " << l << endl;
+            //cerr << "(" << get<0>(trace.first) << ", " << get<1>(trace.first) << ", " << get<2>(trace.first) << ", " << get<3>(trace.first) << "), (" << get<0>(trace.second) << ", " << get<1>(trace.second) << ", " << get<2>(trace.second) << ")" << endl;
+            
+        }
+        
+        SECTION("Paths with empty elements be traced from search positions") {
+            
+            Path path;
+            
+            Mapping* pm0 = path.add_mapping();
+            pm0->mutable_position()->set_node_id(graph.get_id(h1));
+            pm0->mutable_position()->set_is_reverse(false);
+            pm0->mutable_position()->set_offset(2);
+            
+            Edit* pe0 = pm0->add_edit();
+            pe0->set_from_length(0);
+            pe0->set_to_length(0);
+            
+            Edit* pe1 = pm0->add_edit();
+            pe1->set_from_length(2);
+            pe1->set_to_length(2);
+            
+            pos_t pos(graph.get_id(h1), false, 2);
+            int64_t seq_idx = 0;
+            
+            int64_t i, j, k, l;
+            auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
+            REQUIRE(search.size() == 1);
+            tie(i, j, k, l) = search.front();
+            auto trace = trace_path(mp_aln, path, i, j, k, l);
+            
+            REQUIRE(get<0>(trace.first) == 0);
+            REQUIRE(get<1>(trace.first) == 1);
+            REQUIRE(get<2>(trace.first) == 0);
+            REQUIRE(get<3>(trace.first) == 0);
+            REQUIRE(get<0>(trace.second) == 1);
+            REQUIRE(get<1>(trace.second) == 0);
+            REQUIRE(get<2>(trace.second) == 0);
+            
+            Mapping* pm1 = path.add_mapping();
+            pm1->mutable_position()->set_node_id(graph.get_id(h1));
+            pm1->mutable_position()->set_is_reverse(false);
+            pm1->mutable_position()->set_offset(4);
+            
+            search = search_multipath_alignment(mp_aln, pos, seq_idx);
+            REQUIRE(search.size() == 1);
+            tie(i, j, k, l) = search.front();
+            trace = trace_path(mp_aln, path, i, j, k, l);
+            
+            REQUIRE(get<0>(trace.first) == 1);
+            REQUIRE(get<1>(trace.first) == 0);
+            REQUIRE(get<2>(trace.first) == 0);
+            REQUIRE(get<3>(trace.first) == 0);
+            REQUIRE(get<0>(trace.second) == 2);
+            REQUIRE(get<1>(trace.second) == 0);
+            REQUIRE(get<2>(trace.second) == 0);
+        }
+        
+        //   s0  s1      s2 s3
+        //   m0  m1m2    m3 m4
+        //   GA  A|TTA--|A  TT
+        // TAGA  A|T--CA|A  GG
+        // h1    h2         h3
     }
 }
 
