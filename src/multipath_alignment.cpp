@@ -108,7 +108,7 @@ namespace vg {
 
     void multipath_alignment_t::set_annotation(const string& annotation_name, double value) {
         clear_annotation(annotation_name);
-        auto ptr = (int64_t*) malloc(sizeof(double));
+        auto ptr = (double*) malloc(sizeof(double));
         *ptr = value;
         _annotation[annotation_name] = make_pair(Double, (void*) ptr);
     }
@@ -2314,6 +2314,191 @@ namespace vg {
             }
         }
         return return_val;
+    }
+
+    pair<tuple<int64_t, int64_t, int64_t, int64_t>, tuple<int64_t, int64_t, int64_t>>
+    trace_path(const multipath_alignment_t& multipath_aln, const Path& path,
+               int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx) {
+        
+        // the farthest match along the path
+        tuple<int64_t, int64_t, int64_t> pfarthest(-1, -1, -1);
+        // the position on the mp aln that corresponds to this match
+        tuple<int64_t, int64_t, int64_t, int64_t> mfarthest(subpath_idx, mapping_idx,
+                                                            edit_idx, base_idx);
+        
+        // DFS stack
+        vector<bool> stacked(multipath_aln.subpath_size(), false);
+        vector<tuple<int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t>> stack;
+        
+        // start at the indicated location on the mp aln and the beginning of the path
+        stack.emplace_back(subpath_idx, mapping_idx, edit_idx, base_idx, 0, 0, 0);
+        stacked[subpath_idx] = true;
+        while (!stack.empty()) {
+            // load up the indexes of where we're going to look for a match
+            int64_t i, j, k, l, pj, pk, pl;
+            tie(i, j, k, l, pj, pk, pl) = stack.back();
+            stack.pop_back();
+            
+            const subpath_t& subpath = multipath_aln.subpath(i);
+            const path_t& mpath = subpath.path();
+            while (j < mpath.mapping_size() && pj < path.mapping_size()) {
+                
+                const auto& mmapping = mpath.mapping(j);
+                const auto& pmapping = path.mapping(pj);
+                
+                // skip over the subpath mapping if it's empty
+                bool mnonempty = false;
+                for (int64_t m = k, n = l; m < mmapping.edit_size() && !mnonempty; ++m) {
+                    const auto& edit = mmapping.edit(m);
+                    int64_t rem = max(max<int64_t>(edit.from_length() - n, 0), max<int64_t>(edit.to_length() - n, 0));
+                    if (rem) {
+                        mnonempty = true;
+                    }
+                    n = 0;
+                }
+                if (!mnonempty) {
+                    l = k = 0;
+                    ++j;
+                    continue;
+                }
+                // skip over the path mapping if it's empty
+                bool pnonempty = false;
+                for (int64_t m = pk, n = pl; m < pmapping.edit_size() && !pnonempty; ++m) {
+                    const auto& edit = pmapping.edit(m);
+                    int64_t rem = max(max<int64_t>(edit.from_length() - n, 0), max<int64_t>(edit.to_length() - n, 0));
+                    if (rem) {
+                        pnonempty = true;
+                    }
+                    n = 0;
+                }
+                if (!pnonempty) {
+                    pl = pk = 0;
+                    ++pj;
+                    continue;
+                }
+                
+                // now that we know we're looking at non-empty mappings, the positions need to match
+                
+                // find the graph position on the subpath
+                const auto& mpos = mmapping.position();
+                int64_t moffset = mpos.offset();
+                for (int64_t m = 0; m < k; ++m) {
+                    moffset += mmapping.edit(m).from_length();
+                }
+                if (l > 0 && mmapping.edit(k).from_length() > 0) {
+                    moffset += l;
+                }
+                
+                // find the graph position on the path
+                const auto& ppos = pmapping.position();
+                int64_t poffset = ppos.offset();
+                for (int64_t m = 0; m < k; ++m) {
+                    poffset += pmapping.edit(m).from_length();
+                }
+                if (pl > 0 && pmapping.edit(pk).from_length() > 0) {
+                    poffset += pl;
+                }
+                
+                if (mpos.node_id() != ppos.node_id() && mpos.is_reverse() != ppos.is_reverse()
+                    && moffset != poffset) {
+                    // these positions don't match
+                    break;
+                }
+                
+                // try to match edits
+                while (k < mmapping.edit_size() && pk < pmapping.edit_size()) {
+                    const auto& medit = mmapping.edit(k);
+                    const auto& pedit = mmapping.edit(pk);
+                    if (medit.from_length() == 0 && medit.to_length() == 0) {
+                        // skip over an empty edit
+                        l = 0;
+                        ++k;
+                    }
+                    else if (pedit.from_length() == 0 && pedit.to_length() == 0) {
+                        // skip over an empty edit
+                        pl = 0;
+                        ++pk;
+                    }
+                    else if (((medit.from_length() == 0 && pedit.from_length() == 0)
+                              || medit.from_length() - l == pedit.from_length() - pl) &&
+                             ((medit.to_length() == 0 && pedit.to_length() == 0)
+                              || medit.to_length() - l == pedit.to_length() - pl) &&
+                             ((medit.sequence().empty() && pedit.sequence().empty())
+                              || (medit.sequence().substr(l, medit.to_length())
+                                  == pedit.sequence().substr(pl, pedit.to_length())))) {
+                        // follow a matching edit
+                        l = 0;
+                        ++k;
+                        pl = 0;
+                        ++pk;
+                    }
+                    else if (((medit.from_length() == 0 && pedit.from_length() == 0)
+                              || medit.from_length() - l <= pedit.from_length() - pl) &&
+                             ((medit.to_length() == 0 && pedit.to_length() == 0)
+                              || medit.to_length() - l <= pedit.to_length() - pl) &&
+                             ((medit.sequence().empty() && pedit.sequence().empty())
+                              || (medit.sequence().substr(l, medit.to_length() - l)
+                                  == pedit.sequence().substr(pl, medit.to_length() - l)))) {
+                        // subpath edit is a prefix of path edit
+                        l = 0;
+                        ++k;
+                        pl += max(medit.from_length() - l, medit.to_length() - l);
+                        break;
+                    }
+                    else if (((medit.from_length() == 0 && pedit.from_length() == 0)
+                              || medit.from_length() - l >= pedit.from_length() - pl) &&
+                             ((medit.to_length() == 0 && pedit.to_length() == 0)
+                              || medit.to_length() - l >= pedit.to_length() - pl) &&
+                             ((medit.sequence().empty() && pedit.sequence().empty())
+                              || (medit.sequence().substr(l, pedit.to_length() - pl)
+                                  == pedit.sequence().substr(pl, pedit.to_length() - pl)))) {
+                        // path edit is a prefix of subpath edit
+                        l += max(pedit.from_length() - pl, pedit.to_length() - pl);
+                        pl = 0;
+                        ++pk;
+                        break;
+                    }
+                    else {
+                        // the edits do not match
+                        break;
+                    }
+                }
+                
+                // did we finish off either mapping?
+                if (k == mmapping.edit_size()) {
+                    l = k = 0;
+                    ++j;
+                }
+                if (pk == pmapping.edit_size()) {
+                    pl = pk = 0;
+                    ++pj;
+                }
+            }
+            // how far did we get along the path by walking this subpath?
+            if (pj > get<0>(pfarthest) ||
+                (pj == get<0>(pfarthest) && pk > get<1>(pfarthest)) ||
+                (pj == get<0>(pfarthest) && pk == get<1>(pfarthest) && pl > get<2>(pfarthest))) {
+                // we've traversed more of the path than on any previous subpath
+                
+                pfarthest = make_tuple(pj, pk, pl);
+                mfarthest = make_tuple(i, j, k, l);
+            }
+            
+            if (pj == path.mapping_size()) {
+                // we've found the farthest point possible
+                break;
+            }
+            if (j == mpath.mapping_size()) {
+                // queue up searches along the next subpath
+                for (auto n : subpath.next()) {
+                    if (!stacked[n]) {
+                        stacked[n] = true;
+                        stack.emplace_back(n, 0, 0, 0, pj, pk, pl);
+                    }
+                }
+            }
+        }
+        return make_pair(mfarthest, pfarthest);
     }
     
     bool validate_multipath_alignment(const multipath_alignment_t& multipath_aln, const HandleGraph& handle_graph) {

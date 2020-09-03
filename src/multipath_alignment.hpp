@@ -344,6 +344,10 @@ namespace vg {
     search_multipath_alignment(const multipath_alignment_t& multipath_aln,
                                const pos_t& graph_pos, int64_t seq_pos);
 
+    pair<tuple<int64_t, int64_t, int64_t, int64_t>, tuple<int64_t, int64_t, int64_t>>
+    trace_path(const multipath_alignment_t& multipath_aln, const Path& path,
+               int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx);
+
     /// Debugging function to check that multipath alignment meets the formalism's basic
     /// invariants. Returns true if multipath alignment is valid, else false. Does not
     /// validate alignment score.
