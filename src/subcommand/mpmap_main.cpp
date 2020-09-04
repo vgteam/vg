@@ -1380,6 +1380,17 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
+    // check to make sure we can open the reads
+    for (string reads_name : {fastq_name_1, fastq_name_2, gam_file_name}) {
+        if (!reads_name.empty() && reads_name != "-") {
+            ifstream test_read_stream(reads_name);
+            if (!test_read_stream) {
+                cerr << "error:[vg mpmap] Cannot open reads file " << reads_name << endl;
+                exit(1);
+            }
+        }
+    }
+    
     // a convenience function to preface a stderr log with an indicator of the command
     // and the time elapse
     bool clock_init = false;
