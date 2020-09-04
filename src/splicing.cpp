@@ -702,16 +702,375 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
     return return_val;
 }
 
-//multipath_alignment_t fuse_spliced_alignments(multipath_alignment_t&& left_mp_aln, multipath_alignment_t&& right_mp_aln,
-//                                              string::const_iterator left_bridge_point, const Path& splice_segment,
-//                                              int64_t splice_junction_idx) {
-//    
-//    pos_t pos_left = initial_position(splice_segment);
-//    pos_t pos_right = final_position(splice_segment);
-//
-//    
-//    vector<tuple<int64_t, int64_t, int64_t, int64_t>> left_locations
-//}
+void trim_path(path_t* path, bool from_left, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx) {
+    
+    if (edit_idx == 0 && base_idx == 0) {
+        // position is past-the-last on a mapping
+        if (from_left) {
+            auto mappings = path->mutable_mapping();
+            mappings->erase(mappings->begin(), mappings->begin() + mapping_idx);
+        }
+        else {
+            path->mutable_mapping()->resize(mapping_idx);
+        }
+    }
+    else {
+        // position is inside a mapping
+        path->mutable_mapping()->resize(mapping_idx + 1);
+        auto mapping = path->mutable_mapping(mapping_idx);
+        if (base_idx == 0) {
+            // position is past-the-last on an edit
+            if (from_left) {
+                int64_t from_length_removed = 0;
+                for (int64_t i = 0; i < edit_idx; ++i) {
+                    from_length_removed += mapping->edit(i).from_length();
+                }
+                auto edits = mapping->mutable_edit();
+                edits->erase(edits->begin(), edits->begin() + edit_idx);
+                mapping->mutable_position()->set_offset(mapping->position().offset()
+                                                        + from_length_removed);
+            }
+            else {
+                mapping->mutable_edit()->resize(edit_idx);
+            }
+        }
+        else {
+            // position is inside an edit
+            mapping->mutable_edit()->resize(edit_idx + 1);
+            auto edit = mapping->mutable_edit(edit_idx);
+            if (from_left) {
+                if (base_idx > 0) {
+                    if (edit->from_length() > 0) {
+                        mapping->mutable_position()->set_offset(mapping->position().offset()
+                                                                + base_idx);
+                    }
+                    edit->set_from_length(max<int64_t>(edit->from_length() - base_idx, 0));
+                    edit->set_to_length(max<int64_t>(edit->to_length() - base_idx, 0));
+                    if (!edit->sequence().empty()) {
+                        edit->set_sequence(edit->sequence().substr(base_idx, edit->to_length()));
+                    }
+                }
+            }
+            else {
+                if (base_idx < max(edit->from_length(), edit->to_length())) {
+                    edit->set_from_length(min<int64_t>(edit->from_length(), base_idx));
+                    edit->set_to_length(min<int64_t>(edit->to_length(), base_idx));
+                    if (!edit->sequence().empty()) {
+                        edit->set_sequence(edit->sequence().substr(0, base_idx));
+                    }
+                }
+            }
+        }
+    }
+}
+
+pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignment& splice_segment,
+                                                                    int64_t splice_junction_idx,
+                                                                    const GSSWAligner& scorer,
+                                                                    const HandleGraph& graph) {
+    
+    pair<pair<Path, int32_t>, pair<Path, int32_t>> return_val;
+    
+    // pull out the left half of the alignment
+    size_t left_to_length = 0;
+    auto& left_path = return_val.first.first;
+    for (size_t i = 0; i < splice_junction_idx; ++i) {
+        const auto& mapping = splice_segment.path().mapping(i);
+        if (mapping_from_length(mapping) == 0 && mapping_to_length(mapping) == 0) {
+            continue;
+        }
+        auto left_mapping = left_path.add_mapping();
+        *left_mapping->mutable_position() = mapping.position();
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            const auto& edit = mapping.edit(j);
+            if (edit.from_length() != 0 || edit.to_length()) {
+                *left_mapping->add_edit() = edit;
+                left_to_length += edit.to_length();
+            }
+        }
+    }
+    // and then pull out the right half of the alignment
+    auto& right_path = return_val.second.first;
+    for (size_t i = splice_junction_idx; i < splice_segment.path().mapping_size(); ++i) {
+        const auto& mapping = splice_segment.path().mapping(i);
+        if (mapping_from_length(mapping) == 0 && mapping_to_length(mapping) == 0) {
+            continue;
+        }
+        auto right_mapping = right_path.add_mapping();
+        *right_mapping->mutable_position() = mapping.position();
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            const auto& edit = mapping.edit(j);
+            if (edit.from_length() != 0 || edit.to_length()) {
+                *right_mapping->add_edit() = edit;
+            }
+        }
+    }
+    
+    // score the two halves (but don't take the full length bonus, since this isn't actually
+    // the end of the full read)
+    return_val.first.second = scorer.score_partial_alignment(splice_segment, graph, left_path,
+                                                             splice_segment.sequence().begin(), true);
+    return_val.second.second = scorer.score_partial_alignment(splice_segment, graph, right_path,
+                                                              splice_segment.sequence().begin() + left_to_length, true);
+    
+    // deletions can span the splice junction, in which case they will have been scored incorrectly
+    // by taking the gap open penalty twice
+    if (return_val.first.first.mapping_size() != 0 && return_val.second.first.mapping_size() != 0) {
+        
+        int64_t left_del_size = 0, right_del_size = 0;
+        
+        // measure left deletion at the end
+        bool in_deletion = true;
+        for (int64_t i = left_path.mapping_size() - 1; i >= 0 && in_deletion; --i) {
+            const auto& mapping = right_path.mapping(i);
+            for (int64_t j = mapping.edit_size() - 1; j >= 0 && in_deletion; --j) {
+                const auto& edit = mapping.edit(j);
+                if (edit.to_length() == 0) {
+                    left_del_size += edit.from_length();
+                }
+                else {
+                    in_deletion = false;
+                }
+            }
+        }
+        
+        // measure right deletion at the beginning
+        in_deletion = true;
+        for (int64_t i = 0; i < right_path.mapping_size() && in_deletion; ++i) {
+            const auto& mapping = right_path.mapping(i);
+            for (int64_t j = 0; j < mapping.edit_size() && in_deletion; ++j) {
+                const auto& edit = mapping.edit(j);
+                if (edit.to_length() == 0) {
+                    right_del_size += edit.from_length();
+                }
+                else {
+                    in_deletion = false;
+                }
+            }
+        }
+        
+        if (left_del_size != 0 && right_del_size != 0) {
+            // split the total gap score between the two (can break dynamic programmability
+            // a little bit, but i think it's worth it to have a good alignment across the
+            // splice junction)
+            int32_t total_gap_score = scorer.score_gap(left_del_size + right_del_size);
+            return_val.first.second += (total_gap_score / 2 - scorer.score_gap(left_del_size));
+            return_val.second.second += (total_gap_score  - total_gap_score / 2 - scorer.score_gap(right_del_size));
+        }
+    }
+    
+    return return_val;
+}
+
+multipath_alignment_t&& fuse_spliced_alignments(multipath_alignment_t&& left_mp_aln, multipath_alignment_t&& right_mp_aln,
+                                                int64_t left_bridge_point, const Alignment& splice_segment,
+                                                int64_t splice_junction_idx, int32_t splice_score, const GSSWAligner& scorer,
+                                                const HandleGraph& graph) {
+    
+    // TODO: get the scores of the trimmed halves and the splice connection or rescore?
+    // TODO: allow multiple splices to happen on the same multipath alignment?
+    
+    pos_t pos_left = initial_position(splice_segment.path());
+    pos_t pos_right = final_position(splice_segment.path());
+    
+    int64_t right_bridge_point = left_bridge_point + path_to_length(splice_segment.path());
+    
+    auto left_locations = search_multipath_alignment(left_mp_aln, pos_left, left_bridge_point);
+    auto right_locations = search_multipath_alignment(right_mp_aln, pos_right, right_bridge_point);
+    sort(left_locations.begin(), left_locations.end());
+    sort(right_locations.begin(), right_locations.end());
+    
+    if (left_locations.empty() || right_locations.empty()) {
+        cerr << "error: splice segment could not be located on multipath alignment" << endl;
+        exit(1);
+    }
+    
+    vector<bool> to_keep_left(left_mp_aln.subpath_size(), false);
+    vector<bool> is_bridge_left(left_mp_aln.subpath_size(), false);
+    for (const auto& pos : left_locations) {
+        is_bridge_left[get<0>(pos)] = true;
+    }
+    for (auto i : left_mp_aln.start()) {
+        to_keep_left[i] = true;
+    }
+    for (int64_t i = 0; i < left_mp_aln.subpath_size(); ++i) {
+        if (!is_bridge_left[i]) {
+            for (auto j : left_mp_aln.subpath(i).next()) {
+                to_keep_left[j] = to_keep_left[j] || to_keep_left[i];
+            }
+        }
+    }
+    for (int64_t i = 0; i < left_mp_aln.subpath_size(); ++i) {
+        if (!is_bridge_left[i]) {
+            for (auto j : left_mp_aln.subpath(i).next()) {
+                to_keep_left[j] = to_keep_left[j] || to_keep_left[i];
+            }
+        }
+    }
+    
+    vector<int64_t> left_removed_so_far(left_mp_aln.subpath_size() + 1, 0);
+    int64_t left_loc_idx = 0;
+    for (int64_t i = 0; i < left_mp_aln.subpath_size(); ++i) {
+        if (!to_keep_left[i]) {
+            left_removed_so_far[i + 1] = left_removed_so_far[i] + 1;
+            continue;
+        }
+        if (left_loc_idx < left_locations.size() && i == get<0>(left_locations[left_loc_idx])) {
+            int64_t s, m, e, b;
+            tie(s, m, e, b) = left_locations[left_loc_idx];
+            ++left_loc_idx;
+            auto path = left_mp_aln.mutable_subpath(i)->mutable_path();
+            trim_path(path, false, m, e, b);
+            left_mp_aln.mutable_subpath(i)->mutable_next()->clear();
+        }
+        
+        if (left_removed_so_far[i]) {
+            *left_mp_aln.mutable_subpath(i - left_removed_so_far[i]) = move(*left_mp_aln.mutable_subpath(i));
+        }
+        left_removed_so_far[i + 1] = left_removed_so_far[i];
+    }
+    if (left_removed_so_far.back() != 0) {
+        left_mp_aln.mutable_subpath()->resize(left_mp_aln.subpath_size() - left_removed_so_far.back());
+        for (size_t i = 0; i < left_mp_aln.subpath_size(); ++i)  {
+            auto subpath = left_mp_aln.mutable_subpath(i);
+            size_t nexts_removed_so_far = 0;
+            for (size_t j = 0; j < subpath->next_size(); ++j) {
+                if (to_keep_left[subpath->next(j)]) {
+                    subpath->set_next(j - nexts_removed_so_far,
+                                      subpath->next(j) - left_removed_so_far[subpath->next(j)]);
+                }
+                else {
+                    ++nexts_removed_so_far;
+                }
+            }
+            if (nexts_removed_so_far != 0) {
+                subpath->mutable_next()->resize(subpath->next_size() - nexts_removed_so_far);
+            }
+            // TODO: i'll assume no connections yet at this stage
+        }
+    }
+    
+    size_t left_subpaths_end = left_mp_aln.subpath_size();
+    
+    auto splice_segment_halves = split_splice_segment(splice_segment, splice_junction_idx,
+                                                      scorer, graph);
+    
+    if (splice_segment_halves.first.first.mapping_size() != 0) {
+        
+        for (const auto& left_loc : left_locations) {
+            auto i = get<0>(left_loc) - left_removed_so_far[get<0>(left_loc)];
+            left_mp_aln.mutable_subpath(i)->add_next(left_mp_aln.subpath_size());
+        }
+        
+        auto subpath = left_mp_aln.add_subpath();
+        subpath->set_score(splice_segment_halves.first.second);
+        from_proto_path(splice_segment_halves.first.first, *subpath->mutable_path());
+    }
+    
+    if (splice_segment_halves.second.first.mapping_size() != 0) {
+        if (splice_segment_halves.first.first.mapping_size() == 0) {
+            // we skipped the left side of the splice, so connect to the left splice points
+            for (const auto& left_loc : left_locations) {
+                auto i = get<0>(left_loc) - left_removed_so_far[get<0>(left_loc)];
+                auto connection = left_mp_aln.mutable_subpath(i)->add_connection();
+                connection->set_next(left_mp_aln.subpath_size());
+                connection->set_score(splice_score);
+            }
+        }
+        else {
+            // the left side also exists as a subpath, connect to it
+            auto connection = left_mp_aln.mutable_subpath(left_mp_aln.subpath_size() - 1)->add_connection();
+            connection->set_next(left_mp_aln.subpath_size());
+            connection->set_score(splice_score);
+        }
+        
+        auto subpath = left_mp_aln.add_subpath();
+        subpath->set_score(splice_segment_halves.second.second);
+        from_proto_path(splice_segment_halves.second.first, *subpath->mutable_path());
+    }
+    
+    size_t right_subpaths_begin = left_mp_aln.subpath_size();
+    
+    vector<bool> to_keep_right(right_mp_aln.subpath_size(), false);
+    vector<bool> is_bridge_right(right_mp_aln.subpath_size(), false);
+    
+    for (const auto& pos : right_locations) {
+        is_bridge_right[get<0>(pos)] = true;
+    }
+    for (int64_t i = right_mp_aln.subpath_size() - 1; i >= 0; --i) {
+        const auto& subpath = right_mp_aln.subpath(i);
+        if (subpath.next_size() == 0) {
+            to_keep_right[i] = true;;
+        }
+        else {
+            for (auto j : subpath.next()) {
+                if (!is_bridge_right[j]) {
+                    to_keep_right[i] = to_keep_right[i] || to_keep_right[j];
+                }
+            }
+        }
+    }
+    
+    // transfer the subpaths from the right multipath alignment onto the left one
+    
+    vector<int64_t> right_removed_so_far(right_mp_aln.subpath_size() + 1, 0);
+    int64_t right_loc_idx = 0;
+    for (int64_t i = 0; i < right_mp_aln.subpath_size(); ++i) {
+        if (!to_keep_right[i]) {
+            right_removed_so_far[i + 1] = right_removed_so_far[i] + 1;
+            continue;
+        }
+        if (right_loc_idx < right_locations.size() && i == get<0>(right_locations[right_loc_idx])) {
+            // this is where the splice alignment began
+            int64_t s, m, e, b;
+            tie(s, m, e, b) = right_locations[right_loc_idx];
+            ++right_loc_idx;
+            auto path = right_mp_aln.mutable_subpath(i)->mutable_path();
+            trim_path(path, true, m, e, b);
+            // add the edges into the right side
+            if (right_subpaths_begin == left_subpaths_end) {
+                // both of the splice segments were empty, connect directly to the left splice point
+                for (const auto& left_loc : left_locations) {
+                    auto i = get<0>(left_loc) - left_removed_so_far[get<0>(left_loc)];
+                    auto connection = left_mp_aln.mutable_subpath(i)->add_connection();
+                    connection->set_next(left_mp_aln.subpath_size());
+                    connection->set_score(splice_score);
+                }
+            }
+            else {
+                // add the edge from the rightmost splice segment
+                left_mp_aln.mutable_subpath(right_subpaths_begin - 1)->add_next(left_mp_aln.subpath_size());
+            }
+        }
+        
+        *left_mp_aln.add_subpath() = move(*right_mp_aln.mutable_subpath(i));
+        right_removed_so_far[i + 1] = right_removed_so_far[i];
+    }
+    // fix up the edges on the transferred subpaths from the right alignment
+    for (size_t i = right_subpaths_begin; i < left_mp_aln.subpath_size(); ++i)  {
+        auto subpath = left_mp_aln.mutable_subpath(i);
+        size_t nexts_removed_so_far = 0;
+        for (size_t j = 0; j < subpath->next_size(); ++j) {
+            if (to_keep_right[subpath->next(j)]) {
+                subpath->set_next(j - nexts_removed_so_far,
+                                  subpath->next(j) - right_removed_so_far[subpath->next(j)] + right_subpaths_begin);
+            }
+            else {
+                ++nexts_removed_so_far;
+            }
+        }
+        if (nexts_removed_so_far != 0) {
+            subpath->mutable_next()->resize(subpath->next_size() - nexts_removed_so_far);
+        }
+        // TODO: i'll assume no connections yet at this stage
+    }
+    
+    // starts can change pretty drastically, so just clear and reidentify
+    identify_start_subpaths(left_mp_aln);
+    
+    // pass the left (where we collected everything) out without copying
+    return move(left_mp_aln);
+}
 
 
 }

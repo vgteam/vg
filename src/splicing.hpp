@@ -10,6 +10,7 @@
 #include "dinucleotide_machine.hpp"
 #include "incremental_subgraph.hpp"
 #include "aligner.hpp"
+#include "multipath_alignment.hpp"
 
 namespace vg {
 

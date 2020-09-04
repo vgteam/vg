@@ -1447,7 +1447,7 @@ int32_t Aligner::score_mismatch(size_t length) const {
 }
 
 int32_t Aligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                         string::const_iterator seq_begin) const {
+                                         string::const_iterator seq_begin, bool suppress_full_length_bonus) const {
     
     int32_t score = 0;
     string::const_iterator read_pos = seq_begin;
@@ -1470,10 +1470,11 @@ int32_t Aligner::score_partial_alignment(const Alignment& alignment, const Handl
                     }
                     
                     // apply full length bonus
-                    if (read_pos == alignment.sequence().begin()) {
+                    if (read_pos == alignment.sequence().begin() && !suppress_full_length_bonus) {
                         score += full_length_bonus;
                     }
-                    if (read_pos + edit.from_length() == alignment.sequence().end()) {
+                    if (read_pos + edit.from_length() == alignment.sequence().end()
+                         && !suppress_full_length_bonus) {
                         score += full_length_bonus;
                     }
                     in_deletion = false;
@@ -2051,7 +2052,7 @@ int32_t QualAdjAligner::score_mismatch(string::const_iterator seq_begin, string:
 }
 
 int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                                string::const_iterator seq_begin) const {
+                                                string::const_iterator seq_begin, bool suppress_full_length_bonus) const {
     
     int32_t score = 0;
     string::const_iterator read_pos = seq_begin;
@@ -2079,10 +2080,11 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
                     }
                     
                     // apply full length bonus
-                    if (read_pos == alignment.sequence().begin()) {
+                    if (read_pos == alignment.sequence().begin() && !suppress_full_length_bonus) {
                         score += full_length_bonus;
                     }
-                    if (read_pos + edit.from_length() == alignment.sequence().end()) {
+                    if (read_pos + edit.from_length() == alignment.sequence().end()
+                        && !suppress_full_length_bonus) {
                         score += full_length_bonus;
                     }
                     in_deletion = false;

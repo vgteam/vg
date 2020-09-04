@@ -1944,12 +1944,13 @@ namespace vg {
     
     void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln) {
         vector<size_t> in_degree(multipath_aln.subpath_size(), 0);
+        vector<bool> has_inward_connection(multipath_aln.subpath_size());
         for (const subpath_t& subpath : multipath_aln.subpath()) {
             for (auto next : subpath.next()) {
                 in_degree[next]++;
             }
             for (const auto& connection : subpath.connection()) {
-                in_degree[connection.next()]++;
+                has_inward_connection[connection.next()] = true;
             }
         }
         
@@ -1957,10 +1958,9 @@ namespace vg {
         vector<size_t> removed_so_far(multipath_aln.subpath_size(), 0);
         
         auto get_mergeable_next = [&](const subpath_t& subpath) {
-            if (subpath.next_size() + subpath.connection_size() == 1) {
-                if (in_degree[subpath.next(0)] == 1) {
-                    return int64_t(subpath.next(0));
-                }
+            if (subpath.next_size() == 1 && subpath.connection_size() == 0
+                && in_degree[subpath.next(0)] == 1 && !has_inward_connection[subpath.next(0)]) {
+                return int64_t(subpath.next(0));
             }
             return int64_t(-1);
         };
