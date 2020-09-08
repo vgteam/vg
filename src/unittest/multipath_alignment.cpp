@@ -28,12 +28,12 @@ namespace vg {
             
             SECTION( "Multipath alignment can identify source subpath in a linear subpath structure") {
                 
-                VG graph;
+                bdsg::HashGraph graph;
                 
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("T");
-                Node* n3 = graph.create_node("G");
-                Node* n4 = graph.create_node("CTGA");
+                handle_t n1 = graph.create_handle("GCA");
+                handle_t n2 = graph.create_handle("T");
+                handle_t n3 = graph.create_handle("G");
+                handle_t n4 = graph.create_handle("CTGA");
                 
                 graph.create_edge(n1, n2);
                 graph.create_edge(n1, n3);
@@ -56,13 +56,13 @@ namespace vg {
                 
                 // designate mappings
                 path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
-                mapping0->mutable_position()->set_node_id(1);
+                mapping0->mutable_position()->set_node_id(graph.get_id(n1));
                 
                 path_mapping_t* mapping1 = subpath0->mutable_path()->add_mapping();
-                mapping1->mutable_position()->set_node_id(2);
+                mapping1->mutable_position()->set_node_id(graph.get_id(n2));
                 
                 path_mapping_t* mapping2 = subpath1->mutable_path()->add_mapping();
-                mapping2->mutable_position()->set_node_id(4);
+                mapping2->mutable_position()->set_node_id(graph.get_id(n4));
                 identify_start_subpaths(multipath_aln);
                 
                 REQUIRE(multipath_aln.start_size() == 1);
@@ -71,12 +71,12 @@ namespace vg {
             
             SECTION( "Multipath alignment can identify source subpath in a forked subpath structure") {
                 
-                VG graph;
+                bdsg::HashGraph graph;
                 
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("T");
-                Node* n3 = graph.create_node("G");
-                Node* n4 = graph.create_node("CTGA");
+                handle_t n1 = graph.create_handle("GCA");
+                handle_t n2 = graph.create_handle("T");
+                handle_t n3 = graph.create_handle("G");
+                handle_t n4 = graph.create_handle("CTGA");
                 
                 graph.create_edge(n1, n2);
                 graph.create_edge(n1, n3);
@@ -104,16 +104,16 @@ namespace vg {
                 
                 // designate mappings
                 path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
-                mapping0->mutable_position()->set_node_id(1);
+                mapping0->mutable_position()->set_node_id(graph.get_id(n1));
                 
                 path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
-                mapping1->mutable_position()->set_node_id(2);
+                mapping1->mutable_position()->set_node_id(graph.get_id(n2));
                 
                 path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
-                mapping2->mutable_position()->set_node_id(3);
+                mapping2->mutable_position()->set_node_id(graph.get_id(n3));
                 
                 path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
-                mapping3->mutable_position()->set_node_id(4);
+                mapping3->mutable_position()->set_node_id(graph.get_id(n4));
                 
                 
                 identify_start_subpaths(multipath_aln);
@@ -146,12 +146,12 @@ namespace vg {
             
             SECTION( "Multipath alignment can identify optimal alignment between two disjoint paths" ) {
                 
-                VG graph;
+                bdsg::HashGraph graph;
                 
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("T");
-                Node* n3 = graph.create_node("G");
-                Node* n4 = graph.create_node("CTGA");
+                handle_t n1 = graph.create_handle("GCA");
+                handle_t n2 = graph.create_handle("T");
+                handle_t n3 = graph.create_handle("G");
+                handle_t n4 = graph.create_handle("CTGA");
                 
                 graph.create_edge(n1, n2);
                 graph.create_edge(n1, n3);
@@ -176,10 +176,10 @@ namespace vg {
                 
                 // designate mappings
                 path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
-                mapping0->mutable_position()->set_node_id(2);
+                mapping0->mutable_position()->set_node_id(graph.get_id(n2));
                 
                 path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
-                mapping1->mutable_position()->set_node_id(3);
+                mapping1->mutable_position()->set_node_id(graph.get_id(n3));
                 
                 // get optimal alignment
                 identify_start_subpaths(multipath_aln);
@@ -194,15 +194,64 @@ namespace vg {
                 
             }
             
+            SECTION( "Multipath alignment can identifiy optimal alignment that includes a connection") {
+                
+                string read = string("TT");
+                multipath_alignment_t multipath_aln;
+                multipath_aln.set_sequence(read);
+                
+                // add subpaths
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                
+                // set edges between subpaths
+                connection_t* connection = subpath0->add_connection();
+                connection->set_score(1);
+                connection->set_next(1);
+                
+                // set scores
+                subpath0->set_score(1);
+                subpath1->set_score(1);
+                
+                // designate mappings
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
+                mapping0->mutable_position()->set_node_id(1);
+                mapping0->mutable_position()->set_offset(3);
+                edit_t* edit0 = mapping0->add_edit();
+                edit0->set_from_length(1);
+                edit0->set_to_length(1);
+                
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
+                mapping1->mutable_position()->set_node_id(3);
+                mapping1->mutable_position()->set_offset(1);
+                edit_t* edit1 = mapping1->add_edit();
+                edit1->set_from_length(1);
+                edit1->set_to_length(1);
+                
+                // get optimal alignment
+                identify_start_subpaths(multipath_aln);
+                Alignment aln;
+                optimal_alignment(multipath_aln, aln);
+                
+                REQUIRE(aln.score() == 3);
+                REQUIRE(aln.path().mapping_size() == 2);
+                REQUIRE(aln.path().mapping(0).position().node_id() == 1);
+                REQUIRE(aln.path().mapping(0).position().offset() == 3);
+                REQUIRE(aln.path().mapping(1).position().node_id() == 3);
+                REQUIRE(aln.path().mapping(1).position().offset() == 1);
+            }
+            
             SECTION( "Multipath alignment can identify optimal alignment among paths that intersect" ) {
                 
-                VG graph;
+                bdsg::HashGraph graph;
                 
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("T");
-                Node* n3 = graph.create_node("G");
-                Node* n4 = graph.create_node("A");
-                Node* n5 = graph.create_node("CTGA");
+                handle_t n1 = graph.create_handle("GCA");
+                handle_t n2 = graph.create_handle("T");
+                handle_t n3 = graph.create_handle("G");
+                handle_t n4 = graph.create_handle("A");
+                handle_t n5 = graph.create_handle("CTGA");
                 
                 graph.create_edge(n1, n3);
                 graph.create_edge(n2, n3);
@@ -240,19 +289,19 @@ namespace vg {
                 
                 // designate mappings
                 path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
-                mapping0->mutable_position()->set_node_id(1);
+                mapping0->mutable_position()->set_node_id(graph.get_id(n1));
                 
                 path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
-                mapping1->mutable_position()->set_node_id(2);
+                mapping1->mutable_position()->set_node_id(graph.get_id(n2));
                 
                 path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
-                mapping2->mutable_position()->set_node_id(3);
+                mapping2->mutable_position()->set_node_id(graph.get_id(n3));
                 
                 path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
-                mapping3->mutable_position()->set_node_id(4);
+                mapping3->mutable_position()->set_node_id(graph.get_id(n4));
                 
                 path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
-                mapping4->mutable_position()->set_node_id(5);
+                mapping4->mutable_position()->set_node_id(graph.get_id(n5));
                 
                 // get optimal alignment
                 identify_start_subpaths(multipath_aln);
@@ -261,9 +310,9 @@ namespace vg {
                 
                 // follows correct path
                 REQUIRE(aln.path().mapping_size() == 3);
-                REQUIRE(aln.path().mapping(0).position().node_id() == 1);
-                REQUIRE(aln.path().mapping(1).position().node_id() == 3);
-                REQUIRE(aln.path().mapping(2).position().node_id() == 5);
+                REQUIRE(aln.path().mapping(0).position().node_id() == graph.get_id(n1));
+                REQUIRE(aln.path().mapping(1).position().node_id() == graph.get_id(n3));
+                REQUIRE(aln.path().mapping(2).position().node_id() == graph.get_id(n5));
                 
                 // has correct score
                 REQUIRE(aln.score() == 8);
@@ -272,13 +321,13 @@ namespace vg {
             
             SECTION( "Multipath alignment correctly merge Mappings while finding optimal alignment" ) {
                 
-                VG graph;
+                bdsg::HashGraph graph;
                 
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("T");
-                Node* n3 = graph.create_node("GTTGA");
-                Node* n4 = graph.create_node("A");
-                Node* n5 = graph.create_node("CTGA");
+                handle_t n1 = graph.create_handle("GCA");
+                handle_t n2 = graph.create_handle("T");
+                handle_t n3 = graph.create_handle("GTTGA");
+                handle_t n4 = graph.create_handle("A");
+                handle_t n5 = graph.create_handle("CTGA");
                 
                 graph.create_edge(n1, n3);
                 graph.create_edge(n2, n3);
@@ -320,29 +369,29 @@ namespace vg {
                 
                 // designate mappings
                 path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
-                mapping0->mutable_position()->set_node_id(1);
+                mapping0->mutable_position()->set_node_id(graph.get_id(n1));
                 
                 path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
-                mapping1->mutable_position()->set_node_id(2);
+                mapping1->mutable_position()->set_node_id(graph.get_id(n2));
                 
                 path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
-                mapping2->mutable_position()->set_node_id(3);
+                mapping2->mutable_position()->set_node_id(graph.get_id(n3));
                 edit_t* edit2 = mapping2->add_edit();
                 edit2->set_from_length(2);
                 edit2->set_to_length(2);
                 
                 path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
-                mapping3->mutable_position()->set_node_id(3);
+                mapping3->mutable_position()->set_node_id(graph.get_id(n3));
                 mapping3->mutable_position()->set_offset(2);
                 edit_t* edit3 = mapping3->add_edit();
                 edit3->set_from_length(3);
                 edit3->set_to_length(3);
                 
                 path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
-                mapping4->mutable_position()->set_node_id(4);
+                mapping4->mutable_position()->set_node_id(graph.get_id(n4));
                 
                 path_mapping_t* mapping5 = subpath5->mutable_path()->add_mapping();
-                mapping5->mutable_position()->set_node_id(5);
+                mapping5->mutable_position()->set_node_id(graph.get_id(n5));
                 
                 // get optimal alignment
                 identify_start_subpaths(multipath_aln);
@@ -351,9 +400,9 @@ namespace vg {
                 
                 // follows correct path
                 REQUIRE(aln.path().mapping_size() == 3);
-                REQUIRE(aln.path().mapping(0).position().node_id() == 1);
-                REQUIRE(aln.path().mapping(1).position().node_id() == 3);
-                REQUIRE(aln.path().mapping(2).position().node_id() == 5);
+                REQUIRE(aln.path().mapping(0).position().node_id() == graph.get_id(n1));
+                REQUIRE(aln.path().mapping(1).position().node_id() == graph.get_id(n3));
+                REQUIRE(aln.path().mapping(2).position().node_id() == graph.get_id(n5));
                 
                 // has correct ranks
                 REQUIRE(aln.path().mapping(0).rank() == 1);
@@ -437,12 +486,12 @@ namespace vg {
         
             SECTION( "Multipath alignment can identify optimal and suboptimal alignment between two disjoint paths" ) {
                 
-                VG graph;
+                bdsg::HashGraph graph;
                 
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("T");
-                Node* n3 = graph.create_node("G");
-                Node* n4 = graph.create_node("CTGA");
+                handle_t n1 = graph.create_handle("GCA");
+                handle_t n2 = graph.create_handle("T");
+                handle_t n3 = graph.create_handle("G");
+                handle_t n4 = graph.create_handle("CTGA");
                 
                 graph.create_edge(n1, n2);
                 graph.create_edge(n1, n3);
@@ -467,10 +516,10 @@ namespace vg {
                 
                 // designate mappings
                 path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
-                mapping0->mutable_position()->set_node_id(2);
+                mapping0->mutable_position()->set_node_id(graph.get_id(n2));
                 
                 path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
-                mapping1->mutable_position()->set_node_id(3);
+                mapping1->mutable_position()->set_node_id(graph.get_id(n3));
                 
                 // get top 10 alignments
                 auto top10 = optimal_alignments(multipath_aln, 10);
@@ -494,15 +543,58 @@ namespace vg {
                 
             }
             
+            SECTION( "Multipath alignment can find suboptimal alignments involving connections" ) {
+                
+                multipath_alignment_t multipath_aln;
+                multipath_aln.set_sequence("ATC");
+                
+                // add subpaths
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                
+                // set edges between subpaths
+                subpath0->add_next(2);
+                auto connection = subpath1->add_connection();
+                connection->set_next(2);
+                connection->set_score(-1);
+                
+                // set scores
+                subpath0->set_score(2);
+                subpath1->set_score(2);
+                subpath2->set_score(2);
+                
+                // designate mappings
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
+                mapping0->mutable_position()->set_node_id(1);
+                
+                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
+                mapping1->mutable_position()->set_node_id(2);
+                
+                path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
+                mapping2->mutable_position()->set_node_id(3);
+                
+                auto top2 = optimal_alignments(multipath_aln, 2);
+                REQUIRE(top2[0].score() == 4);
+                REQUIRE(top2[1].score() == 3);
+                REQUIRE(top2[0].path().mapping_size() == 2);
+                REQUIRE(top2[1].path().mapping_size() == 2);
+                REQUIRE(top2[0].path().mapping(0).position().node_id() == 1);
+                REQUIRE(top2[1].path().mapping(0).position().node_id() == 2);
+            }
+            
             SECTION( "Multipath alignment correctly merge Mappings while finding optimal and suboptimal alignments" ) {
                 
-                VG graph;
+                bdsg::HashGraph graph;
                 
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("T");
-                Node* n3 = graph.create_node("GTTGA");
-                Node* n4 = graph.create_node("A");
-                Node* n5 = graph.create_node("CTGA");
+                handle_t n1 = graph.create_handle("GCA");
+                handle_t n2 = graph.create_handle("T");
+                handle_t n3 = graph.create_handle("GTTGA");
+                handle_t n4 = graph.create_handle("A");
+                handle_t n5 = graph.create_handle("CTGA");
                 
                 graph.create_edge(n1, n3);
                 graph.create_edge(n2, n3);
@@ -545,29 +637,29 @@ namespace vg {
                 // designate mappings
                 // TODO: Note that these edits aren't quite realistic
                 path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
-                mapping0->mutable_position()->set_node_id(1);
+                mapping0->mutable_position()->set_node_id(graph.get_id(n1));
                 
                 path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
-                mapping1->mutable_position()->set_node_id(2);
+                mapping1->mutable_position()->set_node_id(graph.get_id(n2));
                 
                 path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
-                mapping2->mutable_position()->set_node_id(3);
+                mapping2->mutable_position()->set_node_id(graph.get_id(n3));
                 edit_t* edit2 = mapping2->add_edit();
                 edit2->set_from_length(2);
                 edit2->set_to_length(2);
                 
                 path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
-                mapping3->mutable_position()->set_node_id(3);
+                mapping3->mutable_position()->set_node_id(graph.get_id(n3));
                 mapping3->mutable_position()->set_offset(2);
                 edit_t* edit3 = mapping3->add_edit();
                 edit3->set_from_length(3);
                 edit3->set_to_length(3);
                 
                 path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
-                mapping4->mutable_position()->set_node_id(4);
+                mapping4->mutable_position()->set_node_id(graph.get_id(n4));
                 
                 path_mapping_t* mapping5 = subpath5->mutable_path()->add_mapping();
-                mapping5->mutable_position()->set_node_id(5);
+                mapping5->mutable_position()->set_node_id(graph.get_id(n5));
                 
                 // get top 10 alignments
                 identify_start_subpaths(multipath_aln);
@@ -579,9 +671,9 @@ namespace vg {
                     
                     // follows correct path
                     REQUIRE(top10[0].path().mapping_size() == 3);
-                    REQUIRE(top10[0].path().mapping(0).position().node_id() == 1);
-                    REQUIRE(top10[0].path().mapping(1).position().node_id() == 3);
-                    REQUIRE(top10[0].path().mapping(2).position().node_id() == 5);
+                    REQUIRE(top10[0].path().mapping(0).position().node_id() == graph.get_id(n1));
+                    REQUIRE(top10[0].path().mapping(1).position().node_id() == graph.get_id(n3));
+                    REQUIRE(top10[0].path().mapping(2).position().node_id() == graph.get_id(n4));
                     
                     // has correct score
                     REQUIRE(top10[0].score() == 12);
@@ -599,9 +691,9 @@ namespace vg {
                     
                     // follows correct path
                     REQUIRE(top10[1].path().mapping_size() == 3);
-                    REQUIRE(top10[1].path().mapping(0).position().node_id() == 2);
-                    REQUIRE(top10[1].path().mapping(1).position().node_id() == 3);
-                    REQUIRE(top10[1].path().mapping(2).position().node_id() == 5);
+                    REQUIRE(top10[1].path().mapping(0).position().node_id() == graph.get_id(n2));
+                    REQUIRE(top10[1].path().mapping(1).position().node_id() == graph.get_id(n3));
+                    REQUIRE(top10[1].path().mapping(2).position().node_id() == graph.get_id(n5));
                     
                     // has correct score
                     REQUIRE(top10[1].score() == 9);
@@ -620,9 +712,9 @@ namespace vg {
                     
                     // follows correct path
                     REQUIRE(top10[2].path().mapping_size() == 3);
-                    REQUIRE(top10[2].path().mapping(0).position().node_id() == 1);
-                    REQUIRE(top10[2].path().mapping(1).position().node_id() == 3);
-                    REQUIRE(top10[2].path().mapping(2).position().node_id() == 4);
+                    REQUIRE(top10[2].path().mapping(0).position().node_id() == graph.get_id(n1));
+                    REQUIRE(top10[2].path().mapping(1).position().node_id() == graph.get_id(n3));
+                    REQUIRE(top10[2].path().mapping(2).position().node_id() == graph.get_id(n4));
                     
                     // has correct score
                     REQUIRE(top10[2].score() == 8);
@@ -641,9 +733,9 @@ namespace vg {
                     
                     // follows correct path
                     REQUIRE(top10[3].path().mapping_size() == 3);
-                    REQUIRE(top10[3].path().mapping(0).position().node_id() == 2);
-                    REQUIRE(top10[3].path().mapping(1).position().node_id() == 3);
-                    REQUIRE(top10[3].path().mapping(2).position().node_id() == 4);
+                    REQUIRE(top10[3].path().mapping(0).position().node_id() == graph.get_id(n2));
+                    REQUIRE(top10[3].path().mapping(1).position().node_id() == graph.get_id(n3));
+                    REQUIRE(top10[3].path().mapping(2).position().node_id() == graph.get_id(n4));
                     
                     // has correct score
                     REQUIRE(top10[3].score() == 5);
@@ -672,12 +764,12 @@ namespace vg {
         
             SECTION( "Multipath alignment can identify a single haplotype consistent alignment" ) {
                 
-                VG graph;
+                bdsg::HashGraph graph;
                 
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("T");
-                Node* n3 = graph.create_node("G");
-                Node* n4 = graph.create_node("CTGA");
+                handle_t n1 = graph.create_handle("GCA");
+                handle_t n2 = graph.create_handle("T");
+                handle_t n3 = graph.create_handle("G");
+                handle_t n4 = graph.create_handle("CTGA");
                 
                 graph.create_edge(n1, n2);
                 graph.create_edge(n1, n3);
@@ -712,26 +804,26 @@ namespace vg {
                 
                 // designate mappings
                 path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
-                mapping0->mutable_position()->set_node_id(1);
+                mapping0->mutable_position()->set_node_id(graph.get_id(n1));
                 edit_t* edit0 = mapping0->add_edit();
                 edit0->set_from_length(3);
                 edit0->set_to_length(3);
                 
                 path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
-                mapping1->mutable_position()->set_node_id(2);
+                mapping1->mutable_position()->set_node_id(graph.get_id(n2));
                 edit_t* edit1 = mapping1->add_edit();
                 edit1->set_from_length(1);
                 edit1->set_to_length(1);
                 
                 path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
-                mapping2->mutable_position()->set_node_id(3);
+                mapping2->mutable_position()->set_node_id(graph.get_id(n3));
                 edit_t* edit2 = mapping2->add_edit();
                 edit2->set_from_length(1);
                 edit2->set_to_length(1);
                 edit2->set_sequence("T");
                 
                 path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
-                mapping3->mutable_position()->set_node_id(4);
+                mapping3->mutable_position()->set_node_id(graph.get_id(n4));
                 edit_t* edit3 = mapping3->add_edit();
                 edit3->set_from_length(4);
                 edit3->set_to_length(4);
@@ -773,11 +865,11 @@ namespace vg {
                     
                     // The alignment should be nodes 1, 3, 4, all forward
                     REQUIRE(consistent[0].path().mapping_size() == 3);
-                    REQUIRE(consistent[0].path().mapping(0).position().node_id() == 1);
+                    REQUIRE(consistent[0].path().mapping(0).position().node_id() == graph.get_id(n1));
                     REQUIRE(consistent[0].path().mapping(0).position().is_reverse() == false);
-                    REQUIRE(consistent[0].path().mapping(1).position().node_id() == 3);
+                    REQUIRE(consistent[0].path().mapping(1).position().node_id() == graph.get_id(n3));
                     REQUIRE(consistent[0].path().mapping(1).position().is_reverse() == false);
-                    REQUIRE(consistent[0].path().mapping(2).position().node_id() == 4);
+                    REQUIRE(consistent[0].path().mapping(2).position().node_id() == graph.get_id(n4));
                     REQUIRE(consistent[0].path().mapping(2).position().is_reverse() == false);
                     
                 }
@@ -797,14 +889,14 @@ namespace vg {
             
             SECTION( "Multipath alignment can identify multiple haplotype consistent alignments" ) {
                 
-                VG graph;
+                bdsg::HashGraph graph;
                 
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("T");
-                Node* n3 = graph.create_node("G");
-                Node* n4 = graph.create_node("CTGA");
-                Node* n5 = graph.create_node("ACAC");
-                Node* n6 = graph.create_node("CC");
+                handle_t n1 = graph.create_handle("GCA");
+                handle_t n2 = graph.create_handle("T");
+                handle_t n3 = graph.create_handle("G");
+                handle_t n4 = graph.create_handle("CTGA");
+                handle_t n5 = graph.create_handle("ACAC");
+                handle_t n6 = graph.create_handle("CC");
                 
                 graph.create_edge(n1, n2);
                 graph.create_edge(n1, n3);
@@ -849,38 +941,38 @@ namespace vg {
                 
                 // designate mappings
                 path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
-                mapping0->mutable_position()->set_node_id(1);
+                mapping0->mutable_position()->set_node_id(graph.get_id(n1));
                 edit_t* edit0 = mapping0->add_edit();
                 edit0->set_from_length(3);
                 edit0->set_to_length(3);
                 
                 path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
-                mapping1->mutable_position()->set_node_id(2);
+                mapping1->mutable_position()->set_node_id(graph.get_id(n2));
                 edit_t* edit1 = mapping1->add_edit();
                 edit1->set_from_length(1);
                 edit1->set_to_length(1);
                 
                 path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
-                mapping2->mutable_position()->set_node_id(3);
+                mapping2->mutable_position()->set_node_id(graph.get_id(n3));
                 edit_t* edit2 = mapping2->add_edit();
                 edit2->set_from_length(1);
                 edit2->set_to_length(1);
                 edit2->set_sequence("T");
                 
                 path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
-                mapping3->mutable_position()->set_node_id(4);
+                mapping3->mutable_position()->set_node_id(graph.get_id(n4));
                 edit_t* edit3 = mapping3->add_edit();
                 edit3->set_from_length(4);
                 edit3->set_to_length(4);
                 
                 path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
-                mapping4->mutable_position()->set_node_id(5);
+                mapping4->mutable_position()->set_node_id(graph.get_id(n5));
                 edit_t* edit4 = mapping4->add_edit();
                 edit4->set_from_length(2);
                 edit4->set_to_length(2);
                 
                 path_mapping_t* mapping5 = subpath5->mutable_path()->add_mapping();
-                mapping5->mutable_position()->set_node_id(6);
+                mapping5->mutable_position()->set_node_id(graph.get_id(n6));
                 mapping5->add_edit();
                 mapping5->add_edit();
                 edit_t* edit5a = mapping5->mutable_edit(0);
@@ -961,7 +1053,7 @@ namespace vg {
                     // Each should have 4 mappings
                     REQUIRE(aln.path().mapping_size() == 4);
                     // None of them should go to nodes 2 and 6
-                    REQUIRE(!(aln.path().mapping(1).position().node_id() == 2 && aln.path().mapping(3).position().node_id() == 6));
+                    REQUIRE(!(aln.path().mapping(1).position().node_id() == graph.get_id(n2) && aln.path().mapping(3).position().node_id() == graph.get_id(n6)));
                 }
             }
         }
@@ -969,13 +1061,13 @@ namespace vg {
         TEST_CASE( "Reverse complementing multipath alignments works correctly",
                   "[alignment][multipath][mapping]" ) {
             
-            VG graph;
+            bdsg::HashGraph graph;
             
-            Node* n1 = graph.create_node("GCA");
-            Node* n2 = graph.create_node("T");
-            Node* n3 = graph.create_node("GCC");
-            Node* n4 = graph.create_node("A");
-            Node* n5 = graph.create_node("CTGA");
+            handle_t n1 = graph.create_handle("GCA");
+            handle_t n2 = graph.create_handle("T");
+            handle_t n3 = graph.create_handle("GCC");
+            handle_t n4 = graph.create_handle("A");
+            handle_t n5 = graph.create_handle("CTGA");
             
             graph.create_edge(n1, n3);
             graph.create_edge(n2, n3);
@@ -1017,14 +1109,14 @@ namespace vg {
             
             // designate mappings
             path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
-            mapping0->mutable_position()->set_node_id(1);
+            mapping0->mutable_position()->set_node_id(graph.get_id(n1));
             mapping0->mutable_position()->set_offset(1);
             edit_t* edit00 = mapping0->add_edit();
             edit00->set_from_length(2);
             edit00->set_to_length(2);
             
             path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
-            mapping1->mutable_position()->set_node_id(2);
+            mapping1->mutable_position()->set_node_id(graph.get_id(n2));
             mapping1->mutable_position()->set_offset(1);
             edit_t* edit10 = mapping1->add_edit();
             edit10->set_from_length(0);
@@ -1032,7 +1124,7 @@ namespace vg {
             edit10->set_sequence("CA");
             
             path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
-            mapping2->mutable_position()->set_node_id(3);
+            mapping2->mutable_position()->set_node_id(graph.get_id(n3));
             mapping2->add_edit();
             mapping2->add_edit();
             edit_t* edit20 = mapping2->mutable_edit(0);
@@ -1043,20 +1135,20 @@ namespace vg {
             edit21->set_to_length(2);
             
             path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
-            mapping3->mutable_position()->set_node_id(4);
+            mapping3->mutable_position()->set_node_id(graph.get_id(n4));
             edit_t* edit30 = mapping3->add_edit();
             edit30->set_from_length(0);
             edit30->set_to_length(4);
             edit30->set_sequence("CTGA");
             
             path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
-            mapping4->mutable_position()->set_node_id(5);
+            mapping4->mutable_position()->set_node_id(graph.get_id(n5));
             edit_t* edit40 = mapping4->add_edit();
             edit40->set_from_length(4);
             edit40->set_to_length(4);
             
             path_mapping_t* mapping5 = subpath5->mutable_path()->add_mapping();
-            mapping5->mutable_position()->set_node_id(3);
+            mapping5->mutable_position()->set_node_id(graph.get_id(n3));
             mapping5->mutable_position()->set_offset(3);
             edit_t* edit50 = mapping5->add_edit();
             edit50->set_from_length(0);
@@ -1069,7 +1161,7 @@ namespace vg {
             
             multipath_alignment_t rc_multipath_aln;
             
-            auto node_length = [&graph](int64_t node_id) { return graph.get_node(node_id)->sequence().length(); };
+            auto node_length = [&graph](int64_t node_id) { return graph.get_length(graph.get_handle(node_id)); };
             rev_comp_multipath_alignment(multipath_aln, node_length, rc_multipath_aln);
             
             // all subpaths preserved

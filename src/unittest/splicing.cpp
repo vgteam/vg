@@ -1519,6 +1519,7 @@ TEST_CASE("fuse_spliced_alignments can handle multiple splice points",
 }
 
 TEST_CASE("fuse_spliced_alignments can handle removing some subpaths") {
+    
     bdsg::HashGraph graph;
 
     handle_t h0 = graph.create_handle("GATAAAA");

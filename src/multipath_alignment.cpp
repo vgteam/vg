@@ -156,15 +156,18 @@ namespace vg {
         vector<size_t> stack;
         vector<size_t> in_degree(multipath_aln.subpath_size(), 0);
         
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
             const subpath_t& subpath = multipath_aln.subpath(i);
-            for (size_t j = 0; j < subpath.next_size(); j++) {
-                in_degree[subpath.next(j)]++;
+            for (size_t j = 0; j < subpath.next_size(); ++j) {
+                ++in_degree[subpath.next(j)];
+            }
+            for (const auto& connection : subpath.connection()) {
+                ++in_degree[connection.next()];
             }
         }
         
         // identify the source nodes and add them to the stack
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
             if (!in_degree[i]) {
                 stack.push_back(i);
             }
@@ -176,16 +179,23 @@ namespace vg {
             stack.pop_back();
             
             index[here] = order_idx;
-            order_idx++;
+            ++order_idx;
             
             // remove the node's edges
             const subpath_t& subpath = multipath_aln.subpath(here);
-            for (size_t i = 0; i < subpath.next_size(); i++) {
+            for (size_t i = 0; i < subpath.next_size(); ++i) {
                 size_t next = subpath.next(i);
-                in_degree[next]--;
+                --in_degree[next];
                 // if a node is now a source, stack it up
                 if (!in_degree[next]) {
                     stack.push_back(next);
+                }
+            }
+            // repeat for connections
+            for (const auto& connection : subpath.connection()) {
+                --in_degree[connection.next()];
+                if (!in_degree[connection.next()]) {
+                    stack.push_back(connection.next());
                 }
             }
         }
@@ -408,13 +418,13 @@ namespace vg {
         auto& opt_subpath = get<1>(to_return);
         auto& opt_score = get<2>(to_return);
     
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
             const subpath_t& subpath = multipath_aln.subpath(i);
             int32_t extended_score = problem.prefix_score[i] + subpath.score();
             // carry DP forward
-            if (subpath.next_size() > 0) {
+            if (subpath.next_size() != 0 || subpath.connection_size() != 0) {
                 int64_t thru_length = path_to_length(subpath.path()) + problem.prefix_length[i];
-                for (size_t j = 0; j < subpath.next_size(); j++) {
+                for (size_t j = 0; j < subpath.next_size(); ++j) {
                     int64_t next = subpath.next(j);
                     problem.prefix_length[next] = thru_length;
                     
@@ -424,10 +434,21 @@ namespace vg {
                         problem.prefix_score[next] = extended_score;
                     }
                 }
+                // repeat DP across scored connections
+                for (size_t j = 0; j < subpath.connection_size(); ++j) {
+                    const connection_t& connection = subpath.connection(j);
+                    
+                    problem.prefix_length[connection.next()] = thru_length;
+                    if (extended_score + connection.score() >= problem.prefix_score[connection.next()]) {
+                        problem.prev_subpath[connection.next()] = i;
+                        problem.prefix_score[connection.next()] = extended_score + connection.score();
+                    }
+                }
             }
             // check if an alignment is allowed to end here according to global/local rules and
             // if so whether it's optimal
-            if (extended_score >= opt_score && (!subpath_global || subpath.next_size() == 0)) {
+            if (extended_score >= opt_score && (!subpath_global || (subpath.next_size() == 0 &&
+                                                                    subpath.connection_size() == 0))) {
                 // We have a better optimal subpath
                 opt_score = extended_score;
                 opt_subpath = i;
@@ -573,7 +594,7 @@ namespace vg {
         if (aln_out && opt_subpath >= 0) {
             
             // traceback the optimal subpaths until hitting sentinel (-1)
-            list<int64_t> opt_traceback;
+            deque<int64_t> opt_traceback;
             int64_t curr = opt_subpath;
             while (curr >= 0) {
                 opt_traceback.push_front(curr);
@@ -663,8 +684,8 @@ namespace vg {
         
         // Also, subpaths only keep track of their nexts, so we need to invert
         // that so we can get all valid prev subpaths.
-        vector<vector<int64_t>> prev_subpaths;
-        
+        vector<vector<pair<int64_t, int32_t>>> prev_subpaths(multipath_aln.subpath_size());
+
         // We want to be able to start the traceback only from places where we
         // won't get shorter versions of same- or higher-scoring alignments.
         // This means that we want exactly the subpaths that have no successors
@@ -679,8 +700,7 @@ namespace vg {
         // the optimal score overall and the score we would get for the optimal
         // alignment ending at each.
         
-        prev_subpaths.resize(multipath_aln.subpath_size());
-        for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
+        for (int64_t i = 0; i < multipath_aln.subpath_size(); ++i) {
             // For each subpath
             
             // If it has no successors, we can start a traceback here
@@ -690,13 +710,24 @@ namespace vg {
                 // For each next subpath it lists
                 
                 // Register this subpath as a predecessor of the next
-                prev_subpaths[next_subpath].push_back(i);
+                prev_subpaths[next_subpath].emplace_back(i, 0);
                 
                 if (multipath_aln.subpath(next_subpath).score() >= 0) {
                     // This successor has a nonnegative score, so taking it
                     // after us would generate a longer, same- or
                     // higher-scoring alignment. So we shouldn't start a
                     // traceback from subpath i.
+                    valid_traceback_start = false;
+                }
+            }
+            
+            for (const auto& connection : multipath_aln.subpath(i).connection()) {
+                
+                // register the connection
+                prev_subpaths[connection.next()].emplace_back(i, connection.score());
+                
+                if (multipath_aln.subpath(connection.next()).score() + connection.score() >= 0) {
+                    // Taking the connection would lead to a longer or better alignment
                     valid_traceback_start = false;
                 }
             }
@@ -761,7 +792,8 @@ namespace vg {
                 cerr << "Traceback reaches start; emit with score " << aln_out.score() << endl;
 #endif
                 
-            } else {
+            }
+            else {
                 // The path does not lead all the way to a source
                 
                 // Find out all the places we can come from, and the score
@@ -780,12 +812,12 @@ namespace vg {
                 
                 for (auto& prev : prev_subpaths[here]) {
                     // For each, compute the score of the optimal alignment ending at that predecessor
-                    auto prev_opt_score = problem.prefix_score[prev] + multipath_aln.subpath(prev).score();
+                    auto prev_opt_score = problem.prefix_score[prev.first] + multipath_aln.subpath(prev.first).score() + prev.second;
                     
                     // What's the difference we would take if we went with this predecessor?
                     auto additional_penalty = best_prefix_score - prev_opt_score;
                     
-                    destinations.emplace_back(prev, additional_penalty);
+                    destinations.emplace_back(prev.first, additional_penalty);
                 }
                 
                 // TODO: unify loops!
@@ -844,9 +876,8 @@ namespace vg {
         
         // Also, subpaths only keep track of their nexts, so we need to invert
         // that so we can get all valid prev subpaths.
-        vector<vector<int64_t>> prev_subpaths;
+        vector<vector<pair<int64_t, int32_t>>> prev_subpaths(multipath_aln.subpath_size());
         
-        prev_subpaths.resize(multipath_aln.subpath_size());
         for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
             // For each subpath
             
@@ -857,13 +888,24 @@ namespace vg {
                 // For each next subpath it lists
                 
                 // Register this subpath as a predecessor of the next
-                prev_subpaths[next_subpath].push_back(i);
+                prev_subpaths[next_subpath].emplace_back(i, 0);
                 
                 if (multipath_aln.subpath(next_subpath).score() >= 0) {
                     // This successor has a nonnegative score, so taking it
                     // after us would generate a longer, same- or
                     // higher-scoring alignment. So we shouldn't start a
                     // traceback from subpath i.
+                    valid_traceback_start = false;
+                }
+            }
+            
+            for (const auto& connection : multipath_aln.subpath(i).connection()) {
+                
+                // register the connection
+                prev_subpaths[connection.next()].emplace_back(i, connection.score());
+                
+                if (multipath_aln.subpath(connection.next()).score() + connection.score() >= 0) {
+                    // Taking the connection would lead to a longer or better alignment
                     valid_traceback_start = false;
                 }
             }
@@ -1011,7 +1053,7 @@ namespace vg {
                     for (auto& prev : prev_subpaths[here]) {
                         // For each candidate previous subpath
                         
-                        if (subpath_is_used[prev]) {
+                        if (subpath_is_used[prev.first]) {
                             // This subpath has already been used in an emitted alignment, so we can't use it.
                             
 #ifdef debug_multiple_tracebacks
@@ -1022,7 +1064,7 @@ namespace vg {
                         }
                         
                         // For each, compute the score of the optimal alignment ending at that predecessor
-                        auto prev_opt_score = problem.prefix_score[prev] + multipath_aln.subpath(prev).score();
+                        auto prev_opt_score = problem.prefix_score[prev.first] + multipath_aln.subpath(prev.first).score() + prev.second;
                         
                         // What's the difference we would take if we went with this predecessor?
                         auto additional_penalty = best_prefix_score - prev_opt_score;
@@ -1030,25 +1072,25 @@ namespace vg {
                         // Calculate the score differences from optimal
                         auto total_penalty = basis_score_difference + additional_penalty;
                         
-                        if (total_penalty >= min_penalty_for_subpath[prev]) {
+                        if (total_penalty >= min_penalty_for_subpath[prev.first]) {
                             // This previous subpath is already reachable with a penalty as good or better.
                             // Don't bother with it again
                             
 #ifdef debug_multiple_tracebacks
-                            cerr << "\tSkip " << prev << " with penalty " << total_penalty << " >= " << min_penalty_for_subpath[prev] << endl;
+                            cerr << "\tSkip " << prev.first << " with penalty " << total_penalty << " >= " << min_penalty_for_subpath[prev.first] << endl;
 #endif
                             
                             continue;
                         }
                         
                         // Record that this is the cheapest we managed to get here
-                        min_penalty_for_subpath[prev] = total_penalty;
+                        min_penalty_for_subpath[prev.first] = total_penalty;
                         
                         // Make an extended path
-                        auto extended_path = basis.push_front(prev);
+                        auto extended_path = basis.push_front(prev.first);
                         
 #ifdef debug_multiple_tracebacks
-                        cerr << "\tAugment with " << prev << " to penalty " << total_penalty << endl;
+                        cerr << "\tAugment with " << prev.first << " to penalty " << total_penalty << endl;
 #endif
                         
                         // Put them in the priority queue
@@ -1371,7 +1413,7 @@ namespace vg {
         // Also, subpaths only keep track of their nexts, so we need to invert
         // that so we can get all valid prev subpaths.
         // TODO: This code is also duplicated
-        vector<vector<int64_t>> prev_subpaths;
+        vector<vector<pair<int64_t, int32_t>>> prev_subpaths;
         
         prev_subpaths.resize(multipath_aln.subpath_size());
         for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
@@ -1384,13 +1426,24 @@ namespace vg {
                 // For each next subpath it lists
                 
                 // Register this subpath as a predecessor of the next
-                prev_subpaths[next_subpath].push_back(i);
+                prev_subpaths[next_subpath].emplace_back(i, 0);
                 
                 if (multipath_aln.subpath(next_subpath).score() >= 0) {
                     // This successor has a nonnegative score, so taking it
                     // after us would generate a longer, same- or
                     // higher-scoring alignment. So we shouldn't start a
                     // traceback from subpath i.
+                    valid_traceback_start = false;
+                }
+            }
+            
+            for (const auto& connection : multipath_aln.subpath(i).connection()) {
+                
+                // register the connection
+                prev_subpaths[connection.next()].emplace_back(i, connection.score());
+                
+                if (multipath_aln.subpath(connection.next()).score() + connection.score() >= 0) {
+                    // Taking the connection would lead to a longer or better alignment
                     valid_traceback_start = false;
                 }
             }
@@ -1468,24 +1521,24 @@ namespace vg {
                     // For each possible previous location
                     
                     // Compute the score of the optimal alignment ending at that predecessor
-                    auto prev_opt_score = problem.prefix_score[prev] + multipath_aln.subpath(prev).score();
+                    auto prev_opt_score = problem.prefix_score[prev.first] + multipath_aln.subpath(prev.first).score() + prev.second;
                     
                     // What's the difference we would take if we went with this predecessor?
                     auto additional_penalty = best_prefix_score - prev_opt_score;
                     
                     // Try extending into the subpath
-                    auto extended_state = extend_between_subpaths(state, here, prev);
+                    auto extended_state = extend_between_subpaths(state, here, prev.first);
                     // And then with all of it
-                    extended_state = extend_with_subpath(extended_state, prev);
+                    extended_state = extend_with_subpath(extended_state, prev.first);
                     
 #ifdef debug_multiple_tracebacks
-                    cerr << "Extending traceback from subpath " << here << " to and through " << prev << " keeps "
+                    cerr << "Extending traceback from subpath " << here << " to and through " << prev.first << " keeps "
                         << extended_state.size() << " / " << state.size() << " haplotype matches, with scorability "
                         << extended_state.all_edges_exist << " and penalty " << base_penalty + additional_penalty << endl;
 #endif
                     
                     // Save the result
-                    try_enqueue(make_tuple(extended_state, base_penalty + additional_penalty, basis.push_front(prev))); 
+                    try_enqueue(make_tuple(extended_state, base_penalty + additional_penalty, basis.push_front(prev.first)));
                 }
             }
             

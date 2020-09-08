@@ -205,6 +205,7 @@ namespace vg {
     ///
     vector<Alignment> optimal_alignments_with_disjoint_subpaths(const multipath_alignment_t& multipath_aln, size_t count);
     
+
     /// Finds all alignments consistent with haplotypes available by incremental search with the given haplotype
     /// score provider. Pads to a certain count with haplotype-inconsistent alignments that are population-scorable
     /// (i.e. use only edges used by some haplotype in the index), and then with unscorable alignments if scorable
