@@ -836,6 +836,808 @@ TEST_CASE("JoinedSpliceGraph can correctly perform queries a more complicated gr
     count = 0;
 }
 
+TEST_CASE("trim_path trims paths correctly", "[splice]") {
+    
+    path_t path;
+    
+    auto m0 = path.add_mapping();
+    m0->mutable_position()->set_node_id(1);
+    m0->mutable_position()->set_is_reverse(false);
+    m0->mutable_position()->set_offset(2);
+    auto e0 = m0->add_edit();
+    e0->set_from_length(4);
+    e0->set_to_length(4);
+    e0->set_sequence("ACGT");
+    auto e1 = m0->add_edit();
+    e1->set_from_length(0);
+    e1->set_to_length(2);
+    e1->set_sequence("AT");
+
+    auto m1 = path.add_mapping();
+    m1->mutable_position()->set_node_id(2);
+    m1->mutable_position()->set_is_reverse(false);
+    m1->mutable_position()->set_offset(0);
+    auto e2 = m1->add_edit();
+    e2->set_from_length(4);
+    e2->set_to_length(0);
+    e2->set_sequence("");
+    auto e3 = m1->add_edit();
+    e3->set_from_length(4);
+    e3->set_to_length(4);
+    e3->set_sequence("");
+    
+    SECTION("Beginning on left") {
+        bool trimmed = trim_path(&path, true, 0, 0, 0);
+        REQUIRE(!trimmed);
+        REQUIRE(path.mapping_size() == 2);
+        REQUIRE(path.mapping(0).edit_size() == 2);
+        REQUIRE(path.mapping(1).edit_size() == 2);
+    }
+    
+    SECTION("Beginning on right") {
+        bool trimmed = trim_path(&path, false, 0, 0, 0);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 0);
+    }
+    
+    SECTION("Between mappings on left") {
+        bool trimmed = trim_path(&path, true, 1, 0, 0);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 1);
+        REQUIRE(path.mapping(0).position().node_id() == 2);
+        REQUIRE(path.mapping(0).position().offset() == 0);
+    }
+    
+    SECTION("Between mappings on right") {
+        bool trimmed = trim_path(&path, false, 1, 0, 0);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 1);
+        REQUIRE(path.mapping(0).position().node_id() == 1);
+        REQUIRE(path.mapping(0).position().offset() == 2);
+    }
+    
+    SECTION("End on left") {
+        bool trimmed = trim_path(&path, true, 2, 0, 0);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 0);
+    }
+    
+    SECTION("End on right") {
+        bool trimmed = trim_path(&path, false, 2, 0, 0);
+        REQUIRE(!trimmed);
+        REQUIRE(path.mapping_size() == 2);
+        REQUIRE(path.mapping(0).edit_size() == 2);
+        REQUIRE(path.mapping(1).edit_size() == 2);
+    }
+    
+    SECTION("Between edits of first mapping on left") {
+        bool trimmed = trim_path(&path, true, 0, 1, 0);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 2);
+        REQUIRE(path.mapping(0).position().node_id() == 1);
+        REQUIRE(path.mapping(0).position().offset() == 6);
+        REQUIRE(path.mapping(0).edit_size() == 1);
+        REQUIRE(path.mapping(0).edit(0).from_length() == 0);
+        REQUIRE(path.mapping(0).edit(0).to_length() == 2);
+        REQUIRE(path.mapping(0).edit(0).sequence() == "AT");
+        REQUIRE(path.mapping(1).position().node_id() == 2);
+        REQUIRE(path.mapping(1).position().offset() == 0);
+        REQUIRE(path.mapping(1).edit_size() == 2);
+    }
+    
+    SECTION("Between edits of first mapping on right") {
+        bool trimmed = trim_path(&path, false, 0, 1, 0);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 1);
+        REQUIRE(path.mapping(0).position().node_id() == 1);
+        REQUIRE(path.mapping(0).position().offset() == 2);
+        REQUIRE(path.mapping(0).edit_size() == 1);
+        REQUIRE(path.mapping(0).edit(0).from_length() == 4);
+        REQUIRE(path.mapping(0).edit(0).to_length() == 4);
+        REQUIRE(path.mapping(0).edit(0).sequence() == "ACGT");
+    }
+    
+    SECTION("Between edits of second mapping on left") {
+        bool trimmed = trim_path(&path, true, 1, 1, 0);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 1);
+        REQUIRE(path.mapping(0).position().node_id() == 2);
+        REQUIRE(path.mapping(0).position().offset() == 4);
+        REQUIRE(path.mapping(0).edit_size() == 1);
+        REQUIRE(path.mapping(0).edit(0).from_length() == 4);
+        REQUIRE(path.mapping(0).edit(0).to_length() == 4);
+        REQUIRE(path.mapping(0).edit(0).sequence() == "");
+    }
+    
+    SECTION("Between edits of second mapping on right") {
+        bool trimmed = trim_path(&path, false, 1, 1, 0);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 2);
+        REQUIRE(path.mapping(0).position().node_id() == 1);
+        REQUIRE(path.mapping(0).position().offset() == 2);
+        REQUIRE(path.mapping(0).edit_size() == 2);
+        REQUIRE(path.mapping(1).position().node_id() == 2);
+        REQUIRE(path.mapping(1).position().offset() == 0);
+        REQUIRE(path.mapping(1).edit_size() == 1);
+        REQUIRE(path.mapping(1).edit(0).from_length() == 4);
+        REQUIRE(path.mapping(1).edit(0).to_length() == 0);
+        REQUIRE(path.mapping(1).edit(0).sequence() == "");
+    }
+    
+    SECTION("Within first edit of a mapping on left") {
+        bool trimmed = trim_path(&path, true, 0, 0, 1);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 2);
+        REQUIRE(path.mapping(0).position().node_id() == 1);
+        REQUIRE(path.mapping(0).position().offset() == 3);
+        REQUIRE(path.mapping(0).edit_size() == 2);
+        REQUIRE(path.mapping(0).edit(0).from_length() == 3);
+        REQUIRE(path.mapping(0).edit(0).to_length() == 3);
+        REQUIRE(path.mapping(0).edit(0).sequence() == "CGT");
+    }
+    
+    SECTION("Within first edit of a mapping on right") {
+        bool trimmed = trim_path(&path, false, 0, 0, 1);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 1);
+        REQUIRE(path.mapping(0).position().node_id() == 1);
+        REQUIRE(path.mapping(0).position().offset() == 2);
+        REQUIRE(path.mapping(0).edit_size() == 1);
+        REQUIRE(path.mapping(0).edit(0).from_length() == 1);
+        REQUIRE(path.mapping(0).edit(0).to_length() == 1);
+        REQUIRE(path.mapping(0).edit(0).sequence() == "A");
+    }
+    
+    SECTION("Within second edit of a mapping on left") {
+        bool trimmed = trim_path(&path, true, 0, 1, 1);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 2);
+        REQUIRE(path.mapping(0).position().node_id() == 1);
+        REQUIRE(path.mapping(0).position().offset() == 6);
+        REQUIRE(path.mapping(0).edit_size() == 1);
+        REQUIRE(path.mapping(0).edit(0).from_length() == 0);
+        REQUIRE(path.mapping(0).edit(0).to_length() == 1);
+        REQUIRE(path.mapping(0).edit(0).sequence() == "T");
+    }
+    
+    SECTION("Within second edit of a mapping on right") {
+        bool trimmed = trim_path(&path, false, 0, 1, 1);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 1);
+        REQUIRE(path.mapping(0).position().node_id() == 1);
+        REQUIRE(path.mapping(0).position().offset() == 2);
+        REQUIRE(path.mapping(0).edit_size() == 2);
+        REQUIRE(path.mapping(0).edit(0).from_length() == 4);
+        REQUIRE(path.mapping(0).edit(0).to_length() == 4);
+        REQUIRE(path.mapping(0).edit(0).sequence() == "ACGT");
+        REQUIRE(path.mapping(0).edit(1).from_length() == 0);
+        REQUIRE(path.mapping(0).edit(1).to_length() == 1);
+        REQUIRE(path.mapping(0).edit(1).sequence() == "A");
+    }
+    
+    SECTION("Within an edit on the second mapping on left") {
+        bool trimmed = trim_path(&path, true, 1, 1, 1);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 1);
+        REQUIRE(path.mapping(0).position().node_id() == 2);
+        REQUIRE(path.mapping(0).position().offset() == 5);
+        REQUIRE(path.mapping(0).edit_size() == 1);
+        REQUIRE(path.mapping(0).edit(0).from_length() == 3);
+        REQUIRE(path.mapping(0).edit(0).to_length() == 3);
+        REQUIRE(path.mapping(0).edit(0).sequence() == "");
+    }
+    
+    SECTION("Within an edit on the second mapping on right") {
+        bool trimmed = trim_path(&path, false, 1, 1, 1);
+        REQUIRE(trimmed);
+        REQUIRE(path.mapping_size() == 2);
+        REQUIRE(path.mapping(1).position().node_id() == 2);
+        REQUIRE(path.mapping(1).position().offset() == 0);
+        REQUIRE(path.mapping(1).edit_size() == 2);
+        REQUIRE(path.mapping(1).edit(1).from_length() == 1);
+        REQUIRE(path.mapping(1).edit(1).to_length() == 1);
+        REQUIRE(path.mapping(1).edit(1).sequence() == "");
+    }
+}
+
+TEST_CASE("fuse_spliced_alignments produces the correct results",
+          "[splice]") {
+
+    bdsg::HashGraph graph;
+
+    handle_t h0 = graph.create_handle("GATAAAA");
+    handle_t h1 = graph.create_handle("AAAAAAA");
+    handle_t h2 = graph.create_handle("AAATACA");
+
+    graph.create_edge(h0, h1);
+    graph.create_edge(h1, h2);
+
+    TestAligner test_aligner;
+
+
+    Alignment aln;
+    aln.set_sequence("GATTACA");
+
+    multipath_alignment_t left_mp_aln;
+
+    left_mp_aln.set_sequence("GATTACA");
+    auto s0 = left_mp_aln.add_subpath();
+    auto m0 = s0->mutable_path()->add_mapping();
+    m0->mutable_position()->set_node_id(graph.get_id(h0));
+    m0->mutable_position()->set_is_reverse(false);
+    m0->mutable_position()->set_offset(0);
+    auto e0 = m0->add_edit();
+    e0->set_from_length(3);
+    e0->set_to_length(3);
+    auto e1 = m0->add_edit();
+    e1->set_from_length(0);
+    e1->set_to_length(4);
+    e1->set_sequence("TACA");
+    s0->set_score(8);
+
+    multipath_alignment_t right_mp_aln;
+
+    auto s1 = right_mp_aln.add_subpath();
+    auto m1 = s1->mutable_path()->add_mapping();
+    m1->mutable_position()->set_node_id(graph.get_id(h2));
+    m1->mutable_position()->set_is_reverse(false);
+    m1->mutable_position()->set_offset(3);
+    auto e2 = m1->add_edit();
+    e2->set_from_length(0);
+    e2->set_to_length(3);
+    e2->set_sequence("GAT");
+    auto e3 = m1->add_edit();
+    e3->set_from_length(4);
+    e3->set_to_length(4);
+    s1->set_score(9);
+
+    identify_start_subpaths(left_mp_aln);
+    identify_start_subpaths(right_mp_aln);
+
+
+    Alignment linker;
+    auto m2 = linker.mutable_path()->add_mapping();
+    m2->mutable_position()->set_node_id(graph.get_id(h0));
+    m2->mutable_position()->set_is_reverse(false);
+    m2->mutable_position()->set_offset(3);
+    auto m3 = linker.mutable_path()->add_mapping();
+    m3->mutable_position()->set_node_id(graph.get_id(h2));
+    m3->mutable_position()->set_is_reverse(false);
+    m3->mutable_position()->set_offset(3);
+
+    int64_t left_bridge_point = 3;
+    int64_t splice_idx = 1;
+    int32_t splice_score = -2;
+
+
+    SECTION("Fusing works when linker is empty") {
+
+        multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+                                                              linker, splice_idx, splice_score,
+                                                              *test_aligner.get_regular_aligner(), graph);
+
+        REQUIRE(fused.subpath_size() == 2);
+        REQUIRE(fused.subpath(0).score() == 8);
+        REQUIRE(fused.subpath(0).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(0).path().mapping(0).position().node_id() == graph.get_id(h0));
+        REQUIRE(fused.subpath(0).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(0).path().mapping(0).position().offset() == 0);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).from_length() == 3);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).to_length() == 3);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(0).next_size() == 0);
+        REQUIRE(fused.subpath(0).connection_size() == 1);
+        REQUIRE(fused.subpath(0).connection(0).next() == 1);
+        REQUIRE(fused.subpath(0).connection(0).score() == splice_score);
+
+        REQUIRE(fused.subpath(1).score() == 9);
+        REQUIRE(fused.subpath(1).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).position().node_id() == graph.get_id(h2));
+        REQUIRE(fused.subpath(1).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(1).path().mapping(0).position().offset() == 3);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).from_length() == 4);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).to_length() == 4);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(1).next_size() == 0);
+        REQUIRE(fused.subpath(1).connection_size() == 0);
+    }
+
+    m2->mutable_position()->set_offset(2);
+    auto e4 = m2->add_edit();
+    e4->set_from_length(1);
+    e4->set_to_length(1);
+    linker.set_score(1);
+
+    left_bridge_point = 2;
+
+    SECTION("Fusing works when linker is only empty on the right side") {
+
+        multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+                                                              linker, splice_idx, splice_score,
+                                                              *test_aligner.get_regular_aligner(), graph);
+
+        REQUIRE(fused.subpath_size() == 3);
+        REQUIRE(fused.subpath(0).score() == 7);
+        REQUIRE(fused.subpath(0).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(0).path().mapping(0).position().node_id() == graph.get_id(h0));
+        REQUIRE(fused.subpath(0).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(0).path().mapping(0).position().offset() == 0);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).from_length() == 2);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).to_length() == 2);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(0).next_size() == 1);
+        REQUIRE(fused.subpath(0).next(0) == 1);
+        REQUIRE(fused.subpath(0).connection_size() == 0);
+
+        REQUIRE(fused.subpath(1).score() == 1);
+        REQUIRE(fused.subpath(1).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).position().node_id() == graph.get_id(h0));
+        REQUIRE(fused.subpath(1).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(1).path().mapping(0).position().offset() == 2);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).from_length() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).to_length() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(1).next_size() == 0);
+        REQUIRE(fused.subpath(1).connection_size() == 1);
+        REQUIRE(fused.subpath(1).connection(0).next() == 2);
+        REQUIRE(fused.subpath(1).connection(0).score() == splice_score);
+
+        REQUIRE(fused.subpath(2).score() == 9);
+        REQUIRE(fused.subpath(2).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(2).path().mapping(0).position().node_id() == graph.get_id(h2));
+        REQUIRE(fused.subpath(2).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(2).path().mapping(0).position().offset() == 3);
+        REQUIRE(fused.subpath(2).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).from_length() == 4);
+        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).to_length() == 4);
+        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(2).next_size() == 0);
+        REQUIRE(fused.subpath(2).connection_size() == 0);
+    }
+
+    auto e5 = m3->add_edit();
+    e5->set_from_length(1);
+    e5->set_to_length(1);
+    linker.set_score(2);
+
+    SECTION("Fusing works when linker is non-empty on both sides") {
+
+        multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+                                                              linker, splice_idx, splice_score,
+                                                              *test_aligner.get_regular_aligner(), graph);
+
+        REQUIRE(fused.subpath_size() == 4);
+        REQUIRE(fused.subpath(0).score() == 7);
+        REQUIRE(fused.subpath(0).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(0).path().mapping(0).position().node_id() == graph.get_id(h0));
+        REQUIRE(fused.subpath(0).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(0).path().mapping(0).position().offset() == 0);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).from_length() == 2);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).to_length() == 2);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(0).next_size() == 1);
+        REQUIRE(fused.subpath(0).next(0) == 1);
+        REQUIRE(fused.subpath(0).connection_size() == 0);
+
+        REQUIRE(fused.subpath(1).score() == 1);
+        REQUIRE(fused.subpath(1).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).position().node_id() == graph.get_id(h0));
+        REQUIRE(fused.subpath(1).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(1).path().mapping(0).position().offset() == 2);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).from_length() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).to_length() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(1).next_size() == 0);
+        REQUIRE(fused.subpath(1).connection_size() == 1);
+        REQUIRE(fused.subpath(1).connection(0).next() == 2);
+        REQUIRE(fused.subpath(1).connection(0).score() == splice_score);
+
+        REQUIRE(fused.subpath(2).score() == 1);
+        REQUIRE(fused.subpath(2).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(2).path().mapping(0).position().node_id() == graph.get_id(h2));
+        REQUIRE(fused.subpath(2).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(2).path().mapping(0).position().offset() == 3);
+        REQUIRE(fused.subpath(2).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).from_length() == 1);
+        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).to_length() == 1);
+        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(2).next_size() == 1);
+        REQUIRE(fused.subpath(2).next(0) == 3);
+        REQUIRE(fused.subpath(2).connection_size() == 0);
+
+        REQUIRE(fused.subpath(3).score() == 8);
+        REQUIRE(fused.subpath(3).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(3).path().mapping(0).position().node_id() == graph.get_id(h2));
+        REQUIRE(fused.subpath(3).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(3).path().mapping(0).position().offset() == 4);
+        REQUIRE(fused.subpath(3).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(3).path().mapping(0).edit(0).from_length() == 3);
+        REQUIRE(fused.subpath(3).path().mapping(0).edit(0).to_length() == 3);
+        REQUIRE(fused.subpath(3).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(3).next_size() == 0);
+        REQUIRE(fused.subpath(3).connection_size() == 0);
+    }
+
+
+    m2->mutable_position()->set_offset(3);
+    m2->mutable_edit()->Clear();
+    linker.set_score(1);
+
+    left_bridge_point = 3;
+
+    SECTION("Fusing works when linker is only empty on the left side") {
+
+        multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+                                                              linker, splice_idx, splice_score,
+                                                              *test_aligner.get_regular_aligner(), graph);
+
+        REQUIRE(fused.subpath_size() == 3);
+
+        REQUIRE(fused.subpath(0).score() == 8);
+        REQUIRE(fused.subpath(0).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(0).path().mapping(0).position().node_id() == graph.get_id(h0));
+        REQUIRE(fused.subpath(0).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(0).path().mapping(0).position().offset() == 0);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).from_length() == 3);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).to_length() == 3);
+        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(0).next_size() == 0);
+        REQUIRE(fused.subpath(0).connection_size() == 1);
+        REQUIRE(fused.subpath(0).connection(0).next() == 1);
+        REQUIRE(fused.subpath(0).connection(0).score() == splice_score);
+
+        REQUIRE(fused.subpath(1).score() == 1);
+        REQUIRE(fused.subpath(1).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).position().node_id() == graph.get_id(h2));
+        REQUIRE(fused.subpath(1).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(1).path().mapping(0).position().offset() == 3);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).from_length() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).to_length() == 1);
+        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(1).next_size() == 1);
+        REQUIRE(fused.subpath(1).next(0) == 2);
+
+        REQUIRE(fused.subpath(2).score() == 8);
+        REQUIRE(fused.subpath(2).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(2).path().mapping(0).position().node_id() == graph.get_id(h2));
+        REQUIRE(fused.subpath(2).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(2).path().mapping(0).position().offset() == 4);
+        REQUIRE(fused.subpath(2).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).from_length() == 3);
+        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).to_length() == 3);
+        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(2).next_size() == 0);
+        REQUIRE(fused.subpath(2).connection_size() == 0);
+    }
+}
+
+TEST_CASE("fuse_spliced_alignments can handle multiple splice points",
+          "[splice]") {
+
+    bdsg::HashGraph graph;
+
+    handle_t h0 = graph.create_handle("GATAAAA");
+    handle_t h1 = graph.create_handle("AAAAAAA");
+    handle_t h2 = graph.create_handle("AAATACA");
+
+    graph.create_edge(h0, h1);
+    graph.create_edge(h1, h2);
+
+    TestAligner test_aligner;
+
+
+    Alignment aln;
+    aln.set_sequence("GATTACA");
+
+    multipath_alignment_t left_mp_aln;
+    left_mp_aln.set_sequence("GATTACA");
+
+    auto s0 = left_mp_aln.add_subpath();
+    auto m0 = s0->mutable_path()->add_mapping();
+    m0->mutable_position()->set_node_id(graph.get_id(h0));
+    m0->mutable_position()->set_is_reverse(false);
+    m0->mutable_position()->set_offset(0);
+    auto e0 = m0->add_edit();
+    e0->set_from_length(1);
+    e0->set_to_length(1);
+
+    s0->set_score(6);
+    s0->add_next(1);
+    s0->add_next(2);
+
+    auto s1 = left_mp_aln.add_subpath();
+    auto m1 = s1->mutable_path()->add_mapping();
+    m1->mutable_position()->set_node_id(graph.get_id(h0));
+    m1->mutable_position()->set_is_reverse(false);
+    m1->mutable_position()->set_offset(1);
+    auto e1 = m1->add_edit();
+    e1->set_from_length(2);
+    e1->set_to_length(2);
+    auto e2 = m1->add_edit();
+    e2->set_from_length(1);
+    e2->set_to_length(1);
+    e2->set_sequence("T");
+    auto e3 = m1->add_edit();
+    e3->set_from_length(0);
+    e3->set_to_length(3);
+    e3->set_sequence("ACA");
+
+    s1->set_score(-2);
+
+    auto s2 = left_mp_aln.add_subpath();
+    auto m2 = s2->mutable_path()->add_mapping();
+    m2->mutable_position()->set_node_id(graph.get_id(h0));
+    m2->mutable_position()->set_is_reverse(false);
+    m2->mutable_position()->set_offset(1);
+    auto e4 = m2->add_edit();
+    e4->set_from_length(2);
+    e4->set_to_length(2);
+    auto e5 = m2->add_edit();
+    e5->set_from_length(0);
+    e5->set_to_length(3);
+    e5->set_sequence("TACA");
+
+    s2->set_score(2);
+
+    multipath_alignment_t right_mp_aln;
+    right_mp_aln.set_sequence("GATTACA");
+
+    auto s3 = right_mp_aln.add_subpath();
+    auto m3 = s3->mutable_path()->add_mapping();
+    m3->mutable_position()->set_node_id(graph.get_id(h2));
+    m3->mutable_position()->set_is_reverse(false);
+    m3->mutable_position()->set_offset(2);
+    auto e6 = m3->add_edit();
+    e6->set_from_length(0);
+    e6->set_to_length(2);
+    e6->set_sequence("GA");
+    auto e7 = m3->add_edit();
+    e7->set_from_length(1);
+    e7->set_to_length(1);
+    e7->set_sequence("T");
+    auto e8 = m3->add_edit();
+    e8->set_from_length(2);
+    e8->set_to_length(2);
+
+    s3->set_score(-2);
+    s3->add_next(2);
+
+    auto s4 = right_mp_aln.add_subpath();
+    auto m4 = s4->mutable_path()->add_mapping();
+    m4->mutable_position()->set_node_id(graph.get_id(h2));
+    m4->mutable_position()->set_is_reverse(false);
+    m4->mutable_position()->set_offset(3);
+    auto e9 = m4->add_edit();
+    e9->set_from_length(0);
+    e9->set_to_length(3);
+    e9->set_sequence("GAT");
+    auto e10 = m4->add_edit();
+    e10->set_from_length(2);
+    e10->set_to_length(2);
+
+    s4->set_score(2);
+    s4->add_next(2);
+
+    auto s5 = right_mp_aln.add_subpath();
+    auto m5 = s5->mutable_path()->add_mapping();
+    m5->mutable_position()->set_node_id(graph.get_id(h2));
+    m5->mutable_position()->set_is_reverse(false);
+    m5->mutable_position()->set_offset(5);
+    auto e11 = m5->add_edit();
+    e11->set_from_length(2);
+    e11->set_to_length(2);
+
+    s5->set_score(7);
+
+    Alignment linker;
+    auto m6 = linker.mutable_path()->add_mapping();
+    m6->mutable_position()->set_node_id(graph.get_id(h0));
+    m6->mutable_position()->set_is_reverse(false);
+    m6->mutable_position()->set_offset(3);
+    auto m7 = linker.mutable_path()->add_mapping();
+    m7->mutable_position()->set_node_id(graph.get_id(h2));
+    m7->mutable_position()->set_is_reverse(false);
+    m7->mutable_position()->set_offset(3);
+
+    int64_t left_bridge_point = 3;
+    int64_t splice_idx = 1;
+    int32_t splice_score = -2;
+
+    identify_start_subpaths(left_mp_aln);
+    identify_start_subpaths(right_mp_aln);
+
+    multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+                                                          linker, splice_idx, splice_score,
+                                                          *test_aligner.get_regular_aligner(), graph);
+
+    REQUIRE(fused.subpath_size() == 6);
+
+    REQUIRE(fused.subpath(0).score() == 6);
+    REQUIRE(fused.subpath(0).path().mapping_size() == 1);
+    REQUIRE(fused.subpath(0).path().mapping(0).position().node_id() == graph.get_id(h0));
+    REQUIRE(fused.subpath(0).path().mapping(0).position().is_reverse() == false);
+    REQUIRE(fused.subpath(0).path().mapping(0).position().offset() == 0);
+    REQUIRE(fused.subpath(0).path().mapping(0).edit_size() == 1);
+    REQUIRE(fused.subpath(0).path().mapping(0).edit(0).from_length() == 1);
+    REQUIRE(fused.subpath(0).path().mapping(0).edit(0).to_length() == 1);
+    REQUIRE(fused.subpath(0).path().mapping(0).edit(0).sequence() == "");
+    REQUIRE(fused.subpath(0).next_size() == 2);
+    REQUIRE(fused.subpath(0).next(0) == 1);
+    REQUIRE(fused.subpath(0).next(1) == 2);
+    REQUIRE(fused.subpath(0).connection_size() == 0);
+
+    for (int i : {1, 2}) {
+        REQUIRE(fused.subpath(i).score() == 2);
+        REQUIRE(fused.subpath(i).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(i).path().mapping(0).position().node_id() == graph.get_id(h0));
+        REQUIRE(fused.subpath(i).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(i).path().mapping(0).position().offset() == 1);
+        REQUIRE(fused.subpath(i).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(i).path().mapping(0).edit(0).from_length() == 2);
+        REQUIRE(fused.subpath(i).path().mapping(0).edit(0).to_length() == 2);
+        REQUIRE(fused.subpath(i).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(i).next_size() == 0);
+        REQUIRE(fused.subpath(i).connection_size() == 2);
+        REQUIRE(fused.subpath(i).connection(0).next() == 3);
+        REQUIRE(fused.subpath(i).connection(1).next() == 4);
+    }
+
+    for (int i : {3, 4}) {
+        REQUIRE(fused.subpath(i).score() == 2);
+        REQUIRE(fused.subpath(i).path().mapping_size() == 1);
+        REQUIRE(fused.subpath(i).path().mapping(0).position().node_id() == graph.get_id(h2));
+        REQUIRE(fused.subpath(i).path().mapping(0).position().is_reverse() == false);
+        REQUIRE(fused.subpath(i).path().mapping(0).position().offset() == 3);
+        REQUIRE(fused.subpath(i).path().mapping(0).edit_size() == 1);
+        REQUIRE(fused.subpath(i).path().mapping(0).edit(0).from_length() == 2);
+        REQUIRE(fused.subpath(i).path().mapping(0).edit(0).to_length() == 2);
+        REQUIRE(fused.subpath(i).path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(fused.subpath(i).next_size() == 1);
+        REQUIRE(fused.subpath(i).next(0) == 5);
+        REQUIRE(fused.subpath(i).connection_size() == 0);
+    }
+
+    REQUIRE(fused.subpath(5).score() == 7);
+    REQUIRE(fused.subpath(5).path().mapping_size() == 1);
+    REQUIRE(fused.subpath(5).path().mapping(0).position().node_id() == graph.get_id(h2));
+    REQUIRE(fused.subpath(5).path().mapping(0).position().is_reverse() == false);
+    REQUIRE(fused.subpath(5).path().mapping(0).position().offset() == 5);
+    REQUIRE(fused.subpath(5).path().mapping(0).edit_size() == 1);
+    REQUIRE(fused.subpath(5).path().mapping(0).edit(0).from_length() == 2);
+    REQUIRE(fused.subpath(5).path().mapping(0).edit(0).to_length() == 2);
+    REQUIRE(fused.subpath(5).path().mapping(0).edit(0).sequence() == "");
+    REQUIRE(fused.subpath(5).next_size() == 0);
+    REQUIRE(fused.subpath(5).connection_size() == 0);
+}
+
+TEST_CASE("fuse_spliced_alignments can handle removing some subpaths") {
+    bdsg::HashGraph graph;
+
+    handle_t h0 = graph.create_handle("GATAAAA");
+    handle_t h1 = graph.create_handle("AAAAAAA");
+    handle_t h2 = graph.create_handle("AAATACA");
+
+    graph.create_edge(h0, h1);
+    graph.create_edge(h1, h2);
+
+    TestAligner test_aligner;
+
+
+    Alignment aln;
+    aln.set_sequence("GATTACA");
+
+    multipath_alignment_t left_mp_aln;
+
+    left_mp_aln.set_sequence("GATTACA");
+    auto s0 = left_mp_aln.add_subpath();
+    auto m0 = s0->mutable_path()->add_mapping();
+    m0->mutable_position()->set_node_id(graph.get_id(h0));
+    m0->mutable_position()->set_is_reverse(false);
+    m0->mutable_position()->set_offset(0);
+    auto e0 = m0->add_edit();
+    e0->set_from_length(3);
+    e0->set_to_length(3);
+    
+    s0->set_score(8);
+    s0->add_next(1);
+    
+    auto s1 = left_mp_aln.add_subpath();
+    auto m1 = s1->mutable_path()->add_mapping();
+    m1->mutable_position()->set_node_id(graph.get_id(h0));
+    m1->mutable_position()->set_is_reverse(false);
+    m1->mutable_position()->set_offset(3);
+    auto e1 = m1->add_edit();
+    e1->set_from_length(0);
+    e1->set_to_length(4);
+    e1->set_sequence("TACA");
+    
+    s1->set_score(0);
+
+    multipath_alignment_t right_mp_aln;
+
+    auto s2 = right_mp_aln.add_subpath();
+    auto m2 = s2->mutable_path()->add_mapping();
+    m2->mutable_position()->set_node_id(graph.get_id(h2));
+    m2->mutable_position()->set_is_reverse(false);
+    m2->mutable_position()->set_offset(3);
+    auto e2 = m2->add_edit();
+    e2->set_from_length(0);
+    e2->set_to_length(3);
+    e2->set_sequence("GAT");
+    
+    s2->set_score(0);
+    s2->add_next(1);
+    
+    auto s3 = right_mp_aln.add_subpath();
+    auto m3 = s3->mutable_path()->add_mapping();
+    m3->mutable_position()->set_node_id(graph.get_id(h2));
+    m3->mutable_position()->set_is_reverse(false);
+    m3->mutable_position()->set_offset(3);
+    auto e3 = m3->add_edit();
+    e3->set_from_length(4);
+    e3->set_to_length(4);
+    
+    s3->set_score(9);
+    
+
+    identify_start_subpaths(left_mp_aln);
+    identify_start_subpaths(right_mp_aln);
+
+
+    Alignment linker;
+    auto m4 = linker.mutable_path()->add_mapping();
+    m4->mutable_position()->set_node_id(graph.get_id(h0));
+    m4->mutable_position()->set_is_reverse(false);
+    m4->mutable_position()->set_offset(3);
+    auto m5 = linker.mutable_path()->add_mapping();
+    m5->mutable_position()->set_node_id(graph.get_id(h2));
+    m5->mutable_position()->set_is_reverse(false);
+    m5->mutable_position()->set_offset(3);
+
+    int64_t left_bridge_point = 3;
+    int64_t splice_idx = 1;
+    int32_t splice_score = -2;
+    
+    multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+                                                          linker, splice_idx, splice_score,
+                                                          *test_aligner.get_regular_aligner(), graph);
+    
+    REQUIRE(fused.subpath_size() == 2);
+    REQUIRE(fused.subpath(0).score() == 8);
+    REQUIRE(fused.subpath(0).path().mapping_size() == 1);
+    REQUIRE(fused.subpath(0).path().mapping(0).position().node_id() == graph.get_id(h0));
+    REQUIRE(fused.subpath(0).path().mapping(0).position().is_reverse() == false);
+    REQUIRE(fused.subpath(0).path().mapping(0).position().offset() == 0);
+    REQUIRE(fused.subpath(0).path().mapping(0).edit_size() == 1);
+    REQUIRE(fused.subpath(0).path().mapping(0).edit(0).from_length() == 3);
+    REQUIRE(fused.subpath(0).path().mapping(0).edit(0).to_length() == 3);
+    REQUIRE(fused.subpath(0).path().mapping(0).edit(0).sequence() == "");
+    REQUIRE(fused.subpath(0).next_size() == 0);
+    REQUIRE(fused.subpath(0).connection_size() == 1);
+    REQUIRE(fused.subpath(0).connection(0).next() == 1);
+    REQUIRE(fused.subpath(0).connection(0).score() == splice_score);
+
+    REQUIRE(fused.subpath(1).score() == 9);
+    REQUIRE(fused.subpath(1).path().mapping_size() == 1);
+    REQUIRE(fused.subpath(1).path().mapping(0).position().node_id() == graph.get_id(h2));
+    REQUIRE(fused.subpath(1).path().mapping(0).position().is_reverse() == false);
+    REQUIRE(fused.subpath(1).path().mapping(0).position().offset() == 3);
+    REQUIRE(fused.subpath(1).path().mapping(0).edit_size() == 1);
+    REQUIRE(fused.subpath(1).path().mapping(0).edit(0).from_length() == 4);
+    REQUIRE(fused.subpath(1).path().mapping(0).edit(0).to_length() == 4);
+    REQUIRE(fused.subpath(1).path().mapping(0).edit(0).sequence() == "");
+    REQUIRE(fused.subpath(1).next_size() == 0);
+    REQUIRE(fused.subpath(1).connection_size() == 0);
+}
+
 }
 }
         

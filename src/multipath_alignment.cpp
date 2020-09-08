@@ -62,13 +62,15 @@ namespace vg {
     }
 
     multipath_alignment_t& multipath_alignment_t::operator=(multipath_alignment_t&& other) {
-        _sequence = move(other._sequence);
-        _quality = move(other._quality);
-        _subpath = move(other._subpath);
-        _mapping_quality = move(other._mapping_quality);
-        _start = move(other._start);
-        _annotation = move(other._annotation);
-        other._annotation.clear();
+        if (this != &other) {
+            _sequence = move(other._sequence);
+            _quality = move(other._quality);
+            _subpath = move(other._subpath);
+            _mapping_quality = move(other._mapping_quality);
+            _start = move(other._start);
+            _annotation = move(other._annotation);
+            other._annotation.clear();
+        }
         return *this;
     }
 

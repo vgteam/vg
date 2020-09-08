@@ -249,12 +249,19 @@ private:
 tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bool from_end,
                                            const HandleGraph& graph, const GSSWAligner& aligner);
 
-//void fuse_spliced_alignments(multipath_alignment_t& fuse_into, multipath_alignment_t&& fuse_from,
-//                             string::const_iterator connecting_point, bool fuse_left, const Path& splice_segment,
-//                             int64_t splice_junction_idx);
+// remove the portion of the path either to the left or right of a given position along it,
+// described in terms of the indexes in the path object
+bool trim_path(path_t* path, bool from_left, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx);
 
-//void add_splice_connection(multipath_alignment_t& anchor_aln, const multipath_alignment_t& splice_aln,
-//                           const pos_t& anchor_pos, )
+// consumes two multipath alignments and returns a spliced multipath alignment, which is connected
+// by the splice segment. the splice segment may be discontiguous at the splice point, which is
+// is indicated by giving the index of the first mapping that is past the splice junctinon.
+// the splice score refers to the score value of th splice itself
+multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
+                                                multipath_alignment_t&& left_mp_aln, multipath_alignment_t&& right_mp_aln,
+                                                int64_t left_bridge_point, const Alignment& splice_segment,
+                                                int64_t splice_junction_idx, int32_t splice_score, const GSSWAligner& scorer,
+                                                const HandleGraph& graph);
 
 }
 
