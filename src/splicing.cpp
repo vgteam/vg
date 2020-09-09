@@ -40,6 +40,10 @@ const string& SpliceMotifs::oriented_motif(size_t motif_num, bool left_side) con
     return left_side ? get<1>(data[motif_num]) : get<0>(data[motif_num]);
 }
 
+string SpliceMotifs::unoriented_motif(size_t motif_num, bool left_side) const {
+    return left_side ? get<1>(unaltered_data[motif_num]) : get<0>(unaltered_data[motif_num]);
+}
+
 int32_t SpliceMotifs::score(size_t motif_num) const {
     return get<2>(data[motif_num]);
 }
@@ -98,7 +102,7 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
 {
     
 #ifdef debug_splice_region
-    cerr << "constructing splice region" << endl;
+    cerr << "constructing splice region starting from seed pos " << seed_pos << " in direction left? " << search_left << ", max dist " << search_dist << endl;
 #endif
     
     
@@ -163,7 +167,7 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
                         trav_dist += j - 1;
                     }
 #ifdef debug_splice_region
-                    cerr << "record match to motif " << i << " at " << pos << ", dist " << trav_dist << endl;
+                    cerr << "record match to motif " << i << " at " << (j - 2 * incr + !search_left) << ", dist " << trav_dist << endl;
 #endif
                     motif_matches[i].emplace_back(handle, j - 2 * incr + !search_left, trav_dist);
                 }
@@ -696,8 +700,6 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
     cerr << "scoring trimmed subpath " << pb2json(dummy_path) << ", with substring " << (begin - aln.sequence().begin()) << ":" << (begin - aln.sequence().begin()) + get<1>(return_val) << endl;
 #endif
     
-    // TODO: refactor so we can either use the subgraph or use score_mismatch
-    // rather than needing get_handle calls
     get<2>(return_val) = aligner.score_partial_alignment(aln, graph, dummy_path, begin);
     
     return return_val;
@@ -908,11 +910,6 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     sort(left_locations.begin(), left_locations.end());
     sort(right_locations.begin(), right_locations.end());
     
-    if (left_locations.empty() || right_locations.empty()) {
-        cerr << "error: splice segment could not be located on multipath alignment" << endl;
-        exit(1);
-    }
-    
 #ifdef debug_fusing
     cerr << "left splice locations:" << endl;
     for (auto loc : left_locations) {
@@ -923,6 +920,12 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         cerr << "\t" << get<0>(loc) << " " << get<1>(loc) << " " << get<2>(loc) << " " << get<3>(loc) << endl;
     }
 #endif
+    
+    if (left_locations.empty() || right_locations.empty()) {
+        cerr << "error: splice segment could not be located on multipath alignment" << endl;
+        exit(1);
+    }
+    
     // TODO: this is very broken if there are multiple bridges...
     
     vector<bool> to_keep_left(left_mp_aln.subpath_size(), false);

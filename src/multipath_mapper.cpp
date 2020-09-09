@@ -2077,7 +2077,8 @@ namespace vg {
     }
 
     void MultipathMapper::test_splice_candidates(const Alignment& alignment, bool searching_left,
-                                                 const vector<multipath_alignment_t>& multipath_alns,
+                                                 vector<multipath_alignment_t>& multipath_alns,
+                                                 vector<double>& multiplicities,
                                                  const vector<size_t>& mp_aln_candidates) {
         
         // really this should be a pair of two splice objects plus the motif and distance
@@ -2112,20 +2113,30 @@ namespace vg {
         SpliceRegion anchor_region(get<0>(anchor_pos), searching_left, 2 * max_splice_overhang, *xindex,
                                    dinuc_machine, splice_motifs);
                 
+        bool found_splice_aln = false;
         for (auto i : mp_aln_candidates) {
+            
+#ifdef debug_multipath_mapper
+            cerr << "evaluating splice candidate " << i << ":" << endl;
+            cerr << debug_string(multipath_alns[i]) << endl;
+#endif
             
             vector<PutativeJoin> putative_joins;
             
             Alignment candidate_opt;
             optimal_alignment(multipath_alns[i], candidate_opt);
             
-            auto candidate_pos = trimmed_end(opt, max_splice_overhang, searching_left, *xindex,
+            auto candidate_pos = trimmed_end(candidate_opt, max_splice_overhang, searching_left, *xindex,
                                              *get_aligner(opt.quality().empty()));
             
             SpliceRegion candidate_region(get<0>(candidate_pos), !searching_left, 2 * max_splice_overhang,
                                           *xindex, dinuc_machine, splice_motifs);
             
             for (size_t j = 0; j < splice_motifs.size(); ++j) {
+                
+#ifdef debug_multipath_mapper
+                cerr << "looking for splice motif pair " << splice_motifs.unoriented_motif(j, false) << "-" << splice_motifs.unoriented_motif(j, true) << endl;
+#endif
                 
                 for (const auto& anchor_location : anchor_region.candidate_splice_sites(j)) {
                     for (const auto& candidate_location : candidate_region.candidate_splice_sites(j)) {
@@ -2140,6 +2151,10 @@ namespace vg {
                         
                         int64_t dist = searching_left ? distance(c_pos, a_pos) : distance(a_pos, c_pos);
 
+#ifdef debug_multipath_mapper
+                        cerr << "candidate occurrence pair: " << a_pos << " " << c_pos << ", dist " << dist << endl;
+#endif
+                        
                         // TODO: a likelihood model for intron length?
                         if (dist >= 0 && dist != numeric_limits<int64_t>::max() &&
                             dist < max_intron_length) {
@@ -2165,7 +2180,6 @@ namespace vg {
                 }
             }
             
-            
             for (const auto& join : putative_joins) {
                 
                 // graph is constructed
@@ -2186,14 +2200,19 @@ namespace vg {
                 if (!alignment.quality().empty()) {
                     connecting_aln.set_quality(alignment.quality().substr(connect_begin, connect_len));
                 }
-                
+                                
                 // TODO: multi alignment?
-                get_aligner(!alignment.quality().empty())->align_global_banded(connecting_aln, joined_graph, 1);
+                auto alnr = get_aligner(!alignment.quality().empty());
+                alnr->align_global_banded(connecting_aln, joined_graph, 1);
                 
                 // the total score of extending the anchor by the candidate
                 int64_t net_score = (candidate_opt.score() + connecting_aln.score()
                                      - join.candidate_trimmed_score - join.anchor_trimmed_score
                                      + splice_motifs.score(join.motif_idx));
+                
+#ifdef debug_multipath_mapper
+                cerr << "putative candidate has net score " << net_score << endl;
+#endif
                 
                 // TODO: this could get messy if i change the pseudolength function
                 // TODO: should i use only the length of the candidate region rather than the whole read?
@@ -2204,8 +2223,44 @@ namespace vg {
                     continue;
                 }
                 
-                joined_graph.translate_node_ids(*connecting_aln.mutable_path());
+                // find which mapping is immediately after the splice
+                auto path = connecting_aln.mutable_path();
+                auto splice_id = joined_graph.get_id(joined_graph.right_splice_node());
+                size_t splice_idx = 1;
+                while (path->mapping(splice_idx).position().node_id() != splice_id) {
+                    ++splice_idx;
+                }
+                
+                joined_graph.translate_node_ids(*path);
+                
+                // TODO: don't just take the first option
+                
+                multipath_alns.front() = fuse_spliced_alignments(alignment,
+                                                                 searching_left ? move(multipath_alns[i]) : move(multipath_alns.front()),
+                                                                 searching_left ? move(multipath_alns.front()) : move(multipath_alns[i]),
+                                                                 connect_begin, connecting_aln, splice_idx, splice_motifs.score(join.motif_idx),
+                                                                 *alnr, *xindex);
+                                                            
+#ifdef debug_multipath_mapper
+                cerr << "found significant splice join, fused mp aln:" << endl;
+                cerr << debug_string(multipath_alns.front()) << endl;
+#endif
+
+                multiplicities.front() = min(multiplicities.front(), multiplicities[i]);
+                multipath_alns[i] = move(multipath_alns.back());
+                multiplicities[i] = multiplicities.back();
+                multipath_alns.pop_back();
+                multiplicities.pop_back();
+                found_splice_aln = true;
+                break;
             }
+            if (found_splice_aln) {
+                // TODO: this isn't a smart way to decide which splice if there are multiple
+                break;
+            }
+        }
+        if (found_splice_aln) {
+            sort_and_compute_mapping_quality(multipath_alns, mapping_quality_method, nullptr, &multiplicities);
         }
     }
 
@@ -2241,6 +2296,13 @@ namespace vg {
                 }
             }
         }
+        
+#ifdef debug_multipath_mapper
+        cerr << "found fully aligned splice candidates:" << endl;
+        for (auto i : mp_aln_candidates_out) {
+            cerr << "\t" << i << endl;
+        }
+#endif
         
         // if we already processed a cluster's alignment, we don't need to look at the cluster
         unordered_set<size_t> clusters_already_used;
@@ -2302,9 +2364,21 @@ namespace vg {
             }
         }
         
+#ifdef debug_multipath_mapper
+        cerr << "found unaligned cluster candidates:" << endl;
+        for (auto i : cluster_candidates_out) {
+            cerr << "\t" << i << endl;
+        }
+#endif
+        
         // if we already processed a hit's cluster, we don't need to look at the hit
         unordered_set<pair<const MaximalExactMatch*, pos_t>> hits_already_used;
         for (const auto& i : cluster_candidates_out) {
+            for (const auto& hit : get<1>(cluster_graphs[i]).first) {
+                hits_already_used.insert(hit);
+            }
+        }
+        for (const auto& i : mp_aln_candidates_out) {
             for (const auto& hit : get<1>(cluster_graphs[i]).first) {
                 hits_already_used.insert(hit);
             }
@@ -2346,6 +2420,12 @@ namespace vg {
                 }
             }
         }
+#ifdef debug_multipath_mapper
+        cerr << "found unclustered hit candidates:" << endl;
+        for (auto hit : hit_candidates_out) {
+            cerr << "\t" << hit.first->sequence() << " " << hit.second << endl;
+        }
+#endif
     }
 
     void MultipathMapper::find_spliced_alignments(const Alignment& alignment,
@@ -2354,7 +2434,7 @@ namespace vg {
                                                   vector<size_t> cluster_idxs,
                                                   const vector<MaximalExactMatch>& mems,
                                                   const vector<clustergraph_t>& cluster_graphs,
-                                                  const match_fanouts_t* fanouts) const {
+                                                  const match_fanouts_t* fanouts) {
         
         if (multipath_alns_out.empty()) {
             return;
@@ -2365,8 +2445,14 @@ namespace vg {
         bool search_right = alignment.sequence().size() - primary_interval.second >= min_softclip_length_for_splice;
         
         if (!(search_left || search_right)) {
+#ifdef debug_multipath_mapper
+            cerr << "soft clips are not sufficiently large to look for spliced alignment" << endl;
+#endif
             return;
         }
+#ifdef debug_multipath_mapper
+        cerr << "looking for spliced alignments, to left? " << search_left << ", to right? " << search_right << endl;
+#endif
         
         vector<size_t> left_mp_aln_candidates, right_mp_aln_candidates;
         vector<size_t> left_cluster_candidates, right_cluster_candidates;
@@ -2377,6 +2463,7 @@ namespace vg {
                                                  mems, cluster_graphs, primary_interval, true,
                                                  left_mp_aln_candidates, left_cluster_candidates,
                                                  left_hit_candidates);
+            test_splice_candidates(alignment, true, multipath_alns_out, multiplicities, left_mp_aln_candidates);
         }
         
         if (search_right) {
@@ -2384,6 +2471,7 @@ namespace vg {
                                                  mems, cluster_graphs, primary_interval, false,
                                                  right_mp_aln_candidates, right_cluster_candidates,
                                                  right_hit_candidates);
+            test_splice_candidates(alignment, false, multipath_alns_out, multiplicities, right_mp_aln_candidates);
         }
         
         

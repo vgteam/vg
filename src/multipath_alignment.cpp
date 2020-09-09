@@ -1558,7 +1558,7 @@ namespace vg {
         for (auto i : multipath_aln.start()) {
             const auto& edit = multipath_aln.subpath(i).path().mapping(0).edit(0);
             if (edit.from_length() == 0 && edit.to_length() != 0) {
-                min_softclip_left = min<int64_t>(min_softclip_left, edit.from_length());
+                min_softclip_left = min<int64_t>(min_softclip_left, edit.to_length());
             }
             else {
                 min_softclip_left = 0;
@@ -1573,7 +1573,7 @@ namespace vg {
                 const auto& mapping = path.mapping(path.mapping_size() - 1);
                 const auto& edit = mapping.edit(mapping.edit_size() - 1);
                 if (edit.from_length() == 0 && edit.to_length() != 0) {
-                    min_softclip_right = min<int64_t>(min_softclip_right, edit.from_length());
+                    min_softclip_right = min<int64_t>(min_softclip_right, edit.to_length());
                 }
                 else {
                     min_softclip_right = 0;
@@ -1822,6 +1822,11 @@ namespace vg {
             for (auto next : subpath.next()) {
                 subpath_copy->add_next(next);
             }
+            for (const auto& connection : subpath.connection()) {
+                auto connection_copy = subpath_copy->add_connection();
+                connection_copy->set_next(connection.next());
+                connection_copy->set_score(connection.score());
+            }
             if (subpath.has_path()) {
                 const auto& path = subpath.path();
                 auto path_copy = subpath_copy->mutable_path();
@@ -1844,6 +1849,11 @@ namespace vg {
             subpath_copy->set_score(subpath.score());
             for (auto next : subpath.next()) {
                 subpath_copy->add_next(next);
+            }
+            for (const auto& connection : subpath.connection()) {
+                auto connection_copy = subpath_copy->add_connection();
+                connection_copy->set_next(connection.next());
+                connection_copy->set_score(connection.score());
             }
             if (subpath.has_path()) {
                 auto path = subpath.path();
@@ -2046,7 +2056,7 @@ namespace vg {
                 
                 // mark the next one for removal
                 removed[j] = true;
-                
+                                
                 const subpath_t& merge_subpath = multipath_aln.subpath(j);
                 
                 subpath->set_score(subpath->score() + merge_subpath.score());
@@ -2104,8 +2114,12 @@ namespace vg {
             // move the adjacencies over from the last one we merged in
             if (last >= 0) {
                 subpath->clear_next();
+                subpath->clear_connection();
                 for (int64_t next : multipath_aln.subpath(last).next()) {
                     subpath->add_next(next);
+                }
+                for (const auto& connection : multipath_aln.subpath(last).connection()) {
+                    *subpath->add_connection() = connection;
                 }
             }
         }
@@ -2679,6 +2693,9 @@ namespace vg {
                 for (size_t j = 0; j < subpath.next_size(); j++) {
                     is_source[subpath.next(j)] = false;
                 }
+                for (const auto& connection : subpath.connection()) {
+                    is_source[connection.next()] = false;
+                }
             }
             
             size_t num_starts = 0;
@@ -2728,7 +2745,7 @@ namespace vg {
             int64_t subsequence_length = path_to_length(subpath.path());
             subpath_read_interval[i].second = subpath_read_interval[i].first + subsequence_length;
             
-            if (!subpath.next_size()) {
+            if (subpath.next_size() == 0 && subpath.connection_size() == 0) {
                 if (subpath_read_interval[i].second != multipath_aln.sequence().size()) {
 #ifdef debug_verbose_validation
                     cerr << "validation failure on using complete read" << endl;
@@ -2756,6 +2773,19 @@ namespace vg {
                     }
                     else {
                         subpath_read_interval[subpath.next(j)].first = subpath_read_interval[i].second;
+                    }
+                }
+                for (const auto& connection : subpath.connection()) {
+                    if (subpath_read_interval[connection.next()].first >= 0) {
+                        if (subpath_read_interval[connection.next()].first != subpath_read_interval[i].second) {
+#ifdef debug_verbose_validation
+                            cerr << "validation failure on read contiguity" << endl;
+#endif
+                            return false;
+                        }
+                    }
+                    else {
+                        subpath_read_interval[connection.next()].first = subpath_read_interval[i].second;
                     }
                 }
             }
@@ -2854,6 +2884,7 @@ namespace vg {
                     return false;
                 }
             }
+            // connections are not required to be contiguous, ignore them here
         }
         
         

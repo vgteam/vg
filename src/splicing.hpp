@@ -39,6 +39,8 @@ public:
     // the dinucleotide motif on one side in the order that the nucleotides
     // are encountered when traversing into the intron
     const string& oriented_motif(size_t motif_num, bool left_side) const;
+    // the dinucleotide motif on one side ins its standard representation
+    string unoriented_motif(size_t motif_num, bool left_side) const;
     // the score associated with a splicing motif
     int32_t score(size_t motif_num) const;
     // must be called if scoring parameters are changed

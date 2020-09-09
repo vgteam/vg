@@ -387,7 +387,7 @@ namespace vg {
         void find_spliced_alignments(const Alignment& alignment, vector<multipath_alignment_t>& multipath_alns_out,
                                      vector<double>& multiplicities, vector<size_t> cluster_idxs,
                                      const vector<MaximalExactMatch>& mems, const vector<clustergraph_t>& cluster_graphs,
-                                     const match_fanouts_t* fanouts = nullptr) const;
+                                     const match_fanouts_t* fanouts = nullptr);
         
         void identify_splice_alignment_candidates(const Alignment& alignment,
                                                   const vector<multipath_alignment_t>& multipath_alns,
@@ -400,7 +400,8 @@ namespace vg {
                                                   vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates_out) const;
         
         void test_splice_candidates(const Alignment& alignment, bool searching_left,
-                                    const vector<multipath_alignment_t>& multipath_alns,
+                                    vector<multipath_alignment_t>& multipath_alns,
+                                    vector<double>& multiplicities,
                                     const vector<size_t>& mp_aln_candidates);
         
         /// Make a multipath alignment of the read against the indicated graph and add it to

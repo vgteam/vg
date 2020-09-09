@@ -89,3 +89,21 @@ HHHHHHHHHH" > t.fq
 is "$(vg mpmap -B -x t.xg -g t.gcsa -f t.fq | vg view -Kj - | wc -l)" "3" "multipath mapping works in scenarios that trigger branch point trimming"
 
 rm t.vg t.xg t.gcsa t.gcsa.lcp t.fq
+
+# test spliced alignment
+
+echo "@read
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAGATGA
++
+HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH" > s.fq 
+
+vg construct -m 32 -r small/x.fa -v small/x.vcf.gz > s.vg
+vg snarls -T s.vg > s.snarls
+vg index s.vg -x s.xg -g s.gcsa
+vg index s.vg -j s.dist -s s.snarls
+
+is "(vg mpmap -x s.xg -d s.dist -g s.gcsa -BS -n rna -f s.fq | vg view -Kj - | jq .score)" "108" "spliced alignments can be found when aligning RNA"
+
+rm s.vg s.xg s.gcsa s.gcsa.lcp s.dist s.snarls s.fq
+
+
