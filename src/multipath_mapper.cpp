@@ -2081,38 +2081,67 @@ namespace vg {
                                                  vector<double>& multiplicities,
                                                  const vector<size_t>& mp_aln_candidates) {
         
-        // really this should be a pair of two splice objects plus the motif and distance
+        
+        
+        typedef enum { Anchor, MPAlignment, Cluster, Seed } origin_t;
+        
+        struct PrejoinSide {
+            origin_t origin;
+            multipath_alignment_t* candidate;
+            SpliceRegion* splice_region;
+            pos_t search_pos;
+            int64_t clip_length;
+            int32_t untrimmed_score;
+        };
+        
+        struct JoinSide {
+            PrejoinSide side;
+            handle_t splice_node;
+            size_t splice_offset;
+            int64_t search_dist;
+        };
+        
         struct PutativeJoin {
-            pos_t anchor_search_pos;
-            handle_t anchor_splice_node;
-            size_t anchor_splice_offset;
-            int64_t anchor_search_dist;
-            int64_t anchor_clip_length;
-            int64_t anchor_trimmed_score;
-            pos_t candidate_search_pos;
-            handle_t candidate_splice_node;
-            size_t candidate_splice_offset;
-            int64_t candidate_search_dist;
-            int64_t candidate_clip_length;
-            int64_t candidate_trimmed_score;
-            int64_t estimated_splice_length;
+            JoinSide left;
+            JoinSide right;
+            int64_t estimated_intron_length;
             size_t motif_idx;
+            Alignment connecting_aln;
+            size_t splice_idx;
         };
         
         if (mp_aln_candidates.empty()) {
             return;
         }
         
+        // fill out clusters
+        // fill out MEMs
+        
+        vector<unique_ptr<SpliceRegion>> splice_regions;
+        vector<PrejoinSide> left_prejoin_sides, right_prejoin_sides;
+        
+        vector<PrejoinSide>& anchor_prejoin_sides = searching_left ? right_prejoin_sides : left_prejoin_sides;
+        vector<PrejoinSide>& candidate_prejoin_sides = searching_left ? left_prejoin_sides : right_prejoin_sides;
+        
+        // examine the region along the possible splice region of the anchor
         Alignment opt;
         optimal_alignment(multipath_alns.front(), opt);
         
-        // always ignore the softclip, which is what we're trying to realign
         auto anchor_pos = trimmed_end(opt, max_splice_overhang, !searching_left, *xindex,
                                       *get_aligner(opt.quality().empty()));
         
-        SpliceRegion anchor_region(get<0>(anchor_pos), searching_left, 2 * max_splice_overhang, *xindex,
-                                   dinuc_machine, splice_motifs);
-                
+        splice_regions.emplace_back(new SpliceRegion(get<0>(anchor_pos), searching_left, 2 * max_splice_overhang,
+                                                     *xindex, dinuc_machine, splice_motifs));
+        
+        anchor_prejoin_sides.emplace_back();
+        anchor_prejoin_sides.front().origin = Anchor;
+        anchor_prejoin_sides.front().candidate = &multipath_alns.front();
+        anchor_prejoin_sides.front().splice_region = splice_regions.front().get();
+        anchor_prejoin_sides.front().search_pos = get<0>(anchor_pos);
+        anchor_prejoin_sides.front().clip_length = get<1>(anchor_pos);
+        anchor_prejoin_sides.front().untrimmed_score = opt.score() - get<2>(anchor_pos);
+        
+        // examine the possible splice regions for the candidates
         bool found_splice_aln = false;
         for (auto i : mp_aln_candidates) {
             
@@ -2129,140 +2158,217 @@ namespace vg {
             auto candidate_pos = trimmed_end(candidate_opt, max_splice_overhang, searching_left, *xindex,
                                              *get_aligner(opt.quality().empty()));
             
-            SpliceRegion candidate_region(get<0>(candidate_pos), !searching_left, 2 * max_splice_overhang,
-                                          *xindex, dinuc_machine, splice_motifs);
+            splice_regions.emplace_back(new SpliceRegion(get<0>(candidate_pos), !searching_left, 2 * max_splice_overhang,
+                                                         *xindex, dinuc_machine, splice_motifs));
             
-            for (size_t j = 0; j < splice_motifs.size(); ++j) {
+            candidate_prejoin_sides.emplace_back();
+            auto& candidate_side = candidate_prejoin_sides.back();
+            candidate_side.origin = MPAlignment;
+            candidate_side.candidate = &multipath_alns[i];
+            candidate_side.splice_region = splice_regions.back().get();
+            candidate_side.search_pos = get<0>(candidate_pos);
+            candidate_side.clip_length = get<1>(candidate_pos);
+            candidate_side.untrimmed_score = candidate_opt.score() - get<2>(candidate_pos);
+            
+        }
+        
+        // identify the possible joins down to a base level, including the intron length
+        vector<PutativeJoin> putative_joins;
+        for (auto& left_prejoin_side : left_prejoin_sides) {
+            for (auto& right_prejoin_side : right_prejoin_sides) {
                 
-#ifdef debug_multipath_mapper
-                cerr << "looking for splice motif pair " << splice_motifs.unoriented_motif(j, false) << "-" << splice_motifs.unoriented_motif(j, true) << endl;
-#endif
+                auto& left_region = *left_prejoin_side.splice_region;
+                auto& right_region = *right_prejoin_side.splice_region;
                 
-                for (const auto& anchor_location : anchor_region.candidate_splice_sites(j)) {
-                    for (const auto& candidate_location : candidate_region.candidate_splice_sites(j)) {
-                        
-                        // convert to ID space of the whole graph
-                        auto a_under = anchor_region.get_subgraph().get_underlying_handle(get<0>(anchor_location));
-                        auto c_under = candidate_region.get_subgraph().get_underlying_handle(get<0>(candidate_location));
-                        pos_t a_pos(xindex->get_id(a_under), xindex->get_is_reverse(a_under),
-                                    get<1>(anchor_location));
-                        pos_t c_pos(xindex->get_id(c_under), xindex->get_is_reverse(c_under),
-                                    get<1>(candidate_location));
-                        
-                        int64_t dist = searching_left ? distance(c_pos, a_pos) : distance(a_pos, c_pos);
-
-#ifdef debug_multipath_mapper
-                        cerr << "candidate occurrence pair: " << a_pos << " " << c_pos << ", dist " << dist << endl;
-#endif
-                        
-                        // TODO: a likelihood model for intron length?
-                        if (dist >= 0 && dist != numeric_limits<int64_t>::max() &&
-                            dist < max_intron_length) {
-                            // the positions can reach each other in under the max length
-                            putative_joins.emplace_back();
-                            auto& join = putative_joins.back();
-                            join.anchor_search_pos = get<0>(anchor_pos);
-                            join.anchor_splice_node = get<0>(anchor_location);
-                            join.anchor_splice_offset = get<1>(anchor_location);
-                            join.anchor_search_dist = get<2>(anchor_location);
-                            join.anchor_clip_length = get<1>(anchor_pos);
-                            join.anchor_trimmed_score = get<2>(anchor_pos);
-                            join.candidate_search_pos = get<0>(candidate_pos);
-                            join.candidate_splice_node = get<0>(candidate_location);
-                            join.candidate_splice_offset = get<1>(candidate_location);
-                            join.candidate_search_dist = get<2>(candidate_location);
-                            join.candidate_clip_length = get<1>(candidate_pos);
-                            join.candidate_trimmed_score = get<2>(candidate_pos);
-                            join.estimated_splice_length = dist;
-                            join.motif_idx = j;
+                for (size_t j = 0; j < splice_motifs.size(); ++j) {
+                    for (const auto& left_location : left_region.candidate_splice_sites(j)) {
+                        for (const auto& right_location : right_region.candidate_splice_sites(j)) {
+                            
+                            auto l_under = left_region.get_subgraph().get_underlying_handle(get<0>(left_location));
+                            auto r_under = right_region.get_subgraph().get_underlying_handle(get<0>(right_location));
+                            
+                            pos_t l_pos(xindex->get_id(l_under), xindex->get_is_reverse(l_under), get<1>(left_location));
+                            pos_t r_pos(xindex->get_id(r_under), xindex->get_is_reverse(r_under), get<1>(right_location));
+                            
+                            int64_t dist = distance(l_pos, r_pos);
+                            
+                            if (dist >= 0 && dist != numeric_limits<int64_t>::max() &&
+                                dist < max_intron_length) {
+                                // the positions can reach each other in under the max length
+                                putative_joins.emplace_back();
+                                auto& join = putative_joins.back();
+                                auto& join_left = join.left;
+                                auto& join_right = join.right;
+                                join_left.side = left_prejoin_side;
+                                join_left.splice_node = get<0>(left_location);
+                                join_left.splice_offset = get<1>(left_location);
+                                join_left.search_dist = get<2>(left_location);
+                                join_right.side = right_prejoin_side;
+                                join_right.splice_node = get<0>(right_location);
+                                join_right.splice_offset = get<1>(right_location);
+                                join_right.search_dist = get<2>(right_location);
+                                join.estimated_intron_length = dist;
+                                join.motif_idx = j;
+                            }
                         }
                     }
                 }
             }
+        }
+        
+        auto join_net_score = [&](const PutativeJoin& join) {
+            return (splice_motifs.score(join.motif_idx) + join.connecting_aln.score()
+                    + join.right.side.untrimmed_score + join.left.side.untrimmed_score
+                    - opt.score());
+        };
+        
+        // realign in the region of a join and filter down to the statistically significant splices
+        size_t i = 0, end = putative_joins.size();
+        while (i < end) {
             
-            for (const auto& join : putative_joins) {
-                
-                // graph is constructed
-                JoinedSpliceGraph joined_graph(*xindex,
-                                               searching_left ? candidate_region.get_subgraph() : anchor_region.get_subgraph(),
-                                               searching_left ? join.candidate_splice_node : join.anchor_splice_node,
-                                               searching_left ? join.candidate_splice_offset : join.anchor_splice_offset,
-                                               searching_left ? anchor_region.get_subgraph() : candidate_region.get_subgraph(),
-                                               searching_left ? join.anchor_splice_node : join.candidate_splice_node,
-                                               searching_left ? join.anchor_splice_offset : join.candidate_splice_offset);
-                
-                size_t read_len = alignment.sequence().size();
-                size_t connect_len = join.anchor_clip_length + join.candidate_clip_length - read_len;
-                size_t connect_begin = read_len - (searching_left ? join.candidate_clip_length : join.anchor_clip_length);
-                
-                Alignment connecting_aln;
-                connecting_aln.set_sequence(alignment.sequence().substr(connect_begin, connect_len));
-                if (!alignment.quality().empty()) {
-                    connecting_aln.set_quality(alignment.quality().substr(connect_begin, connect_len));
-                }
-                                
-                // TODO: multi alignment?
-                auto alnr = get_aligner(!alignment.quality().empty());
-                alnr->align_global_banded(connecting_aln, joined_graph, 1);
-                
-                // the total score of extending the anchor by the candidate
-                int64_t net_score = (candidate_opt.score() + connecting_aln.score()
-                                     - join.candidate_trimmed_score - join.anchor_trimmed_score
-                                     + splice_motifs.score(join.motif_idx));
-                
+            auto& join = putative_joins[i];
+            
+            // graph is constructed
+            JoinedSpliceGraph joined_graph(*xindex,
+                                           join.left.side.splice_region->get_subgraph(),
+                                           join.left.splice_node, join.left.splice_offset,
+                                           join.right.side.splice_region->get_subgraph(),
+                                           join.right.splice_node, join.right.splice_offset);
+                        
+            size_t read_len = alignment.sequence().size();
+            size_t connect_len = join.left.side.clip_length + join.right.side.clip_length - read_len;
+            size_t connect_begin = read_len - join.left.side.clip_length;
+            
+            join.connecting_aln.set_sequence(alignment.sequence().substr(connect_begin, connect_len));
+            if (!alignment.quality().empty()) {
+                join.connecting_aln.set_quality(alignment.quality().substr(connect_begin, connect_len));
+            }
+            
+            // TODO: multi alignment?
+            auto alnr = get_aligner(!alignment.quality().empty());
+            alnr->align_global_banded(join.connecting_aln, joined_graph, 1);
+            
+            // the total score of extending the anchor by the candidate
+            int32_t net_score = join_net_score(join);
+            
 #ifdef debug_multipath_mapper
-                cerr << "putative candidate has net score " << net_score << endl;
+            cerr << "putative candidate has net score " << net_score << endl;
 #endif
-                
-                // TODO: this could get messy if i change the pseudolength function
-                // TODO: should i use only the length of the candidate region rather than the whole read?
-                double p_val = random_match_p_value(net_score, alignment.sequence().size());
-                
-                if (p_val >= max_mapping_p_value) {
-                    // this is not a statistically significant splicing event
-                    continue;
-                }
+            
+            // TODO: this could get messy if i change the pseudolength function
+            // TODO: should i use only the length of the candidate region rather than the whole read?
+            if (random_match_p_value(net_score, alignment.sequence().size()) >= max_mapping_p_value) {
+                // this is not a statistically significant splicing event
+                putative_joins[i] = putative_joins.back();
+                --end;
+                continue;
+            }
+            else {
                 
                 // find which mapping is immediately after the splice
-                auto path = connecting_aln.mutable_path();
+                auto path = join.connecting_aln.mutable_path();
                 auto splice_id = joined_graph.get_id(joined_graph.right_splice_node());
-                size_t splice_idx = 1;
-                while (path->mapping(splice_idx).position().node_id() != splice_id) {
-                    ++splice_idx;
+                join.splice_idx = 1;
+                while (path->mapping(join.splice_idx).position().node_id() != splice_id) {
+                    ++join.splice_idx;
                 }
                 
+                // and translate into the original ID space
                 joined_graph.translate_node_ids(*path);
                 
-                // TODO: don't just take the first option
-                
-                multipath_alns.front() = fuse_spliced_alignments(alignment,
-                                                                 searching_left ? move(multipath_alns[i]) : move(multipath_alns.front()),
-                                                                 searching_left ? move(multipath_alns.front()) : move(multipath_alns[i]),
-                                                                 connect_begin, connecting_aln, splice_idx, splice_motifs.score(join.motif_idx),
-                                                                 *alnr, *xindex);
-                                                            
+                ++i;
+            }
+        }
+        
+        putative_joins.resize(i);
+        
+        if (putative_joins.empty()) {
 #ifdef debug_multipath_mapper
-                cerr << "found significant splice join, fused mp aln:" << endl;
-                cerr << debug_string(multipath_alns.front()) << endl;
+            cerr << "no splice candidates were statistically significant" << endl;
 #endif
-
-                multiplicities.front() = min(multiplicities.front(), multiplicities[i]);
-                multipath_alns[i] = move(multipath_alns.back());
-                multiplicities[i] = multiplicities.back();
+            return;
+        }
+        
+        // TODO: for now just tie-breaking in favor of shorter intron lengths
+        // TODO: use a frechet mixture likelihood
+        sort(putative_joins.begin(), putative_joins.begin(),
+             [&](const PutativeJoin& join_1, const PutativeJoin& join_2) {
+            auto net_score_1 = join_net_score(join_1);
+            auto net_score_2 = join_net_score(join_2);
+            return (net_score_1 > net_score_2 ||
+                    (net_score_1 == net_score_2 && join_1.estimated_intron_length < join_2.estimated_intron_length));
+        });
+        
+        // TODO: allow multiple splices in a multipath alignment
+        auto& best_join = putative_joins.front();
+        
+        int64_t connect_begin = alignment.sequence().size() - best_join.left.side.clip_length;
+        multipath_alns.front() = fuse_spliced_alignments(alignment, move(*best_join.left.side.candidate),
+                                                         move(*best_join.right.side.candidate),
+                                                         connect_begin, best_join.connecting_aln, best_join.splice_idx,
+                                                         splice_motifs.score(best_join.motif_idx),
+                                                         *get_aligner(!alignment.quality().empty()), *xindex);
+        
+#ifdef debug_multipath_mapper
+        cerr << "found significant splice join, fused mp aln:" << endl;
+        cerr << debug_string(multipath_alns.front()) << endl;
+#endif
+        
+        origin_t origin = best_join.left.side.origin == Anchor ? best_join.right.side.origin : best_join.left.side.origin;
+        switch (origin) {
+            case MPAlignment:
+            {
+                // TODO: hacky, just use indexes
+                auto mp_aln = best_join.left.side.origin == Anchor ? best_join.right.side.candidate : best_join.left.side.candidate;
+                size_t idx = (intptr_t(mp_aln) - intptr_t(multipath_alns.data())) / sizeof(multipath_alignment_t);
+                multiplicities.front() = min(multiplicities.front(), multiplicities[idx]);
+                multipath_alns[idx] = move(multipath_alns.back());
+                multiplicities[idx] = multiplicities.back();
                 multipath_alns.pop_back();
                 multiplicities.pop_back();
-                found_splice_aln = true;
                 break;
             }
-            if (found_splice_aln) {
-                // TODO: this isn't a smart way to decide which splice if there are multiple
+            
+            case Cluster:
+                // TODO: get multiplicity
                 break;
-            }
+                
+            case Seed:
+                // TODO: get multiplicity
+                break;
+            
+            default:
+                cerr << "error: Unrecognized splice candidate type" << endl;
+                exit(1);
+                break;
         }
-        if (found_splice_aln) {
-            sort_and_compute_mapping_quality(multipath_alns, mapping_quality_method, nullptr, &multiplicities);
-        }
+        
+        sort_and_compute_mapping_quality(multipath_alns, mapping_quality_method, nullptr, &multiplicities);
     }
+
+//    double MultipathMapper::intron_length_log_likelihood(int64_t len) const {
+//
+//        // TODO: move this to statistics, allow species differences
+//
+//        auto frechet_log_likelihood = [](double x, double a, double s, double m) {
+//            if (x <= m) {
+//                return numeric_limits<double>::lowest();
+//            }
+//            else {
+//                double z = (x - m) / s;
+//                return log(a / s) - (a + 1.0) * log(z) - pow(z, -a);
+//            }
+//        };
+//        double p = 0.21411;
+//        double m1 = 63.895;
+//        double a1 = 0.69065;
+//        double s1 = 93.086;
+//        double m2 = 185.85;
+//        double a2 = 0.94313;
+//        double s2 = 1910.1;
+//        return add_log(log(p) + frechet_log_likelihood(len, a1, s1, m1),
+//                       log(1.0 - p) + frechet_log_likelihood(len, a2, s2, m2));
+//    }
 
     void MultipathMapper::identify_splice_alignment_candidates(const Alignment& alignment,
                                                                const vector<multipath_alignment_t>& multipath_alns,
