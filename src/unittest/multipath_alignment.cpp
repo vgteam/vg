@@ -482,7 +482,7 @@ namespace vg {
             }
         }
         
-        TEST_CASE("Multipath alignment correctly identifies suboptimal alignments") {
+        TEST_CASE("Multipath alignment correctly identifies suboptimal alignments", "[multipath]") {
         
             SECTION( "Multipath alignment can identify optimal and suboptimal alignment between two disjoint paths" ) {
                 
@@ -673,7 +673,7 @@ namespace vg {
                     REQUIRE(top10[0].path().mapping_size() == 3);
                     REQUIRE(top10[0].path().mapping(0).position().node_id() == graph.get_id(n1));
                     REQUIRE(top10[0].path().mapping(1).position().node_id() == graph.get_id(n3));
-                    REQUIRE(top10[0].path().mapping(2).position().node_id() == graph.get_id(n4));
+                    REQUIRE(top10[0].path().mapping(2).position().node_id() == graph.get_id(n5));
                     
                     // has correct score
                     REQUIRE(top10[0].score() == 12);
@@ -754,7 +754,7 @@ namespace vg {
         
         }
         
-        TEST_CASE("Multipath alignment correctly identifies haplotype consistent alignments") {
+        TEST_CASE("Multipath alignment correctly identifies haplotype consistent alignments", "[multipath]") {
         
             // Make a wrapper to make the compiler shut up about narrowing
             auto visit = [](id_t id, bool orientation) {
@@ -2566,6 +2566,7 @@ namespace vg {
         // TAGA  A|T--CA|A  GG
         // h1    h2         h3
     }
+
 }
 
 

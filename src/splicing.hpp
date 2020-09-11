@@ -242,6 +242,9 @@ private:
 //    int64_t trimmed_score;
 //};
 
+multipath_alignment_t from_hit(const Alignment& alignment, const HandleGraph& graph,
+                               const pos_t& hit_pos, const MaximalExactMatch& mem,
+                               const GSSWAligner& scorer);
 
 // return the position of the base when trimming a given length from either the start
 // or the end of the alignment. softclips do not contributed to the total, and extra

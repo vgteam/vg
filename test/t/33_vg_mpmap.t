@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 14
+plan tests 15
 
 
 # Exercise the GBWT
@@ -102,7 +102,7 @@ vg snarls -T s.vg > s.snarls
 vg index s.vg -x s.xg -g s.gcsa
 vg index s.vg -j s.dist -s s.snarls
 
-is "(vg mpmap -x s.xg -d s.dist -g s.gcsa -BS -n rna -f s.fq | vg view -Kj - | jq .score)" "108" "spliced alignments can be found when aligning RNA"
+is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq | vg view -KG - | vg view -aj - | jq .score)" "108" "spliced alignments can be found when aligning RNA"
 
 rm s.vg s.xg s.gcsa s.gcsa.lcp s.dist s.snarls s.fq
 

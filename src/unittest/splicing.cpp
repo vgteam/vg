@@ -7,6 +7,10 @@
 #include <random>
 
 #include "../splicing.hpp"
+#include "../multipath_mapper.hpp"
+#include "../integrated_snarl_finder.hpp"
+#include "../build_index.hpp"
+#include "xg.hpp"
 #include "catch.hpp"
 #include "test_aligner.hpp"
 
@@ -15,6 +19,22 @@
 namespace vg {
 namespace unittest {
 using namespace std;
+
+class MultipathMapperSpliceTest : public MultipathMapper {
+public:
+    MultipathMapperSpliceTest(PathPositionHandleGraph* graph, gcsa::GCSA* gcsa_index,
+                              gcsa::LCPArray* lcp_array, MinimumDistanceIndex* distance_index)
+        : MultipathMapper(graph, gcsa_index, lcp_array, nullptr, nullptr, distance_index)
+    {
+        // nothing to do
+    }
+    ~MultipathMapperSpliceTest() = default;
+    
+    using MultipathMapper::find_spliced_alignments;
+    using MultipathMapper::align_to_splice_candidates;
+    using MultipathMapper::test_splice_candidates;
+    using MultipathMapper::extract_cluster_graph;
+};
 
 using bdsg::HashGraph;
 
@@ -836,7 +856,7 @@ TEST_CASE("JoinedSpliceGraph can correctly perform queries a more complicated gr
     count = 0;
 }
 
-TEST_CASE("trim_path trims paths correctly", "[splice]") {
+TEST_CASE("trim_path trims paths correctly", "[splice][multipath]") {
     
     path_t path;
     
@@ -1041,7 +1061,7 @@ TEST_CASE("trim_path trims paths correctly", "[splice]") {
 }
 
 TEST_CASE("fuse_spliced_alignments produces the correct results",
-          "[splice]") {
+          "[splice][multipath]") {
 
     bdsg::HashGraph graph;
 
@@ -1320,7 +1340,7 @@ TEST_CASE("fuse_spliced_alignments produces the correct results",
 }
 
 TEST_CASE("fuse_spliced_alignments can handle multiple splice points",
-          "[splice]") {
+          "[splice][mulipath]") {
 
     bdsg::HashGraph graph;
 
@@ -1518,7 +1538,7 @@ TEST_CASE("fuse_spliced_alignments can handle multiple splice points",
     REQUIRE(fused.subpath(5).connection_size() == 0);
 }
 
-TEST_CASE("fuse_spliced_alignments can handle removing some subpaths") {
+TEST_CASE("fuse_spliced_alignments can handle removing some subpaths", "[splice][multipath]") {
     
     bdsg::HashGraph graph;
 
@@ -1610,7 +1630,7 @@ TEST_CASE("fuse_spliced_alignments can handle removing some subpaths") {
     multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
                                                           linker, splice_idx, splice_score,
                                                           *test_aligner.get_regular_aligner(), graph);
-    
+        
     REQUIRE(fused.subpath_size() == 2);
     REQUIRE(fused.subpath(0).score() == 8);
     REQUIRE(fused.subpath(0).path().mapping_size() == 1);
@@ -1637,6 +1657,207 @@ TEST_CASE("fuse_spliced_alignments can handle removing some subpaths") {
     REQUIRE(fused.subpath(1).path().mapping(0).edit(0).sequence() == "");
     REQUIRE(fused.subpath(1).next_size() == 0);
     REQUIRE(fused.subpath(1).connection_size() == 0);
+}
+
+TEST_CASE("Seeds can be converted into multipath alignments", "[multipath][splice]") {
+    
+    bdsg::HashGraph graph;
+    
+    handle_t h1 = graph.create_handle("GCA");
+    handle_t h2 = graph.create_handle("T");
+    handle_t h3 = graph.create_handle("G");
+    handle_t h4 = graph.create_handle("CTGA");
+    handle_t h5 = graph.create_handle("T");
+    handle_t h6 = graph.create_handle("A");
+    handle_t h7 = graph.create_handle("TGAC");
+    
+    graph.create_edge(h1, h2);
+    graph.create_edge(h1, h3);
+    graph.create_edge(h2, h4);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, h5);
+    graph.create_edge(h4, h6);
+    graph.create_edge(h5, h7);
+    graph.create_edge(h6, h7);
+    
+    string read = string("GATCTGAATGC");
+    Alignment aln;
+    aln.set_sequence(read);
+    
+    pos_t hit_pos(graph.get_id(h1), false, 2);
+    MaximalExactMatch mem;
+    mem.begin = aln.sequence().begin() + 1;
+    mem.end = aln.sequence().end() - 1;
+    
+    TestAligner test_aligner;
+    auto& alnr = *test_aligner.get_regular_aligner();
+    
+    auto mp_aln = from_hit(aln, graph, hit_pos, mem, alnr);
+    
+    REQUIRE(mp_aln.sequence() == aln.sequence());
+    REQUIRE(mp_aln.subpath_size() == 1);
+    REQUIRE(mp_aln.subpath(0).score() == 9);
+    REQUIRE(mp_aln.subpath(0).path().mapping_size() == 5);
+    REQUIRE(mp_aln.subpath(0).path().mapping(0).position().node_id() == graph.get_id(h1));
+    REQUIRE(mp_aln.subpath(0).path().mapping(0).position().is_reverse() == false);
+    REQUIRE(mp_aln.subpath(0).path().mapping(0).position().offset() == 2);
+    REQUIRE(mp_aln.subpath(0).path().mapping(0).edit_size() == 2);
+    REQUIRE(mp_aln.subpath(0).path().mapping(0).edit(0).from_length() == 0);
+    REQUIRE(mp_aln.subpath(0).path().mapping(0).edit(0).to_length() == 1);
+    REQUIRE(mp_aln.subpath(0).path().mapping(0).edit(1).from_length() == 1);
+    REQUIRE(mp_aln.subpath(0).path().mapping(0).edit(1).to_length() == 1);
+    REQUIRE(mp_aln.subpath(0).path().mapping(1).position().node_id() == graph.get_id(h2));
+    REQUIRE(mp_aln.subpath(0).path().mapping(1).position().is_reverse() == false);
+    REQUIRE(mp_aln.subpath(0).path().mapping(1).position().offset() == 0);
+    REQUIRE(mp_aln.subpath(0).path().mapping(1).edit_size() == 1);
+    REQUIRE(mp_aln.subpath(0).path().mapping(1).edit(0).from_length() == 1);
+    REQUIRE(mp_aln.subpath(0).path().mapping(1).edit(0).to_length() == 1);
+    REQUIRE(mp_aln.subpath(0).path().mapping(2).position().node_id() == graph.get_id(h4));
+    REQUIRE(mp_aln.subpath(0).path().mapping(2).position().is_reverse() == false);
+    REQUIRE(mp_aln.subpath(0).path().mapping(2).position().offset() == 0);
+    REQUIRE(mp_aln.subpath(0).path().mapping(2).edit_size() == 1);
+    REQUIRE(mp_aln.subpath(0).path().mapping(2).edit(0).from_length() == 4);
+    REQUIRE(mp_aln.subpath(0).path().mapping(2).edit(0).to_length() == 4);
+    REQUIRE(mp_aln.subpath(0).path().mapping(3).position().node_id() == graph.get_id(h6));
+    REQUIRE(mp_aln.subpath(0).path().mapping(3).position().is_reverse() == false);
+    REQUIRE(mp_aln.subpath(0).path().mapping(3).position().offset() == 0);
+    REQUIRE(mp_aln.subpath(0).path().mapping(3).edit_size() == 1);
+    REQUIRE(mp_aln.subpath(0).path().mapping(3).edit(0).from_length() == 1);
+    REQUIRE(mp_aln.subpath(0).path().mapping(3).edit(0).to_length() == 1);
+    REQUIRE(mp_aln.subpath(0).path().mapping(4).position().node_id() == graph.get_id(h7));
+    REQUIRE(mp_aln.subpath(0).path().mapping(4).position().is_reverse() == false);
+    REQUIRE(mp_aln.subpath(0).path().mapping(4).position().offset() == 0);
+    REQUIRE(mp_aln.subpath(0).path().mapping(4).edit_size() == 2);
+    REQUIRE(mp_aln.subpath(0).path().mapping(4).edit(0).from_length() == 2);
+    REQUIRE(mp_aln.subpath(0).path().mapping(4).edit(0).to_length() == 2);
+    REQUIRE(mp_aln.subpath(0).path().mapping(4).edit(1).from_length() == 0);
+    REQUIRE(mp_aln.subpath(0).path().mapping(4).edit(1).to_length() == 1);
+}
+
+TEST_CASE("MultipathMapper can make splice alignments from different candidates", "[multipath][splice]") {
+    
+    bdsg::HashGraph graph;
+    
+    handle_t h1 = graph.create_handle("CAAATTAGGGATGTGTAGATGATGATGT");
+    handle_t h2 = graph.create_handle("TGCAGCATGCACAAGATCACCGATACCA");
+    handle_t h3 = graph.create_handle("GGTAGAGACCAGTAGAGGAGCCCCTTTG");
+    handle_t h4 = graph.create_handle("AGGATAAAGAAATGAGTAACCACGTACC");
+    handle_t h5 = graph.create_handle("GAGTATTTAATATATGGATGGATTTTCA");
+    
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, h5);
+    
+    // Configure GCSA temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(temp_file::get_dir());
+    // And make it quiet
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Make pointers to fill in
+    gcsa::GCSA* gcsaidx = nullptr;
+    gcsa::LCPArray* lcpidx = nullptr;
+    
+    // Build the GCSA index
+    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
+    
+    // Build the xg index
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(graph);
+    
+    // Get snarls
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlManager snarl_manager = snarl_finder.find_snarls_parallel();
+    
+    // Build the distance index
+    MinimumDistanceIndex distance_index(&xg_index, &snarl_manager);
+    
+    MultipathMapperSpliceTest mapper(&xg_index, gcsaidx, lcpidx, &distance_index);
+    // slack this up a bit so it doesn't filter out good candidates in the small graph
+    // otherwise, we'd need to calibrate, which i don't want to do in a test
+    mapper.max_mapping_p_value = 0.01;
+    
+    Alignment aln;
+    aln.set_sequence(string("CAAATTAGGGATGTGTAGATGATGAT") + string("TATTTAATATATGGATGGATTTTCA"));
+    
+    multipath_alignment_t mp_aln;
+    mp_aln.set_sequence(aln.sequence());
+    auto s = mp_aln.add_subpath();
+    s->set_score(26 + 5);
+    auto p = s->mutable_path();
+    auto m = p->add_mapping();
+    m->mutable_position()->set_node_id(graph.get_id(h1));
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    auto e0 = m->add_edit();
+    e0->set_from_length(26);
+    e0->set_to_length(26);
+    auto e1 = m->add_edit();
+    e1->set_from_length(0);
+    e1->set_to_length(25);
+    e1->set_sequence("TATTTAATATATGGATGGATTTTCA");
+    
+    identify_start_subpaths(mp_aln);
+    
+    vector<multipath_alignment_t> mp_alns(1, mp_aln);
+    vector<double> mults(1, 1.0);
+    
+//    SECTION("From a MEM candidate") {
+//
+//        MaximalExactMatch mem;
+//        mem.begin = aln.sequence().begin() + 26;
+//        mem.end = aln.sequence().end();
+//
+//        pos_t pos(graph.get_id(h5), false, 3);
+//
+//        mem.nodes.push_back(gcsa::Node::encode(id(pos), offset(pos), is_rev(pos)));
+//
+//        vector<MaximalExactMatch> mems(1, mem);
+//        vector<size_t> c_idx(1, 0);
+//
+//        vector<MultipathMapper::clustergraph_t> cluster_graphs;
+//
+//        mapper.find_spliced_alignments(aln, mp_alns, mults, c_idx, mems, cluster_graphs);
+//
+//        REQUIRE(mp_alns.size() == 1);
+//        auto& m = mp_alns.front();
+//        REQUIRE(optimal_alignment_score(m) == aln.sequence().size() + 10);
+//
+//    }
+    
+    SECTION("From a cluster candidate") {
+        
+        MaximalExactMatch mem1;
+        mem1.begin = aln.sequence().begin() + 26;
+        mem1.end = aln.sequence().begin() + 38;
+        mem1.nodes.push_back(gcsa::Node::encode(graph.get_id(h5), 3, false));
+        
+        MaximalExactMatch mem2;
+        mem2.begin = aln.sequence().begin() + 39;
+        mem2.end = aln.sequence().end();
+        mem2.nodes.push_back(gcsa::Node::encode(graph.get_id(h5), 16, false));
+        
+        vector<MaximalExactMatch> mems{mem1, mem2};
+        vector<size_t> c_idx(1, 1);
+        
+        vector<MultipathMapper::clustergraph_t> cluster_graphs;
+        cluster_graphs.emplace_back();
+        auto& cluster_graph = cluster_graphs.back();
+        get<1>(cluster_graph).first.emplace_back(&mems.front(), make_pos_t(mems.front().nodes.front()));
+        get<1>(cluster_graph).first.emplace_back(&mems.back(), make_pos_t(mems.back().nodes.front()));
+        get<1>(cluster_graph).second = 1.0;
+        get<0>(cluster_graph) = mapper.extract_cluster_graph(aln, get<1>(cluster_graph)).first;
+        get<2>(cluster_graph) = mem1.length() + mem2.length();
+        
+        mapper.find_spliced_alignments(aln, mp_alns, mults, c_idx, mems, cluster_graphs);
+        
+        REQUIRE(mp_alns.size() == 1);
+        auto& m = mp_alns.front();
+        REQUIRE(optimal_alignment_score(m) == aln.sequence().size() + 10);
+        
+        delete get<0>(cluster_graph);
+        
+    }
 }
 
 }

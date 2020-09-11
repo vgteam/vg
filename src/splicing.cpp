@@ -506,6 +506,99 @@ pair<size_t, size_t> JoinedSpliceGraph::underlying_interval(const handle_t& hand
     return return_val;
 }
 
+multipath_alignment_t from_hit(const Alignment& alignment, const HandleGraph& graph,
+                               const pos_t& hit_pos, const MaximalExactMatch& mem,
+                               const GSSWAligner& scorer) {
+    // TODO: mostly copied from multipath alignment graph
+    
+    multipath_alignment_t multipath_aln;
+    transfer_read_metadata(alignment, multipath_aln);
+    
+    // stack for DFS, each record contains tuples of
+    // (read begin, node offset, next node index, next node handles,
+    vector<tuple<string::const_iterator, size_t, size_t, vector<handle_t>>> stack;
+    stack.emplace_back(mem.begin, offset(hit_pos), 0,
+                       vector<handle_t>{graph.get_handle(id(hit_pos))});
+    while (!stack.empty()) {
+        auto& back = stack.back();
+        if (get<2>(back) == get<3>(back).size()) {
+            stack.pop_back();
+            continue;
+        }
+        
+        handle_t trav = get<3>(back)[get<2>(back)];
+        get<2>(back)++;
+        
+#ifdef debug_from_hit
+        cerr << "checking node " << graph.get_id(trav) << endl;
+#endif
+        
+        string node_seq = graph.get_sequence(trav);
+        size_t node_idx = get<1>(back);
+        string::const_iterator read_iter = get<0>(back);
+        
+        // look for a match along the entire node sequence
+        for (; node_idx < node_seq.size() && read_iter != mem.end; node_idx++, read_iter++) {
+            if (node_seq[node_idx] != *read_iter) {
+#ifdef debug_from_hit
+                cerr << "node sequence does not match read" << endl;
+#endif
+                break;
+            }
+        }
+        
+        if (read_iter == mem.end) {
+            break;
+        }
+        
+        if (node_idx == node_seq.size()) {
+            stack.emplace_back(read_iter, 0, 0, vector<handle_t>());
+            graph.follow_edges(trav, false, [&](const handle_t& next) {
+                get<3>(stack.back()).emplace_back(next);
+            });
+        }
+    }
+    
+    subpath_t* subpath = multipath_aln.add_subpath();
+    path_t* path = subpath->mutable_path();
+    for (size_t i = 0; i < stack.size(); ++i) {
+        path_mapping_t* mapping = path->add_mapping();
+        if (i == 0 && mem.begin != alignment.sequence().begin()) {
+            edit_t* edit = mapping->add_edit();
+            edit->set_to_length(mem.begin - alignment.sequence().begin());
+            edit->set_from_length(0);
+            edit->set_sequence(string(alignment.sequence().begin(), mem.begin));
+        }
+        
+        handle_t handle = get<3>(stack[i])[get<2>(stack[i]) - 1];
+        
+        position_t* position = mapping->mutable_position();
+        position->set_node_id(graph.get_id(handle));
+        position->set_is_reverse(graph.get_is_reverse(handle));
+        position->set_offset(get<1>(stack[i]));
+        
+        edit_t* edit = mapping->add_edit();
+        int64_t len = min<int64_t>(graph.get_length(handle) - get<1>(stack[i]),
+                                   mem.end - get<0>(stack[i]));
+        edit->set_to_length(len);
+        edit->set_from_length(len);
+        
+        if (i + 1 == stack.size() && mem.end != alignment.sequence().end()) {
+            edit_t* edit = mapping->add_edit();
+            edit->set_to_length(alignment.sequence().end() - mem.end);
+            edit->set_from_length(0);
+            edit->set_sequence(string(mem.end, alignment.sequence().end()));
+        }
+    }
+    Path proto_path;
+    to_proto_path(*path, proto_path);
+    subpath->set_score(scorer.score_partial_alignment(alignment, graph, proto_path,
+                                                      alignment.sequence().begin()));
+    
+    identify_start_subpaths(multipath_aln);
+    return multipath_aln;
+}
+
 tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bool from_end,
                                            const HandleGraph& graph, const GSSWAligner& aligner) {
     
@@ -907,8 +1000,44 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     
     auto left_locations = search_multipath_alignment(left_mp_aln, pos_left, left_bridge_point);
     auto right_locations = search_multipath_alignment(right_mp_aln, pos_right, right_bridge_point);
+    
+    // check if it would help us to reposition any left locations
+    auto it = find_if(left_locations.begin(), left_locations.end(),
+                      [](const tuple<int64_t, int64_t, int64_t, int64_t>& loc) {
+        return get<0>(loc) != 0 && get<1>(loc) == 0 && get<2>(loc) == 0 && get<3>(loc) == 0;
+    });
+    bool check_unique = false;
+    if (it != left_locations.end()) {
+        // it's easier to handle before-the-first locations on the left side as
+        // past-the-last locations on their predecessors
+        vector<vector<int64_t>> prevs(left_mp_aln.subpath_size());
+        for (int64_t i = 0; i < prevs.size(); ++i) {
+            for (auto n : left_mp_aln.subpath(i).next()) {
+                prevs[n].push_back(i);
+            }
+        }
+        for (int64_t i = it - left_locations.begin(), end = left_locations.size(); i < end; ++i) {
+            auto& loc = left_locations[i];
+            if (!prevs[get<0>(loc)].empty() && get<1>(loc) == 0 && get<2>(loc) == 0 && get<3>(loc) == 0) {
+                // move this location onto all of the predecessors
+                for (auto j : prevs[get<0>(loc)]) {
+                    left_locations.emplace_back(j, left_mp_aln.subpath(j).path().mapping_size(), 0, 0);
+                }
+                left_locations[i] = left_locations.back();
+                left_locations.pop_back();
+                check_unique = true;
+            }
+        }
+    }
+    
     sort(left_locations.begin(), left_locations.end());
     sort(right_locations.begin(), right_locations.end());
+    
+    if (check_unique) {
+        // it's possible that we created duplicate locations when repositioning the locations
+        // around subpath boundaries
+        left_locations.resize(unique(left_locations.begin(), left_locations.end()) - left_locations.begin());
+    }
     
 #ifdef debug_fusing
     cerr << "left splice locations:" << endl;
@@ -950,7 +1079,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
 #ifdef debug_fusing
     cerr << "deciding what to remove on left:" << endl;
     for (size_t i = 0; i < to_keep_left.size(); ++i) {
-        cerr << "\t" << i << " keep? " << to_keep_left[i] << ", bridge? " << is_bridge_left[i] << endl;
+        cerr << "\t" << i << ": keep? " << to_keep_left[i] << ", bridge? " << is_bridge_left[i] << endl;
     }
 #endif
     
@@ -1051,7 +1180,6 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
 #endif
     
     if (splice_segment_halves.first.first.mapping_size() != 0) {
-        
         for (const auto& left_loc : left_locations) {
             auto i = get<0>(left_loc) - left_removed_so_far[get<0>(left_loc)];
             left_mp_aln.mutable_subpath(i)->add_next(left_mp_aln.subpath_size());
@@ -1119,7 +1247,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
 #ifdef debug_fusing
     cerr << "deciding what to remove on right:" << endl;
     for (size_t i = 0; i < to_keep_left.size(); ++i) {
-        cerr << "\t" << i << " keep? " << to_keep_left[i] << ", bridge? " << is_bridge_left[i] << endl;
+        cerr << "\t" << i << ": keep? " << to_keep_left[i] << ", bridge? " << is_bridge_left[i] << endl;
     }
 #endif
     
