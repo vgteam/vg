@@ -11,6 +11,7 @@
 
 #include <unistd.h>
 #include <getopt.h>
+#include <chrono>
 
 using namespace vg;
 using namespace vg::subcommand;
@@ -97,6 +98,8 @@ void help_map(char** argv) {
 }
 
 int main_map(int argc, char** argv) {
+
+    std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
     if (argc == 2) {
         help_map(argv);
@@ -859,6 +862,9 @@ int main_map(int argc, char** argv) {
         m->patch_alignments = patch_alignments;
         mapper[i] = m;
     }
+    vector<size_t> reads_mapped_by_thread(thread_count, 0);
+
+    std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
 
     if (!seq.empty()) {
         int tid = omp_get_thread_num();
@@ -892,6 +898,7 @@ int main_map(int argc, char** argv) {
 
         // Output the alignments in the correct format, possibly surjecting.
         output_alignments(alignments, empty_alns);
+        reads_mapped_by_thread[tid] += 1;
     }
 
     if (!read_file.empty()) {
@@ -930,6 +937,7 @@ int main_map(int argc, char** argv) {
                     // Output the alignments in the correct format, possibly surjecting. 
                     output_alignments(alignments, empty_alns);
                 }
+                reads_mapped_by_thread[tid] += 1;
             }
         }
     }
@@ -959,6 +967,8 @@ int main_map(int argc, char** argv) {
                 }
                 // Output the alignments in the correct format, possibly surjecting.
                 output_alignments(alignments, empty_alns);
+
+                reads_mapped_by_thread[tid] += 1;
             }
         };
 #pragma omp parallel for
@@ -993,6 +1003,8 @@ int main_map(int argc, char** argv) {
 
             // Output the alignments in JSON or protobuf as appropriate.
             output_alignments(alignments, empty_alns);
+
+            reads_mapped_by_thread[tid] += 1;
         };
         // run
         hts_for_each_parallel(hts_file, lambda);
@@ -1039,6 +1051,8 @@ int main_map(int argc, char** argv) {
                         our_mapper->imperfect_pairs_to_retry.clear();
                     }
                 }
+
+                reads_mapped_by_thread[omp_get_thread_num()] += 2;
             };
             fastq_paired_interleaved_for_each_parallel(fastq1, lambda);
 #pragma omp parallel
@@ -1071,6 +1085,7 @@ int main_map(int argc, char** argv) {
                                                                                 xdrop_alignment);
                         //cerr << "This is just before output_alignments" << alignment.DebugString() << endl;
                         output_alignments(alignments, empty_alns);
+                        reads_mapped_by_thread[tid] += 1;
                     };
             fastq_unpaired_for_each_parallel(fastq1, lambda);
         } else {
@@ -1112,6 +1127,8 @@ int main_map(int argc, char** argv) {
                         our_mapper->imperfect_pairs_to_retry.clear();
                     }
                 }
+
+                reads_mapped_by_thread[omp_get_thread_num()] += 2;
             };
             fastq_paired_two_files_for_each_parallel(fastq1, fastq2, lambda);
 #pragma omp parallel
@@ -1129,6 +1146,8 @@ int main_map(int argc, char** argv) {
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
+
+                reads_mapped_by_thread[omp_get_thread_num()] += 2;
             }
         }
     }
@@ -1181,6 +1200,7 @@ int main_map(int argc, char** argv) {
                         our_mapper->imperfect_pairs_to_retry.clear();
                     }
                 }
+                reads_mapped_by_thread[omp_get_thread_num()] += 2;
             };
             vg::io::for_each_interleaved_pair_parallel(gam_in, lambda);
 #pragma omp parallel
@@ -1216,6 +1236,7 @@ int main_map(int argc, char** argv) {
                     alignment_set_distance_to_correct(alignments.front(), alignment);
                 }
                 output_alignments(alignments, empty_alns);
+                reads_mapped_by_thread[tid] += 1;
             };
             vg::io::for_each_parallel(gam_in, lambda);
         }
@@ -1235,6 +1256,19 @@ int main_map(int argc, char** argv) {
         delete haplo_score_provider;
         haplo_score_provider = nullptr;
     }
+    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+    std::chrono::duration<double> mapping_seconds = end - init;
+    std::chrono::duration<double> index_load_seconds = init - launch;
+
+    size_t total_reads_mapped = 0;
+    for (auto& reads_mapped : reads_mapped_by_thread) {
+        total_reads_mapped += reads_mapped;
+    }
+
+    double reads_per_second_per_thread = total_reads_mapped / (mapping_seconds.count() * thread_count);
+    cerr << "Index load time: " << index_load_seconds.count() << endl;
+    cerr << "Mapped " << total_reads_mapped << " reads" << endl;
+    cerr << "Mapping speed: " << reads_per_second_per_thread << " reads per second per thread" << endl; 
     
     cout.flush();
 
