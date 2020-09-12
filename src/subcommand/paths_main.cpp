@@ -18,6 +18,7 @@
 #include "../gbwt_helper.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
+#include <vg/io/alignment_emitter.hpp>
 
 #include "../algorithms/copy_graph.hpp"
 
@@ -39,6 +40,7 @@ void help_paths(char** argv) {
          << "    -r, --retain-paths       output a graph with only the selected paths retained" << endl
          << "  output path data:" << endl
          << "    -X, --extract-gam        print (as GAM alignments) the stored paths in the graph" << endl
+         << "    -A, --extract-gaf        print (as GAF alignments) the stored paths in the graph" << endl
          << "    -L, --list               print (as a list of names, one per line) the path (or thread) names" << endl
          << "    -E, --lengths            print a list of path names (as with -L) but paired with their lengths" << endl
          << "    -F, --extract-fasta      print the paths in FASTA format" << endl
@@ -81,6 +83,7 @@ int main_paths(int argc, char** argv) {
     }
 
     bool extract_as_gam = false;
+    bool extract_as_gaf = false;
     bool extract_as_vg = false;
     bool list_names = false;
     bool extract_as_fasta = false;
@@ -109,6 +112,7 @@ int main_paths(int argc, char** argv) {
             {"drop-paths", no_argument, 0, 'd'},
             {"retain-paths", no_argument, 0, 'r'},
             {"extract-gam", no_argument, 0, 'X'},
+            {"extract-gaf", no_argument, 0, 'A'},            
             {"list", no_argument, 0, 'L'},
             {"lengths", no_argument, 0, 'E'},
             {"extract-fasta", no_argument, 0, 'F'},
@@ -125,7 +129,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEFS:Tq:drap:",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEFAS:Tq:drap:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -164,6 +168,11 @@ int main_paths(int argc, char** argv) {
                 
         case 'X':
             extract_as_gam = true;
+            output_formats++;
+            break;
+
+        case 'A':
+            extract_as_gaf = true;
             output_formats++;
             break;
 
@@ -229,9 +238,9 @@ int main_paths(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
     if (!gbwt_file.empty()) {
-        bool need_graph = (extract_as_gam || extract_as_vg || list_lengths || extract_as_fasta);
+        bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || list_lengths || extract_as_fasta);
         if (need_graph && xg_file.empty() && vg_file.empty()) {
-            std::cerr << "error: [vg paths] an XG index or vg graph needed for extracting threads in -X, -V, -d, -r, -E or -F format" << std::endl;
+            std::cerr << "error: [vg paths] an XG index or vg graph needed for extracting threads in -X, -A, -V, -d, -r, -E or -F format" << std::endl;
             std::exit(EXIT_FAILURE);
         }
         if (!need_graph && (!xg_file.empty() || !vg_file.empty())) {
@@ -242,7 +251,7 @@ int main_paths(int argc, char** argv) {
         }
     }
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -V, -d, -r, -L, -F, or -E) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -L, -F, or -E) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
@@ -307,12 +316,14 @@ int main_paths(int argc, char** argv) {
     }
 
     // We may need to emit a stream of Alignments
-    unique_ptr<vg::io::ProtobufEmitter<Alignment>> gam_emitter;
+    unique_ptr<vg::io::AlignmentEmitter> aln_emitter; 
+
     // Or we might need to emit a stream of VG Graph objects
     unique_ptr<vg::io::ProtobufEmitter<Graph>> graph_emitter;
-    if (extract_as_gam) {
-        // Open up a GAM output stream
-        gam_emitter = unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
+    if (extract_as_gam || extract_as_gaf) {
+        // Open up a GAM/GAF output stream
+        aln_emitter = vg::io::get_non_hts_alignment_emitter("-", extract_as_gaf ? "GAF" : "GAM", {}, 1,
+                                                            graph.get());
     } else if (extract_as_vg || drop_paths || retain_paths) {
         // Open up a VG Graph chunk output stream
         graph_emitter = unique_ptr<vg::io::ProtobufEmitter<Graph>>(new vg::io::ProtobufEmitter<Graph>(cout));
@@ -375,9 +386,9 @@ int main_paths(int argc, char** argv) {
             
             // Otherwise we need the actual thread data
             Path path = extract_gbwt_path(*graph, *gbwt_index, id);
-            if (extract_as_gam) {
+            if (extract_as_gam || extract_as_gaf) {
                 // Write as an Alignment. Must contain the whole path.
-                gam_emitter->write(alignment_from_path(*graph, path));
+                aln_emitter->emit_singles({alignment_from_path(*graph, path)});
             } else if (extract_as_vg) {
                 // Write as a Path in a VG
                 chunk_to_emitter(path, *graph_emitter);
@@ -438,8 +449,8 @@ int main_paths(int argc, char** argv) {
                         cout << endl;
                     } else {
                         Path path = path_from_path_handle(*graph, path_handle);
-                        if (extract_as_gam) {
-                            gam_emitter->write(alignment_from_path(*graph, path));
+                        if (extract_as_gam || extract_as_gaf) {
+                            aln_emitter->emit_singles({alignment_from_path(*graph, path)});
                         } else if (extract_as_vg) {
                             chunk_to_emitter(path, *graph_emitter); 
                         } else if (extract_as_fasta) {
