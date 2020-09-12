@@ -50,6 +50,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "    -B, --label-paths           don't augment with alignments, just use them for labeling the graph" << endl
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
+         << "    -F, --gaf                   expect (and write) GAF instead of GAM" << endl
          << "    -s, --subgraph              graph is a subgraph of the one used to create GAM. ignore alignments with missing nodes" << endl
          << "    -m, --min-coverage N        minimum coverage of a breakpoint required for it to be added to the graph" << endl
          << "    -c, --expected-cov N        expected coverage.  used only for memory tuning [default : 128]" << endl
@@ -287,7 +288,7 @@ int main_augment(int argc, char** argv) {
     unique_ptr<Packer> packer;
     bdsg::VectorizableOverlayHelper overlay_helper;
     // the packer's required for any kind of filtering logic -- so we use it when
-    // baseq is present as well, or n-fraction
+    // baseq is present as well, or n-fraction.
     if (min_coverage > 0 || min_baseq || max_frac_n < 1.) {
         vectorizable_graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(graph.get()));
         size_t data_width = Packer::estimate_data_width(expected_coverage);
@@ -299,16 +300,22 @@ int main_augment(int argc, char** argv) {
     
     if (label_paths) {
         // Just add path names with extend()
-        get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
-                vg::io::for_each<Alignment>(alignment_stream, [&](Alignment& alignment) {
-                        if (!include_softclips) {
-                            softclip_trim(alignment);
-                        }
-                        Path simplified_path = simplify(alignment.path());
-                        *simplified_path.mutable_name() = alignment.name();
-                        add_path_to_graph(graph.get(), simplified_path);
-                    });
-            });
+        function<void(Alignment&)> lambda = [&](Alignment& alignment) {
+            if (!include_softclips) {
+                softclip_trim(alignment);
+            }
+            Path simplified_path = simplify(alignment.path());
+            *simplified_path.mutable_name() = alignment.name();
+            add_path_to_graph(graph.get(), simplified_path);
+        };
+        if (aln_format == "GAM") {
+            get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
+                    vg::io::for_each<Alignment>(alignment_stream, lambda);
+                });
+        } else {
+            assert(aln_format == "GAF");
+            vg::io::gaf_unpaired_for_each(*graph, gam_in_file_name, lambda);
+        }
         if (vg_graph != nullptr) {
             vg_graph->paths.sort_by_mapping_rank();
             vg_graph->paths.rebuild_mapping_aux();
@@ -317,9 +324,8 @@ int main_augment(int argc, char** argv) {
     else {
         // Actually do augmentation
         vector<Translation> translation;
-        ofstream gam_out_file;
         if (!gam_out_file_name.empty()) {
-            gam_out_file.open(gam_out_file_name);
+            ofstream gam_out_file(gam_out_file_name);
             if (!gam_out_file) {
                 cerr << "[vg augment] error: could not open output GAM file: " << gam_out_file_name << endl;
                 return 1;
@@ -329,13 +335,19 @@ int main_augment(int argc, char** argv) {
             vector<Path> buffer;
             if (gam_in_file_name == "-") {
                 // this is usually bad news, but we gave a warning
-                get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
-                        vg::io::for_each<Alignment>(alignment_stream, [&](Alignment& alignment) {
-                                Path& path = *alignment.mutable_path();
-                                path.set_name(alignment.name());
-                                buffer.push_back(path);
-                            });
-                    });
+                function<void(Alignment&)> lambda = [&](Alignment& alignment) {
+                    Path& path = *alignment.mutable_path();
+                    path.set_name(alignment.name());
+                    buffer.push_back(path);
+                };
+                if (aln_format == "GAM") {
+                    get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
+                            vg::io::for_each<Alignment>(alignment_stream, lambda);
+                        });
+                } else {
+                    assert(aln_format == "GAF");
+                    vg::io::gaf_unpaired_for_each(*graph, gam_in_file_name, lambda);
+                }
             } else if (!loci_file.empty()) {
                 function<void(Locus&)> lambda = [&graph, &buffer, &called_genotypes_only](Locus& locus) {
                     // if we are only doing called genotypes, record so we can filter alleles
@@ -366,8 +378,9 @@ int main_augment(int argc, char** argv) {
             
             augment(graph.get(),
                     buffer,
+                    aln_format, 
                     translation_file_name.empty() ? nullptr : &translation,
-                    gam_out_file_name.empty() ? nullptr : &gam_out_file,
+                    gam_out_file_name,
                     include_paths,
                     include_paths,
                     !include_softclips,
@@ -379,21 +392,20 @@ int main_augment(int argc, char** argv) {
                     max_frac_n);
         } else {
             // much better to stream from a file so we can do two passes without storing in memory
-            get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
-                    augment(graph.get(),
-                            alignment_stream,
-                            translation_file_name.empty() ? nullptr : &translation,
-                            gam_out_file_name.empty() ? nullptr : &gam_out_file,
-                            include_paths,
-                            include_paths,
-                            !include_softclips,
-                            is_subgraph,
-                            min_baseq,
-                            min_mapq,
-                            packer.get(),
-                            min_coverage,
-                            max_frac_n);
-                });
+            augment(graph.get(),
+                    gam_in_file_name,
+                    aln_format,
+                    translation_file_name.empty() ? nullptr : &translation,
+                    gam_out_file_name,
+                    include_paths,
+                    include_paths,
+                    !include_softclips,
+                    is_subgraph,
+                    min_baseq,
+                    min_mapq,
+                    packer.get(),
+                    min_coverage,
+                    max_frac_n);
         }
 
         // we don't have a streaming interface for translation:  write the buffer now

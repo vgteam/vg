@@ -322,7 +322,7 @@ int main_paths(int argc, char** argv) {
     unique_ptr<vg::io::ProtobufEmitter<Graph>> graph_emitter;
     if (extract_as_gam || extract_as_gaf) {
         // Open up a GAM/GAF output stream
-        aln_emitter = vg::io::get_non_hts_alignment_emitter("-", extract_as_gaf ? "GAF" : "GAM", {}, 1,
+        aln_emitter = vg::io::get_non_hts_alignment_emitter("-", extract_as_gaf ? "GAF" : "GAM", {}, get_thread_count(),
                                                             graph.get());
     } else if (extract_as_vg || drop_paths || retain_paths) {
         // Open up a VG Graph chunk output stream
