@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 13
+plan tests 14
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -25,6 +25,9 @@ is $(vg paths --list -S 2 -g x.gbwt | wc -l) 0 "no threads are reported for inva
 
 # Extract threads as alignments
 is $(vg paths -x x.xg -g x.gbwt -X | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
+
+# Extract threads as GAF alignments
+is $(vg paths -x x.xg -g x.gbwt -A | wc -l) 2 "vg paths may be used to extract threads as GAF"
 
 # Extract paths as fasta
 vg paths -x x.xg -Q x -F > x_from_xg.fa

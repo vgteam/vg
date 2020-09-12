@@ -50,7 +50,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "    -B, --label-paths           don't augment with alignments, just use them for labeling the graph" << endl
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
-         << "    -F, --gaf                   expect GAF instead of GAFM" << endl
+         << "    -F, --gaf                   expect GAF instead of GAM" << endl
          << "    -s, --subgraph              graph is a subgraph of the one used to create GAM. ignore alignments with missing nodes" << endl
          << "    -m, --min-coverage N        minimum coverage of a breakpoint required for it to be added to the graph" << endl
          << "    -c, --expected-cov N        expected coverage.  used only for memory tuning [default : 128]" << endl
