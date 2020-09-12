@@ -385,17 +385,37 @@ namespace vg {
                          unordered_set<pos_t>& agg_end_positions) const;
         
         void find_spliced_alignments(const Alignment& alignment, vector<multipath_alignment_t>& multipath_alns_out,
-                                     vector<double>& multiplicities, vector<size_t> cluster_idxs,
+                                     vector<double>& multiplicities, vector<size_t>& cluster_idxs,
                                      const vector<MaximalExactMatch>& mems, vector<clustergraph_t>& cluster_graphs,
                                      const match_fanouts_t* fanouts = nullptr);
         
-        void identify_splice_alignment_candidates(const Alignment& alignment,
-                                                  const vector<multipath_alignment_t>& multipath_alns,
-                                                  const vector<size_t>& cluster_idxs,
+        void find_spliced_alignments(const Alignment& alignment1, const Alignment& alignment2,
+                                     vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                     vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                     vector<double>& pair_multiplicities,
+                                     const vector<MaximalExactMatch>& mems1, const vector<MaximalExactMatch>& mems2,
+                                     vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
+                                     const match_fanouts_t* fanouts = nullptr);
+        
+        void identify_aligned_splice_candidates(const Alignment& alignment, bool search_left,
+                                                const pair<int64_t, int64_t>& primary_interval,
+                                                const vector<multipath_alignment_t>& multipath_alns,
+                                                const vector<size_t>& cluster_idxs,
+                                                unordered_set<size_t>& clusters_used_out,
+                                                vector<size_t>& mp_aln_candidates_out) const;
+
+        void identify_aligned_splice_candidates(const Alignment& alignment, bool read_1, bool search_left,
+                                                const pair<int64_t, int64_t>& primary_interval,
+                                                const vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
+                                                const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                unordered_set<size_t>& clusters_used_out,
+                                                vector<size_t>& mp_aln_candidates_out) const;
+
+        void identify_unaligned_splice_candidates(const Alignment& alignment, bool search_left,
+                                                  const pair<int64_t, int64_t>& primary_interval,
                                                   const vector<MaximalExactMatch>& mems,
                                                   const vector<clustergraph_t>& cluster_graphs,
-                                                  const pair<int64_t, int64_t>& primary_interval, bool search_left,
-                                                  vector<size_t>& mp_aln_candidates_out,
+                                                  const unordered_set<size_t>& clusters_already_used,
                                                   vector<size_t>& cluster_candidates_out,
                                                   vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates_out) const;
         
@@ -409,12 +429,18 @@ namespace vg {
                                         vector<double>& multiplicities_out,
                                         const match_fanouts_t* mem_fanouts = nullptr) const;
         
-        void test_splice_candidates(const Alignment& alignment, bool searching_left,
-                                    vector<multipath_alignment_t>& multipath_alns,
-                                    vector<double>& multiplicities,
-                                    const vector<size_t>& mp_aln_candidates,
-                                    vector<multipath_alignment_t>& unaligned_candidates,
-                                    const vector<double>& unaligned_multiplicities);
+        bool test_splice_candidates(const Alignment& alignment, bool searching_left,
+                                    multipath_alignment_t& anchor_mp_aln, double& anchor_multiplicity,
+                                    int64_t num_candidates,
+                                    const function<const multipath_alignment_t&(int64_t)>& get_candidate,
+                                    const function<multipath_alignment_t&&(int64_t)>& consume_candidate);
+        
+//        void test_splice_candidates(const Alignment& alignment, bool searching_left,
+//                                    vector<multipath_alignment_t>& multipath_alns,
+//                                    vector<double>& multiplicities,
+//                                    const vector<size_t>& mp_aln_candidates,
+//                                    vector<multipath_alignment_t>& unaligned_candidates,
+//                                    const vector<double>& unaligned_multiplicities);
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
