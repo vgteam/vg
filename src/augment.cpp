@@ -174,7 +174,7 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                 // to work correctly, and must be passed in only via find_packed_breakpoints.
                 find_breakpoints(simplified_path, breakpoints, break_at_ends, "", 0, 1.);
             }
-        }, false, packed_mode && get_thread_count() > 1);
+        }, false, packed_mode);
 
     if (packed_mode) {
         // Filter the breakpoints by coverage
