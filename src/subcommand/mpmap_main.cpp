@@ -286,6 +286,8 @@ int main_mpmap(int argc, char** argv) {
     double pessimistic_gap_multiplier = 3.0;
     bool restrained_graph_extraction = false;
     bool do_spliced_alignment = false;
+    int max_softclip_overlap = 5;
+    int max_splice_overhang = 5;
     bool override_spliced_alignment = false;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
@@ -1705,7 +1707,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.agglomerate_multipath_alns = agglomerate_multipath_alns;
     multipath_mapper.do_spliced_alignment = do_spliced_alignment;
     multipath_mapper.min_softclip_length_for_splice = int(ceil(log(path_position_handle_graph->get_total_length()) / log(4.0))) + 2;
-    multipath_mapper.max_softclip_overlap = int(ceil(log(path_position_handle_graph->get_total_length()) / log(4.0))) / 2;
+    multipath_mapper.max_softclip_overlap = max_softclip_overlap;
+    multipath_mapper.max_splice_overhang = max_splice_overhang;
 
 #ifdef mpmap_instrument_mem_statistics
     multipath_mapper._mem_stats.open(MEM_STATS_FILE);

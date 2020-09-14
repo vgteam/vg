@@ -200,8 +200,8 @@ namespace vg {
         int64_t min_softclip_length_for_splice = 16;
         int64_t max_softclip_overlap = 8;
         int64_t max_splice_overhang = 3;
-        // about 500k
-        int64_t max_intron_length = 1 << 19;
+        // about 250k
+        int64_t max_intron_length = 1 << 18;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -280,6 +280,8 @@ namespace vg {
         bool align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
                                                  vector<clustergraph_t>& cluster_graphs1,
                                                  vector<clustergraph_t>& cluster_graphs2,
+                                                 vector<MaximalExactMatch>& mems1,
+                                                 vector<MaximalExactMatch>& mems2,
                                                  vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances_out,
                                                  vector<double>& pair_multiplicities_out,

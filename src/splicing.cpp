@@ -881,7 +881,7 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
                                                                     int64_t splice_junction_idx,
                                                                     const GSSWAligner& scorer,
                                                                     const HandleGraph& graph) {
-    
+
     pair<pair<Path, int32_t>, pair<Path, int32_t>> return_val;
     
     // pull out the left half of the alignment
@@ -919,6 +919,7 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
         }
     }
     
+    
     // score the two halves (but don't take the full length bonus, since this isn't actually
     // the end of the full read)
     return_val.first.second = scorer.score_partial_alignment(splice_segment, graph, left_path,
@@ -935,7 +936,7 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
         // measure left deletion at the end
         bool in_deletion = true;
         for (int64_t i = left_path.mapping_size() - 1; i >= 0 && in_deletion; --i) {
-            const auto& mapping = right_path.mapping(i);
+            const auto& mapping = left_path.mapping(i);
             for (int64_t j = mapping.edit_size() - 1; j >= 0 && in_deletion; --j) {
                 const auto& edit = mapping.edit(j);
                 if (edit.to_length() == 0) {
