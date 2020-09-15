@@ -51,6 +51,7 @@ var searchData=
   ['components',['components',['../classvg_1_1MEMClusterer_1_1HitGraph.html#ab0952f2992c99f031ac813bfa563bf34',1,'vg::MEMClusterer::HitGraph']]],
   ['cond_5fdistrs',['cond_distrs',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a8bef106a51ae52b02b3cf9ea9179dc69',1,'vg::NGSSimulator::MarkovDistribution']]],
   ['configurables',['configurables',['../classvg_1_1ConfigurableParser.html#a022f098012e68510e490a407261bf01e',1,'vg::ConfigurableParser']]],
+  ['connection',['connection',['../structvg_1_1Subpath.html#a45ec767985d769bc4998fa7d705e90f9',1,'vg::Subpath']]],
   ['connectivity',['connectivity',['../classvg_1_1NetGraph.html#aa1014dccd8e1bfa54a434a6caf0c4d40',1,'vg::NetGraph']]],
   ['consistent',['consistent',['../structvg_1_1Genotyper_1_1Affinity.html#af58e963c9680682966f810d4f922cb5f',1,'vg::Genotyper::Affinity']]],
   ['content',['content',['../structvg_1_1BitStringTree_1_1TreeNode.html#a654e2ccb451511ff925aa9d66e290fbe',1,'vg::BitStringTree::TreeNode']]],

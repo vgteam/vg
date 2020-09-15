@@ -453,8 +453,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a66e4dac76edcf0218f9749352c19acae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5962aa939727f27cb7c62b2ce2706fe9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a5962aa939727f27cb7c62b2ce2706fe9">edit</a> (vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;paths_to_add, vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *out_translations=nullptr, bool save_paths=false, bool update_paths=false, bool break_at_ends=false)</td></tr>
 <tr class="separator:a5962aa939727f27cb7c62b2ce2706fe9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7818ca048287143e2b0e79136e453845"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a7818ca048287143e2b0e79136e453845">edit</a> (istream &amp;paths_to_add, vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *out_translations=nullptr, bool save_paths=false, ostream *out_path_stream=nullptr, bool break_at_ends=false, bool remove_softclips=false)</td></tr>
-<tr class="separator:a7818ca048287143e2b0e79136e453845"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa800d382b361f1bdad0e5855dd4c05ca"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#aa800d382b361f1bdad0e5855dd4c05ca">edit</a> (const string &amp;paths_to_add_path, vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *out_translations=nullptr, bool save_paths=false, const string &amp;out_gam_path=&quot;&quot;, bool break_at_ends=false, bool remove_softclips=false)</td></tr>
+<tr class="separator:aa800d382b361f1bdad0e5855dd4c05ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a78f70eb7eddb0245be7cdfc048616638"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a78f70eb7eddb0245be7cdfc048616638">edit_fast</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, set&lt; <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &gt; &amp;dangling, size_t max_node_size=1024)</td></tr>
 <tr class="separator:a78f70eb7eddb0245be7cdfc048616638"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad3e265ee441758d81fdb7c038e2fa8cc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ad3e265ee441758d81fdb7c038e2fa8cc">add_node</a> (const <a class="el" href="structvg_1_1Node.html">Node</a> &amp;node)</td></tr>
@@ -4526,8 +4526,8 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a id="a7818ca048287143e2b0e79136e453845"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7818ca048287143e2b0e79136e453845">&#9670;&nbsp;</a></span>edit() <span class="overload">[2/2]</span></h2>
+<a id="aa800d382b361f1bdad0e5855dd4c05ca"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa800d382b361f1bdad0e5855dd4c05ca">&#9670;&nbsp;</a></span>edit() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -4535,8 +4535,8 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
         <tr>
           <td class="memname">void vg::VG::edit </td>
           <td>(</td>
-          <td class="paramtype">istream &amp;&#160;</td>
-          <td class="paramname"><em>paths_to_add</em>, </td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>paths_to_add_path</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -4553,8 +4553,8 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">ostream *&#160;</td>
-          <td class="paramname"><em>out_path_stream</em> = <code>nullptr</code>, </td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>out_gam_path</em> = <code>&quot;&quot;</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -4575,7 +4575,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Streaming version of above. Instead of reading a list of paths into memory all at once, a stream is used to go one-by-one. Instead of an option to updtate the in-memory list, an optional output stream is used</p>
+<p>Streaming version of above. Instead of reading a list of paths into memory all at once, a file stream is opened from the given path and used to go one-by-one. Instead of an option to updtate the in-memory list, an optional output path for the paths is used</p>
 <p>todo: duplicate less code between the two versions. </p>
 
 </div>

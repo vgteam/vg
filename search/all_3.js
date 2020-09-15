@@ -223,6 +223,7 @@ var searchData=
   ['connect_5fnodes_5fto_5fnode',['connect_nodes_to_node',['../classvg_1_1VG.html#a7ee6066424793dfcda9097419f03b568',1,'vg::VG::connect_nodes_to_node(vector&lt; NodeTraversal &gt; &amp;nodes, NodeTraversal node)'],['../classvg_1_1VG.html#a3446c8d9e1fef2c2ae7fbbfc737aadbb',1,'vg::VG::connect_nodes_to_node(vector&lt; Node *&gt; &amp;nodes, Node *node, bool to_end=false)']]],
   ['connect_5fto_5fposition_5ffile',['connect_to_position_file',['../classvg_1_1NGSSimulator.html#aceec560b267d4a2d4a1c37fb3691dde5',1,'vg::NGSSimulator']]],
   ['connected_5fcomponents',['connected_components',['../classvg_1_1MEMClusterer_1_1HitGraph.html#ad18510c8be7b8b21bc0cce8b33bf54e3',1,'vg::MEMClusterer::HitGraph::connected_components()'],['../classvg_1_1Surjector.html#af7bc3c25f2466322fd6ffd67d66c6dfa',1,'vg::Surjector::connected_components()'],['../namespacevg.html#a68859b86cb7465d17ca9cb68553a8e4c',1,'vg::connected_components()']]],
+  ['connection',['Connection',['../structvg_1_1Connection.html',1,'vg::Connection'],['../structvg_1_1Subpath.html#a45ec767985d769bc4998fa7d705e90f9',1,'vg::Subpath::connection()']]],
   ['connectivity',['connectivity',['../classvg_1_1NetGraph.html#aa1014dccd8e1bfa54a434a6caf0c4d40',1,'vg::NetGraph']]],
   ['consistencycalculator',['ConsistencyCalculator',['../classvg_1_1ConsistencyCalculator.html',1,'vg']]],
   ['consistent',['consistent',['../structvg_1_1Genotyper_1_1Affinity.html#af58e963c9680682966f810d4f922cb5f',1,'vg::Genotyper::Affinity']]],

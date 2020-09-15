@@ -138,6 +138,9 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ConfigurableParser.html">ConfigurableParser</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Connection.html">Connection</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">An edge in a <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> between Subpaths that may not be contiguous in the graph.  <a href="structvg_1_1Connection.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ConsistencyCalculator.html">ConsistencyCalculator</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ConstructedChunk.html">ConstructedChunk</a></td></tr>
@@ -953,13 +956,13 @@ Functions</h2></td></tr>
 <tr class="memitem:aca53457219a2ced000f439df5bd0d71f"><td class="memTemplParams" colspan="2">template&lt;typename Container &gt; </td></tr>
 <tr class="memitem:aca53457219a2ced000f439df5bd0d71f"><td class="memTemplItemLeft" align="right" valign="top">google::protobuf::Value&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aca53457219a2ced000f439df5bd0d71f">value_cast</a> (const Container &amp;wrap)</td></tr>
 <tr class="separator:aca53457219a2ced000f439df5bd0d71f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a838b3dbe2314e032ecb0cc94489a746e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a838b3dbe2314e032ecb0cc94489a746e">augment</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, istream &amp;gam_stream, vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *out_translations, ostream *gam_out_stream, bool embed_paths, bool break_at_ends, bool remove_softclips, bool filter_out_of_graph_alignments, double min_baseq, double min_mapq, <a class="el" href="classvg_1_1Packer.html">Packer</a> *packer, size_t min_bp_coverage, double max_frac_n)</td></tr>
-<tr class="separator:a838b3dbe2314e032ecb0cc94489a746e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ade39dffec6206cda826cb16c61150394"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ade39dffec6206cda826cb16c61150394">augment</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;path_vector, vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *out_translations, ostream *gam_out_stream, bool embed_paths, bool break_at_ends, bool remove_softclips, bool filter_out_of_graph_alignments, double min_baseq, double min_mapq, <a class="el" href="classvg_1_1Packer.html">Packer</a> *packer, size_t min_bp_coverage, double max_frac_n)</td></tr>
-<tr class="separator:ade39dffec6206cda826cb16c61150394"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a989d9fcf282f8bb3d670c815cca64c8a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a989d9fcf282f8bb3d670c815cca64c8a">augment_impl</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, function&lt; void(function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt;, bool, bool)&gt; iterate_gam, vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *out_translation, ostream *gam_out_stream, bool embed_paths, bool break_at_ends, bool remove_soft_clips, bool filter_out_of_graph_alignments, double min_baseq, double min_mapq, <a class="el" href="classvg_1_1Packer.html">Packer</a> *packer, size_t min_bp_coverage, double max_frac_n)</td></tr>
-<tr class="memdesc:a989d9fcf282f8bb3d670c815cca64c8a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Generic version used to implement the above two methods.  <a href="#a989d9fcf282f8bb3d670c815cca64c8a">More...</a><br /></td></tr>
-<tr class="separator:a989d9fcf282f8bb3d670c815cca64c8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a87921cc655f95e6eb949420e7a904d52"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a87921cc655f95e6eb949420e7a904d52">augment</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, const string &amp;gam_path, const string &amp;aln_format, vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *out_translations, const string &amp;gam_out_path, bool embed_paths, bool break_at_ends, bool remove_softclips, bool filter_out_of_graph_alignments, double min_baseq, double min_mapq, <a class="el" href="classvg_1_1Packer.html">Packer</a> *packer, size_t min_bp_coverage, double max_frac_n)</td></tr>
+<tr class="separator:a87921cc655f95e6eb949420e7a904d52"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa924bf1d6f01d81e3aefd57f96db7dc6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa924bf1d6f01d81e3aefd57f96db7dc6">augment</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;path_vector, const string &amp;aln_format, vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *out_translations, const string &amp;gam_out_path, bool embed_paths, bool break_at_ends, bool remove_softclips, bool filter_out_of_graph_alignments, double min_baseq, double min_mapq, <a class="el" href="classvg_1_1Packer.html">Packer</a> *packer, size_t min_bp_coverage, double max_frac_n)</td></tr>
+<tr class="separator:aa924bf1d6f01d81e3aefd57f96db7dc6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9fb7543131adb74dbe1c0aa6fc94784d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9fb7543131adb74dbe1c0aa6fc94784d">augment_impl</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, function&lt; void(function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt;, bool, bool)&gt; iterate_gam, const string &amp;aln_format, vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *out_translation, const string &amp;gam_out_path, bool embed_paths, bool break_at_ends, bool remove_soft_clips, bool filter_out_of_graph_alignments, double min_baseq, double min_mapq, <a class="el" href="classvg_1_1Packer.html">Packer</a> *packer, size_t min_bp_coverage, double max_frac_n)</td></tr>
+<tr class="memdesc:a9fb7543131adb74dbe1c0aa6fc94784d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Generic version used to implement the above three methods.  <a href="#a9fb7543131adb74dbe1c0aa6fc94784d">More...</a><br /></td></tr>
+<tr class="separator:a9fb7543131adb74dbe1c0aa6fc94784d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a680a465e72fbddeed584f27a6c3f7b27"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a680a465e72fbddeed584f27a6c3f7b27">get_avg_baseq</a> (const <a class="el" href="structvg_1_1Edit.html">Edit</a> &amp;edit, const string &amp;base_quals, size_t position_in_read)</td></tr>
 <tr class="separator:a680a465e72fbddeed584f27a6c3f7b27"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac80bc94af296d0a543d983eae79afac0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac80bc94af296d0a543d983eae79afac0">find_breakpoints</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;breakpoints, bool break_ends, const string &amp;base_quals, double min_baseq, double max_frac_n)</td></tr>
@@ -3901,8 +3904,8 @@ template&lt;typename Iter &gt; </div>
 
 </div>
 </div>
-<a id="a838b3dbe2314e032ecb0cc94489a746e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a838b3dbe2314e032ecb0cc94489a746e">&#9670;&nbsp;</a></span>augment() <span class="overload">[1/2]</span></h2>
+<a id="a87921cc655f95e6eb949420e7a904d52"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a87921cc655f95e6eb949420e7a904d52">&#9670;&nbsp;</a></span>augment() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3916,8 +3919,14 @@ template&lt;typename Iter &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">istream &amp;&#160;</td>
-          <td class="paramname"><em>gam_stream</em>, </td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>gam_path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>aln_format</em> = <code>&quot;GAM&quot;</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -3928,8 +3937,8 @@ template&lt;typename Iter &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">ostream *&#160;</td>
-          <td class="paramname"><em>gam_out_stream</em> = <code>nullptr</code>, </td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>gam_out_path</em> = <code>&quot;&quot;</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -3993,12 +4002,12 @@ template&lt;typename Iter &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Edit the graph to include all the sequence and edges added by the given paths. Can handle paths that visit nodes in any orientation. Note that this method sorts the graph and rebuilds the path index, so it should not be called in a loop.</p>
-<p>If gam_out_stream is not null, the paths will be modified to reflect their embedding in the modified graph and written to the stream. If out_translation is not null, a list of translations, one per node existing after the edit, describing how each new or conserved node is embedded in the old graph. if embed_paths is true, then the augmented alignemnents will be saved as embededed paths in the graph in order to add it back to the graph. If break_at_ends is true, nodes will be broken at the ends of paths that start/end woth perfect matches, so the paths can be added to the vg graph's paths object. If soft_clip is true, soft clips will be removed from the input paths before processing, and the dangling ends won't end up in the graph If filter_out_of_graph_alignments is true, some extra time will be taken to check if all nodes in the alignment are in the graph. If they aren't, then it will be ignored If an edit sequence's avg base quality is less than min_baseq it will be ignored (considered a match) If an alignment's mapping quality is less than min_mapq it is ignored A packer is required for all non-mapq filters If a breakpoint has less than min_bp_coverage it is not included in the graph Edits with more than max_frac_n N content will be ignored </p>
+<p>if gam_path is "-", then stdin used if gam_out_path is "-", then stdout used If gam_out_path is not empty, the paths will be modified to reflect their embedding in the modified graph and written to the path. aln_format used to toggle between GAM and GAF If out_translation is not null, a list of translations, one per node existing after the edit, describing how each new or conserved node is embedded in the old graph. if embed_paths is true, then the augmented alignemnents will be saved as embededed paths in the graph in order to add it back to the graph. If break_at_ends is true, nodes will be broken at the ends of paths that start/end woth perfect matches, so the paths can be added to the vg graph's paths object. If soft_clip is true, soft clips will be removed from the input paths before processing, and the dangling ends won't end up in the graph If filter_out_of_graph_alignments is true, some extra time will be taken to check if all nodes in the alignment are in the graph. If they aren't, then it will be ignored If an edit sequence's avg base quality is less than min_baseq it will be ignored (considered a match) If an alignment's mapping quality is less than min_mapq it is ignored A packer is required for all non-mapq filters If a breakpoint has less than min_bp_coverage it is not included in the graph Edits with more than max_frac_n N content will be ignored </p>
 
 </div>
 </div>
-<a id="ade39dffec6206cda826cb16c61150394"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ade39dffec6206cda826cb16c61150394">&#9670;&nbsp;</a></span>augment() <span class="overload">[2/2]</span></h2>
+<a id="aa924bf1d6f01d81e3aefd57f96db7dc6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa924bf1d6f01d81e3aefd57f96db7dc6">&#9670;&nbsp;</a></span>augment() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -4018,14 +4027,20 @@ template&lt;typename Iter &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>aln_format</em> = <code>&quot;GAM&quot;</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *&#160;</td>
           <td class="paramname"><em>out_translation</em> = <code>nullptr</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">ostream *&#160;</td>
-          <td class="paramname"><em>gam_out_stream</em> = <code>nullptr</code>, </td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>gam_out_path</em> = <code>&quot;&quot;</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -4088,12 +4103,12 @@ template&lt;typename Iter &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Like above, but operates on a vector of Alignments, instead of a stream (Note: It is best to use stream interface for large numbers of alignments to save memory) </p>
+<p>Like above, but operates on a vector of Alignments, instead of a file (Note: It is best to use file interface to stream large numbers of alignments to save memory) </p>
 
 </div>
 </div>
-<a id="a989d9fcf282f8bb3d670c815cca64c8a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a989d9fcf282f8bb3d670c815cca64c8a">&#9670;&nbsp;</a></span>augment_impl()</h2>
+<a id="a9fb7543131adb74dbe1c0aa6fc94784d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9fb7543131adb74dbe1c0aa6fc94784d">&#9670;&nbsp;</a></span>augment_impl()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -4113,14 +4128,20 @@ template&lt;typename Iter &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>aln_format</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *&#160;</td>
           <td class="paramname"><em>out_translations</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">ostream *&#160;</td>
-          <td class="paramname"><em>gam_out_stream</em>, </td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>gam_out_path</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -4184,7 +4205,7 @@ template&lt;typename Iter &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Generic version used to implement the above two methods. </p>
+<p>Generic version used to implement the above three methods. </p>
 
 </div>
 </div>

@@ -205,7 +205,7 @@ var searchData=
   ['tree_5fdepth',['tree_depth',['../classvg_1_1MinimumDistanceIndex.html#a32b89d9850b59f0354be0bfa05774d4b',1,'vg::MinimumDistanceIndex']]],
   ['tree_5fsubgraph_2ecpp',['tree_subgraph.cpp',['../tree__subgraph_8cpp.html',1,'']]],
   ['tree_5fsubgraph_2ehpp',['tree_subgraph.hpp',['../tree__subgraph_8hpp.html',1,'']]],
-  ['treenode',['TreeNode',['../structvg_1_1TreeNode.html',1,'vg::TreeNode&lt; T &gt;'],['../structvg_1_1BitStringTree_1_1TreeNode.html',1,'vg::BitStringTree&lt; Item &gt;::TreeNode'],['../structvg_1_1TreeNode.html#a386f7b2ec0948165140022155dda8c04',1,'vg::TreeNode::TreeNode()']]],
+  ['treenode',['TreeNode',['../structvg_1_1BitStringTree_1_1TreeNode.html',1,'vg::BitStringTree&lt; Item &gt;::TreeNode'],['../structvg_1_1TreeNode.html',1,'vg::TreeNode&lt; T &gt;'],['../structvg_1_1TreeNode.html#a386f7b2ec0948165140022155dda8c04',1,'vg::TreeNode::TreeNode()']]],
   ['treestate',['TreeState',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html',1,'vg::SnarlSeedClusterer::TreeState'],['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a2bd56a9b007c34196348887dd1f5ced7',1,'vg::SnarlSeedClusterer::TreeState::TreeState()']]],
   ['treesubgraph',['TreeSubgraph',['../classvg_1_1TreeSubgraph.html',1,'vg::TreeSubgraph'],['../classvg_1_1TreeSubgraph.html#aa43b054cfbc6f2f96fbc8fcef42887c5',1,'vg::TreeSubgraph::TreeSubgraph()']]],
   ['trim_5falignment',['trim_alignment',['../namespacevg.html#ad83da8607e104967dd51d9230f4b51bb',1,'vg']]],
