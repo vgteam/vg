@@ -1250,7 +1250,7 @@ void Transcriptome::augment_splice_graph(list<EditedTranscriptPath> * edited_tra
     if (haplotype_index->empty()) {
 
         // Augment splice graph with edited paths. 
-        augment(static_cast<MutablePathMutableHandleGraph *>(_splice_graph.get()), edited_paths, nullptr, nullptr, false, break_at_transcript_ends);
+        augment(static_cast<MutablePathMutableHandleGraph *>(_splice_graph.get()), edited_paths, "GAM", nullptr, nullptr, false, break_at_transcript_ends);
       
     } else {
 
@@ -1262,7 +1262,7 @@ void Transcriptome::augment_splice_graph(list<EditedTranscriptPath> * edited_tra
 #endif
 
         // Augment splice graph with edited paths. 
-        augment(static_cast<MutablePathMutableHandleGraph *>(_splice_graph.get()), edited_paths, &translations, nullptr, false, break_at_transcript_ends);
+        augment(static_cast<MutablePathMutableHandleGraph *>(_splice_graph.get()), edited_paths, "GAM", &translations, nullptr, false, break_at_transcript_ends);
 
 #ifdef transcriptome_debug
     cerr << "\tDEBUG edit end: " << gcsa::readTimer() - time_edit_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
