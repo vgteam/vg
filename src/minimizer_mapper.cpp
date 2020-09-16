@@ -899,7 +899,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             } else {
                 //Otherwise, its count is the index
                 better_cluster_count[fragment_num] = rank+1;
-                prev_score_sum == curr_score_sum;
+                prev_score_sum = curr_score_sum;
             }
 #ifdef debug
             assert(prev_score_sum == 
