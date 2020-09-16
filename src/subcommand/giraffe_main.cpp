@@ -634,7 +634,7 @@ int main_giraffe(int argc, char** argv) {
                 if (param_preset == "fast" ) {
 
                     hit_cap = 10;
-                    hard_hit_cap = 1000;
+                    hard_hit_cap = 500;
                     minimizer_score_fraction = 0.5;
                     max_multimaps = 1;
                     max_extensions = 400;
