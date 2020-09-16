@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 64
+plan tests 65
 
 
 # Build vg graphs for two chromosomes
@@ -57,6 +57,11 @@ is $(vg gbwt -S xy2.gbwt) 1 "fast merge: 1 sample"
 cmp xy.gbwt xy2.gbwt
 is $? 0 "the merged indexes are identical"
 
+# Build an r-index
+# TODO: More tests once we can use the r-index for something
+vg gbwt -r xy.ri xy.gbwt
+is $? 0 "r-index construction"
+
 # Build an empty GBWT
 ../deps/gbwt/build_gbwt -e empty > /dev/null
 
@@ -84,7 +89,7 @@ is $? 0 "fast merging: empty + non-empty"
 cmp x.gbwt x2.gbwt
 is $? 0 "the index remains unchanged"
 
-rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt empty.gbwt x2.gbwt
+rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt xy.ri empty.gbwt x2.gbwt
 
 
 # Build a GBWT for paths
