@@ -59,7 +59,7 @@ is $? 0 "the merged indexes are identical"
 
 # Build an r-index
 # TODO: More tests once we can use the r-index for something
-vg gbwt -r xy.ri xy.gbwt
+vg gbwt -r xy.ri -t 1 xy.gbwt
 is $? 0 "r-index construction"
 
 # Build an empty GBWT
