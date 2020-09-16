@@ -143,7 +143,7 @@ public:
     double paired_distance_stdevs = 2.0; 
 
     ///How close does an alignment have to be to the best alignment for us to rescue on it
-    size_t paired_rescue_score_limit = 0.9;
+    double paired_rescue_score_limit = 0.9;
 
     ///How many stdevs from the mean do we extract a subgraph from?
     double rescue_subgraph_stdevs = 4.0;
