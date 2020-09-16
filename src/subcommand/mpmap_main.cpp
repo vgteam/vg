@@ -882,10 +882,9 @@ int main_mpmap(int argc, char** argv) {
         if (distance_index_name.empty()) {
             cerr << "warning:[vg mpmap] It is HIGHLY recommended to use a distance index (-d) for clustering on splice graphs. Both accuracy and speed will suffer without one." << endl;
         }
+        
         // we'll assume that there might be spliced alignments
-        if (!override_spliced_alignment) {
-            do_spliced_alignment = true;
-        }
+        do_spliced_alignment = true;
         
         // seed finding, cluster pruning, and rescue parameters tuned for a lower repeat content
         secondary_rescue_attempts = 1;
@@ -959,6 +958,10 @@ int main_mpmap(int argc, char** argv) {
         // only get 1 traceback for an inter-MEM or tail alignment
         dynamic_max_alt_alns = false;
         num_alt_alns = 1;
+    }
+    
+    if (override_spliced_alignment) {
+        do_spliced_alignment = false;
     }
         
     // set the overrides to preset-controlled parameters
@@ -1705,7 +1708,6 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.simplify_topologies = simplify_topologies;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
     multipath_mapper.agglomerate_multipath_alns = agglomerate_multipath_alns;
-    multipath_mapper.do_spliced_alignment = do_spliced_alignment;
     multipath_mapper.min_softclip_length_for_splice = int(ceil(log(path_position_handle_graph->get_total_length()) / log(4.0))) + 2;
     multipath_mapper.max_softclip_overlap = max_softclip_overlap;
     multipath_mapper.max_splice_overhang = max_splice_overhang;
@@ -1714,6 +1716,9 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper._mem_stats.open(MEM_STATS_FILE);
 #endif
     
+    // we don't want to do spliced alignment while calibrating
+    multipath_mapper.do_spliced_alignment = false;
+    
     // if directed to, auto calibrate the mismapping detection to the graph
     if (auto_calibrate_mismapping_detection && !suppress_mismapping_detection) {
         if (!suppress_progress) {
@@ -1721,6 +1726,9 @@ int main_mpmap(int argc, char** argv) {
         }
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_lengths);
     }
+    
+    // now we can start doing spliced alignment
+    multipath_mapper.do_spliced_alignment = do_spliced_alignment;
     
     
     // Count our threads 

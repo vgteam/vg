@@ -12,7 +12,7 @@
 //#define debug_multiple_tracebacks
 //#define debug_search
 //#define debug_trace
-//#define debug_verbose_validation
+#define debug_verbose_validation
 //#define debug_from_hit
 
 using namespace std;
@@ -2802,7 +2802,7 @@ namespace vg {
             if (multipath_aln.subpath(i).path().mapping_size() == 0) {
 #ifdef debug_verbose_validation
                 cerr << "validation failure on containing only nonempty paths" << endl;
-                cerr << "subpath " << i << ": " << pb2json(multipath_aln.subpath(i)) << endl;
+                cerr << "subpath " << i << ": " << debug_string(multipath_aln.subpath(i)) << endl;
 #endif
                 return false;
             }
@@ -2810,7 +2810,7 @@ namespace vg {
                 if (multipath_aln.subpath(i).path().mapping(j).edit_size() == 0) {
 #ifdef debug_verbose_validation
                     cerr << "validation failure on containing only nonempty mappings" << endl;
-                    cerr << "subpath " << i << ": " << pb2json(multipath_aln.subpath(i)) << endl;
+                    cerr << "subpath " << i << ": " << debug_string(multipath_aln.subpath(i)) << endl;
 #endif
                     return false;
                 }
@@ -2836,7 +2836,7 @@ namespace vg {
                         // So then the mappings need to abut and they don't.
 #ifdef debug_verbose_validation
                         cerr << "validation failure on within-node adjacency" << endl;
-                        cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+                        cerr << debug_string(mapping_from) << "->" << debug_string(mapping_to) << endl;
 #endif
                         return false;
                     } else {
@@ -2851,7 +2851,7 @@ namespace vg {
             if (mapping_from_end_offset != handle_graph.get_length(handle_graph.get_handle(mapping_from.position().node_id()))) {
 #ifdef debug_verbose_validation
                 cerr << "validation failure on using edge at middle of node" << endl;
-                cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+                cerr << debug_string(mapping_from) << "->" << debug_string(mapping_to) << endl;
 #endif
                 return false;
             }
@@ -2868,7 +2868,7 @@ namespace vg {
             if (!found_edge) {
 #ifdef debug_verbose_validation
                 cerr << "validation failure on nodes not connected by an edge" << endl;
-                cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+                cerr << debug_string(mapping_from) << "->" << debug_string(mapping_to) << endl;
 #endif
                 return false;
             }
@@ -2896,22 +2896,20 @@ namespace vg {
         // do the paths represent valid alignments of the associated read string and graph path?
         
         auto validate_mapping_edits = [&](const path_mapping_t& mapping, const string& subseq) {
-            string node_seq = handle_graph.get_sequence(handle_graph.get_handle(mapping.position().node_id()));
-            string rev_node_seq = reverse_complement(node_seq);
+            handle_t handle = handle_graph.get_handle(mapping.position().node_id(), mapping.position().is_reverse());
             size_t node_idx = mapping.position().offset();
             size_t seq_idx = 0;
             for (size_t i = 0; i < mapping.edit_size(); i++) {
                 const edit_t& edit = mapping.edit(i);
                 if (edit.to_length() == edit.from_length() && edit.sequence().empty()) {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
-                        if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) != subseq[seq_idx]) {
+                        if (handle_graph.get_base(handle, node_idx) != subseq[seq_idx]) {
 #ifdef debug_verbose_validation
-                            cerr << "validation failure on match that does not match" << endl;
-                            cerr << "Node sequence: " << node_seq << " orientation: "
-                                << mapping.position().is_reverse() << " offset: " << node_idx << endl;
-                            cerr << "Read subsequence: " << subseq << " offset: " << seq_idx << endl;
+                            cerr << "validation failure on match that does not match on node " << handle_graph.get_id(handle) << (handle_graph.get_is_reverse(handle) ? "-" : "+") << endl;
+                            cerr << "node sequence: " << handle_graph.get_sequence(handle) << ", offset: " << node_idx << endl;
+                            cerr << "read subsequence: " << subseq << ", offset: " << seq_idx << endl;
                             
-                            cerr << pb2json(mapping) << ", " << subseq << endl;
+                            cerr << debug_string(mapping) << ", " << subseq << endl;
 #endif
                             return false;
                         }
@@ -2921,17 +2919,17 @@ namespace vg {
                     bool is_Ns = find_if(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}) == edit.sequence().end();
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
                         // we will also let N's be marked as mismatches even if the node sequence is also Ns
-                        if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) == subseq[seq_idx] && !is_Ns) {
+                        if (handle_graph.get_base(handle, node_idx) == subseq[seq_idx] && !is_Ns) {
 #ifdef debug_verbose_validation
                             cerr << "validation failure on mismatch that matches" << endl;
-                            cerr << pb2json(mapping) << ", " << subseq << endl;
+                            cerr << debug_string(mapping) << ", " << subseq << endl;
 #endif
                             return false;
                         }
                         if (edit.sequence()[j] != subseq[seq_idx]) {
 #ifdef debug_verbose_validation
                             cerr << "validation failure on substitution sequence that does not match read" << endl;
-                            cerr << pb2json(mapping) << ", " << subseq << endl;
+                            cerr << debug_string(mapping) << ", " << subseq << endl;
 #endif
                             return false;
                         }
@@ -2942,13 +2940,13 @@ namespace vg {
                         if (edit.sequence()[j] != subseq[seq_idx]) {
 #ifdef debug_verbose_validation
                             cerr << "validation failure on insertion sequence that does not match read" << endl;
-                            cerr << pb2json(mapping) << ", " << subseq << endl;
+                            cerr << debug_string(mapping) << ", " << subseq << endl;
 #endif
                             return false;
                         }
                     }
                 }
-                else if (edit.to_length() > 0 && edit.from_length() == 0) {
+                else if (edit.from_length() > 0 && edit.to_length() == 0) {
                     node_idx += edit.from_length();
                 }
             }

@@ -148,6 +148,7 @@ namespace vg {
         double max_exponential_shape_intercept = 12.136;
         double max_exponential_shape_slope = 0.0113637;
         double max_mapping_p_value = 0.0001;
+        double max_splice_p_value = 0.001;
         double max_rescue_p_value = 0.1;
         size_t max_alt_mappings = 1;
         size_t max_single_end_mappings_for_rescue = 64;

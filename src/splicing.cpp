@@ -10,6 +10,7 @@
 //#define debug_splice_region
 //#define debug_trimming
 //#define debug_fusing
+//#define debug_from_hit
 
 #ifdef debug_splice_region
 #import <bitset>
@@ -518,7 +519,7 @@ multipath_alignment_t from_hit(const Alignment& alignment, const HandleGraph& gr
     // (read begin, node offset, next node index, next node handles,
     vector<tuple<string::const_iterator, size_t, size_t, vector<handle_t>>> stack;
     stack.emplace_back(mem.begin, offset(hit_pos), 0,
-                       vector<handle_t>{graph.get_handle(id(hit_pos))});
+                       vector<handle_t>{graph.get_handle(id(hit_pos), is_rev(hit_pos))});
     while (!stack.empty()) {
         auto& back = stack.back();
         if (get<2>(back) == get<3>(back).size()) {
