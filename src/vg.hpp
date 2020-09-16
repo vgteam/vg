@@ -672,14 +672,15 @@ public:
               bool break_at_ends = false);
 
     /// Streaming version of above.  Instead of reading a list of paths into memory
-    /// all at once, a stream is used to go one-by-one.  Instead of an option to
-    /// updtate the in-memory list, an optional output stream is used
+    /// all at once, a file stream is opened from the given path and used to go one-by-one.
+     /// Instead of an option to
+    /// updtate the in-memory list, an optional output path for the paths is used
     ///
     /// todo: duplicate less code between the two versions. 
-    void edit(istream& paths_to_add,
+    void edit(const string& paths_to_add_path,
               vector<Translation>* out_translations = nullptr,
               bool save_paths = false,
-              ostream* out_path_stream = nullptr,
+              const string& out_gam_path = "",
               bool break_at_ends = false,
               bool remove_softclips = false);
     

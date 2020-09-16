@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 37
+plan tests 39
 
 vg view -J -v pileup/tiny.json > tiny.vg
 
@@ -22,7 +22,14 @@ is "$(vg stats -N augmented.vg)" "18" "adding a well-supported SNP by direct aug
 vg augment -a direct tiny.vg edits.gam -A edits-embedded.gam -m 1 > augmented.m1.vg
 is "$(vg stats -N augmented.m1.vg)" "18" "adding a well-supported SNP by direct augmentation adds 3 more nodes with -m 1"
 
-rm -f edits.gam edits-embedded.gam augmented.vg augmented.m1.vg
+# run again but with GAF
+vg convert tiny.vg -G edits.gam > edits.gaf
+vg augment -a direct tiny.vg edits.gaf -F -A edits-embedded.gaf > augmented.gaf.vg
+vg convert augmented.gaf.vg -F edits-embedded.gaf > edits-embedded.gaf.gam
+is "$(vg view -aj edits-embedded.gaf.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l)" "36" "direct augmentation embeds with GAF reads fully for well-supported SNPs"
+is "$(vg stats -N augmented.gaf.vg)" "18" "adding a well-supported SNP by direct augmentation with GAF adds 3 more nodes"
+
+rm -f edits.gam edits-embedded.gam augmented.vg augmented.m1.vg edits.gaf edits-embedded.gaf augmented.gaf.vg edits-embedded.gaf.gam
 
 # Make sure every edit is augmented in
 vg view -J -a -G pileup/edit.json > edit.gam
@@ -47,7 +54,7 @@ is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAATATATTCCAACTCTCTG -d t.idx | vg 
 
 is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAATATATTCCAACTCTCTG -V read -d t.idx | vg augment t.vg - -i -m 2 -A read_aug.gam | vg view - | grep ^P | awk '{print $4}' | uniq) "50M" "path inclusion does not modify the included path when alignment has a SNP but doesnt meet the coverage threshold"
 
-is $(vg view -a read_aug.gam | jq. | grep edit | wc) 1 "output GAM has single edit when SNP was filtered out due to coverage"
+is $(vg view -a read_aug.gam | jq . | grep edit | wc -l) 1 "output GAM has single edit when SNP was filtered out due to coverage"
 
 is $(vg map -s CAAATAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l) 5 "path inclusion with a complex variant introduces the right number of nodes"
 
