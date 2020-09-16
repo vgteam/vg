@@ -198,8 +198,8 @@ int main_gamcompare(int argc, char** argv) {
                 auto mapq = aln.mapping_quality();
                 if (mapq) {
                     if (mapq >= mapq_count_by_thread.at(omp_get_thread_num()).size()) {
-                        mapq_count_by_thread.at(omp_get_thread_num()).resize(mapq+1);
-                        correct_count_by_mapq_by_thread.at(omp_get_thread_num()).resize(mapq+1);
+                        mapq_count_by_thread.at(omp_get_thread_num()).resize(mapq+1, 0);
+                        correct_count_by_mapq_by_thread.at(omp_get_thread_num()).resize(mapq+1, 0);
                     }
 
                     read_count_by_thread.at(omp_get_thread_num()) += 1;
@@ -264,8 +264,8 @@ int main_gamcompare(int argc, char** argv) {
             total_reads += read_count_by_thread.at(i);
             for (size_t mq = 0 ; mq < mapq_count_by_thread.at(i).size() ; mq++) {
                 if (mq >= mapq_count.size()) {
-                    mapq_count.resize(mq+1);
-                    correct_count_by_mapq.resize(mq+1);
+                    mapq_count.resize(mq+1, 0);
+                    correct_count_by_mapq.resize(mq+1, 0);
                 }
 
                 mapq_count.at(mq) += mapq_count_by_thread.at(i).at(mq);
@@ -275,7 +275,7 @@ int main_gamcompare(int argc, char** argv) {
         size_t accumulated_count = 0;
         size_t accumulated_correct_count = 0;
         float mapping_goodness_score = 0.0;
-        for (int i = mapq_count.size() ; i >= 0 ; i--) {
+        for (int i = mapq_count.size()-1 ; i >= 0 ; i--) {
             accumulated_count += mapq_count[i];
             accumulated_correct_count += correct_count_by_mapq[i];
             double fraction_incorrect = accumulated_count == 0 ? 0.0 :
