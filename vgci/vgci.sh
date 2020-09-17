@@ -488,7 +488,7 @@ then
     export PATH=$PATH:${PWD}/bin
     
     # Make sure we have pygithub available
-    python3 -m pip install pygithub
+    pip3 install pygithub
 
     #########
     # REPORT PHASE
