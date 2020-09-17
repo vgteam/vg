@@ -62,6 +62,7 @@ var searchData=
   ['register_5floader_5fsaver_5fminimizer',['register_loader_saver_minimizer',['../namespacevg_1_1io.html#aa69bc026abe7a1db4530704dfc7e7b3f',1,'vg::io']]],
   ['register_5floader_5fsaver_5fodgi',['register_loader_saver_odgi',['../namespacevg_1_1io.html#ae638cf2f14d5c444b0164f2e9c587213',1,'vg::io']]],
   ['register_5floader_5fsaver_5fpacked_5fgraph',['register_loader_saver_packed_graph',['../namespacevg_1_1io.html#a776b6490958856d44dc2d962d629440d',1,'vg::io']]],
+  ['register_5floader_5fsaver_5fr_5findex',['register_loader_saver_r_index',['../namespacevg_1_1io.html#a6ce32e4ae1d4f5d244c0d80d3ac09beb',1,'vg::io']]],
   ['register_5floader_5fsaver_5fsnarl_5fmanager',['register_loader_saver_snarl_manager',['../namespacevg_1_1io.html#a8072168ee8165f81afb2688ef0825ea8',1,'vg::io']]],
   ['register_5floader_5fsaver_5fvg',['register_loader_saver_vg',['../namespacevg_1_1io.html#ac3485846033fd4accb221b0a866dfeb7',1,'vg::io']]],
   ['register_5floader_5fsaver_5fxg',['register_loader_saver_xg',['../namespacevg_1_1io.html#a7a23bf45ec66db4b724b7f8a9f223c33',1,'vg::io']]],

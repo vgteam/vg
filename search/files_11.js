@@ -29,6 +29,8 @@ var searchData=
   ['register_5floader_5fsaver_5fodgi_2ehpp',['register_loader_saver_odgi.hpp',['../register__loader__saver__odgi_8hpp.html',1,'']]],
   ['register_5floader_5fsaver_5fpacked_5fgraph_2ecpp',['register_loader_saver_packed_graph.cpp',['../register__loader__saver__packed__graph_8cpp.html',1,'']]],
   ['register_5floader_5fsaver_5fpacked_5fgraph_2ehpp',['register_loader_saver_packed_graph.hpp',['../register__loader__saver__packed__graph_8hpp.html',1,'']]],
+  ['register_5floader_5fsaver_5fr_5findex_2ecpp',['register_loader_saver_r_index.cpp',['../register__loader__saver__r__index_8cpp.html',1,'']]],
+  ['register_5floader_5fsaver_5fr_5findex_2ehpp',['register_loader_saver_r_index.hpp',['../register__loader__saver__r__index_8hpp.html',1,'']]],
   ['register_5floader_5fsaver_5fsnarl_5fmanager_2ecpp',['register_loader_saver_snarl_manager.cpp',['../register__loader__saver__snarl__manager_8cpp.html',1,'']]],
   ['register_5floader_5fsaver_5fsnarl_5fmanager_2ehpp',['register_loader_saver_snarl_manager.hpp',['../register__loader__saver__snarl__manager_8hpp.html',1,'']]],
   ['register_5floader_5fsaver_5fvg_2ecpp',['register_loader_saver_vg.cpp',['../register__loader__saver__vg_8cpp.html',1,'']]],
