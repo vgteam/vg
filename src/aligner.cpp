@@ -2074,7 +2074,6 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
             
             if (edit.from_length() > 0) {
                 if (edit.to_length() > 0) {
-                    
                     for (auto siter = read_pos, riter = ref_pos, qiter = qual_pos;
                          siter != read_pos + edit.from_length(); siter++, qiter++, riter++) {
                         score += score_matrix[25 * (*qiter) + 5 * nt_table[*riter] + nt_table[*siter]];
@@ -2109,7 +2108,7 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
                 }
                 in_deletion = false;
             }
-            
+                        
             read_pos += edit.to_length();
             qual_pos += edit.to_length();
             ref_pos += edit.from_length();

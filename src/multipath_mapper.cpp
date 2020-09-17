@@ -2512,6 +2512,9 @@ namespace vg {
                                                              vector<size_t>& mp_aln_candidates_out) const {
         // TODO: should i generalize this to look for alignments of not only the primary?
         
+        // don't look at the primary again
+        clusters_used_out.insert(cluster_idxs.front());
+        
         for (size_t i = 1; i < multipath_alns.size(); ++i) {
             
             // check that the alignment is mostly disjoint of the primary and that
@@ -2557,6 +2560,9 @@ namespace vg {
                                                              vector<size_t>& mp_aln_candidates_out) const {
         
         // TODO: should i generalize this to look for alignments of not only the primary?
+        
+        // don't look at the primary again
+        clusters_used_out.insert(read_1 ? cluster_pairs.front().first.first : cluster_pairs.front().first.second);
         
         for (size_t i = 1; i < multipath_aln_pairs.size(); ++i) {
             

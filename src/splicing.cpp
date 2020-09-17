@@ -1237,6 +1237,19 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     
     size_t right_subpaths_begin = left_mp_aln.subpath_size();
     
+    // figure out the read position of the subpaths before we start getting rid of edges
+    vector<int64_t> right_to_length(right_mp_aln.subpath_size(), 0);
+    for (size_t i = 0; i < right_mp_aln.subpath_size(); ++i) {
+        // keep track of the read interval
+        int64_t to_len = path_to_length(right_mp_aln.subpath(i).path());
+        for (auto n : right_mp_aln.subpath(i).next()) {
+            right_to_length[n] = right_to_length[i] + to_len;
+        }
+        for (auto connection : right_mp_aln.subpath(i).connection()) {
+            right_to_length[connection.next()] = right_to_length[i] + to_len;
+        }
+    }
+    
     vector<bool> to_keep_right(right_mp_aln.subpath_size(), false);
     vector<bool> is_bridge_right(right_mp_aln.subpath_size(), false);
     
@@ -1287,16 +1300,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     
     vector<int64_t> right_removed_so_far(right_mp_aln.subpath_size() + 1, 0);
     int64_t right_loc_idx = 0;
-    vector<int64_t> right_to_length(right_mp_aln.subpath_size(), 0);
     for (int64_t i = 0; i < right_mp_aln.subpath_size(); ++i) {
-        // keep track of the read interval
-        int64_t to_len = path_to_length(right_mp_aln.subpath(i).path());
-        for (auto n : right_mp_aln.subpath(i).next()) {
-            right_to_length[n] = right_to_length[i] + to_len;
-        }
-        for (auto connection : right_mp_aln.subpath(i).connection()) {
-            right_to_length[connection.next()] = right_to_length[i] + to_len;
-        }
         
         if (!to_keep_right[i]) {
             right_removed_so_far[i + 1] = right_removed_so_far[i] + 1;
@@ -1314,6 +1318,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
 #endif
             
             auto path = right_mp_aln.mutable_subpath(i)->mutable_path();
+            int64_t to_len = path_to_length(*path);
             bool trimmed = trim_path(path, true, m, e, b);
             if (trimmed) {
                 int64_t new_to_len = path_to_length(*path);
