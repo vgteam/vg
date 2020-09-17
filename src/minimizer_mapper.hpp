@@ -84,11 +84,11 @@ public:
     size_t hit_cap = 10;
 
     /// Ignore all minimizers with more than hard_hit_cap hits
-    size_t hard_hit_cap = 1500;
+    size_t hard_hit_cap = 500;
 
     /// Take minimizers between hit_cap and hard_hit_cap hits until this fraction
     /// of total score
-    double minimizer_score_fraction = 0.7;
+    double minimizer_score_fraction = 0.9;
 
     ///Accept at least this many clusters
     size_t min_extensions = 2;
@@ -114,7 +114,7 @@ public:
 
     //If the read coverage of a cluster is less than the best coverage of any cluster
     //by more than this much, don't extend it
-    double cluster_coverage_threshold = 0.4;
+    double cluster_coverage_threshold = 0.3;
 
     //If an extension set's score is smaller than the best 
     //extension's score by more than this much, don't align it
@@ -143,7 +143,7 @@ public:
     double paired_distance_stdevs = 2.0; 
 
     ///How close does an alignment have to be to the best alignment for us to rescue on it
-    size_t paired_rescue_score_limit = 0.9;
+    double paired_rescue_score_limit = 0.9;
 
     ///How many stdevs from the mean do we extract a subgraph from?
     double rescue_subgraph_stdevs = 4.0;
@@ -623,6 +623,17 @@ protected:
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
+        
+    // Internal debugging functions
+    
+    /// Dump all the given minimizers, with optional subset restriction
+    static void dump_debug_minimizers(const vector<Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include = nullptr);
+    
+    /// Dump all the extansions in an extension set
+    static void dump_debug_extension_set(const HandleGraph& graph, const Alignment& aln, const vector<GaplessExtension>& extended_seeds);
+    
+    /// Print a sequence with base numbering
+    static void dump_debug_sequence(ostream& out, const string& sequence);
 };
 
 template<typename Item, typename Score>

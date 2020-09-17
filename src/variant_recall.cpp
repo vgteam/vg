@@ -71,7 +71,7 @@ void genotype_svs(VG* graph,
     vg::io::for_each_interleaved_pair_parallel(gamstream, readfunc);
     vector<Translation> transls;
     if (refpath != ""){
-        augment(graph, direct_ins, &transls);
+        augment(graph, direct_ins, "GAM", &transls);
 
         XG xg_index;
         xg_index.from_path_handle_graph(*graph); // Index the graph so deconstruct can get path positions

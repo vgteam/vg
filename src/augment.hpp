@@ -21,8 +21,11 @@ using namespace std;
 /// this method sorts the graph and rebuilds the path index, so it should
 /// not be called in a loop.
 ///
-/// If gam_out_stream is not null, the paths will be modified to reflect their
-/// embedding in the modified graph and written to the stream.
+/// if gam_path is "-", then stdin used
+/// if gam_out_path is "-", then stdout used
+/// If gam_out_path is not empty, the paths will be modified to reflect their
+/// embedding in the modified graph and written to the path.
+/// aln_format used to toggle between GAM and GAF
 /// If out_translation is not null, a list of translations, one per node existing
 /// after the edit, describing
 /// how each new or conserved node is embedded in the old graph. 
@@ -41,9 +44,10 @@ using namespace std;
 /// If a breakpoint has less than min_bp_coverage it is not included in the graph
 /// Edits with more than max_frac_n N content will be ignored
 void augment(MutablePathMutableHandleGraph* graph,
-             istream& gam_stream,
+             const string& gam_path,
+             const string& aln_format = "GAM",
              vector<Translation>* out_translation = nullptr,
-             ostream* gam_out_stream = nullptr,
+             const string& gam_out_path = "",
              bool embed_paths = false,
              bool break_at_ends = false,
              bool remove_soft_clips = false,
@@ -54,12 +58,13 @@ void augment(MutablePathMutableHandleGraph* graph,
              size_t min_bp_coverage = 0,
              double max_frac_n = 1.);
 
-/// Like above, but operates on a vector of Alignments, instead of a stream
-/// (Note: It is best to use stream interface for large numbers of alignments to save memory)
+/// Like above, but operates on a vector of Alignments, instead of a file
+/// (Note: It is best to use file interface to stream large numbers of alignments to save memory)
 void augment(MutablePathMutableHandleGraph* graph,
              vector<Path>& path_vector,
+             const string& aln_format = "GAM",
              vector<Translation>* out_translation = nullptr,
-             ostream* gam_out_stream = nullptr,
+             const string& gam_out_path = "",
              bool embed_paths = false,
              bool break_at_ends = false,
              bool remove_soft_clips = false,
@@ -70,11 +75,12 @@ void augment(MutablePathMutableHandleGraph* graph,
              size_t min_bp_coverage = 0,
              double max_frac_n = 1.);
 
-/// Generic version used to implement the above two methods.  
+/// Generic version used to implement the above three methods.  
 void augment_impl(MutablePathMutableHandleGraph* graph,
                   function<void(function<void(Alignment&)>, bool, bool)> iterate_gam,
+                  const string& aln_format,
                   vector<Translation>* out_translation,
-                  ostream* gam_out_stream,
+                  const string& gam_out_path,
                   bool embed_paths,
                   bool break_at_ends,
                   bool remove_soft_clips,
