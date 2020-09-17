@@ -16,6 +16,7 @@
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
 
+#include <gbwt/fast_locate.h>
 #include <gbwtgraph/gbwtgraph.h>
 #include <gbwtgraph/path_cover.h>
 
@@ -25,7 +26,7 @@ using namespace vg::subcommand;
 
 #include <unistd.h>
 
-enum operation_mode { operation_none, operation_merge, operation_graph, operation_remove, operation_other };
+enum operation_mode { operation_none, operation_merge, operation_graph, operation_remove, operation_r_index, operation_other };
 enum path_cover_mode { path_cover_none, path_cover_augment, path_cover_local, path_cover_greedy };
 
 void help_gbwt(char** argv) {
@@ -69,6 +70,10 @@ void help_gbwt(char** argv) {
     std::cerr << "Remove sample (one input GBWT; requires -o):" << std::endl;
     std::cerr << "    -R, --remove-sample X   remove sample X from the index" << std::endl;
     std::cerr << std::endl;
+    std::cerr << "R-index construction (one input GBWT):" << std::endl;
+    std::cerr << "    -r, --r-index FILE      build an r-index and store it in FILE" << std::endl;
+    std::cerr << "    -t, --threads N         use N extraction threads (default " << omp_get_max_threads() << ")" << std::endl;
+    std::cerr << std::endl;
 }
 
 
@@ -92,6 +97,7 @@ int main_gbwt(int argc, char** argv)
     size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
     string gbwt_output, thread_output;
     string graph_output, xg_name;
+    std::string r_index_name;
     std::string to_remove;
 
     int c;
@@ -135,12 +141,16 @@ int main_gbwt(int argc, char** argv)
                 // Remove sample
                 { "remove-sample", required_argument, 0, 'R' },
 
+                // R-index
+                { "r-index", required_argument, 0, 'r' },
+                { "threads", required_argument, 0, 't' },
+
                 { "help", no_argument, 0, 'h' },
                 { 0, 0, 0, 0 }
             };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "o:pmfce:g:x:alPn:k:b:i:MCHSLTR:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "o:pmfce:g:x:alPn:k:b:i:MCHSLTR:r:t:h?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -236,6 +246,15 @@ int main_gbwt(int argc, char** argv)
         case 'R':
             mode = operation_remove;
             to_remove = optarg;
+            break;
+
+        // Build r-index
+        case 'r':
+            mode = operation_r_index;
+            r_index_name = optarg;
+            break;
+        case 't':
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'h':
@@ -527,6 +546,23 @@ int main_gbwt(int argc, char** argv)
         std::string output = (gbwt_output.empty() ? argv[optind] : gbwt_output);
         vg::io::VPKG::save(*index, output);
         std::exit(EXIT_SUCCESS);
+    }
+
+
+    // R-index construction.
+    if (mode == operation_r_index) {
+        if (show_progress) {
+            std::cerr << "Loading GBWT index " << argv[optind] << std::endl;
+        }
+        std::unique_ptr<gbwt::GBWT> index = vg::io::VPKG::load_one<gbwt::GBWT>(argv[optind]);
+        if (show_progress) {
+            std::cerr << "Building the r-index" << std::endl;
+        }
+        gbwt::FastLocate r_index(*index);
+        if (show_progress) {
+            std::cerr << "Saving the r-index to " << r_index_name << std::endl;
+        }
+        vg::io::VPKG::save(r_index, r_index_name);
     }
 
 
