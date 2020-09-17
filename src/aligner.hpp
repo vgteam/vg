@@ -173,7 +173,7 @@ namespace vg {
                 
         /// Compute the score of a path against the given range of subsequence with the given qualities.
         virtual int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                                string::const_iterator seq_begin, bool suppress_full_length_bonus = false) const = 0;
+                                                string::const_iterator seq_begin, bool no_read_end_scoring = false) const = 0;
         
         /// Returns the score of an insert or deletion of the given length
         int32_t score_gap(size_t gap_length) const;
@@ -353,7 +353,7 @@ namespace vg {
         int32_t score_mismatch(size_t length) const;
 
         int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                        string::const_iterator seq_begin, bool suppress_full_length_bonus = false) const;
+                                        string::const_iterator seq_begin, bool no_read_end_scoring = false) const;
         
     private:
         
@@ -406,7 +406,7 @@ namespace vg {
                                string::const_iterator base_qual_begin) const;
                                   
         int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                        string::const_iterator seq_begin, bool suppress_full_length_bonus = false) const;
+                                        string::const_iterator seq_begin, bool no_read_end_scoring = false) const;
         
         
     private:

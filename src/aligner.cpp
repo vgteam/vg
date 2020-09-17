@@ -1447,7 +1447,7 @@ int32_t Aligner::score_mismatch(size_t length) const {
 }
 
 int32_t Aligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                         string::const_iterator seq_begin, bool suppress_full_length_bonus) const {
+                                         string::const_iterator seq_begin, bool no_read_end_scoring) const {
     
     int32_t score = 0;
     string::const_iterator read_pos = seq_begin;
@@ -1470,11 +1470,11 @@ int32_t Aligner::score_partial_alignment(const Alignment& alignment, const Handl
                     }
                     
                     // apply full length bonus
-                    if (read_pos == alignment.sequence().begin() && !suppress_full_length_bonus) {
+                    if (read_pos == alignment.sequence().begin() && !no_read_end_scoring) {
                         score += full_length_bonus;
                     }
                     if (read_pos + edit.from_length() == alignment.sequence().end()
-                         && !suppress_full_length_bonus) {
+                         && !no_read_end_scoring) {
                         score += full_length_bonus;
                     }
                     in_deletion = false;
@@ -1489,9 +1489,10 @@ int32_t Aligner::score_partial_alignment(const Alignment& alignment, const Handl
                 }
             }
             else if (edit.to_length() > 0) {
-                // don't score soft clips
-                if (read_pos != alignment.sequence().begin() &&
-                    read_pos + edit.to_length() != alignment.sequence().end()) {
+                // don't score soft clips if scoring read ends
+                if (no_read_end_scoring ||
+                    (read_pos != alignment.sequence().begin() &&
+                     read_pos + edit.to_length() != alignment.sequence().end())) {
                     // insert
                     score -= gap_open + (edit.to_length() - 1) * gap_extension;
                 }
@@ -2052,7 +2053,7 @@ int32_t QualAdjAligner::score_mismatch(string::const_iterator seq_begin, string:
 }
 
 int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                                string::const_iterator seq_begin, bool suppress_full_length_bonus) const {
+                                                string::const_iterator seq_begin, bool no_read_end_scoring) const {
     
     int32_t score = 0;
     string::const_iterator read_pos = seq_begin;
@@ -2080,11 +2081,11 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
                     }
                     
                     // apply full length bonus
-                    if (read_pos == alignment.sequence().begin() && !suppress_full_length_bonus) {
+                    if (read_pos == alignment.sequence().begin() && !no_read_end_scoring) {
                         score += full_length_bonus;
                     }
                     if (read_pos + edit.from_length() == alignment.sequence().end()
-                        && !suppress_full_length_bonus) {
+                        && !no_read_end_scoring) {
                         score += full_length_bonus;
                     }
                     in_deletion = false;
@@ -2099,9 +2100,10 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
                 }
             }
             else if (edit.to_length() > 0) {
-                // don't score soft clips
-                if (read_pos != alignment.sequence().begin() &&
-                    read_pos + edit.to_length() != alignment.sequence().end()) {
+                // don't score soft clips if read end scoring
+                if (no_read_end_scoring ||
+                    (read_pos != alignment.sequence().begin() &&
+                     read_pos + edit.to_length() != alignment.sequence().end())) {
                     // insert
                     score -= gap_open + (edit.to_length() - 1) * gap_extension;
                 }

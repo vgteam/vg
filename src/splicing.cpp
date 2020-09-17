@@ -11,6 +11,7 @@
 //#define debug_trimming
 //#define debug_fusing
 //#define debug_from_hit
+//#define debug_linker_split
 
 #ifdef debug_splice_region
 #import <bitset>
@@ -883,6 +884,11 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
                                                                     const GSSWAligner& scorer,
                                                                     const HandleGraph& graph) {
 
+#ifdef debug_linker_split
+    cerr << "splitting splice segment " << pb2json(splice_segment) << endl;
+    cerr << "split is at index " << splice_junction_idx << endl;
+#endif
+    
     pair<pair<Path, int32_t>, pair<Path, int32_t>> return_val;
     
     // pull out the left half of the alignment
@@ -920,13 +926,17 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
         }
     }
     
-    
     // score the two halves (but don't take the full length bonus, since this isn't actually
     // the end of the full read)
     return_val.first.second = scorer.score_partial_alignment(splice_segment, graph, left_path,
                                                              splice_segment.sequence().begin(), true);
     return_val.second.second = scorer.score_partial_alignment(splice_segment, graph, right_path,
                                                               splice_segment.sequence().begin() + left_to_length, true);
+    
+#ifdef debug_linker_split
+    cerr << "left partial score " << return_val.first.second << ", partial path " << pb2json(return_val.first.first) << endl;
+    cerr << "right partial score " << return_val.second.second << ", partial path " << pb2json(return_val.second.first) << endl;
+#endif
     
     // deletions can span the splice junction, in which case they will have been scored incorrectly
     // by taking the gap open penalty twice
@@ -964,6 +974,10 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
             }
         }
         
+#ifdef debug_linker_split
+        cerr << "spanning split, left deletion size: " << left_del_size << ", right deletion size " << right_del_size << endl;
+#endif
+        
         if (left_del_size != 0 && right_del_size != 0) {
             // split the total gap score between the two (can break dynamic programmability
             // a little bit, but i think it's worth it to have a good alignment across the
@@ -971,6 +985,10 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
             int32_t total_gap_score = scorer.score_gap(left_del_size + right_del_size);
             return_val.first.second += (total_gap_score / 2 - scorer.score_gap(left_del_size));
             return_val.second.second += (total_gap_score  - total_gap_score / 2 - scorer.score_gap(right_del_size));
+            
+#ifdef debug_linker_split
+            cerr << "re-divided deletion score, now left score " << return_val.first.second << ", right score " << return_val.second.second << endl;
+#endif
         }
     }
     

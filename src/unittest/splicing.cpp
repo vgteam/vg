@@ -1775,7 +1775,7 @@ TEST_CASE("MultipathMapper can make splice alignments from different candidates"
     MultipathMapperSpliceTest mapper(&xg_index, gcsaidx, lcpidx, &distance_index);
     // slack this up a bit so it doesn't filter out good candidates in the small graph
     // otherwise, we'd need to calibrate, which i don't want to do in a test
-    mapper.max_mapping_p_value = 0.01;
+    mapper.max_splice_p_value = 0.01;
     
     Alignment aln;
     aln.set_sequence(string("CAAATTAGGGATGTGTAGATGATGAT") + string("TATTTAATATATGGATGGATTTTCA"));
@@ -1802,28 +1802,28 @@ TEST_CASE("MultipathMapper can make splice alignments from different candidates"
     vector<multipath_alignment_t> mp_alns(1, mp_aln);
     vector<double> mults(1, 1.0);
     
-//    SECTION("From a MEM candidate") {
-//
-//        MaximalExactMatch mem;
-//        mem.begin = aln.sequence().begin() + 26;
-//        mem.end = aln.sequence().end();
-//
-//        pos_t pos(graph.get_id(h5), false, 3);
-//
-//        mem.nodes.push_back(gcsa::Node::encode(id(pos), offset(pos), is_rev(pos)));
-//
-//        vector<MaximalExactMatch> mems(1, mem);
-//        vector<size_t> c_idx(1, 0);
-//
-//        vector<MultipathMapper::clustergraph_t> cluster_graphs;
-//
-//        mapper.find_spliced_alignments(aln, mp_alns, mults, c_idx, mems, cluster_graphs);
-//
-//        REQUIRE(mp_alns.size() == 1);
-//        auto& m = mp_alns.front();
-//        REQUIRE(optimal_alignment_score(m) == aln.sequence().size() + 10);
-//
-//    }
+    SECTION("From a MEM candidate") {
+
+        MaximalExactMatch mem;
+        mem.begin = aln.sequence().begin() + 26;
+        mem.end = aln.sequence().end();
+
+        pos_t pos(graph.get_id(h5), false, 3);
+
+        mem.nodes.push_back(gcsa::Node::encode(id(pos), offset(pos), is_rev(pos)));
+
+        vector<MaximalExactMatch> mems(1, mem);
+        vector<size_t> c_idx(1, 0);
+
+        vector<MultipathMapper::clustergraph_t> cluster_graphs;
+
+        mapper.find_spliced_alignments(aln, mp_alns, mults, c_idx, mems, cluster_graphs);
+
+        REQUIRE(mp_alns.size() == 1);
+        auto& m = mp_alns.front();
+        REQUIRE(optimal_alignment_score(m) == aln.sequence().size() + 10);
+
+    }
     
     SECTION("From a cluster candidate") {
         
