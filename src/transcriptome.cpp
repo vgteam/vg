@@ -379,24 +379,6 @@ void Transcriptome::add_exon(Transcript * transcript, const pair<int32_t, int32_
     assert(exon_pos.second < transcript->chrom_length);
 
     transcript->exons.emplace_back(Exon());
-
-    if (!transcript->exons.empty()) {
-
-        if (transcript->exons.back().coordinates.second + 1 == exon_pos.first) {
-
-            cerr << transcript->name << endl;
-            cerr << transcript->exons.back().coordinates.second << endl;
-            cerr << exon_pos.first << endl;
-        }
-
-        if (transcript->exons.back().coordinates.first == exon_pos.second + 1) {
-
-            cerr << transcript->name << endl;
-            cerr << transcript->exons.back().coordinates.first << endl;
-            cerr << exon_pos.second << endl;
-        }
-    }
-
     transcript->exons.back().coordinates = exon_pos;
 
     // Exon border positions (last position in upstream intron and 
@@ -1056,6 +1038,8 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                 // Get path mapping at exon end if exon end node is in the current path.
                 auto haplotype_path_end_step = haplotype_path_end_it_range.first->second;
 
+                auto border_offsets = cur_transcript.exons.at(exon_idx).border_offsets;
+
                 // Swap start and end steps if in reverse order on path
                 if (graph_path_pos_overlay.get_position_of_step(haplotype_path_start_step) > graph_path_pos_overlay.get_position_of_step(haplotype_path_end_step)) {
 
@@ -1072,16 +1056,40 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     cerr << graph_path_pos_overlay.get_position_of_step(haplotype_path_end_step) << endl;
                     cerr << cur_transcript.exons.at(exon_idx).coordinates.second << endl;
 
+                    cerr << endl;
+
                     cerr << _splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
                     cerr << _splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
 
                     cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
                     cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
 
-                    cerr << cur_transcript.exons.at(exon_idx).border_offsets.first << endl;                  
-                    cerr << cur_transcript.exons.at(exon_idx).border_offsets.second << endl;   
+                    cerr << border_offsets.first << endl;                  
+                    cerr << border_offsets.second << endl;  
+
+                    cerr << _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl; 
+                    cerr << _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
+
+                    assert(border_offsets.first + 1 == _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_start_step)));
+                    assert(border_offsets.second == 0);
 
                     swap(haplotype_path_start_step, haplotype_path_end_step);
+
+                    border_offsets.first = _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_start_step)) - 1;
+
+                    cerr << endl;
+
+                    cerr << _splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
+                    cerr << _splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
+
+                    cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
+                    cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
+
+                    cerr << border_offsets.first << endl;                  
+                    cerr << border_offsets.second << endl;  
+
+                    cerr << _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl; 
+                    cerr << _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
                 }
 
                 Path exon_path;
@@ -1108,8 +1116,8 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                 //     cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
                 //     cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
 
-                //     cerr << cur_transcript.exons.at(exon_idx).border_offsets.first << endl;                  
-                //     cerr << cur_transcript.exons.at(exon_idx).border_offsets.second << endl;                  
+                //     cerr << border_offsets.first << endl;                  
+                //     cerr << border_offsets.second << endl;                  
                 // }
 
                 while (true) {
@@ -1126,7 +1134,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     // to first position in exon. Do not adjust if first position in path.
                     if ((cur_transcript.exons.at(exon_idx).coordinates.first > 0) && is_first_step) {
 
-                        if (cur_transcript.exons.at(exon_idx).border_offsets.first + 1 == node_length) {
+                        if (border_offsets.first + 1 == node_length) {
 
                             assert(haplotype_path_start_step != haplotype_path_end_step);
                             haplotype_path_start_step = _splice_graph->get_next_step(haplotype_path_start_step);
@@ -1136,7 +1144,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                         
                         } else {
 
-                            offset = cur_transcript.exons.at(exon_idx).border_offsets.first + 1;
+                            offset = border_offsets.first + 1;
                         }
                     }
 
@@ -1146,13 +1154,13 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     // to last position in exon. Do not adjust if last position in path.
                     if ((cur_transcript.exons.at(exon_idx).coordinates.second < cur_transcript.chrom_length - 1) && (haplotype_path_start_step == haplotype_path_end_step)) {
 
-                        if (cur_transcript.exons.at(exon_idx).border_offsets.second == 0) {
+                        if (border_offsets.second == 0) {
 
                             break;
 
                         } else {
 
-                            edit_length = cur_transcript.exons.at(exon_idx).border_offsets.second - offset;
+                            edit_length = border_offsets.second - offset;
                         }
                     }
 
@@ -1178,8 +1186,8 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     //     cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
                     //     cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
 
-                    //     cerr << cur_transcript.exons.at(exon_idx).border_offsets.first << endl;                  
-                    //     cerr << cur_transcript.exons.at(exon_idx).border_offsets.second << endl;                           
+                    //     cerr << border_offsets.first << endl;                  
+                    //     cerr << border_offsets.second << endl;                           
                     // }
 
                     assert(0 <= offset && offset < node_length);
@@ -1448,7 +1456,7 @@ void Transcriptome::augment_splice_graph(list<EditedTranscriptPath> * edited_tra
     if (haplotype_index->empty()) {
 
         // Augment splice graph with edited paths. 
-        augment(static_cast<MutablePathMutableHandleGraph *>(_splice_graph.get()), edited_paths, "GAM", nullptr, nullptr, false, break_at_transcript_ends);
+        augment(static_cast<MutablePathMutableHandleGraph *>(_splice_graph.get()), edited_paths, "GAM", nullptr, "", false, break_at_transcript_ends);
       
     } else {
 
@@ -1460,7 +1468,7 @@ void Transcriptome::augment_splice_graph(list<EditedTranscriptPath> * edited_tra
 #endif
 
         // Augment splice graph with edited paths. 
-        augment(static_cast<MutablePathMutableHandleGraph *>(_splice_graph.get()), edited_paths, "GAM", &translations, nullptr, false, break_at_transcript_ends);
+        augment(static_cast<MutablePathMutableHandleGraph *>(_splice_graph.get()), edited_paths, "GAM", &translations, "", false, break_at_transcript_ends);
 
 #ifdef transcriptome_debug
     cerr << "\tDEBUG edit end: " << gcsa::readTimer() - time_edit_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
