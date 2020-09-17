@@ -616,15 +616,11 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
 
                     while (haplotype_id_index_it != haplotype_id_index_it_range.second) {
 
-                        if (haplotype_id_index_it == haplotype_id_index.end()) {
-
-                            continue;         
-                        }
-
                         if (exon_idx != haplotype_id_index_it->second.second) {
 
                             assert(haplotype_id_index_it->second.second < exon_idx);
-                            haplotype_id_index.erase(haplotype_id_index_it);
+
+                            haplotype_id_index_it = haplotype_id_index.erase(haplotype_id_index_it);
                             continue;
                         }
 
@@ -655,7 +651,8 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
                         
                         } else {
 
-                            haplotype_id_index.erase(haplotype_id_index_it);
+                            haplotype_id_index_it = haplotype_id_index.erase(haplotype_id_index_it);
+                            continue;
                         } 
 
                         ++haplotype_id_index_it;
@@ -1032,13 +1029,13 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
 
             while (true) {
 
+                auto border_offsets = cur_transcript.exons.at(exon_idx).border_offsets;
+
                 // Get path step at exon start if exon start node is in the current path.
                 auto haplotype_path_start_step = haplotype_path_start_it_range.first->second;
 
                 // Get path mapping at exon end if exon end node is in the current path.
                 auto haplotype_path_end_step = haplotype_path_end_it_range.first->second;
-
-                auto border_offsets = cur_transcript.exons.at(exon_idx).border_offsets;
 
                 // Swap start and end steps if in reverse order on path
                 if (graph_path_pos_overlay.get_position_of_step(haplotype_path_start_step) > graph_path_pos_overlay.get_position_of_step(haplotype_path_end_step)) {
@@ -1255,6 +1252,8 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     assert(haplotype_path_end_it_range.first != haplotype_path_end_it_range.second);
                     ++haplotype_path_end_it_range.first;
                 }
+
+                cerr << cur_transcript.name << " " << cur_edited_transcript_paths.size() << " " << gcsa::inGigabytes(gcsa::memoryUsage()) << endl;
             }
         }
 
