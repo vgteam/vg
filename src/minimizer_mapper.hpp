@@ -20,6 +20,8 @@
 #include <gbwtgraph/minimizer.h>
 #include <structures/immutable_list.hpp>
 
+#include <atomic>
+
 namespace vg {
 
 using namespace std;
@@ -240,6 +242,7 @@ protected:
     SnarlSeedClusterer clusterer;
 
     FragmentLengthDistribution fragment_length_distr;
+    atomic_flag warned_about_bad_distribution = ATOMIC_FLAG_INIT;
 
 //-----------------------------------------------------------------------------
 
