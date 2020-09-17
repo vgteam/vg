@@ -6,7 +6,7 @@
 
 //#define debug_multipath_mapper
 //#define debug_multipath_mapper_alignment
-#define debug_validate_multipath_alignments
+//#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
 //#define debug_pretty_print_alignments
 
@@ -1384,6 +1384,12 @@ namespace vg {
                                         cluster_graphs2, fanouts2);
             }
             
+            // agglomerate them them independently if necessary
+            if (agglomerate_multipath_alns) {
+                agglomerate_alignments(multipath_alns_1, &multiplicities_1);
+                agglomerate_alignments(multipath_alns_2, &multiplicities_2);
+            }
+            
             // rescue failed, so we just report these as independent mappings
             size_t num_pairs_to_report = min(max_alt_mappings, max(multipath_alns_1.size(), multipath_alns_2.size()));
             
@@ -1888,8 +1894,10 @@ namespace vg {
             proper_paired = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2, mems1,
                                                                 mems2, multipath_aln_pairs_out, cluster_pairs, rescue_multiplicities,
                                                                 fanouts1.get(), fanouts2.get());
+
             if (proper_paired) {
-                swap(rescue_multiplicities, pair_multiplicities);
+                // we'll want to remember the multiplicities
+                pair_multiplicities = move(rescue_multiplicities);
             }
         }
         
@@ -1900,6 +1908,8 @@ namespace vg {
             multipath_aln_pairs_out.emplace_back();
             to_multipath_alignment(alignment1, multipath_aln_pairs_out.back().first);
             to_multipath_alignment(alignment2, multipath_aln_pairs_out.back().second);
+            pair_multiplicities.emplace_back();
+            cluster_pairs.emplace_back();
             
             // in case we're realigning GAMs that have paths already
             multipath_aln_pairs_out.back().first.clear_subpath();
@@ -2165,6 +2175,13 @@ namespace vg {
         anchor_prejoin_sides.front().search_pos = get<0>(anchor_pos);
         anchor_prejoin_sides.front().clip_length = get<1>(anchor_pos);
         anchor_prejoin_sides.front().untrimmed_score = opt.score() - get<2>(anchor_pos);
+        
+#ifdef debug_multipath_mapper
+        cerr << "anchor stats:" << endl;
+        cerr << "\tsearch pos " << anchor_prejoin_sides.front().search_pos << endl;
+        cerr << "\tclip length " << anchor_prejoin_sides.front().clip_length << endl;
+        cerr << "\tuntrimmed score " << anchor_prejoin_sides.front().untrimmed_score << endl;
+#endif
                 
         // examine the possible splice regions for the candidates
         bool found_splice_aln = false;
@@ -2194,6 +2211,12 @@ namespace vg {
             candidate_side.clip_length = get<1>(candidate_pos);
             candidate_side.untrimmed_score = candidate_opt.score() - get<2>(candidate_pos);
             
+#ifdef debug_multipath_mapper
+            cerr << "candidate stats:" << endl;
+            cerr << "\tsearch pos " << candidate_side.search_pos << endl;
+            cerr << "\tclip length " << candidate_side.clip_length << endl;
+            cerr << "\tuntrimmed score " << candidate_side.untrimmed_score << endl;
+#endif
         }
         
         // identify the possible joins down to a base level, including the intron length
@@ -2465,6 +2488,20 @@ namespace vg {
             cerr << debug_string(candidates_out.back()) << endl;
 #endif
         }
+        
+#ifdef debug_validate_multipath_alignments
+        for (size_t i = 0; i < candidates_out.size(); ++i) {
+            auto& multipath_aln = candidates_out[i];
+#ifdef debug_multipath_mapper
+            cerr << "validating " << i << "-th splice candidate alignment:" << endl;
+            cerr << debug_string(multipath_aln) << endl;
+#endif
+            if (!validate_multipath_alignment(multipath_aln, *xindex)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln.sequence() << " failed to validate" << endl;
+            }
+        }
+#endif
     }
 
     void MultipathMapper::identify_aligned_splice_candidates(const Alignment& alignment, bool search_left,
@@ -2947,7 +2984,11 @@ namespace vg {
 
     void MultipathMapper::agglomerate_alignments(vector<multipath_alignment_t>& multipath_alns_out,
                                                  vector<double>* multiplicities) const {
-
+        
+        if (multipath_alns_out.empty()) {
+            return;
+        }
+        
         // the likelihoods of each alignment, which we assume to be sorted
         vector<double> scores = mapping_likelihoods(multipath_alns_out);
         auto alnr = get_aligner(!multipath_alns_out.front().quality().empty());
@@ -2969,22 +3010,31 @@ namespace vg {
                         agg_start_positions, agg_end_positions);
         }
         
-        // figure out the mapping quality for the whole aggregated alignment
-        double raw_mapq = alnr->compute_group_mapping_quality(scores, agglomerated_group,
-                                                              multiplicities);
-        int32_t mapq = min<int32_t>(max_mapping_quality, int32_t(mapq_scaling_factor * raw_mapq));
-        
-        // move the remaining alignments up in the return vector and resize the remnants away
-        multipath_alns_out.front().set_mapping_quality(mapq);
-        for (size_t j = i, k = 1; j < multipath_alns_out.size(); ++j, ++k) {
-            multipath_alns_out[k] = move(multipath_alns_out[j]);
+        if (i > 1) {
+            
+            // figure out the mapping quality for the whole aggregated alignment
+            double raw_mapq = alnr->compute_group_mapping_quality(scores, agglomerated_group,
+                                                                  multiplicities);
+            int32_t mapq = min<int32_t>(max_mapping_quality, int32_t(mapq_scaling_factor * raw_mapq));
+            multipath_alns_out.front().set_mapping_quality(mapq);
+            
+            multipath_alns_out.front().set_annotation("disconnected", true);
+            
+            // move the remaining alignments up in the return vector and resize the remnants away
+            for (size_t j = i, k = 1; j < multipath_alns_out.size(); ++j, ++k) {
+                multipath_alns_out[k] = move(multipath_alns_out[j]);
+            }
+            multipath_alns_out.resize(multipath_alns_out.size() - i + 1);
         }
-        multipath_alns_out.resize(multipath_alns_out.size() - i + 1);
     }
 
     void MultipathMapper::agglomerate_alignment_pairs(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                       vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                       vector<double>& multiplicities) const {
+
+        if (multipath_aln_pairs_out.empty()) {
+            return;
+        }
         
         // the likelihoods of each alignment, which we assume to be sorted
         vector<double> scores = pair_mapping_likelihoods(multipath_aln_pairs_out, cluster_pairs);
@@ -3013,21 +3063,26 @@ namespace vg {
                         agg_start_positions_2, agg_end_positions_2);
         }
         
-        // figure out the mapping quality for the whole aggregated alignment
-        double raw_mapq_1 = alnr->compute_group_mapping_quality(scores, agglomerated_group_1,
-                                                                &multiplicities);
-        double raw_mapq_2 = alnr->compute_group_mapping_quality(scores, agglomerated_group_2,
-                                                                &multiplicities);
-        int32_t mapq_1 = min<int32_t>(max_mapping_quality, int32_t(mapq_scaling_factor * raw_mapq_1));
-        int32_t mapq_2 = min<int32_t>(max_mapping_quality, int32_t(mapq_scaling_factor * raw_mapq_2));
-        
-        // move the remaining alignments up in the return vector and resize the remnants away
-        multipath_aln_pairs_out.front().first.set_mapping_quality(mapq_1);
-        multipath_aln_pairs_out.front().second.set_mapping_quality(mapq_2);
-        for (size_t j = i, k = 1; j < multipath_aln_pairs_out.size(); ++j, ++k) {
-            multipath_aln_pairs_out[k] = move(multipath_aln_pairs_out[j]);
+        if (i > 1) {
+            
+            // figure out the mapping quality for the whole aggregated alignment
+            double raw_mapq_1 = alnr->compute_group_mapping_quality(scores, agglomerated_group_1,
+                                                                    &multiplicities);
+            double raw_mapq_2 = alnr->compute_group_mapping_quality(scores, agglomerated_group_2,
+                                                                    &multiplicities);
+            int32_t mapq_1 = min<int32_t>(max_mapping_quality, int32_t(mapq_scaling_factor * raw_mapq_1));
+            int32_t mapq_2 = min<int32_t>(max_mapping_quality, int32_t(mapq_scaling_factor * raw_mapq_2));
+            multipath_aln_pairs_out.front().first.set_mapping_quality(mapq_1);
+            multipath_aln_pairs_out.front().second.set_mapping_quality(mapq_2);
+            multipath_aln_pairs_out.front().first.set_annotation("disconnected", true);
+            multipath_aln_pairs_out.front().second.set_annotation("disconnected", true);
+            
+            // move the remaining alignments up in the return vector and resize the remnants away
+            for (size_t j = i, k = 1; j < multipath_aln_pairs_out.size(); ++j, ++k) {
+                multipath_aln_pairs_out[k] = move(multipath_aln_pairs_out[j]);
+            }
+            multipath_aln_pairs_out.resize(multipath_aln_pairs_out.size() - i + 1);
         }
-        multipath_aln_pairs_out.resize(multipath_aln_pairs_out.size() - i + 1);
     }
     
     void MultipathMapper::split_multicomponent_alignments(vector<multipath_alignment_t>& multipath_alns_out,

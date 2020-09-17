@@ -1053,12 +1053,10 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
 #endif
     
     if (left_locations.empty() || right_locations.empty()) {
-        cerr << "error: splice segment could not be located on multipath alignment" << endl;
+        cerr << "error: splice segment could not be located on multipath alignment of read " << alignment.name() << endl;
         exit(1);
     }
-    
-    // TODO: this is very broken if there are multiple bridges...
-    
+        
     vector<bool> to_keep_left(left_mp_aln.subpath_size(), false);
     vector<bool> is_bridge_left(left_mp_aln.subpath_size(), false);
     for (const auto& pos : left_locations) {
@@ -1228,19 +1226,33 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         is_bridge_right[get<0>(pos)] = true;
     }
     for (int64_t i = right_mp_aln.subpath_size() - 1; i >= 0; --i) {
-        const auto& subpath = right_mp_aln.subpath(i);
-        if (subpath.next_size() == 0 && subpath.connection_size() == 0) {
-            to_keep_right[i] = true;;
+        auto subpath = right_mp_aln.mutable_subpath(i);
+        if (subpath->next_size() == 0 && subpath->connection_size() == 0) {
+            to_keep_right[i] = true;
         }
         else {
-            for (auto j : subpath.next()) {
-                if (!is_bridge_right[j]) {
-                    to_keep_right[i] = to_keep_right[i] || to_keep_right[j];
+            for (size_t j = 0; j < subpath->next_size();) {
+                if (!is_bridge_right[subpath->next(j)]) {
+                    to_keep_right[i] = to_keep_right[i] || to_keep_right[subpath->next(j)];
+                    ++j;
+                }
+                else {
+                    // this next is to the side of the subpath that's getting removed
+                    subpath->set_next(j, subpath->next().back());
+                    subpath->mutable_next()->pop_back();
                 }
             }
-            for (const auto& connection : subpath.connection()) {
-                if (!is_bridge_right[connection.next()]) {
-                    to_keep_right[i] = to_keep_right[i] || to_keep_right[connection.next()];
+            // TODO: i really don't like arbitrarily destroying these connections...
+            for (size_t j = 0; j < subpath->connection_size();) {
+                auto connection = subpath->mutable_connection(j);
+                if (!is_bridge_right[connection->next()]) {
+                    to_keep_right[i] = to_keep_right[i] || to_keep_right[connection->next()];
+                    ++j;
+                }
+                else {
+                    // this connection is to the side of the subpath that's getting removed
+                    *connection = subpath->connection().back();
+                    subpath->mutable_connection()->pop_back();
                 }
             }
         }
@@ -1248,8 +1260,8 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     
 #ifdef debug_fusing
     cerr << "deciding what to remove on right:" << endl;
-    for (size_t i = 0; i < to_keep_left.size(); ++i) {
-        cerr << "\t" << i << ": keep? " << to_keep_left[i] << ", bridge? " << is_bridge_left[i] << endl;
+    for (size_t i = 0; i < to_keep_right.size(); ++i) {
+        cerr << "\t" << i << ": keep? " << to_keep_right[i] << ", bridge? " << is_bridge_right[i] << endl;
     }
 #endif
     

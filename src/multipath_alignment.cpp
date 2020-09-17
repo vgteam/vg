@@ -12,7 +12,7 @@
 //#define debug_multiple_tracebacks
 //#define debug_search
 //#define debug_trace
-#define debug_verbose_validation
+//#define debug_verbose_validation
 //#define debug_from_hit
 
 using namespace std;
@@ -2313,6 +2313,9 @@ namespace vg {
             for (auto j : subpath.next()) {
                 subpath_seq_pos[j] = to_length_thru;
             }
+            for (const auto& connection : subpath.connection()) {
+                subpath_seq_pos[connection.next()] = to_length_thru;
+            }
             
             if (to_length_here <= seq_pos && to_length_thru >= seq_pos) {
                 // this is where we might expect to find the sequence position
@@ -2668,6 +2671,12 @@ namespace vg {
                         stack.emplace_back(n, 0, 0, 0, pj, pk, pl);
                     }
                 }
+                for (const auto& c : subpath.connection()) {
+                    if (!stacked[c.next()]) {
+                        stacked[c.next()] = true;
+                        stack.emplace_back(c.next(), 0, 0, 0, pj, pk, pl);
+                    }
+                }
             }
         }
         return make_pair(mfarthest, pfarthest);
@@ -2771,7 +2780,7 @@ namespace vg {
                     if (subpath_read_interval[subpath.next(j)].first >= 0) {
                         if (subpath_read_interval[subpath.next(j)].first != subpath_read_interval[i].second) {
 #ifdef debug_verbose_validation
-                            cerr << "validation failure on read contiguity" << endl;
+                            cerr << "validation failure on read contiguity from subpath " << i << " with read interval " << subpath_read_interval[i].first << ":" << subpath_read_interval[i].second << " to next " << subpath.next(j) << " with read interval " << subpath_read_interval[subpath.next(j)].first << ":" << subpath_read_interval[subpath.next(j)].second << endl;
 #endif
                             return false;
                         }
@@ -2784,7 +2793,7 @@ namespace vg {
                     if (subpath_read_interval[connection.next()].first >= 0) {
                         if (subpath_read_interval[connection.next()].first != subpath_read_interval[i].second) {
 #ifdef debug_verbose_validation
-                            cerr << "validation failure on read contiguity" << endl;
+                            cerr << "validation failure on read contiguity from subpath " << i << " with read interval " << subpath_read_interval[i].first << ":" << subpath_read_interval[i].second << " to connection " << connection.next() << " with read interval " << subpath_read_interval[connection.next()].first << ":" << subpath_read_interval[connection.next()].second << endl;
 #endif
                             return false;
                         }
@@ -2916,6 +2925,13 @@ namespace vg {
                     }
                 }
                 else if (edit.to_length() == edit.from_length() && !edit.sequence().empty()) {
+                    if (edit.sequence().size() != edit.to_length()) {
+#ifdef debug_verbose_validation
+                        cerr << "validation failure on mismatched sequence length and to length: " << debug_string(edit) << endl;
+#endif
+                        return false;
+                    }
+                    
                     bool is_Ns = find_if(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}) == edit.sequence().end();
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
                         // we will also let N's be marked as mismatches even if the node sequence is also Ns
@@ -2936,7 +2952,15 @@ namespace vg {
                     }
                 }
                 else if (edit.to_length() > 0 && edit.from_length() == 0) {
+                    if (edit.sequence().size() != edit.to_length()) {
+#ifdef debug_verbose_validation
+                        cerr << "validation failure on mismatched sequence length and to length: " << debug_string(edit) << endl;
+#endif
+                        return false;
+                    }
+                    
                     for (size_t j = 0; j < edit.to_length(); j++, seq_idx++) {
+                        
                         if (edit.sequence()[j] != subseq[seq_idx]) {
 #ifdef debug_verbose_validation
                             cerr << "validation failure on insertion sequence that does not match read" << endl;
@@ -2948,6 +2972,12 @@ namespace vg {
                 }
                 else if (edit.from_length() > 0 && edit.to_length() == 0) {
                     node_idx += edit.from_length();
+                }
+                else {
+#ifdef debug_verbose_validation
+                    cerr << "validation failure on non-simple edit " << debug_string(edit) << endl;
+#endif
+                    return false;
                 }
             }
             return true;

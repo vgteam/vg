@@ -312,8 +312,8 @@ void help_giraffe(char** argv) {
     << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
     << "computational parameters:" << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
-    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [1500]" << endl
-    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.7]" << endl
+    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [500]" << endl
+    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.9]" << endl
     << "  -D, --distance-limit INT      cluster using this distance limit [200]" << endl
     << "  -e, --max-extensions INT      extend up to INT clusters [800]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
@@ -362,8 +362,8 @@ int main_giraffe(int argc, char** argv) {
     string report_name;
     // How close should two hits be to be in the same cluster?
     Range<size_t> distance_limit = 200;
-    Range<size_t> hit_cap = 10, hard_hit_cap = 1500;
-    Range<double> minimizer_score_fraction = 0.7;
+    Range<size_t> hit_cap = 10, hard_hit_cap = 500;
+    Range<double> minimizer_score_fraction = 0.9;
     bool show_progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
