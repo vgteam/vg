@@ -894,6 +894,10 @@ int main_view(int argc, char** argv) {
         return 1;
     }
 
+    if (output_type == "gfa") {
+        graph_to_gfa(graph, std::cout);
+    } 
+
     // Now we know graph was filled in from the input format. Spit it out in the
     // requested output format.
     
@@ -936,11 +940,7 @@ int main_view(int argc, char** argv) {
         // This is especially useful for JSON import.
         cerr << "[vg view] warning: graph is invalid!" << endl;
     }
-    
-    if (output_type == "gfa") {
-        // TODO: there's no reason this shouldn't work on PathHandleGraphs directly.
-        graph_to_gfa(vg_graph, std::cout);
-    } else if (output_type == "dot") {
+    if (output_type == "dot") {
         vg_graph->to_dot(std::cout,
                         alns,
                         loci,
