@@ -468,10 +468,31 @@ void Transcriptome::construct_edited_transcript_paths_callback(list<EditedTransc
         // Construct edited transcript paths.
         auto new_edited_transcript_paths = project_transcript_embedded(transcript, graph_path_pos_overlay, true);
         
-        assert(new_edited_transcript_paths.size() == 1);
-        assert(!new_edited_transcript_paths.front().reference_origin.empty());
+        if (!new_edited_transcript_paths.empty()) {
 
-        thread_edited_transcript_paths.splice(thread_edited_transcript_paths.end(), new_edited_transcript_paths);
+            assert(!new_edited_transcript_paths.front().reference_origin.empty());
+
+            thread_edited_transcript_paths.splice(thread_edited_transcript_paths.end(), new_edited_transcript_paths);
+
+            Path & transcript_path = new_edited_transcript_paths.front().path;
+
+            // Add adjecent same node exons as single paths to ensure boundary breaking
+            for (size_t i = 1; i < transcript_path.mapping_size(); ++i) {
+
+                if (transcript_path.mapping(i - 1).position().node_id() == transcript_path.mapping(i).position().node_id()) {
+
+                    EditedTranscriptPath exon_path_left("");
+                    EditedTranscriptPath exon_path_right("");
+
+                    (*exon_path_left.path.add_mapping()) = transcript_path.mapping(i - 1);
+                    (*exon_path_right.path.add_mapping()) = transcript_path.mapping(i);
+
+                    thread_edited_transcript_paths.emplace_back(exon_path_left);
+                    thread_edited_transcript_paths.emplace_back(exon_path_right);
+                }
+            }
+        }
+
         transcripts_idx += num_threads;
     }
 
@@ -599,6 +620,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
                 for (auto & haplotype_id: exon_haplotype.second) {
 
                     haplotype_id_index.emplace(haplotype_id, make_pair(haplotypes.size() - 1, exon_idx + 1));
+                    assert(haplotype_id_index.count(haplotype_id) == 1);
                 }
             }
             
@@ -631,11 +653,9 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
 
                             assert(cur_haplotype->first.size() == exon_idx + 1);
                             haplotypes.at(extended_haplotypes.at(haplotype_id_index_it->second.first)).second.emplace_back(haplotype_id);
-                            haplotype_id_index_it->second.first = extended_haplotypes.at(haplotype_id_index_it->second.first);                       
-                            continue;
-                        }
-
-                        if (cur_haplotype->first.size() == exon_idx) {
+                            haplotype_id_index_it->second.first = extended_haplotypes.at(haplotype_id_index_it->second.first);                        
+                        
+                        } else if (cur_haplotype->first.size() == exon_idx) {
 
                             cur_haplotype->first.emplace_back(exon_haplotype.first);
                             cur_haplotype->second = {haplotype_id};
@@ -762,9 +782,6 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
                 // Reverse complement transcript paths that are on the '-' strand.
                 reverse_complement_path_in_place(&(edited_transcript_paths.back().path), [&](size_t node_id) {return _splice_graph->get_length(_splice_graph->get_handle(node_id, false));});
             }
-
-            // Simplify path
-            edited_transcript_paths.back().path = simplify(edited_transcript_paths.back().path);
 
             // Copy paths if collapse of identical transcript paths is not wanted.
             if (!collapse_transcript_paths && edited_transcript_paths.back().haplotype_origin_ids.size() > 1) {
@@ -1004,6 +1021,17 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
 
         for (size_t exon_idx = 0; exon_idx < exon_start_node_path_steps.size(); ++exon_idx) {
 
+            if (is_partial) { break; }
+
+            // Transcripts with cycles at both exon boundaries are currently 
+            // not supported.
+            // TODO: Add support for this.
+            if (exon_start_node_path_steps.at(exon_idx).count(path_steps_start.first) > 1 && exon_end_node_path_steps.at(exon_idx).count(path_steps_start.first) > 1) {
+
+                is_partial = true;
+                break;
+            }
+
             auto haplotype_path_start_it_range = exon_start_node_path_steps.at(exon_idx).equal_range(path_steps_start.first);
             auto haplotype_path_end_it_range = exon_end_node_path_steps.at(exon_idx).equal_range(path_steps_start.first);
 
@@ -1019,13 +1047,11 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
             haplotype_path_start_it_range.second--; 
             haplotype_path_end_it_range.second--; 
 
-            if (exon_start_node_path_steps.at(exon_idx).count(path_steps_start.first) > 1 || exon_end_node_path_steps.at(exon_idx).count(path_steps_start.first) > 1) {
-
-                cerr << exon_start_node_path_steps.at(exon_idx).count(path_steps_start.first) << " " << exon_end_node_path_steps.at(exon_idx).count(path_steps_start.first) << endl;
-            }
-
             auto cur_edited_transcript_paths_base_it = cur_edited_transcript_paths.begin();
             auto cur_edited_transcript_paths_base_eit = cur_edited_transcript_paths.end();
+
+            assert(cur_edited_transcript_paths_base_it != cur_edited_transcript_paths_base_eit);
+            cur_edited_transcript_paths_base_eit--;
 
             while (true) {
 
@@ -1037,95 +1063,31 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                 // Get path mapping at exon end if exon end node is in the current path.
                 auto haplotype_path_end_step = haplotype_path_end_it_range.first->second;
 
+                // Exons with different border node orientations are currently not supported.
+                // TODO: Add support for this special case.
+                if (_splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_start_step)) != _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_end_step))) {
+
+                    is_partial = true;
+                    break;
+                }
+
                 // Swap start and end steps if in reverse order on path
                 if (graph_path_pos_overlay.get_position_of_step(haplotype_path_start_step) > graph_path_pos_overlay.get_position_of_step(haplotype_path_end_step)) {
-
-                    cerr << "\n" << exon_idx << endl;
-                    cerr << path_origin_name << endl;
-                    cerr << cur_transcript.chrom << endl;
-                    cerr << cur_transcript.name << endl;
-
-                    cerr << exon_start_node_path_steps.at(exon_idx).count(path_steps_start.first) << " " << exon_end_node_path_steps.at(exon_idx).count(path_steps_start.first) << endl;
-
-                    cerr << graph_path_pos_overlay.get_position_of_step(haplotype_path_start_step) << endl;
-                    cerr << cur_transcript.exons.at(exon_idx).coordinates.first << endl;
-
-                    cerr << graph_path_pos_overlay.get_position_of_step(haplotype_path_end_step) << endl;
-                    cerr << cur_transcript.exons.at(exon_idx).coordinates.second << endl;
-
-                    cerr << endl;
-
-                    cerr << _splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
-                    cerr << _splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
-
-                    cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
-                    cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
-
-                    cerr << border_offsets.first << endl;                  
-                    cerr << border_offsets.second << endl;  
-
-                    cerr << _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl; 
-                    cerr << _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
 
                     assert(border_offsets.first + 1 == _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_start_step)));
                     assert(border_offsets.second == 0);
 
                     swap(haplotype_path_start_step, haplotype_path_end_step);
-
                     border_offsets.first = _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_start_step)) - 1;
-
-                    cerr << endl;
-
-                    cerr << _splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
-                    cerr << _splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
-
-                    cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
-                    cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
-
-                    cerr << border_offsets.first << endl;                  
-                    cerr << border_offsets.second << endl;  
-
-                    cerr << _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl; 
-                    cerr << _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
                 }
 
                 Path exon_path;
                 bool is_first_step = true;
 
-                // if (cur_transcript.name == "XM_026440558.1") {
-
-                //     cerr << "\n" << exon_idx << endl;
-                //     cerr << path_origin_name << endl;
-                //     cerr << cur_transcript.chrom << endl;
-                //     cerr << cur_transcript.name << endl;
-
-                //     cerr << exon_start_node_path_steps.at(exon_idx).count(path_steps_start.first) << " " << exon_end_node_path_steps.at(exon_idx).count(path_steps_start.first) << endl;
-
-                //     cerr << graph_path_pos_overlay.get_position_of_step(haplotype_path_start_step) << endl;
-                //     cerr << cur_transcript.exons.at(exon_idx).coordinates.first << endl;
-
-                //     cerr << graph_path_pos_overlay.get_position_of_step(haplotype_path_end_step) << endl;
-                //     cerr << cur_transcript.exons.at(exon_idx).coordinates.second << endl;
-
-                //     cerr << _splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
-                //     cerr << _splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
-
-                //     cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
-                //     cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
-
-                //     cerr << border_offsets.first << endl;                  
-                //     cerr << border_offsets.second << endl;                  
-                // }
-
                 while (true) {
 
                     auto node_length = _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_start_step));
                     int32_t offset = 0;
-
-                    // if (cur_transcript.name == "XM_026440558.1") {
-
-                    //     cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
-                    // }
 
                     // Adjust start position from exon border (last position in upstream intron)
                     // to first position in exon. Do not adjust if first position in path.
@@ -1161,32 +1123,6 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                         }
                     }
 
-                    // if (!(0 <= offset && offset < node_length)) {
-
-                    //     cerr << "\n" << exon_idx << endl;
-                    //     cerr << path_origin_name << endl;
-                    //     cerr << cur_transcript.chrom << endl;
-                    //     cerr << cur_transcript.name << endl;
-
-                    //     cerr << exon_start_node_path_steps.at(exon_idx).count(path_steps_start.first) << " " << exon_end_node_path_steps.at(exon_idx).count(path_steps_start.first) << endl;
-                    //     cerr << node_length << endl;
-
-                    //     cerr << graph_path_pos_overlay.get_position_of_step(haplotype_path_start_step) << endl;
-                    //     cerr << cur_transcript.exons.at(exon_idx).coordinates.first << endl;
-
-                    //     cerr << graph_path_pos_overlay.get_position_of_step(haplotype_path_end_step) << endl;
-                    //     cerr << cur_transcript.exons.at(exon_idx).coordinates.second << endl;
-
-                    //     cerr << _splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
-                    //     cerr << _splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
-
-                    //     cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_start_step)) << endl;
-                    //     cerr << _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_end_step)) << endl; 
-
-                    //     cerr << border_offsets.first << endl;                  
-                    //     cerr << border_offsets.second << endl;                           
-                    // }
-
                     assert(0 <= offset && offset < node_length);
                     assert(0 < edit_length && edit_length <= node_length);
 
@@ -1210,18 +1146,15 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     is_first_step = false;
                 }
 
-                // if (cur_transcript.name == "XM_026440558.1") {
-
-                //     cerr << pb2json(exon_path) << endl;                  
-                // }
-
                 if (haplotype_path_start_it_range.first == haplotype_path_start_it_range.second && haplotype_path_end_it_range.first == haplotype_path_end_it_range.second) {
 
                     auto exon_cur_edited_transcript_paths_base_it = cur_edited_transcript_paths_base_it;
 
-                    while (exon_cur_edited_transcript_paths_base_it != cur_edited_transcript_paths_base_eit) {
+                    while (true) {
 
                         exon_cur_edited_transcript_paths_base_it->path = concat_paths(exon_cur_edited_transcript_paths_base_it->path, exon_path);
+
+                        if (exon_cur_edited_transcript_paths_base_it == cur_edited_transcript_paths_base_eit) { break; }
                         ++exon_cur_edited_transcript_paths_base_it;
                     }
 
@@ -1231,12 +1164,13 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
 
                     auto exon_cur_edited_transcript_paths_base_it = cur_edited_transcript_paths_base_it;
 
-                    while (exon_cur_edited_transcript_paths_base_it != cur_edited_transcript_paths_base_eit) {
+                    while (true) {
 
                         // If not last boundary combination copy current base transcipt path.
                         cur_edited_transcript_paths.emplace_back(*exon_cur_edited_transcript_paths_base_it);
-
                         cur_edited_transcript_paths.back().path = concat_paths(cur_edited_transcript_paths.back().path, exon_path);
+
+                        if (exon_cur_edited_transcript_paths_base_it == cur_edited_transcript_paths_base_eit) { break; }
                         ++exon_cur_edited_transcript_paths_base_it;
                     }
                 }
@@ -1252,8 +1186,6 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     assert(haplotype_path_end_it_range.first != haplotype_path_end_it_range.second);
                     ++haplotype_path_end_it_range.first;
                 }
-
-                cerr << cur_transcript.name << " " << cur_edited_transcript_paths.size() << " " << gcsa::inGigabytes(gcsa::memoryUsage()) << endl;
             }
         }
 
@@ -1277,8 +1209,6 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     } 
                 }
 
-                // Simplify path
-                cur_edited_transcript_paths_it->path = simplify(cur_edited_transcript_paths_it->path);
                 ++cur_edited_transcript_paths_it;
             }
 
@@ -1358,13 +1288,13 @@ list<CompletedTranscriptPath> Transcriptome::construct_completed_transcript_path
         completed_transcript_paths.back().reference_origin = transcript_path.reference_origin;
         completed_transcript_paths.back().haplotype_origin_ids = transcript_path.haplotype_origin_ids;
         completed_transcript_paths.back().path_origin_names = transcript_path.path_origin_names;
-        completed_transcript_paths.back().path = path_to_handles(transcript_path.path, transcript_path);
+        completed_transcript_paths.back().path = path_to_handles(transcript_path.path);
     }
 
     return completed_transcript_paths;     
 }
 
-vector<handle_t> Transcriptome::path_to_handles(const Path & path, const EditedTranscriptPath & test) const {
+vector<handle_t> Transcriptome::path_to_handles(const Path & path) const {
 
     vector<handle_t> handle_path;
     handle_path.reserve(path.mapping_size());
@@ -1377,20 +1307,6 @@ vector<handle_t> Transcriptome::path_to_handles(const Path & path, const EditedT
         assert(mapping.edit_size() == 1);
         assert(edit_is_match(mapping.edit(0)));
         assert(mapping.position().offset() == 0);
-
-        if (mapping.edit(0).from_length() != _splice_graph->get_length(handle)) {
-
-            cerr << test.name << endl;
-            cerr << test.transcript_origin << endl;
-            cerr << test.reference_origin << endl;
-            cerr << test.path_origin_names << endl;
-
-            cerr << pb2json(path) << endl;
-            cerr << mapping.position().node_id() << endl;
-            cerr << mapping.edit(0).from_length() << endl;
-            cerr << _splice_graph->get_length(handle) << endl;
-        }
-
         assert(mapping.edit(0).from_length() == _splice_graph->get_length(handle));
 
         handle_path.emplace_back(handle);

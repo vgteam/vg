@@ -266,7 +266,7 @@ class Transcriptome {
 
         /// Convert a path to a vector of handles. Checks that 
         /// the path is complete (i.e. only consist of whole nodes).
-        vector<handle_t> path_to_handles(const Path & path, const EditedTranscriptPath & test) const;
+        vector<handle_t> path_to_handles(const Path & path) const;
 
         /// Checks whether transcript path only consist of 
         /// whole nodes (complete). 
