@@ -1,6 +1,7 @@
 var searchData=
 [
   ['unaligned_5fbands',['unaligned_bands',['../classvg_1_1AlignmentChainModel.html#a86bcd77b21cc9b8b9c2b9f100fb9ce71',1,'vg::AlignmentChainModel']]],
+  ['unaltered_5fdata',['unaltered_data',['../classvg_1_1SpliceMotifs.html#ac6157b1fa3067485061a4972e374668f',1,'vg::SpliceMotifs']]],
   ['unary_5fboundaries',['unary_boundaries',['../classvg_1_1NetGraph.html#ae573871a7c3cd0be507222751f870f72',1,'vg::NetGraph']]],
   ['uncompressed_5fout',['uncompressed_out',['../classvg_1_1io_1_1MessageEmitter.html#a19f6d714ad67ec55346998140ce79258',1,'vg::io::MessageEmitter']]],
   ['uncompressed_5fout_5fostream',['uncompressed_out_ostream',['../classvg_1_1io_1_1MessageEmitter.html#aeb08e36bd3266eabc11d2d27e6336812',1,'vg::io::MessageEmitter']]],

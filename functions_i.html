@@ -107,11 +107,17 @@ $(function() {
 <li>ID_WIDTH
 : <a class="el" href="structvg_1_1MIPayload.html#a5230afa1f8b385c800e1194145c5f6ac">vg::MIPayload</a>
 </li>
+<li>identify_aligned_splice_candidates()
+: <a class="el" href="classvg_1_1MultipathMapper.html#abc1f573888de5798c492804d6452f246">vg::MultipathMapper</a>
+</li>
 <li>identify_pinning_points()
 : <a class="el" href="classvg_1_1GSSWAligner.html#a9e07985027f6dffb561b132a32fc0fae">vg::GSSWAligner</a>
 </li>
 <li>identify_sources_and_sinks()
 : <a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#aff810bb5affe3201fccf437be3290fde">vg::MEMClusterer::HitGraph</a>
+</li>
+<li>identify_unaligned_splice_candidates()
+: <a class="el" href="classvg_1_1MultipathMapper.html#a50f4e1e71c3fb6272009297f1e012493">vg::MultipathMapper</a>
 </li>
 <li>identity
 : <a class="el" href="structvg_1_1Alignment.html#a06341663199b9893a9f2b288a768cfe3">vg::Alignment</a>
@@ -207,6 +213,9 @@ $(function() {
 : <a class="el" href="classhaplo_1_1GBWTScoreProvider.html#a540105f41d66c4b536fda44fce248680">haplo::GBWTScoreProvider&lt; GBWTType &gt;</a>
 , <a class="el" href="classhaplo_1_1ScoreProvider.html#a6272d9bca95e7846807ef2e71d616a9c">haplo::ScoreProvider</a>
 </li>
+<li>IncrementalSubgraph()
+: <a class="el" href="classvg_1_1IncrementalSubgraph.html#a4546c7f9285de3463a623d4553f5b9ab">vg::IncrementalSubgraph</a>
+</li>
 <li>IncrementIter()
 : <a class="el" href="structvg_1_1IncrementIter.html#a1231b6b6c0fde0c7ae6cf69b9cfe9a6b">vg::IncrementIter</a>
 </li>
@@ -254,7 +263,8 @@ $(function() {
 : <a class="el" href="classvg_1_1indexOpenException.html#a6f40b99e24b3edb813bb9a8054269e20">vg::indexOpenException</a>
 </li>
 <li>init()
-: <a class="el" href="classvg_1_1VG.html#aafd0f191fe33bd4590f15f309d0fd89c">vg::VG</a>
+: <a class="el" href="classvg_1_1SpliceMotifs.html#addc95fa46a280d58a0c08cadad36d543">vg::SpliceMotifs</a>
+, <a class="el" href="classvg_1_1VG.html#aafd0f191fe33bd4590f15f309d0fd89c">vg::VG</a>
 , <a class="el" href="classvg_1_1Viz.html#aad7ceb7896288f2d4444b10cceb946d8">vg::Viz</a>
 </li>
 <li>init_band_padding_memo()
@@ -274,6 +284,9 @@ $(function() {
 </li>
 <li>init_node_quality_bin()
 : <a class="el" href="classvg_1_1Packer.html#aff44bf5abf4eacda46958eeb436eb2e4">vg::Packer</a>
+</li>
+<li>init_state()
+: <a class="el" href="classvg_1_1DinucleotideMachine.html#a35193673a88abc7f0933d2f65fd7f2ea">vg::DinucleotideMachine</a>
 </li>
 <li>init_traceback_indexes()
 : <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ab251d4ff6f6b7f351f29c5dd29ead002">vg::BandedGlobalAligner&lt; IntType &gt;::BAMatrix</a>
@@ -419,7 +432,7 @@ $(function() {
 : <a class="el" href="classvg_1_1VG.html#a7903acd7a977a85fdd78d306f2063252">vg::VG</a>
 </li>
 <li>is_ancestor_prev()
-: <a class="el" href="classvg_1_1VG.html#ae6699fe9d747f761f6efae39c3c0501c">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#a25215a67c3eac7570e2ab62e825ae169">vg::VG</a>
 </li>
 <li>is_checked_in
 : <a class="el" href="structvg_1_1Watchdog_1_1thread__state__t.html#aae7887d9b7548a028a6b7271aabd44eb">vg::Watchdog::thread_state_t</a>
@@ -454,6 +467,9 @@ $(function() {
 <li>is_end
 : <a class="el" href="structvg_1_1CactusSide.html#a960c0e9a2c2dc004aac017030f6ad805">vg::CactusSide</a>
 , <a class="el" href="classvg_1_1NodeSide.html#a1493cac020ed0c9b1cbd37e2a99eb9b5">vg::NodeSide</a>
+</li>
+<li>is_extendable()
+: <a class="el" href="classvg_1_1IncrementalSubgraph.html#ada07715a97931d98157e8fc5aba697a9">vg::IncrementalSubgraph</a>
 </li>
 <li>is_finalized()
 : <a class="el" href="classvg_1_1FragmentLengthDistribution.html#a4f1fa1f539e504fdd0f92467b81e9172">vg::FragmentLengthDistribution</a>
@@ -594,7 +610,7 @@ $(function() {
 <li>iterator()
 : <a class="el" href="classhandlegraph_1_1PathForEachSocket_1_1iterator.html#ac02b7134a97591fcd4a821093a0a4ab4">handlegraph::PathForEachSocket::iterator</a>
 , <a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">vg::PathIndex</a>
-, <a class="el" href="classvg_1_1PhasedGenome_1_1iterator.html#ac8ddc9db361c6f07887fdc36b5484bcf">vg::PhasedGenome::iterator</a>
+, <a class="el" href="classvg_1_1PhasedGenome_1_1iterator.html#a0f330d79400d74c3da0c81e4af73d441">vg::PhasedGenome::iterator</a>
 , <a class="el" href="classvg_1_1ShuffledPairs_1_1iterator.html#ade5cfb8f4e824c4d02c51df5ca396096">vg::ShuffledPairs::iterator</a>
 </li>
 <li>iterator_category

@@ -24,6 +24,7 @@ var searchData=
   ['opt_5fno_5fcluster',['OPT_NO_CLUSTER',['../mpmap__main_8cpp.html#a819f2221fe8ecbdde55f41e801ee526f',1,'mpmap_main.cpp']]],
   ['opt_5fno_5fgreedy_5fmem_5frestarts',['OPT_NO_GREEDY_MEM_RESTARTS',['../mpmap__main_8cpp.html#a795fe85937dd7884864a324a2e4e7e9c',1,'mpmap_main.cpp']]],
   ['opt_5fno_5foutput',['OPT_NO_OUTPUT',['../mpmap__main_8cpp.html#ab3e182a23ff8ea38e53c1170d263bb8d',1,'mpmap_main.cpp']]],
+  ['opt_5fnot_5fspliced',['OPT_NOT_SPLICED',['../mpmap__main_8cpp.html#ada40abaa50b02c0be0a3f8a45f8ffcf2',1,'mpmap_main.cpp']]],
   ['opt_5foutput_5fbasename',['OPT_OUTPUT_BASENAME',['../giraffe__main_8cpp.html#a0c681930b458fe282cd216da55579963',1,'giraffe_main.cpp']]],
   ['opt_5fpath_5frescue_5fgraph',['OPT_PATH_RESCUE_GRAPH',['../mpmap__main_8cpp.html#aadbf32efd6566ba5c71b2be2c0c3e2af',1,'mpmap_main.cpp']]],
   ['opt_5fpaths_5fas_5fsamples',['OPT_PATHS_AS_SAMPLES',['../index__main_8cpp.html#ab616d9814f1b39a28474fd51b1f5ce06',1,'index_main.cpp']]],

@@ -114,9 +114,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac2969d865d7cb4652a7476feabd9c9b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab40663f27266555cd2718fca337ac348"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab40663f27266555cd2718fca337ac348">score_mismatch</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const =0</td></tr>
 <tr class="separator:ab40663f27266555cd2718fca337ac348"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5d843e8415e3080421f75ac6e98c6bd3"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a5d843e8415e3080421f75ac6e98c6bd3">score_partial_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, string::const_iterator seq_begin) const =0</td></tr>
-<tr class="memdesc:a5d843e8415e3080421f75ac6e98c6bd3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compute the score of a path against the given range of subsequence with the given qualities.  <a href="#a5d843e8415e3080421f75ac6e98c6bd3">More...</a><br /></td></tr>
-<tr class="separator:a5d843e8415e3080421f75ac6e98c6bd3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a90edd8f3e5f816377e5391abcafd6457"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a90edd8f3e5f816377e5391abcafd6457">score_partial_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, string::const_iterator seq_begin, bool no_read_end_scoring=false) const =0</td></tr>
+<tr class="memdesc:a90edd8f3e5f816377e5391abcafd6457"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compute the score of a path against the given range of subsequence with the given qualities.  <a href="#a90edd8f3e5f816377e5391abcafd6457">More...</a><br /></td></tr>
+<tr class="separator:a90edd8f3e5f816377e5391abcafd6457"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a616923bd568fa23d20c0e3a019d650ea"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a616923bd568fa23d20c0e3a019d650ea">score_gap</a> (size_t gap_length) const</td></tr>
 <tr class="memdesc:a616923bd568fa23d20c0e3a019d650ea"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the score of an insert or deletion of the given length.  <a href="#a616923bd568fa23d20c0e3a019d650ea">More...</a><br /></td></tr>
 <tr class="separator:a616923bd568fa23d20c0e3a019d650ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -142,10 +142,13 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:adaddff537ae9d455811c45a0c362252f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#adaddff537ae9d455811c45a0c362252f">longest_detectable_gap</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment) const</td></tr>
 <tr class="memdesc:adaddff537ae9d455811c45a0c362252f"><td class="mdescLeft">&#160;</td><td class="mdescRight">The longest gap detectable from any read position without soft-clipping.  <a href="#adaddff537ae9d455811c45a0c362252f">More...</a><br /></td></tr>
 <tr class="separator:adaddff537ae9d455811c45a0c362252f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adc2d6f944b926b5ea68c2efafa6148d4"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#adc2d6f944b926b5ea68c2efafa6148d4">score_gappy_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const function&lt; size_t(<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, size_t)&gt; &amp;estimate_distance, bool strip_bonuses=false) const</td></tr>
-<tr class="separator:adc2d6f944b926b5ea68c2efafa6148d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af219d7a5a78802188e43979c495ac015"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#af219d7a5a78802188e43979c495ac015">score_ungapped_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool strip_bonuses=false) const</td></tr>
-<tr class="separator:af219d7a5a78802188e43979c495ac015"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee465771aeb2e2767ade0a1cfa8ce4af"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#aee465771aeb2e2767ade0a1cfa8ce4af">longest_detectable_gap</a> (size_t read_length) const</td></tr>
+<tr class="memdesc:aee465771aeb2e2767ade0a1cfa8ce4af"><td class="mdescLeft">&#160;</td><td class="mdescRight">The longest gap detectable from any read position without soft-clipping, for a generic read.  <a href="#aee465771aeb2e2767ade0a1cfa8ce4af">More...</a><br /></td></tr>
+<tr class="separator:aee465771aeb2e2767ade0a1cfa8ce4af"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4597bec90e5d9f9e4122ec4dc1592a39"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a4597bec90e5d9f9e4122ec4dc1592a39">score_discontiguous_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const function&lt; size_t(<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, size_t)&gt; &amp;estimate_distance, bool strip_bonuses=false) const</td></tr>
+<tr class="separator:a4597bec90e5d9f9e4122ec4dc1592a39"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaaa352b242e4ac133758e3c49356669e"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#aaaa352b242e4ac133758e3c49356669e">score_contiguous_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool strip_bonuses=false) const</td></tr>
+<tr class="separator:aaaa352b242e4ac133758e3c49356669e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a092c4c915bea1128d93f8f26056d0e84"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a092c4c915bea1128d93f8f26056d0e84">remove_bonuses</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool pinned=false, bool pin_left=false) const</td></tr>
 <tr class="separator:a092c4c915bea1128d93f8f26056d0e84"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1BaseAligner"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1BaseAligner')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1BaseAligner.html">vg::BaseAligner</a></td></tr>
@@ -1127,7 +1130,7 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <a id="a801ffb646287d9a74d990f7ba7a22a09"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a801ffb646287d9a74d990f7ba7a22a09">&#9670;&nbsp;</a></span>longest_detectable_gap() <span class="overload">[1/3]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a801ffb646287d9a74d990f7ba7a22a09">&#9670;&nbsp;</a></span>longest_detectable_gap() <span class="overload">[1/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1157,7 +1160,7 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <a id="a820cb34582e239efb55297b55455e310"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a820cb34582e239efb55297b55455e310">&#9670;&nbsp;</a></span>longest_detectable_gap() <span class="overload">[2/3]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a820cb34582e239efb55297b55455e310">&#9670;&nbsp;</a></span>longest_detectable_gap() <span class="overload">[2/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1187,7 +1190,7 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <a id="adaddff537ae9d455811c45a0c362252f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#adaddff537ae9d455811c45a0c362252f">&#9670;&nbsp;</a></span>longest_detectable_gap() <span class="overload">[3/3]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#adaddff537ae9d455811c45a0c362252f">&#9670;&nbsp;</a></span>longest_detectable_gap() <span class="overload">[3/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1203,6 +1206,26 @@ Protected Member Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>The longest gap detectable from any read position without soft-clipping. </p>
+
+</div>
+</div>
+<a id="aee465771aeb2e2767ade0a1cfa8ce4af"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aee465771aeb2e2767ade0a1cfa8ce4af">&#9670;&nbsp;</a></span>longest_detectable_gap() <span class="overload">[4/4]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t GSSWAligner::longest_detectable_gap </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>read_length</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>The longest gap detectable from any read position without soft-clipping, for a generic read. </p>
 
 </div>
 </div>
@@ -1372,6 +1395,87 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="aaaa352b242e4ac133758e3c49356669e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaaa352b242e4ac133758e3c49356669e">&#9670;&nbsp;</a></span>score_contiguous_alignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t GSSWAligner::score_contiguous_alignment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>strip_bonuses</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Use the score values in the aligner to score the given alignment assuming that there are no gaps between Mappings in the <a class="el" href="structvg_1_1Path.html">Path</a> </p>
+
+</div>
+</div>
+<a id="a4597bec90e5d9f9e4122ec4dc1592a39"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4597bec90e5d9f9e4122ec4dc1592a39">&#9670;&nbsp;</a></span>score_discontiguous_alignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t GSSWAligner::score_discontiguous_alignment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; size_t(<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>estimate_distance</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>strip_bonuses</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Use the score values in the aligner to score the given alignment, scoring gaps caused by jumping between between nodes using a custom gap length estimation function (which takes the from position, the to position, and a search limit in bp that happens to be the read length).</p>
+<p>May include full length bonus or not. TODO: bool flags are bad. </p>
+
+</div>
+</div>
 <a id="ac33af43d7d8d4a3d94a5ef1582c50cc4"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac33af43d7d8d4a3d94a5ef1582c50cc4">&#9670;&nbsp;</a></span>score_exact_match() <span class="overload">[1/3]</span></h2>
 
@@ -1521,50 +1625,6 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="adc2d6f944b926b5ea68c2efafa6148d4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#adc2d6f944b926b5ea68c2efafa6148d4">&#9670;&nbsp;</a></span>score_gappy_alignment()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">int32_t GSSWAligner::score_gappy_alignment </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>aln</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; size_t(<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, size_t)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>estimate_distance</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>strip_bonuses</em> = <code>false</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Use the score values in the aligner to score the given alignment, scoring gaps caused by jumping between between nodes using a custom gap length estimation function (which takes the from position, the to position, and a search limit in bp that happens to be the read length).</p>
-<p>May include full length bonus or not. TODO: bool flags are bad. </p>
-
-</div>
-</div>
 <a id="ab40663f27266555cd2718fca337ac348"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab40663f27266555cd2718fca337ac348">&#9670;&nbsp;</a></span>score_mismatch()</h2>
 
@@ -1609,8 +1669,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a5d843e8415e3080421f75ac6e98c6bd3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5d843e8415e3080421f75ac6e98c6bd3">&#9670;&nbsp;</a></span>score_partial_alignment()</h2>
+<a id="a90edd8f3e5f816377e5391abcafd6457"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a90edd8f3e5f816377e5391abcafd6457">&#9670;&nbsp;</a></span>score_partial_alignment()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1640,7 +1700,13 @@ Protected Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">string::const_iterator&#160;</td>
-          <td class="paramname"><em>seq_begin</em>&#160;</td>
+          <td class="paramname"><em>seq_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>no_read_end_scoring</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1657,7 +1723,7 @@ Protected Member Functions</h2></td></tr>
 
 <p>Compute the score of a path against the given range of subsequence with the given qualities. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#a2ce043fec7e907c811813c8fe99fc759">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a9b1f7b35ee90924622a1e559c0b5252d">vg::Aligner</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#ab614ba226a9fb4aa9132cd2b8032efad">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a1e682385c145db43d9148a981b4ff7dc">vg::Aligner</a>.</p>
 
 </div>
 </div>
@@ -1677,43 +1743,6 @@ Protected Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Convert a score to an unnormalized log likelihood for the sequence. Requires log_base to have been set. </p>
-
-</div>
-</div>
-<a id="af219d7a5a78802188e43979c495ac015"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af219d7a5a78802188e43979c495ac015">&#9670;&nbsp;</a></span>score_ungapped_alignment()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">int32_t GSSWAligner::score_ungapped_alignment </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>aln</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>strip_bonuses</em> = <code>false</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Use the score values in the aligner to score the given alignment assuming that there are no gaps between Mappings in the <a class="el" href="structvg_1_1Path.html">Path</a> </p>
 
 </div>
 </div>

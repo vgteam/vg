@@ -28,6 +28,8 @@ var searchData=
   ['sorted_5fid_5franges_2ehpp',['sorted_id_ranges.hpp',['../sorted__id__ranges_8hpp.html',1,'']]],
   ['source_5fsink_5foverlay_2ecpp',['source_sink_overlay.cpp',['../source__sink__overlay_8cpp.html',1,'']]],
   ['source_5fsink_5foverlay_2ehpp',['source_sink_overlay.hpp',['../source__sink__overlay_8hpp.html',1,'']]],
+  ['splicing_2ecpp',['splicing.cpp',['../splicing_8cpp.html',1,'']]],
+  ['splicing_2ehpp',['splicing.hpp',['../splicing_8hpp.html',1,'']]],
   ['split_5fstrand_5fgraph_2ecpp',['split_strand_graph.cpp',['../split__strand__graph_8cpp.html',1,'']]],
   ['split_5fstrand_5fgraph_2ehpp',['split_strand_graph.hpp',['../split__strand__graph_8hpp.html',1,'']]],
   ['split_5fstrands_2ecpp',['split_strands.cpp',['../split__strands_8cpp.html',1,'']]],

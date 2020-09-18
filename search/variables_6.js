@@ -64,6 +64,8 @@ var searchData=
   ['from_5flength',['from_length',['../structvg_1_1Edit.html#ae9694807752cc5cd06519f498cfba06c',1,'vg::Edit']]],
   ['from_5fnode_5fid',['from_node_id',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#a2084bf098f9ffe829a0de4ca12ae0f3e',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
   ['from_5fstart',['from_start',['../structvg_1_1Edge.html#aadc916440008619a27cdd0c388e8ba86',1,'vg::Edge']]],
+  ['frontier',['frontier',['../classvg_1_1IncrementalSubgraph.html#a1409968c25fe98c00a3b72bec506db6f',1,'vg::IncrementalSubgraph']]],
+  ['frontier_5findex',['frontier_index',['../classvg_1_1IncrementalSubgraph.html#a77b32076a10ba8bd466a1e8c332d11cd',1,'vg::IncrementalSubgraph']]],
   ['full_5flength_5fbonus',['full_length_bonus',['../classvg_1_1GSSWAligner.html#a24ee1a1d5b84c90c7fc77a4b7d8660bd',1,'vg::GSSWAligner']]],
   ['fulltrace',['fullTrace',['../namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2',1,'vg']]],
   ['funnel_5fname',['funnel_name',['../classvg_1_1Funnel.html#aae00e188df16e84d5ecdb12e6ce5d51e',1,'vg::Funnel']]]

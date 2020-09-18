@@ -1,7 +1,7 @@
 var searchData=
 [
   ['dagify_5fsteps',['dagify_steps',['../classvg_1_1Genotyper.html#a384f22f52c2a1f78b7ca613468e2e186',1,'vg::Genotyper']]],
-  ['data',['data',['../classvg_1_1SmallBitset.html#abcef065d7ab95209b8996d1d60969b1f',1,'vg::SmallBitset::data()'],['../structhandlegraph_1_1handle__t.html#a83dd8888c344b33ba7e3ebf8c0b578a9',1,'handlegraph::handle_t::data()'],['../structhandlegraph_1_1path__handle__t.html#a887f73bef5f50884ab956f6cb7b544c0',1,'handlegraph::path_handle_t::data()'],['../structhandlegraph_1_1step__handle__t.html#ad62b1978c001199b0077ea154c350dfe',1,'handlegraph::step_handle_t::data()']]],
+  ['data',['data',['../classvg_1_1SmallBitset.html#abcef065d7ab95209b8996d1d60969b1f',1,'vg::SmallBitset::data()'],['../classvg_1_1SpliceMotifs.html#a8e7e9315aae430fd9d67da056ca1f31b',1,'vg::SpliceMotifs::data()'],['../structhandlegraph_1_1handle__t.html#a83dd8888c344b33ba7e3ebf8c0b578a9',1,'handlegraph::handle_t::data()'],['../structhandlegraph_1_1path__handle__t.html#a887f73bef5f50884ab956f6cb7b544c0',1,'handlegraph::path_handle_t::data()'],['../structhandlegraph_1_1step__handle__t.html#ad62b1978c001199b0077ea154c350dfe',1,'handlegraph::step_handle_t::data()']]],
   ['data_5fwidth',['data_width',['../classvg_1_1Packer.html#a2ebdd5cb535ee0264886e084dbdd00f4',1,'vg::Packer']]],
   ['db',['db',['../classvg_1_1Index.html#a1e594e1678d5644e579e9ea915312cbc',1,'vg::Index']]],
   ['db_5foptions',['db_options',['../classvg_1_1Index.html#ad2dd73cd581069d8718b0d576b7d1961',1,'vg::Index']]],
@@ -31,6 +31,7 @@ var searchData=
   ['depth_5fpadding_5ffactor',['depth_padding_factor',['../classvg_1_1PoissonSupportSnarlCaller.html#a53eec737bc91a46f91161c18ddc26cd7',1,'vg::PoissonSupportSnarlCaller']]],
   ['depths',['depths',['../classvg_1_1DepthMap.html#a141527582d1f3bb5eca852c62289bad5',1,'vg::DepthMap']]],
   ['description',['description',['../classvg_1_1BaseOption.html#a4468cf61e5b31a06929303e91f096f6d',1,'vg::BaseOption::description()'],['../classvg_1_1subcommand_1_1Subcommand.html#ab74ec1dfb7410088f2a0fa0d368a34f9',1,'vg::subcommand::Subcommand::description()']]],
+  ['dinuc_5fmachine',['dinuc_machine',['../classvg_1_1MultipathMapper.html#a4000f9a9d804ef14a51bb48c22029089',1,'vg::MultipathMapper']]],
   ['diploid_5fprior_5flogprob',['diploid_prior_logprob',['../classvg_1_1Genotyper.html#ac748204c3fb19573569172ee57b1d082',1,'vg::Genotyper']]],
   ['directed_5facyclic_5fnet_5fgraph',['directed_acyclic_net_graph',['../structvg_1_1Snarl.html#a6cbd6de509a74e1ac363eb14c679b4de',1,'vg::Snarl']]],
   ['discard_5foverlaps',['discard_overlaps',['../classvg_1_1HaplotypeIndexer.html#a9991b56b5003075a5a072e06e669a3c1',1,'vg::HaplotypeIndexer']]],
@@ -44,6 +45,7 @@ var searchData=
   ['distances',['distances',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a40fc927b0c7ebe7e523950c97cac5ce0',1,'vg::MinimumDistanceIndex::SnarlIndex']]],
   ['do_5fdp',['do_dp',['../classvg_1_1MinimizerMapper.html#a80efe32334434e2121f45d9683e2b53b',1,'vg::MinimizerMapper']]],
   ['do_5fremap',['do_remap',['../classvg_1_1Filter.html#a7c02ec9d43e85148a82acf980728e9ac',1,'vg::Filter']]],
+  ['do_5fspliced_5falignment',['do_spliced_alignment',['../classvg_1_1MultipathMapper.html#a450de2dc7f618164fec361a296be0df3',1,'vg::MultipathMapper']]],
   ['do_5fsvs',['do_svs',['../classvg_1_1Constructor.html#a2e48ae756193c44a889202591a562d18',1,'vg::Constructor']]],
   ['doubling_5fsteps',['doubling_steps',['../classvg_1_1VariantAdder.html#a07970f9f50038e088ef054cde57755af',1,'vg::VariantAdder']]],
   ['downsample_5fprobability',['downsample_probability',['../classvg_1_1ReadFilter.html#af11c0f9ba830e35a5b92a041b0a24ded',1,'vg::ReadFilter']]],

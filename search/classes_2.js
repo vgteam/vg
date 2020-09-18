@@ -14,6 +14,7 @@ var searchData=
   ['configurable',['Configurable',['../classvg_1_1Configurable.html',1,'vg']]],
   ['configurableparser',['ConfigurableParser',['../classvg_1_1ConfigurableParser.html',1,'vg']]],
   ['connection',['Connection',['../structvg_1_1Connection.html',1,'vg']]],
+  ['connection_5ft',['connection_t',['../classvg_1_1connection__t.html',1,'vg']]],
   ['consistencycalculator',['ConsistencyCalculator',['../classvg_1_1ConsistencyCalculator.html',1,'vg']]],
   ['constructedchunk',['ConstructedChunk',['../structvg_1_1ConstructedChunk.html',1,'vg']]],
   ['constructor',['Constructor',['../classvg_1_1Constructor.html',1,'vg']]],

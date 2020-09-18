@@ -64,5 +64,8 @@ var searchData=
   ['extension_5fscore_5fthreshold',['extension_score_threshold',['../classvg_1_1MinimizerMapper.html#adeff081b3c6a83ddfa7f620245b61fd0',1,'vg::MinimizerMapper']]],
   ['extension_5fset_5fscore_5fthreshold',['extension_set_score_threshold',['../classvg_1_1MinimizerMapper.html#ac47b8ebb0479d86727c97e37e7f103ee',1,'vg::MinimizerMapper']]],
   ['extra_5fdata',['extra_data',['../structvg_1_1FeatureSet_1_1Feature.html#ad95acb3def1e4c9b5fa2a590b77e4993',1,'vg::FeatureSet::Feature']]],
-  ['extra_5fmultimaps',['extra_multimaps',['../classvg_1_1Mapper.html#afe9cdcfbff73199e755c5bead44c9674',1,'vg::Mapper']]]
+  ['extra_5fmultimaps',['extra_multimaps',['../classvg_1_1Mapper.html#afe9cdcfbff73199e755c5bead44c9674',1,'vg::Mapper']]],
+  ['extract_5fleft',['extract_left',['../classvg_1_1IncrementalSubgraph.html#a8b93ae511b47d189bdcf996d88f04f9d',1,'vg::IncrementalSubgraph']]],
+  ['extracted',['extracted',['../classvg_1_1IncrementalSubgraph.html#a291c6268f6d2ae0ccb5c9ce6c3d3ba53',1,'vg::IncrementalSubgraph']]],
+  ['extracted_5findex',['extracted_index',['../classvg_1_1IncrementalSubgraph.html#a03e6a015e2c78eb7ba568472c140043a',1,'vg::IncrementalSubgraph']]]
 ];

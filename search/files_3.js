@@ -13,6 +13,8 @@ var searchData=
   ['dfs_2ehpp',['dfs.hpp',['../dfs_8hpp.html',1,'']]],
   ['dijkstra_2ecpp',['dijkstra.cpp',['../dijkstra_8cpp.html',1,'']]],
   ['dijkstra_2ehpp',['dijkstra.hpp',['../dijkstra_8hpp.html',1,'']]],
+  ['dinucleotide_5fmachine_2ecpp',['dinucleotide_machine.cpp',['../dinucleotide__machine_8cpp.html',1,'']]],
+  ['dinucleotide_5fmachine_2ehpp',['dinucleotide_machine.hpp',['../dinucleotide__machine_8hpp.html',1,'']]],
   ['distance_5fto_5fhead_2ecpp',['distance_to_head.cpp',['../distance__to__head_8cpp.html',1,'']]],
   ['distance_5fto_5fhead_2ehpp',['distance_to_head.hpp',['../distance__to__head_8hpp.html',1,'']]],
   ['distance_5fto_5ftail_2ecpp',['distance_to_tail.cpp',['../distance__to__tail_8cpp.html',1,'']]],
