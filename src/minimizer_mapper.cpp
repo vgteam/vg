@@ -2419,7 +2419,7 @@ void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const Handle
                                       const std::vector<handle_t>& topological_order) const {
 
     const Aligner* aligner = this->get_regular_aligner();
-    int32_t score = aligner->score_ungapped_alignment(rescued_alignment);
+    int32_t score = aligner->score_contiguous_alignment(rescued_alignment);
     if (score > 0) {
         rescued_alignment.set_score(score);
     } else {

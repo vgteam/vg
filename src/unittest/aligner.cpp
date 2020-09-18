@@ -361,9 +361,9 @@ TEST_CASE("Full-length bonus is applied to both ends by rescoring", "[aligner][a
     REQUIRE(!softclip_end(aln));
 
     // Normal score would be 129
-    REQUIRE(aligner2.score_ungapped_alignment(aln) == 129);
+    REQUIRE(aligner2.score_contiguous_alignment(aln) == 129);
     // And with a full length bonus at each end it's 139.
-    REQUIRE(aligner1.score_ungapped_alignment(aln) == 139);
+    REQUIRE(aligner1.score_contiguous_alignment(aln) == 139);
 }
 
 TEST_CASE("GSSWAligner mapping quality estimation is robust", "[aligner][alignment][mapping][mapq]") {
