@@ -1607,6 +1607,12 @@ int main_mpmap(int argc, char** argv) {
         
     }
     
+    // this also takes a while inside the MultipathMapper constructor, but it will only activate if we don't
+    // have a distance index available for oriented distance calculations
+    if (!suppress_progress && distance_index_name.empty() && path_handle_graph->get_path_count() > 0) {
+        cerr << progress_boilerplate() << "Labeling embedded paths by their connected component" << endl;
+    }
+    
     MultipathMapper multipath_mapper(path_position_handle_graph, gcsa_index.get(), lcp_array.get(), haplo_score_provider,
         snarl_manager.get(), distance_index.get());
     

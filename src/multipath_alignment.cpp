@@ -13,7 +13,6 @@
 //#define debug_search
 //#define debug_trace
 //#define debug_verbose_validation
-//#define debug_from_hit
 
 using namespace std;
 using namespace structures;

@@ -573,7 +573,7 @@ namespace vg {
         SpliceMotifs splice_motifs;
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
-        PathComponentIndex path_component_index;
+        PathComponentIndex* path_component_index = nullptr;
         
         /// Memos used by population model
         static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;

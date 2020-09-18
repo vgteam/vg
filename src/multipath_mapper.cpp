@@ -29,14 +29,14 @@ namespace vg {
         BaseMapper(graph, gcsa_index, lcp_array, haplo_score_provider),
         snarl_manager(snarl_manager),
         distance_index(distance_index),
-        path_component_index(graph),
+        path_component_index(distance_index ? new PathComponentIndex(graph) : nullptr),
         splice_motifs(*get_regular_aligner())
     {
         // nothing to do
     }
 
     MultipathMapper::~MultipathMapper() {
-        
+        delete path_component_index;
     }
     
     void MultipathMapper::multipath_map(const Alignment& alignment,
@@ -88,7 +88,7 @@ namespace vg {
             cerr << "using a path-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
             distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
-                                                                                                      &path_component_index));
+                                                                                                      path_component_index));
         }
         
         vector<memcluster_t> clusters = get_clusters(alignment, mems, &(*distance_measurer), fanouts.get());
@@ -427,9 +427,9 @@ namespace vg {
         }
         
         return clusterer->pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
-                                       alt_anchors_1, alt_anchors_2,
-                                       fragment_length_distr.mean(),
-                                       ceil(10.0 * fragment_length_distr.std_dev()));
+                                        alt_anchors_1, alt_anchors_2,
+                                        fragment_length_distr.mean(),
+                                        ceil(10.0 * fragment_length_distr.std_dev()));
     }
     
     void MultipathMapper::align_to_cluster_graphs(const Alignment& alignment,
@@ -1755,7 +1755,7 @@ namespace vg {
             cerr << "using a path-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
             distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
-                                                                                                      &path_component_index));
+                                                                                                      path_component_index));
         }
         
 #ifdef debug_multipath_mapper
@@ -2617,6 +2617,7 @@ namespace vg {
                                                                vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates_out) const {
         
         for (size_t i = 0; i < cluster_graphs.size(); ++i) {
+            
             if (clusters_already_used.count(i)) {
                 continue;
             }

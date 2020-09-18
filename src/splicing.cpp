@@ -14,7 +14,7 @@
 //#define debug_linker_split
 
 #ifdef debug_splice_region
-#import <bitset>
+#include <bitset>
 #endif
 
 namespace vg {
@@ -1110,7 +1110,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         for (auto n : left_mp_aln.subpath(i).next()) {
             left_to_length[n] = left_to_length[i] + to_len;
         }
-        for (auto connection : left_mp_aln.subpath(i).connection()) {
+        for (const auto& connection : left_mp_aln.subpath(i).connection()) {
             left_to_length[connection.next()] = left_to_length[i] + to_len;
         }
         
@@ -1245,7 +1245,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         for (auto n : right_mp_aln.subpath(i).next()) {
             right_to_length[n] = right_to_length[i] + to_len;
         }
-        for (auto connection : right_mp_aln.subpath(i).connection()) {
+        for (const auto& connection : right_mp_aln.subpath(i).connection()) {
             right_to_length[connection.next()] = right_to_length[i] + to_len;
         }
     }
