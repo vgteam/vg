@@ -218,7 +218,7 @@ int main_surject(int argc, char** argv) {
             });
     }
 
-    // Make a single therad-safe Surjector.
+    // Make a single thread-safe Surjector.
     Surjector surjector(xgidx);
     surjector.adjust_alignments_for_base_quality = qual_adj;
     
