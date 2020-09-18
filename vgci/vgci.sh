@@ -295,6 +295,21 @@ then
     docker load -i "${LOAD_DOCKER}"
 fi
 
+# Create Toil venv
+if [ ! "${REUSE_VENV}" == "1" ]; then
+    rm -rf .env
+fi
+if [ ! -e .env ]; then
+    virtualenv --python=python3.6  .env
+fi
+. .env/bin/activate
+
+# Upgrade pip so that it can use the wheels for numpy & scipy, so that they
+# don't try to build from source
+pip install --upgrade pip setuptools==45.0.0
+pip install awscli
+pip install s3am
+
 if [ "${DO_TEST}" != "0" ]
 then
 
@@ -303,29 +318,6 @@ then
     #########
     # TEST PREP PHASE
     #########
-
-    # Make sure we have the aws command. We only need it in this case.
-    mkdir -p bin
-
-    # Create awscli venv
-    if [ ! "${REUSE_VENV}" == "1" ]; then
-        rm -rf awscli
-    fi
-    if [ ! -e awscli ]; then
-        virtualenv --python=python3.6 --never-download awscli && awscli/bin/pip install awscli
-    fi
-    # Expose binaries to the PATH
-    ln -snf ${PWD}/awscli/bin/aws bin/
-    export PATH=$PATH:${PWD}/bin
-
-    # Create Toil venv
-    if [ ! "${REUSE_VENV}" == "1" ]; then
-        rm -rf .env
-    fi
-    if [ ! -e .env ]; then
-        virtualenv --python=python3.6  .env
-    fi
-    . .env/bin/activate
 
     # Prepare directory for temp files (assuming cgcloud file structure)
     # Sometimes the instances have un-deletable files in tmp, so we continue through errors
@@ -336,10 +328,6 @@ then
          mkdir -p $TMPDIR
          export TMPDIR
     fi
-
-    # Upgrade pip so that it can use the wheels for numpy & scipy, so that they
-    # don't try to build from source
-    pip install --upgrade pip setuptools==45.0.0
 
     # Dependencies for running tests.  Need numpy, scipy and sklearn
     # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
@@ -454,42 +442,9 @@ then
     #########
     # REPORT PREP PHASE
     #########
-    
-    # We need a local bin directory to put on our path.
-    # The vg build makes this but we may not have run it.
-    mkdir -p bin
-    
-    if [ "${DO_TEST}" == "0" ]; then
-        # We didn't get this installed already from the test prep phase.
-    
-        # Create awscli venv
-        if [ ! "${REUSE_VENV}" == "1" ]; then
-            rm -rf awscli
-        fi
-        if [ ! -e awscli ]; then
-            virtualenv --python=python3.6 --never-download awscli && awscli/bin/pip install awscli
-        fi
-        # Expose binaries to the PATH
-        ln -snf ${PWD}/awscli/bin/aws bin/
-        export PATH=$PATH:${PWD}/bin
-        
-    fi
 
-    # Create s3am venv
-    if [ ! "${REUSE_VENV}" == "1" ]; then
-        rm -rf s3am
-    fi
-    if [ ! -e s3am ]; then
-        virtualenv --python=python3.6 --never-download s3am && s3am/bin/pip install s3am==2.0
-    fi
-    mkdir -p bin
-    # Expose binaries to the PATH
-    ln -snf ${PWD}/s3am/bin/s3am bin/
-    export PATH=$PATH:${PWD}/bin
-    
-    # Make sure we have pygithub available
     pip install pygithub
-
+    
     #########
     # REPORT PHASE
     #########
@@ -559,20 +514,7 @@ then
                 REPORT_FAIL=1
             fi
         fi
-    fi
-    
-    #########
-    # REPORT CLEANUP PHASE
-    #########
-    
-    # clean up changes to bin
-    # Don't disturb bin/protoc or vg will want to rebuild protobuf needlessly 
-    rm bin/aws bin/s3am
-
-    if [ ! "${REUSE_VENV}" == "1" ]; then
-        rm -rf awscli s3am
-    fi
-    
+    fi    
 fi
 
 # General cleanup of test stuff we may have had to keep for the report
