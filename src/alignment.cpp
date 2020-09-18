@@ -1021,9 +1021,49 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
         flag |= BAM_FSECONDARY;
     }
     
-    
-    
     return flag;
+}
+
+int32_t determine_flag(const multipath_alignment_t& mp_aln,
+                       const string& ref_seq_name,
+                       const int32_t ref_offset,
+                       bool ref_rev,
+                       bool paired,
+                       const string& mate_ref_seq,
+                       const int32_t mate_ref_offset,
+                       bool mate_ref_rev,
+                       const int32_t tlen,
+                       const int32_t tlen_max) {
+    
+    if (!((bool)(flags & BAM_FUNMAP)) && paired && !refseq.empty() && refseq == mateseq) {
+        // Properly paired if both mates mapped to same sequence, in inward-facing orientations.
+        // We know they're on the same sequence, so check orientation.
+        
+        // TODO: this logic won't work for spliced reads
+        
+        // If we are first, mate needs to be reverse, and if mate is first, we need to be reverse.
+        // If we are at the same position either way is fine.
+        bool facing = ((refpos <= matepos) && !refrev && materev) || ((matepos <= refpos) && refrev && !materev);
+        
+        // We are close enough if there is not tlen limit, or if there is one and we do not exceed it
+        bool close_enough = (tlen_max == 0) || abs(tlen) <= tlen_max;
+        
+        if (facing && close_enough) {
+            // We can't find anything wrong with this pair; it's properly paired.
+            flags |= BAM_FPROPER_PAIR;
+        }
+    }
+    
+    if (paired && mateseq.empty()) {
+        // Set the flag for the mate being unmapped
+        flags |= BAM_FMUNMAP;
+    }
+    
+    if (paired && materev) {
+        // Set the flag for the mate being reversed
+        flags |= BAM_FMREVERSE;
+    }
+    
 }
 
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh,
