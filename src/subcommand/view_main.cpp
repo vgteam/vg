@@ -962,7 +962,7 @@ int main_view(int argc, char** argv) {
         vg_graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
         vg_graph->serialize_to_ostream(cout);
-    } else {
+    } else if (output_type != "gfa") {
         // We somehow got here with a bad output format.
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
         return 1;
