@@ -113,6 +113,8 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memitem:acf75c4c7a16e406f9bb860e3f0c7dae9"><td class="memItemLeft" align="right" valign="top">static pair&lt; <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">ProtobufIterator</a>&lt; T &gt;, <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">ProtobufIterator</a>&lt; T &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#acf75c4c7a16e406f9bb860e3f0c7dae9">range</a> (istream &amp;in)</td></tr>
 <tr class="memdesc:acf75c4c7a16e406f9bb860e3f0c7dae9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns iterators that act like begin() and end() for a stream containing messages.  <a href="#acf75c4c7a16e406f9bb860e3f0c7dae9">More...</a><br /></td></tr>
 <tr class="separator:acf75c4c7a16e406f9bb860e3f0c7dae9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab37e50d3f1375c13a223a79938d5094d"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#ab37e50d3f1375c13a223a79938d5094d">parse_from_string</a> (T &amp;dest, const string &amp;data)</td></tr>
+<tr class="separator:ab37e50d3f1375c13a223a79938d5094d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -355,6 +357,46 @@ template&lt;typename T &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Check if two iterators are equal. Since you can only have one on a stream, this only has two equality classes: iterators that have hit the end, and iterators that haven't. </p>
+
+</div>
+</div>
+<a id="ab37e50d3f1375c13a223a79938d5094d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab37e50d3f1375c13a223a79938d5094d">&#9670;&nbsp;</a></span>parse_from_string()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">auto <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">vg::io::ProtobufIterator</a>&lt; T &gt;::parse_from_string </td>
+          <td>(</td>
+          <td class="paramtype">T &amp;&#160;</td>
+          <td class="paramname"><em>dest</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>data</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Parse a Protobuf message that may be very large from a string. Use this instead of ParseFromString on the message itself.</p>
+<p>Returns the result of the parse attempt (i.e. whether it succeeded). </p>
 
 </div>
 </div>
