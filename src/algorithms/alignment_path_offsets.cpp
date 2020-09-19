@@ -140,6 +140,12 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
                 next_coverings.insert(path_handle);
             }
         }
+        for (const auto& c : mp_aln.subpath(i).connection()) {
+            auto& next_coverings = covered_fwd[c.next()];
+            for (auto path_handle : covered_fwd[i]) {
+                next_coverings.insert(path_handle);
+            }
+        }
     }
     
     // now do a backward pass for the reverse strand of paths
@@ -147,6 +153,11 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
         // find which paths are already covered in the reverse
         for (auto n : mp_aln.subpath(i).next()) {
             for (auto path_handle : covered_rev[n]) {
+                covered_rev[i].insert(path_handle);
+            }
+        }
+        for (const auto& c : mp_aln.subpath(i).connection()) {
+            for (auto path_handle : covered_rev[c.next()]) {
                 covered_rev[i].insert(path_handle);
             }
         }
