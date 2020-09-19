@@ -6,6 +6,7 @@ var searchData=
   ['warn_5fon_5flowercase',['warn_on_lowercase',['../classvg_1_1Constructor.html#a9da8d803e6e0c0be942ca2ecc35e9267',1,'vg::Constructor']]],
   ['warn_5fon_5fmissing_5fvariants',['warn_on_missing_variants',['../classvg_1_1HaplotypeIndexer.html#afb3592792a7d781cb6e88fe7949b7bfe',1,'vg::HaplotypeIndexer']]],
   ['warn_5fon_5fscore_5ffail',['warn_on_score_fail',['../namespacehaplo.html#ab22b0954ba9062360178078ce504f1c2',1,'haplo']]],
+  ['warned_5fabout_5fbad_5fdistribution',['warned_about_bad_distribution',['../classvg_1_1MinimizerMapper.html#a3915618267605133f2e9144c693e68e5',1,'vg::MinimizerMapper']]],
   ['warned_5fabout_5frewrites',['warned_about_rewrites',['../classvg_1_1VG.html#a8f0519dc706937b8b593f803f3d8eac4',1,'vg::VG']]],
   ['watcher',['watcher',['../classvg_1_1Watchdog.html#a39ef2d296adea6283596aadd48457e02',1,'vg::Watchdog']]],
   ['weight',['weight',['../classvg_1_1MEMChainModelVertex.html#ad73c85aeb85dde48dd3201260720956b',1,'vg::MEMChainModelVertex::weight()'],['../classvg_1_1MEMClusterer_1_1HitEdge.html#a5e9984583bd37a31e8b172fea582e6fd',1,'vg::MEMClusterer::HitEdge::weight()'],['../classvg_1_1AlignmentChainModelVertex.html#a874c1b3121234990ab1c1519921b9c6c',1,'vg::AlignmentChainModelVertex::weight()']]],

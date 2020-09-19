@@ -23,6 +23,7 @@ var searchData=
   ['warn_5fon_5flowercase',['warn_on_lowercase',['../classvg_1_1Constructor.html#a9da8d803e6e0c0be942ca2ecc35e9267',1,'vg::Constructor']]],
   ['warn_5fon_5fmissing_5fvariants',['warn_on_missing_variants',['../classvg_1_1HaplotypeIndexer.html#afb3592792a7d781cb6e88fe7949b7bfe',1,'vg::HaplotypeIndexer']]],
   ['warn_5fon_5fscore_5ffail',['warn_on_score_fail',['../namespacehaplo.html#ab22b0954ba9062360178078ce504f1c2',1,'haplo']]],
+  ['warned_5fabout_5fbad_5fdistribution',['warned_about_bad_distribution',['../classvg_1_1MinimizerMapper.html#a3915618267605133f2e9144c693e68e5',1,'vg::MinimizerMapper']]],
   ['warned_5fabout_5frewrites',['warned_about_rewrites',['../classvg_1_1VG.html#a8f0519dc706937b8b593f803f3d8eac4',1,'vg::VG']]],
   ['was_5fcorrect',['was_correct',['../classvg_1_1Funnel.html#aac71f37530afee1b7e49770aff8cc53b',1,'vg::Funnel']]],
   ['watchdog',['Watchdog',['../classvg_1_1Watchdog.html',1,'vg::Watchdog'],['../classvg_1_1Watchdog.html#a87e679ecbb8461ae6a26a1958216629b',1,'vg::Watchdog::Watchdog(size_t thread_count, const duration &amp;timeout)'],['../classvg_1_1Watchdog.html#a2934cc5c1fc3b7d0ab20343e6bde1a56',1,'vg::Watchdog::Watchdog(const Watchdog &amp;other)=delete'],['../classvg_1_1Watchdog.html#a73aa9888b0017ed46053c75c085f2748',1,'vg::Watchdog::Watchdog(Watchdog &amp;&amp;other)=delete']]],
