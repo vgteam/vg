@@ -6,6 +6,7 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <vg/io/protobuf_emitter.hpp>
+#include <gbwt/gbwt.h>
 #include "../region.hpp"
 #include "../stream_index.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
@@ -43,6 +44,7 @@ void help_find(char** argv) {
          << "    -W, --save-to PREFIX   instead of writing target subgraphs to stdout," << endl
          << "                           write one per given target to a separate file named PREFIX[path]:[start]-[end].vg" << endl
          << "    -K, --subgraph-k K     instead of graphs, write kmers from the subgraphs" << endl
+         << "    -H, --gbwt FILE        when enumerating kmers from subgraphs, determine their frequencies in this GBWT haplotype index" << endl
          << "alignments:" << endl
          << "    -d, --db-name DIR      use this RocksDB database to retrieve alignments" << endl
          << "    -l, --sorted-gam FILE  use this sorted, indexed GAM file" << endl
@@ -116,6 +118,7 @@ int main_find(int argc, char** argv) {
     string bed_targets_file;
     string save_to_prefix;
     int subgraph_k = 0;
+    string gbwt_name;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -159,11 +162,12 @@ int main_find(int argc, char** argv) {
                 {"paths-named", required_argument, 0, 'Q'},
                 {"list-paths", no_argument, 0, 'I'},
                 {"subgraph-k", required_argument, 0, 'K'},
+                {"gbwt", required_argument, 0, 'H'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:B:fDG:N:A:Y:Z:IQ:ER:W:K:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:B:fDG:N:A:Y:Z:IQ:ER:W:K:H:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -319,6 +323,10 @@ int main_find(int argc, char** argv) {
             subgraph_k = atoi(optarg);
             break;
 
+        case 'H':
+            gbwt_name = optarg;
+            break;
+
         case 'h':
         case '?':
             help_find(argv);
@@ -379,6 +387,18 @@ int main_find(int argc, char** argv) {
     if (!xg_name.empty()) {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         xindex = overlay_helper.apply(path_handle_graph.get());
+    }
+
+    unique_ptr<gbwt::GBWT> gbwt_index;
+    if (!gbwt_name.empty()) {
+        // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
+        // Load the GBWT from its container
+        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name.c_str());
+        if (gbwt_index.get() == nullptr) {
+            // Complain if we couldn't.
+            cerr << "error:[vg find] unable to load gbwt index file" << endl;
+            return 1;
+        }
     }
     
     unique_ptr<GAMIndex> gam_index;
@@ -654,54 +674,64 @@ int main_find(int argc, char** argv) {
                     graph = empty;
                 }
                 if (subgraph_k) {
-		    prep_graph(); // don't forget to prep the graph, or the kmer set will be wrong[
+                    prep_graph(); // don't forget to prep the graph, or the kmer set will be wrong[
                     // enumerate the kmers, calculating including their start positions relative to the reference
                     // and write to stdout?
-		    algorithms::for_each_walk(
-			graph, subgraph_k, 0,
-			[&](const algorithms::walk_t& walk) {
-			    // get the reference-relative position
-			    string start_str, end_str;
-			    for (auto& p : algorithms::nearest_offsets_in_paths(xindex, walk.begin, subgraph_k*2)) {
-				const uint64_t& start_p = p.second.front().first;
-				const bool& start_rev = p.second.front().second;
-				if (p.first == path_handle && (!start_rev && start_p >= target.start || start_rev && start_p <= target.end)) {
-				    start_str = target.seq + ":" + std::to_string(start_p) + (p.second.front().second ? "-" : "+");
-				}
-			    }
-			    for (auto& p : algorithms::nearest_offsets_in_paths(xindex, walk.end, subgraph_k*2)) {
-				const uint64_t& end_p = p.second.front().first;
-				const bool& end_rev = p.second.front().second;
-				if (p.first == path_handle && (!end_rev && end_p <= target.end || end_rev && end_p >= target.start)) {
-				    end_str = target.seq + ":" + std::to_string(end_p) + (p.second.front().second ? "-" : "+");
-				}
-			    }
-			    if (!start_str.empty() && !end_str.empty()) {
-				stringstream ss;
-				ss << target.seq << ":" << target.start << "-" << target.end << "\t"
-				   << walk.seq << "\t" << start_str << "\t" << end_str << "\t";
-				uint64_t on_path = 0;
-				for (auto& h : walk.path) {
-				    xindex->for_each_step_on_handle(xindex->get_handle(graph.get_id(h), graph.get_is_reverse(h)),
-				        [&](const step_handle_t& step) {
-					    if (xindex->get_path_handle_of_step(step) == path_handle) {
-						++on_path;
-					    }
-					});
-				}
-				if (on_path == walk.path.size()) {
-				    ss << "ref" << "\t";
-				} else {
-				    ss << "non.ref" << "\t";
-				}
-				for (auto& h : walk.path) {
-				    ss << graph.get_id(h) << (graph.get_is_reverse(h)?"-":"+") << ",";
-				}
-				// write our record
+                    bool use_gbwt = false;
+                    if (!gbwt_name.empty()) {
+                        use_gbwt = true;
+                    }
+                    algorithms::for_each_walk(
+                        graph, subgraph_k, 0,
+                        [&](const algorithms::walk_t& walk) {
+                            // get the reference-relative position
+                            string start_str, end_str;
+                            for (auto& p : algorithms::nearest_offsets_in_paths(xindex, walk.begin, subgraph_k*2)) {
+                                const uint64_t& start_p = p.second.front().first;
+                                const bool& start_rev = p.second.front().second;
+                                if (p.first == path_handle && (!start_rev && start_p >= target.start || start_rev && start_p <= target.end)) {
+                                    start_str = target.seq + ":" + std::to_string(start_p) + (p.second.front().second ? "-" : "+");
+                                }
+                            }
+                            for (auto& p : algorithms::nearest_offsets_in_paths(xindex, walk.end, subgraph_k*2)) {
+                                const uint64_t& end_p = p.second.front().first;
+                                const bool& end_rev = p.second.front().second;
+                                if (p.first == path_handle && (!end_rev && end_p <= target.end || end_rev && end_p >= target.start)) {
+                                    end_str = target.seq + ":" + std::to_string(end_p) + (p.second.front().second ? "-" : "+");
+                                }
+                            }
+                            if (!start_str.empty() && !end_str.empty()) {
+                                stringstream ss;
+                                ss << target.seq << ":" << target.start << "-" << target.end << "\t"
+                                   << walk.seq << "\t" << start_str << "\t" << end_str << "\t";
+                                uint64_t on_path = 0;
+                                for (auto& h : walk.path) {
+                                    xindex->for_each_step_on_handle(xindex->get_handle(graph.get_id(h), graph.get_is_reverse(h)),
+                                                                    [&](const step_handle_t& step) {
+                                                                        if (xindex->get_path_handle_of_step(step) == path_handle) {
+                                                                            ++on_path;
+                                                                        }
+                                                                    });
+                                }
+                                // get haplotype frequency
+                                if (use_gbwt) {
+                                    ss << walk_haplotype_frequency(graph, *gbwt_index, walk) << "\t";
+                                } else {
+                                    ss << 0 << "\t";
+                                }
+                                if (on_path == walk.path.size()) {
+                                    ss << "ref" << "\t";
+                                } else {
+                                    ss << "non.ref" << "\t";
+                                }
+                                for (auto& h : walk.path) {
+                                    ss << graph.get_id(h) << (graph.get_is_reverse(h)?"-":"+") << ",";
+                                }
+                                // write our record
 #pragma omp critical (cout)
-				cout << ss.str() << std::endl;
-			    }
-			});
+                                cout << ss.str() << std::endl;
+                            }
+                        });
                 }
             }
             if (save_to_prefix.empty() && !subgraph_k) {

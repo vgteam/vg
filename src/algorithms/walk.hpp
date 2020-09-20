@@ -5,6 +5,7 @@
 #include <list>
 #include <handlegraph/util.hpp>
 #include <handlegraph/handle_graph.hpp>
+#include <gbwt/gbwt.h>
 #include "position.hpp"
 
 /** \file 
@@ -39,9 +40,13 @@ struct walk_t {
 /// Iterate over all the walks in the graph, running lambda on each
 void for_each_walk(const HandleGraph& graph, size_t k, size_t edge_max,
                    const std::function<void(const walk_t&)>& lambda);
-    
+
 /// Print a walk_t to a stream.
 std::ostream& operator<<(std::ostream& out, const walk_t& walk);
+
+uint64_t walk_haplotype_frequency(const HandleGraph& graph,
+                                  const gbwt::GBWT& haplotypes,
+                                  const walk_t& walk);
 
 }
 

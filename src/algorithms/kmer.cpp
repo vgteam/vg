@@ -50,10 +50,6 @@ void for_each_kmer(const HandleGraph& graph, size_t k, size_t edge_max,
                         auto& kmer = *q;
                         // did we reach our target length?
                         if (kmer.seq.size() == k) {
-                            // TODO here check if we are at the beginning of the reverse head or the beginning of the forward tail and would need special handling
-                            // establish the context
-                            handle_t end_handle = graph.get_handle(id(kmer.end), is_rev(kmer.end));
-                            size_t end_length = graph.get_length(end_handle);
                             // now pass the kmer to our callback
                             lambda(kmer);
                             q = kmers.erase(q);
