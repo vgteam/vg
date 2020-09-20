@@ -1166,9 +1166,12 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
             }
             size_t connections_removed_so_far = 0;
             for (size_t j = 0; j < subpath->connection_size(); ++j) {
-                if (to_keep_left[subpath->connection(j).next()]) {
-                    auto connection =  subpath->mutable_connection(j - connections_removed_so_far);
-                    connection->set_next(connection->next() - left_removed_so_far[subpath->next(j)]);
+                auto connection = subpath->mutable_connection(j);
+                if (to_keep_left[connection->next()]) {
+                    connection->set_next(connection->next() - left_removed_so_far[connection->next()]);
+                    if (connections_removed_so_far) {
+                        *subpath->mutable_connection(j - connections_removed_so_far) = *connection;
+                    }
                 }
                 else {
                     ++connections_removed_so_far;
@@ -1372,9 +1375,12 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         }
         size_t connections_removed_so_far = 0;
         for (size_t j = 0; j < subpath->connection_size(); ++j) {
-            if (to_keep_right[subpath->connection(j).next()]) {
-                auto connection =  subpath->mutable_connection(j - connections_removed_so_far);
-                connection->set_next(connection->next() - left_removed_so_far[subpath->next(j)]);
+            auto connection = subpath->mutable_connection(j);
+            if (to_keep_right[connection->next()]) {
+                connection->set_next(connection->next() - right_removed_so_far[connection->next()]);
+                if (connections_removed_so_far) {
+                    *subpath->mutable_connection(j - connections_removed_so_far) = *connection;
+                }
             }
             else {
                 ++connections_removed_so_far;
