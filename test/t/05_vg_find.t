@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 28
+plan tests 29
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -114,3 +114,9 @@ is $((vg view q.x:10:20.vg; vg view q.x:30:35.vg) | md5sum | cut -f 1 -d\ ) $((v
 is $(vg find -x t.xg -E -p x:30-35 -p x:10-20 -K 5 | wc -l) 36 "we see the expected number of kmers in the given targets"
 
 rm -f t.xg t.vg t.x:30:35.vg t.x:10:20.vg q.x:30:35.vg q.x:10:20.vg t.bed
+
+vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
+vg index -x x.xg x.vg
+vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
+is $(vg find -p x -x x.xg -K 16 -H x.gbwt | cut -f 5 | sort | uniq -c  | tail -n 1 | awk '{ print $1 }') 1510 "we find the expected number of kmers with haplotype frequency equal to 2"
+rm -f x.vg x.xg x.gbwt
