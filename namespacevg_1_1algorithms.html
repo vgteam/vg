@@ -354,6 +354,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a58ec8c8d09fde1a6e83194ec7126ed4e"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a58ec8c8d09fde1a6e83194ec7126ed4e">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="structvg_1_1algorithms_1_1walk__t.html">walk_t</a> &amp;walk)</td></tr>
 <tr class="memdesc:a58ec8c8d09fde1a6e83194ec7126ed4e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print a <a class="el" href="structvg_1_1algorithms_1_1walk__t.html" title="Stores a walk in the context of a graph. ">walk_t</a> to a stream.  <a href="#a58ec8c8d09fde1a6e83194ec7126ed4e">More...</a><br /></td></tr>
 <tr class="separator:a58ec8c8d09fde1a6e83194ec7126ed4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4af5e9c480c0dc7d0843cf981cd52c32"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4af5e9c480c0dc7d0843cf981cd52c32">walk_haplotype_frequency</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const gbwt::GBWT &amp;haplotypes, const <a class="el" href="structvg_1_1algorithms_1_1walk__t.html">walk_t</a> &amp;walk)</td></tr>
+<tr class="separator:a4af5e9c480c0dc7d0843cf981cd52c32"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae13c2a04aecdef0d297ded53e50b40c6"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae13c2a04aecdef0d297ded53e50b40c6">weakly_connected_components</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
 <tr class="separator:ae13c2a04aecdef0d297ded53e50b40c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4c84b28abde266a1496f63d497e02c04"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;, vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4c84b28abde266a1496f63d497e02c04">weakly_connected_components_with_tips</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
@@ -4516,6 +4518,40 @@ template&lt;typename TECCNode &gt; </div>
           <td class="paramtype">const gfak::edge_elem &amp;&#160;</td>
           <td class="paramname"><em>e</em></td><td>)</td>
           <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a4af5e9c480c0dc7d0843cf981cd52c32"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4af5e9c480c0dc7d0843cf981cd52c32">&#9670;&nbsp;</a></span>walk_haplotype_frequency()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint64_t vg::algorithms::walk_haplotype_frequency </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>haplotypes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1algorithms_1_1walk__t.html">walk_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>walk</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">

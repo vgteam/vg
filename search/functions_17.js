@@ -3,6 +3,7 @@ var searchData=
   ['wabbitize',['wabbitize',['../classVectorizer.html#ae4c3627b5c8ec7b066f5735ca6dfb3f1',1,'Vectorizer']]],
   ['walk_5fbackwards',['walk_backwards',['../classvg_1_1NGSSimulator.html#a6bfb28e81523fe792596f8b3a65e1f67',1,'vg::NGSSimulator']]],
   ['walk_5ffanout_5fpath',['walk_fanout_path',['../classvg_1_1BaseMapper.html#ad52deed127976201bd63b32929b71491',1,'vg::BaseMapper']]],
+  ['walk_5fhaplotype_5ffrequency',['walk_haplotype_frequency',['../namespacevg_1_1algorithms.html#a4af5e9c480c0dc7d0843cf981cd52c32',1,'vg::algorithms']]],
   ['walk_5ft',['walk_t',['../structvg_1_1walk__t.html#ad7a131cb934419dc90103ce2483fc02b',1,'vg::walk_t::walk_t()'],['../structvg_1_1algorithms_1_1walk__t.html#af8c4463befc5bb6cec73b3e493acf545',1,'vg::algorithms::walk_t::walk_t()']]],
   ['wang_5fhash_5f64',['wang_hash_64',['../namespacevg.html#a38d35bca25e8a6d5fe10f603cb9048c3',1,'vg']]],
   ['want_5fbreakpoint',['want_breakpoint',['../classvg_1_1io_1_1StreamMultiplexer.html#ac0698f3b6387ce47f4e9d5b2929d6cf4',1,'vg::io::StreamMultiplexer']]],
