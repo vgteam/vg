@@ -60,6 +60,7 @@ var searchData=
   ['contig',['contig',['../structvg_1_1BREAKPOINT.html#a8daffa4f64b5d59660eb3b3b00de7d0a',1,'vg::BREAKPOINT']]],
   ['control_5fmean',['control_mean',['../structvg_1_1BenchmarkResult.html#a54072b6e4cb8401a4784e9e20b3ca6de',1,'vg::BenchmarkResult']]],
   ['control_5fstddev',['control_stddev',['../structvg_1_1BenchmarkResult.html#ac6db5580a02c1860981365245812304e',1,'vg::BenchmarkResult']]],
+  ['coordinates',['coordinates',['../structvg_1_1Exon.html#a845cd3e89b345eeeba6177c6cdbf202a',1,'vg::Exon']]],
   ['correct',['correct',['../structvg_1_1Funnel_1_1Item.html#aed70406f40053fdaec6147a350fe2f0f',1,'vg::Funnel::Item::correct()'],['../structvg_1_1Alignment.html#a07751b50cfb9c985fccc2c701bfc55fc',1,'vg::Alignment::correct()']]],
   ['correctly_5fmapped',['correctly_mapped',['../structvg_1_1Alignment.html#a9ec303e39d844ec1e6289ddfbcdd7911',1,'vg::Alignment']]],
   ['count',['count',['../classbdsg_1_1HashGraph_1_1path__t.html#a48835a47f90df7a74d1f37b0662e83e8',1,'bdsg::HashGraph::path_t']]],

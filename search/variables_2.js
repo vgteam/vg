@@ -40,6 +40,8 @@ var searchData=
   ['bits',['bits',['../classvg_1_1BitString.html#a42e6375ac0a96473ebe1884625732419',1,'vg::BitString']]],
   ['block_5flength',['block_length',['../structgafkluge_1_1GafRecord.html#a7db887c2322105fed3d1a6cf5251a4b8',1,'gafkluge::GafRecord']]],
   ['border',['border',['../classvg_1_1PhaseUnfolder.html#a29ec1d4e6557b27c4f92c0280c80b90a',1,'vg::PhaseUnfolder']]],
+  ['border_5foffsets',['border_offsets',['../structvg_1_1Exon.html#a8795bd3f2b1e61bb0566258c071668b7',1,'vg::Exon']]],
+  ['border_5fsteps',['border_steps',['../structvg_1_1Exon.html#a5bf97d169b75ac1c1d3ef1dd216da4a6',1,'vg::Exon']]],
   ['bottom',['bottom',['../structhaplo_1_1int__itvl__t.html#a9124b7f6c7e637788d1a72b54ac1b7dc',1,'haplo::int_itvl_t']]],
   ['bottom_5fdiag',['bottom_diag',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a9814adda35066d761c279d543a2493a2',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['buf',['buf',['../classvg_1_1io_1_1fdostream.html#a29e1c13616b7f681cc118a0f87cf41f3',1,'vg::io::fdostream::buf()'],['../classvg_1_1io_1_1fdistream.html#ac2350f53e295903da182147ae46bc5f9',1,'vg::io::fdistream::buf()']]],

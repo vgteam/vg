@@ -8,6 +8,7 @@ var searchData=
   ['editedtranscriptpath',['EditedTranscriptPath',['../structvg_1_1EditedTranscriptPath.html',1,'vg']]],
   ['endianness',['endianness',['../structvg_1_1endianness.html',1,'vg']]],
   ['exhaustivetraversalfinder',['ExhaustiveTraversalFinder',['../classvg_1_1ExhaustiveTraversalFinder.html',1,'vg']]],
+  ['exon',['Exon',['../structvg_1_1Exon.html',1,'vg']]],
   ['expandingoverlaygraph',['ExpandingOverlayGraph',['../classhandlegraph_1_1ExpandingOverlayGraph.html',1,'handlegraph']]],
   ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg']]]
 ];

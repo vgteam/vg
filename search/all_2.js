@@ -105,6 +105,8 @@ var searchData=
   ['boolreturningwrapper_3c_20iteratee_2c_20iterated_2c_20bool_20_3e',['BoolReturningWrapper&lt; Iteratee, Iterated, bool &gt;',['../structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01Iterated_00_01bool_01_4.html',1,'handlegraph']]],
   ['boolreturningwrapper_3c_20iteratee_2c_20iterated_2c_20void_20_3e',['BoolReturningWrapper&lt; Iteratee, Iterated, void &gt;',['../structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01Iterated_00_01void_01_4.html',1,'handlegraph']]],
   ['border',['border',['../classvg_1_1PhaseUnfolder.html#a29ec1d4e6557b27c4f92c0280c80b90a',1,'vg::PhaseUnfolder']]],
+  ['border_5foffsets',['border_offsets',['../structvg_1_1Exon.html#a8795bd3f2b1e61bb0566258c071668b7',1,'vg::Exon']]],
+  ['border_5fsteps',['border_steps',['../structvg_1_1Exon.html#a5bf97d169b75ac1c1d3ef1dd216da4a6',1,'vg::Exon']]],
   ['bottom',['bottom',['../structhaplo_1_1int__itvl__t.html#a9124b7f6c7e637788d1a72b54ac1b7dc',1,'haplo::int_itvl_t']]],
   ['bottom_5fdiag',['bottom_diag',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a9814adda35066d761c279d543a2493a2',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['bp_5flength',['bp_length',['../classvg_1_1NestedTraversalFinder.html#af86694400e6610dbf5ac59725d7122d4',1,'vg::NestedTraversalFinder::bp_length()'],['../classvg_1_1RepresentativeTraversalFinder.html#a46f34cb373ca08864f0149bde93d880a',1,'vg::RepresentativeTraversalFinder::bp_length()']]],

@@ -93,11 +93,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a5f9b9e50b5889f072172a61cca23b43b"><td class="memItemLeft" align="right" valign="top">const uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html#a5f9b9e50b5889f072172a61cca23b43b">chrom_length</a></td></tr>
 <tr class="memdesc:a5f9b9e50b5889f072172a61cca23b43b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Length of chromosome/contig where transcript exist.  <a href="#a5f9b9e50b5889f072172a61cca23b43b">More...</a><br /></td></tr>
 <tr class="separator:a5f9b9e50b5889f072172a61cca23b43b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad2b25d65d35571935300b296eac6bf2c"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int32_t, int32_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html#ad2b25d65d35571935300b296eac6bf2c">exons</a></td></tr>
-<tr class="memdesc:ad2b25d65d35571935300b296eac6bf2c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Exon coordinates (start and end) on the chromosome/contig.  <a href="#ad2b25d65d35571935300b296eac6bf2c">More...</a><br /></td></tr>
-<tr class="separator:ad2b25d65d35571935300b296eac6bf2c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a67368318a461eb29e73ac8a2aae5fcac"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; <a class="el" href="structvg_1_1Position.html">Position</a>, <a class="el" href="structvg_1_1Position.html">Position</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html#a67368318a461eb29e73ac8a2aae5fcac">exon_border_nodes</a></td></tr>
-<tr class="separator:a67368318a461eb29e73ac8a2aae5fcac"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afc456b6b43f918028aee362aaa016209"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Exon.html">Exon</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html#afc456b6b43f918028aee362aaa016209">exons</a></td></tr>
+<tr class="memdesc:afc456b6b43f918028aee362aaa016209"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Transcript.html">Transcript</a> exons.  <a href="#afc456b6b43f918028aee362aaa016209">More...</a><br /></td></tr>
+<tr class="separator:afc456b6b43f918028aee362aaa016209"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Data structure that defines a transcript annotation. </p>
@@ -183,34 +181,19 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a67368318a461eb29e73ac8a2aae5fcac"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a67368318a461eb29e73ac8a2aae5fcac">&#9670;&nbsp;</a></span>exon_border_nodes</h2>
+<a id="afc456b6b43f918028aee362aaa016209"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afc456b6b43f918028aee362aaa016209">&#9670;&nbsp;</a></span>exons</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt;pair&lt;<a class="el" href="structvg_1_1Position.html">Position</a>, <a class="el" href="structvg_1_1Position.html">Position</a>&gt; &gt; vg::Transcript::exon_border_nodes</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Exon border node positions (last position in upstream intron and first position in downstream intron) on a variation graph. </p>
-
-</div>
-</div>
-<a id="ad2b25d65d35571935300b296eac6bf2c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad2b25d65d35571935300b296eac6bf2c">&#9670;&nbsp;</a></span>exons</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt;pair&lt;int32_t, int32_t&gt; &gt; vg::Transcript::exons</td>
+          <td class="memname">vector&lt;<a class="el" href="structvg_1_1Exon.html">Exon</a>&gt; vg::Transcript::exons</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Exon coordinates (start and end) on the chromosome/contig. </p>
+<p><a class="el" href="structvg_1_1Transcript.html">Transcript</a> exons. </p>
 
 </div>
 </div>
