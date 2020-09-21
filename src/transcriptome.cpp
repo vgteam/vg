@@ -620,7 +620,6 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
                 for (auto & haplotype_id: exon_haplotype.second) {
 
                     haplotype_id_index.emplace(haplotype_id, make_pair(haplotypes.size() - 1, exon_idx + 1));
-                    assert(haplotype_id_index.count(haplotype_id) == 1);
                 }
             }
             
@@ -709,18 +708,18 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
             assert(gbwt::Node::id(haplotype.first.at(exon_idx).front()) == exon_node_ids.at(exon_idx).first);
             assert(gbwt::Node::id(haplotype.first.at(exon_idx).back()) == exon_node_ids.at(exon_idx).second);
 
-            for (auto & exon_node: haplotype.first.at(exon_idx)) {
+            for (size_t exon_node_idx = 0; exon_node_idx < haplotype.first.at(exon_idx).size(); ++exon_node_idx) {
 
-                assert(exon_node != gbwt::ENDMARKER);
+                assert(haplotype.first.at(exon_idx).at(exon_node_idx) != gbwt::ENDMARKER);
 
-                auto node_id = gbwt::Node::id(exon_node);
+                auto node_id = gbwt::Node::id(haplotype.first.at(exon_idx).at(exon_node_idx));
                 auto node_length = _splice_graph->get_length(_splice_graph->get_handle(node_id, false));
 
                 int32_t offset = 0;
 
                 // Adjust start position from exon border (last position in upstream intron)
                 // to first position in exon. Do not adjust if first position in path.
-                if ((cur_exon.coordinates.first > 0) && (node_id == exon_node_ids.at(exon_idx).first)) {
+                if ((cur_exon.coordinates.first > 0) && (exon_node_idx == 0)) {
 
                     if (cur_exon.border_offsets.first + 1 == node_length) {
 
@@ -739,7 +738,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
 
                 // Adjust end position from exon border (first position in downstream intron)
                 // to last position in exon. Do not adjust if last position in path.
-                if ((cur_exon.coordinates.second < cur_transcript.chrom_length - 1) && (node_id == exon_node_ids.at(exon_idx).second)) {
+                if ((cur_exon.coordinates.second < cur_transcript.chrom_length - 1) && (exon_node_idx == haplotype.first.at(exon_idx).size() - 1)) {
 
                     if (cur_exon.border_offsets.second == 0) {
 
