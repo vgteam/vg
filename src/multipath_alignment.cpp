@@ -2680,6 +2680,279 @@ namespace vg {
         }
         return make_pair(mfarthest, pfarthest);
     }
+
+    // TODO: does it really make sense to split this algorithm into a separate surject
+    // and CIGAR conversion? it seems like i'm replicating a lot of the same work
+    vector<pair<int, char>> cigar_against_path(const multipath_alignment_t& multipath_aln, const string& path_name,
+                                               bool rev, int64_t path_pos, const PathPositionHandleGraph& graph,
+                                               int64_t min_splice_length) {
+        
+        // a graph of runs of alignments to the path
+        // records of (subpath index, mapping index, run, adjacency list of (index, distance))
+        vector<tuple<size_t, size_t, vector<step_handle_t>, vector<pair<size_t, size_t>>>> run_graph;
+        
+        path_handle_t path_handle = graph.get_path_handle(path_name);
+        
+        // the runs from the previous node that could be extended in the current iteration
+        unordered_map<step_handle_t, size_t> curr_runs;
+        
+        size_t num_mappings = 0;
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+            const auto& subpath = multipath_aln.subpath(i);
+            if (subpath.next_size() + subpath.connection_size() > 1) {
+                cerr << "error: cannot convert a multipath alignment to a CIGAR unless is consists of a single non-branching path" << endl;
+            }
+            const auto& path = subpath.path();
+            for (size_t j = 0; j < path.mapping_size(); ++j, ++num_mappings) {
+                
+                const auto& mapping = path.mapping(j);
+                const auto& pos = mapping.position();
+                
+                if (i == 0 && j == 0 && !rev) {
+                    // base case if the position is given for the beginning of the surjected alignment
+                    // TODO: will this work if the position is between two nodes?
+                    run_graph.emplace_back(0, 0, vector<step_handle_t>(1, graph.get_step_at_position(path_handle, path_pos)),
+                                           vector<pair<size_t, size_t>>());
+                    continue;
+                }
+                
+                const position_t* next_pos = nullptr;
+                if (j + 1 < path.mapping_size()) {
+                    next_pos = &path.mapping(j + 1).position();
+                }
+                else if (i + 1 < multipath_aln.subpath_size()) {
+                    next_pos = &multipath_aln.subpath(i + 1).path().mapping().front().position();
+                }
+                if (next_pos && next_pos->node_id() == pos.node_id() && next_pos->is_reverse() == pos.is_reverse()
+                    && next_pos->offset() == pos.offset() + mapping_from_length(mapping)) {
+                    // we only care about transitions that are between nodes, this one is within a node
+                    
+                    // but let's maintain the invariant that the number of steps is equal to the number of
+                    // mappings
+                    for (const auto& curr_run : curr_runs) {
+                        get<2>(run_graph[curr_run.second]).push_back(curr_run.first);
+                    }
+                    continue;
+                }
+                
+                // remember where previously created run nodes stop
+                size_t num_runs_before_extend = run_graph.size();
+                
+                // check whether steps on this handle extend previous runs or not
+                unordered_map<step_handle_t, size_t> next_runs;
+                next_runs.reserve(curr_runs.size());
+                handle_t handle = graph.get_handle(pos.node_id(), pos.is_reverse());
+                graph.for_each_step_on_handle(handle, [&](const step_handle_t& step) {
+                    if (graph.get_path_handle_of_step(step) != path_handle ||
+                        (graph.get_handle_of_step(step) != handle) != rev) {
+                        // we're only concerned about this one path
+                        return;
+                    }
+                    step_handle_t prev = rev ? graph.get_previous_step(step) : graph.get_next_step(step);
+                    auto it = curr_runs.find(prev);
+                    if (it != curr_runs.end()) {
+                        // this is the next step we would expect along a previous run
+                        next_runs[it->first] = it->second;
+                        get<2>(run_graph[it->second]).push_back(step);
+                        curr_runs.erase(it);
+                    }
+                    else {
+                        // we're at the start of a new run
+                        next_runs[prev] = run_graph.size();
+                        run_graph.emplace_back(i, j, vector<step_handle_t>(1, step), vector<pair<size_t, size_t>>());
+                    }
+                });
+                
+                // TODO: are there situations where i would need to split a run into multiple chunks
+                // in order to find the full length?
+                
+                // check if any of the unextended runs can make a long-distance adjacency
+                // to the new runs
+                for (const auto& curr_run : curr_runs) {
+                    // an unextended run from the previous iteration
+                    for (size_t run_idx = num_runs_before_extend; run_idx < run_graph.size(); ++run_idx) {
+                        // fresh new run that we just found
+                        auto& run_node = run_graph[run_idx];
+                        
+                        int64_t dist = (graph.get_position_of_step(get<2>(run_node).back())
+                                        - graph.get_position_of_step(curr_run.first));
+                        if ((dist <= 0 && rev) || (dist >= 0 && !rev)) {
+                            // they are in increasing order (relative to the strand)
+                            dist = abs(dist);
+                            const auto& prev_mapping = j ? path.mapping(j - 1) : multipath_aln.subpath(i - 1).path().mapping().back();
+                            if (rev) {
+                                // move to the beginning of the nodes relative to the reverse strant
+                                dist += (graph.get_length(graph.get_handle(prev_mapping.position().node_id()))
+                                         - graph.get_length(handle));
+                            }
+                            dist += (mapping.position().offset() - prev_mapping.position().offset()
+                                     - mapping_from_length(prev_mapping));
+                            // add an edge
+                            get<3>(run_graph[curr_run.second]).emplace_back(run_idx, dist);
+                        }
+                    }
+                }
+                
+                curr_runs = move(next_runs);
+            }
+        }
+        
+        // okay, now we did that whole business, it's time to find the path through the run graph
+        // that corresponds to the surjected alignment
+        
+        // find the longest path, measured by number of mappings (should consume the whole alignment)
+        vector<size_t> mapping_dp(run_graph.size(), 0);
+        vector<bool> full_length(mapping_dp.size(), false);
+        for (size_t i = 0; i < mapping_dp.size(); ++i) {
+            const auto& run_node = run_graph[i];
+            mapping_dp[i] += get<2>(run_node).size();
+            for (const auto& edge : get<3>(run_node)) {
+                mapping_dp[edge.first] = max(mapping_dp[i], mapping_dp[edge.first]);
+            }
+            // does it complete a full traversal of the alignment?
+            full_length[i] = (mapping_dp[i] == num_mappings);
+        }
+        
+        // identify the run nodes that could be part of a full length alignment
+        for (int64_t i = full_length.size() - 1; i >= 0; --i) {
+            for (const auto& edge : get<3>(run_graph[i])) {
+                full_length[i] = full_length[i] || full_length[edge.first];
+            }
+        }
+        
+        // identify the shortest path through the run graph based on total path length
+        vector<size_t> path_dist_dp(run_graph.size(), numeric_limits<size_t>::max());
+        vector<int64_t> backpointer(path_dist_dp.size(), -1);
+        int64_t best = -1;
+        for (int64_t i = 0; i < path_dist_dp.size(); ++i) {
+            if (!full_length[i]) {
+                // this node can't be part of a full length alignment so we don't want
+                // to find paths through it
+                continue;
+            }
+            const auto& run_node = run_graph[i];
+            if (get<0>(run_node) == 0 && get<1>(run_node) == 0) {
+                // base case
+                path_dist_dp[i] = 0;
+            }
+            for (const auto& edge : get<3>(run_node)) {
+                size_t dist_thru = path_dist_dp[i] + edge.second;
+                if (dist_thru < path_dist_dp[edge.first]) {
+                    backpointer[edge.first] = i;
+                    path_dist_dp[edge.first] = dist_thru;
+                }
+            }
+            if (mapping_dp[i] == num_mappings) {
+                if (rev && get<2>(run_node).back() != graph.get_step_at_position(path_handle, path_pos)) {
+                    // we can't end DP here because it doesn't finish at the correct position
+                    continue;
+                }
+                
+                if (best == -1 || path_dist_dp[i] < path_dist_dp[best]) {
+                    // this is the shortest full length run sequence we've seen
+                    best = i;
+                }
+            }
+        }
+        
+        if (best == -1) {
+            cerr << "error: couldn't find a matching subpath on " << path_name << " for read " << multipath_aln.sequence() << endl;
+        }
+        
+        // compute the traceback
+        vector<int64_t> traceback(1, best);
+        while (backpointer[traceback.back()] != -1) {
+            traceback.push_back(backpointer[traceback.back()]);
+        }
+        
+        // now finally make the CIGAR
+        vector<pair<int, char>> cigar;
+        for (int64_t i = traceback.size() - 1; i >= 0; --i) {
+            auto& run_node = run_graph[traceback[i]];
+            
+            size_t j = get<0>(run_node);
+            size_t k = get<1>(run_node);
+            
+            if (i != traceback.size() - 1) {
+                // figure out how long the gap along the path between the runs is
+                auto& prev_run_node = run_graph[traceback[i + 1]];
+                size_t j_prev, k_prev;
+                if (k == 0) {
+                    j_prev = j - 1;
+                    k_prev = multipath_aln.subpath(j - 1).path().mapping_size() - 1;
+                }
+                else {
+                    j_prev = j;
+                    k_prev = k - 1;
+                }
+                
+                
+                // TODO: pick up from here, need to do arithmetic on the path interval
+                
+                // TODO: i need to keep track of which runs end in connections and automatically splice them
+            }
+            
+            // determine the bounds of the iteration over the mp aln that corresponds
+            // to this run
+            size_t j_end, k_end;
+            if (i > 0) {
+                auto& next_run_node = run_graph[traceback[i - 1]];
+                j_end = get<0>(next_run_node);
+                k_end = get<1>(next_run_node);
+            }
+            else {
+                j_end = multipath_aln.subpath_size();
+                k_end = 0;
+            }
+            
+            // convert this segment of the mp aln into CIGAR
+            while (j < j_end && k < k_end) {
+                const auto& path = multipath_aln.subpath(j).path();
+                const auto& mapping = path.mapping(k);
+                for (const auto& edit : mapping.edit()) {
+                    char cigar_code;
+                    int length;
+                    if (edit.from_length() == edit.to_length()) {
+                        cigar_code = 'M';
+                        length = edit.from_length();
+                    }
+                    else if (edit.from_length() > 0 && edit.to_length() == 0) {
+                        cigar_code = 'D';
+                        length = edit.from_length();
+                    }
+                    else if (edit.to_length() > 0 && edit.from_length() == 0) {
+                        cigar_code = 'I';
+                        length = edit.to_length();
+                    }
+                    else {
+                        throw std::runtime_error("Spliced CIGAR construction can only convert simple edits");
+                    }
+                    
+                    if (!cigar.empty() && cigar_code == cigar.back().second) {
+                        cigar.back().first += length;
+                    }
+                    else {
+                        cigar.emplace_back(cigar_code, length);
+                    }
+                }
+                k++;
+                if (k == path.mapping_size()) {
+                    ++j;
+                    k = 0;
+                }
+            }
+        }
+        
+        // change start/end insertions into softclips
+        if (cigar.front().second == 'I') {
+            cigar.front().second = 'S';
+        }
+        if (cigar.back().second == 'I') {
+            cigar.back().second = 'S';
+        }
+        
+        return cigar;
+    }
     
     bool validate_multipath_alignment(const multipath_alignment_t& multipath_aln, const HandleGraph& handle_graph) {
         

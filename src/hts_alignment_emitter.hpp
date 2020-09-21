@@ -39,9 +39,12 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
                                                    const map<string, int64_t>& path_length, size_t max_threads,
                                                    const HandleGraph* graph = nullptr);
 
+/*
+ * A class that can write SAM/BAM/CRAM files from parallel threads
+ */
 class HTSWriter {
 public:
-    /// Create an HTSAlignmentEmitter writing to the given file (or "-") in the
+    /// Create an HTSWriter writing to the given file (or "-") in the
     /// given HTS format ("SAM", "BAM", "CRAM"). path_length must map from
     /// contig name to length to include in the header. Sample names and read
     /// groups for the header will be guessed from the first reads. HTSlib
@@ -49,7 +52,7 @@ public:
     /// must be surjected.
     HTSWriter(const string& filename, const string& format, const map<string, int64_t>& path_length, size_t max_threads);
     
-    /// Tear down an HTSAlignmentEmitter and destroy HTSlib structures.
+    /// Tear down an HTSWriter and destroy HTSlib structures.
     ~HTSWriter();
     
     // Not copyable or movable
@@ -183,6 +186,10 @@ private:
 
 };
 
+/*
+ * An HTSAlgnmentEmitter that tries to detect splice edges in
+ * the input data so that they can be encoded as N CIGAR operations
+ */
 class SplicedHTSAlignmentEmitter : public HTSAlignmentEmitter {
     
 public:

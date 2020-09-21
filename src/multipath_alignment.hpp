@@ -350,6 +350,13 @@ namespace vg {
     trace_path(const multipath_alignment_t& multipath_aln, const Path& path,
                int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx);
 
+    /// Convert a surjected multipath alignment into a CIGAR sequence against a path. Splicing will be allowed
+    /// at connections and at any silent deletions of path sequence. Surjected multipath alignment graph must
+    /// consist of a single non-branching path
+    vector<pair<int, char>> cigar_against_path(const multipath_alignment_t& multipath_aln, const string& path_name, bool rev,
+                                               int64_t path_pos, const PathPositionHandleGraph& graph,
+                                               int64_t min_splice_length = numeric_limits<int64_t>::max());
+
     /// Debugging function to check that multipath alignment meets the formalism's basic
     /// invariants. Returns true if multipath alignment is valid, else false. Does not
     /// validate alignment score.
