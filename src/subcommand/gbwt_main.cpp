@@ -66,7 +66,7 @@ void help_gbwt(char** argv) {
     std::cerr << "    -i, --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 4: GBWTGraph construction (requires -x and one input GBWT):" << std::endl;
-    std::cerr << "    -g, --graph-name FILE   build GBWTGraph and serialize it to FILE" << std::endl;
+    std::cerr << "    -g, --graph-name FILE   build GBWTGraph and store it in FILE" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 5: R-index construction (one input GBWT):" << std::endl;
     std::cerr << "    -r, --r-index FILE      build an r-index and store it in FILE" << std::endl;
@@ -80,7 +80,7 @@ void help_gbwt(char** argv) {
     std::cerr << "    -L, --list-names        list contig/sample names (use with -C or -S)" << std::endl;
     std::cerr << "    -T, --thread-names      list thread names" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Step 6: Threads (one input GBWT):" << std::endl;
+    std::cerr << "Step 7: Threads (one input GBWT):" << std::endl;
     std::cerr << "    -c, --count-threads     print the number of threads" << std::endl;
     std::cerr << "    -e, --extract FILE      extract threads in SDSL format to FILE" << std::endl;
     std::cerr << std::endl;
@@ -676,15 +676,11 @@ void get_dynamic(gbwt::GBWT& compressed_index, gbwt::DynamicGBWT& dynamic_index,
     if (in_use == index_dynamic) {
         return;
     } else if (in_use == index_compressed) {
-        // FIXME in-memory conversion would be better
         if (show_progress) {
             std::cerr << "Converting compressed GBWT into dynamic GBWT" << std::endl;
         }
-        std::string temp_filename = temp_file::create();
-        vg::io::VPKG::save(compressed_index, temp_filename);
+        dynamic_index = gbwt::DynamicGBWT(compressed_index);
         compressed_index = gbwt::GBWT();
-        load_gbwt(temp_filename, dynamic_index, show_progress);
-        temp_file::remove(temp_filename);
         in_use = index_dynamic;
     } else {
         load_gbwt(filename, dynamic_index, show_progress);
