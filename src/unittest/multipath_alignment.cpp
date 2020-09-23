@@ -10,6 +10,7 @@
 #include "xg.hpp"
 
 #include "bdsg/hash_graph.hpp"
+#include "bdsg/overlays/path_position_overlays.hpp"
 #include "../haplotypes.hpp"
 #include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
@@ -2567,6 +2568,218 @@ namespace vg {
         // h1    h2         h3
     }
 
+    TEST_CASE("Surjected multipath alignments can be converted into CIGAR strings", "[multipath][surject]") {
+        
+        bdsg::HashGraph graph;
+        
+        handle_t h0 = graph.create_handle("AAA");
+        handle_t h1 = graph.create_handle("GA");
+        handle_t h2 = graph.create_handle("TTA");
+        handle_t h3 = graph.create_handle("CA");
+        handle_t h4 = graph.create_handle("AAA");
+        
+        graph.create_edge(h0, h1);
+        graph.create_edge(h1, h2);
+        graph.create_edge(h2, h2);
+        graph.create_edge(h2, h3);
+        graph.create_edge(h3, h4);
+        
+        path_handle_t p = graph.create_path_handle("p");
+        graph.append_step(p, h0);
+        graph.append_step(p, h1);
+        graph.append_step(p, h2);
+        graph.append_step(p, h2);
+        graph.append_step(p, h3);
+        graph.append_step(p, h4);
+        
+        bdsg::PositionOverlay path_graph(&graph);
+        
+        function<int64_t(int64_t)> node_length = [&](int64_t n) -> int64_t {
+            return path_graph.get_length(path_graph.get_handle(n));
+        };
+        
+        SECTION("CIGAR string on increasingly complex mp alns for both strands") {
+            
+            multipath_alignment_t mp_aln;
+            mp_aln.set_sequence("AAGA");
+            
+            auto s0 = mp_aln.add_subpath();
+            auto m0 = s0->mutable_path()->add_mapping();
+            m0->mutable_position()->set_node_id(path_graph.get_id(h0));
+            m0->mutable_position()->set_is_reverse(false);
+            m0->mutable_position()->set_offset(1);
+            auto e0 = m0->add_edit();
+            e0->set_from_length(2);
+            e0->set_to_length(2);
+            
+            s0->add_next(1);
+            
+            auto s1 = mp_aln.add_subpath();
+            auto m1 = s1->mutable_path()->add_mapping();
+            m1->mutable_position()->set_node_id(path_graph.get_id(h1));
+            m1->mutable_position()->set_is_reverse(false);
+            m1->mutable_position()->set_offset(0);
+            auto e1 = m1->add_edit();
+            e1->set_from_length(2);
+            e1->set_to_length(2);
+            
+            auto cigar1 = cigar_against_path(mp_aln, "p", false, 1, path_graph);
+            vector<pair<int, char>> correct1{make_pair(4, 'M')};
+            REQUIRE(cigar1 == correct1);
+            
+            {
+                multipath_alignment_t rev_mp_aln;
+                rev_comp_multipath_alignment(mp_aln, node_length, rev_mp_aln);
+                auto rev_cigar = cigar_against_path(rev_mp_aln, "p", true, 1, path_graph);
+                REQUIRE(rev_cigar == correct1);
+            }
+            
+            mp_aln.set_sequence("AAGACAA");
+            
+            s1->add_next(2);
+            
+            auto s2 = mp_aln.add_subpath();
+            auto m2 = s2->mutable_path()->add_mapping();
+            m2->mutable_position()->set_node_id(path_graph.get_id(h3));
+            m2->mutable_position()->set_is_reverse(false);
+            m2->mutable_position()->set_offset(0);
+            auto e2 = m2->add_edit();
+            e2->set_from_length(2);
+            e2->set_to_length(2);
+            
+            auto m3 = s2->mutable_path()->add_mapping();
+            m3->mutable_position()->set_node_id(path_graph.get_id(h4));
+            m3->mutable_position()->set_is_reverse(false);
+            m3->mutable_position()->set_offset(0);
+            auto e3 = m3->add_edit();
+            e3->set_from_length(1);
+            e3->set_to_length(1);
+            
+            auto cigar2 = cigar_against_path(mp_aln, "p", false, 1, path_graph);
+            vector<pair<int, char>> correct2{make_pair(4, 'M'), make_pair(6, 'D'), make_pair(3, 'M')};
+            REQUIRE(cigar2 == correct2);
+            
+            {
+                multipath_alignment_t rev_mp_aln;
+                rev_comp_multipath_alignment(mp_aln, node_length, rev_mp_aln);
+                auto rev_cigar = cigar_against_path(rev_mp_aln, "p", true, 1, path_graph);
+                REQUIRE(rev_cigar == correct2);
+            }
+            
+            auto cigar3 = cigar_against_path(mp_aln, "p", false, 1, path_graph, 5);
+            vector<pair<int, char>> correct3{make_pair(4, 'M'), make_pair(6, 'N'), make_pair(3, 'M')};
+            REQUIRE(cigar3 == correct3);
+            
+            {
+                multipath_alignment_t rev_mp_aln;
+                rev_comp_multipath_alignment(mp_aln, node_length, rev_mp_aln);
+                auto rev_cigar = cigar_against_path(rev_mp_aln, "p", true, 1, path_graph, 5);
+                REQUIRE(rev_cigar == correct3);
+            }
+        }
+        
+        SECTION("CIGAR can be calculated for mp alns with connections") {
+            
+            multipath_alignment_t mp_aln;
+            mp_aln.set_sequence("ATA");
+            
+            auto s0 = mp_aln.add_subpath();
+            auto m0 = s0->mutable_path()->add_mapping();
+            m0->mutable_position()->set_node_id(path_graph.get_id(h0));
+            m0->mutable_position()->set_is_reverse(false);
+            m0->mutable_position()->set_offset(0);
+            auto e0 = m0->add_edit();
+            e0->set_from_length(1);
+            e0->set_to_length(1);
+            
+            auto c0 = s0->add_connection();
+            c0->set_next(1);
+            c0->set_score(0);
+            
+            auto s1 = mp_aln.add_subpath();
+            auto m1 = s1->mutable_path()->add_mapping();
+            m1->mutable_position()->set_node_id(path_graph.get_id(h2));
+            m1->mutable_position()->set_is_reverse(false);
+            m1->mutable_position()->set_offset(1);
+            auto e1 = m1->add_edit();
+            e1->set_from_length(2);
+            e1->set_to_length(2);
+            
+            vector<pair<int, char>> correct{make_pair(1, 'M'), make_pair(5, 'N'), make_pair(2, 'M')};
+            
+            auto cigar = cigar_against_path(mp_aln, "p", false, 0, path_graph);
+            
+            REQUIRE(cigar == correct);
+            
+            multipath_alignment_t rev_mp_aln;
+            rev_comp_multipath_alignment(mp_aln, node_length, rev_mp_aln);
+            auto rev_cigar = cigar_against_path(rev_mp_aln, "p", true, 0, path_graph);
+            
+            REQUIRE(rev_cigar == correct);
+        }
+        
+        SECTION("CIGAR can be calculated for mp alns inside a cycle of the path") {
+            
+            multipath_alignment_t mp_aln;
+            mp_aln.set_sequence("TATTA");
+            
+            auto s0 = mp_aln.add_subpath();
+            auto m0 = s0->mutable_path()->add_mapping();
+            m0->mutable_position()->set_node_id(path_graph.get_id(h2));
+            m0->mutable_position()->set_is_reverse(false);
+            m0->mutable_position()->set_offset(1);
+            auto e0 = m0->add_edit();
+            e0->set_from_length(2);
+            e0->set_to_length(2);
+            
+            s0->add_next(1);
+            
+            auto s1 = mp_aln.add_subpath();
+            auto m1 = s1->mutable_path()->add_mapping();
+            m1->mutable_position()->set_node_id(path_graph.get_id(h2));
+            m1->mutable_position()->set_is_reverse(false);
+            m1->mutable_position()->set_offset(0);
+            auto e1 = m1->add_edit();
+            e1->set_from_length(3);
+            e1->set_to_length(3);
+            
+            {
+                vector<pair<int, char>> correct{make_pair(5, 'M')};
+                
+                auto cigar = cigar_against_path(mp_aln, "p", false, 6, path_graph);
+                
+                REQUIRE(cigar == correct);
+                
+                multipath_alignment_t rev_mp_aln;
+                rev_comp_multipath_alignment(mp_aln, node_length, rev_mp_aln);
+                auto rev_cigar = cigar_against_path(rev_mp_aln, "p", true, 6, path_graph);
+                
+                REQUIRE(rev_cigar == correct);
+            }
+            
+            mp_aln.set_sequence("TAA");
+            m1->mutable_position()->set_node_id(path_graph.get_id(h3));
+            m1->mutable_position()->set_offset(1);
+            e1->set_from_length(1);
+            e1->set_to_length(1);
+            
+            {
+                vector<pair<int, char>> correct{make_pair(2, 'M'), make_pair(1, 'D'), make_pair(1, 'M')};
+                
+                auto cigar = cigar_against_path(mp_aln, "p", false, 9, path_graph);
+                
+                REQUIRE(cigar == correct);
+                
+                multipath_alignment_t rev_mp_aln;
+                rev_comp_multipath_alignment(mp_aln, node_length, rev_mp_aln);
+                auto rev_cigar = cigar_against_path(rev_mp_aln, "p", true, 9, path_graph);
+                
+                REQUIRE(rev_cigar == correct);
+            }
+            
+            
+        }
+    }
 }
 
 
