@@ -998,14 +998,6 @@ inline void transfer_boundary_info(const Snarl& from, Snarl& to) {
     *to.mutable_end() = from.end();
 }
 
-template<>
-struct wang_hash<Visit> {
-    /// Produce a hash of a Visit.
-    size_t operator()(const Visit& v) const {
-        return wang_hash<pair<id_t, bool>>()(make_pair(v.node_id(), v.backward()));
-    }
-};
-
 }
 
 // note: this hash funtion is not used internally because we want the internal indices to ignore any
@@ -1021,7 +1013,6 @@ struct hash<const vg::Snarl> {
                              make_pair(snarl.end().node_id(), snarl.end().backward())));
     }
 };
-
 }
 
 #endif /* snarls_hpp */
