@@ -685,7 +685,7 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     const string* qual = &alignment.quality();
     string rev_qual;
     if (refrev) {
-        // Sequance and quality both need to be flipped to target forward orientation
+        // Sequence and quality both need to be flipped to target forward orientation
         rev_seq = reverse_complement(*seq);
         seq = &rev_seq;
         reverse_copy(qual->begin(), qual->end(), back_inserter(rev_qual));
