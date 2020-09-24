@@ -733,11 +733,30 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }
 }
 
-pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2) {
+pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2) {
     
 #ifdef debug
     cerr << "Read pair " << aln1.name() << ": " << aln1.sequence() << " and " << aln2.name() << ": " << aln2.sequence() << endl;
 #endif
+
+    // Make sure we actually have a working fragment length distribution that the clusterer will accept.
+    int64_t fragment_distance_limit = fragment_length_distr.mean() + paired_distance_stdevs * fragment_length_distr.std_dev();
+    if (fragment_distance_limit < get_distance_limit(aln1.sequence().size())) {
+        // We can't use this distribution
+
+        if (!warned_about_bad_distribution.test_and_set()) {
+            // We get to print the warning
+            cerr << "warning[vg::giraffe]: Cannot cluster reads with a fragment distance smaller than read distance" << endl;
+            cerr << "                      Fragment length distribution: mean=" << fragment_length_distr.mean() 
+                 << ", stdev=" << fragment_length_distr.std_dev() << endl;
+            cerr << "                      Fragment distance limit: " << fragment_distance_limit 
+                 << ", read distance limit: " << get_distance_limit(aln1.sequence().size()) << endl;
+            cerr << "warning[vg::giraffe]: Falling back on single-end mapping" << endl;
+        }
+
+        // Map single-ended and bail
+        return make_pair(map(aln1), map(aln2)); 
+    }
 
     // Assume reads are in inward orientations on input, and
     // convert to rightward orientations before mapping
@@ -780,15 +799,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     if (track_provenance) {
         funnels[0].stage("cluster");
         funnels[1].stage("cluster");
-    }
-    int64_t fragment_distance_limit = fragment_length_distr.mean() + paired_distance_stdevs * fragment_length_distr.std_dev();
-    if (fragment_distance_limit < get_distance_limit(aln1.sequence().size())) {
-        cerr << "error[vg::giraffe]: Cannot cluster reads with a fragment distance smaller than read distance" << endl;
-        cerr << "                    Fragment length distribution: mean=" << fragment_length_distr.mean() 
-             << ", stdev=" << fragment_length_distr.std_dev() << endl;
-        cerr << "                    Fragment distance limit: " << fragment_distance_limit 
-             << ", read distance limit: " << get_distance_limit(aln1.sequence().size()) << endl;
-        exit(1);
     }
     std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
 
