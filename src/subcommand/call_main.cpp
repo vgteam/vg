@@ -359,7 +359,13 @@ int main_call(int argc, char** argv) {
         IntegratedSnarlFinder finder(*graph);
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
-    
+
+    // only used by the nested caller
+    NestedFlowCaller* flow_caller = nullptr;
+    NestedFlowCaller** flow_caller_p = &flow_caller;
+    function<unique_ptr<TraversalFinder>(const HandleGraph& graph)> get_trav_finder;
+    unique_ptr<NestedTraversalSupportFinder> nested_support_finder;
+
     // Make a Packed Support Caller
     unique_ptr<SnarlCaller> snarl_caller;
     algorithms::BinnedDepthIndex depth_index;
@@ -386,8 +392,12 @@ int main_call(int argc, char** argv) {
             // Make a depth index
             depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
                                                                 depth_scale_fac, 0, true, true);
+
+            // make a nested support finder
+            nested_support_finder.reset(new NestedTraversalSupportFinder(*graph, *snarl_manager, *packed_support_finder, flow_caller_p));
+            
             // Make a new-stype probablistic caller
-            auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index,
+            auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *nested_support_finder, depth_index,
                                                                 //todo: qualities need to be used better in conjunction with
                                                                 //expected depth.
                                                                 //packer->has_qualities());
@@ -429,9 +439,6 @@ int main_call(int argc, char** argv) {
     vcflib::VariantCallFile variant_file;
     unique_ptr<FastaReference> ref_fasta;
     unique_ptr<FastaReference> ins_fasta;
-
-    // only used by the nested caller
-    function<unique_ptr<TraversalFinder>(const HandleGraph& graph)> get_trav_finder;
        
     if (!vcf_filename.empty()) {
         // Genotype the VCF
@@ -487,11 +494,17 @@ int main_call(int argc, char** argv) {
             
             // todo: do we ever want to toggle in min-support?
             function<double(handle_t)> node_support = [&] (handle_t h) {
-                return support_finder->support_val(support_finder->get_avg_node_support(graph->get_id(h)));
+                cerr << "flow_caller_p" << flow_caller_p << endl;
+                double s = (*flow_caller_p)->get_nested_node_support(h);
+                if (s >= 0) {
+                    return s;
+                } else {
+                    return support_finder->support_val(support_finder->get_avg_node_support(graph->get_id(h)));
+                }
             };
             
             function<double(edge_t)> edge_support = [&] (edge_t e) {
-                return support_finder->support_val(support_finder->get_edge_support(e));
+                return support_finder->support_val(support_finder->get_edge_support(flow_caller->resolve_chain_edge(e)));
             };
 
             // create the flow traversal finder
@@ -501,16 +514,17 @@ int main_call(int argc, char** argv) {
             };
         }
 
-        FlowCaller* flow_caller = new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
-                                                 *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
-                                                 *snarl_manager,
-                                                 sample_name, get_trav_finder, ref_paths, ref_path_offsets,
-                                                 alignment_emitter.get(),
-                                                 traversals_only,
-                                                 gaf_output,
-                                                 trav_padding,
-                                                 genotype_snarls,
-                                                 false);
+        cerr << "flow caller a " << flow_caller << " fp " << flow_caller_p << endl;
+        flow_caller = new NestedFlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                           *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+                                           *snarl_manager,
+                                           sample_name, get_trav_finder, ref_paths, ref_path_offsets,
+                                           alignment_emitter.get(),
+                                           traversals_only,
+                                           gaf_output,
+                                           trav_padding,
+                                           genotype_snarls);
+        cerr << "flow caller b " << flow_caller << " fp " << flow_caller_p << endl;
         graph_caller = unique_ptr<GraphCaller>(flow_caller);
     }
 

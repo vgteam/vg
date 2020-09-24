@@ -311,8 +311,7 @@ public:
                bool traversals_only,
                bool gaf_output,
                size_t trav_padding,
-               bool genotype_snarls,
-               bool recursive);
+               bool genotype_snarls);
    
     virtual ~FlowCaller();
 
@@ -325,7 +324,7 @@ protected:
 
     /// lower level snarl calling function used internally
     tuple<vector<SnarlTraversal>, int, const string, size_t, size_t> get_traversals(
-        const Snarl& snarl, int ploidy, bool recursive);
+        const Snarl& snarl, int ploidy);
     
     /// the graph
     const PathPositionHandleGraph& graph;
@@ -358,11 +357,190 @@ protected:
     /// (by default, uncalled snarls are skipped, and coordinates are flattened
     ///  out to minimize variant size -- this turns all that off)
     bool genotype_snarls;
+};
 
-    /// activate nested calling.  this will call child snarls and use the genotypes
-    /// to resolve their parent snarls.  if not true, then only top level snarls
-    /// are called and the nesting structure is ignored. 
-    bool recursive;
+
+class SnarlGraph;
+
+/**
+ * NestedFlowCaller : Uses any traversals finder (ex, FlowTraversalFinder) to find 
+ * traversals, and calls those based on how much support they have.
+ * Generalization and (hopefully) eventual replacement of FlowCaller
+ * Should work on any graph but will not
+ * report cyclic traversals.  
+ */
+class NestedFlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
+public:
+    NestedFlowCaller(const PathPositionHandleGraph& graph,
+                     SupportBasedSnarlCaller& snarl_caller,
+                     SnarlManager& snarl_manager,
+                     const string& sample_name,
+                     function<unique_ptr<TraversalFinder>(const HandleGraph& graph)> get_trav_finder,
+                     const vector<string>& ref_paths,
+                     const vector<size_t>& ref_path_offsets,
+                     AlignmentEmitter* aln_emitter,
+                     bool traversals_only,
+                     bool gaf_output,
+                     size_t trav_padding,
+                     bool genotype_snarls);
+   
+    virtual ~NestedFlowCaller();
+
+    virtual bool call_snarl(const Snarl& snarl, int ploidy);
+    bool call_snarl_recursive(const Snarl& snarl, int ploidy);
+
+    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                              const vector<size_t>& contig_length_overrides = {}) const;
+
+
+    // information from a subproblem, defined as a pair of nodes (could use for either snarl or chain)
+    // support and calling information is used to
+    struct NestInfo {
+        // support information
+        double support;
+        // traversals
+        vector<SnarlTraversal> traversals;
+        // genotype
+        vector<int> genotype;
+        // call info
+        unique_ptr<SnarlCaller::CallInfo> call_info;
+    };
+
+    // use the nesting information to get support from net graphs via the chain table
+    double get_nested_node_support(handle_t);
+    edge_t resolve_chain_edge(edge_t);
+    
+protected:
+
+    /// lower level snarl calling function used internally
+    tuple<vector<SnarlTraversal>, int, const string, size_t, size_t> get_traversals(
+        const HandleGraph& trav_graph, const Snarl& snarl, int ploidy);
+
+    /// make a net-graph traversal into a nested traversal
+    void make_nested(const SnarlGraph& snarl_graph, SnarlTraversal& trav);
+
+    /// initialize the table with all the keys from the graph.  done once at the beginning
+    /// so that we can update in parallel later.
+    void init_table();
+
+    /// the graph
+    const PathPositionHandleGraph& graph;
+
+    /// the traversal finder, it's a callback since we may want to
+    /// instantiate new traversal finders on various net graphs with encounter
+    function<unique_ptr<TraversalFinder>(const HandleGraph&)> get_trav_finder;
+
+    /// keep track of the reference paths
+    vector<string> ref_paths;
+    unordered_set<string> ref_path_set;
+
+    /// keep track of offsets in the reference paths
+    map<string, size_t> ref_offsets;
+
+    /// until we support nested snarls, cap snarl size we attempt to process
+    size_t max_snarl_edges = 500000;
+
+    /// alignment emitter. if not null, traversals will be output here and
+    /// no genotyping will be done
+    AlignmentEmitter* alignment_emitter;
+
+    /// toggle whether to genotype or just output the traversals
+    bool traversals_only;
+
+    /// toggle whether to output vcf or gaf
+    bool gaf_output;
+
+    /// toggle whether to genotype every snarl
+    /// (by default, uncalled snarls are skipped, and coordinates are flattened
+    ///  out to minimize variant size -- this turns all that off)
+    bool genotype_snarls;
+
+    /// information on nested snarls.  ith element of vector corresponds to ploidy i-1
+    pair_hash_map<pair<Visit, Visit>, vector<NestInfo>> snarl_table;
+
+    /// interface hack to let the support finder hook into the snarl graphs without
+    /// major restructuring.  one per thread.  needs to be updated before running
+    /// any traversal finder that needs support (currently just flowtraversalfinder)
+    vector<const SnarlGraph*> snarl_graphs;
+
+};
+
+/** Simplification of a NetGraph that ignores chains.  It is designed only for
+    traversal finding.  */
+class SnarlGraph : virtual public HandleGraph {
+public:
+    // note: can only deal with one snarl "level" at a time
+    SnarlGraph(const HandleGraph* backing_graph, SnarlManager& snarl_manager, vector<const Snarl*> snarls);
+
+    // go from node to snarl (first val false if not a snarl)
+    pair<bool, handle_t> node_to_snarl(handle_t handle) const;
+
+    // go from edge to snarl (first val false if not a virtual edge)
+    tuple<bool, handle_t, edge_t> edge_to_snarl_edge(edge_t edge) const;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Handle-based interface (which is all identical to backing graph)
+    ////////////////////////////////////////////////////////////////////////////
+    bool has_node(nid_t node_id) const;
+    handle_t get_handle(const nid_t& node_id, bool is_reverse = false) const;
+    nid_t get_id(const handle_t& handle) const;
+    bool get_is_reverse(const handle_t& handle) const;
+    handle_t flip(const handle_t& handle) const;
+    size_t get_length(const handle_t& handle) const;
+    std::string get_sequence(const handle_t& handle) const;    
+    size_t get_node_count() const;
+    nid_t min_node_id() const;
+    nid_t max_node_id() const;
+    
+protected:
+
+    bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+    
+    /// this is the only function that's changed to do anything different from the backing graph:
+    /// it is changed to "pass through" snarls by pretending there are edges from into snarl starts out of ends and
+    /// vice versa.
+    bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;    
+
+    /// the backing graph
+    const HandleGraph* backing_graph;
+
+    /// the snarl manager
+    SnarlManager& snarl_manager;
+
+    /// the snarls (indexed both ways)
+    unordered_map<handle_t, handle_t> snarls;
+};
+
+class NestedTraversalSupportFinder : public TraversalSupportFinder {
+public:
+    NestedTraversalSupportFinder(const HandleGraph& graph, SnarlManager& snarl_manager, TraversalSupportFinder& support_finder, NestedFlowCaller** flow_caller);
+    virtual ~NestedTraversalSupportFinder();
+
+    /// Support of an edge
+    virtual Support get_edge_support(const edge_t& edge) const;
+    virtual Support get_edge_support(id_t from, bool from_reverse, id_t to, bool to_reverse) const;
+
+    /// Minimum support of a node
+    virtual Support get_min_node_support(id_t node) const;
+
+    /// Average support of a node
+    virtual Support get_avg_node_support(id_t node) const;
+
+    /// Average MAPQ of reads that map to a node
+    virtual size_t get_avg_node_mapq(id_t node) const;
+
+    /// Use node or edge support as proxy for child support (as was done in original calling code)
+    virtual tuple<Support, Support, int> get_child_support(const Snarl& snarl) const;
+
+protected:
+
+    const HandleGraph& graph;
+    
+    // the support finder that we wrap
+    TraversalSupportFinder& backing_support_finder;
+
+    // the flow caller which contains nested support information in a table
+    NestedFlowCaller** flow_caller;
 };
 
 }

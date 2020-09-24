@@ -85,7 +85,7 @@ public:
     void set_min_supports(double min_mad_for_call, double min_support_for_call, double min_site_support);
     
     /// Get the traversal support finder
-    const TraversalSupportFinder& get_support_finder() const;
+    TraversalSupportFinder& get_support_finder();
 
     /// Get the minimum total support for call
     virtual int get_min_total_support_for_call() const;
@@ -93,13 +93,13 @@ public:
     /// Use min_alt_path_support threshold as cutoff
     virtual function<bool(const SnarlTraversal&, int iteration)> get_skip_allele_fn() const;
 
+    /// Relic from old code
+    static double support_val(const Support& support) { return total(support); };
+
 protected:
 
     /// Get the best support out of a list of supports, ignoring skips
     static int get_best_support(const vector<Support>& supports, const vector<int>& skips);
-
-    /// Relic from old code
-    static double support_val(const Support& support) { return total(support); };
 
     const PathHandleGraph& graph;
 
