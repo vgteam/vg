@@ -353,8 +353,9 @@ int main_gbwt(int argc, char** argv)
     }
 
 
-    // Let GBWT operate silently.
+    // Let GBWT operate silently and use the same temporary directory as vg.
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+    gbwt::TempFile::setDirectory(temp_file::get_dir());
 
     // This is the data we are using.
     gbwt::GBWT compressed_index;
