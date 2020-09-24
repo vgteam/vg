@@ -1253,7 +1253,7 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
         }
     }
     
-    return std::move(to_return);
+    return to_return;
 }
     
 vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignment,

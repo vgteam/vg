@@ -4,6 +4,7 @@
  */
 
 #include <vg/io/registry.hpp>
+#include <vg/io/protobuf_iterator.hpp>
 #include "register_loader_saver_snarl_manager.hpp"
 
 #include "../snarls.hpp"
@@ -22,7 +23,7 @@ void register_loader_saver_snarl_manager() {
             for_each_message([&](const string& serialized_snarl) {
                 // Parse the message to a Snarl
                 Snarl s;
-                if (!s.ParseFromString(serialized_snarl)) {
+                if (!ProtobufIterator<Snarl>::parse_from_string(s, serialized_snarl)) {
                     // Handle bad graphs.
                     // TODO: make this an exception if we ever want to be allowed to continue from this.
                     cerr << "error[register_loader_saver_snarl_manager]: invalid Snarl message" << endl;

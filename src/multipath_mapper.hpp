@@ -25,6 +25,7 @@
 #include "path_component_index.hpp"
 #include "memoizing_graph.hpp"
 #include "statistics.hpp"
+#include "splicing.hpp"
 
 #include "identity_overlay.hpp"
 #include "reverse_graph.hpp"
@@ -102,6 +103,18 @@ namespace vg {
         /// Should be called once after construction, or any time the band padding multiplier is changed
         void init_band_padding_memo();
         
+        /// Set all the aligner scoring parameters and create the stored aligner instances.
+        void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+        
+        /// Set the algner scoring parameters and create the stored aligner instances. The
+        /// stream should contain a 4 x 4 whitespace-separated substitution matrix (in the
+        /// order ACGT)
+        void set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+        
+        /// Set the algner scoring parameters and create the stored aligner instances. The
+        /// score matrix should by a 4 x 4 array in the order (ACGT)
+        void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+        
         // parameters
         
         size_t max_branch_trim_length = 1;
@@ -135,6 +148,7 @@ namespace vg {
         double max_exponential_shape_intercept = 12.136;
         double max_exponential_shape_slope = 0.0113637;
         double max_mapping_p_value = 0.0001;
+        double max_splice_p_value = 0.001;
         double max_rescue_p_value = 0.1;
         size_t max_alt_mappings = 1;
         size_t max_single_end_mappings_for_rescue = 64;
@@ -183,6 +197,12 @@ namespace vg {
         size_t fragment_length_warning_factor = 0;
         size_t max_alignment_gap = 5000;
         bool suppress_mismapping_detection = false;
+        bool do_spliced_alignment = false;
+        int64_t min_softclip_length_for_splice = 16;
+        int64_t max_softclip_overlap = 8;
+        int64_t max_splice_overhang = 3;
+        // about 250k
+        int64_t max_intron_length = 1 << 18;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -261,6 +281,8 @@ namespace vg {
         bool align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
                                                  vector<clustergraph_t>& cluster_graphs1,
                                                  vector<clustergraph_t>& cluster_graphs2,
+                                                 vector<MaximalExactMatch>& mems1,
+                                                 vector<MaximalExactMatch>& mems2,
                                                  vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances_out,
                                                  vector<double>& pair_multiplicities_out,
@@ -328,6 +350,10 @@ namespace vg {
         /// for the graph to be connected and have it return false)
         pair<bdsg::HashGraph*, bool> extract_restrained_graph(const Alignment& alignment, const memcluster_t& mem_cluster);
         
+        /// Returns the union of the intervals on the read that a cluster cover in sorted order
+        vector<pair<int64_t, int64_t>> covered_intervals(const Alignment& alignment,
+                                                         const clustergraph_t& cluster) const;
+        
         /// If there are any multipath_alignment_ts with multiple connected components, split them
         /// up and add them to the return vector.
         /// Properly handles multipath_alignment_ts that are unmapped.
@@ -360,6 +386,64 @@ namespace vg {
         void agglomerate(size_t idx, multipath_alignment_t& agglomerating, const multipath_alignment_t& multipath_aln,
                          vector<size_t>& agglomerated_group, unordered_set<pos_t>& agg_start_positions,
                          unordered_set<pos_t>& agg_end_positions) const;
+        
+        void find_spliced_alignments(const Alignment& alignment, vector<multipath_alignment_t>& multipath_alns_out,
+                                     vector<double>& multiplicities, vector<size_t>& cluster_idxs,
+                                     const vector<MaximalExactMatch>& mems, vector<clustergraph_t>& cluster_graphs,
+                                     const match_fanouts_t* fanouts = nullptr);
+        
+        void find_spliced_alignments(const Alignment& alignment1, const Alignment& alignment2,
+                                     vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                     vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                     vector<double>& pair_multiplicities,
+                                     const vector<MaximalExactMatch>& mems1, const vector<MaximalExactMatch>& mems2,
+                                     vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
+                                     const match_fanouts_t* fanouts = nullptr);
+        
+        void identify_aligned_splice_candidates(const Alignment& alignment, bool search_left,
+                                                const pair<int64_t, int64_t>& primary_interval,
+                                                const vector<multipath_alignment_t>& multipath_alns,
+                                                const vector<size_t>& cluster_idxs,
+                                                unordered_set<size_t>& clusters_used_out,
+                                                vector<size_t>& mp_aln_candidates_out) const;
+
+        void identify_aligned_splice_candidates(const Alignment& alignment, bool read_1, bool search_left,
+                                                const pair<int64_t, int64_t>& primary_interval,
+                                                const vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
+                                                const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                unordered_set<size_t>& clusters_used_out,
+                                                vector<size_t>& mp_aln_candidates_out) const;
+
+        void identify_unaligned_splice_candidates(const Alignment& alignment, bool search_left,
+                                                  const pair<int64_t, int64_t>& primary_interval,
+                                                  const vector<MaximalExactMatch>& mems,
+                                                  const vector<clustergraph_t>& cluster_graphs,
+                                                  const unordered_set<size_t>& clusters_already_used,
+                                                  vector<size_t>& cluster_candidates_out,
+                                                  vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates_out) const;
+        
+        void align_to_splice_candidates(const Alignment& alignment,
+                                        vector<clustergraph_t>& cluster_graphs,
+                                        const vector<size_t>& cluster_candidates,
+                                        const vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates,
+                                        const pair<int64_t, int64_t>& primary_interval,
+                                        bool searching_left,
+                                        vector<multipath_alignment_t>& candidates_out,
+                                        vector<double>& multiplicities_out,
+                                        const match_fanouts_t* mem_fanouts = nullptr) const;
+        
+        bool test_splice_candidates(const Alignment& alignment, bool searching_left,
+                                    multipath_alignment_t& anchor_mp_aln, double& anchor_multiplicity,
+                                    int64_t num_candidates,
+                                    const function<const multipath_alignment_t&(int64_t)>& get_candidate,
+                                    const function<multipath_alignment_t&&(int64_t)>& consume_candidate);
+        
+//        void test_splice_candidates(const Alignment& alignment, bool searching_left,
+//                                    vector<multipath_alignment_t>& multipath_alns,
+//                                    vector<double>& multiplicities,
+//                                    const vector<size_t>& mp_aln_candidates,
+//                                    vector<multipath_alignment_t>& unaligned_candidates,
+//                                    const vector<double>& unaligned_multiplicities);
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
@@ -453,6 +537,8 @@ namespace vg {
         int64_t distance_between(const multipath_alignment_t& multipath_aln_1, const multipath_alignment_t& multipath_aln_2,
                                  bool full_fragment = false, bool forward_strand = false) const;
         
+        int64_t distance(const pos_t& pos_1, const pos_t& pos_2) const;
+        
         /// Are two multipath alignments consistently placed based on the learned fragment length distribution?
         bool are_consistent(const multipath_alignment_t& multipath_aln_1, const multipath_alignment_t& multipath_aln_2) const;
         
@@ -483,10 +569,11 @@ namespace vg {
         vector<MaximalExactMatch> find_mems(const Alignment& alignment,
                                             vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks = nullptr);
         
+        DinucleotideMachine dinuc_machine;
+        SpliceMotifs splice_motifs;
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
-        
-        PathComponentIndex path_component_index;
+        PathComponentIndex* path_component_index = nullptr;
         
         /// Memos used by population model
         static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;
@@ -496,7 +583,6 @@ namespace vg {
         
         // a memo for the transcendental restrained extraction function (thread local to maintain threadsafety)
         static thread_local unordered_map<double, vector<int64_t>> pessimistic_gap_memo;
-        
         static const size_t gap_memo_max_size;
         
         // a memo for transcendental band padidng function (gets initialized at construction)
