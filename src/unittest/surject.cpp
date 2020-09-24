@@ -60,7 +60,7 @@ TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[s
     }
     read.set_sequence(seq);
     
-    read.set_score(Aligner().score_ungapped_alignment(read));
+    read.set_score(Aligner().score_contiguous_alignment(read));
     
     set<string> path_names{pos_graph.get_path_name(p)};
     Alignment surjected = surjector.surject(read, path_names, true, true);
@@ -97,7 +97,7 @@ TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[s
         e->set_to_length(pos_graph.get_length(h));
     }
     
-    rev_read.set_score(Aligner().score_ungapped_alignment(rev_read));
+    rev_read.set_score(Aligner().score_contiguous_alignment(rev_read));
     
     Alignment rev_surjected = surjector.surject(rev_read, path_names, true, true);
     

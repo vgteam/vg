@@ -265,6 +265,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const string& n
 /// The edits are inserted into the generated Alignment, cut as necessary to fit into the Alignment's Mappings.
 Alignment target_alignment(const PathPositionHandleGraph* graph, const string& name, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse, Mapping& cigar_mapping);
+
 }
 
 #endif
