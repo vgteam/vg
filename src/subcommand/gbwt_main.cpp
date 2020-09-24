@@ -601,6 +601,9 @@ int main_gbwt(int argc, char** argv)
                 std::cerr << "Extracting threads to " << thread_output << std::endl;
             }
             get_compressed(compressed_index, dynamic_index, in_use, gbwt_name, show_progress);
+            if (show_progress) {
+                std::cerr << "Starting the extraction" << std::endl;
+            }
             gbwt::size_type node_width = gbwt::bit_length(compressed_index.sigma() - 1);
             gbwt::text_buffer_type out(thread_output, std::ios::out, gbwt::MEGABYTE, node_width);
             for (gbwt::size_type id = 0; id < compressed_index.sequences(); id += 2) { // Ignore reverse complements.
