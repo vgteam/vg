@@ -198,9 +198,6 @@ void HTSAlignmentEmitter::convert_unpaired(Alignment& aln, bam_hdr_t* header, ve
     string path_name;
     convert_alignment(aln, cigar, pos_rev, pos, path_name);
     
-    // TODO: We're passing along a text header so we can make a SAM file so
-    // we can make a BAM record by re-reading it, which we can then
-    // possibly output as SAM again. Make this less complicated.
     dest.emplace_back(alignment_to_bam(header,
                                        aln,
                                        path_name,
@@ -224,9 +221,6 @@ void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, bam_h
     // Determine the TLEN for each read.
     auto tlens = compute_template_lengths(pos1, cigar1, pos2, cigar2);
         
-    // TODO: We're passing along a text header so we can make a SAM file so
-    // we can make a BAM record by re-reading it, which we can then
-    // possibly output as SAM again. Make this less complicated.
     dest.emplace_back(alignment_to_bam(header,
                                        aln1,
                                        path_name1,

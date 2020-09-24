@@ -125,6 +125,7 @@ private:
     /// Remember the HTSlib mode string we need to open our files.
     string hts_mode;
     
+    /// Describe the given alignment as a CIGAR and start position.
     virtual void convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar, bool& pos_rev, int64_t& pos, string& path_name) const;
     
     /// Convert an unpaired alignment to HTS format.
