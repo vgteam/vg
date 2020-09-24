@@ -1193,40 +1193,36 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        SupportBasedSnarlCaller& snarl_caller,
                        SnarlManager& snarl_manager,
                        const string& sample_name,
-                       function<unique_ptr<TraversalFinder>(const HandleGraph& graph)> get_trav_finder,
+                       TraversalFinder& traversal_finder,
                        const vector<string>& ref_paths,
                        const vector<size_t>& ref_path_offsets,
                        AlignmentEmitter* aln_emitter,
                        bool traversals_only,
                        bool gaf_output,
                        size_t trav_padding,
-                       bool genotype_snarls,
-                       bool recursive) :
+                       bool genotype_snarls) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
     graph(graph),
-    get_trav_finder(get_trav_finder),
+    traversal_finder(traversal_finder),
     ref_paths(ref_paths),
     traversals_only(traversals_only),
     gaf_output(gaf_output),
-    genotype_snarls(genotype_snarls),
-    recursive(recursive)
+    genotype_snarls(genotype_snarls)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
         ref_path_set.insert(ref_paths[i]);
     }
 
-    
 }
    
 FlowCaller::~FlowCaller() {
 
 }
 
-tuple<vector<SnarlTraversal>, int, const string, size_t, size_t> FlowCaller::get_traversals(
-    const Snarl& managed_snarl, int ploidy, bool recursive) {
+bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy) {
 
     // todo: In order to experiment with merging consecutive snarls to make longer traversals,
     // I am experimenting with sending "fake" snarls through this code.  So make a local
@@ -1237,9 +1233,8 @@ tuple<vector<SnarlTraversal>, int, const string, size_t, size_t> FlowCaller::get
     if (snarl.start().node_id() == snarl.end().node_id() ||
         !graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
         // can't call one-node or out-of graph snarls.
-        return make_tuple<vector<SnarlTraversal>, int, const string, size_t, size_t>({}, -1, "", 0, 0);
+        return false;
     }
-
     // toggle average flow / flow width based on snarl length.  this is a bit inconsistent with
     // downstream which uses the longest traversal length, but it's a bit chicken and egg
     // todo: maybe use snarl length for everything?
@@ -1248,7 +1243,7 @@ tuple<vector<SnarlTraversal>, int, const string, size_t, size_t> FlowCaller::get
         auto snarl_contents = snarl_manager.deep_contents(&snarl, graph, false);
         if (snarl_contents.second.size() > max_snarl_edges) {
             // size cap needed as FlowCaller doesn't have nesting support yet
-            return make_tuple<vector<SnarlTraversal>, int, const string, size_t, size_t>({}, -1, "", 0, 0);
+            return false;
         }
         const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
         size_t len_threshold = support_finder.get_average_traversal_support_switch_threshold();
@@ -1293,7 +1288,7 @@ tuple<vector<SnarlTraversal>, int, const string, size_t, size_t> FlowCaller::get
                           std::back_inserter(common_names));
 
     if (common_names.empty()) {
-        return make_tuple<vector<SnarlTraversal>, int, const string, size_t, size_t>({}, -1, "", 0, 0);
+        return false;
     }
 
     string& ref_path_name = common_names.front();
@@ -1324,13 +1319,13 @@ tuple<vector<SnarlTraversal>, int, const string, size_t, size_t> FlowCaller::get
         } else if (get<2>(ref_interval) == true) {
             if (!graph.has_previous_step(cur_step)) {
                 cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(snarl) << endl;
-                return make_tuple<vector<SnarlTraversal>, int, const string, size_t, size_t>({}, -1, "", 0, 0);;
+                return false;
             }
             cur_step = graph.get_previous_step(cur_step);
         } else {
             if (!graph.has_next_step(cur_step)) {
                 cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(snarl) << endl;
-                return make_tuple<vector<SnarlTraversal>, int, const string, size_t, size_t>({}, -1, "", 0, 0);;
+                return false;
             }
             cur_step = graph.get_next_step(cur_step);
         }
@@ -1338,17 +1333,15 @@ tuple<vector<SnarlTraversal>, int, const string, size_t, size_t> FlowCaller::get
     }
     assert(ref_trav.visit(0) == snarl.start() && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
 
-    unique_ptr<TraversalFinder> traversal_finder = get_trav_finder(graph);
-
     vector<SnarlTraversal> travs;
-    FlowTraversalFinder* flow_trav_finder = dynamic_cast<FlowTraversalFinder*>(traversal_finder.get());
+    FlowTraversalFinder* flow_trav_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
     if (flow_trav_finder != nullptr) {
         // find the max flow traversals using specialized interface that accepts avg heurstic toggle
         pair<vector<SnarlTraversal>, vector<double>> weighted_travs = flow_trav_finder->find_weighted_traversals(snarl, greedy_avg_flow);
         travs = std::move(weighted_travs.first);
     } else {
         // find the traversals using the generic interface
-        travs = traversal_finder->find_traversals(snarl);
+        travs = traversal_finder.find_traversals(snarl);
     }
 
     // find the reference traversal in the list of results from the traversal finder
@@ -1366,22 +1359,6 @@ tuple<vector<SnarlTraversal>, int, const string, size_t, size_t> FlowCaller::get
         travs.push_back(ref_trav);
     }
 
-    return make_tuple(travs, ref_trav_idx, ref_path_name, get<0>(ref_interval), get<1>(ref_interval));
-}
-
-bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy) {
-
-    // compute the traversals along with a bunch of reference path information
-    tuple<vector<SnarlTraversal>, int, const string&, size_t, size_t> found_travs = get_traversals(managed_snarl, ploidy, false);
-
-    vector<SnarlTraversal>& travs = get<0>(found_travs);
-    int ref_trav_idx = get<1>(found_travs);
-    string ref_path_name = get<2>(found_travs);
-
-    if (travs.empty()) {
-        return false;
-    }
-
     bool ret_val = true;
 
     if (traversals_only) {
@@ -1391,22 +1368,22 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy) {
         // use our support caller to choose our genotype
         vector<int> trav_genotype;
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(managed_snarl, travs, ref_trav_idx, ploidy, ref_path_name,
-                                                                        make_pair(get<3>(found_travs), get<4>(found_travs)));
+        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
+                                                                        make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
         assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
 
         if (!gaf_output) {
-            emit_variant(graph, snarl_caller, managed_snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
+            emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
                          ref_offsets[ref_path_name], genotype_snarls);
         } else {
-            emit_gaf_variant(graph, managed_snarl, travs, trav_genotype);
+            emit_gaf_variant(graph, snarl, travs, trav_genotype);
         }
 
         ret_val = trav_genotype.size() == ploidy;
     }
         
-    return ret_val;    
+    return ret_val;
 }
 
 string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,

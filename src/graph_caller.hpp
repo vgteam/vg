@@ -304,15 +304,14 @@ public:
                SupportBasedSnarlCaller& snarl_caller,
                SnarlManager& snarl_manager,
                const string& sample_name,
-               function<unique_ptr<TraversalFinder>(const HandleGraph& graph)> get_trav_finder,
+               TraversalFinder& traversal_finder,
                const vector<string>& ref_paths,
                const vector<size_t>& ref_path_offsets,
                AlignmentEmitter* aln_emitter,
                bool traversals_only,
                bool gaf_output,
                size_t trav_padding,
-               bool genotype_snarls,
-               bool recursive);
+               bool genotype_snarls);
    
     virtual ~FlowCaller();
 
@@ -323,16 +322,11 @@ public:
 
 protected:
 
-    /// lower level snarl calling function used internally
-    tuple<vector<SnarlTraversal>, int, const string, size_t, size_t> get_traversals(
-        const Snarl& snarl, int ploidy, bool recursive);
-    
     /// the graph
     const PathPositionHandleGraph& graph;
 
-    /// the traversal finder, it's a callback since we may want to
-    /// instantiate new traversal finders on various net graphs with encounter
-    function<unique_ptr<TraversalFinder>(const HandleGraph&)> get_trav_finder;
+    /// the traversal finder
+    TraversalFinder& traversal_finder;
 
     /// keep track of the reference paths
     vector<string> ref_paths;
@@ -358,12 +352,9 @@ protected:
     /// (by default, uncalled snarls are skipped, and coordinates are flattened
     ///  out to minimize variant size -- this turns all that off)
     bool genotype_snarls;
-
-    /// activate nested calling.  this will call child snarls and use the genotypes
-    /// to resolve their parent snarls.  if not true, then only top level snarls
-    /// are called and the nesting structure is ignored. 
-    bool recursive;
 };
+
+
 
 }
 

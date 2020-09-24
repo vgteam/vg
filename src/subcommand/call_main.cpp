@@ -429,10 +429,6 @@ int main_call(int argc, char** argv) {
     vcflib::VariantCallFile variant_file;
     unique_ptr<FastaReference> ref_fasta;
     unique_ptr<FastaReference> ins_fasta;
-
-    // only used by the nested caller
-    function<unique_ptr<TraversalFinder>(const HandleGraph& graph)> get_trav_finder;
-       
     if (!vcf_filename.empty()) {
         // Genotype the VCF
         variant_file.parseSamples = false;
@@ -479,9 +475,8 @@ int main_call(int argc, char** argv) {
                 cerr << "error:[vg call] unable to load gbwt index file: " << gbwt_filename << endl;
                 return 1;
             }
-            get_trav_finder = [&](const HandleGraph& g) {
-                return unique_ptr<TraversalFinder>(new GBWTTraversalFinder(g, *gbwt_index.get()));
-            };
+            GBWTTraversalFinder* gbwt_traversal_finder = new GBWTTraversalFinder(*graph, *gbwt_index.get());
+            traversal_finder = unique_ptr<TraversalFinder>(gbwt_traversal_finder);
         } else {
             // Flow traversals (Yen's algorithm)
             
@@ -495,22 +490,20 @@ int main_call(int argc, char** argv) {
             };
 
             // create the flow traversal finder
-            get_trav_finder = [&](const HandleGraph& g) {
-                return unique_ptr<TraversalFinder>(new FlowTraversalFinder(g, *snarl_manager, max_yens_traversals,
-                                                                           node_support, edge_support));
-            };
+            FlowTraversalFinder* flow_traversal_finder = new FlowTraversalFinder(*graph, *snarl_manager, max_yens_traversals,
+                                                                                 node_support, edge_support);
+            traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
 
         FlowCaller* flow_caller = new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                  *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                  *snarl_manager,
-                                                 sample_name, get_trav_finder, ref_paths, ref_path_offsets,
+                                                 sample_name, *traversal_finder, ref_paths, ref_path_offsets,
                                                  alignment_emitter.get(),
                                                  traversals_only,
                                                  gaf_output,
                                                  trav_padding,
-                                                 genotype_snarls,
-                                                 false);
+                                                 genotype_snarls);
         graph_caller = unique_ptr<GraphCaller>(flow_caller);
     }
 
