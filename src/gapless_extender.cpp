@@ -565,7 +565,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
 
             // Case 1: Extend to the right.
             if (!curr.right_maximal) {
-                bool found_extension = false;
+                size_t num_extensions = 0;
                 // Always allow at least max_mismatches / 2 mismatches in the current flank.
                 uint32_t mismatch_limit = std::max(
                     static_cast<uint32_t>(max_mismatches + 1),
@@ -593,16 +593,18 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, con
                         next.old_score = next.internal_score;
                     }
                     set_score(next, this->aligner);
+                    num_extensions += next.state.size();
                     extensions.push(std::move(next));
-                    found_extension = true;
                     return true;
                 });
-                if (!found_extension) {
+                // We could not extend all threads in 'curr' to the right. The unextended ones
+                // may have different left extensions, so we must consider 'curr' right-maximal.
+                if (num_extensions < curr.state.size()) {
                     curr.right_maximal = true;
                     curr.old_score = curr.internal_score;
-                } else {
-                    continue;
+                    extensions.push(std::move(curr));
                 }
+                continue;
             }
 
             // Case 2: Extend to the left.
