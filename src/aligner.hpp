@@ -167,7 +167,9 @@ namespace vg {
         /// Qualities may be ignored by some implementations.
         virtual int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                           string::const_iterator base_qual_begin) const = 0;
-        
+        /// Compute the score of a mismatch of the given range of sequence with the given qualities.
+        /// Qualities may be ignored by some implementations.
+        /// Note that the return value is SIGNED, and almost certainly NEGATIVE, because mismatches are bad.
         virtual int32_t score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
                                        string::const_iterator base_qual_begin) const = 0;
                 
@@ -350,6 +352,7 @@ namespace vg {
                                string::const_iterator base_qual_begin) const;
         
         /// Score a mismatch given just the length. Only possible since we ignore qualities.
+        /// Return value is SIGNED, and almost certainly NEGATIVE
         int32_t score_mismatch(size_t length) const;
 
         int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
