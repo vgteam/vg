@@ -894,6 +894,10 @@ int main_view(int argc, char** argv) {
         return 1;
     }
 
+    if (output_type == "gfa") {
+        graph_to_gfa(graph, std::cout);
+    } 
+
     // Now we know graph was filled in from the input format. Spit it out in the
     // requested output format.
     
@@ -936,11 +940,7 @@ int main_view(int argc, char** argv) {
         // This is especially useful for JSON import.
         cerr << "[vg view] warning: graph is invalid!" << endl;
     }
-    
-    if (output_type == "gfa") {
-        // TODO: there's no reason this shouldn't work on PathHandleGraphs directly.
-        graph_to_gfa(vg_graph, std::cout);
-    } else if (output_type == "dot") {
+    if (output_type == "dot") {
         vg_graph->to_dot(std::cout,
                         alns,
                         loci,
@@ -962,7 +962,7 @@ int main_view(int argc, char** argv) {
         vg_graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
         vg_graph->serialize_to_ostream(cout);
-    } else {
+    } else if (output_type != "gfa") {
         // We somehow got here with a bad output format.
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
         return 1;
