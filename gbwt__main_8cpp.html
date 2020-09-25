@@ -85,26 +85,37 @@ $(function() {
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
 Enumerations</h2></td></tr>
-<tr class="memitem:a3e92f146bc3099bf9cae4d78234ec09e"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09e">operation_mode</a> { <br />
-&#160;&#160;<a class="el" href="gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09ea3c378fcc0e442c1538f962b88a8db7ce">operation_none</a>, 
-<a class="el" href="gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09ea1a8eaa1385a1500cd33203d52c29b179">operation_merge</a>, 
-<a class="el" href="gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09eaf012047638dc261ef5f93dea6a788266">operation_graph</a>, 
-<a class="el" href="gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09ea7f533394b7aefa59b4008ae6c0b234cf">operation_remove</a>, 
-<br />
-&#160;&#160;<a class="el" href="gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09eafc8f9e404a5f9f5b327ff353d837dbaf">operation_r_index</a>, 
-<a class="el" href="gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09ea531b1d64ebfaa5dd4fce4076856afa9a">operation_other</a>
-<br />
+<tr class="memitem:a7e58588619a1c4b0edfca9eb70fc2469"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a7e58588619a1c4b0edfca9eb70fc2469">merge_mode</a> { <a class="el" href="gbwt__main_8cpp.html#a7e58588619a1c4b0edfca9eb70fc2469a447dd7a4f2d54443903f0bcd42b083c7">merge_none</a>, 
+<a class="el" href="gbwt__main_8cpp.html#a7e58588619a1c4b0edfca9eb70fc2469ab3b404897fb5c4bb2ee69b118ff22c23">merge_insert</a>, 
+<a class="el" href="gbwt__main_8cpp.html#a7e58588619a1c4b0edfca9eb70fc2469acd345ea33975fbb1f549d7f8cb94407f">merge_fast</a>
  }</td></tr>
-<tr class="separator:a3e92f146bc3099bf9cae4d78234ec09e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="separator:a7e58588619a1c4b0edfca9eb70fc2469"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4689c302ad196e319592baf89a087dad"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a4689c302ad196e319592baf89a087dad">path_cover_mode</a> { <a class="el" href="gbwt__main_8cpp.html#a4689c302ad196e319592baf89a087dadadb4d6a55b1ed5270c9bc2306180eb045">path_cover_none</a>, 
 <a class="el" href="gbwt__main_8cpp.html#a4689c302ad196e319592baf89a087dadae6691690a732603442821b57afe6615f">path_cover_augment</a>, 
 <a class="el" href="gbwt__main_8cpp.html#a4689c302ad196e319592baf89a087dada099704cfeb2149f34691f9bc7b0ff67c">path_cover_local</a>, 
 <a class="el" href="gbwt__main_8cpp.html#a4689c302ad196e319592baf89a087dadae64c32186b545f99c9926f3a1dae82e6">path_cover_greedy</a>
  }</td></tr>
 <tr class="separator:a4689c302ad196e319592baf89a087dad"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae64cdae0e55ff5e53a48409a6fc1af1d"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#ae64cdae0e55ff5e53a48409a6fc1af1d">index_type</a> { <a class="el" href="gbwt__main_8cpp.html#ae64cdae0e55ff5e53a48409a6fc1af1da1d0acff981b7ea81b6a7ce3af2336fdb">index_none</a>, 
+<a class="el" href="gbwt__main_8cpp.html#ae64cdae0e55ff5e53a48409a6fc1af1daa4c3c464865e125b64717b4b1e16c38f">index_compressed</a>, 
+<a class="el" href="gbwt__main_8cpp.html#ae64cdae0e55ff5e53a48409a6fc1af1da28636b2852c64468273bfe50b9c24362">index_dynamic</a>
+ }</td></tr>
+<tr class="separator:ae64cdae0e55ff5e53a48409a6fc1af1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:a7abf9aa413b0dca5e088c6bf900b3295"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a7abf9aa413b0dca5e088c6bf900b3295">load_gbwt</a> (const std::string &amp;filename, gbwt::GBWT &amp;index, bool show_progress)</td></tr>
+<tr class="separator:a7abf9aa413b0dca5e088c6bf900b3295"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a072aef35f1a34bf1f3d37feca1ee9e9a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a072aef35f1a34bf1f3d37feca1ee9e9a">load_gbwt</a> (const std::string &amp;filename, gbwt::DynamicGBWT &amp;index, bool show_progress)</td></tr>
+<tr class="separator:a072aef35f1a34bf1f3d37feca1ee9e9a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae0a4fa4016bbed55fbbedd4ca1a798e0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#ae0a4fa4016bbed55fbbedd4ca1a798e0">get_compressed</a> (gbwt::GBWT &amp;compressed_index, gbwt::DynamicGBWT &amp;dynamic_index, <a class="el" href="gbwt__main_8cpp.html#ae64cdae0e55ff5e53a48409a6fc1af1d">index_type</a> &amp;in_use, const std::string &amp;filename, bool show_progress)</td></tr>
+<tr class="separator:ae0a4fa4016bbed55fbbedd4ca1a798e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af69307b432c908bb7e7aed34ecff9cbf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#af69307b432c908bb7e7aed34ecff9cbf">get_dynamic</a> (gbwt::GBWT &amp;compressed_index, gbwt::DynamicGBWT &amp;dynamic_index, <a class="el" href="gbwt__main_8cpp.html#ae64cdae0e55ff5e53a48409a6fc1af1d">index_type</a> &amp;in_use, const std::string &amp;filename, bool show_progress)</td></tr>
+<tr class="separator:af69307b432c908bb7e7aed34ecff9cbf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2f09b6e9a321d06b62b3596d8b87f6cf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a2f09b6e9a321d06b62b3596d8b87f6cf">get_graph</a> (std::unique_ptr&lt; <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &gt; &amp;graph, bool &amp;in_use, const std::string &amp;filename, bool show_progress)</td></tr>
+<tr class="separator:a2f09b6e9a321d06b62b3596d8b87f6cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4cd4d226a75dcfe315bcf74873692e60"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a4cd4d226a75dcfe315bcf74873692e60">clear_graph</a> (std::unique_ptr&lt; <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &gt; &amp;graph, bool &amp;in_use)</td></tr>
+<tr class="separator:a4cd4d226a75dcfe315bcf74873692e60"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a73013ddacba7ab20beed9e8022b2b57b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a73013ddacba7ab20beed9e8022b2b57b">help_gbwt</a> (char **argv)</td></tr>
 <tr class="separator:a73013ddacba7ab20beed9e8022b2b57b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2018904e4679a19c52921f97afab4592"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gbwt__main_8cpp.html#a2018904e4679a19c52921f97afab4592">main_gbwt</a> (int argc, char **argv)</td></tr>
@@ -113,24 +124,40 @@ Functions</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the "vg gbwt" subcommand, which wraps up access for commands we'd otherwise find in the gbwt submodule. </p>
 </div><h2 class="groupheader">Enumeration Type Documentation</h2>
-<a id="a3e92f146bc3099bf9cae4d78234ec09e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3e92f146bc3099bf9cae4d78234ec09e">&#9670;&nbsp;</a></span>operation_mode</h2>
+<a id="ae64cdae0e55ff5e53a48409a6fc1af1d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae64cdae0e55ff5e53a48409a6fc1af1d">&#9670;&nbsp;</a></span>index_type</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">enum <a class="el" href="gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09e">operation_mode</a></td>
+          <td class="memname">enum <a class="el" href="gbwt__main_8cpp.html#ae64cdae0e55ff5e53a48409a6fc1af1d">index_type</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a3e92f146bc3099bf9cae4d78234ec09ea3c378fcc0e442c1538f962b88a8db7ce"></a>operation_none&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a3e92f146bc3099bf9cae4d78234ec09ea1a8eaa1385a1500cd33203d52c29b179"></a>operation_merge&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a3e92f146bc3099bf9cae4d78234ec09eaf012047638dc261ef5f93dea6a788266"></a>operation_graph&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a3e92f146bc3099bf9cae4d78234ec09ea7f533394b7aefa59b4008ae6c0b234cf"></a>operation_remove&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a3e92f146bc3099bf9cae4d78234ec09eafc8f9e404a5f9f5b327ff353d837dbaf"></a>operation_r_index&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a3e92f146bc3099bf9cae4d78234ec09ea531b1d64ebfaa5dd4fce4076856afa9a"></a>operation_other&#160;</td><td class="fielddoc"></td></tr>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ae64cdae0e55ff5e53a48409a6fc1af1da1d0acff981b7ea81b6a7ce3af2336fdb"></a>index_none&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ae64cdae0e55ff5e53a48409a6fc1af1daa4c3c464865e125b64717b4b1e16c38f"></a>index_compressed&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ae64cdae0e55ff5e53a48409a6fc1af1da28636b2852c64468273bfe50b9c24362"></a>index_dynamic&#160;</td><td class="fielddoc"></td></tr>
+</table>
+
+</div>
+</div>
+<a id="a7e58588619a1c4b0edfca9eb70fc2469"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7e58588619a1c4b0edfca9eb70fc2469">&#9670;&nbsp;</a></span>merge_mode</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="gbwt__main_8cpp.html#a7e58588619a1c4b0edfca9eb70fc2469">merge_mode</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a7e58588619a1c4b0edfca9eb70fc2469a447dd7a4f2d54443903f0bcd42b083c7"></a>merge_none&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a7e58588619a1c4b0edfca9eb70fc2469ab3b404897fb5c4bb2ee69b118ff22c23"></a>merge_insert&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a7e58588619a1c4b0edfca9eb70fc2469acd345ea33975fbb1f549d7f8cb94407f"></a>merge_fast&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>
@@ -156,6 +183,166 @@ Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Function Documentation</h2>
+<a id="a4cd4d226a75dcfe315bcf74873692e60"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4cd4d226a75dcfe315bcf74873692e60">&#9670;&nbsp;</a></span>clear_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void clear_graph </td>
+          <td>(</td>
+          <td class="paramtype">std::unique_ptr&lt; <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool &amp;&#160;</td>
+          <td class="paramname"><em>in_use</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ae0a4fa4016bbed55fbbedd4ca1a798e0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae0a4fa4016bbed55fbbedd4ca1a798e0">&#9670;&nbsp;</a></span>get_compressed()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void get_compressed </td>
+          <td>(</td>
+          <td class="paramtype">gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>compressed_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::DynamicGBWT &amp;&#160;</td>
+          <td class="paramname"><em>dynamic_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="gbwt__main_8cpp.html#ae64cdae0e55ff5e53a48409a6fc1af1d">index_type</a> &amp;&#160;</td>
+          <td class="paramname"><em>in_use</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="af69307b432c908bb7e7aed34ecff9cbf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af69307b432c908bb7e7aed34ecff9cbf">&#9670;&nbsp;</a></span>get_dynamic()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void get_dynamic </td>
+          <td>(</td>
+          <td class="paramtype">gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>compressed_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::DynamicGBWT &amp;&#160;</td>
+          <td class="paramname"><em>dynamic_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="gbwt__main_8cpp.html#ae64cdae0e55ff5e53a48409a6fc1af1d">index_type</a> &amp;&#160;</td>
+          <td class="paramname"><em>in_use</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a2f09b6e9a321d06b62b3596d8b87f6cf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2f09b6e9a321d06b62b3596d8b87f6cf">&#9670;&nbsp;</a></span>get_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void get_graph </td>
+          <td>(</td>
+          <td class="paramtype">std::unique_ptr&lt; <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool &amp;&#160;</td>
+          <td class="paramname"><em>in_use</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a73013ddacba7ab20beed9e8022b2b57b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a73013ddacba7ab20beed9e8022b2b57b">&#9670;&nbsp;</a></span>help_gbwt()</h2>
 
@@ -168,6 +355,74 @@ Functions</h2></td></tr>
           <td class="paramtype">char **&#160;</td>
           <td class="paramname"><em>argv</em></td><td>)</td>
           <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a7abf9aa413b0dca5e088c6bf900b3295"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7abf9aa413b0dca5e088c6bf900b3295">&#9670;&nbsp;</a></span>load_gbwt() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void load_gbwt </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a072aef35f1a34bf1f3d37feca1ee9e9a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a072aef35f1a34bf1f3d37feca1ee9e9a">&#9670;&nbsp;</a></span>load_gbwt() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void load_gbwt </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::DynamicGBWT &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">

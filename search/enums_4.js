@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['mappingqualitymethod',['MappingQualityMethod',['../namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39',1,'vg']]],
-  ['matrix_5ft',['matrix_t',['../classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f',1,'vg::BandedGlobalAligner']]]
+  ['loadprogress',['LoadProgress',['../classvg_1_1io_1_1VPKG.html#a8628083f85511abc137b64c80985160f',1,'vg::io::VPKG']]]
 ];

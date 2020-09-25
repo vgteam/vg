@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['operation_5fmode',['operation_mode',['../gbwt__main_8cpp.html#a3e92f146bc3099bf9cae4d78234ec09e',1,'gbwt_main.cpp']]]
+  ['nodetype',['nodeType',['../structhaplo_1_1linear__haplo__structure.html#a3180d362cdac21750aebf6d4fe77e0d8',1,'haplo::linear_haplo_structure']]]
 ];

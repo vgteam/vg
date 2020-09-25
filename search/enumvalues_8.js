@@ -2,6 +2,9 @@ var searchData=
 [
   ['match',['Match',['../classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2faac03946390169c005fafc9a38b114e6a',1,'vg::BandedGlobalAligner::Match()'],['../dozeu__interface_8cpp.html#a06fc87d81c62e9abb8790b6e5713c55ba1155ee5305ebe5bb9407faa9d395ae93',1,'MATCH():&#160;dozeu_interface.cpp'],['../qual__adj__xdrop__aligner_8cpp.html#adf764cbdea00d65edcd07bb9953ad2b7a1155ee5305ebe5bb9407faa9d395ae93',1,'MATCH():&#160;qual_adj_xdrop_aligner.cpp'],['../xdrop__aligner_8cpp.html#abc6126af1d45847bc59afa0aa3216b04a1155ee5305ebe5bb9407faa9d395ae93',1,'MATCH():&#160;xdrop_aligner.cpp']]],
   ['max_5foverhang',['max_overhang',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388aa363cad61b62523601f1ec27ec8fb93c',1,'vg::ReadFilter::Counts']]],
+  ['merge_5ffast',['merge_fast',['../gbwt__main_8cpp.html#a7e58588619a1c4b0edfca9eb70fc2469acd345ea33975fbb1f549d7f8cb94407f',1,'gbwt_main.cpp']]],
+  ['merge_5finsert',['merge_insert',['../gbwt__main_8cpp.html#a7e58588619a1c4b0edfca9eb70fc2469ab3b404897fb5c4bb2ee69b118ff22c23',1,'gbwt_main.cpp']]],
+  ['merge_5fnone',['merge_none',['../gbwt__main_8cpp.html#a7e58588619a1c4b0edfca9eb70fc2469a447dd7a4f2d54443903f0bcd42b083c7',1,'gbwt_main.cpp']]],
   ['min_5fbase_5fqual',['min_base_qual',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388acf8ea8c960251635cdbd656fdaf23476',1,'vg::ReadFilter::Counts']]],
   ['min_5fend_5fmatches',['min_end_matches',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388a32632bc2869e1cebb85d8f34e60c8064',1,'vg::ReadFilter::Counts']]],
   ['min_5fmapq',['min_mapq',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388ae6eb28ff515a131b9d900e230c4548c8',1,'vg::ReadFilter::Counts']]],

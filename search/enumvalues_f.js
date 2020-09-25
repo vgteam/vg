@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['ultrabubble',['ULTRABUBBLE',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97aea6b4b85aa567a940c7434df2fcb56fb',1,'vg']]],
-  ['unary',['UNARY',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97a0e62c0ff8521d5960a5cc819a7bf7230',1,'vg']]],
-  ['unclassified',['UNCLASSIFIED',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97a7db3292851220acc20f75deebe0924ff',1,'vg']]]
+  ['widget',['WIDGET',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838afa639842a4d69790c890c94b80e27792',1,'vg::subcommand']]],
+  ['wrong_5fname',['wrong_name',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388aa701e41f77955abe2ab0987627df4d3f',1,'vg::ReadFilter::Counts']]],
+  ['wrong_5frefpos',['wrong_refpos',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388ae2aa11efa38f8a46410102500d80d28b',1,'vg::ReadFilter::Counts']]]
 ];
