@@ -5,12 +5,13 @@
 
 #include "../gapless_extender.hpp"
 #include "../gbwt_helper.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "../utility.hpp"
 
 #include "catch.hpp"
 
 #include <map>
+#include <unordered_set>
 #include <vector>
 
 
@@ -189,7 +190,7 @@ void full_length_match(const std::vector<std::pair<pos_t, size_t>>& seeds, const
     for (auto seed : seeds) {
         cluster.insert(GaplessExtender::to_seed(seed.first, seed.second));
     }
-    auto result = extender.extend(cluster, read, error_bound);
+    auto result = extender.extend(cluster, read, nullptr, error_bound);
 
     // Empty correct alignment indicates that there should not be a full-length alignment.
     if (correct_alignment.empty()) {
@@ -215,12 +216,12 @@ void full_length_match(const std::vector<std::pair<pos_t, size_t>>& seeds, const
     }
 }
 
-void full_length_matches(const std::vector<std::pair<pos_t, size_t>>& seeds, const std::string& read, const std::vector<std::vector<std::pair<pos_t, std::string>>>& correct_alignments, const GaplessExtender& extender, size_t error_bound) {
+void full_length_matches(const std::vector<std::pair<pos_t, size_t>>& seeds, const std::string& read, const std::vector<std::vector<std::pair<pos_t, std::string>>>& correct_alignments, const GaplessExtender& extender, size_t error_bound, double overlap_threshold) {
     GaplessExtender::cluster_type cluster;
     for (auto seed : seeds) {
         cluster.insert(GaplessExtender::to_seed(seed.first, seed.second));
     }
-    auto result = extender.extend(cluster, read, error_bound);
+    auto result = extender.extend(cluster, read, nullptr, error_bound, overlap_threshold);
 
     REQUIRE(result.size() == correct_alignments.size());
     for (size_t i = 0; i < result.size(); i++) {
@@ -237,7 +238,7 @@ void partial_matches(const std::vector<std::pair<pos_t, size_t>>& seeds, const s
     for (auto seed : seeds) {
         cluster.insert(GaplessExtender::to_seed(seed.first, seed.second));
     }
-    auto result = extender.extend(cluster, read, error_bound, false);
+    auto result = extender.extend(cluster, read, nullptr, error_bound);
 
     REQUIRE(result.size() == correct_extensions.size());
     for (size_t i = 0; i < result.size(); i++) {
@@ -251,37 +252,11 @@ void partial_matches(const std::vector<std::pair<pos_t, size_t>>& seeds, const s
     }
 }
 
-void trimmed_extensions(std::vector<GaplessExtension>& extensions, std::vector<GaplessExtension>& correct, const GaplessExtender& extender, size_t error_bound) {
-    for (GaplessExtension& extension : extensions) {
-        extension.state = extender.graph->bd_find(extension.path);
-    }
-    extender.trim(extensions, error_bound);
-
-    REQUIRE(extensions.size() == correct.size());
-    for (size_t i = 0; i < extensions.size(); i++) {
-        correct_score(extensions[i], *(extender.aligner));
-        REQUIRE(extensions[i].path == correct[i].path);
-        REQUIRE(extensions[i].offset == correct[i].offset);
-        correct[i].state = extender.graph->bd_find(correct[i].path);
-        REQUIRE(extensions[i].state == correct[i].state);
-        REQUIRE(extensions[i].read_interval == correct[i].read_interval);
-        REQUIRE(extensions[i].mismatch_positions == correct[i].mismatch_positions);
-        REQUIRE(extensions[i].score == correct[i].score);
-        REQUIRE(extensions[i].left_full == correct[i].left_full);
-        REQUIRE(extensions[i].right_full == correct[i].right_full);
-    }
-}
-
-void check_haplotypes(const GaplessExtender& extender, const std::vector<nid_t>& nodes, const std::map<std::vector<handle_t>, std::string>& correct_haplotypes) {
+void check_haplotypes(const GaplessExtender& extender, const std::unordered_set<nid_t>& nodes, const std::map<std::vector<handle_t>, std::string>& correct_haplotypes) {
     const gbwtgraph::GBWTGraph& graph = *(extender.graph);
-    SubHandleGraph subgraph(extender.graph);
-    for (nid_t node : nodes) {
-        subgraph.add_handle(graph.get_handle(node, false));
-    }
-
     std::vector<std::vector<handle_t>> haplotype_paths;
     bdsg::HashGraph unfolded;
-    extender.unfold_haplotypes(subgraph, haplotype_paths, unfolded);
+    extender.unfold_haplotypes(nodes, haplotype_paths, unfolded);
 
     // We assume that the correct paths are in canonical orientation (smaller than the reverse).
     std::vector<bool> flipped(haplotype_paths.size(), false);
@@ -393,6 +368,174 @@ TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
         Position correct_tail = make_position(4, false, 2);
         same_position(extension.starting_position(gbwt_graph), correct_start);
         same_position(extension.tail_position(gbwt_graph), correct_tail);
+    }
+}
+
+TEST_CASE("Overlap detection for gapless extensions", "[gapless_extender]") {
+
+    // Build a GBWT with three threads including a duplicate.
+    gbwt::GBWT gbwt_index = build_gbwt_index();
+
+    // Build a GBWT-backed graph.
+    gbwtgraph::GBWTGraph gbwt_graph = build_gbwt_graph(gbwt_index);
+ 
+    SECTION("unrelated extensions") {
+        GaplessExtension a {
+            {
+                gbwt_graph.get_handle(1, false),
+                gbwt_graph.get_handle(4, false)
+            },
+            0, gbwt::BidirectionalState(),
+            { 0, 4 }, { },
+            0, false, false,
+            false, false, 0, 0
+        };
+        GaplessExtension b {
+            {
+                gbwt_graph.get_handle(5, false),
+                gbwt_graph.get_handle(6, false),
+                gbwt_graph.get_handle(8, false),
+                gbwt_graph.get_handle(9, false)
+            },
+            0, gbwt::BidirectionalState(),
+            { 0, 4 }, { },
+            0, false, false,
+            false, false, 0, 0
+        };
+        size_t expected_overlap = 0;
+        REQUIRE(a.overlap(gbwt_graph, b) == expected_overlap);
+    }
+
+    SECTION("identical extensions") {
+        GaplessExtension a {
+            {
+                gbwt_graph.get_handle(1, false),
+                gbwt_graph.get_handle(4, false)
+            },
+            0, gbwt::BidirectionalState(),
+            { 0, 4 }, { },
+            0, false, false,
+            false, false, 0, 0
+        };
+        GaplessExtension b = a;
+        size_t expected_overlap = a.length();
+        REQUIRE(a.overlap(gbwt_graph, b) == expected_overlap);
+    }
+
+    SECTION("one difference") {
+        GaplessExtension a {
+            {
+                gbwt_graph.get_handle(5, false),
+                gbwt_graph.get_handle(6, false),
+                gbwt_graph.get_handle(7, false),
+                gbwt_graph.get_handle(9, false)
+            },
+            0, gbwt::BidirectionalState(),
+            { 0, 4 }, { },
+            0, false, false,
+            false, false, 0, 0
+        };
+        GaplessExtension b {
+            {
+                gbwt_graph.get_handle(5, false),
+                gbwt_graph.get_handle(6, false),
+                gbwt_graph.get_handle(8, false),
+                gbwt_graph.get_handle(9, false)
+            },
+            0, gbwt::BidirectionalState(),
+            { 0, 4 }, { },
+            0, false, false,
+            false, false, 0, 0
+        };
+        REQUIRE(a.overlap(gbwt_graph, b) == a.length() - 1);
+        size_t expected_overlap = a.length() - 1;
+    }
+
+    SECTION("partial overlap") {
+        GaplessExtension a {
+            {
+                gbwt_graph.get_handle(4, false),
+                gbwt_graph.get_handle(5, false),
+                gbwt_graph.get_handle(6, false),
+                gbwt_graph.get_handle(8, false)
+            },
+            2, gbwt::BidirectionalState(),
+            { 0, 4 }, { },
+            0, false, false,
+            false, false, 0, 0
+        };
+        GaplessExtension b {
+            {
+                gbwt_graph.get_handle(5, false),
+                gbwt_graph.get_handle(6, false),
+                gbwt_graph.get_handle(8, false),
+                gbwt_graph.get_handle(9, false)
+            },
+            0, gbwt::BidirectionalState(),
+            { 1, 5 }, { },
+            0, false, false,
+            false, false, 0, 0
+        };
+        size_t expected_overlap = a.length() - 1;
+        REQUIRE(a.overlap(gbwt_graph, b) == expected_overlap);
+    }
+
+    SECTION("shifted by one") {
+        GaplessExtension a {
+            {
+                gbwt_graph.get_handle(4, false),
+                gbwt_graph.get_handle(5, false),
+                gbwt_graph.get_handle(6, false),
+                gbwt_graph.get_handle(8, false),
+                gbwt_graph.get_handle(9, false)
+            },
+            2, gbwt::BidirectionalState(),
+            { 0, 5 }, { },
+            0, false, false,
+            false, false, 0, 0
+        };
+        GaplessExtension b {
+            {
+                gbwt_graph.get_handle(5, false),
+                gbwt_graph.get_handle(6, false),
+                gbwt_graph.get_handle(8, false),
+                gbwt_graph.get_handle(9, false)
+            },
+            0, gbwt::BidirectionalState(),
+            { 0, 4 }, { },
+            0, false, false,
+            false, false, 0, 0
+        };
+        size_t expected_overlap = 0;
+        REQUIRE(a.overlap(gbwt_graph, b) == expected_overlap);
+    }
+
+    SECTION("paths of different lengths") {
+        GaplessExtension a {
+            {
+                gbwt_graph.get_handle(1, false),
+                gbwt_graph.get_handle(2, false),
+                gbwt_graph.get_handle(4, false),
+                gbwt_graph.get_handle(5, false)
+            },
+            0, gbwt::BidirectionalState(),
+            { 0, 6 }, { },
+            0, false, false,
+            false, false, 0, 0
+        };
+        GaplessExtension b {
+            {
+                gbwt_graph.get_handle(1, false),
+                gbwt_graph.get_handle(4, false),
+                gbwt_graph.get_handle(5, false)
+            },
+            0, gbwt::BidirectionalState(),
+            { 1, 6 }, { },
+            0, false, false,
+            false, false, 0, 0
+        };
+        size_t expected_overlap = b.length() - 1;
+        REQUIRE(a.overlap(gbwt_graph, b) == expected_overlap);
     }
 }
 
@@ -534,30 +677,6 @@ TEST_CASE("Full-length alignments", "[gapless_extender]") {
         full_length_match(seeds, read, { }, extender, error_bound, false);
     }
 
-    SECTION("there is a secondary alignment") {
-        std::vector<std::pair<pos_t, size_t>> seeds {
-            { make_pos_t(4, false, 2), 0 },
-            { make_pos_t(6, true, 0), 1 }
-        };
-        std::string read = "GTAC";
-        size_t error_bound = 1;
-        std::vector<std::vector<std::pair<pos_t, std::string>>> correct_alignments {
-            {
-                { make_pos_t(4, false, 2), "1" },
-                { make_pos_t(5, false, 0), "1" },
-                { make_pos_t(6, false, 0), "1" },
-                { make_pos_t(7, false, 0), "1" }
-            },
-            {
-                { make_pos_t(7, true, 0), "1" },
-                { make_pos_t(6, true, 0), "1" },
-                { make_pos_t(5, true, 0), "1" },
-                { make_pos_t(4, true, 0), "1" }
-            }
-        };
-        full_length_matches(seeds, read, correct_alignments, extender, error_bound);
-    }
-
     // We also test that we avoid finding the same best alignment from multiple seeds.
     SECTION("secondary alignment has more mismatches") {
         std::vector<std::pair<pos_t, size_t>> seeds {
@@ -567,6 +686,7 @@ TEST_CASE("Full-length alignments", "[gapless_extender]") {
         };
         std::string read = "GAGGA";
         size_t error_bound = 2;
+        double overlap_threshold = 0.9;
         std::vector<std::vector<std::pair<pos_t, std::string>>> correct_alignments {
             {
                 { make_pos_t(1, false, 0), "1" },
@@ -579,13 +699,32 @@ TEST_CASE("Full-length alignments", "[gapless_extender]") {
                 { make_pos_t(5, false, 0), "A" }
             }
         };
-        full_length_matches(seeds, read, correct_alignments, extender, error_bound);
+        full_length_matches(seeds, read, correct_alignments, extender, error_bound, overlap_threshold);
+    }
+
+    SECTION("no secondary alignment found if the overlap is too high") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(2, false, 0), 1 }, // First seed for the best alignment (1 mismatch).
+            { make_pos_t(4, false, 0), 2 }, // Second seed for the best alignment (1 mismatch).
+            { make_pos_t(4, false, 0), 1 }  // Seed for the secondary alignment (2 mismatches).
+        };
+        std::string read = "GAGGA";
+        size_t error_bound = 2;
+        double overlap_threshold = 0.1;
+        std::vector<std::vector<std::pair<pos_t, std::string>>> correct_alignments {
+            {
+                { make_pos_t(1, false, 0), "1" },
+                { make_pos_t(2, false, 0), "1" },
+                { make_pos_t(4, false, 0), "2A" }
+            }
+        };
+        full_length_matches(seeds, read, correct_alignments, extender, error_bound, overlap_threshold);
     }
 }
 
 //------------------------------------------------------------------------------
 
-TEST_CASE("Partial alignments without trimming", "[gapless_extender]") {
+TEST_CASE("Local alignments", "[gapless_extender]") {
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -643,27 +782,26 @@ TEST_CASE("Partial alignments without trimming", "[gapless_extender]") {
         partial_matches(seeds, read, correct_extensions, correct_offsets, extender, error_bound);
     }
 
-    SECTION("exact matching with mismatches in the initial node") {
+    SECTION("trim left flank") {
         std::vector<std::pair<pos_t, size_t>> seeds {
             { make_pos_t(4, false, 2), 4 }
         };
         std::string read = "xAGxGTAx";
         std::vector<std::vector<std::pair<pos_t, std::string>>> correct_extensions {
             {
-                { make_pos_t(2, false, 0), "1" },
-                { make_pos_t(4, false, 0), "1x1" },
+                { make_pos_t(4, false, 2), "1" },
                 { make_pos_t(5, false, 0), "1" },
                 { make_pos_t(6, false, 0), "1" }
             }
         };
         std::vector<size_t> correct_offsets {
-            static_cast<size_t>(1)
+            static_cast<size_t>(4)
         };
         size_t error_bound = 0;
         partial_matches(seeds, read, correct_extensions, correct_offsets, extender, error_bound);
     }
 
-    SECTION("approximate matching") {
+    SECTION("trim right flank") {
         std::vector<std::pair<pos_t, size_t>> seeds {
             { make_pos_t(4, false, 2), 4 }
         };
@@ -672,9 +810,7 @@ TEST_CASE("Partial alignments without trimming", "[gapless_extender]") {
             {
                 { make_pos_t(2, false, 0), "1" },
                 { make_pos_t(4, false, 0), "3" },
-                { make_pos_t(5, false, 0), "1" },
-                { make_pos_t(6, false, 0), "x" },
-                { make_pos_t(8, false, 0), "1" }
+                { make_pos_t(5, false, 0), "1" }
             }
         };
         std::vector<size_t> correct_offsets {
@@ -684,7 +820,7 @@ TEST_CASE("Partial alignments without trimming", "[gapless_extender]") {
         partial_matches(seeds, read, correct_extensions, correct_offsets, extender, error_bound);
     }
 
-    SECTION("removing duplicates") {
+    SECTION("remove duplicates") {
         std::vector<std::pair<pos_t, size_t>> seeds {
             { make_pos_t(2, false, 0), 1 },
             { make_pos_t(4, false, 2), 4 }
@@ -694,9 +830,7 @@ TEST_CASE("Partial alignments without trimming", "[gapless_extender]") {
             {
                 { make_pos_t(2, false, 0), "1" },
                 { make_pos_t(4, false, 0), "3" },
-                { make_pos_t(5, false, 0), "1" },
-                { make_pos_t(6, false, 0), "x" },
-                { make_pos_t(8, false, 0), "1" }
+                { make_pos_t(5, false, 0), "1" }
             }
         };
         std::vector<size_t> correct_offsets {
@@ -704,220 +838,6 @@ TEST_CASE("Partial alignments without trimming", "[gapless_extender]") {
         };
         size_t error_bound = 1;
         partial_matches(seeds, read, correct_extensions, correct_offsets, extender, error_bound);
-    }
-}
-
-//------------------------------------------------------------------------------
-
-TEST_CASE("Trimming mismatches", "[gapless_extender]") {
-
-    // Build a GBWT with three threads including a duplicate.
-    gbwt::GBWT gbwt_index = build_gbwt_index();
-
-    // Build a GBWT-backed graph.
-    gbwtgraph::GBWTGraph gbwt_graph = build_gbwt_graph(gbwt_index);
-
-    // And finally wrap it in a GaplessExtender with an Aligner.
-    Aligner aligner;
-    GaplessExtender extender(gbwt_graph, aligner);
-
-    SECTION("basic trimming") {
-        std::vector<GaplessExtension> extensions {
-            { // Trim right end.
-                {
-                    gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false),
-                    gbwt_graph.get_handle(6, false)
-                },
-                static_cast<size_t>(1), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(5, 9), { static_cast<size_t>(7) },
-                static_cast<int32_t>(-1), false, false,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            },
-            { // Trim left end.
-                {
-                    gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false),
-                    gbwt_graph.get_handle(6, false),
-                    gbwt_graph.get_handle(8, false),
-                    gbwt_graph.get_handle(9, false)
-                },
-                static_cast<size_t>(0), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(2, 9), { static_cast<size_t>(3) },
-                static_cast<int32_t>(2), false, false,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            },
-            { // Trim both ends.
-                {
-                    gbwt_graph.get_handle(2, false),
-                    gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false),
-                    gbwt_graph.get_handle(6, false),
-                    gbwt_graph.get_handle(8, false),
-                    gbwt_graph.get_handle(9, false)
-                },
-                static_cast<size_t>(0), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(1, 9), { static_cast<size_t>(2), static_cast<size_t>(7) },
-                static_cast<int32_t>(-2), false, false,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            }
-        };
-        std::vector<GaplessExtension> correct {
-            { // Trim both ends.
-                {
-                    gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false),
-                    gbwt_graph.get_handle(6, false)
-                },
-                static_cast<size_t>(1), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(3, 7), { },
-                static_cast<int32_t>(4), false, false,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            },
-            { // Trim left end.
-                {
-                    gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false),
-                    gbwt_graph.get_handle(6, false),
-                    gbwt_graph.get_handle(8, false),
-                    gbwt_graph.get_handle(9, false)
-                },
-                static_cast<size_t>(2), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(4, 9), { },
-                static_cast<int32_t>(5), false, false,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            },
-            { // Trim right end.
-                {
-                    gbwt_graph.get_handle(4, false),
-                },
-                static_cast<size_t>(1), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(5, 7), { },
-                static_cast<int32_t>(2), false, false,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            }
-        };
-        size_t error_bound = 0;
-        trimmed_extensions(extensions, correct, extender, error_bound);
-    }
-
-    SECTION("trimming full-length alignments") {
-        std::vector<GaplessExtension> extensions {
-            { // Number of mismatches is below the bound.
-                {
-                    gbwt_graph.get_handle(2, false),
-                    gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false),
-                    gbwt_graph.get_handle(6, false),
-                    gbwt_graph.get_handle(8, false),
-                    gbwt_graph.get_handle(9, false)
-                },
-                static_cast<size_t>(0), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(0, 8), { static_cast<size_t>(6), static_cast<size_t>(7) },
-                static_cast<int32_t>(8), true, true,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            },
-            { // Full-length bonus means more than a single mismatch.
-                {
-                    gbwt_graph.get_handle(2, false),
-                    gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false),
-                    gbwt_graph.get_handle(6, false),
-                    gbwt_graph.get_handle(8, false),
-                    gbwt_graph.get_handle(9, false)
-                },
-                static_cast<size_t>(0), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(0, 8), { static_cast<size_t>(0), static_cast<size_t>(6), static_cast<size_t>(7) },
-                static_cast<int32_t>(3), true, true,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            }
-        };
-        std::vector<GaplessExtension> correct {
-            { // Full-length bonus means more than a single mismatch.
-                {
-                    gbwt_graph.get_handle(2, false),
-                    gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false),
-                    gbwt_graph.get_handle(6, false)
-                },
-                static_cast<size_t>(0), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(0, 6), { static_cast<size_t>(0) },
-                static_cast<int32_t>(6), true, false,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            },
-            { // Number of mismatches is below the bound.
-                {
-                    gbwt_graph.get_handle(2, false),
-                    gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false),
-                    gbwt_graph.get_handle(6, false),
-                    gbwt_graph.get_handle(8, false),
-                    gbwt_graph.get_handle(9, false)
-                },
-                static_cast<size_t>(0), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(0, 8), { static_cast<size_t>(6), static_cast<size_t>(7) },
-                static_cast<int32_t>(8), true, true,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            }
-        };
-        size_t error_bound = 2;
-        trimmed_extensions(extensions, correct, extender, error_bound);
-    }
-
-    SECTION("removing duplicates and empty extensions") {
-        std::vector<GaplessExtension> extensions {
-            { // First duplicate.
-                {
-                    gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false),
-                    gbwt_graph.get_handle(6, false),
-                    gbwt_graph.get_handle(8, false),
-                    gbwt_graph.get_handle(9, false)
-                },
-                static_cast<size_t>(0), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(4, 11), { static_cast<size_t>(5) },
-                static_cast<int32_t>(2), false, false,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            },
-            { // Second duplicate.
-                {
-                    gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false),
-                    gbwt_graph.get_handle(6, false),
-                    gbwt_graph.get_handle(8, false),
-                    gbwt_graph.get_handle(9, false)
-                },
-                static_cast<size_t>(1), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(5, 11), { static_cast<size_t>(5) },
-                static_cast<int32_t>(1), false, false,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            },
-            { // Empty extension.
-                {
-                },
-                static_cast<size_t>(0), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(0, 0), { },
-                static_cast<int32_t>(0), false, false,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            }
-        };
-        std::vector<GaplessExtension> correct {
-            { // Duplicates.
-                {
-                    gbwt_graph.get_handle(4, false),
-                    gbwt_graph.get_handle(5, false),
-                    gbwt_graph.get_handle(6, false),
-                    gbwt_graph.get_handle(8, false),
-                    gbwt_graph.get_handle(9, false)
-                },
-                static_cast<size_t>(2), gbwt::BidirectionalState(),
-                std::pair<size_t, size_t>(6, 11), { },
-                static_cast<int32_t>(5), false, false,
-                false, false, static_cast<int32_t>(0), static_cast<int32_t>(0)
-            }
-        };
-        size_t error_bound = 0;
-        trimmed_extensions(extensions, correct, extender, error_bound);
     }
 }
 
@@ -936,7 +856,7 @@ TEST_CASE("Haplotype unfolding", "[gapless_extender]") {
     GaplessExtender extender(gbwt_graph, aligner);
 
     SECTION("normal subgraph") {
-        std::vector<nid_t> nodes {
+        std::unordered_set<nid_t> nodes {
             5, 6, 7, 8
         };
         std::map<std::vector<handle_t>, std::string> correct_haplotypes {
@@ -953,7 +873,7 @@ TEST_CASE("Haplotype unfolding", "[gapless_extender]") {
     }
 
     SECTION("right-maximal extensions") {
-        std::vector<nid_t> nodes {
+        std::unordered_set<nid_t> nodes {
             5, 6, 7
         };
         std::map<std::vector<handle_t>, std::string> correct_haplotypes {
@@ -970,7 +890,7 @@ TEST_CASE("Haplotype unfolding", "[gapless_extender]") {
     }
 
     SECTION("left-maximal extensions") {
-        std::vector<nid_t> nodes {
+        std::unordered_set<nid_t> nodes {
             2, 4, 5, 6, 7
         };
         std::map<std::vector<handle_t>, std::string> correct_haplotypes {

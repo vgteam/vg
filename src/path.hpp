@@ -1,4 +1,4 @@
-#ifndef VG_PATH_HPP_INCLUDED
+    #ifndef VG_PATH_HPP_INCLUDED
 #define VG_PATH_HPP_INCLUDED
 
 #include <iostream>
@@ -7,9 +7,9 @@
 #include <set>
 #include <list>
 #include <sstream>
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
-#include "edit.hpp"
+#include "vg/io/edit.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "types.hpp"
@@ -352,7 +352,7 @@ void translate_oriented_node_ids(Path& path, const function<pair<id_t, bool>(id_
 pos_t initial_position(const Path& path);
 // the last position on the path
 pos_t final_position(const Path& path);
-    
+
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 

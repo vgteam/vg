@@ -7,7 +7,7 @@
 #include <string>
 #include "../algorithms/dijkstra.hpp"
 #include "../handle.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "../vg.hpp"
 #include "catch.hpp"
 

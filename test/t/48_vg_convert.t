@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 22
+plan tests 26
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -119,10 +119,50 @@ is "$?" 0 "vg convert gam -> gaf -> gam ->gaf makes same gaf each time on 1mb1kg
 
 printf '{"name": "split", "path": {"mapping": [{"edit": [{"from_length": 13, "to_length": 13}], "position": {"node_id": "1", "offset": "10"}}, {"edit": [{"from_length": 2, "to_length": 2}], "position": {"node_id": "3", "offset": "5"}}]}}' | vg view -JaG - > split.gam
 vg convert zflat.vg -G split.gam > split.gaf
-is "$(awk '{print $14}' split.gaf)" "cs:Z::13-CCAGTGCTC-GCATC:2" "split alignment converted using deletions to represent internal offsets"
+is "$(awk '{print $13}' split.gaf)" "cs:Z::13-CCAGTGCTC-GCATC:2" "split alignment converted using deletions to represent internal offsets"
 vg convert zflat.vg -F split.gaf | vg convert zflat.vg -G - > split-back.gaf
 diff split.gaf split-back.gaf
 is "$?" 0 "vg convert gam -> gaf ->gam -> gaf makes same gaf each time for split alignment"
 
 rm -f z.vg zflat.vg sim.gam sim-map.gam sim-map-back.gam sim-map.gaf.gz sim-map.sequence sim-map-back.sequence sim-map-back.gaf sim-map.gaf split.gam split.gaf split-back.gaf
 
+printf "H\tVN:Z:1.0
+S\t73333\tGGTGGGCGAGGACCTCCACACGTGTCACCA
+S\t73368\tGCCCCT
+S\t72943\tGGCGACTCTTCAGCAAGCCCCTCCACACGTGT
+S\t72940\tC
+S\t72941\tGGCCAGGT
+S\t73255\tACTCTTCAGCAGGCCCCTCTGGT
+S\t72942\tGGGCGAGGACCTCCACACGTGTCACCAGGCCA
+S\t73318\tTCAGCA
+S\t73367\tA
+S\t73271\tA
+S\t73289\tC
+S\t73317\tC\n" | vg convert -g - -p > soft.pg
+printf '{"annotation": {"fragment_length": 242, "fragment_length_distribution": "-I 561.110526 -D 141.152986", "mapq_applied_cap": 23.832780374978935, "mapq_extended_cap": 15, "mapq_uncapped": 10.325140756048304, "secondary_scores": [187.15265582416521, 182.4063994408188]}, "identity": 0.89682539682539686, "mapping_quality": 10, "name": "ERR903030.2067", "path": {"mapping": [{"edit": [{"from_length": 6, "to_length": 6}], "position": {"is_reverse": true, "node_id": "72943", "offset": "26"}}, {"edit": [{"from_length": 32, "to_length": 32}], "position": {"is_reverse": true, "node_id": "72942"}, "rank": "1"}, {"edit": [{"from_length": 23, "to_length": 23}], "position": {"is_reverse": true, "node_id": "73255"}, "rank": "2"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "73271"}, "rank": "3"}, {"edit": [{"from_length": 8, "to_length": 8}], "position": {"is_reverse": true, "node_id": "72941"}, "rank": "4"}, {"edit": [{"from_length": 7, "to_length": 7}, {"from_length": 1, "sequence": "C", "to_length": 1}, {"from_length": 2, "to_length": 2}, {"from_length": 1, "sequence": "G", "to_length": 1}, {"from_length": 19, "to_length": 19}], "position": {"is_reverse": true, "node_id": "73333"}, "rank": "5"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "72940"}, "rank": "6"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "73289"}, "rank": "7"}, {"edit": [{"from_length": 6, "to_length": 6}], "position": {"is_reverse": true, "node_id": "73368"}, "rank": "8"}, {"edit": [{"from_length": 1, "sequence": "G", "to_length": 1}], "position": {"is_reverse": true, "node_id": "73367"}, "rank": "9"}, {"edit": [{"from_length": 6, "to_length": 6}], "position": {"is_reverse": true, "node_id": "73318"}, "rank": "10"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "73317"}, "rank": "11"}, {"edit": [{"sequence": "GGGTGGCCTG", "to_length": 10}], "position": {"is_reverse": true, "node_id": "73317", "offset": "1"}, "rank": "12"}]}, "quality": "ISEhISEmJiUmJCYmJSYlJiYmJiYmJCYjJiYdIRsmIyUmJiYmJiElJg4PDx0PDyEkIhsYJCYiECQQJBAcGR0kHx0QGSQPJCImHSElHR0PJA4OGyQbIxwPIg0iHw8PGRwiIR0jAgICAgICAgICAgICAgICAgICAgICAgICAgIC", "sample_name": "HG00514_961a37c_gssw", "score": 106, "sequence": "GTCGCCTGGCCTGGTGACACGTGTGGAGGTCCTCGCCCACCAGAGGGGCCTGCTGAAGAGTTACCTGGCCTGGTGACCCGGGTGGAGGTCCTCGCCCACCGGAGGGGCGTGCTGAGGGGTGGCCTG"}' | vg view -JaG - > soft.gam
+vg convert soft.pg -G soft.gam > soft.gaf
+vg view -a soft.gam | jq .sequence > gam.sequence
+vg convert soft.pg -F soft.gaf | vg view -a - | jq .sequence > gam2.sequence
+diff gam.sequence gam2.sequence
+is "$?" 0 "convert gam->gaf->gam on softclipped read preserves sequence"
+
+vg convert soft.pg -F soft.gaf | vg convert soft.pg -G - > soft2.gaf
+diff soft.gaf soft2.gaf
+is "$?" 0 "convert gam->gaf->gam->gaf makes same gaf each time of soft clipped alignment" 
+
+rm -f soft.pg soft.gam soft.gaf gam.sequence gam2.sequence soft2.gaf
+
+printf "H\tVN:Z:1.0
+S\t91194329\tAGGAAGGAGAGGGAG\n" | vg convert -g - -p > floating-ins.pg
+printf '{"annotation": {"fragment_length": 1098, "fragment_length_distribution": "-I 542.973684 -D 141.206118", "mapq_applied_cap": 46.364361584299516, "mapq_extended_cap": "Infinity", "mapq_uncapped": 1.5051499783199018, "rescued": true, "secondary_scores": [99.415737573445895]}, "mapping_quality": 1, "name": "ERR903030.51990324", "path": {"mapping": [{"edit": [{"sequence": "GGGCACGGTGGCTCACAGCTGTCACCACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN", "to_length": 126}], "position": {"is_reverse": true, "node_id": "91194329", "offset": "15"}, "rank": "1"}]}, "quality": "ISEhICEhJCIkJiYdJiUQJSYmHyMmIxAkJiICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC", "sample_name": "HG00514_961a37c", "sequence": "GGGCACGGTGGCTCACAGCTGTCACCACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"}' | vg view -JaG - > floating-ins.gam
+vg convert floating-ins.pg -G floating-ins.gam > floating-ins.gaf
+vg view -a floating-ins.gam | jq .sequence > gam.sequence
+vg convert floating-ins.pg -F floating-ins.gaf | vg view -a - | jq .sequence > gam2.sequence
+diff gam.sequence gam2.sequence
+is "$?" 0 "convert gam->gaf->gam on read with floating insertion preserves sequence"
+
+vg convert floating-ins.pg -F floating-ins.gaf | vg convert floating-ins.pg -G - > floating-ins2.gaf
+diff floating-ins.gaf floating-ins2.gaf
+is "$?" 0 "convert gam->gaf->gam->gaf makes same gaf each time of floating insertion alignment" 
+
+rm -f floating-ins.pg floating-ins.gam floating-ins.gaf gam.sequence gam2.sequence floating-ins2.gaf

@@ -220,15 +220,17 @@ int main_pack(int argc, char** argv) {
     }
 
     std::function<void(Alignment&)> lambda = [&packer,&min_mapq,&min_baseq](Alignment& aln) {
-            packer.add(aln, min_mapq, min_baseq);
-        };
+        packer.add(aln, min_mapq, min_baseq);
+    };
 
     if (!gam_in.empty()) {
         get_input_file(gam_in, [&](istream& in) {
                 vg::io::for_each_parallel(in, lambda, batch_size);
             });
     } else if (!gaf_in.empty()) {
-        gaf_unpaired_for_each_parallel(*graph, gaf_in, lambda, batch_size);
+        // computed batch size was tuned for GAM performance.  some small tests show that
+        // gaf benefits from a slightly larger one. 
+        vg::io::gaf_unpaired_for_each_parallel(*graph, gaf_in, lambda, batch_size * 4);
     }
 
     if (!packs_out.empty()) {

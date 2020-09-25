@@ -10,11 +10,11 @@
 #include "vg.hpp"
 #include "path.hpp"
 #include "banded_global_aligner.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include "bdsg/hash_graph.hpp"
 
 using namespace google::protobuf;
-
+using namespace vg::io;
 namespace vg {
     namespace unittest {
         

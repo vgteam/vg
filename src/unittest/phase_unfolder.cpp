@@ -12,7 +12,7 @@
 #include <gbwt/dynamic_gbwt.h>
 
 #include "../phase_unfolder.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "xg.hpp"
 
 #include "catch.hpp"

@@ -8,8 +8,8 @@
 #include <vg/io/protobuf_emitter.hpp>
 
 #include "snarls.hpp"
-#include "json2pb.h"
-#include "algorithms/topological_sort.hpp"
+#include "vg/io/json2pb.h"
+#include "algorithms/find_tips.hpp"
 #include "algorithms/is_acyclic.hpp"
 #include "algorithms/weakly_connected_components.hpp"
 #include "subgraph_overlay.hpp"
@@ -201,14 +201,32 @@ SnarlManager HandleGraphSnarlFinder::find_snarls_unindexed() {
 #ifdef debug
         cerr << "Connectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
 #endif
+
+        /////
+        // Determine tip presence
+        /////
+        
+        // Make a net graph that just pretends child snarls/chains are ordinary nodes
+        NetGraph flat_net_graph(snarl.start(), snarl.end(), managed_child_chains, graph);
+        
+        // Having internal tips in the net graph disqualifies a snarl from being an ultrabubble
+        auto tips = algorithms::find_tips(&flat_net_graph);
+
+#ifdef debug
+        cerr << "Tips: " << endl;
+        for (auto& tip : tips) {
+            cerr << "\t" << flat_net_graph.get_id(tip) << (flat_net_graph.get_is_reverse(tip) ? '-' : '+') << endl;
+        }
+#endif
+
+        // We should have at least the bounding nodes.
+        assert(tips.size() >= 2);
+        bool has_internal_tips = (tips.size() > 2); 
         
         /////
         // Determine cyclicity/acyclicity
         /////
     
-        // Make a net graph that just pretends child snarls/chains are ordinary nodes
-        NetGraph flat_net_graph(snarl.start(), snarl.end(), managed_child_chains, graph);
-        
         // This definitely should be calculated based on the internal-connectivity-ignoring net graph.
         snarl.set_directed_acyclic_net_graph(algorithms::is_directed_acyclic(&flat_net_graph));
 
@@ -252,13 +270,18 @@ SnarlManager HandleGraphSnarlFinder::find_snarls_unindexed() {
                 }
             }
             
-            // Note that ultrabubbles *can* loop back on their start or end.
-            
             if (!all_ultrabubble_children) {
                 // If we have non-ultrabubble children, we can't be an ultrabubble.
                 snarl.set_type(UNCLASSIFIED);
 #ifdef debug
                 cerr << "Snarl is UNCLASSIFIED because it has non-ultrabubble children" << endl;
+#endif
+            } else if (has_internal_tips) {
+                // If we have internal tips, we can't be an ultrabubble
+                snarl.set_type(UNCLASSIFIED);
+                
+#ifdef debug
+                cerr << "Snarl is UNCLASSIFIED because it contains internal tips" << endl;
 #endif
             } else if (!snarl.directed_acyclic_net_graph()) {
                 // If all our children are ultrabubbles but we ourselves are cyclic, we can't be an ultrabubble
@@ -698,6 +721,19 @@ void SnarlManager::for_each_snarl_parallel(const function<void(const Snarl*)>& l
     for_each_top_level_snarl_parallel(process);
 }
 
+void SnarlManager::for_each_top_level_chain(const function<void(const Chain*)>& lambda) const {
+    for (const Chain& chain : root_chains) {
+        lambda(&chain);
+    }    
+}
+
+void SnarlManager::for_each_top_level_chain_parallel(const function<void(const Chain*)>& lambda) const {
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < root_chains.size(); ++i) {
+        lambda(&root_chains[i]);
+    }
+}
+
 void SnarlManager::for_each_chain(const function<void(const Chain*)>& lambda) const {
 
     // We define a function to run a bunch of chains in serial
@@ -755,7 +791,9 @@ const Snarl* SnarlManager::discrete_uniform_sample(minstd_rand0& random_engine)c
     // unif[a,b]
     uniform_int_distribution<int> distribution(0, number_of_snarls-1);  
     int random_num = distribution(random_engine);
-    
+#ifdef debug
+    cerr << "modifying snarl num " << random_num << endl ;  
+#endif
     const Snarl* random_snarl = unrecord(&snarls[random_num]);
 
     return random_snarl;

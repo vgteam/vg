@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 import logging
@@ -289,7 +289,7 @@ class VGCITest(TestCase):
             int(max(1, self.cores / 2)), self.cores)
         
         cmd = 'toil-vg run {} {} {} {}'.format(job_store, sample_name, out_store, opts)
-        print("Run toil-vg with {}".format(cmd))
+        print(("Run toil-vg with {}".format(cmd)))
         
         subprocess.check_call(cmd, shell=True)
 
@@ -1428,7 +1428,7 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'primary', True)
 
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(2000)
     def test_map_mhc_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))

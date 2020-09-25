@@ -3,7 +3,7 @@
 /// unit tests for the minimizer mapper
 
 #include <iostream>
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "../minimizer_mapper.hpp"
 #include "../build_index.hpp"
@@ -14,11 +14,12 @@
 namespace vg {
 namespace unittest {
 
-// We define a child class to expose all the protected stuff for testing
+// We define a child class to expose protected stuff for testing
 class TestMinimizerMapper : public MinimizerMapper {
 public:
     using MinimizerMapper::MinimizerMapper;
     using MinimizerMapper::score_extension_group;
+    using MinimizerMapper::Minimizer;
 };
 
 TEST_CASE("MinimizerMapper::score_extension_group works", "[giraffe][mapping]") {
@@ -155,6 +156,7 @@ TEST_CASE("MinimizerMapper::score_extension_group works", "[giraffe][mapping]") 
     
     }
 }
+
 
 
 }

@@ -167,12 +167,13 @@ namespace vg {
         /// Qualities may be ignored by some implementations.
         virtual int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                           string::const_iterator base_qual_begin) const = 0;
-      
-        // TODO: Provide a generic way to score a mismatch.
         
+        virtual int32_t score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                       string::const_iterator base_qual_begin) const = 0;
+                
         /// Compute the score of a path against the given range of subsequence with the given qualities.
         virtual int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                                string::const_iterator seq_begin) const = 0;
+                                                string::const_iterator seq_begin, bool no_read_end_scoring = false) const = 0;
         
         /// Returns the score of an insert or deletion of the given length
         int32_t score_gap(size_t gap_length) const;
@@ -234,6 +235,9 @@ namespace vg {
         /// The longest gap detectable from any read position without soft-clipping
         size_t longest_detectable_gap(const Alignment& alignment) const;
         
+        /// The longest gap detectable from any read position without soft-clipping, for a generic read.
+        size_t longest_detectable_gap(size_t read_length) const;
+        
         /// Use the score values in the aligner to score the given alignment,
         /// scoring gaps caused by jumping between between nodes using a custom
         /// gap length estimation function (which takes the from position, the
@@ -241,14 +245,14 @@ namespace vg {
         /// length).
         ///
         /// May include full length bonus or not. TODO: bool flags are bad.
-        virtual int32_t score_gappy_alignment(const Alignment& aln,
+        virtual int32_t score_discontiguous_alignment(const Alignment& aln,
             const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
             bool strip_bonuses = false) const;
         
         /// Use the score values in the aligner to score the given alignment assuming
         /// that there are no gaps between Mappings in the Path
-        virtual int32_t score_ungapped_alignment(const Alignment& aln,
-                                                 bool strip_bonuses = false) const;
+        virtual int32_t score_contiguous_alignment(const Alignment& aln,
+                                                   bool strip_bonuses = false) const;
 
         /// Without necessarily rescoring the entire alignment, return the score
         /// of the given alignment with bonuses removed. Assumes that bonuses
@@ -342,12 +346,14 @@ namespace vg {
                                   string::const_iterator base_qual_begin) const;
         int32_t score_exact_match(const string& sequence) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) const;
+        int32_t score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
+                               string::const_iterator base_qual_begin) const;
         
         /// Score a mismatch given just the length. Only possible since we ignore qualities.
         int32_t score_mismatch(size_t length) const;
 
         int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                        string::const_iterator seq_begin) const;
+                                        string::const_iterator seq_begin, bool no_read_end_scoring = false) const;
         
     private:
         
@@ -396,9 +402,11 @@ namespace vg {
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                   string::const_iterator base_qual_begin) const;
+        int32_t score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
+                               string::const_iterator base_qual_begin) const;
                                   
         int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                        string::const_iterator seq_begin) const;
+                                        string::const_iterator seq_begin, bool no_read_end_scoring = false) const;
         
         
     private:

@@ -52,28 +52,24 @@ inline gbwt::vector_type path_to_gbwt(const Path& path) {
     return result;
 }
 
+/// Extract a path as a GBWT path.
+gbwt::vector_type extract_as_gbwt_path(const PathHandleGraph& graph, const std::string& path_name);
+
 // Find all predecessor nodes of the path, ignoring self-loops.
-inline gbwt::vector_type path_predecessors(const HandleGraph& graph, const Path& path) {
-    gbwt::vector_type result;
-    if (path.mapping_size() == 0) {
-        return result;
-    }
+gbwt::vector_type path_predecessors(const PathHandleGraph& graph, const std::string& path_name);
 
-    vg::id_t first_node = path.mapping(0).position().node_id();
-    bool is_reverse = path.mapping(0).position().is_reverse();
-    
-#ifdef debug
-    cerr << "Look for predecessors of node " << first_node << " " << is_reverse << " which is first in alt path" << endl;
-#endif
+//------------------------------------------------------------------------------
 
-    graph.follow_edges(graph.get_handle(first_node), !is_reverse, [&] (handle_t next) {
-            if (graph.get_id(next) != first_node) {
-                result.push_back(gbwt::Node::encode(graph.get_id(next), graph.get_is_reverse(next)));
-            }
-        });
+// GBWT construction helpers.
 
-    return result;
-}
+/// Determine the node width in bits for the GBWT nodes based on the given graph.
+gbwt::size_type gbwt_node_width(const HandleGraph& graph);
+
+/// Finish GBWT construction and optionally print the metadata.
+void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
+    const std::vector<std::string>& sample_names,
+    const std::vector<std::string>& contig_names,
+    size_t haplotype_count, bool print_metadata);
 
 //------------------------------------------------------------------------------
 

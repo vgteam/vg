@@ -1,7 +1,7 @@
 #include <iostream>
 #include "vg.hpp"
 #include "haplotype_extracter.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include "graph.hpp"
 
 namespace vg {

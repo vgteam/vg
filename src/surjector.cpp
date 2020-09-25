@@ -688,8 +688,16 @@ using namespace std;
         pair<size_t, size_t> ref_path_interval = compute_path_interval(path_position_graph, source, path_handle,
                                                                        path_chunks);
         
+        // having a buffer helps ensure that we get the correct anchoring position for some edge cases
+        // of a full deletion that occurs on a node boundary
+        if (ref_path_interval.first > 0) {
+            --ref_path_interval.first;
+        }
+        if (ref_path_interval.second + 1 < path_position_graph->get_path_length(path_handle)) {
+            ++ref_path_interval.second;
+        }
 #ifdef debug_anchored_surject
-        cerr << "final path interval is " << ref_path_interval.first << ":" << ref_path_interval.second << endl;
+        cerr << "final path interval is " << ref_path_interval.first << ":" << ref_path_interval.second << " on path of length " << path_position_graph->get_path_length(path_handle) << endl;
 #endif
         
         // get the path graph corresponding to this interval
@@ -716,17 +724,17 @@ using namespace std;
         // compute the connectivity between the path chunks
         MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans, !preserve_N_alignments,
                                              preserve_tail_indel_anchors);
-        
+                
         // we don't overlap this reference path at all or we filtered out all of the path chunks, so just make a sentinel
         if (mp_aln_graph.empty()) {
             return move(make_null_alignment(source));
         }
-        
+                
         // TODO: is this necessary in a linear graph?
         vector<size_t> topological_order;
         mp_aln_graph.topological_sort(topological_order);
         mp_aln_graph.remove_transitive_edges(topological_order);
-        
+                
         // align the intervening segments and store the result in a multipath alignment
         multipath_alignment_t mp_aln;
         mp_aln_graph.align(source, split_path_graph, get_aligner(), false, 1, false, numeric_limits<int64_t>::max(),
@@ -738,7 +746,7 @@ using namespace std;
             // sometimes play poorly with other parts of the code base
             remove_empty_subpaths(mp_aln);
         }
-        
+                
         for (size_t i = 0; i < mp_aln.subpath_size(); i++) {
             // translate back into the original ID space
             translate_oriented_node_ids(*mp_aln.mutable_subpath(i)->mutable_path(), node_trans);
@@ -748,7 +756,7 @@ using namespace std;
         identify_start_subpaths(mp_aln);
         
 #ifdef debug_anchored_surject
-        cerr << "made multipath alignment " << pb2json(mp_aln) << endl;
+        cerr << "made multipath alignment " << debug_string(mp_aln) << endl;
 #endif
         
 #ifdef debug_validate_anchored_multipath_alignment
@@ -762,13 +770,19 @@ using namespace std;
         Alignment surjected;
         optimal_alignment(mp_aln, surjected, allow_negative_scores);
         
-        // transfer applicable metadata
+        // transfer applicable metadata (including data that doesn't transit through multipath_alignment_t)
+        surjected.set_name(source.name());
+        surjected.set_read_group(source.read_group());
+        surjected.set_sample_name(source.sample_name());
         surjected.set_mapping_quality(source.mapping_quality());
         if (source.has_fragment_next()) {
             *surjected.mutable_fragment_next() = source.fragment_next();
         }
         if (source.has_fragment_prev()) {
             *surjected.mutable_fragment_prev() = source.fragment_prev();
+        }
+        if (source.has_annotation()) {
+            *surjected.mutable_annotation() = source.annotation();
         }
         
 #ifdef debug_anchored_surject

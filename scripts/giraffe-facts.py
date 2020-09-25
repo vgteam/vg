@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 
 
 
 """
-giraffe-facts.py: process a GAM file from the new minimizer-based mapper (vg
-gaffe AKA giraffe) and report runtime statistics by filter.
+giraffe-facts.py: process a GAM file from the new minimizer-based mapper (vg giraffe) and report runtime statistics by filter.
 """
 
 import argparse

@@ -8,7 +8,7 @@
 
 #include "algorithms/nearest_offsets_in_paths.hpp"
 #include "aligner.hpp"
-#include "alignment_emitter.hpp"
+#include "vg/io/alignment_emitter.hpp"
 #include "gapless_extender.hpp"
 #include "mapper.hpp"
 #include "min_distance.hpp"
@@ -20,9 +20,12 @@
 #include <gbwtgraph/minimizer.h>
 #include <structures/immutable_list.hpp>
 
+#include <atomic>
+
 namespace vg {
 
 using namespace std;
+using namespace vg::io;
 
 class MinimizerMapper : public AlignerClient {
 public:
@@ -75,6 +78,7 @@ public:
      */
     pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
 
+
     // Mapping settings.
     // TODO: document each
 
@@ -82,14 +86,17 @@ public:
     size_t hit_cap = 10;
 
     /// Ignore all minimizers with more than hard_hit_cap hits
-    size_t hard_hit_cap = 300;
+    size_t hard_hit_cap = 500;
 
     /// Take minimizers between hit_cap and hard_hit_cap hits until this fraction
     /// of total score
-    double minimizer_score_fraction = 0.6;
+    double minimizer_score_fraction = 0.9;
+
+    ///Accept at least this many clusters
+    size_t min_extensions = 2;
 
     /// How many clusters should we align?
-    size_t max_extensions = 48;
+    size_t max_extensions = 800;
 
     /// How many extended clusters should we align, max?
     size_t max_alignments = 8;
@@ -109,7 +116,7 @@ public:
 
     //If the read coverage of a cluster is less than the best coverage of any cluster
     //by more than this much, don't extend it
-    double cluster_coverage_threshold = 0.4;
+    double cluster_coverage_threshold = 0.3;
 
     //If an extension set's score is smaller than the best 
     //extension's score by more than this much, don't align it
@@ -134,8 +141,17 @@ public:
     /// algorithm. Only works if track_provenance is true.
     bool track_correctness = false;
 
+    ////How many stdevs from fragment length distr mean do we cluster together?
+    double paired_distance_stdevs = 2.0; 
+
+    ///How close does an alignment have to be to the best alignment for us to rescue on it
+    double paired_rescue_score_limit = 0.9;
+
+    ///How many stdevs from the mean do we extract a subgraph from?
+    double rescue_subgraph_stdevs = 4.0;
+
     /// For paired end mapping, how many times should we attempt rescue (per read)?
-    size_t max_rescue_attempts = 0;
+    size_t max_rescue_attempts = 15;
 
     /// Implemented rescue algorithms: no rescue, dozeu, GSSW, dozeu on local haplotypes.
     enum RescueAlgorithm { rescue_none, rescue_dozeu, rescue_gssw, rescue_haplotypes };
@@ -146,35 +162,22 @@ public:
     bool fragment_distr_is_finalized () {return fragment_length_distr.is_finalized();}
     void finalize_fragment_length_distr() {
         if (!fragment_length_distr.is_finalized()) {
-            fragment_length_distr.force_parameters(fragment_length_distr.mean(), fragment_length_distr.stdev());
+            fragment_length_distr.force_parameters(fragment_length_distr.mean(), fragment_length_distr.std_dev());
         } 
     }
-
-   /**
-    * Given an aligned read, extract a subgraph of the graph within a distance range
-    * based on the fragment length distribution and attempt to align the unaligned
-    * read to it.
-    * Rescue_forward is true if the aligned read is the first and false otherwise.
-    * Assumes that both reads are facing the same direction.
-    * TODO: This should be const, but some of the function calls are not.
-    */
-   void attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, bool rescue_forward);
+    void force_fragment_length_distr(double mean, double stdev) {
+        fragment_length_distr.force_parameters(mean, stdev);
+    }
+    double get_fragment_length_mean() const { return fragment_length_distr.mean(); }
+    double get_fragment_length_stdev() const {return fragment_length_distr.std_dev(); }
+    size_t get_fragment_length_sample_size() const { return fragment_length_distr.curr_sample_size(); }
 
     /**
-     * When we use dozeu for rescue, the reported alignment score is incorrect.
-     * 1) Dozeu only gives the full-length bonus once.
-     * 2) There is no penalty for a softclip at the edge of the subgraph.
-     * This function calculates the score correctly. If the score is incorrect,
-     * we realign the read using GSSW.
-     * TODO: This should be unnecessary.
+     * Get the distance limit for the given read length
      */
-    void fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,
-                         const std::vector<handle_t>& topological_order) const;
-
-    /**
-     * Get the distance between a pair of read alignments
-     */
-    int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
+    size_t get_distance_limit(size_t read_length) const {
+        return max(distance_limit, read_length + 50);
+    }
 protected:
 
     /**
@@ -183,18 +186,42 @@ protected:
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
         size_t agglomeration_start; // What is the start base of the first window this minimizer instance is minimal in?
-        size_t agglomeration_length; // What is the regioin of consecutive windows this minimizer instance is minimal in?
+        size_t agglomeration_length; // What is the length in bp of the region of consecutive windows this minimizer instance is minimal in?
         size_t hits; // How many hits does the minimizer have?
         const gbwtgraph::hit_type* occs;
-        size_t origin; // This minimizer came from minimizer_indexes[origin].
+        int32_t length; // How long is the minimizer (index's k)
+        int32_t candidates_per_window; // How many minimizers compete to be the best (index's w)  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
 
         // Sort the minimizers in descending order by score.
-        bool operator< (const Minimizer& another) const {
+        inline bool operator< (const Minimizer& another) const {
             return (this->score > another.score);
         }
+        
+        /// Get the starting position of the given minimizer on the forward strand.
+        /// Use this instead of value.offset which can really be the last base for reverse strand minimizers.
+        inline size_t forward_offset() const {
+            if (this->value.is_reverse) {
+                // We have the position of the last base and we need the position of the first base.
+                return this->value.offset - (this->length - 1);
+            } else {
+                // We already have the position of the first base.
+                return this->value.offset;
+            }
+        }
+        
+        /// How many bases are in a window for which a minimizer is chosen?
+        inline size_t window_size() const {
+            return length + candidates_per_window - 1;
+        }
+        
+        /// How many different windows are in this minimizer's agglomeration?
+        inline size_t agglomeration_window_count() const {
+            // Work out the length of a whole window, and then from that and the window count get the overall length.
+            return agglomeration_length - window_size() + 1;
+        }
     };
-
+    
     /// The information we store for each seed.
     typedef SnarlSeedClusterer::Seed Seed;
 
@@ -215,19 +242,7 @@ protected:
     SnarlSeedClusterer clusterer;
 
     FragmentLengthDistribution fragment_length_distr;
-
-    /// Use this many bits for approximate probabilities.
-    constexpr static size_t PRECISION = 8;
-
-    /**
-     * Assume that we have n <= max_k independent events with probability p each.
-     * Let x be the PRECISION most significant bits of p. Then
-     *
-     *   phred_at_least_one[(n << PRECISION) + x]
-     *
-     * is an approximate phred score of at least one event occurring.
-     */
-    std::vector<double> phred_at_least_one;
+    atomic_flag warned_about_bad_distribution = ATOMIC_FLAG_INIT;
 
 //-----------------------------------------------------------------------------
 
@@ -252,30 +267,70 @@ protected:
      */
     void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
 
-   /**
-    * Score the set of extensions for each cluster using score_extension_group().
-    * Return the scores in the same order as the extensions.
-    */
-   std::vector<int> score_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
+    /**
+     * Score the set of extensions for each cluster using score_extension_group().
+     * Return the scores in the same order as the extensions.
+     */
+    std::vector<int> score_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
 
-   /**
-    * Score the set of extensions for each cluster using score_extension_group().
-    * Return the scores in the same order as the extensions.
-    */
-   std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
+    /**
+     * Score the set of extensions for each cluster using score_extension_group().
+     * Return the scores in the same order as the extensions.
+     */
+    std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
 
 //-----------------------------------------------------------------------------
 
-   /**
-    * Assume that we have n <= max_k independent random events that occur with
-    * probability p each (p is interpreted as a real number between 0 and 1 and
-    * max_k is the largest k in the minimizer indexes). Return an approximate
-    * probability for at least one event occurring as a phred score.
-    */
-   double phred_for_at_least_one(size_t p, size_t n) const;
+    // Rescue.
 
     /**
-     * Compute MAPQ caps based on all minimizers present in extended clusters.
+     * Given an aligned read, extract a subgraph of the graph within a distance range
+     * based on the fragment length distribution and attempt to align the unaligned
+     * read to it.
+     * Rescue_forward is true if the aligned read is the first and false otherwise.
+     * Assumes that both reads are facing the same direction.
+     * TODO: This should be const, but some of the function calls are not.
+     */
+    void attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, const std::vector<Minimizer>& minimizers, bool rescue_forward);
+
+    /**
+     * Return the all non-redundant seeds in the subgraph, including those from
+     * minimizers not used for mapping.
+     */
+    GaplessExtender::cluster_type seeds_in_subgraph(const std::vector<Minimizer>& minimizers, const std::unordered_set<id_t>& subgraph) const;
+
+    /**
+     * When we use dozeu for rescue, the reported alignment score is incorrect.
+     * 1) Dozeu only gives the full-length bonus once.
+     * 2) There is no penalty for a softclip at the edge of the subgraph.
+     * This function calculates the score correctly. If the score is <= 0,
+     * we realign the read using GSSW.
+     * TODO: This should be unnecessary.
+     */
+    void fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,
+                         const std::vector<handle_t>& topological_order) const;
+
+//-----------------------------------------------------------------------------
+
+    // Helper functions.
+
+    /**
+     * Get the distance between a pair of read alignments
+     */
+    int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
+
+    /**
+     * Convert the GaplessExtension into an alignment. This assumes that the
+     * extension is a full-length alignment and that the sequence field of the
+     * alignment has been set.
+     */
+    void extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const;
+
+
+//-----------------------------------------------------------------------------
+
+    /**
+     * Compute MAPQ caps based on all minimizers that are explored, for some definition of explored.
      *
      * Needs access to the input alignment for sequence and quality
      * information.
@@ -283,7 +338,7 @@ protected:
      * Returns only an "extended" cap at the moment.
      */
     double compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
-                             const SmallBitset& present_in_any_extended_cluster);
+                             const SmallBitset& explored);
 
     /**
      * Compute a bound on the Phred score probability of having created the
@@ -304,8 +359,92 @@ protected:
      * easiest-to-disrupt possible layout of the windows, and the lowest
      * possible qualities for the disrupting bases.
      */
-    double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
-        const string& sequence, const string& quality_bytes) const;
+    static double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
+        const string& sequence, const string& quality_bytes);
+    
+    /**
+     * Compute a bound on the Phred score probability of a mapping beign wrong
+     * due to base errors and unlocated minimizer hits prevented us from
+     * finding the true alignment.
+     *  
+     * Algorithm uses a "sweep line" dynamic programming approach.
+     * For a read with minimizers aligned to it:
+     *
+     *              000000000011111111112222222222
+     *              012345678901234567890123456789
+     * Read:        ******************************
+     * Minimizer 1:    *****
+     * Minimizer 2:       *****
+     * Minimizer 3:                   *****
+     * Minimizer 4:                      *****
+     *
+     * For each distinct read interval of overlapping minimizers, e.g. in the
+     * example the intervals 3,4,5; 6,7; 8,9,10; 18,19,20; 21,22; and 23,24,25
+     * we consider base errors that would result in the minimizers in the
+     * interval being incorrect
+     *
+     * We use dynamic programming sweeping left-to-right over the intervals to
+     * compute the probability of the minimum number of base errors needed to
+     * disrupt all the minimizers.
+     *
+     * Will sort minimizers_explored (which is indices into minimizers) by
+     * minimizer start position.
+     */
+    static double faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored, const string& sequence, const string& quality_bytes);
+    
+    /**
+     * Given a collection of minimizers, and a list of the minimizers we
+     * actually care about (as indices into the collection), iterate over
+     * common intervals of overlapping minimizer agglomerations.
+     *   
+     * Calls the given callback with (left, right, bottom, top), where left is
+     * the first base of the agglomeration interval (inclusive), right is the
+     * last base of the agglomeration interval (exclusive), bottom is the index
+     * of the first minimizer with an agglomeration in the interval and top is
+     * the index of the last minimizer with an agglomeration in the interval
+     * (exclusive).
+     *
+     * Note that bottom and top are offsets into minimizer_indices, **NOT**
+     * minimizers itself. Only contiguous ranges in minimizer_indices actually
+     * make sense.
+     */
+    static void for_each_aglomeration_interval(const vector<Minimizer>& minimizers,
+        const string& sequence, const string& quality_bytes,
+        const vector<size_t>& minimizer_indices,
+        const function<void(size_t, size_t, size_t, size_t)>& iteratee);      
+    
+    /**
+     * Gives the log10 prob of a base error in the given interval of the read,
+     * accounting for the disruption of specified minimizers.
+     * 
+     * minimizers is the collection of all minimizers
+     *
+     * disrupt_begin and disrupt_end are iterators defining a sequence of
+     * **indices** of minimizers in minimizers that are disrupted.
+     *
+     * left and right are the inclusive and exclusive bounds of the interval
+     * of the read where the disruption occurs.
+     */
+    static double get_log10_prob_of_disruption_in_interval(const vector<Minimizer>& minimizers,
+        const string& sequence, const string& quality_bytes,
+        const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
+        size_t left, size_t right);
+    
+    /**
+     * Gives the raw probability of a base error in the given column of the
+     * read, accounting for the disruption of specified minimizers.
+     * 
+     * minimizers is the collection of all minimizers
+     *
+     * disrupt_begin and disrupt_end are iterators defining a sequence of
+     * **indices** of minimizers in minimizers that are disrupted.
+     *
+     * index is the position in the read where the disruption occurs.
+     */
+    static double get_prob_of_disruption_in_column(const vector<Minimizer>& minimizers,
+        const string& sequence, const string& quality_bytes,
+        const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
+        size_t index);
     
     /**
      * Score the given group of gapless extensions. Determines the best score
@@ -365,9 +504,12 @@ protected:
      *
      * If left_tails is true, the trees read out of the left sides of the
      * gapless extension. Otherwise they read out of the right side.
+     *
+     * As a side effect, saves the length of the longest detectable gap in an
+     * alignment of a tail to the forest into the provided location, if set.
      */
     vector<TreeSubgraph> get_tail_forest(const GaplessExtension& extended_seed,
-        size_t read_length, bool left_tails) const;
+        size_t read_length, bool left_tails, size_t* longest_detectable_gap = nullptr) const;
         
     /**
      * Find the best alignment of the given sequence against any of the trees
@@ -383,10 +525,12 @@ protected:
      * If pin_left is true, pin the alignment on the left to the root of each
      * tree. Otherwise pin it on the right to the root of each tree.
      *
+     * Limits the length of the longest gap to longest_detectable_gap.
+     *
      * Returns alingments in gbwt_graph space.
      */
     pair<Path, size_t> get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees, const string& sequence,
-        const Position& default_position, bool pin_left) const;
+        const Position& default_position, bool pin_left, size_t longest_detectable_gap) const;
         
     /// We define a type for shared-tail lists of Mappings, to avoid constantly
     /// copying Path objects.
@@ -482,6 +626,17 @@ protected:
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
+        
+    // Internal debugging functions
+    
+    /// Dump all the given minimizers, with optional subset restriction
+    static void dump_debug_minimizers(const vector<Minimizer>& minimizers, const string& sequence, const vector<size_t>* to_include = nullptr);
+    
+    /// Dump all the extansions in an extension set
+    static void dump_debug_extension_set(const HandleGraph& graph, const Alignment& aln, const vector<GaplessExtension>& extended_seeds);
+    
+    /// Print a sequence with base numbering
+    static void dump_debug_sequence(ostream& out, const string& sequence);
 };
 
 template<typename Item, typename Score>

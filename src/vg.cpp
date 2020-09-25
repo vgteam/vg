@@ -4351,9 +4351,9 @@ void VG::edit(vector<Path>& paths_to_add,
 
 // Streaming edit will use much less memory than the older version (above), at the cost of needing to
 // do multiple passes over the input paths. 
-void VG::edit(istream& paths_to_add,
+void VG::edit(const string& paths_to_add_path,
               vector<Translation>* out_translations,
-              bool save_paths, ostream* out_gam_stream,
+              bool save_paths, const string& out_gam_path,
               bool break_at_ends, bool remove_softclips) {
 
     // If we are going to actually add the paths to the graph, we need to break at path ends
@@ -4363,7 +4363,7 @@ void VG::edit(istream& paths_to_add,
     paths.compact_ranks();
     
     // Augment the graph with the paths, modifying paths in place if update true
-    augment(this, paths_to_add, out_translations, out_gam_stream, save_paths,
+    augment(this, paths_to_add_path, "GAM", out_translations, out_gam_path, save_paths,
             break_at_ends, remove_softclips);
 }
     
@@ -4816,6 +4816,7 @@ void VG::to_dot(ostream& out,
                 bool annotate_paths,
                 bool show_mappings,
                 bool simple_mode,
+                bool noseq_mode,
                 bool invert_edge_ports,
                 bool color_variants,
                 bool ultrabubble_labeling,
@@ -4878,7 +4879,11 @@ void VG::to_dot(ostream& out,
         stringstream inner_label;
         if (ultrabubble_labeling) {
             inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
-            inner_label << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
+            if (noseq_mode){
+              inner_label << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence().size() << " bp</FONT> ";
+            } else {
+              inner_label << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
+            }
             for(auto& string_and_color : symbols_for_node[n->id()]) {
                 // Put every symbol in its font tag.
                 inner_label << "<FONT COLOR=\"" << string_and_color.first << "\">" << string_and_color.second << "</FONT>";
@@ -4890,7 +4895,11 @@ void VG::to_dot(ostream& out,
             //inner_label << "</TD>";
         } else {
             inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
-            inner_label << n->id() << ":" << n->sequence();
+            if (noseq_mode){
+              inner_label << n->id() << ":" << n->sequence().size() << " bp";
+            } else {
+              inner_label << n->id() << ":" << n->sequence();
+            }
             inner_label << "</TD>";
         }
 

@@ -15,6 +15,7 @@
 
 #include "../multipath_alignment.hpp"
 #include "../vg.hpp"
+#include "../min_distance.hpp"
 #include "../gfa.hpp"
 #include "../io/json_stream_helper.hpp"
 #include "../handle.hpp"
@@ -29,7 +30,7 @@
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
-
+using namespace vg::io;
 
 void help_view(char** argv) {
     cerr << "usage: " << argv[0] << " view [options] [ <graph.vg> | <graph.json> | <aln.gam> | <read1.fq> [<read2.fq>] ]" << endl
@@ -62,6 +63,7 @@ void help_view(char** argv) {
 
          << "    -d, --dot                  output dot format" << endl
          << "    -S, --simple-dot           simplify the dot output; remove node labels, simplify alignments" << endl
+         << "    -u, --noseq-dot            shows size information instead of sequence in the dot output" << endl
          << "    -e, --ascii-labels         use labels for paths or superbubbles with char/colors rather than emoji" << endl
          << "    -Y, --ultra-label          label nodes with emoji/colors that correspond to ultrabubbles" << endl
          << "    -m, --skip-missing         skip mappings to nodes not in the graph when drawing alignments" << endl
@@ -80,9 +82,10 @@ void help_view(char** argv) {
          << "    -X, --fastq-out            output fastq (input defaults to GAM)" << endl
          << "    -i, --interleaved          fastq is interleaved paired-ended" << endl
 
-         << "    -L, --pileup               ouput VG Pileup format" << endl
+         << "    -L, --pileup               output VG Pileup format" << endl
          << "    -l, --pileup-in            input VG Pileup format" << endl
 
+         << "    -B, --distance-in          input distance index" << endl
          << "    -R, --snarl-in             input VG Snarl format" << endl
          << "    -E, --snarl-traversal-in   input VG SnarlTraversal format" << endl
          << "    -K, --multipath-in         input VG MultipathAlignment format (GAMP)" << endl
@@ -117,6 +120,7 @@ int main_view(int argc, char** argv) {
     // and json-gam -> gam
     //     json-pileup -> pileup
 
+    bool which_read_in_pair = true;
     string output_type;
     string input_type;
     string rdf_base_uri;
@@ -131,6 +135,7 @@ int main_view(int argc, char** argv) {
     bool invert_edge_ports_in_dot = false;
     bool show_mappings_in_dot = false;
     bool simple_dot = false;
+    bool noseq_dot = false;
     int seed_val = time(NULL);
     bool color_variants = false;
     bool ultrabubble_labeling = false;
@@ -174,6 +179,7 @@ int main_view(int argc, char** argv) {
                 {"invert-ports", no_argument, 0, 'I'},
                 {"show-mappings", no_argument, 0, 'M'},
                 {"simple-dot", no_argument, 0, 'S'},
+                {"noseq-dot", no_argument, 0, 'u'},
                 {"color", no_argument, 0, 'C'},
                 {"translation-in", no_argument, 0, 'Z'},
                 {"ultra-label", no_argument, 0, 'Y'},
@@ -181,6 +187,7 @@ int main_view(int argc, char** argv) {
                 {"locus-in", no_argument, 0, 'q'},
                 {"loci", no_argument, 0, 'Q'},
                 {"locus-out", no_argument, 0, 'z'},
+                {"distance-in", no_argument, 0, 'B'},
                 {"snarl-in", no_argument, 0, 'R'},
                 {"snarl-traversal-in", no_argument, 0, 'E'},
                 {"expect-duplicates", no_argument, 0, 'D'},
@@ -193,7 +200,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZYmqQ:zXREDx:kKe7:",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SuCZYmqQ:zXBREDx:kKe7:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -212,6 +219,10 @@ int main_view(int argc, char** argv) {
 
         case 'S':
             simple_dot = true;
+            break;
+
+        case 'u':
+            noseq_dot = true;
             break;
 
         case 'Y':
@@ -369,6 +380,14 @@ int main_view(int argc, char** argv) {
 
         case 'Q':
             loci_file = optarg;
+            break;
+
+        case 'B':
+            input_type = "distance";
+            if (output_type.empty()) {
+                // Default to DistanceIndex -> JSON
+                output_type = "json";
+            }
             break;
 
         case 'R':
@@ -569,6 +588,7 @@ int main_view(int argc, char** argv) {
                     to_multipath_alignment(aln, mp_aln);
                     buf.emplace_back();
                     to_proto_multipath_alignment(mp_aln, buf.back());
+                    transfer_proto_metadata(aln, buf.back());
                     vg::io::write_buffered(cout, buf, 1000);
                 };
                 get_input_file(file_name, [&](istream& in) {
@@ -594,6 +614,7 @@ int main_view(int argc, char** argv) {
                     to_multipath_alignment(aln, mp_aln);
                     buf.emplace_back();
                     to_proto_multipath_alignment(mp_aln, buf.back());
+                    transfer_proto_metadata(aln, buf.back());
                     vg::io::write_buffered(std::cout, buf, 1000);
                 }
                 vg::io::write_buffered(cout, buf, 0);
@@ -649,6 +670,17 @@ int main_view(int argc, char** argv) {
                     from_proto_multipath_alignment(proto_mp_aln, mp_aln);
                     buf.emplace_back();
                     optimal_alignment(mp_aln, buf.back());
+                    transfer_proto_metadata(proto_mp_aln, buf.back());
+                    if (!proto_mp_aln.paired_read_name().empty()) {
+                        // alternate using next/prev
+                        if (which_read_in_pair) {
+                            buf.back().mutable_fragment_next()->set_name(proto_mp_aln.paired_read_name());
+                        }
+                        else {
+                            buf.back().mutable_fragment_prev()->set_name(proto_mp_aln.paired_read_name());
+                        }
+                    }
+                    which_read_in_pair = !which_read_in_pair;
                     vg::io::write_buffered(std::cout, buf, 1000);
                 }
                 vg::io::write_buffered(cout, buf, 0);
@@ -696,6 +728,7 @@ int main_view(int argc, char** argv) {
                     from_proto_multipath_alignment(proto_mp_aln, mp_aln);
                     buf.emplace_back();
                     optimal_alignment(mp_aln, buf.back());
+                    transfer_proto_metadata(proto_mp_aln, buf.back());
                     vg::io::write_buffered(cout, buf, 1000);
                 };
                 get_input_file(file_name, [&](istream& in) {
@@ -816,6 +849,17 @@ int main_view(int argc, char** argv) {
         }
         cout.flush();
         return 0;
+    } else if (input_type == "distance") {
+        if (output_type == "json") {
+            get_input_file(file_name, [&](istream& in) {
+                auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(in);
+                distance_index->write_snarls_to_json();
+            });
+        } else {
+            cerr << "[vg view] error: (binary) Distance index can only be converted to JSON" << endl;
+            return 1;
+        }
+        return 0;
     } else if (input_type == "snarls") {
         if (output_type == "json") {
             function<void(Snarl&)> lambda = [](Snarl& s) {
@@ -849,6 +893,10 @@ int main_view(int argc, char** argv) {
         cerr << "[vg view] error: cannot load graph in " << input_type << " format" << endl;
         return 1;
     }
+
+    if (output_type == "gfa") {
+        graph_to_gfa(graph, std::cout);
+    } 
 
     // Now we know graph was filled in from the input format. Spit it out in the
     // requested output format.
@@ -892,11 +940,7 @@ int main_view(int argc, char** argv) {
         // This is especially useful for JSON import.
         cerr << "[vg view] warning: graph is invalid!" << endl;
     }
-    
-    if (output_type == "gfa") {
-        // TODO: there's no reason this shouldn't work on PathHandleGraphs directly.
-        graph_to_gfa(vg_graph, std::cout);
-    } else if (output_type == "dot") {
+    if (output_type == "dot") {
         vg_graph->to_dot(std::cout,
                         alns,
                         loci,
@@ -905,6 +949,7 @@ int main_view(int argc, char** argv) {
                         annotate_paths_in_dot,
                         show_mappings_in_dot,
                         simple_dot,
+                        noseq_dot,
                         invert_edge_ports_in_dot,
                         color_variants,
                         ultrabubble_labeling,
@@ -917,7 +962,7 @@ int main_view(int argc, char** argv) {
         vg_graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
         vg_graph->serialize_to_ostream(cout);
-    } else {
+    } else if (output_type != "gfa") {
         // We somehow got here with a bad output format.
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
         return 1;

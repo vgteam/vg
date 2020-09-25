@@ -1,11 +1,13 @@
 #include "vg.hpp"
 #include <vg/io/stream.hpp>
+#include <vg/io/alignment_emitter.hpp>
 
 #include "augment.hpp"
 #include "alignment.hpp"
 #include "packer.hpp"
-
 //#define debug
+
+using namespace vg::io;
 
 namespace vg {
 
@@ -13,9 +15,10 @@ using namespace std;
 
 // The correct way to edit the graph
 void augment(MutablePathMutableHandleGraph* graph,
-             istream& gam_stream,
+             const string& gam_path,
+             const string& aln_format,
              vector<Translation>* out_translations,
-             ostream* gam_out_stream,
+             const string& gam_out_path,
              bool embed_paths,
              bool break_at_ends,
              bool remove_softclips,
@@ -26,23 +29,58 @@ void augment(MutablePathMutableHandleGraph* graph,
              size_t min_bp_coverage,
              double max_frac_n) {
 
+    // memory-wasting hack: we need node lengths from the original graph in order to parse the GAF.  Unlesss we
+    // store them, they will be lost in the 2nd pass
+    unordered_map<nid_t, int64_t> id_to_length;
+    if (aln_format == "GAF") {
+        graph->for_each_handle([&](handle_t handle) {
+                id_to_length[graph->get_id(handle)] = graph->get_length(handle);
+            });
+    }
+
     function<void(function<void(Alignment&)>, bool, bool)> iterate_gam =
-        [&gam_stream] (function<void(Alignment&)> aln_callback, bool reset_stream, bool parallel) {
-        if (reset_stream) {
-            gam_stream.clear();
-            gam_stream.seekg(0, ios_base::beg);
-        }
-        if (parallel) {
-            vg::io::for_each_parallel(gam_stream, aln_callback, Packer::estimate_batch_size(get_thread_count()));
+        [&gam_path, &aln_format, &graph, &packer, &id_to_length] (function<void(Alignment&)> aln_callback, bool second_pass, bool parallel) {
+        if (aln_format == "GAM") {
+            get_input_file(gam_path, [&](istream& gam_stream) {
+                    if (parallel && false) {
+                        vg::io::for_each_parallel(gam_stream, aln_callback, Packer::estimate_batch_size(get_thread_count()));
+                    } else {
+                        vg::io::for_each(gam_stream, aln_callback);
+                    }
+                });
         } else {
-            vg::io::for_each(gam_stream, aln_callback);
+            assert(aln_format == "GAF");
+            function<size_t(nid_t)> node_to_length;
+            function<string(nid_t, bool)> node_to_sequence;
+            if (second_pass) {
+                // graph has changed, need to fall back on our table we saved from the original graph
+                node_to_length = [&id_to_length](nid_t node_id) {
+                    return id_to_length[node_id];
+                };
+                // try to do without sequences
+                node_to_sequence = nullptr;
+            } else {
+                // graph is valid on the first pass
+                node_to_length = [&graph](nid_t node_id) {
+                    return graph->get_length(graph->get_handle(node_id));
+                };
+                node_to_sequence = [&graph](nid_t node_id, bool is_reversed) {
+                    return graph->get_sequence(graph->get_handle(node_id, is_reversed));
+                };
+            }
+            if (parallel) {
+                vg::io::gaf_unpaired_for_each_parallel(node_to_length, node_to_sequence, gam_path, aln_callback);
+            } else {
+                vg::io::gaf_unpaired_for_each(node_to_length, node_to_sequence, gam_path, aln_callback);
+            }
         }
     };
 
-    augment_impl(graph,
+    augment_impl(graph,                 
                  iterate_gam,
+                 aln_format,
                  out_translations,
-                 gam_out_stream,
+                 gam_out_path,
                  embed_paths,
                  break_at_ends,
                  remove_softclips,
@@ -56,8 +94,9 @@ void augment(MutablePathMutableHandleGraph* graph,
 
 void augment(MutablePathMutableHandleGraph* graph,
              vector<Path>& path_vector,
+             const string& aln_format,
              vector<Translation>* out_translations,
-             ostream* gam_out_stream,
+             const string& gam_out_path,
              bool embed_paths,
              bool break_at_ends,
              bool remove_softclips,
@@ -69,7 +108,7 @@ void augment(MutablePathMutableHandleGraph* graph,
              double max_frac_n) {
     
     function<void(function<void(Alignment&)>, bool, bool)> iterate_gam =
-        [&path_vector] (function<void(Alignment&)> aln_callback, bool reset_stream, bool parallel) {
+        [&path_vector] (function<void(Alignment&)> aln_callback, bool second_pass, bool parallel) {
         if (parallel) {
 #pragma omp parallel for
             for (size_t i = 0; i < path_vector.size(); ++i) {
@@ -93,8 +132,9 @@ void augment(MutablePathMutableHandleGraph* graph,
 
     augment_impl(graph,
                  iterate_gam,
+                 aln_format,
                  out_translations,
-                 gam_out_stream,
+                 gam_out_path,
                  embed_paths,
                  break_at_ends,
                  remove_softclips,
@@ -127,9 +167,10 @@ static inline bool check_in_graph(const Path& path, const unordered_map<id_t, si
 }
 
 void augment_impl(MutablePathMutableHandleGraph* graph,
-                  function<void(function<void(Alignment&)>, bool, bool)> iterate_gam,
+                  function<void(function<void(Alignment&)>,bool, bool)> iterate_gam,
+                  const string& aln_format,                  
                   vector<Translation>* out_translations,
-                  ostream* gam_out_stream,
+                  const string& gam_out_path,
                   bool embed_paths,
                   bool break_at_ends,
                   bool remove_softclips,
@@ -204,8 +245,12 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
     unordered_map<pair<pos_t, string>, vector<id_t>> added_seqs;
     // we will record the nodes that we add, so we can correctly make the returned translation
     unordered_map<id_t, Path> added_nodes;
-    // output gam buffer
-    vector<Alignment> gam_buffer;
+    // output alignment emitter and buffer
+    unique_ptr<vg::io::AlignmentEmitter> aln_emitter;
+    if (!gam_out_path.empty()) {
+        aln_emitter = vg::io::get_non_hts_alignment_emitter(gam_out_path, aln_format, {}, get_thread_count(), graph);
+    }
+    vector<Alignment> aln_buffer;
 
     // Second pass: add the nodes and edges
     iterate_gam((function<void(Alignment&)>)[&](Alignment& aln) {
@@ -233,7 +278,7 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 
             // Now go through each new path again, by reference so we can overwrite.
             // but only if we have a reason to
-            if (has_edits || gam_out_stream != nullptr || embed_paths) {
+            if (has_edits || !gam_out_path.empty() || embed_paths) {
 
                 // Create new nodes/wire things up. Get the added version of the path.
                 Path added = add_nodes_and_edges(graph, simplified_path, node_translation, added_seqs,
@@ -261,16 +306,19 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                 }
 
                 // optionally write out the modified path to GAM
-                if (gam_out_stream != nullptr) {
+                if (!gam_out_path.empty()) {
                     *aln.mutable_path() = added;
-                    gam_buffer.push_back(aln);
-                    vg::io::write_buffered(*gam_out_stream, gam_buffer, 100);
+                    aln_buffer.push_back(aln);
+                    if (aln_buffer.size() >= 100) {
+                        aln_emitter->emit_singles(vector<Alignment>(aln_buffer));
+                        aln_buffer.clear();
+                    }
                 }
             }
         }, true, false);
-    if (gam_out_stream != nullptr) {
+    if (!aln_buffer.empty()) {
         // Flush the buffer
-        vg::io::write_buffered(*gam_out_stream, gam_buffer, 0);
+        aln_emitter->emit_singles(vector<Alignment>(aln_buffer));
     }
 
     // perform the same check as above, but on the paths that were already in the graph

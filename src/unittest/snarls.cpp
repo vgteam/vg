@@ -8,7 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include <set>
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "catch.hpp"
 #include "random_graph.hpp"

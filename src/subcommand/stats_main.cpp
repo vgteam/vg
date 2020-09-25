@@ -17,6 +17,7 @@
 #include "subcommand.hpp"
 #include "../algorithms/distance_to_head.hpp"
 #include "../algorithms/distance_to_tail.hpp"
+#include "../algorithms/find_tips.hpp"
 #include "../algorithms/is_acyclic.hpp"
 #include "../algorithms/strongly_connected_components.hpp"
 #include "../algorithms/weakly_connected_components.hpp"
@@ -27,6 +28,11 @@
 #include "../path.hpp"
 #include "../statistics.hpp"
 #include "../genotypekit.hpp"
+
+#include "xg.hpp"
+#include "bdsg/packed_graph.hpp"
+#include "bdsg/hash_graph.hpp"
+#include "bdsg/odgi.hpp"
 
 using namespace std;
 using namespace vg;
@@ -56,6 +62,9 @@ void help_stats(char** argv) {
          << "                          multiple allowed; limit comparison to those provided" << endl
          << "    -O, --overlap-all     print overlap table for the cartesian product of paths" << endl
          << "    -R, --snarls          print statistics for each snarl" << endl
+         << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, ODGI, XG}. " <<
+        "Can't detect Protobuf if graph read from stdin" << endl
+         << "    -D, --degree-dist     print degree distribution of the graph." << endl
          << "    -v, --verbose         output longer reports" << endl;
 }
 
@@ -87,6 +96,8 @@ int main_stats(int argc, char** argv) {
     vector<string> paths_to_overlap;
     bool overlap_all_paths = false;
     bool snarl_stats = false;
+    bool format = false;
+    bool degree_dist = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -112,11 +123,13 @@ int main_stats(int argc, char** argv) {
             {"overlap", no_argument, 0, 'o'},
             {"overlap-all", no_argument, 0, 'O'},
             {"snarls", no_argument, 0, 'R'},
+            {"format", no_argument, 0, 'F'},
+            {"degree-dist", no_argument, 0, 'D'}, 
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTcdtn:NEa:vAro:OR",
+        c = getopt_long (argc, argv, "hzlsHTcdtn:NEa:vAro:ORFD",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -201,6 +214,14 @@ int main_stats(int argc, char** argv) {
             verbose = true;
             break;
 
+        case 'F':
+            format = true;
+            break;
+
+        case 'D':
+            degree_dist = true;
+            break;
+
         case 'h':
         case '?':
             help_stats(argv);
@@ -213,11 +234,13 @@ int main_stats(int argc, char** argv) {
     }
 
     unique_ptr<PathHandleGraph> graph;
+    string graph_file_name;
     if (have_input_file(optind, argc, argv)) {
         // We have an (optional, because we can just process alignments) graph input file.
         // TODO: we can load any PathHandleGraph, but some operations still require a VG
         // In those cases, we convert back to vg::VG
-        graph = vg::io::VPKG::load_one<PathHandleGraph>(get_input_file_name(optind, argc, argv));
+        graph_file_name = get_input_file_name(optind, argc, argv);
+        graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file_name);
     }
     
     // We have function to make sure the graph was passed and complain if not
@@ -351,6 +374,62 @@ int main_stats(int argc, char** argv) {
             auto n = graph->get_handle(id, false);
             cout << id << " to tail:\t"
                 << distance_to_tail(n, 1000, graph.get()) << endl;
+        }
+    }
+
+    if (format) {
+        require_graph();
+        string format_string;
+        if (dynamic_cast<xg::XG*>(graph.get()) != nullptr) {
+            format_string = "XG";
+        } else if (dynamic_cast<bdsg::PackedGraph*>(graph.get()) != nullptr) {
+            format_string = "PackedGraph";
+        } else if (dynamic_cast<bdsg::HashGraph*>(graph.get()) != nullptr) {
+            format_string = "HashGraph";
+        } else if (dynamic_cast<bdsg::ODGI*>(graph.get()) != nullptr) {
+            format_string = "ODGI";
+        } else {
+            format_string = "Unknown";
+        }
+        if (graph_file_name != "-" && format_string == "HashGraph") {
+            // Maybe vpkg loaded a protobuf graph into a different handle graph format
+            // (it currently uses HashGraph)
+            try {
+                ifstream graph_stream(graph_file_name);
+                vg::io::MessageIterator message_it(graph_stream);
+                if (message_it.has_current()) {
+                    string msg_tag = message_it.take().first;
+                    // older protobufs are untagged, newer ones are tagged "VG"
+                    if (msg_tag.empty() || msg_tag == "VG") {
+                        format_string = "VG-Protobuf";
+                    }
+                }
+            } catch(...) {}
+        }
+        cout << "format: " << format_string << endl;
+    }
+
+    if (degree_dist) {
+        require_graph();
+        // compute degrees
+        map<size_t, tuple<size_t, size_t, size_t, size_t>> degree_to_count;
+        graph->for_each_handle([&degree_to_count, &graph](handle_t handle) {
+                size_t left_degree = graph->get_degree(handle, true);
+                size_t right_degree = graph->get_degree(handle, false);
+                // update sides count
+                ++get<0>(degree_to_count[left_degree]);
+                ++get<0>(degree_to_count[right_degree]);
+                // update min count
+                ++get<1>(degree_to_count[std::min(left_degree, right_degree)]);
+                // update max count
+                ++get<2>(degree_to_count[std::max(left_degree, right_degree)]);
+                // update total count
+                ++get<3>(degree_to_count[left_degree + right_degree]);
+            });
+        // print degrees
+        cout << "Degree\tSides\tNodes(min)\tNodes(max)\tNodes(total)" << endl;
+        for (const auto& dg : degree_to_count) {
+            cout << dg.first << "\t" << get<0>(dg.second) << "\t" <<get<1>(dg.second) << "\t" << get<2>(dg.second) << "\t" << get<3>(dg.second) << endl;
         }
     }
 

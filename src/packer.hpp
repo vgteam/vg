@@ -11,7 +11,7 @@
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include "graph.hpp"
 #include "gcsa/internal.h"
 #include "sdsl/csa_wt.hpp"

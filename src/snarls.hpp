@@ -576,7 +576,13 @@ public:
         
     /// Execute a function on all sites in parallel
     void for_each_snarl_parallel(const function<void(const Snarl*)>& lambda) const;
-    
+
+    /// Execute a function on all top level chains
+    void for_each_top_level_chain(const function<void(const Chain*)>& lambda) const;
+
+    /// Execute a function on all top level chains in parallel
+    void for_each_top_level_chain_parallel(const function<void(const Chain*)>& lambda) const;
+
     /// Ececute a function on all chains
     void for_each_chain(const function<void(const Chain*)>& lambda) const;
     
@@ -765,7 +771,10 @@ inline Mapping to_mapping(const Visit& visit, std::function<size_t(id_t)> node_l
 /// Converts a Visit to a Mapping. Throws an exception if the Visit is of a Snarl instead
 /// of a Node. Uses a graph to get node length.
 inline Mapping to_mapping(const Visit& visit, const HandleGraph& vg);
-    
+
+/// Convert a snarl traversal into an alignment
+inline Alignment to_alignment(const SnarlTraversal& trav, const HandleGraph& graph);
+
 /// Copies the boundary Visits from one Snarl into another
 inline void transfer_boundary_info(const Snarl& from, Snarl& to);
 
@@ -974,12 +983,21 @@ inline Mapping to_mapping(const Visit& visit, const HandleGraph& graph) {
             return graph.get_length(graph.get_handle(id));
         });
 }
+
+inline Alignment to_alignment(const SnarlTraversal& trav, const HandleGraph& graph) {
+    Alignment aln;
+    Path* path = aln.mutable_path();
+    for (int i = 0; i < trav.visit_size(); ++i) {
+        *path->add_mapping() = to_mapping(trav.visit(i), graph);
+    }
+    return aln;
+}
     
 inline void transfer_boundary_info(const Snarl& from, Snarl& to) {
     *to.mutable_start() = from.start();
     *to.mutable_end() = from.end();
 }
-    
+
 }
 
 // note: this hash funtion is not used internally because we want the internal indices to ignore any

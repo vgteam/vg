@@ -26,6 +26,23 @@ namespace haplo {
 
 namespace vg {
 
+    class connection_t {
+    public:
+        connection_t() = default;
+        connection_t(const connection_t&) = default;
+        connection_t(connection_t&&) = default;
+        ~connection_t() = default;
+        connection_t& operator=(const connection_t&) = default;
+        connection_t& operator=(connection_t&&) = default;
+        inline int32_t next() const;
+        inline void set_next(int32_t n);
+        inline int32_t score() const;
+        inline void set_score(int32_t s);
+    private:
+        uint32_t _next;
+        int32_t _score;
+    };
+
     /*
      * STL implementations of the protobuf object for use in in-memory operations
      */
@@ -50,36 +67,37 @@ namespace vg {
         inline bool has_next() const;
         inline int32_t score() const;
         inline void set_score(int32_t s);
+        inline const vector<connection_t>& connection() const;
+        inline const connection_t& connection(size_t i) const;
+        inline vector<connection_t>* mutable_connection();
+        inline connection_t* mutable_connection(size_t i);
+        inline void set_connection(size_t i, const connection_t& c);
+        inline connection_t* add_connection();
+        inline void clear_connection();
+        inline size_t connection_size() const;
+        inline bool has_connection() const;
     private:
         path_t _path;
         vector<uint32_t> _next;
         int32_t _score;
+        vector<connection_t> _connection;
     };
 
     // TODO: the metadata could be removed and only added to the protobuf at serialization time
     class multipath_alignment_t {
     public:
-        multipath_alignment_t() = default;
-        multipath_alignment_t(const multipath_alignment_t&) = default;
-        multipath_alignment_t(multipath_alignment_t&&) = default;
+        multipath_alignment_t();
+        multipath_alignment_t(const multipath_alignment_t& other);
+        multipath_alignment_t(multipath_alignment_t&& other);
         ~multipath_alignment_t();
-        multipath_alignment_t& operator=(const multipath_alignment_t&) = default;
-        multipath_alignment_t& operator=(multipath_alignment_t&&) = default;
+        multipath_alignment_t& operator=(const multipath_alignment_t& other);
+        multipath_alignment_t& operator=(multipath_alignment_t&& other);
         inline const string& sequence() const;
         inline string* mutable_sequence();
         inline void set_sequence(const string& s);
         inline const string& quality() const;
         inline string* mutable_quality();
         inline void set_quality(const string& q);
-        inline const string& name() const;
-        inline string* mutable_name();
-        inline void set_name(const string& n);
-        inline const string& sample_name() const;
-        inline string* mutable_sample_name();
-        inline void set_sample_name(const string& n);
-        inline const string& read_group() const;
-        inline string* mutable_read_group();
-        inline void set_read_group(const string& g);
         inline const vector<subpath_t>& subpath() const;
         inline const subpath_t& subpath(size_t i) const;
         inline vector<subpath_t>* mutable_subpath();
@@ -97,9 +115,6 @@ namespace vg {
         inline void clear_start();
         inline size_t start_size() const;
         inline bool has_start() const;
-        inline const string& paired_read_name() const;
-        inline string* mutable_paired_read_name();
-        inline void set_paired_read_name(const string& n);
         
         // annotation interface
         // TODO: add List and Struct from https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/struct.proto
@@ -114,16 +129,13 @@ namespace vg {
     private:
         string _sequence;
         string _quality;
-        string _name;
-        string _sample_name;
-        string _read_group;
         vector<subpath_t> _subpath;
         int32_t _mapping_quality;
         vector<uint32_t> _start;
-        string _paired_read_name;
         map<string, pair<anno_type_t, void*>> _annotation;
     };
 
+    string debug_string(const connection_t& connection);
     string debug_string(const subpath_t& subpath);
     string debug_string(const multipath_alignment_t& multipath_aln);
     
@@ -193,6 +205,7 @@ namespace vg {
     ///
     vector<Alignment> optimal_alignments_with_disjoint_subpaths(const multipath_alignment_t& multipath_aln, size_t count);
     
+
     /// Finds all alignments consistent with haplotypes available by incremental search with the given haplotype
     /// score provider. Pads to a certain count with haplotype-inconsistent alignments that are population-scorable
     /// (i.e. use only edges used by some haplotype in the index), and then with unscorable alignments if scorable
@@ -216,6 +229,9 @@ namespace vg {
     vector<Alignment> haplotype_consistent_alignments(const multipath_alignment_t& multipath_aln, const haplo::ScoreProvider& score_provider,
         size_t soft_count, size_t hard_count, bool optimal_first = false);
     
+    /// The indexes on the read sequence of the portion of the read that is aligned outside of soft clips
+    pair<int64_t, int64_t> aligned_interval(const multipath_alignment_t& multipath_aln);
+
     /// Stores the reverse complement of a multipath_alignment_t in another multipath_alignment_t
     ///
     ///  Args:
@@ -294,15 +310,19 @@ namespace vg {
     ///
     void transfer_read_metadata(const Alignment& from, Alignment& to);
 
-
     void transfer_read_metadata(const MultipathAlignment& from, multipath_alignment_t& to);
 
     void transfer_read_metadata(const multipath_alignment_t& from, MultipathAlignment& to);
+
+    void transfer_proto_metadata(const Alignment& from, MultipathAlignment& to);
+
+    void transfer_proto_metadata(const MultipathAlignment& from, Alignment& to);
 
     /// Merges non-branching paths in a multipath alignment in place
     void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln);
 
     /// Removes subpaths that have no aligned bases and adds in any implied edges crossing through them
+    /// Note: not updated for connections yet
     void remove_empty_subpaths(multipath_alignment_t& multipath_aln);
     
     /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
@@ -314,7 +334,22 @@ namespace vg {
     void extract_sub_multipath_alignment(const multipath_alignment_t& multipath_aln,
                                          const vector<int64_t>& subpath_indexes,
                                          multipath_alignment_t& sub_multipath_aln);
-    
+
+    /// Add the subpaths of one multipath alignment onto another
+    void append_multipath_alignment(multipath_alignment_t& multipath_aln,
+                                    const multipath_alignment_t& to_append);
+
+    /// Returns all of the positions where a given sequence index occurs at a given graph
+    /// graph position (if any), where positions are represented as tuples of
+    /// (subpath index, mapping index, edit index, index within edit)
+    vector<tuple<int64_t, int64_t, int64_t, int64_t>>
+    search_multipath_alignment(const multipath_alignment_t& multipath_aln,
+                               const pos_t& graph_pos, int64_t seq_pos);
+
+    pair<tuple<int64_t, int64_t, int64_t, int64_t>, tuple<int64_t, int64_t, int64_t>>
+    trace_path(const multipath_alignment_t& multipath_aln, const Path& path,
+               int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx);
+
     /// Debugging function to check that multipath alignment meets the formalism's basic
     /// invariants. Returns true if multipath alignment is valid, else false. Does not
     /// validate alignment score.
@@ -331,6 +366,22 @@ namespace vg {
     /*
      * Implementations of inline methods
      */
+
+    /*
+     * connection_t
+     */
+    inline int32_t connection_t::next() const {
+        return _next;
+    }
+    inline void connection_t::set_next(int32_t n) {
+        _next = n;
+    }
+    inline int32_t connection_t::score() const {
+        return _score;
+    }
+    inline void connection_t::set_score(int32_t s) {
+        _score = s;
+    }
 
     /*
      * subpath_t
@@ -374,6 +425,34 @@ namespace vg {
     inline void subpath_t::set_score(int32_t s) {
         _score = s;
     }
+    inline const vector<connection_t>& subpath_t::connection() const {
+        return _connection;
+    }
+    inline const connection_t& subpath_t::connection(size_t i) const {
+        return _connection[i];
+    }
+    inline vector<connection_t>* subpath_t::mutable_connection() {
+        return &_connection;
+    }
+    inline connection_t* subpath_t::mutable_connection(size_t i) {
+        return &_connection[i];
+    }
+    inline void subpath_t::set_connection(size_t i, const connection_t& c) {
+        _connection[i] = c;
+    }
+    inline connection_t* subpath_t::add_connection() {
+        _connection.emplace_back();
+        return &_connection.back();
+    }
+    inline void subpath_t::clear_connection() {
+        _connection.clear();
+    }
+    inline size_t subpath_t::connection_size() const {
+        return _connection.size();
+    }
+    inline bool subpath_t::has_connection() const {
+        return !_connection.empty();
+    }
 
     /*
      * multipath_alignment_t
@@ -395,33 +474,6 @@ namespace vg {
     }
     inline void multipath_alignment_t::set_quality(const string& q) {
         _quality = q;
-    }
-    inline const string& multipath_alignment_t::name() const {
-        return _name;
-    }
-    inline string* multipath_alignment_t::mutable_name() {
-        return &_name;
-    }
-    inline void multipath_alignment_t::set_name(const string& n) {
-        _name = n;
-    }
-    inline const string& multipath_alignment_t::sample_name() const {
-        return _sample_name;
-    }
-    inline string* multipath_alignment_t::mutable_sample_name() {
-        return &_sample_name;
-    }
-    inline void multipath_alignment_t::set_sample_name(const string& n) {
-        _sample_name = n;
-    }
-    inline const string& multipath_alignment_t::read_group() const {
-        return _read_group;
-    }
-    inline string* multipath_alignment_t::mutable_read_group() {
-        return &_read_group;
-    }
-    inline void multipath_alignment_t::set_read_group(const string& g) {
-        _read_group = g;
     }
     inline const vector<subpath_t>& multipath_alignment_t::subpath() const {
         return _subpath;
@@ -474,15 +526,6 @@ namespace vg {
     }
     inline bool multipath_alignment_t::has_start() const {
         return !_start.empty();
-    }
-    inline const string& multipath_alignment_t::paired_read_name() const {
-        return _paired_read_name;
-    }
-    inline string* multipath_alignment_t::mutable_paired_read_name() {
-        return &_paired_read_name;
-    }
-    inline void multipath_alignment_t::set_paired_read_name(const string& n) {
-        _paired_read_name = n;
     }
 }
 

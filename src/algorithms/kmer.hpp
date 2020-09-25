@@ -37,7 +37,7 @@ struct kmer_t {
 /// Iterate over all the kmers in the graph, running lambda on each
 void for_each_kmer(const HandleGraph& graph, size_t k, size_t edge_max,
                    const std::function<void(const kmer_t&)>& lambda);
-    
+
 /// Print a kmer_t to a stream.
 std::ostream& operator<<(std::ostream& out, const kmer_t& kmer);
 

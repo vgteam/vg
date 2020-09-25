@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/python3
 """
 Generate a VCF from a GAM and XG by splitting into GAM/VG chunks.
 Chunks are then called in series, and the VCFs stitched together.
@@ -83,7 +83,7 @@ def run(cmd, proc_stdout = sys.stdout, proc_stderr = sys.stderr,
         check = True):
     """ run command in shell and throw exception if it doesn't work 
     """
-    print cmd
+    print(cmd)
     proc = subprocess.Popen(cmd, shell=True, bufsize=-1,
                             stdout=proc_stdout, stderr=proc_stderr)
     output, errors = proc.communicate()

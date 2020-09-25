@@ -1,4 +1,4 @@
-= vg-gaffe(1)
+= vg-giraffe(1)
 vgteam contributors
 v1.20.0
 :doctype: manpage
@@ -8,11 +8,11 @@ v1.20.0
 
 == Name
 
-vg-gaffe - map unpaired short reads using minimizers and gapless extension
+vg-giraffe - map unpaired short reads using minimizers and gapless extension
 
 == Synopsis
 
-*vg gaffe* [_OPTION_]... [_FASTA_ [_VCF_]] > output.gam
+*vg giraffe* [_OPTION_]... [_FASTA_ [_VCF_]] > output.gam
 
 == Arguments
 
