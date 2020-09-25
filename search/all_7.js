@@ -393,7 +393,7 @@ var searchData=
   ['graph_5fstart_5fedges_5foffset',['GRAPH_START_EDGES_OFFSET',['../classbdsg_1_1PackedGraph.html#a872d174e49c91d80c8e6525559deead7',1,'bdsg::PackedGraph']]],
   ['graph_5fsynchronizer_2ecpp',['graph_synchronizer.cpp',['../graph__synchronizer_8cpp.html',1,'']]],
   ['graph_5fsynchronizer_2ehpp',['graph_synchronizer.hpp',['../graph__synchronizer_8hpp.html',1,'']]],
-  ['graph_5fto_5fgfa',['graph_to_gfa',['../namespacevg.html#a60786b653f375199240b023be44313d7',1,'vg']]],
+  ['graph_5fto_5fgfa',['graph_to_gfa',['../namespacevg.html#a5de7b443bbf185757dbe89393590518d',1,'vg']]],
   ['graphcaller',['GraphCaller',['../classvg_1_1GraphCaller.html',1,'vg::GraphCaller'],['../classvg_1_1GraphCaller.html#a621386ff80a0fe3289719c75c282bc5a',1,'vg::GraphCaller::GraphCaller()']]],
   ['graphsynchronizer',['GraphSynchronizer',['../classvg_1_1GraphSynchronizer.html',1,'vg::GraphSynchronizer'],['../classvg_1_1GraphSynchronizer.html#addf1e96558546d4f5e708827b9eb4d67',1,'vg::GraphSynchronizer::GraphSynchronizer()']]],
   ['greedy_5fmin_5fdist',['greedy_min_dist',['../classvg_1_1MultipathMapper.html#a97d02064d377122ed8cef9e53340ba90',1,'vg::MultipathMapper']]],

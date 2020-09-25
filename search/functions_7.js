@@ -309,7 +309,7 @@ var searchData=
   ['graph_5fkey_5ftype',['graph_key_type',['../classvg_1_1Index.html#a0383b3f571eea1b2189fa3b49b324878',1,'vg::Index']]],
   ['graph_5fmixed_5fdistance_5festimate',['graph_mixed_distance_estimate',['../classvg_1_1Mapper.html#a67fb2b4bc540b81be063075ce5593569',1,'vg::Mapper']]],
   ['graph_5fpos_5fat_5fpath_5fposition',['graph_pos_at_path_position',['../classxg_1_1XG.html#a85c47feeb19e96486140c5e1b8184bc7',1,'xg::XG::graph_pos_at_path_position(const path_handle_t &amp;path, size_t path_pos) const'],['../classxg_1_1XG.html#a31c733ed1c2045b1e2a7e9f343dc9296',1,'xg::XG::graph_pos_at_path_position(const std::string &amp;name, size_t path_pos) const']]],
-  ['graph_5fto_5fgfa',['graph_to_gfa',['../namespacevg.html#a60786b653f375199240b023be44313d7',1,'vg']]],
+  ['graph_5fto_5fgfa',['graph_to_gfa',['../namespacevg.html#a5de7b443bbf185757dbe89393590518d',1,'vg']]],
   ['graphcaller',['GraphCaller',['../classvg_1_1GraphCaller.html#a621386ff80a0fe3289719c75c282bc5a',1,'vg::GraphCaller']]],
   ['graphsynchronizer',['GraphSynchronizer',['../classvg_1_1GraphSynchronizer.html#addf1e96558546d4f5e708827b9eb4d67',1,'vg::GraphSynchronizer']]],
   ['greedymindistanceclusterer',['GreedyMinDistanceClusterer',['../classvg_1_1GreedyMinDistanceClusterer.html#a93ed960a816dc31f7ef5352d493d7091',1,'vg::GreedyMinDistanceClusterer']]],
