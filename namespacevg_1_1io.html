@@ -194,14 +194,10 @@ Functions</h2></td></tr>
 <tr class="separator:a4b6ad53e3fc9e4c143221b213932db70"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2482cb13e9b2d8c8328233d6f328bd6a"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a2482cb13e9b2d8c8328233d6f328bd6a">get_non_hts_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> *graph)</td></tr>
 <tr class="separator:a2482cb13e9b2d8c8328233d6f328bd6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a40758e4280d94530462a0503bb48914e"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a40758e4280d94530462a0503bb48914e">unpaired_for_each_parallel</a> (function&lt; bool(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; get_read_if_available, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda, uint64_t batch_size)</td></tr>
-<tr class="separator:a40758e4280d94530462a0503bb48914e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4f444a1f5e8741c1907f739e26f903f0"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a4f444a1f5e8741c1907f739e26f903f0">paired_for_each_parallel_after_wait</a> (function&lt; bool(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; get_pair_if_available, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda, function&lt; bool(void)&gt; single_threaded_until_true, uint64_t batch_size)</td></tr>
-<tr class="separator:a4f444a1f5e8741c1907f739e26f903f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a32dbad8c952d421dee9937ae760c1605"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a32dbad8c952d421dee9937ae760c1605">get_next_alignment_from_gaf</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;g_buffer, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
-<tr class="separator:a32dbad8c952d421dee9937ae760c1605"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a90cdb28d12fcdb2787031b64e993301a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a90cdb28d12fcdb2787031b64e993301a">get_next_interleaved_alignment_pair_from_gaf</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;g_buffer, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;mate1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;mate2)</td></tr>
-<tr class="separator:a90cdb28d12fcdb2787031b64e993301a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa357ed5eaa447e495149c7bd7df356b9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aa357ed5eaa447e495149c7bd7df356b9">get_next_record_from_gaf</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;record)</td></tr>
+<tr class="separator:aa357ed5eaa447e495149c7bd7df356b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0f27b2a472320e0e45a130b73827d1fd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a0f27b2a472320e0e45a130b73827d1fd">get_next_interleaved_record_pair_from_gaf</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;record1, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;record2)</td></tr>
+<tr class="separator:a0f27b2a472320e0e45a130b73827d1fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a83d5011d88f6ef27ed8837957505284b"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a83d5011d88f6ef27ed8837957505284b">gaf_unpaired_for_each</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, const string &amp;filename, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
 <tr class="separator:a83d5011d88f6ef27ed8837957505284b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ada4771a7ea674ee9d986af264ab3c00d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ada4771a7ea674ee9d986af264ab3c00d">gaf_unpaired_for_each</a> (const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;graph, const string &amp;filename, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
@@ -280,6 +276,14 @@ Functions</h2></td></tr>
 <tr class="separator:ae0cd97ec5478403a25e02c9805f3d286"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9b562b3e8bd001bb10bcd0353bf5a929"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a9b562b3e8bd001bb10bcd0353bf5a929">finish</a> (std::ostream &amp;out, bool compressed)</td></tr>
 <tr class="separator:a9b562b3e8bd001bb10bcd0353bf5a929"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac3daebbee97f2451b25aec3c642c06c8"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:ac3daebbee97f2451b25aec3c642c06c8"><td class="memTemplItemLeft" align="right" valign="top">size_t&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ac3daebbee97f2451b25aec3c642c06c8">unpaired_for_each_parallel</a> (function&lt; bool(T &amp;)&gt; get_read_if_available, function&lt; void(T &amp;)&gt; lambda, uint64_t batch_size=<a class="el" href="namespacevg_1_1io.html#aba1d6c41cb6ff7b47e64b6b584af0363">DEFAULT_PARALLEL_BATCHSIZE</a>)</td></tr>
+<tr class="separator:ac3daebbee97f2451b25aec3c642c06c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af3c3dd4ad5c9b887fd3ee389e0b67ef6"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:af3c3dd4ad5c9b887fd3ee389e0b67ef6"><td class="memTemplItemLeft" align="right" valign="top">size_t&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#af3c3dd4ad5c9b887fd3ee389e0b67ef6">paired_for_each_parallel_after_wait</a> (function&lt; bool(T &amp;, T &amp;)&gt; get_pair_if_available, function&lt; void(T &amp;, T &amp;)&gt; lambda, function&lt; bool(void)&gt; single_threaded_until_true, uint64_t batch_size=<a class="el" href="namespacevg_1_1io.html#aba1d6c41cb6ff7b47e64b6b584af0363">DEFAULT_PARALLEL_BATCHSIZE</a>)</td></tr>
+<tr class="separator:af3c3dd4ad5c9b887fd3ee389e0b67ef6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab11e877e850b127b8004e7223cc77247"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ab11e877e850b127b8004e7223cc77247">get_next_record_pair_from_gaf</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;mate1, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;mate2)</td></tr>
+<tr class="separator:ab11e877e850b127b8004e7223cc77247"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae5ab0e97965e5b5e461a997ed374423e"><td class="memTemplParams" colspan="2">template&lt;typename Item &gt; </td></tr>
 <tr class="memitem:ae5ab0e97965e5b5e461a997ed374423e"><td class="memTemplItemLeft" align="right" valign="top">auto&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ae5ab0e97965e5b5e461a997ed374423e">emit_to</a> (ostream &amp;out) -&gt; std::function&lt; void(const Item &amp;)&gt;</td></tr>
 <tr class="separator:ae5ab0e97965e5b5e461a997ed374423e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1536,14 +1540,14 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a32dbad8c952d421dee9937ae760c1605"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a32dbad8c952d421dee9937ae760c1605">&#9670;&nbsp;</a></span>get_next_alignment_from_gaf()</h2>
+<a id="a0f27b2a472320e0e45a130b73827d1fd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0f27b2a472320e0e45a130b73827d1fd">&#9670;&nbsp;</a></span>get_next_interleaved_record_pair_from_gaf()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::io::get_next_alignment_from_gaf </td>
+          <td class="memname">bool vg::io::get_next_interleaved_record_pair_from_gaf </td>
           <td>(</td>
           <td class="paramtype">function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt;&#160;</td>
           <td class="paramname"><em>node_to_length</em>, </td>
@@ -1570,13 +1574,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;&#160;</td>
-          <td class="paramname"><em>g_buffer</em>, </td>
+          <td class="paramname"><em>record1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>alignment</em>&#160;</td>
+          <td class="paramtype"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;&#160;</td>
+          <td class="paramname"><em>record2</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1588,14 +1592,14 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a90cdb28d12fcdb2787031b64e993301a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a90cdb28d12fcdb2787031b64e993301a">&#9670;&nbsp;</a></span>get_next_interleaved_alignment_pair_from_gaf()</h2>
+<a id="aa357ed5eaa447e495149c7bd7df356b9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa357ed5eaa447e495149c7bd7df356b9">&#9670;&nbsp;</a></span>get_next_record_from_gaf()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::io::get_next_interleaved_alignment_pair_from_gaf </td>
+          <td class="memname">bool vg::io::get_next_record_from_gaf </td>
           <td>(</td>
           <td class="paramtype">function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt;&#160;</td>
           <td class="paramname"><em>node_to_length</em>, </td>
@@ -1622,18 +1626,58 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;&#160;</td>
-          <td class="paramname"><em>g_buffer</em>, </td>
+          <td class="paramname"><em>record</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ab11e877e850b127b8004e7223cc77247"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab11e877e850b127b8004e7223cc77247">&#9670;&nbsp;</a></span>get_next_record_pair_from_gaf()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::io::get_next_record_pair_from_gaf </td>
+          <td>(</td>
+          <td class="paramtype">function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt;&#160;</td>
+          <td class="paramname"><em>node_to_length</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramtype">function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt;&#160;</td>
+          <td class="paramname"><em>node_to_sequence</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">htsFile *&#160;</td>
+          <td class="paramname"><em>fp</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">kstring_t &amp;&#160;</td>
+          <td class="paramname"><em>s_buffer</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;&#160;</td>
           <td class="paramname"><em>mate1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;&#160;</td>
           <td class="paramname"><em>mate2</em>&#160;</td>
         </tr>
         <tr>
@@ -1908,22 +1952,27 @@ template&lt;class T &gt; </div>
 
 </div>
 </div>
-<a id="a4f444a1f5e8741c1907f739e26f903f0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4f444a1f5e8741c1907f739e26f903f0">&#9670;&nbsp;</a></span>paired_for_each_parallel_after_wait()</h2>
+<a id="af3c3dd4ad5c9b887fd3ee389e0b67ef6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af3c3dd4ad5c9b887fd3ee389e0b67ef6">&#9670;&nbsp;</a></span>paired_for_each_parallel_after_wait()</h2>
 
 <div class="memitem">
 <div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">size_t vg::io::paired_for_each_parallel_after_wait </td>
           <td>(</td>
-          <td class="paramtype">function&lt; bool(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt;&#160;</td>
+          <td class="paramtype">function&lt; bool(T &amp;, T &amp;)&gt;&#160;</td>
           <td class="paramname"><em>get_pair_if_available</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt;&#160;</td>
+          <td class="paramtype">function&lt; void(T &amp;, T &amp;)&gt;&#160;</td>
           <td class="paramname"><em>lambda</em>, </td>
         </tr>
         <tr>
@@ -1936,7 +1985,7 @@ template&lt;class T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">uint64_t&#160;</td>
-          <td class="paramname"><em>batch_size</em>&#160;</td>
+          <td class="paramname"><em>batch_size</em> = <code><a class="el" href="namespacevg_1_1io.html#aba1d6c41cb6ff7b47e64b6b584af0363">DEFAULT_PARALLEL_BATCHSIZE</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1944,6 +1993,11 @@ template&lt;class T &gt; </div>
           <td></td><td></td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>
@@ -2350,29 +2404,34 @@ template&lt;class T &gt; </div>
 
 </div>
 </div>
-<a id="a40758e4280d94530462a0503bb48914e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a40758e4280d94530462a0503bb48914e">&#9670;&nbsp;</a></span>unpaired_for_each_parallel()</h2>
+<a id="ac3daebbee97f2451b25aec3c642c06c8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac3daebbee97f2451b25aec3c642c06c8">&#9670;&nbsp;</a></span>unpaired_for_each_parallel()</h2>
 
 <div class="memitem">
 <div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">size_t vg::io::unpaired_for_each_parallel </td>
           <td>(</td>
-          <td class="paramtype">function&lt; bool(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt;&#160;</td>
+          <td class="paramtype">function&lt; bool(T &amp;)&gt;&#160;</td>
           <td class="paramname"><em>get_read_if_available</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt;&#160;</td>
+          <td class="paramtype">function&lt; void(T &amp;)&gt;&#160;</td>
           <td class="paramname"><em>lambda</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">uint64_t&#160;</td>
-          <td class="paramname"><em>batch_size</em>&#160;</td>
+          <td class="paramname"><em>batch_size</em> = <code><a class="el" href="namespacevg_1_1io.html#aba1d6c41cb6ff7b47e64b6b584af0363">DEFAULT_PARALLEL_BATCHSIZE</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2380,6 +2439,11 @@ template&lt;class T &gt; </div>
           <td></td><td></td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>

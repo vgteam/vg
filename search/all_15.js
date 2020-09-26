@@ -39,7 +39,7 @@ var searchData=
   ['unpack_5fon_5frev',['unpack_on_rev',['../structbdsg_1_1ODGI_1_1edge__helper.html#a8c4b83d5a0f8d98b4ab7bed5fe506b42',1,'bdsg::ODGI::edge_helper']]],
   ['unpack_5fother_5frev',['unpack_other_rev',['../structbdsg_1_1ODGI_1_1edge__helper.html#a1d5fc248b80e2d3f2a48b840227a5501',1,'bdsg::ODGI::edge_helper']]],
   ['unpack_5fto_5fcurr',['unpack_to_curr',['../structbdsg_1_1ODGI_1_1edge__helper.html#a4565f7101135a9581102fc60fc5851d3',1,'bdsg::ODGI::edge_helper']]],
-  ['unpaired_5ffor_5feach_5fparallel',['unpaired_for_each_parallel',['../namespacevg_1_1io.html#a40758e4280d94530462a0503bb48914e',1,'vg::io']]],
+  ['unpaired_5ffor_5feach_5fparallel',['unpaired_for_each_parallel',['../namespacevg_1_1io.html#ac3daebbee97f2451b25aec3c642c06c8',1,'vg::io']]],
   ['unpaired_5fpenalty',['unpaired_penalty',['../classvg_1_1BaseMapper.html#ad20ea9a68bcaca157350595f03b4601c',1,'vg::BaseMapper']]],
   ['unparse',['unparse',['../classvg_1_1OptionValueParser.html#a816cf0ccd1d8b95f6f8f47434e1af376',1,'vg::OptionValueParser::unparse()'],['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html#a57f771079219ffb85ea0cebc6b024045',1,'vg::OptionValueParser&lt; vector&lt; Item &gt; &gt;::unparse()'],['../classvg_1_1OptionValueParser.html#ae397faa8d0ae66c9c841a153045a6de2',1,'vg::OptionValueParser::unparse()']]],
   ['unrecord',['unrecord',['../classvg_1_1SnarlManager.html#a40be4db13bf881c882f3be70c067c111',1,'vg::SnarlManager::unrecord(const SnarlRecord *record) const'],['../classvg_1_1SnarlManager.html#aeeb8bf1eb342004f69b33caadad5a713',1,'vg::SnarlManager::unrecord(SnarlRecord *record)']]],
