@@ -533,7 +533,7 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
                                   bool paired,
                                   const int32_t tlen_max) {
     
-    // this table does seem to be reproduced in htslib publicly, so I'm copying
+    // this table doesn't seem to be reproduced in htslib publicly, so I'm copying
     // it from the CRAM conversion code
     static const char nt_encoding[256] = {
         15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
@@ -682,9 +682,14 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     uint8_t* seq_data = (uint8_t*) (cigar_data + cigar.size());
     const string* seq = &alignment.sequence();
     string rev_seq;
+    const string* qual = &alignment.quality();
+    string rev_qual;
     if (refrev) {
+        // Sequence and quality both need to be flipped to target forward orientation
         rev_seq = reverse_complement(*seq);
         seq = &rev_seq;
+        reverse_copy(qual->begin(), qual->end(), back_inserter(rev_qual));
+        qual = &rev_qual;
     }
     for (size_t i = 0; i < alignment.sequence().size(); i += 2) {
         if (i + 1 < alignment.sequence().size()) {
@@ -703,7 +708,7 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
             qual_data[i] = '\xff';
         }
         else {
-            qual_data[i] = alignment.quality().at(i);
+            qual_data[i] = qual->at(i);
         }
     }
     
