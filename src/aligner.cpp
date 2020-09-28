@@ -807,7 +807,7 @@ int32_t GSSWAligner::score_discontiguous_alignment(const Alignment& aln, const f
                 score += score_exact_match(aln, read_offset, edit.to_length());
                 last_was_deletion = false;
             } else if (edit_is_sub(edit)) {
-                score -= score_mismatch(aln.sequence().begin() + read_offset,
+                score += score_mismatch(aln.sequence().begin() + read_offset,
                                         aln.sequence().begin() + read_offset + edit.to_length(),
                                         aln.quality().begin() + read_offset);
                 last_was_deletion = false;
