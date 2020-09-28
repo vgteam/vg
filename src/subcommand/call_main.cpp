@@ -49,6 +49,7 @@ void help_call(char** argv) {
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
        << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
        << "    -d, --ploidy N          Ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
+       << "    -n, --nested            Activate nested calling mode (experimental)" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
@@ -74,6 +75,7 @@ int main_call(int argc, char** argv) {
     bool gaf_output = false;
     size_t trav_padding = 0;
     bool genotype_snarls = false;
+    bool nested = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -111,6 +113,7 @@ int main_call(int argc, char** argv) {
             {"traversals", no_argument, 0, 'T'},
             {"min-trav-len", required_argument, 0, 'M'},
             {"legacy", no_argument, 0, 'L'},
+            {"nested", no_argument, 0, 'n'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
@@ -118,7 +121,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:af:i:s:r:g:p:o:l:d:GTLM:t:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:af:i:s:r:g:p:o:l:d:GTLM:nt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -187,6 +190,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'L':
             legacy = true;
+            break;
+        case 'n':
+            nested =true;
             break;
         case 't':
         {
@@ -370,10 +376,14 @@ int main_call(int argc, char** argv) {
         // Load our packed supports (they must have come from vg pack on graph)
         packer = unique_ptr<Packer>(new Packer(graph));
         packer->load_from_file(pack_filename);
-        // Make a packed traversal support finder (using cached veresion important for poisson caller)
-        PackedTraversalSupportFinder* packed_support_finder = new CachedPackedTraversalSupportFinder(*packer, *snarl_manager);
-        support_finder = unique_ptr<TraversalSupportFinder>(packed_support_finder);
-        
+        if (nested) {
+            // Make a nested packed traversal support finder (using cached veresion important for poisson caller)
+            support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+        } else {
+            // Make a packed traversal support finder (using cached veresion important for poisson caller)
+            support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+        }
+                
         // need to use average support when genotyping as small differences in between sample and graph
         // will lead to spots with 0-support, espeically in and around SVs. 
         support_finder->set_support_switch_threshold(avg_trav_threshold, avg_node_threshold);
@@ -387,7 +397,7 @@ int main_call(int argc, char** argv) {
             depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
                                                                 depth_scale_fac, 0, true, true);
             // Make a new-stype probablistic caller
-            auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index,
+            auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *support_finder, depth_index,
                                                                 //todo: qualities need to be used better in conjunction with
                                                                 //expected depth.
                                                                 //packer->has_qualities());
@@ -399,7 +409,7 @@ int main_call(int argc, char** argv) {
             packed_caller = poisson_caller;
         } else {
             // Make an old-style ratio support caller
-            auto ratio_caller = new RatioSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder);
+            auto ratio_caller = new RatioSupportSnarlCaller(*graph, *snarl_manager, *support_finder);
             if (het_bias >= 0) {
                 ratio_caller->set_het_bias(het_bias, ref_het_bias);
             }
@@ -495,16 +505,27 @@ int main_call(int argc, char** argv) {
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
 
-        FlowCaller* flow_caller = new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
-                                                 *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
-                                                 *snarl_manager,
-                                                 sample_name, *traversal_finder, ref_paths, ref_path_offsets,
-                                                 alignment_emitter.get(),
-                                                 traversals_only,
-                                                 gaf_output,
-                                                 trav_padding,
-                                                 genotype_snarls);
-        graph_caller = unique_ptr<GraphCaller>(flow_caller);
+        if (nested) {
+            graph_caller.reset(new NestedFlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                                    *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+                                                    *snarl_manager,
+                                                    sample_name, *traversal_finder, ref_paths, ref_path_offsets,
+                                                    alignment_emitter.get(),
+                                                    traversals_only,
+                                                    gaf_output,
+                                                    trav_padding,
+                                                    genotype_snarls));
+        } else {
+            graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                              *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+                                              *snarl_manager,
+                                              sample_name, *traversal_finder, ref_paths, ref_path_offsets,
+                                              alignment_emitter.get(),
+                                              traversals_only,
+                                              gaf_output,
+                                              trav_padding,
+                                              genotype_snarls));            
+        }
     }
 
     // Call the graph

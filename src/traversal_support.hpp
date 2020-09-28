@@ -172,7 +172,24 @@ protected:
     mutable vector<LRUCache<nid_t, size_t>*> avg_node_mapq_cache;
 };
 
+/**
+ * Add table to keep track of child snarl support that can be maintained by outside logic
+ */
+class NestedCachedPackedTraversalSupportFinder : public CachedPackedTraversalSupportFinder {
+public:
+    NestedCachedPackedTraversalSupportFinder(const Packer& packer, SnarlManager& snarl_manager, size_t cache_size = 500000);
+    virtual ~NestedCachedPackedTraversalSupportFinder();
+    
+    virtual tuple<Support, Support, int> get_child_support(const Snarl& snarl) const;
 
+    /**
+     * map used for get_child_support().  It's intialized for every snarl so that the values can be
+     * updated from different threads. 
+     */
+    // todo: why can't we use unordered_map -- there's a hash function in snarls.hpp
+    //       perhaps we can switch to pointers but not so sure at moment
+    map<Snarl, tuple<Support, Support, int>> child_support_map;
+};
 }
 
 #endif

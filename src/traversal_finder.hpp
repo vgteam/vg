@@ -43,7 +43,7 @@ class TraversalFinder {
 public:
     virtual ~TraversalFinder() = default;
     
-    virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;        
 };
 
 class ExhaustiveTraversalFinder : public TraversalFinder {
@@ -604,7 +604,8 @@ public:
      * Return the K widest traversals, along with their flows
      */
     virtual pair<vector<SnarlTraversal>, vector<double>> find_weighted_traversals(const Snarl& site,
-                                                                                  bool greedy_avg = false);
+                                                                                  bool greedy_avg = false,
+                                                                                  const HandleGraph* overlay = nullptr);
 
     /// Set K
     void setK(size_t k);

@@ -554,4 +554,21 @@ size_t CachedPackedTraversalSupportFinder::get_avg_node_mapq(id_t node) const {
     
 }
 
+NestedCachedPackedTraversalSupportFinder::NestedCachedPackedTraversalSupportFinder(const Packer& packer, SnarlManager& snarl_manager, size_t cache_size) :
+    CachedPackedTraversalSupportFinder(packer, snarl_manager, cache_size) {
+    
+    snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+            Support s;
+            child_support_map[*snarl] = make_tuple(s, s, 0);
+        });
+}
+
+NestedCachedPackedTraversalSupportFinder::~NestedCachedPackedTraversalSupportFinder() {
+}
+
+tuple<Support, Support, int> NestedCachedPackedTraversalSupportFinder::get_child_support(const Snarl& snarl) const {
+
+    return child_support_map.at(snarl);
+}
+
 }

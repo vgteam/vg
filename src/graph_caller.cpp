@@ -1,7 +1,7 @@
 #include "graph_caller.hpp"
 #include "algorithms/expand_context.hpp"
 
-//#define debug
+#define debug
 
 namespace vg {
 
@@ -1399,6 +1399,456 @@ string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>
     return header;
 }
 
+
+NestedFlowCaller::NestedFlowCaller(const PathPositionHandleGraph& graph,
+                       SupportBasedSnarlCaller& snarl_caller,
+                       SnarlManager& snarl_manager,
+                       const string& sample_name,
+                       TraversalFinder& traversal_finder,
+                       const vector<string>& ref_paths,
+                       const vector<size_t>& ref_path_offsets,
+                       AlignmentEmitter* aln_emitter,
+                       bool traversals_only,
+                       bool gaf_output,
+                       size_t trav_padding,
+                       bool genotype_snarls) :
+    GraphCaller(snarl_caller, snarl_manager),
+    VCFOutputCaller(sample_name),
+    GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
+    graph(graph),
+    traversal_finder(traversal_finder),
+    ref_paths(ref_paths),
+    traversals_only(traversals_only),
+    gaf_output(gaf_output),
+    genotype_snarls(genotype_snarls),
+    nested_support_finder(dynamic_cast<NestedCachedPackedTraversalSupportFinder&>(snarl_caller.get_support_finder())){
+  
+    for (int i = 0; i < ref_paths.size(); ++i) {
+        ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
+        ref_path_set.insert(ref_paths[i]);
+    }
+
+}
+   
+NestedFlowCaller::~NestedFlowCaller() {
+
+}
+
+bool NestedFlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy) {
+
+    // remember the calls for each child snarl in this table
+    map<Snarl, vector<pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>>> call_table;
+    
+    call_snarl_recursive(managed_snarl, ploidy, call_table);
+
+    // todo: nested emitter
+
+    return true;
+}
+
+bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int ploidy,
+                                            map<Snarl, vector<pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>>>& call_table) {
+
+    // recurse on the children
+    // todo: do we need to make this iterative for deep snarl trees? 
+    const vector<const Snarl*>& children = snarl_manager.children_of(&managed_snarl);
+
+    for (const Snarl* child : children) {
+        if (!snarl_manager.is_trivial(child, graph)) {
+            for (int child_ploidy = 1; child_ploidy < ploidy; ++child_ploidy) {
+                call_snarl_recursive(*child, child_ploidy, call_table);
+            }
+        }
+    }
+
+#ifdef debug
+    cerr << "recursively calling " << pb2json(managed_snarl) << " with " << children.size() << " children" << endl;
+#endif
+
+    // abstract away the child snarls in the graph.  traversals will bypass them via
+    // "virtual" edges
+    SnarlGraph snarl_graph(&graph, snarl_manager, children);
+
+
+    // todo: In order to experiment with merging consecutive snarls to make longer traversals,
+    // I am experimenting with sending "fake" snarls through this code.  So make a local
+    // copy to work on to do things like flip -- calling any snarl_manager code that
+    // wants a pointer will crash. 
+    Snarl snarl = managed_snarl;
+
+    if (snarl.start().node_id() == snarl.end().node_id() ||
+        !graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
+        // can't call one-node or out-of graph snarls.
+        return false;
+    }
+    // toggle average flow / flow width based on snarl length.  this is a bit inconsistent with
+    // downstream which uses the longest traversal length, but it's a bit chicken and egg
+    // todo: maybe use snarl length for everything?
+    bool greedy_avg_flow = false;
+    {
+        auto snarl_contents = snarl_manager.deep_contents(&snarl, graph, false);
+        if (snarl_contents.second.size() > max_snarl_edges) {
+            // size cap needed as NestedFlowCaller doesn't have nesting support yet
+            return false;
+        }
+        const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
+        size_t len_threshold = support_finder.get_average_traversal_support_switch_threshold();
+        size_t length = 0;
+        for (auto i = snarl_contents.first.begin(); i != snarl_contents.first.end() && length < len_threshold; ++i) {
+            length += graph.get_length(graph.get_handle(*i));
+        }
+        greedy_avg_flow = length > len_threshold;
+    }
+    
+    handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
+    handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
+
+    // as we're writing to VCF, we need a reference path through the snarl.  we
+    // look it up directly from the graph, and abort if we can't find one
+    set<string> start_path_names;
+    graph.for_each_step_on_handle(start_handle, [&](step_handle_t step_handle) {
+            string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
+            if (!Paths::is_alt(name) && (ref_path_set.empty() || ref_path_set.count(name))) {
+                start_path_names.insert(name);
+            }
+            return true;
+        });
+    
+    set<string> end_path_names;
+    if (!start_path_names.empty()) {
+        graph.for_each_step_on_handle(end_handle, [&](step_handle_t step_handle) {
+                string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
+                if (!Paths::is_alt(name) && (ref_path_set.empty() || ref_path_set.count(name))) {                
+                    end_path_names.insert(name);
+                }
+                return true;
+            });
+    }
+    
+    // we do the full intersection (instead of more quickly finding the first common path)
+    // so that we always take the lexicographically lowest path, rather than depending
+    // on the order of iteration which could change between implementations / runs.
+    vector<string> common_names;
+    std::set_intersection(start_path_names.begin(), start_path_names.end(),
+                          end_path_names.begin(), end_path_names.end(),
+                          std::back_inserter(common_names));
+
+    if (common_names.empty()) {
+        return false;
+    }
+
+    string& ref_path_name = common_names.front();
+
+    // find the reference traversal and coordinates using the path position graph interface
+    tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+    if (get<2>(ref_interval) == true) {
+        // calling code assumes snarl forward on reference
+        flip_snarl(snarl);
+        ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+    }
+
+    step_handle_t cur_step = get<3>(ref_interval);
+    step_handle_t last_step = get<4>(ref_interval);
+    if (get<2>(ref_interval)) {
+        std::swap(cur_step, last_step);
+    }
+    bool start_backwards = snarl.start().backward() != graph.get_is_reverse(graph.get_handle_of_step(cur_step));
+    
+    SnarlTraversal ref_trav;
+    while (true) {
+        handle_t cur_handle = graph.get_handle_of_step(cur_step);
+        Visit* visit = ref_trav.add_visit();
+        visit->set_node_id(graph.get_id(cur_handle));
+        visit->set_backward(start_backwards ? !graph.get_is_reverse(cur_handle) : graph.get_is_reverse(cur_handle));
+        if (graph.get_id(cur_handle) == snarl.end().node_id()) {
+            break;
+        } else if (get<2>(ref_interval) == true) {
+            if (!graph.has_previous_step(cur_step)) {
+                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(snarl) << endl;
+                return false;
+            }
+            cur_step = graph.get_previous_step(cur_step);
+        } else {
+            if (!graph.has_next_step(cur_step)) {
+                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(snarl) << endl;
+                return false;
+            }
+            cur_step = graph.get_next_step(cur_step);
+        }
+        // todo: we can compute flow at the same time
+    }
+    assert(ref_trav.visit(0) == snarl.start() && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
+
+    vector<SnarlTraversal> travs;
+    FlowTraversalFinder* flow_trav_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
+    if (flow_trav_finder != nullptr) {
+        // find the max flow traversals using specialized interface that accepts avg heurstic toggle and overlay
+        pair<vector<SnarlTraversal>, vector<double>> weighted_travs = flow_trav_finder->find_weighted_traversals(snarl, greedy_avg_flow, &snarl_graph);
+        travs = std::move(weighted_travs.first);
+           
+    } else {
+        // find the traversals using the generic interface
+        assert(false);
+        travs = traversal_finder.find_traversals(snarl);
+    }
+
+    // todo: we need to make reference traversal nesting aware
+#ifdef debug
+    for (int i = 0; i < travs.size(); ++i) {
+        cerr << "[" << i << "]: " << pb2json(travs[i]) << endl;
+    }
+#endif
+    
+    // find the reference traversal in the list of results from the traversal finder
+    int ref_trav_idx = -1;
+    for (int i = 0; i < travs.size() && ref_trav_idx < 0; ++i) {
+        // todo: is there a way to speed this up?
+        if (travs[i] == ref_trav) {
+            ref_trav_idx = i;
+        }
+    }
+
+    if (ref_trav_idx == -1) {
+        ref_trav_idx = travs.size();
+        // we didn't get the reference traversal from the finder, so we add it here
+        travs.push_back(ref_trav);
+    }
+
+    bool ret_val = true;
+
+    if (traversals_only) {
+        assert(gaf_output);
+        for (SnarlTraversal& traversal : travs) {
+            snarl_graph.embed_snarls(traversal);
+        }
+        emit_gaf_traversals(graph, travs);
+    } else {
+        // use our support caller to choose our genotype
+        vector<int> trav_genotype;
+        unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
+                                                                        make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+
+        assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
+
+        // in the snarl graph, snarls a represented by a snarl end point and that's it.  here we fix up the traversals
+        // to actually embed the snarls
+        cerr << "travs " << endl;
+        for (int i = 0; i < travs.size(); ++i) {
+            SnarlTraversal& traversal = travs[i];
+            cerr << "snarl  " << pb2json(traversal) << endl;
+            if (i != ref_trav_idx) {
+                snarl_graph.embed_snarls(traversal);
+            } else {
+                snarl_graph.embed_ref_path_snarls(traversal);
+            }
+            cerr << "embed  " << pb2json(traversal) << endl;
+        }
+
+        // update the traversal finder with summary support statistics from this call
+        // todo: be smarted about ploidy here
+        map<Snarl, tuple<Support, Support, int>>& child_support_map = nested_support_finder.child_support_map;
+        //child_support_map[managed_snarl] = get_nested_support(trav_genotype, travs, trav_call_info);
+
+        // and now we need to update our own table with the genotype
+        auto& entry = call_table[managed_snarl];
+        if (entry.size() < ploidy) {
+            entry.resize(ploidy);
+        }
+        entry[ploidy-1].first = trav_genotype;
+        entry[ploidy-1].second.reset(trav_call_info.release());
+        
+
+        //if (!gaf_output) {
+        //    emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
+        //                 ref_offsets[ref_path_name], genotype_snarls);
+        //} else {
+        //    emit_gaf_variant(graph, snarl, travs, trav_genotype);
+        //}
+
+        ret_val = trav_genotype.size() == ploidy;
+    }
+        
+    return ret_val;
+}
+
+string NestedFlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                              const vector<size_t>& contig_length_overrides) const {
+    string header = VCFOutputCaller::vcf_header(graph, ref_paths, contig_length_overrides);
+    header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
+    snarl_caller.update_vcf_header(header);
+    header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
+    header += "##SAMPLE=<ID=" + sample_name + ">\n";
+    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;
+    assert(output_vcf.openForOutput(header));
+    header += "\n";
+    return header;
+}
+
+
+SnarlGraph::SnarlGraph(const HandleGraph* backing_graph, SnarlManager& snarl_manager, vector<const Snarl*> snarls) :
+    backing_graph(backing_graph),
+    snarl_manager(snarl_manager) {
+    for (const Snarl* snarl : snarls) {
+        if (!snarl_manager.is_trivial(snarl, *backing_graph)) {
+            this->snarls[backing_graph->get_handle(snarl->start().node_id(), snarl->start().backward())] =
+                make_pair(backing_graph->get_handle(snarl->end().node_id(), snarl->end().backward()), true);
+            this->snarls[backing_graph->get_handle(snarl->end().node_id(), !snarl->end().backward())] =
+                make_pair(backing_graph->get_handle(snarl->start().node_id(), !snarl->start().backward()), false);
+        }
+    }
+}
+
+pair<bool, handle_t> SnarlGraph::node_to_snarl(handle_t handle) const {
+    auto i = snarls.find(handle);
+    if (i != snarls.end()) {
+        return make_pair(true, i->second.first);
+    } else {
+        return make_pair(false, handle);
+    }
+}
+
+tuple<bool, handle_t, edge_t> SnarlGraph::edge_to_snarl_edge(edge_t edge) const {
+    auto i = snarls.find(edge.first);
+    edge_t out_edge;
+    handle_t out_node;
+    bool out_found = false;
+    if (i != snarls.end()) {
+        // edge is from snarl start to after snarl end
+        out_edge.first = i->second.first;
+        out_edge.second = edge.second;
+        out_node = edge.first;
+        out_found = true;
+    } else {
+        // reverse of above
+        i = snarls.find(backing_graph->flip(edge.second));
+        if (i != snarls.end()) {
+            out_edge.first = edge.first;
+            out_edge.second = backing_graph->flip(i->second.first);
+            out_node = edge.second;
+            out_found = true;
+        }
+    }
+    // note that we only have those two cases since our internal map contains
+    // both orientations of the snarl.
+
+    return make_tuple(out_found, out_node, out_edge);
+}
+
+void SnarlGraph::embed_snarl(Visit& visit) {
+    assert(visit.node_id() > 0);
+    handle_t handle = backing_graph->get_handle(visit.node_id(), visit.backward());
+    auto it = snarls.find(handle);
+    if (it != snarls.end()) {
+        // edit the Visit in place to replace id, with the full snarl
+        Snarl* snarl = visit.mutable_snarl();
+        snarl->mutable_start()->set_node_id(visit.node_id());
+        snarl->mutable_start()->set_backward(visit.backward());
+        handle_t other = it->second.first;
+        snarl->mutable_end()->set_node_id(backing_graph->get_id(other));
+        snarl->mutable_end()->set_backward(backing_graph->get_is_reverse(other));
+        if (it->second.second == false) {
+            // put the snarl in an orientation consisten with other indexes
+            swap(*snarl->mutable_start(), *snarl->mutable_end());
+            snarl->mutable_start()->set_backward(!snarl->start().backward());
+            snarl->mutable_end()->set_backward(!snarl->end().backward());
+        }
+        visit.set_node_id(0);
+    }    
+}
+
+void SnarlGraph::embed_snarls(SnarlTraversal& traversal) {
+    for (size_t i = 0; i < traversal.visit_size(); ++i) {
+        Visit& visit = *traversal.mutable_visit(i);
+        embed_snarl(visit);
+    }
+}
+
+void SnarlGraph::embed_ref_path_snarls(SnarlTraversal& traversal) {
+    vector<Visit> out_trav;
+    size_t snarl_count = 0;
+
+    bool in_snarl = false;
+    for (size_t i = 0; i < traversal.visit_size(); ++i) {
+        Visit& visit = *traversal.mutable_visit(i);
+        handle_t handle = backing_graph->get_handle(visit.node_id(), visit.backward());
+        auto it = snarls.find(handle);
+        if (in_snarl && it == snarls.end()) {
+            // skip over interior nodes
+            continue;
+        } else if (it != snarls.end()) {
+            if (in_snarl == false) {
+                // start a new snarl
+                embed_snarl(visit);
+                ++snarl_count;
+                in_snarl = true;
+            } else {
+                // skip over the second endpoint of current snarl
+                in_snarl = false;
+                continue;
+            }
+        }
+        out_trav.push_back(visit);
+    }    
+
+    // switch in the updated traversal
+    if (snarl_count > 0) {
+        traversal.clear_visit();
+        for (Visit& visit : out_trav) {
+            *traversal.add_visit() = visit;
+        }
+    }
+}
+
+bool SnarlGraph::follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const {
+    if (!go_left) {        
+        auto i = snarls.find(handle);
+        if (i == snarls.end()) {
+            return backing_graph->follow_edges(handle, go_left, iteratee);
+        } else {
+            return backing_graph->follow_edges(i->second.first, go_left, iteratee);
+        }
+    } else {
+        return this->follow_edges_impl(backing_graph->flip(handle), !go_left, iteratee);
+    }
+}
+
+// a lot of these don't strictly make sense.  ex, we would want has_node to
+// hide stuff inside snarls.  but... we don't want to pay the cost of maintining
+// structures for functions that aren't used..
+bool SnarlGraph::has_node(nid_t node_id) const {
+    return backing_graph->has_node(node_id);
+}
+handle_t SnarlGraph::get_handle(const nid_t& node_id, bool is_reverse) const {
+    return backing_graph->get_handle(node_id, is_reverse);
+}
+nid_t SnarlGraph::get_id(const handle_t& handle) const {
+    return backing_graph->get_id(handle);
+}
+bool SnarlGraph::get_is_reverse(const handle_t& handle) const {
+    return backing_graph->get_is_reverse(handle);
+}
+handle_t SnarlGraph::flip(const handle_t& handle) const {
+    return backing_graph->flip(handle);
+}
+size_t SnarlGraph::get_length(const handle_t& handle) const {
+    return backing_graph->get_length(handle);
+}
+std::string SnarlGraph::get_sequence(const handle_t& handle) const {
+    return backing_graph->get_sequence(handle);
+}
+size_t SnarlGraph::get_node_count() const {
+    return backing_graph->get_node_count();
+}
+nid_t SnarlGraph::min_node_id() const {
+    return backing_graph->min_node_id();
+}
+nid_t SnarlGraph::max_node_id() const {
+    return backing_graph->max_node_id();
+}
+bool SnarlGraph::for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel) const {
+    return backing_graph->for_each_handle(iteratee, parallel);
+}
 
 }
 
