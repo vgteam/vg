@@ -121,7 +121,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a1bb5a23875ecc6a5fac181c97c6846e4"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html#a1bb5a23875ecc6a5fac181c97c6846e4">score_mismatch</a> (string::const_iterator seq_begin, string::const_iterator seq_end, string::const_iterator base_qual_begin) const</td></tr>
 <tr class="separator:a1bb5a23875ecc6a5fac181c97c6846e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac43e5a0517fe6ed7bbf520d09ffad121"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html#ac43e5a0517fe6ed7bbf520d09ffad121">score_mismatch</a> (size_t length) const</td></tr>
-<tr class="memdesc:ac43e5a0517fe6ed7bbf520d09ffad121"><td class="mdescLeft">&#160;</td><td class="mdescRight">Score a mismatch given just the length. Only possible since we ignore qualities.  <a href="#ac43e5a0517fe6ed7bbf520d09ffad121">More...</a><br /></td></tr>
 <tr class="separator:ac43e5a0517fe6ed7bbf520d09ffad121"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1e682385c145db43d9148a981b4ff7dc"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html#a1e682385c145db43d9148a981b4ff7dc">score_partial_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, string::const_iterator seq_begin, bool no_read_end_scoring=false) const</td></tr>
 <tr class="memdesc:a1e682385c145db43d9148a981b4ff7dc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compute the score of a path against the given range of subsequence with the given qualities.  <a href="#a1e682385c145db43d9148a981b4ff7dc">More...</a><br /></td></tr>
@@ -1011,6 +1010,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>Compute the score of a mismatch of the given range of sequence with the given qualities. Qualities may be ignored by some implementations. Note that the return value is SIGNED, and almost certainly NEGATIVE, because mismatches are bad. </p>
 
 <p>Implements <a class="el" href="classvg_1_1GSSWAligner.html#ab40663f27266555cd2718fca337ac348">vg::GSSWAligner</a>.</p>
 
@@ -1031,8 +1031,7 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Score a mismatch given just the length. Only possible since we ignore qualities. </p>
+<p>Score a mismatch given just the length. Only possible since we ignore qualities. Return value is SIGNED, and almost certainly NEGATIVE </p>
 
 </div>
 </div>
