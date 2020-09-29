@@ -233,7 +233,12 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
         string seq;
         for (int i = 0; i < trav.visit_size(); ++i) {
-            seq += graph.get_sequence(graph.get_handle(trav.visit(i).node_id(), trav.visit(i).backward()));
+            const Visit& visit = trav.visit(i);
+            if (visit.node_id() > 0) {
+                seq += graph.get_sequence(graph.get_handle(visit.node_id(), visit.backward()));
+            } else {
+                seq += print_snarl(visit.snarl());
+            }
         }
         return seq;
     };
@@ -467,6 +472,14 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
             variant.alt[i - 1] = variant.alleles[i];
         }
     }
+}
+
+string VCFOutputCaller::print_snarl(const Snarl& snarl) const {
+    // todo, should we canonicalize here by putting lexicographic lowest node first?
+    stringstream ss;
+    ss << "<" << snarl.start().node_id() << ":" << snarl.start().backward() << "-"
+       << snarl.end().node_id() << ":" << snarl.end().backward() << ">";
+    return ss.str();
 }
 
 GAFOutputCaller::GAFOutputCaller(AlignmentEmitter* emitter, const string& sample_name, const vector<string>& ref_paths,
@@ -1636,7 +1649,7 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int ploi
         cerr << "travs " << endl;
         for (int i = 0; i < travs.size(); ++i) {
             SnarlTraversal& traversal = travs[i];
-            cerr << "snarl  " << pb2json(traversal) << endl;
+            cerr << "snarl " << i << " " <<  pb2json(traversal) << endl;
             if (i != ref_trav_idx) {
                 snarl_graph.embed_snarls(traversal);
             } else {
@@ -1647,8 +1660,13 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int ploi
 
         // update the traversal finder with summary support statistics from this call
         // todo: be smarted about ploidy here
-        map<Snarl, tuple<Support, Support, int>>& child_support_map = nested_support_finder.child_support_map;
-        //child_support_map[managed_snarl] = get_nested_support(trav_genotype, travs, trav_call_info);
+        NestedCachedPackedTraversalSupportFinder::SupportMap& child_support_map = nested_support_finder.child_support_map;
+        // todo: re-use information that was produced in genotype!!
+        int max_trav_size = 0;
+        vector<Support> genotype_supports = nested_support_finder.get_traversal_genotype_support(travs, trav_genotype, {}, ref_trav_idx, &max_trav_size);
+        Support total_site_support = std::accumulate(genotype_supports.begin(), genotype_supports.end(), Support());
+        // todo: do we want to use max_trav_size, or something derived from the genotype? 
+        child_support_map[snarl] = make_tuple(total_site_support, total_site_support, max_trav_size);
 
         // and now we need to update our own table with the genotype
         auto& entry = call_table[managed_snarl];
@@ -1657,14 +1675,14 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int ploi
         }
         entry[ploidy-1].first = trav_genotype;
         entry[ploidy-1].second.reset(trav_call_info.release());
-        
 
-        //if (!gaf_output) {
-        //    emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
-        //                 ref_offsets[ref_path_name], genotype_snarls);
-        //} else {
+        if (!gaf_output) {
+            emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, entry[ploidy-1].second, ref_path_name,
+                         ref_offsets[ref_path_name], genotype_snarls);
+        } else {
         //    emit_gaf_variant(graph, snarl, travs, trav_genotype);
-        //}
+        }
+        
 
         ret_val = trav_genotype.size() == ploidy;
     }
@@ -1767,29 +1785,35 @@ void SnarlGraph::embed_snarls(SnarlTraversal& traversal) {
 void SnarlGraph::embed_ref_path_snarls(SnarlTraversal& traversal) {
     vector<Visit> out_trav;
     size_t snarl_count = 0;
-
     bool in_snarl = false;
+    handle_t snarl_end;
     for (size_t i = 0; i < traversal.visit_size(); ++i) {
         Visit& visit = *traversal.mutable_visit(i);
         handle_t handle = backing_graph->get_handle(visit.node_id(), visit.backward());
-        auto it = snarls.find(handle);
-        if (in_snarl && it == snarls.end()) {
-            // skip over interior nodes
-            continue;
-        } else if (it != snarls.end()) {
-            if (in_snarl == false) {
-                // start a new snarl
-                embed_snarl(visit);
-                ++snarl_count;
-                in_snarl = true;
-            } else {
-                // skip over the second endpoint of current snarl
-                in_snarl = false;
-                continue;
-            }
+        cerr << " " << i << visit.node_id() << " in snarl " << in_snarl;
+        if (in_snarl) {
+            cerr << " snarl_end " << backing_graph->get_id(snarl_end) << ":" << backing_graph->get_is_reverse(snarl_end);
         }
-        out_trav.push_back(visit);
-    }    
+        cerr << endl;
+        if (in_snarl) {
+            // nothing to do if we're in a snarl except check for the end and come out
+            if (handle == snarl_end) {
+                in_snarl = false;
+            } 
+        } else {
+            // if we're not in a snarl, check for a new one
+            auto it = snarls.find(handle);
+            if (it != snarls.end()) {
+                cerr << "starting a snarl!" << endl;
+                embed_snarl(visit);
+                snarl_end = it->second.first;
+                in_snarl = true;
+                ++snarl_count;
+            }
+            cerr << "pushing " << pb2json(visit) << endl;
+            out_trav.push_back(visit);
+        }
+    }
 
     // switch in the updated traversal
     if (snarl_count > 0) {

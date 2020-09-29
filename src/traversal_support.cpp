@@ -567,7 +567,14 @@ NestedCachedPackedTraversalSupportFinder::~NestedCachedPackedTraversalSupportFin
 }
 
 tuple<Support, Support, int> NestedCachedPackedTraversalSupportFinder::get_child_support(const Snarl& snarl) const {
-
+#ifdef debug
+    cerr << "looking up support for " << pb2json(snarl) << " in " << &child_support_map << endl;
+    cerr << "in map = " << child_support_map.count(snarl) << endl;
+    cerr << "internal this is the state of our support map " << &child_support_map << endl;
+    for (auto xxx : child_support_map) {
+        cerr << pb2json(xxx.first) << endl;
+    }
+#endif
     return child_support_map.at(snarl);
 }
 

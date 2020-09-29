@@ -98,6 +98,9 @@ protected:
     /// clean up the alleles to not share common prefixes / suffixes
     /// if len_override given, just do that many bases without thinking
     void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const;
+
+    /// print a snarl in a consistent form <SNARL(Start,END)>
+    string print_snarl(const Snarl& snarl) const;
     
     /// output vcf
     mutable vcflib::VariantCallFile output_vcf;

@@ -188,7 +188,13 @@ public:
      */
     // todo: why can't we use unordered_map -- there's a hash function in snarls.hpp
     //       perhaps we can switch to pointers but not so sure at moment
-    map<Snarl, tuple<Support, Support, int>> child_support_map;
+    struct snarl_less {
+        inline bool operator()(const Snarl& s1, const Snarl& s2) const {
+            return s1.start() < s2.start() || (s1.start() == s2.start() && s1.end() < s2.end());
+        }
+    };
+    typedef map<Snarl, tuple<Support, Support, int>, snarl_less> SupportMap;
+    SupportMap child_support_map;
 };
 }
 
