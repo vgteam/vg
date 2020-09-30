@@ -83,6 +83,10 @@ void MultipathAlignmentEmitter::set_sample_name(const string& sample_name) {
     this->sample_name = sample_name;
 }
 
+void MultipathAlignmentEmitter::set_min_splice_length(int64_t min_splice_length) {
+    this->min_splice_length = min_splice_length;
+}
+
 void MultipathAlignmentEmitter::emit_pairs(const string& name_1, const string& name_2,
                                            vector<pair<multipath_alignment_t, multipath_alignment_t>>&& mp_aln_pairs,
                                            vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>>* path_positions,
@@ -299,11 +303,35 @@ void MultipathAlignmentEmitter::convert_to_alignment(const multipath_alignment_t
     aln.set_identity(identity(aln.path()));
 }
 
+void MultipathAlignmentEmitter::create_alignment_shim(const string& name, const multipath_alignment_t& mp_aln,
+                                                      Alignment& shim, const string* prev_name, const string* next_name) const {
+    
+    shim.set_sequence(mp_aln.sequence());
+    shim.set_quality(mp_aln.quality());
+    shim.set_name(name);
+    if (prev_name) {
+        shim.mutable_fragment_prev()->set_name(*prev_name);
+    }
+    if (next_name) {
+        shim.mutable_fragment_next()->set_name(*next_name);
+    }
+    if (!read_group.empty()) {
+        shim.set_read_group(read_group);
+    }
+    if (!sample_name.empty()) {
+        shim.set_read_group(sample_name);
+    }
+    shim.set_mapping_quality(mp_aln.mapping_quality());
+}
+
 void MultipathAlignmentEmitter::convert_to_hts_unpaired(const string& name, const multipath_alignment_t& mp_aln,
                                                         const string& ref_name, bool ref_rev, int64_t ref_pos,
                                                         bam_hdr_t* header, vector<bam1_t*>& dest) const {
     
-    // TODO
+    auto cigar = cigar_against_path(mp_aln, ref_name, ref_rev, ref_pos, *graph, min_splice_length);
+    Alignment shim;
+    create_alignment_shim(name, mp_aln, shim);
+    dest.push_back(alignment_to_bam(header, shim, ref_name, ref_pos, ref_rev, cigar));
 }
 
 void MultipathAlignmentEmitter::convert_to_hts_paired(const string& name_1, const string& name_2,
@@ -312,7 +340,20 @@ void MultipathAlignmentEmitter::convert_to_hts_paired(const string& name_1, cons
                                                       const string& ref_name_1, bool ref_rev_1, int64_t ref_pos_1,
                                                       const string& ref_name_2, bool ref_rev_2, int64_t ref_pos_2,
                                                       int64_t tlen_limit, bam_hdr_t* header, vector<bam1_t*>& dest) const {
-    // TODO
+   
+    auto cigar_1 = cigar_against_path(mp_aln_1, ref_name_1, ref_rev_1, ref_pos_1, *graph, min_splice_length);
+    auto cigar_2 = cigar_against_path(mp_aln_2, ref_name_2, ref_rev_2, ref_pos_2, *graph, min_splice_length);
+    
+    Alignment shim_1, shim_2;
+    create_alignment_shim(name_1, mp_aln_1, shim_1, nullptr, &name_2);
+    create_alignment_shim(name_2, mp_aln_2, shim_2, &name_1, nullptr);
+    
+    auto tlens = compute_template_lengths(ref_pos_1, cigar_1, ref_pos_2, cigar_2);
+    
+    dest.push_back(alignment_to_bam(header, shim_1, ref_name_1, ref_pos_1, ref_rev_1, cigar_1,
+                                    ref_name_2, ref_pos_2, ref_rev_2, tlens.first, tlen_limit));
+    dest.push_back(alignment_to_bam(header, shim_2, ref_name_2, ref_pos_2, ref_rev_2, cigar_2,
+                                    ref_name_1, ref_pos_1, ref_rev_1, tlens.second, tlen_limit));
 }
 
 }

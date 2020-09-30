@@ -46,6 +46,9 @@ public:
     /// Choose a sample name to apply to all emitted alignments
     void set_sample_name(const string& sample_name);
     
+    ///
+    void set_min_splice_length(int64_t min_splice_length);
+    
     /// Emit paired read mappings as interleaved protobuf messages
     void emit_pairs(const string& name_1, const string& name_2,
                     vector<pair<multipath_alignment_t, multipath_alignment_t>>&& mp_aln_pairs,
@@ -64,6 +67,11 @@ private:
     void convert_to_alignment(const multipath_alignment_t& mp_aln, Alignment& aln,
                               const string* prev_name = nullptr,
                               const string* next_name = nullptr) const;
+    
+    /// store the data in an Algnment that is used in the conversion to bam1_t
+    void create_alignment_shim(const string& name, const multipath_alignment_t& mp_aln,
+                               Alignment& shim, const string* prev_name = nullptr,
+                               const string* next_name = nullptr) const;
     
     void convert_to_hts_unpaired(const string& name, const multipath_alignment_t& mp_aln,
                                  const string& ref_name, bool ref_rev, int64_t ref_pos,
@@ -89,6 +97,9 @@ private:
     
     /// sample name applied to alignments
     string sample_name;
+    
+    /// the shortest deletion that we will interpret as a splice in the CIGAR string of HTS output
+    int64_t min_splice_length = numeric_limits<int64_t>::max();
     
 };
 
