@@ -38,6 +38,7 @@ void help_surject(char** argv) {
          << "    -F, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
          << "    -l, --subpath-local     let the multipath mapping surjection produce local (rather than global) alignments" << endl
          << "    -i, --interleaved       GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
+         << "    -G, --gaf-input         input file is GAF instead of GAM" << endl
          << "    -c, --cram-output       write CRAM to stdout" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
@@ -82,6 +83,7 @@ int main_surject(int argc, char** argv) {
             {"into-paths", required_argument, 0, 'F'},
             {"subpath-local", required_argument, 0, 'l'},
             {"interleaved", no_argument, 0, 'i'},
+            {"gaf-input", no_argument, 0, 'G'},
             {"cram-output", no_argument, 0, 'c'},
             {"bam-output", no_argument, 0, 'b'},
             {"sam-output", no_argument, 0, 's'},
@@ -95,7 +97,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:licbsN:R:f:C:t:SA",
+        c = getopt_long (argc, argv, "hx:p:F:liGcbsN:R:f:C:t:SA",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -123,6 +125,10 @@ int main_surject(int argc, char** argv) {
 
         case 'i':
             interleaved = true;
+            break;
+
+        case 'G':
+            input_format = "GAF";
             break;
             
         case 'c':
@@ -235,13 +241,12 @@ int main_surject(int argc, char** argv) {
     unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count,
                                                                            spliced ? xgidx : nullptr);
 
-    if (input_format == "GAM") {
-        get_input_file(file_name, [&](istream& in) {
+    if (input_format == "GAM" || "GAF") {
+
             if (interleaved) {
                 // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations.
                 // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
-                vg::io::for_each_interleaved_pair_parallel<Alignment>(in, [&](Alignment& src1, Alignment& src2) {
-               
+                function<void(Alignment&, Alignment&)> lambda = [&](Alignment& src1, Alignment& src2) {               
                     // Make sure that the alignments are actually paired with each other
                     // (proper fragment_prev/fragment_next). We want to catch people giving us
                     // un-interleaved GAMs as interleaved.
@@ -290,22 +295,33 @@ int main_surject(int argc, char** argv) {
                     alignment_emitter->emit_pair(surjector.surject(src1, path_names, subpath_global, spliced),
                                                  surjector.surject(src2, path_names, subpath_global, spliced));
                 
-                });
+                };
+                if (input_format == "GAM") {
+                    get_input_file(file_name, [&](istream& in) {
+                            vg::io::for_each_interleaved_pair_parallel<Alignment>(in, lambda);
+                        });
+                } else {
+                    vg::io::gaf_paired_interleaved_for_each_parallel(*xgidx, file_name, lambda);
+                }                    
             } else {
                 // We can just surject each Alignment by itself.
                 // TODO: We don't preserve order relationships (like primary/secondary).
-                vg::io::for_each_parallel<Alignment>(in, [&](Alignment& src) {
+                function<void(Alignment&)> lambda = [&](Alignment& src) {
                 
                     // Preprocess read to set metadata before surjection
                     set_metadata(src);
                     
                     // Surject and emit the single read.
                     alignment_emitter->emit_single(surjector.surject(src, path_names, subpath_global, spliced));
-                        
-                });
+                };
+                if (input_format == "GAM") {
+                    get_input_file(file_name, [&](istream& in) {
+                            vg::io::for_each_parallel<Alignment>(in,lambda);
+                        });
+                } else {
+                    vg::io::gaf_unpaired_for_each_parallel(*xgidx, file_name, lambda);
+                }
             }
-        });
-        
     } else {
         cerr << "[vg surject] Unimplemented input format " << input_format << endl;
         exit(1);
