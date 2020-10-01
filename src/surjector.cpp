@@ -53,6 +53,7 @@ using namespace std;
     multipath_alignment_t Surjector::surject(const multipath_alignment_t& source, const set<string>& path_names,
                                              string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
                                              bool allow_negative_scores, bool preserve_deletions) const {
+
         multipath_alignment_t surjected;
         surject_internal(nullptr, &source, nullptr, &surjected, path_names, path_name_out, path_pos_out,
                          path_rev_out, allow_negative_scores, preserve_deletions);
@@ -151,7 +152,6 @@ using namespace std;
                 transfer_read_metadata(*source_aln, surjected_aln);
             }
             else {
-                cerr << "allow neg " << allow_negative_scores << " preserve del " << preserve_deletions << endl;
                 mp_aln_surjections[surj_record.first] = spliced_surject(&memoizing_graph, source_mp_aln->sequence(),
                                                                         source_mp_aln->quality(), source_mp_aln->mapping_quality(),
                                                                         surj_record.first, surj_record.second.first,
@@ -181,6 +181,7 @@ using namespace std;
             }
         }
         for (const auto& surjection : mp_aln_surjections) {
+
             int32_t surj_score = optimal_alignment_score(surjection.second, allow_negative_scores);
             if (surj_score >= score) {
 #ifdef debug_anchored_surject
@@ -624,17 +625,27 @@ using namespace std;
 #endif
         
         vector<Alignment> sections;
-        vector<pair<string::const_iterator, string::const_iterator>> read_ranges;
-        vector<pair<step_handle_t, step_handle_t>> ref_ranges;
         
         for (size_t i = 0; i < comp_groups.size(); ++i) {
             pair<string::const_iterator, string::const_iterator> read_range;
-            pair<step_handle_t, step_handle_t> ref_range;
             vector<path_chunk_t> section_path_chunks;
                         
             bool strand = get_strand(comp_groups[i].front());
             
             vector<size_t>& group = comp_groups[i];
+                        
+            // the other end points are determine by how the portion of the
+            for (size_t j = 0; j < group.size(); ++j) {
+                
+                section_path_chunks.push_back(path_chunks[group[j]]);
+                
+                if (j == 0 || read_range.first > path_chunks[group[j]].first.first) {
+                    read_range.first = path_chunks[group[j]].first.first;
+                }
+                if (j == 0 || read_range.second < path_chunks[group[j]].first.second) {
+                    read_range.second = path_chunks[group[j]].first.second;
+                }
+            }
             
             // sources/sinks align all the way to the end
             if (comp_is_source[i]) {
@@ -642,25 +653,6 @@ using namespace std;
             }
             if (comp_group_edges[i].empty()) {
                 read_range.second = src_sequence.end();
-            }
-            
-            // the other end points are determine by how the portion of the
-            for (size_t j = 0; j < group.size(); ++j) {
-                section_path_chunks.push_back(path_chunks[group[j]]);
-                if (j == 0 || read_range.first > path_chunks[group[j]].first.first) {
-                    read_range.first = path_chunks[group[j]].first.first;
-                }
-                if (j == 0 || read_range.first < path_chunks[group[j]].first.second) {
-                    read_range.second = path_chunks[group[j]].first.second;
-                }
-                if (j == 0 ||
-                    (graph->get_position_of_step(ref_chunks[group[j]].first) < graph->get_position_of_step(ref_range.first)) != strand) {
-                    ref_range.first = ref_chunks[group[j]].first;
-                }
-                if (j == 0 ||
-                    (graph->get_position_of_step(ref_chunks[group[j]].second) > graph->get_position_of_step(ref_range.second)) != strand) {
-                    ref_range.second = ref_chunks[group[j]].second;
-                }
             }
             
             // make a dummy alignment with the relevant portion of the sequence
@@ -671,11 +663,12 @@ using namespace std;
                                                            src_quality.begin() + (read_range.second - src_sequence.begin()));
             }
             
+            
             // update the path chunk ranges to point into the dummy section read
             for (size_t i = 0; i < section_path_chunks.size(); ++i) {
-                auto& range = section_path_chunks[i].first;
-                range.first = section_source.sequence().begin() + (range.first - read_range.first);
-                range.second = section_source.sequence().begin() + (range.second - read_range.first);
+                auto& chunk_range = section_path_chunks[i].first;
+                chunk_range.first = section_source.sequence().begin() + (chunk_range.first - read_range.first);
+                chunk_range.second = section_source.sequence().begin() + (chunk_range.second - read_range.first);
             }
             
 #ifdef debug_spliced_surject
@@ -685,8 +678,6 @@ using namespace std;
             
             // perform a full length surjection within the section section
             sections.push_back(realigning_surject(graph, section_source, path_handle, section_path_chunks, true, true, true));
-            read_ranges.push_back(read_range);
-            ref_ranges.push_back(ref_range);
             
             // remove any extraneous full length bonuses
             // TODO: technically, this can give a non-optimal alignment because it's post hoc to the dynamic programming
@@ -1070,8 +1061,44 @@ using namespace std;
                                 auto& path_chunk = chunk.second;
                                 for (const auto& record : stack) {
                                     associated.emplace(get<0>(record), get<1>(record), get<3>(record));
-                                    to_proto_mapping(source.subpath(get<0>(record)).path().mapping(get<1>(record)),
-                                                     *path_chunk.add_mapping());
+                                    const auto& next_mapping = source.subpath(get<0>(record)).path().mapping(get<1>(record));
+                                    const auto& next_pos = next_mapping.position();
+                                    bool merged_mapping = false;
+                                    if (path_chunk.mapping_size() != 0) {
+                                        
+                                        auto prev_mapping = path_chunk.mutable_mapping(path_chunk.mapping_size() - 1);
+                                        const auto& prev_pos = prev_mapping->position();
+                                        
+                                        if (next_pos.node_id() == prev_pos.node_id() &&
+                                            next_pos.is_reverse() == prev_pos.is_reverse() &&
+                                            next_pos.offset() == prev_pos.offset() + mapping_from_length(*prev_mapping)) {
+                                            // the next mapping is contiguous on a node with the previous one, we can merge
+                                            // the two mappings into one
+                                            
+                                            auto prev_edit = prev_mapping->mutable_edit(prev_mapping->edit_size() - 1);
+                                            const auto& next_edit = next_mapping.edit(0);
+                                            if ((prev_edit->from_length() != 0) == (next_edit.from_length() != 0) &&
+                                                (prev_edit->to_length() != 0) == (next_edit.to_length() != 0) &&
+                                                prev_edit->sequence().empty() == next_edit.sequence().empty()) {
+                                                
+                                                prev_edit->set_from_length(prev_edit->from_length() + next_edit.from_length());
+                                                prev_edit->set_to_length(prev_edit->to_length() + next_edit.to_length());
+                                                prev_edit->set_sequence(prev_edit->sequence() + next_edit.sequence());
+                                            }
+                                            else {
+                                                to_proto_edit(next_edit, *prev_mapping->add_edit());
+                                            }
+                                            for (size_t k = 1; k < next_mapping.edit_size(); ++k) {
+                                                to_proto_edit(next_mapping.edit(k), *prev_mapping->add_edit());
+                                            }
+                                            
+                                            merged_mapping = true;
+                                        }
+                                    }
+                                    if (!merged_mapping) {
+                                        // make a new mapping
+                                        to_proto_mapping(next_mapping, *path_chunk.add_mapping());
+                                    }
                                 }
                                 // the read interval
                                 chunk.first.first = source.sequence().begin() + mapping_to_lengths[i][j];
@@ -1144,6 +1171,8 @@ using namespace std;
                 });
             }
         }
+        
+        // TODO: filter redundant paths that come from mp alns with repetitive topologies
         
         return to_return;
     }

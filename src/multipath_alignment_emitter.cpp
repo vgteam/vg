@@ -20,6 +20,7 @@ MultipathAlignmentEmitter::MultipathAlignmentEmitter(const string& filename, siz
               num_threads),
     graph(graph)
 {
+
     // init the emitters for the correct output type
     if (out_format == "GAM" ) {
         format = GAM;
@@ -193,6 +194,7 @@ void MultipathAlignmentEmitter::emit_pairs(const string& name_1, const string& n
             }
             
             save_records(header, records, thread_number);
+            break;
         }
             
         default:
@@ -262,6 +264,7 @@ void MultipathAlignmentEmitter::emit_singles(const string& name, vector<multipat
                     multiplexer.get_thread_stream(thread_number) << alignment_to_gaf(*graph, aln) << endl;
                 }
             }
+            break;
         }
         case SAM:
         case BAM:
@@ -281,6 +284,7 @@ void MultipathAlignmentEmitter::emit_singles(const string& name, vector<multipat
             }
             
             save_records(header, records, thread_number);
+            break;
         }
             
         default:

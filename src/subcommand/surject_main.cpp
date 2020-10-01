@@ -245,8 +245,8 @@ int main_surject(int argc, char** argv) {
    
     // Count our threads
     int thread_count = get_thread_count();
-
-    if (input_format == "GAM" || "GAF") {
+    
+    if (input_format == "GAM" || input_format == "GAF") {
         
         // Set up output to an emitter that will handle serialization
         unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count,
@@ -333,13 +333,12 @@ int main_surject(int argc, char** argv) {
             }
         }
     } else if (input_format == "GAMP") {
-        cerr << "making emitter" << endl;
+
         MultipathAlignmentEmitter mp_alignment_emitter("-", thread_count, output_format, xgidx, &path_length);
         mp_alignment_emitter.set_read_group(read_group);
         mp_alignment_emitter.set_sample_name(sample_name);
         mp_alignment_emitter.set_min_splice_length(spliced ? min_splice_length : numeric_limits<int64_t>::max());
         
-        cerr << "getting input file" << endl;
         // TODO: largely repetitive with GAM
         get_input_file(file_name, [&](istream& in) {
             if (interleaved) {
@@ -393,7 +392,7 @@ int main_surject(int argc, char** argv) {
             } else {
                 // TODO: We don't preserve order relationships (like primary/secondary).
                 vg::io::for_each_parallel<MultipathAlignment>(in, [&](MultipathAlignment& src) {
-                    cerr << pb2json(src) << endl;
+
                     multipath_alignment_t mp_src;
                     from_proto_multipath_alignment(src, mp_src);
                     

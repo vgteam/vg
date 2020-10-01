@@ -15,7 +15,7 @@ namespace vg {
         unordered_multimap<id_t, pair<id_t, bool> > injection_trans;
         for (const auto& trans_record : projection_trans) {
 #ifdef debug_multipath_alignment
-            cerr << trans_record.second.first << "->" << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
+            cerr << trans_record.second.first << " -> " << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
 #endif
             injection_trans.emplace(trans_record.second.first, make_pair(trans_record.first, trans_record.second.second));
         }
@@ -237,7 +237,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                         // position matched the path
                         
 #ifdef debug_multipath_alignment
-                        cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << endl;
+                        cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << ", walked " << stack.size() << " of " << path.mapping_size() << " mappings" << endl;
 #endif
                         
                         if (stack.size() == path.mapping_size()) {
