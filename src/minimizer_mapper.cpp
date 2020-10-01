@@ -673,6 +673,21 @@ double uncapped_mapq = mapq;
 
 //-----------------------------------------------------------------------------
 
+void MinimizerMapper::pair_all(pair<vector<Alignment>, vector<Alignment>>& mappings) const {
+    if (!mappings.first.empty()) {
+        for (auto& next : mappings.second) {
+            // Each read 2 needs to point to read 1 as its predecessor
+            next.mutable_fragment_prev()->set_name(mappings.first.front().name());
+        }
+    }
+    if (!mappings.second.empty()) {
+        for (auto& prev : mappings.first) {
+            // Each read 1 needs to point to read 2 as its successor
+            prev.mutable_fragment_next()->set_name(mappings.second.front().name());
+        }
+    }
+}
+
 pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2,
                                                       vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer){
     if (fragment_length_distr.is_finalized()) {
@@ -718,6 +733,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             pair<vector<Alignment>, vector<Alignment>> mapped_pair;
             mapped_pair.first.emplace_back(std::move(alns1.front()));
             mapped_pair.second.emplace_back(std::move(alns2.front()));
+            pair_all(mapped_pair);
             return mapped_pair;
 
         } else {
@@ -752,7 +768,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         }
         
         // Map single-ended and bail
-        return make_pair(map(aln1), map(aln2)); 
+        auto mapped_pair = make_pair(map(aln1), map(aln2));
+        pair_all(mapped_pair);
+        return mapped_pair;
     }
 
 
@@ -1880,7 +1898,9 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         set_annotation(mappings.second.front(),"secondary_scores", scores);
     
     }
-       
+    
+    // Make sure pair partners reference each other
+    pair_all(mappings);
         
     if (track_provenance) {
         funnels[0].substage_stop();

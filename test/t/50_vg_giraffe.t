@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 4
+plan tests 6
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -G x.gbwt -v small/x.vcf.gz x.vg
@@ -41,6 +41,14 @@ is "${EMPTY}" "0" "mapping with just a FASTA and a VCF produced JSON-able alignm
 diff mapped1.json mapped2.json
 is "${?}" "0" "mapping to manually-generated indexes and automatically-generated indexes is the same"
 
-rm -f x.vg x.gbwt x.gg x.snarls x.min x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi mapped1.gam mapped1.json mapped2.gam mapped2.json
+rm -rf mapped1.gam mapped1.json mapped2.gam mapped2.json
+
+vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq > single.gam
+is "$(vg view -aj single.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l)" "1000" "unpaired reads lack cross-references"
+
+vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_1.fastq --fragment-mean 300 --fragment-stdev 100 > paired.gam
+is "$(vg view -aj paired.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l)" "0" "paired reads have cross-references"
+
+rm -f x.vg x.gbwt x.gg x.snarls x.min x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam
 
 
