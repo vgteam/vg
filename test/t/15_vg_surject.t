@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 30
+plan tests 33
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -26,6 +26,9 @@ is $(vg view -aj j.gam | wc -l) \
 # We generate GAMs that don't have that problem.
 
 is $(vg surject -p x -x x.xg -t 1 j.gam | vg view -a - | jq .score | grep 110 | wc -l) \
+   100 "vg surject works perfectly for perfect reads without misaligned homopolymer indels derived from the reference"
+
+is $(vg convert x.xg -G j.gam | vg surject -p x -x x.xg -t 1 -G - | vg view -a - | jq .score | grep 110 | wc -l) \
     100 "vg surject works perfectly for perfect reads without misaligned homopolymer indels derived from the reference"
     
 is $(vg surject -p x -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) \
@@ -84,8 +87,14 @@ is $(vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -
 echo '{"sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "mapping_quality": 99}' | vg view -JGa - > read.gam
 is "$(vg surject -p x -x x.xg read.gam | vg view -aj - | jq '.mapping_quality')" "99" "mapping quality is preserved through surjection"
 
-echo '{"name": "read/2", "sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_prev": {"name": "read/1"}}{"name": "read/1", "sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1, "is_reverse": true}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_next": {"name": "read/2"}}' | vg view -JGa - > read.gam
+echo '{"name": "read/2", "sequence": "CAAATAA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_prev": {"name": "read/1"}}{"name": "read/1", "sequence": "CTTATTT", "path": {"mapping": [{"position": {"node_id": 1, "is_reverse": true}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_next": {"name": "read/2"}}' | vg view -JGa - > read.gam
 is "$(vg surject -p x -x x.xg -i read.gam | vg view -aj - | jq -r 'select(.name == "read/2") | .fragment_prev.name')" "read/1" "read pairing is preserved through GAM->GAM surjection"
+
+vg surject -p x -x x.xg -i read.gam -s > read.gam.surject.sam
+vg convert x.xg -G read.gam -t 1 | vg surject -p x -x x.xg -i -G - -s > read.gaf.surject.sam
+diff read.gam.surject.sam read.gaf.surject.sam
+is $? 0 "interleaved surjection produces same SAM when using GAF and GAM inputs"
+rm -f read.gam.surject.sam read.gaf.surject.sam
 
 vg map -d x -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) | vg surject -x x.xg -p x -s -i -N Sample1 -R RG1 - >surjected.sam
 is "$(cat surjected.sam | grep -v '^@' | sort | cut -f 4)" "$(printf '321\n762')" "surjection of paired reads to SAM yields correct positions"
@@ -119,9 +128,10 @@ vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz >minigi
 vg index -k 11 -g m.gcsa -x m.xg minigiab.vg
 is $(vg map -b minigiab/NA12878.chr22.tiny.bam -x m.xg -g m.gcsa | vg surject -p q -x m.xg -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from BAM input"
 is $(vg map -f minigiab/NA12878.chr22.tiny.fq.gz -x m.xg -g m.gcsa | vg surject -p q -x m.xg -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from fastq input"
+is $(vg map -f minigiab/NA12878.chr22.tiny.fq.gz -x m.xg -g m.gcsa --gaf | vg surject -p q -x m.xg -s - -G | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from GAF input"
 
-is $(zcat minigiab/NA12878.chr22.tiny.fq.gz | head -n 4000 | vg mpmap -B -x m.xg -g m.gcsa -f - | vg surject -x m.xg -p q -s - | wc -l) 1000 "surject works on GAMP input"
-is $(zcat minigiab/NA12878.chr22.tiny.fq.gz | head -n 4000 | vg mpmap -B -x m.xg -g m.gcsa -i -f - | vg surject -x m.xg -i -p q -s - | wc -l) 1000 "surject works on paired GAMP input"
+is "$(zcat < minigiab/NA12878.chr22.tiny.fq.gz | head -n 4000 | vg mpmap -B -x m.xg -g m.gcsa -f - | vg surject -m -x m.xg -p q -s - | wc -l)" 1000 "surject works on GAMP input"
+is "$(zcat < minigiab/NA12878.chr22.tiny.fq.gz | head -n 4000 | vg mpmap -B -x m.xg -g m.gcsa -i -f - | vg surject -m -x m.xg -i -p q -s - | wc -l)" 1000 "surject works on paired GAMP input"
 
 rm -rf minigiab.vg* m.xg m.gcsa
 

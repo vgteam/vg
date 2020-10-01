@@ -39,6 +39,8 @@ void help_surject(char** argv) {
          << "    -F, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
          << "    -l, --subpath-local     let the multipath mapping surjection produce local (rather than global) alignments" << endl
          << "    -i, --interleaved       GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
+         << "    -G, --gaf-input         input file is GAF instead of GAM" << endl
+         << "    -m, --gamp-input        input file is GAMP instead of GAM" << endl
          << "    -c, --cram-output       write CRAM to stdout" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
@@ -84,6 +86,8 @@ int main_surject(int argc, char** argv) {
             {"into-paths", required_argument, 0, 'F'},
             {"subpath-local", required_argument, 0, 'l'},
             {"interleaved", no_argument, 0, 'i'},
+            {"gaf-input", no_argument, 0, 'G'},
+            {"gamp-input", no_argument, 0, 'm'},
             {"cram-output", no_argument, 0, 'c'},
             {"bam-output", no_argument, 0, 'b'},
             {"sam-output", no_argument, 0, 's'},
@@ -97,7 +101,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:licbsN:R:f:C:t:SA",
+        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SA",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -125,6 +129,14 @@ int main_surject(int argc, char** argv) {
 
         case 'i':
             interleaved = true;
+            break;
+
+        case 'G':
+            input_format = "GAF";
+            break;
+                
+        case 'm':
+            input_format = "GAMP";
             break;
             
         case 'c':
@@ -216,8 +228,8 @@ int main_surject(int argc, char** argv) {
     // if no paths were given take all of those in the index
     if (path_names.empty()) {
         xgidx->for_each_path_handle([&](path_handle_t path_handle) {
-                path_names.insert(xgidx->get_path_name(path_handle));
-            });
+            path_names.insert(xgidx->get_path_name(path_handle));
+        });
     }
 
     // Make a single thread-safe Surjector.
@@ -234,92 +246,100 @@ int main_surject(int argc, char** argv) {
     // Count our threads
     int thread_count = get_thread_count();
 
-    if (input_format == "GAM") {
+    if (input_format == "GAM" || "GAF") {
         
         // Set up output to an emitter that will handle serialization
         unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count,
                                                                                spliced ? xgidx : nullptr);
-        
-        get_input_file(file_name, [&](istream& in) {
-            if (interleaved) {
-                // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations.
-                // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
-                vg::io::for_each_interleaved_pair_parallel<Alignment>(in, [&](Alignment& src1, Alignment& src2) {
-               
-                    // Make sure that the alignments are actually paired with each other
-                    // (proper fragment_prev/fragment_next). We want to catch people giving us
-                    // un-interleaved GAMs as interleaved.
-                    // TODO: Integrate into for_each_interleaved_pair_parallel when running on Alignments.
-                    if (src1.has_fragment_next()) {
-                        // Alignment 1 comes first in fragment
-                        if (src1.fragment_next().name() != src2.name() ||
-                            !src2.has_fragment_prev() ||
-                            src2.fragment_prev().name() != src1.name()) {
+
+        if (interleaved) {
+            // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations.
+            // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
+            function<void(Alignment&, Alignment&)> lambda = [&](Alignment& src1, Alignment& src2) {
+                // Make sure that the alignments are actually paired with each other
+                // (proper fragment_prev/fragment_next). We want to catch people giving us
+                // un-interleaved GAMs as interleaved.
+                // TODO: Integrate into for_each_interleaved_pair_parallel when running on Alignments.
+                if (src1.has_fragment_next()) {
+                    // Alignment 1 comes first in fragment
+                    if (src1.fragment_next().name() != src2.name() ||
+                        !src2.has_fragment_prev() ||
+                        src2.fragment_prev().name() != src1.name()) {
                         
-#pragma omp critical (cerr)
-                            cerr << "[vg surject] error: alignments " << src1.name()
-                                 << " and " << src2.name() << " are adjacent but not paired" << endl;
-                                 
-                            exit(1);
-                        
-                        }
-                    } else if (src2.has_fragment_next()) {
-                        // Alignment 2 comes first in fragment
-                        if (src2.fragment_next().name() != src1.name() ||
-                            !src1.has_fragment_prev() ||
-                            src1.fragment_prev().name() != src2.name()) {
-                        
-#pragma omp critical (cerr)
-                            cerr << "[vg surject] error: alignments " << src1.name()
-                                 << " and " << src2.name() << " are adjacent but not paired" << endl;
-                                 
-                            exit(1);
-                        
-                        }
-                    } else {
-                        // Alignments aren't paired up at all
 #pragma omp critical (cerr)
                         cerr << "[vg surject] error: alignments " << src1.name()
-                             << " and " << src2.name() << " are adjacent but not paired" << endl;
-                             
+                        << " and " << src2.name() << " are adjacent but not paired" << endl;
+                        
                         exit(1);
+                        
                     }
-    
-               
-                    // Preprocess read to set metadata before surjection
-                    set_metadata(src1);
-                    set_metadata(src2);
+                } else if (src2.has_fragment_next()) {
+                    // Alignment 2 comes first in fragment
+                    if (src2.fragment_next().name() != src1.name() ||
+                        !src1.has_fragment_prev() ||
+                        src1.fragment_prev().name() != src2.name()) {
+                        
+#pragma omp critical (cerr)
+                        cerr << "[vg surject] error: alignments " << src1.name()
+                        << " and " << src2.name() << " are adjacent but not paired" << endl;
+                        
+                        exit(1);
+                        
+                    }
+                } else {
+                    // Alignments aren't paired up at all
+#pragma omp critical (cerr)
+                    cerr << "[vg surject] error: alignments " << src1.name()
+                    << " and " << src2.name() << " are adjacent but not paired" << endl;
                     
-                    // Surject and emit.
-                    alignment_emitter->emit_pair(surjector.surject(src1, path_names, subpath_global, spliced),
-                                                 surjector.surject(src2, path_names, subpath_global, spliced),
-                                                 max_frag_len);
+                    exit(1);
+                }
                 
+                
+                // Preprocess read to set metadata before surjection
+                set_metadata(src1);
+                set_metadata(src2);
+                
+                // Surject and emit.
+                alignment_emitter->emit_pair(surjector.surject(src1, path_names, subpath_global, spliced),
+                                             surjector.surject(src2, path_names, subpath_global, spliced),
+                                             max_frag_len);
+                
+            };
+            if (input_format == "GAM") {
+                get_input_file(file_name, [&](istream& in) {
+                    vg::io::for_each_interleaved_pair_parallel<Alignment>(in, lambda);
                 });
             } else {
-                // We can just surject each Alignment by itself.
-                // TODO: We don't preserve order relationships (like primary/secondary).
-                vg::io::for_each_parallel<Alignment>(in, [&](Alignment& src) {
-                
-                    // Preprocess read to set metadata before surjection
-                    set_metadata(src);
-                    
-                    // Surject and emit the single read.
-                    alignment_emitter->emit_single(surjector.surject(src, path_names, subpath_global, spliced));
-                        
-                });
+                vg::io::gaf_paired_interleaved_for_each_parallel(*xgidx, file_name, lambda);
             }
-        });
-        
-    }
-    else if (input_format == "GAMP") {
-        
+        } else {
+            // We can just surject each Alignment by itself.
+            // TODO: We don't preserve order relationships (like primary/secondary).
+            function<void(Alignment&)> lambda = [&](Alignment& src) {
+                
+                // Preprocess read to set metadata before surjection
+                set_metadata(src);
+                
+                // Surject and emit the single read.
+                alignment_emitter->emit_single(surjector.surject(src, path_names, subpath_global, spliced));
+            };
+            if (input_format == "GAM") {
+                get_input_file(file_name, [&](istream& in) {
+                    vg::io::for_each_parallel<Alignment>(in,lambda);
+                });
+            } else {
+                vg::io::gaf_unpaired_for_each_parallel(*xgidx, file_name, lambda);
+            }
+        }
+    } else if (input_format == "GAMP") {
+        cerr << "making emitter" << endl;
         MultipathAlignmentEmitter mp_alignment_emitter("-", thread_count, output_format, xgidx, &path_length);
         mp_alignment_emitter.set_read_group(read_group);
         mp_alignment_emitter.set_sample_name(sample_name);
         mp_alignment_emitter.set_min_splice_length(spliced ? min_splice_length : numeric_limits<int64_t>::max());
         
-        
+        cerr << "getting input file" << endl;
         // TODO: largely repetitive with GAM
         get_input_file(file_name, [&](istream& in) {
             if (interleaved) {
@@ -373,7 +393,7 @@ int main_surject(int argc, char** argv) {
             } else {
                 // TODO: We don't preserve order relationships (like primary/secondary).
                 vg::io::for_each_parallel<MultipathAlignment>(in, [&](MultipathAlignment& src) {
-                    
+                    cerr << pb2json(src) << endl;
                     multipath_alignment_t mp_src;
                     from_proto_multipath_alignment(src, mp_src);
                     
@@ -390,8 +410,7 @@ int main_surject(int argc, char** argv) {
                 });
             }
         });
-    }
-    else {
+    } else {
         cerr << "[vg surject] Unimplemented input format " << input_format << endl;
         exit(1);
     }
