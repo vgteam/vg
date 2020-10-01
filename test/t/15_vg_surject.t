@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 27
+plan tests 28
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -60,8 +60,20 @@ is $(vg map -s GTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCTC
 # These sequences have edits in them, so we can test CIGAR reversal as well
 SEQ="ACCGTCATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAGCTCTCCTTTGTGTCCAGAGTG"
 SEQ_RC="CACTCTGGACACAAAGGAGAGCTGTCCTTGAGCCTCGACTCTGGGTGAGCCCTCTGGGTCTTAGATTTGAGATGCAATTTTCAAACTTGAAGATGACGGT"
+QUAL="CCCFFFFFHHHHHJJJJJHFDDDD&((((+>(26:&)()(+((+3((8A(280<32(+(&+(38>B&&)&&)2(+(&)&))8((28()0&09&05&05<&"
+QUAL_R="&<50&50&90&0)(82((8))&)&(+(2)&&)&&B>83(+&(+(23<082(A8((3+((+()()&:62(>+((((&DDDDFHJJJJJHHHHHFFFFFCCC"
 
-is "$(vg map -s $SEQ -g x.gcsa -x x.xg | vg surject -p x -x x.xg - -s | cut -f1,3,4,5,6,7,8,9,10)" "$(vg map -s $SEQ_RC -g x.gcsa -x x.xg | vg surject -p x -x x.xg - -s | cut -f1,3,4,5,6,7,8,9,10)" "forward and reverse orientations of a read produce the same surjected SAM, ignoring flags"
+printf "@read\n${SEQ}\n+\n${QUAL}\n" > fwd.fq
+printf "@read\n${SEQ_RC}\n+\n${QUAL_R}\n" > rev.fq
+
+vg map -f fwd.fq -g x.gcsa -x x.xg > mapped.fwd.gam
+vg map -f rev.fq -g x.gcsa -x x.xg > mapped.rev.gam
+
+is "$(vg view -aj mapped.rev.gam | jq -r '.quality' | base64 -d | xxd -p -c1 | tac | xxd -p -r | xxd)" "$(vg view -aj mapped.fwd.gam | jq -r '.quality' | base64 -d | xxd)" "quality strings we will use for testing are oriented correctly"
+
+is "$(vg surject -p x -x x.xg mapped.fwd.gam -s | cut -f1,3,4,5,6,7,8,9,10,11)" "$(vg surject -p x -x x.xg mapped.rev.gam -s | cut -f1,3,4,5,6,7,8,9,10,11)" "forward and reverse orientations of a read produce the same surjected SAM, ignoring flags"
+
+rm -f fwd.fq rev.fq mapped.fwd.gam mapped.rev.gam
 
 is $(vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -b - | samtools view - | wc -l) \
     100 "vg surject produces valid BAM output"

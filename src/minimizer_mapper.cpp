@@ -445,10 +445,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 #endif
             };
             
-            // There's always a best alignment
-            observe_alignment(best_alignments[0]);
-            
-            for(auto aln_it = best_alignments.begin() + 1; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
+            for(auto aln_it = best_alignments.begin() ; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
                 //For each additional alignment with score at least 0.8 of the best score
                 observe_alignment(*aln_it);
             }
@@ -1240,10 +1237,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 #endif
                 };
                 
-                // There's always a best alignment
-                observe_alignment(best_alignments[0]);
-                
-                for(auto aln_it = best_alignments.begin() + 1; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
+                for(auto aln_it = best_alignments.begin() ; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
                     //For each additional extension with score at least 0.8 of the best score
                     observe_alignment(*aln_it);
                 }

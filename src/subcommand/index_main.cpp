@@ -455,6 +455,12 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
+    // Use the same temp directory in submodules.
+    gcsa::TempFile::setDirectory(temp_file::get_dir());
+    gbwt::TempFile::setDirectory(temp_file::get_dir());
+    xg::temp_file::set_dir(temp_file::get_dir());
+
+
     if (xg_name.empty() && gbwt_name.empty() && haplotype_indexer.batch_file_prefix.empty() &&
         gcsa_name.empty() && rocksdb_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty()) {
         cerr << "error: [vg index] index type not specified" << endl;
@@ -528,6 +534,7 @@ int main_index(int argc, char** argv) {
         build_xg = false;
         std::cerr << "warning: [vg index] providing input XG with option -x is deprecated" << std::endl;
     }
+
 
     // Build XG. Include alt paths in the XG if requested with -L.
     if (build_xg) {
@@ -610,9 +617,6 @@ int main_index(int argc, char** argv) {
         if (!show_progress) {
             gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         }
-
-        // Use the same temp directory as VG.
-        gcsa::TempFile::setDirectory(temp_file::get_dir());
 
         double start = gcsa::readTimer();
 

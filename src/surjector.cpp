@@ -378,7 +378,6 @@ using namespace std;
                                                      const vector<tuple<size_t, size_t, int32_t>>& connections,
                                                      bool allow_negative_scores, bool deletions_as_splices) const {
                 
-        cerr << "allow neg " << allow_negative_scores << " del as splice " << deletions_as_splices << endl;
         assert(path_chunks.size() == ref_chunks.size());
         
         auto get_strand = [&](size_t i) {
@@ -497,10 +496,8 @@ using namespace std;
                                    - graph->get_length(graph->get_handle_of_step(ref_chunks[i].second)));
                 
             }
-            cerr << "deletion length: " << deletion_length << endl;
             
             if (deletion_length >= min_splice_length && deletions_as_splices) {
-                cerr << "add splice edge" << endl;
                 // this deletion is very long, so we will interpret it as a splice and not penalize for it
                 splice_edges[i].emplace_back(target, 0, false);
                 // delete the corresponding edge in the colinearity graph

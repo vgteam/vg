@@ -21,6 +21,7 @@
 #include "../utility.hpp"
 #include "../surjector.hpp"
 #include "../hts_alignment_emitter.hpp"
+#include "../multipath_alignment_emitter.hpp"
 
 
 using namespace std;
@@ -67,6 +68,7 @@ int main_surject(int argc, char** argv) {
     string read_group;
     int32_t max_frag_len = 0;
     int compress_level = 9;
+    int min_splice_length = 20;
     bool subpath_global = true; // force full length alignments in mpmap resolution
     bool qual_adj = false;
 
@@ -221,6 +223,7 @@ int main_surject(int argc, char** argv) {
     // Make a single thread-safe Surjector.
     Surjector surjector(xgidx);
     surjector.adjust_alignments_for_base_quality = qual_adj;
+    surjector.min_splice_length = spliced ? min_splice_length : numeric_limits<int64_t>::max();
     
     // Get the lengths of all the paths in the XG to populate the HTS headers
     map<string, int64_t> path_length;
@@ -230,12 +233,13 @@ int main_surject(int argc, char** argv) {
    
     // Count our threads
     int thread_count = get_thread_count();
-   
-    // Set up output to an emitter that will handle serialization
-    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count,
-                                                                           spliced ? xgidx : nullptr);
 
     if (input_format == "GAM") {
+        
+        // Set up output to an emitter that will handle serialization
+        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count,
+                                                                               spliced ? xgidx : nullptr);
+        
         get_input_file(file_name, [&](istream& in) {
             if (interleaved) {
                 // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations.
@@ -288,7 +292,8 @@ int main_surject(int argc, char** argv) {
                     
                     // Surject and emit.
                     alignment_emitter->emit_pair(surjector.surject(src1, path_names, subpath_global, spliced),
-                                                 surjector.surject(src2, path_names, subpath_global, spliced));
+                                                 surjector.surject(src2, path_names, subpath_global, spliced),
+                                                 max_frag_len);
                 
                 });
             } else {
@@ -306,7 +311,87 @@ int main_surject(int argc, char** argv) {
             }
         });
         
-    } else {
+    }
+    else if (input_format == "GAMP") {
+        
+        MultipathAlignmentEmitter mp_alignment_emitter("-", thread_count, output_format, xgidx, &path_length);
+        mp_alignment_emitter.set_read_group(read_group);
+        mp_alignment_emitter.set_sample_name(sample_name);
+        mp_alignment_emitter.set_min_splice_length(spliced ? min_splice_length : numeric_limits<int64_t>::max());
+        
+        
+        // TODO: largely repetitive with GAM
+        get_input_file(file_name, [&](istream& in) {
+            if (interleaved) {
+                // we can reuse this
+                vector<int64_t> tlen_limits(1, max_frag_len);
+                
+                // GAMP input is paired, and for HTS output reads need to know their pair partners' mapping locations.
+                // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
+                vg::io::for_each_interleaved_pair_parallel<MultipathAlignment>(in, [&](MultipathAlignment& src1, MultipathAlignment& src2) {
+                    
+                    // Make sure that the alignments are actually paired with each other
+                    // (proper fragment_prev/fragment_next). We want to catch people giving us
+                    // un-interleaved GAMs as interleaved.
+                    // TODO: Integrate into for_each_interleaved_pair_parallel when running on Alignments.
+                    if (src1.paired_read_name() != src2.name() || src2.paired_read_name() != src1.name()) {
+                        
+#pragma omp critical (cerr)
+                        cerr << "[vg surject] error: alignments " << src1.name()
+                        << " and " << src2.name() << " are adjacent but not paired" << endl;
+                        
+                        exit(1);
+                        
+                    }
+                    else if (src1.paired_read_name().empty() || src2.paired_read_name().empty()) {
+                        // Alignments aren't paired up at all
+#pragma omp critical (cerr)
+                        cerr << "[vg surject] error: alignments " << src1.name()
+                        << " and " << src2.name() << " are adjacent but not paired" << endl;
+                        
+                        exit(1);
+                    }
+                    
+                    // convert out of protobuf
+                    multipath_alignment_t mp_src1, mp_src2;
+                    from_proto_multipath_alignment(src1, mp_src1);
+                    from_proto_multipath_alignment(src2, mp_src2);
+                    
+                    // surject and record path positions
+                    vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>> positions(1);
+                    vector<pair<multipath_alignment_t, multipath_alignment_t>> surjected;
+                    surjected.emplace_back(surjector.surject(mp_src1, path_names, get<0>(positions.front().first),
+                                                             get<2>(positions.front().first), get<1>(positions.front().first),
+                                                             subpath_global, spliced),
+                                           surjector.surject(mp_src2, path_names, get<0>(positions.front().second),
+                                                             get<2>(positions.front().second), get<1>(positions.front().second),
+                                                             subpath_global, spliced));
+                    
+                    // write to output
+                    mp_alignment_emitter.emit_pairs(src1.name(), src2.name(), move(surjected), &positions, &tlen_limits);
+                });
+            } else {
+                // TODO: We don't preserve order relationships (like primary/secondary).
+                vg::io::for_each_parallel<MultipathAlignment>(in, [&](MultipathAlignment& src) {
+                    
+                    multipath_alignment_t mp_src;
+                    from_proto_multipath_alignment(src, mp_src);
+                    
+                    // surject and record path positions
+                    vector<tuple<string, bool, int64_t>> positions(1);
+                    vector<multipath_alignment_t> surjected;
+                    surjected.emplace_back(surjector.surject(mp_src, path_names, get<0>(positions.front()),
+                                                             get<2>(positions.front()), get<1>(positions.front()),
+                                                             subpath_global, spliced));
+                    
+                    // write to output
+                    mp_alignment_emitter.emit_singles(src.name(), move(surjected), &positions);
+                    
+                });
+            }
+        });
+    }
+    else {
         cerr << "[vg surject] Unimplemented input format " << input_format << endl;
         exit(1);
     }

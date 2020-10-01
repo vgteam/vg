@@ -109,7 +109,6 @@ protected:
     /// Remember the HTSlib mode string we need to open our files.
     string hts_mode;
     
-    
     /// Write and deallocate a bunch of BAM records. Takes care of locking the
     /// file. Header must have been written already.
     void save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number);
