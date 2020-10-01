@@ -84,11 +84,15 @@ public:
     
 protected:
 
-    /// print a vcf variant 
+    /// convert a traversal into an allele string
+    string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
+    
+    /// print a vcf variant
     void emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                      const string& ref_path_name, int ref_offset, bool genotype_snarls) const;
+                      const string& ref_path_name, int ref_offset, bool genotype_snarls,
+                      function<void(vcflib::Variant&)> postprocess_variant = nullptr);
 
     /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
     /// the bool is true if the snarl's backward on the path
@@ -100,7 +104,13 @@ protected:
     void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const;
 
     /// print a snarl in a consistent form <SNARL(Start,END)>
-    string print_snarl(const Snarl& snarl) const;
+    string print_snarl(const Snarl& snarl, bool in_brackets = true) const;
+
+    /// do the opposite of above
+    /// So a string that looks like AACT<12_-17>TTT would invoke the callback three times with
+    /// ("AACT", Snarl), ("", Snarl(12,-17)), ("TTT", Snarl(12,-17))
+    /// The parameters are to be treated as unions:  A sequence fragment if non-empty, otherwise a snarl
+    void scan_snarl(const string& allele_string, function<void(const string&, Snarl&)> callback) const;
     
     /// output vcf
     mutable vcflib::VariantCallFile output_vcf;
@@ -392,9 +402,23 @@ public:
 
 protected:
 
+    /// stuff we remember for each snarl call, to be used when genotyping its parent
+    struct CallRecord {
+        vector<SnarlTraversal> travs;
+        vector<pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>> genotype_by_ploidy;
+        string ref_path_name; 
+        int ref_trav_idx; // index of ref paths in CallRecord::travs
+    };
+    typedef map<Snarl, CallRecord, NestedCachedPackedTraversalSupportFinder::snarl_less> CallTable;
+   
     /// update the table of calls for each child snarl (and the input snarl)
     bool call_snarl_recursive(const Snarl& managed_snarl, int ploidy,
-                              map<Snarl, vector<pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>>>& call_table);
+                              CallTable& call_table);
+
+    /// transform the nested allele string from something like AAC<6_10>TTT to
+    /// a proper string by recursively resolving the nested snarls into alleles
+    string flatten_reference_allele(const string& nested_allele, const CallTable& call_table) const;
+    string flatten_alt_allele(const string& nested_allele, int allele, const CallTable& call_table) const;
 
     /// the graph
     const PathPositionHandleGraph& graph;

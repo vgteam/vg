@@ -224,25 +224,25 @@ void VCFOutputCaller::write_variants(ostream& out_stream) const {
     }
 }
 
+string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const {
+    string seq;
+    for (int i = 0; i < trav.visit_size(); ++i) {
+        const Visit& visit = trav.visit(i);
+        if (visit.node_id() > 0) {
+            seq += graph.get_sequence(graph.get_handle(visit.node_id(), visit.backward()));
+        } else {
+            seq += print_snarl(visit.snarl());
+            }
+    }
+    return seq;    
+}
+
 void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                                    const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                                    const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                   const string& ref_path_name, int ref_offset, bool genotype_snarls) const {
-  
-    // convert traversal to string
-    function<string(const SnarlTraversal&)> trav_string = [&](const SnarlTraversal& trav) {
-        string seq;
-        for (int i = 0; i < trav.visit_size(); ++i) {
-            const Visit& visit = trav.visit(i);
-            if (visit.node_id() > 0) {
-                seq += graph.get_sequence(graph.get_handle(visit.node_id(), visit.backward()));
-            } else {
-                seq += print_snarl(visit.snarl());
-            }
-        }
-        return seq;
-    };
-
+                                   const string& ref_path_name, int ref_offset, bool genotype_snarls,
+                                   function<void(vcflib::Variant&)> postprocess_variant) {
+    
 #ifdef debug
     cerr << "emitting variant for " << pb2json(snarl) << endl;
     for (int i = 0; i < called_traversals.size(); ++i) {
@@ -260,7 +260,7 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
 
     vector<SnarlTraversal> site_traversals = {called_traversals[ref_trav_idx]};
     vector<int> site_genotype;
-    out_variant.ref = trav_string(site_traversals[0]);
+    out_variant.ref = trav_string(graph, site_traversals[0]);
     
     // deduplicate alleles and compute the site traversals and genotype
     map<string, int> allele_to_gt;    
@@ -269,7 +269,7 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         if (genotype[i] == ref_trav_idx) {
             site_genotype.push_back(0);
         } else {
-            string allele_string = trav_string(called_traversals[genotype[i]]);
+            string allele_string = trav_string(graph, called_traversals[genotype[i]]);
             if (allele_to_gt.count(allele_string)) {
                 site_genotype.push_back(allele_to_gt[allele_string]);
             } else {
@@ -287,7 +287,7 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         // at the cost of speed
         map<string, const SnarlTraversal*> allele_map;
         for (int i = 0; i < called_traversals.size(); ++i) {
-            string allele_string = trav_string(called_traversals[i]);
+            string allele_string = trav_string(graph, called_traversals[i]);
             if (!allele_map.count(allele_string)) {
                 allele_map[allele_string] = &called_traversals[i];
             }
@@ -318,7 +318,7 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     out_variant.sequenceName = ref_path_name;
     // +1 to convert to 1-based VCF
     out_variant.position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_offset + 1; 
-    out_variant.id = std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
+    out_variant.id = print_snarl(snarl, false);
     out_variant.filter = "PASS";
     out_variant.updateAlleleIndexes();
 
@@ -334,6 +334,14 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         }
     }
     genotype_vector.push_back(vcf_gt.str());
+
+    // flatten out the nested snarls
+    if (postprocess_variant != nullptr) {
+        postprocess_variant(out_variant);
+    }
+
+    // add some support info
+    snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name, out_variant);
 
     // if genotype_snarls, then we only flatten up to the snarl endpoints
     // (this is when we are in genotyping mode and want consistent calls regardless of the sample)
@@ -355,8 +363,6 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         cerr << " site geno[" << i << "]=" << site_genotype[i] << endl;
     }
 #endif
-    // add some support info
-    snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name, out_variant);
 
     if (genotype_snarls || !out_variant.alt.empty()) {
         add_variant(out_variant);
@@ -474,12 +480,61 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
     }
 }
 
-string VCFOutputCaller::print_snarl(const Snarl& snarl) const {
+string VCFOutputCaller::print_snarl(const Snarl& snarl, bool in_brackets) const {
     // todo, should we canonicalize here by putting lexicographic lowest node first?
     stringstream ss;
-    ss << "<" << snarl.start().node_id() << ":" << snarl.start().backward() << "-"
-       << snarl.end().node_id() << ":" << snarl.end().backward() << ">";
+    if (in_brackets) {
+        ss << "<";
+    }
+    if (snarl.start().backward()) {
+        ss << "-";
+    }
+    ss << snarl.start().node_id() << "_";
+    if (snarl.end().backward()) {
+        ss << "-";
+    }
+    ss << snarl.end().node_id();
+    if (in_brackets) {
+        ss << ">";
+    }
     return ss.str();
+}
+
+void VCFOutputCaller::scan_snarl(const string& allele_string, function<void(const string&, Snarl&)> callback) const {
+    int left = -1;
+    int last = 0;
+    Snarl snarl;
+    string frag;
+    for (int i = 0; i < allele_string.length(); ++i) {
+        if (allele_string[i] == '<') {
+            assert(left == -1);
+            if (last < i) {
+                frag = allele_string.substr(last, i-last);
+                callback(frag, snarl);
+            }
+            left = i;
+        } else if (allele_string[i] == '>') {
+            assert(left >= 0 && i > left + 3);
+            frag = allele_string.substr(left + 1, i - left - 1);
+            auto toks = split_delims(frag, "_");
+            assert(toks.size() == 2);
+            int64_t start = std::stoi(toks[0]);
+            snarl.mutable_start()->set_node_id(abs(start));
+            snarl.mutable_start()->set_backward(start < 0);
+            int64_t end = std::stoi(toks[1]);
+            snarl.mutable_end()->set_node_id(abs(end));
+            snarl.mutable_end()->set_backward(end < 0);
+            callback("", snarl);
+            left = -1;
+            last = i + 1;
+        }
+    }
+    if (last == 0) {
+        callback(allele_string, snarl);
+    } else {
+        frag = allele_string.substr(last);
+        callback(frag, snarl);
+    }
 }
 
 GAFOutputCaller::GAFOutputCaller(AlignmentEmitter* emitter, const string& sample_name, const vector<string>& ref_paths,
@@ -1450,17 +1505,38 @@ NestedFlowCaller::~NestedFlowCaller() {
 bool NestedFlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy) {
 
     // remember the calls for each child snarl in this table
-    map<Snarl, vector<pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>>> call_table;
+    CallTable call_table;
     
     call_snarl_recursive(managed_snarl, ploidy, call_table);
 
-    // todo: nested emitter
+    // fetch the current snarl from the table
+    CallRecord& record = call_table[managed_snarl];
+    pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>& genotype = record.genotype_by_ploidy[ploidy - 1];
+
+    // flatten the recursive calls
+    // todo: would be nicer to do on the full traversal set here, rather than back on the VCF
+    // but the latter requires less messing with existing code
+    function<void(vcflib::Variant&)> postprocess_snarls = [&](vcflib::Variant& var) {
+        var.ref = flatten_reference_allele(var.ref, call_table);
+        var.alleles[0] = var.ref;
+        for (int i = 0; i < var.alt.size(); ++i) {
+            var.alt[i] = flatten_alt_allele(var.alt[i], i, call_table);
+            var.alleles[i+1] = var.alt[i];
+        }
+    };
+    
+    if (!gaf_output) {
+        emit_variant(graph, snarl_caller, managed_snarl, record.travs, genotype.first, record.ref_trav_idx, genotype.second, record.ref_path_name,
+                     ref_offsets[record.ref_path_name], genotype_snarls, postprocess_snarls);
+    } else {
+        // todo:
+        //    emit_gaf_variant(graph, snarl, travs, trav_genotype);
+    }
 
     return true;
 }
 
-bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int ploidy,
-                                            map<Snarl, vector<pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>>>& call_table) {
+bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_ploidy, CallTable& call_table) {
 
     // recurse on the children
     // todo: do we need to make this iterative for deep snarl trees? 
@@ -1468,9 +1544,7 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int ploi
 
     for (const Snarl* child : children) {
         if (!snarl_manager.is_trivial(child, graph)) {
-            for (int child_ploidy = 1; child_ploidy < ploidy; ++child_ploidy) {
-                call_snarl_recursive(*child, child_ploidy, call_table);
-            }
+            call_snarl_recursive(*child, max_ploidy, call_table);
         }
     }
 
@@ -1637,58 +1711,99 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int ploi
         emit_gaf_traversals(graph, travs);
     } else {
         // use our support caller to choose our genotype
-        vector<int> trav_genotype;
-        unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
-                                                                        make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+        for (int ploidy = 1; ploidy <= max_ploidy; ++ploidy) {
+            vector<int> trav_genotype;
+            unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+            std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
+                                                                            make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
-        assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
+            assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
 
-        // in the snarl graph, snarls a represented by a snarl end point and that's it.  here we fix up the traversals
-        // to actually embed the snarls
-        cerr << "travs " << endl;
-        for (int i = 0; i < travs.size(); ++i) {
-            SnarlTraversal& traversal = travs[i];
-            cerr << "snarl " << i << " " <<  pb2json(traversal) << endl;
-            if (i != ref_trav_idx) {
-                snarl_graph.embed_snarls(traversal);
-            } else {
-                snarl_graph.embed_ref_path_snarls(traversal);
+            // in the snarl graph, snarls a represented by a snarl end point and that's it.  here we fix up the traversals
+            // to actually embed the snarls
+            cerr << "travs " << endl;
+            for (int i = 0; i < travs.size(); ++i) {
+                SnarlTraversal& traversal = travs[i];
+                cerr << "snarl " << i << " " <<  pb2json(traversal) << endl;
+                if (i != ref_trav_idx) {
+                    snarl_graph.embed_snarls(traversal);
+                } else {
+                    snarl_graph.embed_ref_path_snarls(traversal);
+                }
+                cerr << "embed  " << pb2json(traversal) << endl;
             }
-            cerr << "embed  " << pb2json(traversal) << endl;
-        }
 
-        // update the traversal finder with summary support statistics from this call
-        // todo: be smarted about ploidy here
-        NestedCachedPackedTraversalSupportFinder::SupportMap& child_support_map = nested_support_finder.child_support_map;
-        // todo: re-use information that was produced in genotype!!
-        int max_trav_size = 0;
-        vector<Support> genotype_supports = nested_support_finder.get_traversal_genotype_support(travs, trav_genotype, {}, ref_trav_idx, &max_trav_size);
-        Support total_site_support = std::accumulate(genotype_supports.begin(), genotype_supports.end(), Support());
-        // todo: do we want to use max_trav_size, or something derived from the genotype? 
-        child_support_map[snarl] = make_tuple(total_site_support, total_site_support, max_trav_size);
+            // update the traversal finder with summary support statistics from this call
+            // todo: be smarted about ploidy here
+            NestedCachedPackedTraversalSupportFinder::SupportMap& child_support_map = nested_support_finder.child_support_map;
+            // todo: re-use information that was produced in genotype!!
+            int max_trav_size = 0;
+            vector<Support> genotype_supports = nested_support_finder.get_traversal_genotype_support(travs, trav_genotype, {}, ref_trav_idx, &max_trav_size);
+            Support total_site_support = std::accumulate(genotype_supports.begin(), genotype_supports.end(), Support());
+            // todo: do we want to use max_trav_size, or something derived from the genotype? 
+            child_support_map[snarl] = make_tuple(total_site_support, total_site_support, max_trav_size);
 
-        // and now we need to update our own table with the genotype
-        auto& entry = call_table[managed_snarl];
-        if (entry.size() < ploidy) {
-            entry.resize(ploidy);
-        }
-        entry[ploidy-1].first = trav_genotype;
-        entry[ploidy-1].second.reset(trav_call_info.release());
-
-        if (!gaf_output) {
-            emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, entry[ploidy-1].second, ref_path_name,
-                         ref_offsets[ref_path_name], genotype_snarls);
-        } else {
-        //    emit_gaf_variant(graph, snarl, travs, trav_genotype);
-        }
+            // and now we need to update our own table with the genotype
+            CallRecord& record = call_table[managed_snarl];
+            if (record.genotype_by_ploidy.size() < ploidy) {
+                record.genotype_by_ploidy.resize(ploidy);
+            }
+            record.genotype_by_ploidy[ploidy-1].first = trav_genotype;
+            record.genotype_by_ploidy[ploidy-1].second.reset(trav_call_info.release());
+            record.ref_trav_idx = ref_trav_idx;
+            record.ref_path_name = ref_path_name;
+            record.travs = travs;
         
-
-        ret_val = trav_genotype.size() == ploidy;
+            ret_val = trav_genotype.size() == ploidy;
+        }
     }
         
     return ret_val;
 }
+
+string NestedFlowCaller::flatten_reference_allele(const string& nested_allele, const CallTable& call_table) const {
+
+    string flat_allele;
+
+    scan_snarl(nested_allele, [&](const string& fragment, Snarl& snarl) {
+            if (!fragment.empty()) {
+                flat_allele += fragment;
+            } else {
+                const CallRecord& record = call_table.at(snarl);
+                assert(record.ref_trav_idx >= 0);
+                const SnarlTraversal& traversal = record.travs[record.ref_trav_idx];
+                string nested_snarl_allele = trav_string(graph, traversal);
+                flat_allele += flatten_reference_allele(nested_snarl_allele, call_table);
+            }       
+        });
+    
+    return flat_allele;
+}
+
+string NestedFlowCaller::flatten_alt_allele(const string& nested_allele, int allele, const CallTable& call_table) const {
+
+    string flat_allele;
+
+    scan_snarl(nested_allele, [&](const string& fragment, Snarl& snarl) {
+            if (!fragment.empty()) {
+                flat_allele += fragment;
+            } else {
+                const CallRecord& record = call_table.at(snarl);
+                // todo: it's a bug to use back() here.  the ploidy should come from the parent genotype.
+                // in practice, the results will nearly the same but still needs fixing
+                const SnarlTraversal& traversal = record.travs[record.genotype_by_ploidy.back().first[allele]];
+                string nested_snarl_allele = trav_string(graph, traversal);
+                flat_allele += flatten_reference_allele(nested_snarl_allele, call_table);
+            }       
+        });
+    
+    return flat_allele;
+
+    
+    return nested_allele;
+}
+
+
 
 string NestedFlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides) const {
@@ -1754,7 +1869,6 @@ tuple<bool, handle_t, edge_t> SnarlGraph::edge_to_snarl_edge(edge_t edge) const 
 }
 
 void SnarlGraph::embed_snarl(Visit& visit) {
-    assert(visit.node_id() > 0);
     handle_t handle = backing_graph->get_handle(visit.node_id(), visit.backward());
     auto it = snarls.find(handle);
     if (it != snarls.end()) {
@@ -1778,7 +1892,9 @@ void SnarlGraph::embed_snarl(Visit& visit) {
 void SnarlGraph::embed_snarls(SnarlTraversal& traversal) {
     for (size_t i = 0; i < traversal.visit_size(); ++i) {
         Visit& visit = *traversal.mutable_visit(i);
-        embed_snarl(visit);
+        if (visit.node_id() > 0) { 
+            embed_snarl(visit);
+        }
     }
 }
 
