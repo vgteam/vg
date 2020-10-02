@@ -2726,6 +2726,22 @@ namespace vg {
                     // base case if the position is given for the beginning of the surjected alignment
                     // TODO: will this work if the position is between two nodes?
                     auto step = graph.get_step_at_position(path_handle, path_pos);
+                    if ((graph.get_id(graph.get_handle_of_step(step)) != pos.node_id()
+                         || graph.get_is_reverse(graph.get_handle_of_step(step)) != pos.is_reverse())) {
+                        // the step doesn't match our starting position, but this can sometimes happen when
+                        // a position occurs right at a node boundary
+                        auto prev_step = graph.get_previous_step(step);
+                        if (prev_step != graph.path_front_end(path_handle)
+                            && graph.get_id(graph.get_handle_of_step(prev_step)) == pos.node_id()
+                            && graph.get_is_reverse(graph.get_handle_of_step(prev_step)) == pos.is_reverse()
+                            && graph.get_length(graph.get_handle_of_step(prev_step)) == pos.offset()) {
+                            step = prev_step;
+                        }
+                        else {
+                            cerr << "error: couldn't find a matching subpath on " << path_name << " for read " << multipath_aln.sequence() << endl;
+                            exit(1);
+                        }
+                    }
                     run_graph.emplace_back(0, 0, 1, step, false, vector<pair<size_t, size_t>>());
                     curr_runs[step] = pair<size_t, size_t>(0, graph.get_length(graph.get_handle_of_step(step))
                                                            - mapping_from_length(mapping) - pos.offset());
@@ -2777,7 +2793,8 @@ namespace vg {
                 cerr << "iterating over steps on " << graph.get_id(handle) << " " << graph.get_is_reverse(handle) << endl;
                 cerr << "curr runs to extend:" << endl;
                 for (const auto& run : curr_runs) {
-                    cerr << "\t" << run.second.first << " " << run.second.second << ": pos " << graph.get_position_of_step(run.first) << endl;
+                    auto h = graph.get_handle_of_step(run.first);
+                    cerr << "\trun " << run.second.first << ", node " << graph.get_id(h) << " " << graph.get_is_reverse(h) << ", rem " << run.second.second << ", pos " << graph.get_position_of_step(run.first) << endl;
                 }
 #endif
                 graph.for_each_step_on_handle(handle, [&](const step_handle_t& step) {
@@ -2811,7 +2828,7 @@ namespace vg {
                         next_runs[step] = make_pair(run_graph.size(), remaining);
                         run_graph.emplace_back(i, j, 1, step, across_connection, vector<pair<size_t, size_t>>());
 #ifdef debug_cigar
-                        cerr << "new run " << run_graph.size() - 1 << " for step at " << graph.get_position_of_step(step) << endl;
+                        cerr << "new run " << run_graph.size() - 1 << " for step at " << graph.get_position_of_step(step) << " and subpath indexes " << i << " " << j << endl;
 #endif
                     }
                 });
@@ -2925,9 +2942,16 @@ namespace vg {
 #ifdef debug_cigar
                 cerr << "\tpossible end " << i << ": is full length? " << full_length[i] << ", path dist " << path_dist_dp[i] << endl;
 #endif
-                if (rev && get<3>(run_node) != graph.get_step_at_position(path_handle, path_pos)) {
-                    // we can't end DP here because it doesn't finish at the correct position
-                    continue;
+                if (rev) {
+                    const auto& final_mapping = multipath_aln.subpath().back().path().mapping().back();
+                    if (graph.get_position_of_step(get<3>(run_node))
+                        + graph.get_length(graph.get_handle_of_step(get<3>(run_node)))
+                        - final_mapping.position().offset()
+                        - mapping_from_length(final_mapping) != path_pos) {
+                        // this run doesn't end where it should based on our path position, it can't
+                        // be part of the CIGAR
+                        continue;
+                    }
                 }
                 
                 if (best == -1 || path_dist_dp[i] < path_dist_dp[best]) {
@@ -2939,6 +2963,7 @@ namespace vg {
         
         if (best == -1) {
             cerr << "error: couldn't find a matching subpath on " << path_name << " for read " << multipath_aln.sequence() << endl;
+            exit(1);
         }
         
 #ifdef debug_cigar
