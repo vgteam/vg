@@ -236,6 +236,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:ae68add551501e3b58c9329d9297d620d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a33fac2713ca1929fc6f870f4bb9e82b8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a33fac2713ca1929fc6f870f4bb9e82b8">extension_to_alignment</a> (const <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &amp;extension, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment) const</td></tr>
 <tr class="separator:a33fac2713ca1929fc6f870f4bb9e82b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acbce4d169474ab23ad79a9aaf8af2c92"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#acbce4d169474ab23ad79a9aaf8af2c92">pair_all</a> (pair&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;mappings) const</td></tr>
+<tr class="separator:acbce4d169474ab23ad79a9aaf8af2c92"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a827c2936a317f2a2dbc1d744aff6c0e1"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a827c2936a317f2a2dbc1d744aff6c0e1">compute_mapq_caps</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;explored)</td></tr>
 <tr class="separator:a827c2936a317f2a2dbc1d744aff6c0e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6e3ec6685f98622b35391ae0d8bac180"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6e3ec6685f98622b35391ae0d8bac180">find_optimal_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;best, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;second_best) const</td></tr>
@@ -1823,6 +1825,33 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 <p>Map the given pair of reads, where aln1 is upstream of aln2 and they are oriented towards each other in the graph.</p>
 <p>If the fragment length distribution is not yet fixed, reads will be mapped independently. Otherwise, they will be mapped according to the fragment length distribution. </p>
+
+</div>
+</div>
+<a id="acbce4d169474ab23ad79a9aaf8af2c92"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acbce4d169474ab23ad79a9aaf8af2c92">&#9670;&nbsp;</a></span>pair_all()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::pair_all </td>
+          <td>(</td>
+          <td class="paramtype">pair&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>mappings</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Set pair partner references for paired mapping results. </p>
 
 </div>
 </div>

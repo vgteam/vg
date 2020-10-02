@@ -23,6 +23,7 @@ var searchData=
   ['packs',['packs',['../classvg_1_1Viz.html#a350ea478ececb5f19170b16cf1539726',1,'vg::Viz']]],
   ['pad_5fcluster_5fscore_5fthreshold',['pad_cluster_score_threshold',['../classvg_1_1MinimizerMapper.html#a70b206dc58a148a69657303ff292199f',1,'vg::MinimizerMapper']]],
   ['pad_5ftraversal',['pad_traversal',['../classvg_1_1GAFOutputCaller.html#a697f4f2c00fa8317ba8143bbe99931fb',1,'vg::GAFOutputCaller']]],
+  ['pair_5fall',['pair_all',['../classvg_1_1MinimizerMapper.html#acbce4d169474ab23ad79a9aaf8af2c92',1,'vg::MinimizerMapper']]],
   ['pair_5fcluster_5fmultiplicity',['pair_cluster_multiplicity',['../classvg_1_1MultipathMapper.html#ae534f0c248a4b44bdf389ead66d105e3',1,'vg::MultipathMapper']]],
   ['pair_5fclusters',['pair_clusters',['../classvg_1_1MEMClusterer.html#a68482212691d8c1d4ead37f8d8d9d54c',1,'vg::MEMClusterer::pair_clusters()'],['../classvg_1_1NullClusterer.html#a10c16589be4189af97f1c64342cd76b4',1,'vg::NullClusterer::pair_clusters()'],['../classvg_1_1OrientedDistanceClusterer.html#aaac0ae293bf575e99a9d0295bc95fa27',1,'vg::OrientedDistanceClusterer::pair_clusters()'],['../classvg_1_1TVSClusterer.html#af07f8aa48eed316f77f9dec991fbe043',1,'vg::TVSClusterer::pair_clusters()'],['../classvg_1_1MinDistanceClusterer.html#a6f355a5f216d667a21855bc6b3d8b487',1,'vg::MinDistanceClusterer::pair_clusters()']]],
   ['pair_5fconsistent',['pair_consistent',['../classvg_1_1Mapper.html#ad3a62e0a91818c4e20508ab2a0f47fa5',1,'vg::Mapper']]],
