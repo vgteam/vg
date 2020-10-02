@@ -60,7 +60,7 @@ void help_gbwt(char** argv) {
     std::cerr << "    -a, --augment-gbwt      add a path cover of missing components (one input GBWT)" << std::endl;
     std::cerr << "    -l, --local-haplotypes  sample local haplotypes (one input GBWT)" << std::endl;
     std::cerr << "    -P, --path-cover        build a greedy path cover (no input GBWTs)" << std::endl;
-    std::cerr << "    -n, --num-paths N       find N paths per component (default " << gbwtgraph::PATH_COVER_DEFAULT_N << ")" << std::endl;
+    std::cerr << "    -n, --num-paths N       find N paths per component (default " << gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N << " for -l, " << gbwtgraph::PATH_COVER_DEFAULT_N << " otherwise)" << std::endl;
     std::cerr << "    -k, --context-length N  use N-node contexts (default " << gbwtgraph::PATH_COVER_DEFAULT_K << ")" << std::endl;
     std::cerr << "    -b, --buffer-size N     GBWT construction buffer size in millions of nodes (default " << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << ")" << std::endl;
     std::cerr << "    -i, --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
@@ -105,6 +105,7 @@ int main_gbwt(int argc, char** argv)
     bool count_threads = false;
     bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, thread_names = false;
     size_t num_paths = gbwtgraph::PATH_COVER_DEFAULT_N, context_length = gbwtgraph::PATH_COVER_DEFAULT_K;
+    bool num_paths_set = false;
     size_t buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
     size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
 
@@ -206,6 +207,9 @@ int main_gbwt(int argc, char** argv)
         case 'l':
             assert(path_cover == path_cover_none);
             path_cover = path_cover_local;
+            if (!num_paths_set) {
+                num_paths = gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N;
+            }
             break;
         case 'P':
             assert(path_cover == path_cover_none);
@@ -214,6 +218,7 @@ int main_gbwt(int argc, char** argv)
             break;
         case 'n':
             num_paths = parse<size_t>(optarg);
+            num_paths_set = true;
             break;
         case 'k':
             context_length = parse<size_t>(optarg);
