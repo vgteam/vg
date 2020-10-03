@@ -3035,7 +3035,6 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 *onto_node->path.add_mapping() = full_path.mapping(mapping_idx);
                 prefix_to_length += mapping_to_length(full_path.mapping(mapping_idx));
                 remaining -= mapping_len;
-                
                 mapping_idx++;
                 if (mapping_idx == full_path.mapping_size()) {
                     break;
@@ -3049,7 +3048,6 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 
                 // the overlap covered the path, so connect it to the onto node's successors
                 // rather than splitting it into two nodes
-                
                 while (iter != iter_range_end) {
                     for (const pair<size_t, size_t> edge : onto_node->edges) {
                         path_nodes.at(get<2>(*iter)).edges.emplace_back(edge.first, edge.second + get<3>(*iter));
@@ -3102,15 +3100,16 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     size_t edit_idx = 0;
                     int64_t mapping_remaining = remaining;
                     for (; mapping_remaining >= split_mapping.edit(edit_idx).from_length() && edit_idx < split_mapping.edit_size(); edit_idx++) {
-                        mapping_remaining -= split_mapping.edit(edit_idx).from_length();
-                        prefix_to_length += split_mapping.edit(edit_idx).to_length();
+                        const edit_t& split_edit = split_mapping.edit(edit_idx);
+                        mapping_remaining -= split_edit.from_length();
+                        prefix_to_length += split_edit.to_length();
+                        *prefix_split->add_edit() = split_edit;
                     }
                     
                     // do we need to split in the middle of an edit?
                     if (mapping_remaining) {
                         
                         const edit_t& split_edit = split_mapping.edit(edit_idx);
-                        
                         // add an edit for either side of the split
                         edit_t* prefix_split_edit = prefix_split->add_edit();
                         prefix_split_edit->set_from_length(mapping_remaining);
@@ -3129,7 +3128,6 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                                                                                              split_edit.sequence().size() -mapping_remaining));
                             }
                         }
-                        
                         edit_idx++;
                     }
                     

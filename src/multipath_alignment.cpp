@@ -3183,6 +3183,9 @@ namespace vg {
                         for (size_t k = 0; k < multipath_aln.subpath(j).next_size(); k++) {
                             cerr << multipath_aln.subpath(j).next(k) << " ";
                         }
+                        for (auto& connection : multipath_aln.subpath(k).connection()) {
+                            cerr << connection.next() << " ";
+                        }
                         cerr << endl;
                     }
 #endif
