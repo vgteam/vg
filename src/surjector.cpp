@@ -160,12 +160,21 @@ using namespace std;
             }
         }
         
+#ifdef debug_anchored_surject
+        bool aln_is_null = false;
+#endif
         // in case we didn't overlap any paths, add a sentinel so the following code still executes correctly
         if (aln_surjections.empty() && source_aln) {
             aln_surjections[handlegraph::as_path_handle(-1)] = make_null_alignment(*source_aln);
+#ifdef debug_anchored_surject
+            aln_is_null = true;
+#endif
         }
         else if (mp_aln_surjections.empty() && source_mp_aln) {
             mp_aln_surjections[handlegraph::as_path_handle(-1)] = make_null_mp_alignment(*source_mp_aln);
+#ifdef debug_anchored_surject
+            aln_is_null = true;
+#endif
         }
     
         // choose which path surjection was best
@@ -174,7 +183,9 @@ using namespace std;
         for (const auto& surjection : aln_surjections) {
             if (surjection.second.score() >= score) {
 #ifdef debug_anchored_surject
-                cerr << "surjection against path " << graph->get_path_name(surjection.first) << " achieves highest score of " << surjection.second.score() << ": " << pb2json(surjection.second) << endl;
+                if (!aln_is_null) {
+                    cerr << "surjection against path " << graph->get_path_name(surjection.first) << " achieves highest score of " << surjection.second.score() << ": " << pb2json(surjection.second) << endl;
+                }
 #endif
                 score = surjection.second.score();
                 best_path_handle = surjection.first;
@@ -185,7 +196,9 @@ using namespace std;
             int32_t surj_score = optimal_alignment_score(surjection.second, allow_negative_scores);
             if (surj_score >= score) {
 #ifdef debug_anchored_surject
-                cerr << "surjection against path " << graph->get_path_name(surjection.first) << " achieves highest score of " << surj_score << ": " << debug_string(surjection.second) << endl;
+                if (!aln_is_null) {
+                    cerr << "surjection against path " << graph->get_path_name(surjection.first) << " achieves highest score of " << surj_score << ": " << debug_string(surjection.second) << endl;
+                }
 #endif
                 score = surj_score;
                 best_path_handle = surjection.first;

@@ -2692,6 +2692,11 @@ namespace vg {
         cerr << "converting mp aln to CIGAR on path " << path_name << ", rev? " << rev << ", pos " << path_pos << endl;
         cerr << debug_string(multipath_aln) << endl;
 #endif
+        vector<pair<int, char>> cigar;
+        if (path_pos < 0) {
+            // read is unmapped
+            return cigar;
+        }
         
         // a graph of runs of alignments to the path
         // records of (subpath index, mapping index, num_mappings, final step, from connection, adj list of (index, distance))
@@ -2981,7 +2986,6 @@ namespace vg {
 #endif
         
         // now finally make the CIGAR
-        vector<pair<int, char>> cigar;
         for (int64_t i = traceback.size() - 1; i >= 0; --i) {
             
 #ifdef debug_cigar
