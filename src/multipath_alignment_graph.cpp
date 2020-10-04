@@ -2508,8 +2508,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         
         vector<unordered_map<size_t, size_t>> noncolinear_shells(path_nodes.size());
         
-        // map from index_from to maps of index_onto to (overlap size, dist)
-        unordered_map<size_t, map<size_t, pair<size_t, size_t>>> confirmed_overlaps;
+        // map from index_from to maps of index_onto to (overlap to length, overlap from length, dist)
+        unordered_map<size_t, map<size_t, tuple<size_t, size_t, size_t>>> confirmed_overlaps;
         // map from path index to set of indexes whose start occurs on the path
         unordered_map<size_t, set<size_t>> path_starts_on_path;
         
@@ -2672,13 +2672,16 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     
                     PathNode& start_node = path_nodes.at(start);
                     unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
+                    // TODO: kinda ugly
+                    // init this to 0, we'll actually compute it if we need it ever
+                    size_t start_node_from_length = 0;
 
                     // we begin at the start we're searching backward from
                     start_queue.push_or_reprioritize(start, 0);
                     
                     while (!start_queue.empty() || !end_queue.empty()) {
                         // is the next item on the queues a start or an end?
-                        if (start_queue.empty() ? false : (end_queue.empty() ? true : start_queue.top().second < end_queue.top().second)) {
+                        if (!start_queue.empty() && (end_queue.empty() || start_queue.top().second < end_queue.top().second)) {
                             
                             // the next closest endpoint is a start, traverse through it to find ends (which is what we really want)
                             
@@ -2707,8 +2710,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                             // the next closest endpoint is an end, so we check if we can make a connection to the start
                             // that we're searching backward from
                             
-                            size_t candidate_end = end_queue.top().first;
-                            size_t candidate_dist = end_queue.top().second;
+                            size_t candidate_end, candidate_dist;
+                            tie(candidate_end, candidate_dist) = end_queue.top();
                             end_queue.pop();
                             
 #ifdef debug_multipath_alignment
@@ -2742,10 +2745,12 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                                     end_queue.push_or_reprioritize(shell_pred.first, candidate_dist + shell_pred.second);
                                 }
                             }
-                            else if (start_node.end > candidate_end_node.end && start_node.begin > candidate_end_node.begin) {
+                            else if (candidate_end_node.begin < start_node.begin && candidate_end_node.end < start_node.end) {
                                 // the MEM can be made colinear by removing an overlap, which will not threaten reachability
-                                size_t overlap = candidate_end_node.end - start_node.begin;
-                                confirmed_overlaps[start][candidate_end] = make_pair(overlap, candidate_dist + overlap);
+                                size_t read_overlap = candidate_end_node.end - start_node.begin;
+                                size_t graph_overlap = corresponding_from_length(start_node.path, read_overlap, false);
+                                confirmed_overlaps[start][candidate_end] = make_tuple(read_overlap, graph_overlap,
+                                                                                      candidate_dist + graph_overlap);
                                 
 #ifdef debug_multipath_alignment
                                 cerr << "connection is overlap colinear, recording to add edge later" << endl;
@@ -2781,16 +2786,19 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                             }
                             else {
                                 // these MEMs are noncolinear, so add this predecessor to the noncolinear shell
+                                if (start_node_from_length == 0) {
+                                    start_node_from_length = path_from_length(start_node.path);
+                                }
                                 if (noncolinear_shell.count(candidate_end)) {
-                                    noncolinear_shell[candidate_end] = std::min(candidate_dist + (start_node.end - start_node.begin),
+                                    noncolinear_shell[candidate_end] = std::min(candidate_dist + start_node_from_length,
                                                                                 noncolinear_shell[candidate_end]);
                                 }
                                 else {
-                                    noncolinear_shell[candidate_end] = candidate_dist + (start_node.end - start_node.begin);
+                                    noncolinear_shell[candidate_end] = candidate_dist + start_node_from_length;
                                 }
                                 
 #ifdef debug_multipath_alignment
-                                cerr << "connection is noncolinear, add to shell at dist " << candidate_dist + (start_node.end - start_node.begin) << " and continue to search backwards" << endl;
+                                cerr << "connection is noncolinear, add to shell at dist " << candidate_dist + start_node_from_length << " and continue to search backwards" << endl;
 #endif
                                 
                                 // there is no connection to block further connections back, so any of this MEMs
@@ -2816,14 +2824,14 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     cerr << "walking path to look for overlaps" << endl;
 #endif
                     
-                    path_t& path = path_nodes.at(start).path;
+                    path_t& path = start_node.path;
                     
                     // update the path starts index for the paths that start at the same position
                     for (size_t colocated_start : colocated_starts) {
                         path_starts_on_path[colocated_start].insert(start);
                         path_starts_on_path[start].insert(colocated_start);
                     }
-                    // records of (node_idx, overlap length)
+                    // records of (node_idx, graph overlap length)
                     vector<pair<size_t, size_t>> overlap_candidates;
                     
                     if (path.mapping_size() == 1) {
@@ -2836,7 +2844,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                         size_t final_offset = end_offset(start);
                         // record which starts are on the path on this node
                         for (size_t path_start_idx = start_idx + 1;
-                             path_start_idx >= starts.size() ? false : start_offset(starts[path_start_idx]) < final_offset;
+                             path_start_idx < starts.size() && start_offset(starts[path_start_idx]) < final_offset;
                              path_start_idx++) {
                             
                             path_starts_on_path[start].insert(starts[path_start_idx]);
@@ -2889,7 +2897,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                         size_t final_offset = end_offset(start);
                         // record which starts are on the path on the last node
                         for (size_t path_start_idx = 0;
-                             path_start_idx >= final_starts.size() ? false : start_offset(final_starts[path_start_idx]) < final_offset;
+                             path_start_idx < final_starts.size() && start_offset(final_starts[path_start_idx]) < final_offset;
                              path_start_idx++) {
                             
                             path_starts_on_path[start].insert(final_starts[path_start_idx]);
@@ -2925,29 +2933,37 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                         PathNode& overlap_node = path_nodes.at(overlap_candidate.first);
                         
                         // how much do the paths overlap?
-                        size_t overlap = overlap_candidate.second;
+                        size_t graph_overlap = overlap_candidate.second;
+                        // TODO: could be inefficient recomputing this for many overlaps
+                        size_t read_overlap = corresponding_to_length(path, graph_overlap, false);
                         
                         // are the paths read colinear after removing the overlap?
-                        if (start_node.begin + overlap >= overlap_node.end) {
+                        if (start_node.begin + read_overlap >= overlap_node.end) {
 #ifdef debug_multipath_alignment
-                            cerr << "confirmed overlap colinear with overlap of " << overlap << endl;
+                            cerr << "confirmed overlap colinear with read overlap of " << read_overlap << ", graph overlap " << graph_overlap << endl;
 #endif
-                            confirmed_overlaps[start][overlap_candidate.first] = pair<size_t, size_t>(overlap, 0);
+                            confirmed_overlaps[start][overlap_candidate.first] = tuple<size_t, size_t, size_t>(read_overlap, graph_overlap, 0);
                         }
                         else if (overlap_node.begin < start_node.begin && overlap_node.end < start_node.end) {
 #ifdef debug_multipath_alignment
                             cerr << "confirmed overlap colinear with longer read overlap of " << overlap_node.end - start_node.begin << endl;
 #endif
                             // there is still an even longer read overlap we need to remove
-                            size_t read_overlap = overlap_node.end - start_node.begin;
-                            confirmed_overlaps[start][overlap_candidate.first] = pair<size_t, size_t>(read_overlap, read_overlap - overlap);
+                            size_t extended_read_overlap = overlap_node.end - start_node.begin;
+                            size_t extended_graph_overlap = corresponding_from_length(path, extended_read_overlap, false);
+                            confirmed_overlaps[start][overlap_candidate.first] = tuple<size_t, size_t, size_t>(extended_read_overlap,
+                                                                                                               extended_graph_overlap,
+                                                                                                               extended_graph_overlap - graph_overlap);
                         }
                         else {
 #ifdef debug_multipath_alignment
                             cerr << "not colinear even with overlap, adding to non-colinear shell at distance " << overlap_candidate.second << endl;
 #endif
                             // the overlapping node is still not reachable so it is in the noncolinear shell of this node
-                            noncolinear_shell[overlap_candidate.first] = (start_node.end - start_node.begin) - overlap_candidate.second;
+                            if (start_node_from_length == 0) {
+                                start_node_from_length = path_from_length(start_node.path);
+                            }
+                            noncolinear_shell[overlap_candidate.first] = start_node_from_length - overlap_candidate.second;
                         }
                     }
                     
@@ -2973,18 +2989,21 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         // about overlaps coming in from both directions)
         
         // sort in descending order of overlap length and group by the node that is being cut among overlaps of same length
-        // tuples of (overlap, index from, index onto, distance)
-        vector<tuple<size_t, size_t, size_t, size_t>> ordered_overlaps;
+        // tuples of (read overlap, graph overlap, index onto, index from, distance)
+        vector<tuple<size_t, size_t, size_t, size_t, size_t>> ordered_overlaps;
         for (const auto& path_overlaps : confirmed_overlaps) {
             for (const auto& overlap_record : path_overlaps.second) {
-                ordered_overlaps.emplace_back(overlap_record.second.first,
+                ordered_overlaps.emplace_back(get<0>(overlap_record.second),
+                                              get<1>(overlap_record.second),
                                               path_overlaps.first,
                                               overlap_record.first,
-                                              overlap_record.second.second);
+                                              get<2>(overlap_record.second));
             }
         }
-        std::sort(ordered_overlaps.begin(), ordered_overlaps.end(),
-                  std::greater<tuple<size_t, size_t, size_t, size_t>>());
+        // because both from and to lengths are monotonic, we should never get into a situations where the
+        // pair (read overlap, graph overlap) is incomparable, so this partial order is actually a total order
+        // barring equal pairs
+        sort(ordered_overlaps.begin(), ordered_overlaps.end(), greater<tuple<size_t, size_t, size_t, size_t, size_t>>());
         
         // keep track of whether another node is holding the suffix of one of the original nodes because of a split
         unordered_map<size_t, size_t> node_with_suffix;
@@ -2994,7 +3013,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         while (iter != ordered_overlaps.end()) {
             // find the range of overlaps that want to cut this node at the same place
             auto iter_range_end = iter;
-            while (get<0>(*iter_range_end) == get<0>(*iter) && get<1>(*iter_range_end) == get<1>(*iter)) {
+            while (get<0>(*iter_range_end) == get<0>(*iter) && get<1>(*iter_range_end) == get<1>(*iter)
+                   && get<2>(*iter_range_end) == get<2>(*iter)) {
                 iter_range_end++;
                 if (iter_range_end == ordered_overlaps.end()) {
                     break;
@@ -3002,11 +3022,11 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             }
             
 #ifdef debug_multipath_alignment
-            cerr << "performing an overlap split onto " << get<1>(*iter) << " of length " << get<0>(*iter) << endl;
+            cerr << "performing an overlap split onto " << get<2>(*iter) << " of read length " << get<0>(*iter) << " and graph length " << get<1>(*iter) << endl;
 #endif
             
             
-            PathNode* onto_node = &path_nodes.at(get<1>(*iter));
+            PathNode* onto_node = &path_nodes.at(get<2>(*iter));
             
 #ifdef debug_multipath_alignment
             cerr << "before splitting:" << endl;
@@ -3028,29 +3048,33 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             size_t prefix_to_length = 0;
             
             // add mappings from the path until reaching the overlap point
-            int64_t remaining = get<0>(*iter);
+            int64_t to_remaining = get<0>(*iter);
+            int64_t from_remaining = get<1>(*iter);
             int64_t mapping_idx = 0;
-            int64_t mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
-            while (remaining >= mapping_len) {
+            int64_t mapping_from_len = mapping_from_length(full_path.mapping(mapping_idx));
+            int64_t mapping_to_len = mapping_from_length(full_path.mapping(mapping_idx));
+            while (to_remaining >= mapping_to_len && from_remaining >= mapping_from_len) {
                 *onto_node->path.add_mapping() = full_path.mapping(mapping_idx);
-                prefix_to_length += mapping_to_length(full_path.mapping(mapping_idx));
-                remaining -= mapping_len;
+                prefix_to_length += mapping_to_len;
+                to_remaining -= mapping_to_len;
+                from_remaining -= mapping_from_len;
                 mapping_idx++;
                 if (mapping_idx == full_path.mapping_size()) {
                     break;
                 }
                 
-                mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
+                mapping_from_len = mapping_from_length(full_path.mapping(mapping_idx));
+                mapping_to_len = mapping_to_length(full_path.mapping(mapping_idx));
             }
             
-            if (mapping_idx == full_path.mapping_size() && !remaining) {
+            if (mapping_idx == full_path.mapping_size() && !to_remaining && !from_remaining) {
                 // TODO: isn't this case covered by taking the entire range of splits at the same place?
                 
                 // the overlap covered the path, so connect it to the onto node's successors
                 // rather than splitting it into two nodes
                 while (iter != iter_range_end) {
                     for (const pair<size_t, size_t> edge : onto_node->edges) {
-                        path_nodes.at(get<2>(*iter)).edges.emplace_back(edge.first, edge.second + get<3>(*iter));
+                        path_nodes.at(get<3>(*iter)).edges.emplace_back(edge.first, edge.second + get<4>(*iter));
                     }
                     iter++;
                 }
@@ -3065,7 +3089,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 PathNode& suffix_node = path_nodes.back();
                 
                 // get the pointer from the onto node back in case the vector reallocated
-                onto_node = &path_nodes.at(get<1>(*iter));
+                onto_node = &path_nodes.at(get<2>(*iter));
                 
                 // transfer the outgoing edges onto the new node
                 suffix_node.edges = std::move(onto_node->edges);
@@ -3075,13 +3099,13 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 onto_node->edges.emplace_back(suffix_idx, 0);
                 
                 // keep track of the relationship of suffix nodes to original nodes
-                if (!node_with_suffix.count(get<1>(*iter))) {
+                if (!node_with_suffix.count(get<2>(*iter))) {
                     // since we take longest overlaps first, only the first split onto a node will change
                     // which node contains the suffix of the original node
-                    node_with_suffix[get<1>(*iter)] = suffix_idx;
+                    node_with_suffix[get<2>(*iter)] = suffix_idx;
                 }
                 
-                if (remaining) {
+                if (to_remaining || from_remaining) {
                     // the overlap point is in the middle of a node, need to split a mapping
                     
                     const path_mapping_t& split_mapping = full_path.mapping(mapping_idx);
@@ -3094,39 +3118,43 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     // add the suffix of the mapping to the new node
                     path_mapping_t* suffix_split = suffix_node.path.add_mapping();
                     suffix_split->mutable_position()->set_node_id(split_mapping.position().node_id());
-                    suffix_split->mutable_position()->set_offset(split_mapping.position().offset() + remaining);
+                    suffix_split->mutable_position()->set_offset(split_mapping.position().offset() + from_remaining);
+                    
+                    
                     
                     // add the edits up to the point where the split occurs
                     size_t edit_idx = 0;
-                    int64_t mapping_remaining = remaining;
-                    for (; mapping_remaining >= split_mapping.edit(edit_idx).from_length() && edit_idx < split_mapping.edit_size(); edit_idx++) {
+                    int64_t mapping_to_remaining = to_remaining;
+                    int64_t mapping_from_remaining = from_remaining;
+                    for (; edit_idx < split_mapping.edit_size()
+                         && mapping_from_remaining >= split_mapping.edit(edit_idx).from_length()
+                         && mapping_to_remaining >= split_mapping.edit(edit_idx).to_length(); edit_idx++) {
+                        
                         const edit_t& split_edit = split_mapping.edit(edit_idx);
-                        mapping_remaining -= split_edit.from_length();
+                        mapping_from_remaining -= split_edit.from_length();
+                        mapping_to_remaining -= split_edit.to_length();
                         prefix_to_length += split_edit.to_length();
                         *prefix_split->add_edit() = split_edit;
                     }
                     
                     // do we need to split in the middle of an edit?
-                    if (mapping_remaining) {
+                    if (mapping_from_remaining || mapping_to_remaining) {
                         
                         const edit_t& split_edit = split_mapping.edit(edit_idx);
                         // add an edit for either side of the split
                         edit_t* prefix_split_edit = prefix_split->add_edit();
-                        prefix_split_edit->set_from_length(mapping_remaining);
+                        prefix_split_edit->set_from_length(mapping_from_remaining);
+                        prefix_split_edit->set_to_length(mapping_to_remaining);
+                        
+                        prefix_to_length += prefix_split_edit->to_length();
                         
                         edit_t* suffix_split_edit = suffix_split->add_edit();
-                        suffix_split_edit->set_from_length(split_edit.from_length() - mapping_remaining);
+                        suffix_split_edit->set_from_length(split_edit.from_length() - mapping_from_remaining);
+                        suffix_split_edit->set_to_length(split_edit.to_length() - mapping_to_remaining);
                         
-                        if (split_edit.to_length()) {
-                            prefix_split_edit->set_to_length(mapping_remaining);
-                            suffix_split_edit->set_to_length(split_edit.to_length() - mapping_remaining);
-                            prefix_to_length += prefix_split_edit->to_length();
-                            
-                            if (!split_edit.sequence().empty()) {
-                                suffix_split_edit->set_sequence(split_edit.sequence().substr(0, mapping_remaining));
-                                prefix_split_edit->set_sequence(split_edit.sequence().substr(mapping_remaining,
-                                                                                             split_edit.sequence().size() -mapping_remaining));
-                            }
+                        if (!split_edit.sequence().empty()) {
+                            suffix_split_edit->set_sequence(split_edit.sequence().substr(0, mapping_to_remaining));
+                            prefix_split_edit->set_sequence(split_edit.sequence().substr(mapping_to_remaining, string::npos));
                         }
                         edit_idx++;
                     }
@@ -3165,10 +3193,10 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 
                 while (iter != iter_range_end) {
                     // index of the node that contains the end of the original node we recorded the overlap from
-                    size_t splitting_idx = node_with_suffix.count(get<2>(*iter)) ? node_with_suffix[get<2>(*iter)] : get<2>(*iter);
+                    size_t splitting_idx = node_with_suffix.count(get<3>(*iter)) ? node_with_suffix[get<3>(*iter)] : get<3>(*iter);
                     
 #ifdef debug_multipath_alignment
-                    cerr << "adding an overlap edge from node " << splitting_idx << " at distance " << get<3>(*iter) << endl;
+                    cerr << "adding an overlap edge from node " << splitting_idx << " at distance " << get<4>(*iter) << endl;
                     cerr << "\t";
                     for (auto node_iter = path_nodes.at(splitting_idx).begin; node_iter != path_nodes.at(splitting_idx).end; node_iter++) {
                         cerr << *node_iter;
@@ -3177,7 +3205,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
 #endif
                     
                     // get the next node that overlaps onto the other node at this index and add the overlap edge
-                    path_nodes.at(splitting_idx).edges.emplace_back(suffix_idx, get<3>(*iter));
+                    path_nodes.at(splitting_idx).edges.emplace_back(suffix_idx, get<4>(*iter));
                     
                     iter++;
                 }
@@ -3639,7 +3667,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     intervening_length + min(min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin)), max_gap);
                 
 #ifdef debug_multipath_alignment
-                cerr << "read dist: " << intervening_length << ", source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << ", max allowed gap " << max_gap << endl;
+                cerr << "read dist: " << intervening_length << ", graph dist " << edge.second << " source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << ", max allowed gap " << max_gap << endl;
 #endif
                 
                 // extract the graph between the matches
@@ -3652,8 +3680,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                                                                                                false,             // do not bother finding all cycles (it's a DAG)
                                                                                                true,              // only include nodes on connecting paths
                                                                                                false);            // do not enforce max distance
-                
-                
+                                
                 if (connecting_graph.get_node_count() == 0) {
                     // the MEMs weren't connectable with a positive score after all, mark the edge for removal
 #ifdef debug_multipath_alignment
@@ -3671,7 +3698,6 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 // TODO a better way of choosing the number of alternate alignments
                 vector<Alignment> alt_alignments;
                 if (num_alt_alns > 0) {
-                
                     // transfer the substring between the matches to a new alignment
                     Alignment intervening_sequence;
                     intervening_sequence.set_sequence(alignment.sequence().substr(src_path_node.end - alignment.sequence().begin(),
