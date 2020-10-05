@@ -6,6 +6,7 @@
  * Use vpkg to serialize a HandleGraph object
  */
 
+#include <handlegraph/serializable_handle_graph.hpp>
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
 #include "bdsg/odgi.hpp"
@@ -24,36 +25,29 @@ using namespace std;
 
 
 /**
- * Save a handle graph using the VPKG::save() function. 
+ * Save a handle graph. 
  * Todo: should this be somewhere else (ie in vgio with new types registered?)
  */
 inline void save_handle_graph(HandleGraph* graph, ostream& os) {
-    if (dynamic_cast<VG*>(graph) != nullptr) {
+    
+    if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
+        // SerializableHandleGraphs are all serialized bare, without VPKG framing, for libbdsg compatibility.
+        dynamic_cast<SerializableHandleGraph*>(graph)->serialize(os);
+    } else if (dynamic_cast<VG*>(graph) != nullptr) {
+        // vg::VG doesn't use a magic number and isn't a SerializableHandleGraph
         vg::io::VPKG::save(*dynamic_cast<VG*>(graph), os);
-    } else if (dynamic_cast<bdsg::HashGraph*>(graph) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph*>(graph), os);
-    } else if (dynamic_cast<bdsg::PackedGraph*>(graph) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::PackedGraph*>(graph), os);
-    } else if (dynamic_cast<bdsg::ODGI*>(graph) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::ODGI*>(graph), os);
-    } else if (dynamic_cast<xg::XG*>(graph) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<xg::XG*>(graph), os);
     } else {
         throw runtime_error("Internal error: unable to serialize graph");
     }
 }
 
 inline void save_handle_graph(HandleGraph* graph, const string& dest_path) {
-    if (dynamic_cast<VG*>(graph) != nullptr) {
+    if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
+        // SerializableHandleGraphs are all serialized bare, without VPKG framing, for libbdsg compatibility.
+        dynamic_cast<SerializableHandleGraph*>(graph)->serialize(dest_path);
+    } else if (dynamic_cast<VG*>(graph) != nullptr) {
+        // vg::VG doesn't use a magic number and isn't a SerializableHandleGraph
         vg::io::VPKG::save(*dynamic_cast<VG*>(graph), dest_path);
-    } else if (dynamic_cast<bdsg::HashGraph*>(graph) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph*>(graph), dest_path);
-    } else if (dynamic_cast<bdsg::PackedGraph*>(graph) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::PackedGraph*>(graph), dest_path);
-    } else if (dynamic_cast<bdsg::ODGI*>(graph) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::ODGI*>(graph), dest_path);
-    } else if (dynamic_cast<xg::XG*>(graph) != nullptr) {
-        vg::io::VPKG::save(*dynamic_cast<xg::XG*>(graph), dest_path);
     } else {
         throw runtime_error("Internal error: unable to serialize graph");
     }    
