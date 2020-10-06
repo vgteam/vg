@@ -33,6 +33,7 @@
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
 #include "bdsg/odgi.hpp"
+#include "../io/converted_hash_graph.hpp"
 
 using namespace std;
 using namespace vg;
@@ -384,27 +385,15 @@ int main_stats(int argc, char** argv) {
             format_string = "XG";
         } else if (dynamic_cast<bdsg::PackedGraph*>(graph.get()) != nullptr) {
             format_string = "PackedGraph";
+        } else if (dynamic_cast<vg::io::ConvertedHashGraph*>(graph.get()) != nullptr) {
+            // Was Protobuf but we're using a HashGraph internally
+            format_string = "VG-Protobuf";
         } else if (dynamic_cast<bdsg::HashGraph*>(graph.get()) != nullptr) {
             format_string = "HashGraph";
         } else if (dynamic_cast<bdsg::ODGI*>(graph.get()) != nullptr) {
             format_string = "ODGI";
         } else {
             format_string = "Unknown";
-        }
-        if (graph_file_name != "-" && format_string == "HashGraph") {
-            // Maybe vpkg loaded a protobuf graph into a different handle graph format
-            // (it currently uses HashGraph)
-            try {
-                ifstream graph_stream(graph_file_name);
-                vg::io::MessageIterator message_it(graph_stream);
-                if (message_it.has_current()) {
-                    string msg_tag = message_it.take().first;
-                    // older protobufs are untagged, newer ones are tagged "VG"
-                    if (msg_tag.empty() || msg_tag == "VG") {
-                        format_string = "VG-Protobuf";
-                    }
-                }
-            } catch(...) {}
         }
         cout << "format: " << format_string << endl;
     }
