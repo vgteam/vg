@@ -406,20 +406,27 @@ protected:
     struct CallRecord {
         vector<SnarlTraversal> travs;
         vector<pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>> genotype_by_ploidy;
-        string ref_path_name; 
+        string ref_path_name;
+        pair<int64_t, int64_t> ref_path_interval;
         int ref_trav_idx; // index of ref paths in CallRecord::travs
     };
     typedef map<Snarl, CallRecord, NestedCachedPackedTraversalSupportFinder::snarl_less> CallTable;
    
     /// update the table of calls for each child snarl (and the input snarl)
     bool call_snarl_recursive(const Snarl& managed_snarl, int ploidy,
+                              const string& parent_ref_path_name, pair<size_t, size_t> parent_ref_path_interval,
+                              CallTable& call_table);
+
+    /// emit the vcf of all reference-spanning snarls
+    /// The call_table needs to be completely resolved
+    bool emit_snarl_recursive(const Snarl& managed_snarl, int ploidy,
                               CallTable& call_table);
 
     /// transform the nested allele string from something like AAC<6_10>TTT to
     /// a proper string by recursively resolving the nested snarls into alleles
     string flatten_reference_allele(const string& nested_allele, const CallTable& call_table) const;
-    string flatten_alt_allele(const string& nested_allele, int allele, const CallTable& call_table) const;
-
+    string flatten_alt_allele(const string& nested_allele, int allele, int ploidy, const CallTable& call_table) const;
+       
     /// the graph
     const PathPositionHandleGraph& graph;
 
