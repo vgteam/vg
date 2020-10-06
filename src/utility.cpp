@@ -148,17 +148,23 @@ void choose_good_thread_count() {
 }
 
 std::vector<std::string> &split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems) {
-    char* tok;
-    char cchars [s.size()+1];
-    char* cstr = &cchars[0];
-    strcpy(cstr, s.c_str());
-    tok = strtok(cstr, delims.c_str());
-    while (tok != NULL) {
-        elems.push_back(tok);
-        tok = strtok(NULL, delims.c_str());
+    size_t start = string::npos;
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (delims.find(s[i]) != string::npos) {
+            if (start != string::npos && i > start) {
+                elems.push_back(s.substr(start, i - start));
+            }
+            start = string::npos;
+        } else if (start == string::npos) {
+            start = i;
+        }
+    }
+    if (start != string::npos && start < s.size()) {
+        elems.push_back(s.substr(start, s.size() - start));
     }
     return elems;
 }
+
 std::vector<std::string> split_delims(const std::string &s, const std::string& delims) {
     std::vector<std::string> elems;
     return split_delims(s, delims, elems);
