@@ -131,6 +131,7 @@ var searchData=
   ['orienteddistanceclusterer',['OrientedDistanceClusterer',['../classvg_1_1OrientedDistanceClusterer.html',1,'vg::OrientedDistanceClusterer'],['../classvg_1_1OrientedDistanceClusterer.html#a0bab84127f018db9467240db290113b4',1,'vg::OrientedDistanceClusterer::OrientedDistanceClusterer()']]],
   ['orienteddistancemeasurer',['OrientedDistanceMeasurer',['../classvg_1_1OrientedDistanceMeasurer.html',1,'vg']]],
   ['os',['OS',['../classvg_1_1Version.html#a60cb5fa1efa9969bcdfa529484ea4280',1,'vg::Version']]],
+  ['other',['other',['../classvg_1_1io_1_1streaminbuf.html#a91cfbc8581e4aa70e52268897747d764',1,'vg::io::streaminbuf']]],
   ['other_5forientation_5ftimeout',['other_orientation_timeout',['../classvg_1_1RepresentativeTraversalFinder.html#a5d5136f771fe4566506ff486fb17df49',1,'vg::RepresentativeTraversalFinder']]],
   ['other_5fsupports',['other_supports',['../structvg_1_1BREAKPOINT.html#a2f08ace3f57cff47b7f703fef1ae9792',1,'vg::BREAKPOINT']]],
   ['out',['out',['../classvg_1_1MultipathAlignmentEmitter.html#a7ea0cf17aa42f10f6d2b417d541220d5',1,'vg::MultipathAlignmentEmitter']]],

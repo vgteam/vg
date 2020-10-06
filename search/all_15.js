@@ -14,7 +14,7 @@ var searchData=
   ['uncompressed_5fout',['uncompressed_out',['../classvg_1_1io_1_1MessageEmitter.html#a19f6d714ad67ec55346998140ce79258',1,'vg::io::MessageEmitter']]],
   ['uncompressed_5fout_5fostream',['uncompressed_out_ostream',['../classvg_1_1io_1_1MessageEmitter.html#aeb08e36bd3266eabc11d2d27e6336812',1,'vg::io::MessageEmitter']]],
   ['uncompressed_5fout_5fwritten',['uncompressed_out_written',['../classvg_1_1io_1_1MessageEmitter.html#ae75aa23f1b6b85340f7bc586282e7c55',1,'vg::io::MessageEmitter']]],
-  ['underflow',['underflow',['../classvg_1_1io_1_1fdinbuf.html#a67ea7aab3e21cacec9fb836d4a70673e',1,'vg::io::fdinbuf']]],
+  ['underflow',['underflow',['../classvg_1_1io_1_1fdinbuf.html#a67ea7aab3e21cacec9fb836d4a70673e',1,'vg::io::fdinbuf::underflow()'],['../classvg_1_1io_1_1streaminbuf.html#afa7f9b8f4f3159d819b2c9a2eb6a05cb',1,'vg::io::streaminbuf::underflow()']]],
   ['underlying_5finterval',['underlying_interval',['../classvg_1_1IncrementalSubgraph.html#ab6537f375ee27409fee46bd4dfdcb1a3',1,'vg::IncrementalSubgraph::underlying_interval()'],['../classvg_1_1JoinedSpliceGraph.html#ad9a0c6d572cb5052efa79e66d8cd29ab',1,'vg::JoinedSpliceGraph::underlying_interval()']]],
   ['unescape_5fdelim',['unescape_delim',['../classvg_1_1Packer.html#a32f8697cf4c222f5e207a4b15a1f0883',1,'vg::Packer']]],
   ['unescape_5fdelims',['unescape_delims',['../classvg_1_1Packer.html#a92b44e965dd5da9da72e1a9196290d94',1,'vg::Packer']]],

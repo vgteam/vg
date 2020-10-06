@@ -18,5 +18,6 @@ var searchData=
   ['consistencycalculator',['ConsistencyCalculator',['../classvg_1_1ConsistencyCalculator.html',1,'vg']]],
   ['constructedchunk',['ConstructedChunk',['../structvg_1_1ConstructedChunk.html',1,'vg']]],
   ['constructor',['Constructor',['../classvg_1_1Constructor.html',1,'vg']]],
+  ['convertedhashgraph',['ConvertedHashGraph',['../classvg_1_1io_1_1ConvertedHashGraph.html',1,'vg::io']]],
   ['counts',['Counts',['../structvg_1_1ReadFilter_1_1Counts.html',1,'vg::ReadFilter']]]
 ];

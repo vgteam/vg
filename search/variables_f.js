@@ -28,6 +28,7 @@ var searchData=
   ['order',['order',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html#ae776df11d1881a7ac95ca8775b6f53d6',1,'vg::DozeuInterface::OrderedGraph']]],
   ['order_5flength_5frepeat_5fhit_5fmax',['order_length_repeat_hit_max',['../classvg_1_1MultipathMapper.html#ae87f55f358023f5c881494ccc4ed884f',1,'vg::MultipathMapper']]],
   ['os',['OS',['../classvg_1_1Version.html#a60cb5fa1efa9969bcdfa529484ea4280',1,'vg::Version']]],
+  ['other',['other',['../classvg_1_1io_1_1streaminbuf.html#a91cfbc8581e4aa70e52268897747d764',1,'vg::io::streaminbuf']]],
   ['other_5forientation_5ftimeout',['other_orientation_timeout',['../classvg_1_1RepresentativeTraversalFinder.html#a5d5136f771fe4566506ff486fb17df49',1,'vg::RepresentativeTraversalFinder']]],
   ['other_5fsupports',['other_supports',['../structvg_1_1BREAKPOINT.html#a2f08ace3f57cff47b7f703fef1ae9792',1,'vg::BREAKPOINT']]],
   ['out',['out',['../classvg_1_1MultipathAlignmentEmitter.html#a7ea0cf17aa42f10f6d2b417d541220d5',1,'vg::MultipathAlignmentEmitter']]],

@@ -263,6 +263,8 @@ var searchData=
   ['convert_5fts_5fto_5fus',['convert_Ts_to_Us',['../namespacevg.html#add9a4cf274b29df3caf222d0360805f3',1,'vg::convert_Ts_to_Us(Alignment &amp;alignment)'],['../namespacevg.html#a92c7d384c096b813501b23730e308796',1,'vg::convert_Ts_to_Us(multipath_alignment_t &amp;multipath_aln)']]],
   ['convert_5funpaired',['convert_unpaired',['../classvg_1_1HTSAlignmentEmitter.html#a8b188cc73a956f6479e6e04ef34c8775',1,'vg::HTSAlignmentEmitter']]],
   ['convert_5fus_5fto_5fts',['convert_Us_to_Ts',['../namespacevg.html#abdc8589575aed95e82c0bb70828ab036',1,'vg::convert_Us_to_Ts(Alignment &amp;alignment)'],['../namespacevg.html#a5a6e3cc99aac92404ec33126dbbd9192',1,'vg::convert_Us_to_Ts(multipath_alignment_t &amp;multipath_aln)']]],
+  ['converted_5fhash_5fgraph_2ehpp',['converted_hash_graph.hpp',['../converted__hash__graph_8hpp.html',1,'']]],
+  ['convertedhashgraph',['ConvertedHashGraph',['../classvg_1_1io_1_1ConvertedHashGraph.html',1,'vg::io']]],
   ['coordinates',['coordinates',['../structvg_1_1Exon.html#a845cd3e89b345eeeba6177c6cdbf202a',1,'vg::Exon']]],
   ['copy',['copy',['../classvg_1_1SmallBitset.html#aac805c827da15890d9b237643fc49b1f',1,'vg::SmallBitset']]],
   ['copy_5fgraph_2ecpp',['copy_graph.cpp',['../copy__graph_8cpp.html',1,'']]],
