@@ -171,8 +171,8 @@ namespace vg {
         trim_hanging_indels(alignment, true);
     }
 
-MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
-                                                 MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
+                                                     MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans) :
                                                      MultipathAlignmentGraph(graph, alignment, snarl_manager, dist_index, max_snarl_cut_size,
                                                                              create_projector(projection_trans),
@@ -180,8 +180,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         // Nothing to do
     }
 
-MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
-                                                 MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
+                                                     MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const function<pair<id_t, bool>(id_t)>& project) :
                                                      MultipathAlignmentGraph(graph, alignment, snarl_manager, dist_index, max_snarl_cut_size,
                                                                              project, create_injection_trans(graph, project)) {
@@ -292,9 +292,16 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 
 #ifdef debug_multipath_alignment
                 cerr << "walked path: " << debug_string(path_node.path) << endl;
+                cerr << "sequence: " << string(path_node.begin, path_node.end) << endl;
 #endif
             }
         }
+#ifdef debug_multipath_alignment
+        cerr << "final path chunks:" << endl;
+        for (size_t i = 0; i < path_nodes.size(); ++i) {
+            cerr << i << ": " << string(path_nodes[i].begin, path_nodes[i].end) << " " << debug_string(path_nodes[i].path) << endl;
+        }
+#endif
     }
    
     
@@ -1952,14 +1959,14 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         for (pair<const id_t, vector<size_t>>& node_starts : path_starts) {
             std::sort(node_starts.second.begin(), node_starts.second.end(),
                       [&](const size_t idx_1, const size_t idx_2) {
-                          return start_offset(idx_1) < start_offset(idx_2);
-                      });
+                return start_offset(idx_1) < start_offset(idx_2);
+            });
         }
         for (pair<const id_t, vector<size_t>>& node_ends : path_ends) {
             std::sort(node_ends.second.begin(), node_ends.second.end(),
                       [&](const size_t idx_1, const size_t idx_2) {
-                          return end_offset(idx_1) < end_offset(idx_2);
-                      });
+                return end_offset(idx_1) < end_offset(idx_2);
+            });
         }
         
         // The "ranges" that are used below (range_start, range_end, etc.)
@@ -2934,7 +2941,6 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                         
                         // how much do the paths overlap?
                         size_t graph_overlap = overlap_candidate.second;
-                        // TODO: could be inefficient recomputing this for many overlaps
                         size_t read_overlap = corresponding_to_length(path, graph_overlap, false);
                         
                         // are the paths read colinear after removing the overlap?
@@ -3022,7 +3028,13 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             }
             
 #ifdef debug_multipath_alignment
-            cerr << "performing an overlap split onto " << get<2>(*iter) << " of read length " << get<0>(*iter) << " and graph length " << get<1>(*iter) << endl;
+            cerr << "performing an overlap split onto " << get<2>(*iter) << " from " << get<3>(*iter);
+            auto it = iter;
+            ++it;
+            for (; it != iter_range_end; ++it) {
+                cerr << ", " << get<3>(*it);
+            }
+            cerr << " of read length " << get<0>(*iter) << " and graph length " << get<1>(*iter) << endl;
 #endif
             
             
@@ -3052,7 +3064,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             int64_t from_remaining = get<1>(*iter);
             int64_t mapping_idx = 0;
             int64_t mapping_from_len = mapping_from_length(full_path.mapping(mapping_idx));
-            int64_t mapping_to_len = mapping_from_length(full_path.mapping(mapping_idx));
+            int64_t mapping_to_len = mapping_to_length(full_path.mapping(mapping_idx));
             while (to_remaining >= mapping_to_len && from_remaining >= mapping_from_len) {
                 *onto_node->path.add_mapping() = full_path.mapping(mapping_idx);
                 prefix_to_length += mapping_to_len;
@@ -3119,9 +3131,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     path_mapping_t* suffix_split = suffix_node.path.add_mapping();
                     suffix_split->mutable_position()->set_node_id(split_mapping.position().node_id());
                     suffix_split->mutable_position()->set_offset(split_mapping.position().offset() + from_remaining);
-                    
-                    
-                    
+                                        
                     // add the edits up to the point where the split occurs
                     size_t edit_idx = 0;
                     int64_t mapping_to_remaining = to_remaining;
@@ -3129,7 +3139,6 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     for (; edit_idx < split_mapping.edit_size()
                          && mapping_from_remaining >= split_mapping.edit(edit_idx).from_length()
                          && mapping_to_remaining >= split_mapping.edit(edit_idx).to_length(); edit_idx++) {
-                        
                         const edit_t& split_edit = split_mapping.edit(edit_idx);
                         mapping_from_remaining -= split_edit.from_length();
                         mapping_to_remaining -= split_edit.to_length();
@@ -3153,9 +3162,10 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                         suffix_split_edit->set_to_length(split_edit.to_length() - mapping_to_remaining);
                         
                         if (!split_edit.sequence().empty()) {
-                            suffix_split_edit->set_sequence(split_edit.sequence().substr(0, mapping_to_remaining));
-                            prefix_split_edit->set_sequence(split_edit.sequence().substr(mapping_to_remaining, string::npos));
+                            prefix_split_edit->set_sequence(split_edit.sequence().substr(0, mapping_to_remaining));
+                            suffix_split_edit->set_sequence(split_edit.sequence().substr(mapping_to_remaining, string::npos));
                         }
+                        
                         edit_idx++;
                     }
                     

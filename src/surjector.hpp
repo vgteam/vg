@@ -97,7 +97,9 @@ using namespace std;
         Alignment
         realigning_surject(const PathPositionHandleGraph* graph, const Alignment& source,
                            const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
-                           bool allow_negative_scores, bool preserve_N_alignments = false,
+                           pair<step_handle_t, step_handle_t>& path_range_out,
+                           bool allow_negative_scores,
+                           bool preserve_N_alignments = false,
                            bool preserve_tail_indel_anchors = false) const;
         
         multipath_alignment_t
@@ -107,6 +109,7 @@ using namespace std;
                         const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
                         const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                         const vector<tuple<size_t, size_t, int32_t>>& connections,
+                        pair<step_handle_t, step_handle_t>& path_range_out,
                         bool allow_negative_scores, bool deletions_as_splices) const;
         
         ///////////////////////
@@ -134,16 +137,20 @@ using namespace std;
         extract_linearized_path_graph(const PathPositionHandleGraph* graph, MutableHandleGraph* into,
                                       path_handle_t path_handle, size_t first, size_t last) const;
         
-        
-        /// associate a path position and strand to a surjected alignment against this path
-        void set_path_position(const PathPositionHandleGraph* graph, const Alignment& surjected,
-                               path_handle_t best_path_handle,
+        void set_path_position(const PathPositionHandleGraph* graph, const pos_t& init_surj_pos,
+                               const pos_t& final_surj_pos,
+                               const step_handle_t& range_begin, const step_handle_t& range_end,
                                string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
         
-        /// another  algorithm that doesn't blow up if the alignment preserved deletions
-        void set_path_position_inexact(const PathPositionHandleGraph* graph, const Alignment& surjected,
-                                       path_handle_t best_path_handle,
-                                       string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
+//        /// associate a path position and strand to a surjected alignment against this path
+//        void set_path_position(const PathPositionHandleGraph* graph, const Alignment& surjected,
+//                               path_handle_t best_path_handle,
+//                               string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
+//
+//        /// another  algorithm that doesn't blow up if the alignment preserved deletions
+//        void set_path_position_inexact(const PathPositionHandleGraph* graph, const Alignment& surjected,
+//                                       path_handle_t best_path_handle,
+//                                       string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
         
         ///////////////////////
         // Support methods for the spliced surject algorithm

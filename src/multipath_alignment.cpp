@@ -2731,11 +2731,19 @@ namespace vg {
                     // base case if the position is given for the beginning of the surjected alignment
                     // TODO: will this work if the position is between two nodes?
                     auto step = graph.get_step_at_position(path_handle, path_pos);
-                    if ((graph.get_id(graph.get_handle_of_step(step)) != pos.node_id()
-                         || graph.get_is_reverse(graph.get_handle_of_step(step)) != pos.is_reverse())) {
+#ifdef debug_cigar
+                    cerr << "got step " << graph.get_id(graph.get_handle_of_step(step)) << " " << graph.get_is_reverse(graph.get_handle_of_step(step)) << " as path pos " << graph.get_position_of_step(step) << endl;
+#endif
+                    if (graph.get_id(graph.get_handle_of_step(step)) != pos.node_id()
+                        || graph.get_is_reverse(graph.get_handle_of_step(step)) != pos.is_reverse()
+                        || path_pos - graph.get_position_of_step(step) != pos.offset()) {
                         // the step doesn't match our starting position, but this can sometimes happen when
                         // a position occurs right at a node boundary
                         auto prev_step = graph.get_previous_step(step);
+                        
+#ifdef debug_cigar
+                        cerr << "didn't match, walk back to " << graph.get_id(graph.get_handle_of_step(prev_step)) << " " << graph.get_is_reverse(graph.get_handle_of_step(prev_step)) << " as path pos " << graph.get_position_of_step(prev_step) << endl;
+#endif
                         if (prev_step != graph.path_front_end(path_handle)
                             && graph.get_id(graph.get_handle_of_step(prev_step)) == pos.node_id()
                             && graph.get_is_reverse(graph.get_handle_of_step(prev_step)) == pos.is_reverse()
@@ -2882,7 +2890,7 @@ namespace vg {
         // that corresponds to the surjected alignment
         
 #ifdef debug_cigar
-        cerr << "doing mapping length DP" << endl;
+        cerr << "doing mapping length DP with a total number of mappings " << num_mappings << endl;
 #endif
         
         // find the longest path, measured by number of mappings (should consume the whole alignment)
@@ -2949,12 +2957,16 @@ namespace vg {
 #endif
                 if (rev) {
                     const auto& final_mapping = multipath_aln.subpath().back().path().mapping().back();
-                    if (graph.get_position_of_step(get<3>(run_node))
-                        + graph.get_length(graph.get_handle_of_step(get<3>(run_node)))
-                        - final_mapping.position().offset()
-                        - mapping_from_length(final_mapping) != path_pos) {
+                    int64_t path_pos_here = (graph.get_position_of_step(get<3>(run_node))
+                                             + graph.get_length(graph.get_handle_of_step(get<3>(run_node)))
+                                             - final_mapping.position().offset()
+                                             - mapping_from_length(final_mapping));
+                    if (path_pos_here != path_pos) {
                         // this run doesn't end where it should based on our path position, it can't
                         // be part of the CIGAR
+#ifdef debug_cigar
+                        cerr << "path pos doesn't match expected " << path_pos << ", instead got " << path_pos_here << " from step pos " << graph.get_position_of_step(get<3>(run_node)) << ", node length " << graph.get_length(graph.get_handle_of_step(get<3>(run_node))) << " mapping offset " << final_mapping.position().offset() << " and mapping len " << mapping_from_length(final_mapping) << endl;
+#endif
                         continue;
                     }
                 }
@@ -3187,7 +3199,7 @@ namespace vg {
                         for (size_t k = 0; k < multipath_aln.subpath(j).next_size(); k++) {
                             cerr << multipath_aln.subpath(j).next(k) << " ";
                         }
-                        for (auto& connection : multipath_aln.subpath(k).connection()) {
+                        for (auto& connection : subpath.connection()) {
                             cerr << connection.next() << " ";
                         }
                         cerr << endl;
@@ -3220,6 +3232,7 @@ namespace vg {
                         }
                     }
                     else {
+                        cerr << "\textending subseq end to " << connection.next() << endl;
                         subpath_read_interval[connection.next()].first = subpath_read_interval[i].second;
                     }
                 }
@@ -3348,7 +3361,7 @@ namespace vg {
                 else if (edit.to_length() == edit.from_length() && !edit.sequence().empty()) {
                     if (edit.sequence().size() != edit.to_length()) {
 #ifdef debug_verbose_validation
-                        cerr << "validation failure on mismatched sequence length and to length: " << debug_string(edit) << endl;
+                        cerr << "validation failure on mismatched sequence length and to length: " << debug_string(edit) << " in mapping " << debug_string(mapping) << endl;
 #endif
                         return false;
                     }
@@ -3375,7 +3388,7 @@ namespace vg {
                 else if (edit.to_length() > 0 && edit.from_length() == 0) {
                     if (edit.sequence().size() != edit.to_length()) {
 #ifdef debug_verbose_validation
-                        cerr << "validation failure on mismatched sequence length and to length: " << debug_string(edit) << endl;
+                        cerr << "validation failure on mismatched sequence length and to length: " << debug_string(edit) << " on mapping " << debug_string(mapping) << endl;
 #endif
                         return false;
                     }
