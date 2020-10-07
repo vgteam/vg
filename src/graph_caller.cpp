@@ -1635,7 +1635,10 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
         // if we have no reference infromation, try to get it from the parent snarl
         gt_ref_path_name = parent_ref_path_name;
         gt_ref_interval = parent_ref_interval;
-        assert(!gt_ref_path_name.empty());
+        if (gt_ref_path_name.empty()) {
+            // there's just no reference path through this snarl
+            return false;
+        }
     }
     
     // recurse on the children
