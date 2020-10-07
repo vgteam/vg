@@ -91,8 +91,8 @@ protected:
     void emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                      const string& ref_path_name, int ref_offset, bool genotype_snarls,
-                      function<void(vcflib::Variant&)> postprocess_variant = nullptr);
+                      const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
+                      function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string = nullptr);
 
     /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
     /// the bool is true if the snarl's backward on the path
