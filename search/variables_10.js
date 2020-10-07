@@ -35,7 +35,7 @@ var searchData=
   ['path_5findexes',['path_indexes',['../classvg_1_1LegacyCaller.html#a5de5c60b4da9b71566fc10a76ed0e211',1,'vg::LegacyCaller']]],
   ['path_5fis_5fcircular_5fiv',['path_is_circular_iv',['../classbdsg_1_1PackedGraph.html#ac60a6dce2b61c71c35c02be42f4e9aff',1,'bdsg::PackedGraph']]],
   ['path_5fis_5fdeleted_5fiv',['path_is_deleted_iv',['../classbdsg_1_1PackedGraph.html#af5961387ed0eaf83549314c9896be054',1,'bdsg::PackedGraph']]],
-  ['path_5flength',['path_length',['../classvg_1_1HTSAlignmentEmitter.html#a120f7a095425d81db9fa4c3574f0bee5',1,'vg::HTSAlignmentEmitter::path_length()'],['../structgafkluge_1_1GafRecord.html#ac9b7a4a556d78f32913392b0706e93e0',1,'gafkluge::GafRecord::path_length()']]],
+  ['path_5flength',['path_length',['../classvg_1_1HTSWriter.html#ad652bc5c54f52b7e98a71ea527776d90',1,'vg::HTSWriter::path_length()'],['../structgafkluge_1_1GafRecord.html#ac9b7a4a556d78f32913392b0706e93e0',1,'gafkluge::GafRecord::path_length()']]],
   ['path_5fmembership_5fid_5fiv',['path_membership_id_iv',['../classbdsg_1_1PackedGraph.html#a4a2622d00d64d548bc30f42aece23179',1,'bdsg::PackedGraph']]],
   ['path_5fmembership_5fnext_5fiv',['path_membership_next_iv',['../classbdsg_1_1PackedGraph.html#a7cd372ed020a12d43bcd857897d2e20b',1,'bdsg::PackedGraph']]],
   ['path_5fmembership_5fnode_5fiv',['path_membership_node_iv',['../classbdsg_1_1PackedGraph.html#ae899936e18848adca0be6be3dbf055ea',1,'bdsg::PackedGraph']]],

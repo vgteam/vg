@@ -43,7 +43,7 @@ var searchData=
   ['annotation',['annotation',['../structvg_1_1Alignment.html#af531ff2b8c2b08c78a8b3095fd52c0d8',1,'vg::Alignment::annotation()'],['../structvg_1_1MultipathAlignment.html#acb66af5a0c0197fe49e7dfbac312bd6d',1,'vg::MultipathAlignment::annotation()']]],
   ['append_5fregions',['append_regions',['../classvg_1_1ReadFilter.html#a457e9fef8d1e19c78b4a72ff10d14260',1,'vg::ReadFilter']]],
   ['assume_5facyclic',['assume_acyclic',['../classvg_1_1BaseMapper.html#a7127a75ac293b9b05093134ee8e51cd2',1,'vg::BaseMapper']]],
-  ['atomic_5fheader',['atomic_header',['../classvg_1_1HTSAlignmentEmitter.html#a9c8421e34401bc0eab7cd36d656e7acf',1,'vg::HTSAlignmentEmitter']]],
+  ['atomic_5fheader',['atomic_header',['../classvg_1_1HTSWriter.html#ab8446e15c0caf781e6a9d26cffaf82da',1,'vg::HTSWriter']]],
   ['attributes',['attributes',['../structvg_1_1GFFRecord.html#af888958f0541209b1e6c0f50285d0d92',1,'vg::GFFRecord']]],
   ['aug',['aug',['../classvg_1_1SupportRestrictedTraversalFinder.html#a567e6115385fa235eb1a761c9051dca0',1,'vg::SupportRestrictedTraversalFinder::aug()'],['../classvg_1_1ReadRestrictedTraversalFinder.html#ae15a9cd1b2a92b7375784b7c0be3d9c4',1,'vg::ReadRestrictedTraversalFinder::aug()']]],
   ['augmented',['augmented',['../classvg_1_1NestedTraversalFinder.html#a313111e30533ab2a685d7c9e112a6b22',1,'vg::NestedTraversalFinder']]],

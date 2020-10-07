@@ -257,7 +257,7 @@ var searchData=
   ['at_5for_5fafter',['at_or_after',['../classvg_1_1BitString.html#af27a8d8554102a67192bb3627a56ad77',1,'vg::BitString']]],
   ['at_5for_5fbefore',['at_or_before',['../classvg_1_1BitString.html#a8f2a6515c588dc34d5f8a3b10035f891',1,'vg::BitString']]],
   ['at_5fposition',['at_position',['../structvg_1_1PathIndex.html#aab1c5d586bdef0e4cdc31ed7531eee7c',1,'vg::PathIndex']]],
-  ['atomic_5fheader',['atomic_header',['../classvg_1_1HTSAlignmentEmitter.html#a9c8421e34401bc0eab7cd36d656e7acf',1,'vg::HTSAlignmentEmitter']]],
+  ['atomic_5fheader',['atomic_header',['../classvg_1_1HTSWriter.html#ab8446e15c0caf781e6a9d26cffaf82da',1,'vg::HTSWriter']]],
   ['attempt_5frescue',['attempt_rescue',['../classvg_1_1MinimizerMapper.html#a79aa2191150ce4c8d2fe5aef039d95f8',1,'vg::MinimizerMapper::attempt_rescue()'],['../classvg_1_1MultipathMapper.html#a007fc06565e2f9b1aa084cc4cc60a55d',1,'vg::MultipathMapper::attempt_rescue()']]],
   ['attempt_5frescue_5ffor_5fsecondaries',['attempt_rescue_for_secondaries',['../classvg_1_1MultipathMapper.html#a2d154aa0e761a99266c6eddab022a1c6',1,'vg::MultipathMapper']]],
   ['attempt_5funpaired_5fmultipath_5fmap_5fof_5fpair',['attempt_unpaired_multipath_map_of_pair',['../classvg_1_1MultipathMapper.html#a0f43974edc215737b6c9d5f6155d64ce',1,'vg::MultipathMapper']]],

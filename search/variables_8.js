@@ -28,7 +28,7 @@ var searchData=
   ['has_5fsupports',['has_supports',['../classvg_1_1RepresentativeTraversalFinder.html#a7010e7fc85d3b2454bc5e09a504aee23',1,'vg::RepresentativeTraversalFinder']]],
   ['head',['head',['../classbdsg_1_1HashGraph_1_1path__t.html#a22245b637ef745df9298a4b739c74258',1,'bdsg::HashGraph::path_t']]],
   ['head_5ftail_5fnodes',['head_tail_nodes',['../classvg_1_1Paths.html#a3fd42adbd3d58aee08370f043dc1643d',1,'vg::Paths']]],
-  ['header_5fmutex',['header_mutex',['../classvg_1_1HTSAlignmentEmitter.html#a415bd90d7e4b2da45e534ec1810616fe',1,'vg::HTSAlignmentEmitter']]],
+  ['header_5fmutex',['header_mutex',['../classvg_1_1HTSWriter.html#af9d539c1312350395949b75010134032',1,'vg::HTSWriter']]],
   ['here',['here',['../structvg_1_1Range.html#a518913f6703568c7e704a2723d81e483',1,'vg::Range']]],
   ['het_5fprior_5flogprob',['het_prior_logprob',['../classvg_1_1Genotyper.html#a21799af8d6da86a3bbcfffb1060d27cf',1,'vg::Genotyper']]],
   ['heterozygous_5fprior_5fln',['heterozygous_prior_ln',['../classvg_1_1FixedGenotypePriorCalculator.html#ac5782c89f874dd212631d6451ef4b842',1,'vg::FixedGenotypePriorCalculator']]],
@@ -37,5 +37,5 @@ var searchData=
   ['hit_5fmax',['hit_max',['../classvg_1_1BaseMapper.html#a29b8cec81cc68e9d90405c42fbc8ef64',1,'vg::BaseMapper']]],
   ['hits',['hits',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#aa60067efaa8910104760c8d910471a29',1,'vg::MinimizerMapper::Minimizer']]],
   ['homozygous_5fprior_5fln',['homozygous_prior_ln',['../classvg_1_1FixedGenotypePriorCalculator.html#ade32a0216586eb9467d476e2880c188b',1,'vg::FixedGenotypePriorCalculator']]],
-  ['hts_5fmode',['hts_mode',['../classvg_1_1HTSAlignmentEmitter.html#a153522a68e1a526fb794753ab666f840',1,'vg::HTSAlignmentEmitter']]]
+  ['hts_5fmode',['hts_mode',['../classvg_1_1HTSWriter.html#ab2151e3837dd1503111bf7d1daa1fa56',1,'vg::HTSWriter']]]
 ];

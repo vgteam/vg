@@ -256,6 +256,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html">HTSAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSWriter.html">HTSWriter</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IdentityOverlay.html">IdentityOverlay</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IDScanner.html">IDScanner</a></td></tr>
@@ -1393,6 +1395,8 @@ Functions</h2></td></tr>
 <tr class="separator:aa9d71371be6972c8284b267d42fac754"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a422ee7d48c95e4cdea8ec163fae32d6d"><td class="memItemLeft" align="right" valign="top">pair&lt; tuple&lt; int64_t, int64_t, int64_t, int64_t &gt;, tuple&lt; int64_t, int64_t, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a422ee7d48c95e4cdea8ec163fae32d6d">trace_path</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx)</td></tr>
 <tr class="separator:a422ee7d48c95e4cdea8ec163fae32d6d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaa223d83f7bc78267d7c7a522c909231"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int, char &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaa223d83f7bc78267d7c7a522c909231">cigar_against_path</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const string &amp;path_name, bool rev, int64_t path_pos, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, int64_t min_splice_length)</td></tr>
+<tr class="separator:aaa223d83f7bc78267d7c7a522c909231"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a026842b7758f60f2be6a474cf41d3fe1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a026842b7758f60f2be6a474cf41d3fe1">validate_multipath_alignment</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;handle_graph)</td></tr>
 <tr class="separator:a026842b7758f60f2be6a474cf41d3fe1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a411a023efbe439f069829603a2775673"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a411a023efbe439f069829603a2775673">view_multipath_alignment</a> (ostream &amp;out, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;handle_graph)</td></tr>
@@ -1586,6 +1590,12 @@ Functions</h2></td></tr>
 <tr class="separator:a11592884d28d3865ea95f76232e2fed4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a51469d56a6d4e55660c15af135c92b46"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a51469d56a6d4e55660c15af135c92b46">debug_string</a> (const <a class="el" href="classvg_1_1edit__t.html">edit_t</a> &amp;edit)</td></tr>
 <tr class="separator:a51469d56a6d4e55660c15af135c92b46"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9dffafa4fdd05242ff4b73f5aafedd95"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9dffafa4fdd05242ff4b73f5aafedd95">corresponding_length_internal</a> (const <a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;path, int given_length, bool is_from_length, bool from_end)</td></tr>
+<tr class="separator:a9dffafa4fdd05242ff4b73f5aafedd95"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1fa02fa34866aee06ca1e3cead896b8d"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1fa02fa34866aee06ca1e3cead896b8d">corresponding_to_length</a> (const <a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;path, int <a class="el" href="namespacevg.html#a83d1f079508a3ee8a2705773109a5a8e">from_length</a>, bool from_end)</td></tr>
+<tr class="separator:a1fa02fa34866aee06ca1e3cead896b8d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a84d3002d98148b82b4f395c7b625b892"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a84d3002d98148b82b4f395c7b625b892">corresponding_from_length</a> (const <a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;path, int <a class="el" href="namespacevg.html#a5ed83dc32e575ae68b591d142eb38912">to_length</a>, bool from_end)</td></tr>
+<tr class="separator:a84d3002d98148b82b4f395c7b625b892"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9fa6175557c33cd572b8726222cf6547"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9fa6175557c33cd572b8726222cf6547">increment_node_mapping_ids</a> (<a class="el" href="structvg_1_1Path.html">Path</a> &amp;p, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> inc)</td></tr>
 <tr class="separator:a9fa6175557c33cd572b8726222cf6547"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1b5ffc03255d72f1901a7b1ce34c058a"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1Paths.html">Paths</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1b5ffc03255d72f1901a7b1ce34c058a">paths_from_graph</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g)</td></tr>
@@ -4816,7 +4826,7 @@ template&lt;typename ProbIn &gt; </div>
 </div>
 </div>
 <a id="a43ac2d1903fa51a20a2366a865f5f0a4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a43ac2d1903fa51a20a2366a865f5f0a4">&#9670;&nbsp;</a></span>cigar_against_path()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a43ac2d1903fa51a20a2366a865f5f0a4">&#9670;&nbsp;</a></span>cigar_against_path() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -4859,6 +4869,59 @@ template&lt;typename ProbIn &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Create a CIGAR from the given <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. If softclip_suppress is nonzero, suppress softclips up to that length. This will necessitate adjusting pos, which is why it is passed by reference. </p>
+
+</div>
+</div>
+<a id="aaa223d83f7bc78267d7c7a522c909231"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaa223d83f7bc78267d7c7a522c909231">&#9670;&nbsp;</a></span>cigar_against_path() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; pair&lt; int, char &gt; &gt; vg::cigar_against_path </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>path_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rev</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>path_pos</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>min_splice_length</em> = <code>numeric_limits&lt;&#160;int64_t&#160;&gt;::max()</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Convert a surjected multipath alignment into a CIGAR sequence against a path. Splicing will be allowed at connections and at any silent deletions of path sequence. Surjected multipath alignment graph must consist of a single non-branching path </p>
 
 </div>
 </div>
@@ -5594,6 +5657,114 @@ template&lt;typename T &gt; </div>
 </div><div class="memdoc">
 
 <p>Replaces all U's in the sequence and the aligned <a class="el" href="classvg_1_1Paths.html">Paths</a> with T's. </p>
+
+</div>
+</div>
+<a id="a84d3002d98148b82b4f395c7b625b892"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a84d3002d98148b82b4f395c7b625b892">&#9670;&nbsp;</a></span>corresponding_from_length()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::corresponding_from_length </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>to_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>from_end</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9dffafa4fdd05242ff4b73f5aafedd95"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9dffafa4fdd05242ff4b73f5aafedd95">&#9670;&nbsp;</a></span>corresponding_length_internal()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::corresponding_length_internal </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>given_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>is_from_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>from_end</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1fa02fa34866aee06ca1e3cead896b8d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1fa02fa34866aee06ca1e3cead896b8d">&#9670;&nbsp;</a></span>corresponding_to_length()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::corresponding_to_length </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>from_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>from_end</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>

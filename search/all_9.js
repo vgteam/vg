@@ -95,7 +95,7 @@ var searchData=
   ['init_5fstate',['init_state',['../classvg_1_1DinucleotideMachine.html#a35193673a88abc7f0933d2f65fd7f2ea',1,'vg::DinucleotideMachine']]],
   ['init_5ftraceback_5findexes',['init_traceback_indexes',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ab251d4ff6f6b7f351f29c5dd29ead002',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['initial_5fposition',['initial_position',['../namespacevg.html#acd31d3a8dc67801f147d0ba1b0059c3f',1,'vg::initial_position(const Path &amp;path)'],['../namespacevg.html#a5273bbd5e5d0f9bbf639c19c962a58dd',1,'vg::initial_position(const path_t &amp;path)']]],
-  ['initialize_5fsam_5ffile',['initialize_sam_file',['../classvg_1_1HTSAlignmentEmitter.html#a13ea72ef0fd7badeb2ae3e951acc8c43',1,'vg::HTSAlignmentEmitter']]],
+  ['initialize_5fsam_5ffile',['initialize_sam_file',['../classvg_1_1HTSWriter.html#a3063999c0e6b467c7717edfb53040166',1,'vg::HTSWriter']]],
   ['inject_5fmain_2ecpp',['inject_main.cpp',['../inject__main_8cpp.html',1,'']]],
   ['inner_5fvalue',['inner_value',['../structhaplo_1_1haplo__DP__rectangle.html#a68817623682eb451f4a5a42a8ae8ef8a',1,'haplo::haplo_DP_rectangle']]],
   ['input',['input',['../structvg_1_1io_1_1hFILE__cppstream.html#a301bcdddd00f4d40033b4ca94691f9a6',1,'vg::io::hFILE_cppstream']]],

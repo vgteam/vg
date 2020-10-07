@@ -21,7 +21,7 @@ var searchData=
   ['read_5flog_5flikelihood',['read_log_likelihood',['../classvg_1_1PhasedGenome.html#af754f8a4e9793ebd5f4aa3b673b7e442',1,'vg::PhasedGenome']]],
   ['read_5fmapping',['read_mapping',['../classvg_1_1PhaseUnfolder.html#adbf93e421183b64f73276639c3c23dfb',1,'vg::PhaseUnfolder']]],
   ['readrestrictedtraversalfinder',['ReadRestrictedTraversalFinder',['../classvg_1_1ReadRestrictedTraversalFinder.html#a8cf6a940b0fce108e8af39d8a50a380f',1,'vg::ReadRestrictedTraversalFinder']]],
-  ['realigning_5fsurject',['realigning_surject',['../classvg_1_1Surjector.html#a7ff37ba8e3b9a19dbdb7fda858f89588',1,'vg::Surjector']]],
+  ['realigning_5fsurject',['realigning_surject',['../classvg_1_1Surjector.html#a1ca787971c88c602434bd70073f7df2b',1,'vg::Surjector']]],
   ['reassign_5fnode',['reassign_node',['../classvg_1_1Paths.html#aed5ea00a6a8dab5b54eeedd9e8f91a7b',1,'vg::Paths']]],
   ['reassign_5fnode_5fids',['reassign_node_ids',['../classvg_1_1VG.html#aca4a358ff4c7f387c1c6d5d239499a07',1,'vg::VG::reassign_node_ids()'],['../classbdsg_1_1HashGraph.html#ad971e81291cf79ca44f20dbfeb2817ea',1,'bdsg::HashGraph::reassign_node_ids()'],['../classbdsg_1_1ODGI.html#aeb9d9a5e4259e365194e650f4d8de89a',1,'bdsg::ODGI::reassign_node_ids()'],['../classbdsg_1_1PackedGraph.html#af7f213978cb671f8e9586901321b79e2',1,'bdsg::PackedGraph::reassign_node_ids()'],['../classhandlegraph_1_1MutableHandleGraph.html#a4805d276a83a1dad2462e6b8dd2443dc',1,'handlegraph::MutableHandleGraph::reassign_node_ids()']]],
   ['rebuild_5fedge_5findexes',['rebuild_edge_indexes',['../classvg_1_1VG.html#a6541146b6410cec4be3e2a7379ea3bcf',1,'vg::VG']]],
