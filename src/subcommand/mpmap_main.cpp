@@ -296,9 +296,9 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus_arg = std::numeric_limits<int>::min();
     int reversing_walk_length = 1;
     bool no_output = false;
-    string default_single_path_format = "gam";
+    string default_single_path_format = "GAM";
     string single_path_format = default_single_path_format;
-    string out_format = "gamp";
+    string out_format = "GAMP";
 
     // default presets
     string nt_type = "dna";
@@ -926,14 +926,14 @@ int main_mpmap(int argc, char** argv) {
     }
     
     // normalize capitalization
-    if (out_format == "GAM") {
-        out_format = "gam";
+    if (out_format == "gam") {
+        out_format = "GAM";
     }
-    if (out_format == "GAMP") {
-        out_format = "gamp";
+    if (out_format == "gamp") {
+        out_format = "GAMP";
     }
-    if (out_format == "GAF") {
-        out_format = "gaf";
+    if (out_format == "gaf") {
+        out_format = "GAF";
     }
     
     if (single_path_alignment_mode &&
@@ -1804,7 +1804,8 @@ int main_mpmap(int argc, char** argv) {
     };
     
     // init a writer for the output
-    MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter(cout, thread_count, *path_position_handle_graph, out_format);
+    MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter("-", thread_count, out_format,
+                                                                       path_position_handle_graph);
     emitter->set_read_group(read_group);
     emitter->set_sample_name(sample_name);
     

@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 31
+plan tests 33
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -84,7 +84,7 @@ is $(vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -
 #is $(vg map -G <(vg sim -a -n 100 x.vg) x.vg | vg surject -p x -g x.gcsa -x x.xg -c - | samtools view - | wc -l) \
 #    100 "vg surject produces valid CRAM output"
 
-echo '{"sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "mapping_quality": 99}' | vg view -JGa - > read.gam
+echo '{"sequence": "CAAATAA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "mapping_quality": 99}' | vg view -JGa - > read.gam
 is "$(vg surject -p x -x x.xg read.gam | vg view -aj - | jq '.mapping_quality')" "99" "mapping quality is preserved through surjection"
 
 echo '{"name": "read/2", "sequence": "CAAATAA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_prev": {"name": "read/1"}}{"name": "read/1", "sequence": "CTTATTT", "path": {"mapping": [{"position": {"node_id": 1, "is_reverse": true}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_next": {"name": "read/2"}}' | vg view -JGa - > read.gam
@@ -129,6 +129,10 @@ vg index -k 11 -g m.gcsa -x m.xg minigiab.vg
 is $(vg map -b minigiab/NA12878.chr22.tiny.bam -x m.xg -g m.gcsa | vg surject -p q -x m.xg -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from BAM input"
 is $(vg map -f minigiab/NA12878.chr22.tiny.fq.gz -x m.xg -g m.gcsa | vg surject -p q -x m.xg -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from fastq input"
 is $(vg map -f minigiab/NA12878.chr22.tiny.fq.gz -x m.xg -g m.gcsa --gaf | vg surject -p q -x m.xg -s - -G | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from GAF input"
+
+is "$(zcat < minigiab/NA12878.chr22.tiny.fq.gz | head -n 4000 | vg mpmap -B -p -x m.xg -g m.gcsa -f - | vg surject -m -x m.xg -p q -s - | samtools view | wc -l)" 1000 "surject works on GAMP input"
+
+is "$(vg sim -x m.xg -n 500 -l 150 -a -s 768594 -i 0.01 -e 0.01 -p 250 -v 50 | vg view -aX - | vg mpmap -B -p -b 200 -x m.xg -g m.gcsa -i -f - | vg surject -m -x m.xg -i -p q -s - | samtools view | wc -l)" 1000 "surject works on paired GAMP input"
 
 rm -rf minigiab.vg* m.xg m.gcsa
 

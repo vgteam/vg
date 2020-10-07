@@ -42,9 +42,9 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
 }
 
 // Give the footer length for rewriting BGZF EOF markers.
-const size_t HTSAlignmentEmitter::BGZF_FOOTER_LENGTH = 28;
+const size_t HTSWriter::BGZF_FOOTER_LENGTH = 28;
 
-HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format,
+HTSWriter::HTSWriter(const string& filename, const string& format,
     const map<string, int64_t>& path_length, size_t max_threads) :
     out_file(filename == "-" ? nullptr : new ofstream(filename)),
     multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads),
@@ -59,7 +59,7 @@ HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& f
     
     if (out_file.get() != nullptr && !*out_file) {
         // Make sure we opened a file if we aren't writing to standard output
-        cerr << "[vg::HTSAlignmentEmitter] failed to open " << filename << " for writing" << endl;
+        cerr << "[vg::HTSWriter] failed to open " << filename << " for writing" << endl;
         exit(1);
     }
     
@@ -91,7 +91,7 @@ HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& f
     // Each thread will lazily open its samFile*, once it has a header ready
 }
 
-HTSAlignmentEmitter::~HTSAlignmentEmitter() {
+HTSWriter::~HTSWriter() {
     // Note that the destructor runs in only one thread, and only when
     // destruction is safe. No need to lock the header.
     if (atomic_header.load() != nullptr) {
@@ -126,7 +126,9 @@ HTSAlignmentEmitter::~HTSAlignmentEmitter() {
     
 }
 
-bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff, size_t thread_number) {
+bam_hdr_t* HTSWriter::ensure_header(const string& read_group,
+                                    const string& sample_name,
+                                    size_t thread_number) {
     bam_hdr_t* header = atomic_header.load();
     if (header == nullptr) {
         // The header does not exist.
@@ -142,9 +144,9 @@ bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff, size_t thr
         
             // Sniff out the read group and sample, and map from RG to sample
             map<string, string> rg_sample;
-            if (!sniff.sample_name().empty() && !sniff.read_group().empty()) {
+            if (!read_group.empty() && !sample_name.empty()) {
                 // We have a sample and a read group
-                rg_sample[sniff.read_group()] = sniff.sample_name();
+                rg_sample[read_group] = sample_name;
             }
             
             // Make the header
@@ -172,6 +174,93 @@ bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff, size_t thr
     }
     
     return header;
+}
+
+
+void HTSWriter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number) {
+    // We need a header and an extant samFile*
+    assert(header != nullptr);
+    assert(sam_files[thread_number] != nullptr);
+    
+    for (auto& b : records) {
+        // Emit each record
+        
+        if (sam_write1(sam_files[thread_number], header, b) == 0) {
+            cerr << "[vg::HTSWriter] error: writing to output file failed" << endl;
+            exit(1);
+        }
+    }
+    
+    for (auto& b : records) {
+        // Deallocate all the records
+        bam_destroy1(b);
+    }
+    
+    if (multiplexer.want_breakpoint(thread_number)) {
+        // We have written enough that we ought to give the multiplexer a chance to multiplex soon.
+        // There's no way to do this without closing and re-opening the HTS file.
+        // So just tear down and reamke the samFile* for this thread.
+        initialize_sam_file(header, thread_number);
+    }
+}
+
+void HTSWriter::initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header) {
+    if (sam_files[thread_number] != nullptr) {
+        // A samFile* has been created already. Clear it out.
+        // Closing the samFile* flushes and destroys the BGZF and hFILE* backing it.
+        sam_close(sam_files[thread_number]);
+        
+        // Now we know there's a closing empty BGZF block that htslib puts to
+        // mark EOF. We don't want that in the middle of our stream because it
+        // is weird and we aren't actually at EOF.
+        // We know how long it is, so we will trim it off.
+        multiplexer.discard_bytes(thread_number, BGZF_FOOTER_LENGTH);
+        
+        // Now place a breakpoint right where we were before that empty block.
+        multiplexer.register_breakpoint(thread_number);
+    }
+    
+    // Create a new samFile* for this thread
+    // hts_mode was filled in when the header was.
+    // hts_hopen demands a filename, but appears to just store it, and
+    // doesn't document how required it it.
+    backing_files[thread_number] = vg::io::hfile_wrap(multiplexer.get_thread_stream(thread_number));
+    sam_files[thread_number] = hts_hopen(backing_files[thread_number], "-", hts_mode.c_str());
+    
+    if (sam_files[thread_number] == nullptr) {
+        // We couldn't open the output samFile*
+        cerr << "[vg::HTSWriter] failed to open internal stream for writing " << format << " output" << endl;
+        exit(1);
+    }
+    
+    // Write the header again, which is the only way to re-initialize htslib's internals.
+    // Remember that sam_hdr_write flushes the BGZF to the hFILE*, but does not flush the hFILE*.
+    if (sam_hdr_write(sam_files[thread_number], header) != 0) {
+        cerr << "[vg::HTSWriter] error: failed to write the SAM header" << endl;
+        exit(1);
+    }
+    
+    // Now flush it out of the hFILE* buffer into the backing C++ stream
+    if (hflush(backing_files[thread_number]) != 0) {
+        cerr << "[vg::HTSWriter] error: failed to flush the SAM header" << endl;
+        exit(1);
+    }
+    
+    if (keep_header) {
+        // We are the first thread to write a header, so we actually want it.
+        // Place a barrier which is also a breakpoint, so all subsequent writes come later.
+        multiplexer.register_barrier(thread_number);
+    } else {
+        // Discard the header so it won't be in the resulting file again
+        multiplexer.discard_to_breakpoint(thread_number);
+    }
+}
+
+HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format,
+                                         const map<string, int64_t>& path_length, size_t max_threads)
+    : HTSWriter(filename, format, path_length, max_threads)
+{
+    // nothing else to do
 }
 
 void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar, bool& pos_rev, int64_t& pos, string& path_name) const {
@@ -246,85 +335,6 @@ void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, bam_h
     
 }
 
-void HTSAlignmentEmitter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number) {
-    // We need a header and an extant samFile*
-    assert(header != nullptr);
-    assert(sam_files[thread_number] != nullptr);
-    
-    for (auto& b : records) {
-        // Emit each record
-        
-        if (sam_write1(sam_files[thread_number], header, b) == 0) {
-            cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
-            exit(1);
-        }
-    }
-    
-    for (auto& b : records) {
-        // Deallocate all the records
-        bam_destroy1(b);
-    }
-    
-    if (multiplexer.want_breakpoint(thread_number)) {
-        // We have written enough that we ought to give the multiplexer a chance to multiplex soon.
-        // There's no way to do this without closing and re-opening the HTS file.
-        // So just tear down and reamke the samFile* for this thread.
-        initialize_sam_file(header, thread_number);
-    }
-}
-
-void HTSAlignmentEmitter::initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header) {
-    if (sam_files[thread_number] != nullptr) {
-        // A samFile* has been created already. Clear it out.
-        // Closing the samFile* flushes and destroys the BGZF and hFILE* backing it.
-        sam_close(sam_files[thread_number]);
-        
-        // Now we know there's a closing empty BGZF block that htslib puts to
-        // mark EOF. We don't want that in the middle of our stream because it
-        // is weird and we aren't actually at EOF.
-        // We know how long it is, so we will trim it off.
-        multiplexer.discard_bytes(thread_number, BGZF_FOOTER_LENGTH);
-        
-        // Now place a breakpoint right where we were before that empty block.
-        multiplexer.register_breakpoint(thread_number);
-    }
-    
-    // Create a new samFile* for this thread
-    // hts_mode was filled in when the header was.
-    // hts_hopen demands a filename, but appears to just store it, and
-    // doesn't document how required it it.
-    backing_files[thread_number] = vg::io::hfile_wrap(multiplexer.get_thread_stream(thread_number));
-    sam_files[thread_number] = hts_hopen(backing_files[thread_number], "-", hts_mode.c_str());
-    
-    if (sam_files[thread_number] == nullptr) {
-        // We couldn't open the output samFile*
-        cerr << "[vg::HTSAlignmentEmitter] failed to open internal stream for writing " << format << " output" << endl;
-        exit(1);
-    }
-    
-    // Write the header again, which is the only way to re-initialize htslib's internals.
-    // Remember that sam_hdr_write flushes the BGZF to the hFILE*, but does not flush the hFILE*.
-    if (sam_hdr_write(sam_files[thread_number], header) != 0) {
-        cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
-        exit(1);
-    }
-    
-    // Now flush it out of the hFILE* buffer into the backing C++ stream
-    if (hflush(backing_files[thread_number]) != 0) {
-        cerr << "[vg::HTSAlignmentEmitter] error: failed to flush the SAM header" << endl;
-        exit(1);
-    }
-    
-    if (keep_header) {
-        // We are the first thread to write a header, so we actually want it.
-        // Place a barrier which is also a breakpoint, so all subsequent writes come later.
-        multiplexer.register_barrier(thread_number);
-    } else {
-        // Discard the header so it won't be in the resulting file again
-        multiplexer.discard_to_breakpoint(thread_number);
-    }
-}
-
 void HTSAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
     if (aln_batch.empty()) {
         // Nothing to do
@@ -335,7 +345,8 @@ void HTSAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
     size_t thread_number = omp_get_thread_num();
     
     // Make sure header exists
-    bam_hdr_t* header = ensure_header(aln_batch.front(), thread_number);
+    bam_hdr_t* header = ensure_header(aln_batch.front().read_group(),
+                                      aln_batch.front().sample_name(), thread_number);
     assert(header != nullptr);
     assert(sam_files[thread_number] != nullptr);
     
@@ -373,7 +384,8 @@ void HTSAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_b
     
     // Make sure header exists
     assert(sniff != nullptr);
-    bam_hdr_t* header = ensure_header(*sniff, thread_number);
+    bam_hdr_t* header = ensure_header(sniff->read_group(), sniff->sample_name(),
+                                      thread_number);
     assert(header != nullptr);
     assert(sam_files[thread_number] != nullptr);
     
@@ -409,7 +421,8 @@ void HTSAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
     size_t thread_number = omp_get_thread_num();
     
     // Make sure header exists
-    bam_hdr_t* header = ensure_header(aln1_batch.front(), thread_number);
+    bam_hdr_t* header = ensure_header(aln1_batch.front().read_group(),
+                                      aln1_batch.front().sample_name(), thread_number);
     assert(header != nullptr);
     assert(sam_files[thread_number] != nullptr);
     
@@ -459,7 +472,8 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
     
     // Make sure header exists
     assert(sniff != nullptr);
-    bam_hdr_t* header = ensure_header(*sniff, thread_number);
+    bam_hdr_t* header = ensure_header(sniff->read_group(), sniff->sample_name(),
+                                      thread_number);
     assert(header != nullptr);
     assert(sam_files[thread_number] != nullptr);
     

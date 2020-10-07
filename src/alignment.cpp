@@ -1026,8 +1026,6 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
         flag |= BAM_FSECONDARY;
     }
     
-    
-    
     return flag;
 }
 
