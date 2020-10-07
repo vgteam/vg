@@ -268,7 +268,7 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     vector<int> site_genotype;
     auto ref_gt_it = std::find(genotype.begin(), genotype.end(), ref_trav_idx);
     out_variant.ref = trav_to_string(called_traversals, genotype, ref_trav_idx,
-                                     ref_gt_it != genotype.end() ? ref_gt_it - genotype.begin() : -1,
+                                     ref_gt_it != genotype.end() ? ref_gt_it - genotype.begin() : 0,
                                      ref_trav_idx);
     
     // deduplicate alleles and compute the site traversals and genotype
