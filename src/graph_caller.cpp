@@ -1,7 +1,7 @@
 #include "graph_caller.hpp"
 #include "algorithms/expand_context.hpp"
 
-//#define debug
+#define debug
 
 namespace vg {
 
@@ -13,7 +13,7 @@ GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
 GraphCaller::~GraphCaller() {
 }
 
-void GraphCaller::call_top_level_snarls(const HandleGraph& graph, int ploidy, bool recurse_on_fail) {
+void GraphCaller::call_top_level_snarls(const HandleGraph& graph, bool recurse_on_fail) {
 
     // Used to recurse on children of parents that can't be called
     size_t thread_count = get_thread_count();
@@ -28,7 +28,7 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, int ploidy, bo
             cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
 #endif
 
-            bool was_called = call_snarl(*snarl, ploidy);
+            bool was_called = call_snarl(*snarl);
             if (!was_called && recurse_on_fail) {
                 const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
                 vector<const Snarl*>& thread_queue = snarl_queue[omp_get_thread_num()];
@@ -64,7 +64,7 @@ static void flip_snarl(Snarl& snarl) {
     *snarl.mutable_end() = reverse(v);
 }
 
-void GraphCaller::call_top_level_chains(const HandleGraph& graph, int ploidy, size_t max_edges, size_t max_trivial, bool recurse_on_fail) {
+void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edges, size_t max_trivial, bool recurse_on_fail) {
     // Used to recurse on children of parents that can't be called
     size_t thread_count = get_thread_count();
     vector<vector<Chain>> chain_queue(thread_count);
@@ -97,7 +97,7 @@ void GraphCaller::call_top_level_chains(const HandleGraph& graph, int ploidy, si
             cerr << "calling fake snarl " << pb2json(fake_snarl) << endl;
 #endif
             
-            bool was_called = call_snarl(fake_snarl, ploidy);
+            bool was_called = call_snarl(fake_snarl);
             if (!was_called && recurse_on_fail) {
                 vector<Chain>& thread_queue = chain_queue[omp_get_thread_num()];                
                 for (pair<const Snarl*, bool> chain_link : chain_piece) {
@@ -711,6 +711,7 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
                            vcflib::VariantCallFile& variant_file,
                            const string& sample_name,
                            const vector<string>& ref_paths,
+                           const vector<int>& ref_path_ploidies,
                            FastaReference* ref_fasta,
                            FastaReference* ins_fasta,
                            AlignmentEmitter* aln_emitter,
@@ -726,14 +727,19 @@ VCFGenotyper::VCFGenotyper(const PathHandleGraph& graph,
     traversals_only(traversals_only),
     gaf_output(gaf_output) {
 
-    scan_contig_lengths();    
+    scan_contig_lengths();
+
+    assert(ref_paths.size() == ref_path_ploidies.size());
+    for (int i = 0; i < ref_paths.size(); ++i) {
+        path_to_ploidy[ref_paths[i]] = ref_path_ploidies[i];
+    }
 }
 
 VCFGenotyper::~VCFGenotyper() {
 
 }
 
-bool VCFGenotyper::call_snarl(const Snarl& snarl, int ploidy) {
+bool VCFGenotyper::call_snarl(const Snarl& snarl) {
 
     // could be that our graph is a subgraph of the graph the snarls were computed from
     // so bypass snarls we can't process
@@ -777,8 +783,8 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl, int ploidy) {
         // use our support caller to choose our genotype (int traversal coordinates)
         vector<int> trav_genotype;
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, get<0>(ref_positions),
-                                                                        make_pair(get<1>(ref_positions), get<2>(ref_positions)));
+        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, path_to_ploidy[get<0>(ref_positions)],
+                                                                        get<0>(ref_positions),  make_pair(get<1>(ref_positions), get<2>(ref_positions)));
 
         assert(trav_genotype.size() <= 2);
 
@@ -935,7 +941,8 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
                            SnarlManager& snarl_manager,
                            const string& sample_name,
                            const vector<string>& ref_paths,
-                           const vector<size_t>& ref_path_offsets) :
+                           const vector<size_t>& ref_path_offsets,
+                           const vector<int>& ref_path_ploidies) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     graph(graph),
@@ -943,6 +950,7 @@ LegacyCaller::LegacyCaller(const PathPositionHandleGraph& graph,
 
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
+        ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
     
     is_vg = dynamic_cast<const VG*>(&graph) != nullptr;
@@ -980,7 +988,7 @@ LegacyCaller::~LegacyCaller() {
     }
 }
 
-bool LegacyCaller::call_snarl(const Snarl& snarl, int ploidy) {
+bool LegacyCaller::call_snarl(const Snarl& snarl) {
 
     // if we can't handle the snarl, then the GraphCaller framework will recurse on its children
     if (!is_traversable(snarl)) {
@@ -1066,6 +1074,7 @@ bool LegacyCaller::call_snarl(const Snarl& snarl, int ploidy) {
         // these integers map the called traversals to their positions in the list of all traversals
         // of the top level snarl.  
         vector<int> genotype;
+        int ploidy = ref_ploidies[path_name];
         std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,
                                                                   path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
     
@@ -1280,6 +1289,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        TraversalFinder& traversal_finder,
                        const vector<string>& ref_paths,
                        const vector<size_t>& ref_path_offsets,
+                       const vector<int>& ref_path_ploidies,
                        AlignmentEmitter* aln_emitter,
                        bool traversals_only,
                        bool gaf_output,
@@ -1298,6 +1308,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
         ref_path_set.insert(ref_paths[i]);
+        ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
 
 }
@@ -1306,7 +1317,7 @@ FlowCaller::~FlowCaller() {
 
 }
 
-bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy) {
+bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
 
     // todo: In order to experiment with merging consecutive snarls to make longer traversals,
     // I am experimenting with sending "fake" snarls through this code.  So make a local
@@ -1452,6 +1463,7 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy) {
         // use our support caller to choose our genotype
         vector<int> trav_genotype;
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+        int ploidy = ref_ploidies[ref_path_name];
         std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
                                                                         make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
@@ -1485,17 +1497,18 @@ string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>
 
 
 NestedFlowCaller::NestedFlowCaller(const PathPositionHandleGraph& graph,
-                       SupportBasedSnarlCaller& snarl_caller,
-                       SnarlManager& snarl_manager,
-                       const string& sample_name,
-                       TraversalFinder& traversal_finder,
-                       const vector<string>& ref_paths,
-                       const vector<size_t>& ref_path_offsets,
-                       AlignmentEmitter* aln_emitter,
-                       bool traversals_only,
-                       bool gaf_output,
-                       size_t trav_padding,
-                       bool genotype_snarls) :
+                                   SupportBasedSnarlCaller& snarl_caller,
+                                   SnarlManager& snarl_manager,
+                                   const string& sample_name,
+                                   TraversalFinder& traversal_finder,
+                                   const vector<string>& ref_paths,
+                                   const vector<size_t>& ref_path_offsets,
+                                   const vector<int>& ref_path_ploidies,
+                                   AlignmentEmitter* aln_emitter,
+                                   bool traversals_only,
+                                   bool gaf_output,
+                                   size_t trav_padding,
+                                   bool genotype_snarls) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
@@ -1510,6 +1523,7 @@ NestedFlowCaller::NestedFlowCaller(const PathPositionHandleGraph& graph,
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
         ref_path_set.insert(ref_paths[i]);
+        ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
 
 }
@@ -1518,14 +1532,14 @@ NestedFlowCaller::~NestedFlowCaller() {
 
 }
 
-bool NestedFlowCaller::call_snarl(const Snarl& managed_snarl, int ploidy) {
+bool NestedFlowCaller::call_snarl(const Snarl& managed_snarl) {
 
     // remember the calls for each child snarl in this table
     CallTable call_table;
 
-    call_snarl_recursive(managed_snarl, ploidy, "", make_pair(0, 0), call_table);
+    call_snarl_recursive(managed_snarl, -1, "", make_pair(0, 0), call_table);
 
-    emit_snarl_recursive(managed_snarl, ploidy, call_table);
+    emit_snarl_recursive(managed_snarl, -1, call_table);
 
     return true;
 }
@@ -1630,7 +1644,9 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
 
         gt_ref_path_name = ref_path_name;
         gt_ref_interval = make_pair(get<0>(ref_interval), get<1>(ref_interval));
-        
+        if (max_ploidy == -1) {
+            max_ploidy = ref_ploidies[ref_path_name];
+        }        
     } else {
         // if we have no reference infromation, try to get it from the parent snarl
         gt_ref_path_name = parent_ref_path_name;
@@ -1639,6 +1655,7 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
             // there's just no reference path through this snarl
             return false;
         }
+        assert(max_ploidy >= 0);
     }
     
     // recurse on the children
@@ -1786,7 +1803,11 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
 
     // only emit snarl with reference backbone:
     // todo: emit when no call (at least optionally)
-    if (record.ref_trav_idx >= 0 && ploidy > 0 && !record.genotype_by_ploidy.empty()) {
+    if (record.ref_trav_idx >= 0 && !record.genotype_by_ploidy.empty() && ploidy != 0) {
+
+        if (ploidy < 0) {
+            ploidy = ref_ploidies[record.ref_path_name];
+        }
         
         pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>& genotype = record.genotype_by_ploidy[ploidy - 1];
 

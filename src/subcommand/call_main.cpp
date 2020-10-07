@@ -6,7 +6,7 @@
 #include <omp.h>
 #include <unistd.h>
 #include <getopt.h>
-
+#include <regex>
 #include <list>
 #include <fstream>
 
@@ -49,6 +49,9 @@ void help_call(char** argv) {
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
        << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
        << "    -d, --ploidy N          Ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
+       << "    -R, --ploidy-regex RULES    use the given comma-separated list of colon-delimited REGEX:PLOIDY rules to assign" << endl
+       << "                                ploidies to contigs not visited by the selected samples, or to all contigs simulated" << endl
+       << "                                from if no samples are used. Unmatched contigs get ploidy 2 (or that from -d)." << endl
        << "    -n, --nested            Activate nested calling mode (experimental)" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
@@ -71,6 +74,9 @@ int main_call(int argc, char** argv) {
     bool ratio_caller = false;
     bool legacy = false;
     int ploidy = 2;
+    // copied over from vg sim
+    std::vector<std::pair<std::regex, size_t>> ploidy_rules;
+
     bool traversals_only = false;
     bool gaf_output = false;
     size_t trav_padding = 0;
@@ -109,6 +115,7 @@ int main_call(int argc, char** argv) {
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
             {"ploidy", required_argument, 0, 'd'},
+            {"ploidy-regex", required_argument, 0, 'R'},
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
             {"min-trav-len", required_argument, 0, 'M'},
@@ -121,7 +128,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:af:i:s:r:g:p:o:l:d:GTLM:nt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:af:i:s:r:g:p:o:l:d:R:GTLM:nt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -178,6 +185,27 @@ int main_call(int argc, char** argv) {
         case 'd':
             ploidy = parse<int>(optarg);
             break;
+        case 'R':
+            for (auto& rule : split_delims(optarg, ",")) {
+                // For each comma-separated rule
+                auto parts = split_delims(rule, ":");
+                if (parts.size() != 2) {
+                    cerr << "error: ploidy rules must be REGEX:PLOIDY" << endl;
+                    exit(1);
+                }
+                try {
+                    // Parse the regex
+                    std::regex match(parts[0]);
+                    size_t weight = parse<size_t>(parts[1]);
+                    // Save the rule
+                    ploidy_rules.emplace_back(match, weight);
+                } catch (const std::regex_error& e) {
+                    // This is not a good regex
+                    cerr << "error: unacceptable regular expression \"" << parts[0] << "\": " << e.what() << endl;
+                    exit(1);
+                }
+            }
+            break;            
         case 'G':
             gaf_output = true;
             break;
@@ -352,6 +380,19 @@ int main_call(int argc, char** argv) {
             });
     }
 
+    // build table of ploidys
+    vector<int> ref_path_ploidies;
+    for (const string& ref_path : ref_paths) {
+        int path_ploidy = ploidy;
+        for (auto& rule : ploidy_rules) {
+            if (std::regex_match(ref_path, rule.first)) {
+                path_ploidy = rule.second;
+                break;
+            }
+        }
+        ref_path_ploidies.push_back(path_ploidy);
+    }
+
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    
     if (!snarl_filename.empty()) {
@@ -460,7 +501,7 @@ int main_call(int argc, char** argv) {
         
         VCFGenotyper* vcf_genotyper = new VCFGenotyper(*graph, *snarl_caller,
                                                        *snarl_manager, variant_file,
-                                                       sample_name, ref_paths,
+                                                       sample_name, ref_paths, ref_path_ploidies,
                                                        ref_fasta.get(),
                                                        ins_fasta.get(),
                                                        alignment_emitter.get(),
@@ -473,7 +514,7 @@ int main_call(int argc, char** argv) {
         LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                        *snarl_manager,
-                                                       sample_name, ref_paths, ref_path_offsets);
+                                                       sample_name, ref_paths, ref_path_offsets, ref_path_ploidies);
         graph_caller = unique_ptr<GraphCaller>(legacy_caller);
     } else {
         // flow caller can take any kind of traversal finder.  two are supported for now:
@@ -510,6 +551,7 @@ int main_call(int argc, char** argv) {
                                                     *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                     *snarl_manager,
                                                     sample_name, *traversal_finder, ref_paths, ref_path_offsets,
+                                                    ref_path_ploidies,
                                                     alignment_emitter.get(),
                                                     traversals_only,
                                                     gaf_output,
@@ -520,6 +562,7 @@ int main_call(int argc, char** argv) {
                                               *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                               *snarl_manager,
                                               sample_name, *traversal_finder, ref_paths, ref_path_offsets,
+                                              ref_path_ploidies,
                                               alignment_emitter.get(),
                                               traversals_only,
                                               gaf_output,

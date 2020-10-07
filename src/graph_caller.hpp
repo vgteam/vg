@@ -35,20 +35,18 @@ public:
     /// For any that return false, try the children, etc. (when recurse_on_fail true)
     /// Snarls are processed in parallel
     virtual void call_top_level_snarls(const HandleGraph& graph,
-                                       int ploidy,
                                        bool recurse_on_fail = true);
 
     /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of each piece
     /// then make a fake snarl for each chain piece and call it.  If a fake snarl fails to call,
     /// It's child chains will be recursed on (if selected)_
     virtual void call_top_level_chains(const HandleGraph& graph,
-                                       int ploidy,
                                        size_t max_edges,
                                        size_t max_trivial,
                                        bool recurse_on_fail = true);
 
     /// Call a given snarl, and print the output to out_stream
-    virtual bool call_snarl(const Snarl& snarl, int ploidy) = 0;
+    virtual bool call_snarl(const Snarl& snarl) = 0;
 
 protected:
 
@@ -174,6 +172,7 @@ public:
                  vcflib::VariantCallFile& variant_file,
                  const string& sample_name,
                  const vector<string>& ref_paths,
+                 const vector<int>& ref_path_ploidies,
                  FastaReference* ref_fasta,
                  FastaReference* ins_fasta,
                  AlignmentEmitter* aln_emitter,
@@ -183,7 +182,7 @@ public:
 
     virtual ~VCFGenotyper();
 
-    virtual bool call_snarl(const Snarl& snarl, int ploidy);
+    virtual bool call_snarl(const Snarl& snarl);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -213,6 +212,9 @@ protected:
 
     /// toggle whether to output vcf or gaf
     bool gaf_output;
+
+    /// the ploidies
+    unordered_map<string, int> path_to_ploidy;
 };
 
 
@@ -228,11 +230,12 @@ public:
                  SnarlManager& snarl_manager,
                  const string& sample_name,
                  const vector<string>& ref_paths = {},
-                 const vector<size_t>& ref_path_offsets = {});
+                 const vector<size_t>& ref_path_offsets = {},
+                 const vector<int>& ref_path_ploidies = {});
 
     virtual ~LegacyCaller();
 
-    virtual bool call_snarl(const Snarl& snarl, int ploidy);
+    virtual bool call_snarl(const Snarl& snarl);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -286,6 +289,9 @@ protected:
     /// keep track of offsets in the reference paths
     map<string, size_t> ref_offsets;
 
+    /// keep track of ploidies in the reference paths
+    map<string, int> ref_ploidies;
+
     /// Tuning
 
     /// How many nodes should we be willing to look at on our path back to the
@@ -320,6 +326,7 @@ public:
                TraversalFinder& traversal_finder,
                const vector<string>& ref_paths,
                const vector<size_t>& ref_path_offsets,
+               const vector<int>& ref_path_ploidies,
                AlignmentEmitter* aln_emitter,
                bool traversals_only,
                bool gaf_output,
@@ -328,7 +335,7 @@ public:
    
     virtual ~FlowCaller();
 
-    virtual bool call_snarl(const Snarl& snarl, int ploidy);
+    virtual bool call_snarl(const Snarl& snarl);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -347,6 +354,9 @@ protected:
 
     /// keep track of offsets in the reference paths
     map<string, size_t> ref_offsets;
+    
+    /// keep traco of the ploidies (todo: just one map for all path stuff!!)
+    map<string, int> ref_ploidies;
 
     /// until we support nested snarls, cap snarl size we attempt to process
     size_t max_snarl_edges = 500000;
@@ -381,21 +391,22 @@ class SnarlGraph;
 class NestedFlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
 public:
     NestedFlowCaller(const PathPositionHandleGraph& graph,
-               SupportBasedSnarlCaller& snarl_caller,
-               SnarlManager& snarl_manager,
-               const string& sample_name,
-               TraversalFinder& traversal_finder,
-               const vector<string>& ref_paths,
-               const vector<size_t>& ref_path_offsets,
-               AlignmentEmitter* aln_emitter,
-               bool traversals_only,
-               bool gaf_output,
-               size_t trav_padding,
-               bool genotype_snarls);
+                     SupportBasedSnarlCaller& snarl_caller,
+                     SnarlManager& snarl_manager,
+                     const string& sample_name,
+                     TraversalFinder& traversal_finder,
+                     const vector<string>& ref_paths,
+                     const vector<size_t>& ref_path_offsets,
+                     const vector<int>& ref_path_ploidies,
+                     AlignmentEmitter* aln_emitter,
+                     bool traversals_only,
+                     bool gaf_output,
+                     size_t trav_padding,
+                     bool genotype_snarls);
    
     virtual ~NestedFlowCaller();
 
-    virtual bool call_snarl(const Snarl& snarl, int ploidy);
+    virtual bool call_snarl(const Snarl& snarl);
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
@@ -439,6 +450,9 @@ protected:
 
     /// keep track of offsets in the reference paths
     map<string, size_t> ref_offsets;
+    
+    /// keep traco of the ploidies (todo: just one map for all path stuff!!)
+    map<string, int> ref_ploidies;
 
     /// until we support nested snarls, cap snarl size we attempt to process
     size_t max_snarl_edges = 500000;
