@@ -1,4 +1,4 @@
-/// \file multipath_alignment.cpp
+/// \file mcmc_genotyper.cpp
 ///  
 /// unit tests for mcmc genotyper construction and utility functions
 ///
