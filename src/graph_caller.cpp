@@ -1,7 +1,7 @@
 #include "graph_caller.hpp"
 #include "algorithms/expand_context.hpp"
 
-#define debug
+//#define debug
 
 namespace vg {
 
