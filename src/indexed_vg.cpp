@@ -5,7 +5,7 @@
 
 #include "indexed_vg.hpp"
 #include "utility.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 
 #include <handlegraph/util.hpp>
 

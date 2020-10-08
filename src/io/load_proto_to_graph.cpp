@@ -12,6 +12,7 @@
 
 #include <vg/vg.pb.h>
 #include <vg/io/registry.hpp>
+#include <vg/io/protobuf_iterator.hpp>
 #include <handlegraph/mutable_path_mutable_handle_graph.hpp>
 
 #include <unordered_map>
@@ -31,7 +32,7 @@ void load_proto_to_graph(vg::MutablePathMutableHandleGraph* destination, const v
         for_each_message([&](const string& serialized_graph) {
             // For each Graph, unpack it
             Graph g;
-            if (!g.ParseFromString(serialized_graph)) {
+            if (!ProtobufIterator<Graph>::parse_from_string(g, serialized_graph)) {
                 // TODO: make this an exception if we ever want to be allowed to continue from this.
                 cerr << "error[load_proto_to_graph]: invalid Graph message" << endl;
                 exit(1);

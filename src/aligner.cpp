@@ -7,7 +7,7 @@
 
 using namespace vg;
 using namespace std;
-
+using namespace vg::io;
 
 static const double quality_scale_factor = 10.0 / log(10.0);
 static const double exp_overflow_limit = log(std::numeric_limits<double>::max());
@@ -490,7 +490,7 @@ double GSSWAligner::group_mapping_quality_exact(const vector<double>& scaled_sco
         
         total_log_sum_exp = add_log(total_log_sum_exp, multiple_score);
         
-        if (group_idx >= 0 ? i == group[group_idx] : false) {
+        if (group_idx >= 0 && i == group[group_idx]) {
             // this is the next index in the group
             group_idx--;
             if (multiplicities && multiplicities->at(i) > 1.0) {
@@ -768,6 +768,7 @@ size_t GSSWAligner::longest_detectable_gap(const Alignment& alignment, const str
 
 size_t GSSWAligner::longest_detectable_gap(size_t read_length, size_t read_pos) const {
     // algebraic solution for when score is > 0 assuming perfect match other than gap
+    assert(read_length >= read_pos);
     int64_t overhang_length = min(read_pos, read_length - read_pos);
     int64_t numer = match * overhang_length + full_length_bonus;
     int64_t gap_length = (numer - gap_open) / gap_extension + 1;
@@ -779,7 +780,11 @@ size_t GSSWAligner::longest_detectable_gap(const Alignment& alignment) const {
     return longest_detectable_gap(alignment.sequence().size(), alignment.sequence().size() / 2);
 }
 
-int32_t GSSWAligner::score_gappy_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
+size_t GSSWAligner::longest_detectable_gap(size_t read_length) const {
+    return longest_detectable_gap(read_length, read_length / 2);
+}
+
+int32_t GSSWAligner::score_discontiguous_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
     bool strip_bonuses) const {
     
     int score = 0;
@@ -802,7 +807,9 @@ int32_t GSSWAligner::score_gappy_alignment(const Alignment& aln, const function<
                 score += score_exact_match(aln, read_offset, edit.to_length());
                 last_was_deletion = false;
             } else if (edit_is_sub(edit)) {
-                score -= mismatch * edit.sequence().size();
+                score += score_mismatch(aln.sequence().begin() + read_offset,
+                                        aln.sequence().begin() + read_offset + edit.to_length(),
+                                        aln.quality().begin() + read_offset);
                 last_was_deletion = false;
             } else if (edit_is_deletion(edit)) {
                 if (last_was_deletion) {
@@ -860,8 +867,8 @@ int32_t GSSWAligner::score_gappy_alignment(const Alignment& aln, const function<
     return score;
 }
 
-int32_t GSSWAligner::score_ungapped_alignment(const Alignment& aln, bool strip_bonuses) const {
-    return score_gappy_alignment(aln, [](pos_t, pos_t, size_t){return (size_t) 0;}, strip_bonuses);
+int32_t GSSWAligner::score_contiguous_alignment(const Alignment& aln, bool strip_bonuses) const {
+    return score_discontiguous_alignment(aln, [](pos_t, pos_t, size_t){return (size_t) 0;}, strip_bonuses);
 }
 
 int32_t GSSWAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) const {
@@ -1209,6 +1216,9 @@ void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_
         // thread-safety by having one per thread, which makes this method const-ish.
         XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
         
+        // dozeu declines to produce an alignment when the gap is set to 0
+        xdrop_max_gap_length = max<uint16_t>(xdrop_max_gap_length, 1);
+        
         // wrap the graph so that empty pinning points are handled correctly
         DozeuPinningOverlay overlay(&g, !pin_left);
         
@@ -1427,15 +1437,21 @@ int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::con
     return score_exact_match(seq_begin, seq_end);
 }
 
+int32_t Aligner::score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                string::const_iterator base_qual_begin) const {
+    return -mismatch * (seq_end - seq_begin);
+}
+
 int32_t Aligner::score_mismatch(size_t length) const {
     return -match * length;
 }
 
 int32_t Aligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                         string::const_iterator seq_begin) const {
+                                         string::const_iterator seq_begin, bool no_read_end_scoring) const {
     
     int32_t score = 0;
     string::const_iterator read_pos = seq_begin;
+    bool in_deletion = false;
     for (size_t i = 0; i < path.mapping_size(); i++) {
         const Mapping& mapping = path.mapping(i);
         
@@ -1454,25 +1470,33 @@ int32_t Aligner::score_partial_alignment(const Alignment& alignment, const Handl
                     }
                     
                     // apply full length bonus
-                    if (read_pos == alignment.sequence().begin()) {
+                    if (read_pos == alignment.sequence().begin() && !no_read_end_scoring) {
                         score += full_length_bonus;
                     }
-                    if (read_pos + edit.from_length() == alignment.sequence().end()) {
+                    if (read_pos + edit.from_length() == alignment.sequence().end()
+                         && !no_read_end_scoring) {
                         score += full_length_bonus;
                     }
+                    in_deletion = false;
+                }
+                else if (in_deletion) {
+                    score -= edit.from_length() * gap_extension;
                 }
                 else {
                     // deletion
                     score -= gap_open + (edit.from_length() - 1) * gap_extension;
+                    in_deletion = true;
                 }
             }
             else if (edit.to_length() > 0) {
-                // don't score soft clips
-                if (read_pos != alignment.sequence().begin() &&
-                    read_pos + edit.to_length() != alignment.sequence().end()) {
+                // don't score soft clips if scoring read ends
+                if (no_read_end_scoring ||
+                    (read_pos != alignment.sequence().begin() &&
+                     read_pos + edit.to_length() != alignment.sequence().end())) {
                     // insert
                     score -= gap_open + (edit.to_length() - 1) * gap_extension;
                 }
+                in_deletion = false;
             }
             
             read_pos += edit.to_length();
@@ -1791,6 +1815,9 @@ void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bo
         // thread-safety by having one per thread, which makes this method const-ish.
         QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
         
+        // dozeu declines to produce an alignment when the gap is set to 0
+        xdrop_max_gap_length = max<uint16_t>(xdrop_max_gap_length, 1);
+        
         // wrap the graph so that empty pinning points are handled correctly
         DozeuPinningOverlay overlay(&g, !pin_left);
         if (overlay.get_node_count() == 0 && g.get_node_count() > 0) {
@@ -2013,13 +2040,26 @@ int32_t QualAdjAligner::score_exact_match(string::const_iterator seq_begin, stri
     return score;
 }
 
+int32_t QualAdjAligner::score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                       string::const_iterator base_qual_begin) const {
+    int32_t score = 0;
+    for (auto seq_iter = seq_begin, qual_iter = base_qual_begin; seq_iter != seq_end; seq_iter++) {
+        // index 5 x 5 score matrices (ACGTN)
+        // always have match so that row and column index are same and can combine algebraically
+        score += score_matrix[25 * (*qual_iter) + 1];
+        qual_iter++;
+    }
+    return score;
+}
+
 int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                                string::const_iterator seq_begin) const {
+                                                string::const_iterator seq_begin, bool no_read_end_scoring) const {
     
     int32_t score = 0;
     string::const_iterator read_pos = seq_begin;
     string::const_iterator qual_pos = alignment.quality().begin() + (seq_begin - alignment.sequence().begin());
     
+    bool in_deletion = false;
     for (size_t i = 0; i < path.mapping_size(); i++) {
         const Mapping& mapping = path.mapping(i);
         
@@ -2034,34 +2074,41 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
             
             if (edit.from_length() > 0) {
                 if (edit.to_length() > 0) {
-                    
                     for (auto siter = read_pos, riter = ref_pos, qiter = qual_pos;
                          siter != read_pos + edit.from_length(); siter++, qiter++, riter++) {
                         score += score_matrix[25 * (*qiter) + 5 * nt_table[*riter] + nt_table[*siter]];
                     }
                     
                     // apply full length bonus
-                    if (read_pos == alignment.sequence().begin()) {
+                    if (read_pos == alignment.sequence().begin() && !no_read_end_scoring) {
                         score += full_length_bonus;
                     }
-                    if (read_pos + edit.from_length() == alignment.sequence().end()) {
+                    if (read_pos + edit.from_length() == alignment.sequence().end()
+                        && !no_read_end_scoring) {
                         score += full_length_bonus;
                     }
+                    in_deletion = false;
+                }
+                else if (in_deletion) {
+                    score -= edit.from_length() * gap_extension;
                 }
                 else {
                     // deletion
                     score -= gap_open + (edit.from_length() - 1) * gap_extension;
+                    in_deletion = true;
                 }
             }
             else if (edit.to_length() > 0) {
-                // don't score soft clips
-                if (read_pos != alignment.sequence().begin() &&
-                    read_pos + edit.to_length() != alignment.sequence().end()) {
+                // don't score soft clips if read end scoring
+                if (no_read_end_scoring ||
+                    (read_pos != alignment.sequence().begin() &&
+                     read_pos + edit.to_length() != alignment.sequence().end())) {
                     // insert
                     score -= gap_open + (edit.to_length() - 1) * gap_extension;
                 }
+                in_deletion = false;
             }
-            
+                        
             read_pos += edit.to_length();
             qual_pos += edit.to_length();
             ref_pos += edit.from_length();

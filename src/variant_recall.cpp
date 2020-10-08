@@ -71,14 +71,14 @@ void genotype_svs(VG* graph,
     vg::io::for_each_interleaved_pair_parallel(gamstream, readfunc);
     vector<Translation> transls;
     if (refpath != ""){
-        augment(graph, direct_ins, &transls);
+        augment(graph, direct_ins, "GAM", &transls);
 
         XG xg_index;
         xg_index.from_path_handle_graph(*graph); // Index the graph so deconstruct can get path positions
         Deconstructor decon;
         CactusSnarlFinder finder(xg_index);
         SnarlManager snarl_manager = finder.find_snarls();
-        decon.deconstruct({refpath}, &xg_index, &snarl_manager, false);
+        decon.deconstruct({refpath}, &xg_index, &snarl_manager, false, 1);
     }
     direct_ins.clear();
 

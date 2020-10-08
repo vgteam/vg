@@ -13,10 +13,11 @@ namespace vg {
 // Numerical class constants.
 
 constexpr size_t GaplessExtender::MAX_MISMATCHES;
+constexpr double GaplessExtender::OVERLAP_THRESHOLD;
 
 //------------------------------------------------------------------------------
 
-bool GaplessExtension::contains(const gbwtgraph::GBWTGraph& graph, seed_type seed) const {
+bool GaplessExtension::contains(const HandleGraph& graph, seed_type seed) const {
     handle_t expected_handle = GaplessExtender::get_handle(seed);
     size_t expected_node_offset = GaplessExtender::get_node_offset(seed);
     size_t expected_read_offset = GaplessExtender::get_read_offset(seed);
@@ -36,7 +37,7 @@ bool GaplessExtension::contains(const gbwtgraph::GBWTGraph& graph, seed_type see
     return false;
 }
 
-Position GaplessExtension::starting_position(const gbwtgraph::GBWTGraph& graph) const {
+Position GaplessExtension::starting_position(const HandleGraph& graph) const {
     Position position;
     if (this->empty()) {
         return position;
@@ -49,7 +50,7 @@ Position GaplessExtension::starting_position(const gbwtgraph::GBWTGraph& graph) 
     return position;
 }
 
-Position GaplessExtension::tail_position(const gbwtgraph::GBWTGraph& graph) const {
+Position GaplessExtension::tail_position(const HandleGraph& graph) const {
     Position position;
     if (this->empty()) {
         return position;
@@ -62,7 +63,7 @@ Position GaplessExtension::tail_position(const gbwtgraph::GBWTGraph& graph) cons
     return position;
 }
 
-size_t GaplessExtension::tail_offset(const gbwtgraph::GBWTGraph& graph) const {
+size_t GaplessExtension::tail_offset(const HandleGraph& graph) const {
     size_t result = this->offset + this->length();
     for (size_t i = 0; i + 1 < this->path.size(); i++) {
         result -= graph.get_length(this->path[i]);
@@ -70,7 +71,37 @@ size_t GaplessExtension::tail_offset(const gbwtgraph::GBWTGraph& graph) const {
     return result;
 }
 
-Path GaplessExtension::to_path(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) const {
+size_t GaplessExtension::overlap(const HandleGraph& graph, const GaplessExtension& another) const {
+    size_t result = 0;
+    size_t this_pos = this->read_interval.first, another_pos = another.read_interval.first;
+    auto this_iter = this->path.begin(), another_iter = another.path.begin();
+    size_t this_offset = this->offset, another_offset = another.offset;
+    while (this_pos < this->read_interval.second && another_pos < another.read_interval.second) {
+        if (this_pos == another_pos && *this_iter == *another_iter && this_offset == another_offset) {
+            size_t len = std::min({ graph.get_length(*this_iter) - this_offset,
+                                    this->read_interval.second - this_pos,
+                                    another.read_interval.second - another_pos });
+            result += len;
+            this_pos += len;
+            another_pos += len;
+            ++this_iter;
+            ++another_iter;
+            this_offset = 0;
+            another_offset = 0;
+        } else if (this_pos <= another_pos) {
+            this_pos += graph.get_length(*this_iter) - this_offset;
+            ++this_iter;
+            this_offset = 0;
+        } else {
+            another_pos += graph.get_length(*another_iter) - another_offset;
+            ++another_iter;
+            another_offset = 0;
+        }
+    }
+    return result;
+}
+
+Path GaplessExtension::to_path(const HandleGraph& graph, const std::string& sequence) const {
 
     Path result;
 
@@ -235,6 +266,39 @@ void match_backward(GaplessExtension& match, const std::string& seq, gbwtgraph::
     }
 }
 
+// Sort full-length extensions by internal_score, remove ones that are not
+// full-length alignments, remove duplicates, and return the best extensions
+// that have sufficiently low overlap.
+void handle_full_length(const HandleGraph& graph, std::vector<GaplessExtension>& result, double overlap_threshold) {
+    std::sort(result.begin(), result.end(), [](const GaplessExtension& a, const GaplessExtension& b) -> bool {
+        if (a.full() && b.full()) {
+            return (a.internal_score < b.internal_score);
+        }
+        return a.full();
+    });
+    size_t tail = 0;
+    for (size_t i = 0; i < result.size(); i++) {
+        if (!(result[i].full())) {
+            break; // No remaining full-length extensions.
+        }
+        bool overlap = false;
+        for (size_t prev = 0; prev < tail; prev++) {
+            if (result[i].overlap(graph, result[prev]) > overlap_threshold * result[prev].length()) {
+                overlap = true;
+                break;
+            }
+        }
+        if (overlap) {
+            continue;
+        }
+        if (i > tail) {
+            result[tail] = std::move(result[i]);
+        }
+        tail++;
+    }
+    result.resize(tail);
+}
+
 // Sort the extensions from left to right. Remove duplicates and empty extensions.
 void remove_duplicates(std::vector<GaplessExtension>& result) {
     auto sort_order = [](const GaplessExtension& a, const GaplessExtension& b) -> bool {
@@ -247,7 +311,13 @@ void remove_duplicates(std::vector<GaplessExtension>& result) {
         if (a.state.forward.node != b.state.forward.node) {
             return (a.state.forward.node < b.state.forward.node);
         }
-        return (a.state.backward.range < b.state.backward.range);
+        if (a.state.backward.range != b.state.backward.range) {
+           return (a.state.backward.range < b.state.backward.range);
+        }
+        if (a.state.forward.range != b.state.forward.range) {
+           return (a.state.forward.range < b.state.forward.range);
+        }
+        return (a.offset < b.offset);
     };
     std::sort(result.begin(), result.end(), sort_order);
     size_t tail = 0;
@@ -266,7 +336,7 @@ void remove_duplicates(std::vector<GaplessExtension>& result) {
 }
 
 // Realign the extensions to find the mismatching positions.
-void find_mismatches(const std::string& seq, const gbwtgraph::GBWTGraph& graph, std::vector<GaplessExtension>& result) {
+void find_mismatches(const std::string& seq, const gbwtgraph::CachedGBWTGraph& graph, std::vector<GaplessExtension>& result) {
     for (GaplessExtension& extension : result) {
         if (extension.internal_score == 0) {
             continue;
@@ -317,218 +387,9 @@ std::vector<handle_t> get_path(gbwt::node_type reverse_first, const std::vector<
 
 //------------------------------------------------------------------------------
 
-std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, const std::string& sequence, size_t max_mismatches, bool trim_extensions) const {
-
-    std::vector<GaplessExtension> result;
-    if (this->graph == nullptr || this->aligner == nullptr || sequence.empty()) {
-        return result;
-    }
-
-    // Allocate a GBWT record cache.
-    gbwt::CachedGBWT cache = this->graph->get_cache();
-
-    // Find either the best extension for each seed or the best two full-length alignments
-    // for the entire cluster. The second-best full-length alignment has full_length_mismatches
-    // mismatches; we are not interested in extensions with this many mismatches anymore.
-    bool full_length_found = false;
-    GaplessExtension best_alignment;
-    GaplessExtension second_best_alignment;
-    uint32_t full_length_mismatches = std::numeric_limits<uint32_t>::max();
-    for (seed_type seed : cluster) {
-
-        // Check if the seed is contained in an exact full-length alignment.
-        if (full_length_found && best_alignment.internal_score == 0) {
-            if (best_alignment.contains(*(this->graph), seed)) {
-                continue;
-            }
-        }
-
-        GaplessExtension best_match {
-            { }, static_cast<size_t>(0), gbwt::BidirectionalState(),
-            { static_cast<size_t>(0), static_cast<size_t>(0) }, { },
-            std::numeric_limits<int32_t>::min(), false, false,
-            false, false, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()
-        };
-
-        // Match the initial node and add it to the queue, unless we already have
-        // two at least as good full-length alignments.
-        std::priority_queue<GaplessExtension> extensions;
-        {
-            size_t read_offset = get_read_offset(seed);
-            size_t node_offset = get_node_offset(seed);
-            GaplessExtension match {
-                { seed.first }, node_offset, this->graph->get_bd_state(cache, seed.first),
-                { read_offset, read_offset }, { },
-                static_cast<int32_t>(0), false, false,
-                false, false, static_cast<uint32_t>(0), static_cast<uint32_t>(0)
-            };
-            match_initial(match, sequence, this->graph->get_sequence_view(seed.first));
-            if (match.internal_score >= full_length_mismatches) {
-                continue;
-            }
-            if (match.read_interval.first == 0) {
-                match.left_full = true;
-                match.left_maximal = true;
-            }
-            if (match.read_interval.second >= sequence.length()) {
-                match.right_full = true;
-                match.right_maximal = true;
-            }
-            set_score(match, this->aligner);
-            extensions.push(std::move(match));
-        }
-
-        // Extend the most promising extensions first, using alignment scores for priority.
-        // First make the extension right-maximal and then left-maximal.
-        while (!extensions.empty()) {
-            GaplessExtension curr = std::move(extensions.top());
-            extensions.pop();
-            if (curr.internal_score >= full_length_mismatches) {
-                continue;
-            }
-
-            // Case 1: Extend to the right.
-            if (!curr.right_maximal) {
-                bool found_extension = false;
-                // Always allow at least max_mismatches / 2 mismatches in the current flank.
-                uint32_t mismatch_limit = std::max(
-                    static_cast<uint32_t>(max_mismatches + 1),
-                    static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
-                mismatch_limit = std::min(mismatch_limit, full_length_mismatches);
-                this->graph->follow_paths(cache, curr.state, false, [&](const gbwt::BidirectionalState& next_state) -> bool {
-                    handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(next_state.forward.node);
-                    GaplessExtension next {
-                        { }, curr.offset, next_state,
-                        curr.read_interval, { },
-                        curr.score, curr.left_full, curr.right_full,
-                        curr.left_maximal, curr.right_maximal, curr.internal_score, curr.old_score
-                    };
-                    size_t node_offset = match_forward(next, sequence, this->graph->get_sequence_view(handle), mismatch_limit);
-                    if (node_offset == 0) { // Did not match anything.
-                        return true;
-                    }
-                    next.path = get_path(curr.path, handle);
-                    // Did the extension become right-maximal?
-                    if (next.read_interval.second >= sequence.length()) {
-                        next.right_full = true;
-                        next.right_maximal = true;
-                        next.old_score = next.internal_score;
-                    } else if (node_offset < this->graph->get_length(handle)) {
-                        next.right_maximal = true;
-                        next.old_score = next.internal_score;
-                    }
-                    set_score(next, this->aligner);
-                    extensions.push(std::move(next));
-                    found_extension = true;
-                    return true;
-                });
-                if (!found_extension) {
-                    curr.right_maximal = true;
-                    curr.old_score = curr.internal_score;
-                } else {
-                    continue;
-                }
-            }
-
-            // Case 2: Extend to the left.
-            if (!curr.left_maximal) {
-                bool found_extension = false;
-                // Always allow at least max_mismatches / 2 mismatches in the current flank.
-                uint32_t mismatch_limit = std::max(
-                    static_cast<uint32_t>(max_mismatches + 1),
-                    static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
-                mismatch_limit = std::min(mismatch_limit, full_length_mismatches);
-                this->graph->follow_paths(cache, curr.state, true, [&](const gbwt::BidirectionalState& next_state) -> bool {
-                    handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(gbwt::Node::reverse(next_state.backward.node));
-                    size_t node_length = this->graph->get_length(handle);
-                    GaplessExtension next {
-                        { }, node_length, next_state,
-                        curr.read_interval, { },
-                        curr.score, curr.left_full, curr.right_full,
-                        curr.left_maximal, curr.right_maximal, curr.internal_score, curr.old_score
-                    };
-                    match_backward(next, sequence, this->graph->get_sequence_view(handle), mismatch_limit);
-                    if (next.offset >= node_length) { // Did not match anything.
-                        return true;
-                    }
-                    next.path = get_path(handle, curr.path);
-                    // Did the extension become left-maximal?
-                    if (next.read_interval.first == 0) {
-                        next.left_full = true;
-                        next.left_maximal = true;
-                        // No need to set old_score.
-                    } else if (next.offset > 0) {
-                        next.left_maximal = true;
-                        // No need to set old_score.
-                    }
-                    set_score(next, this->aligner);
-                    extensions.push(std::move(next));
-                    found_extension = true;
-                    return true;
-                });
-                if (!found_extension) {
-                    curr.left_maximal = true;
-                    // No need to set old_score.
-                } else {
-                    continue;
-                }
-            }
-
-            // Case 3: Maximal extension with a better score than the best extension so far.
-            if (best_match < curr) {
-                best_match = std::move(curr);
-            }
-        }
-
-        // Handle the best match. If we have a full-length alignment, check if it is among
-        // the best two we have found so far. Otherwise add the partial extension to the
-        // result, if we do not have full-length alignments.
-        if (best_match.full() && best_match.internal_score <= max_mismatches) {
-            full_length_found = true;
-            if (best_alignment.empty() || best_match.internal_score < best_alignment.internal_score) {
-                second_best_alignment = std::move(best_alignment);
-                best_alignment = std::move(best_match);
-            }
-            // If the best alignment contains mismatches, we may reach it from multiple seeds.
-            // Make sure that we do not report it as the best and the second best alignment.
-            else if ((second_best_alignment.empty() || best_match.internal_score < second_best_alignment.internal_score) && best_match != best_alignment) {
-                second_best_alignment = std::move(best_match);
-                full_length_mismatches = second_best_alignment.internal_score;
-            }
-            // We can stop the search, because we have two exact full-length alignments.
-            if (full_length_mismatches == 0) {
-                break;
-            }
-        } else if (!full_length_found && !best_match.empty()) {
-            result.emplace_back(std::move(best_match));
-        }
-    }
-
-    if (full_length_found) {
-        result.clear();
-        result.emplace_back(std::move(best_alignment));
-        if (!second_best_alignment.empty()) {
-            result.emplace_back(std::move(second_best_alignment));
-        }
-    }
-
-    // Remove duplicates, find mismatches, and trim mismatches to maximize score.
-    // If we have a full-length alignment with sufficiently few mismatches, we do
-    // not trim it.
-    remove_duplicates(result);
-    find_mismatches(sequence, *(this->graph), result);
-    if (trim_extensions) {
-        this->trim(result, max_mismatches, &cache);
-    }
-
-    return result;
-}
-
-//------------------------------------------------------------------------------
-
 // Trim mismatches from the extension to maximize the score. Returns true if the
 // extension was trimmed.
-bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::GBWTGraph& graph, const gbwt::CachedGBWT& cache, const Aligner& aligner) {
+bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::CachedGBWTGraph& graph, const Aligner& aligner) {
 
     if (extension.exact()) {
         return false;
@@ -571,7 +432,7 @@ bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::GBWTGraph& gr
         }
 
         // Update the best interval.
-        if (current_score > best_score || (current_score == best_score && interval_length(current_interval) > interval_length(best_interval))) {
+        if (current_score > best_score || (current_score > 0 && current_score == best_score && interval_length(current_interval) > interval_length(best_interval))) {
             best_interval = current_interval;
             best_score = current_score;
         }
@@ -621,7 +482,7 @@ bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::GBWTGraph& gr
     }
     if (head > 0 || tail < extension.path.size()) {
         in_place_subvector(extension.path, head, tail);
-        extension.state = graph.bd_find(cache, extension.path);
+        extension.state = graph.bd_find(extension.path);
     }
 
     // Trim the mismatches.
@@ -638,22 +499,191 @@ bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::GBWTGraph& gr
     return true;
 }
 
-void GaplessExtender::trim(std::vector<GaplessExtension>& extensions, size_t max_mismatches, const gbwt::CachedGBWT* cache) const {
+//------------------------------------------------------------------------------
+
+std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, const std::string& sequence, const gbwtgraph::CachedGBWTGraph* cache, size_t max_mismatches, double overlap_threshold) const {
+
+    std::vector<GaplessExtension> result;
+    if (this->graph == nullptr || this->aligner == nullptr || cluster.empty() || sequence.empty()) {
+        return result;
+    }
+    result.reserve(cluster.size());
 
     // Allocate a cache if we were not provided with one.
     bool free_cache = (cache == nullptr);
     if (free_cache) {
-        cache = new gbwt::CachedGBWT(this->graph->get_cache());
+        cache = new gbwtgraph::CachedGBWTGraph(*(this->graph));
     }
 
-    bool trimmed = false;
-    for (GaplessExtension& extension : extensions) {
-        if (!extension.full() || extension.mismatches() > max_mismatches) {
-            trimmed |= trim_mismatches(extension, *(this->graph), *cache, *(this->aligner));
+    // Find the best extension starting from each seed.
+    size_t best_alignment = std::numeric_limits<size_t>::max();
+    for (seed_type seed : cluster) {
+
+        // Check if the seed is contained in an exact full-length alignment.
+        if (best_alignment < result.size() && result[best_alignment].internal_score == 0) {
+            if (result[best_alignment].contains(*cache, seed)) {
+                continue;
+            }
+        }
+
+        GaplessExtension best_match {
+            { }, static_cast<size_t>(0), gbwt::BidirectionalState(),
+            { static_cast<size_t>(0), static_cast<size_t>(0) }, { },
+            std::numeric_limits<int32_t>::min(), false, false,
+            false, false, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()
+        };
+
+        // Match the initial node and add it to the queue.
+        std::priority_queue<GaplessExtension> extensions;
+        {
+            size_t read_offset = get_read_offset(seed);
+            size_t node_offset = get_node_offset(seed);
+            GaplessExtension match {
+                { seed.first }, node_offset, cache->get_bd_state(seed.first),
+                { read_offset, read_offset }, { },
+                static_cast<int32_t>(0), false, false,
+                false, false, static_cast<uint32_t>(0), static_cast<uint32_t>(0)
+            };
+            match_initial(match, sequence, cache->get_sequence_view(seed.first));
+            if (match.read_interval.first == 0) {
+                match.left_full = true;
+                match.left_maximal = true;
+            }
+            if (match.read_interval.second >= sequence.length()) {
+                match.right_full = true;
+                match.right_maximal = true;
+            }
+            set_score(match, this->aligner);
+            extensions.push(std::move(match));
+        }
+
+        // Extend the most promising extensions first, using alignment scores for priority.
+        // First make the extension right-maximal and then left-maximal.
+        while (!extensions.empty()) {
+            GaplessExtension curr = std::move(extensions.top());
+            extensions.pop();
+
+            // Case 1: Extend to the right.
+            if (!curr.right_maximal) {
+                size_t num_extensions = 0;
+                // Always allow at least max_mismatches / 2 mismatches in the current flank.
+                uint32_t mismatch_limit = std::max(
+                    static_cast<uint32_t>(max_mismatches + 1),
+                    static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
+                cache->follow_paths(curr.state, false, [&](const gbwt::BidirectionalState& next_state) -> bool {
+                    handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(next_state.forward.node);
+                    GaplessExtension next {
+                        { }, curr.offset, next_state,
+                        curr.read_interval, { },
+                        curr.score, curr.left_full, curr.right_full,
+                        curr.left_maximal, curr.right_maximal, curr.internal_score, curr.old_score
+                    };
+                    size_t node_offset = match_forward(next, sequence, cache->get_sequence_view(handle), mismatch_limit);
+                    if (node_offset == 0) { // Did not match anything.
+                        return true;
+                    }
+                    next.path = get_path(curr.path, handle);
+                    // Did the extension become right-maximal?
+                    if (next.read_interval.second >= sequence.length()) {
+                        next.right_full = true;
+                        next.right_maximal = true;
+                        next.old_score = next.internal_score;
+                    } else if (node_offset < cache->get_length(handle)) {
+                        next.right_maximal = true;
+                        next.old_score = next.internal_score;
+                    }
+                    set_score(next, this->aligner);
+                    num_extensions += next.state.size();
+                    extensions.push(std::move(next));
+                    return true;
+                });
+                // We could not extend all threads in 'curr' to the right. The unextended ones
+                // may have different left extensions, so we must consider 'curr' right-maximal.
+                if (num_extensions < curr.state.size()) {
+                    curr.right_maximal = true;
+                    curr.old_score = curr.internal_score;
+                    extensions.push(std::move(curr));
+                }
+                continue;
+            }
+
+            // Case 2: Extend to the left.
+            if (!curr.left_maximal) {
+                bool found_extension = false;
+                // Always allow at least max_mismatches / 2 mismatches in the current flank.
+                uint32_t mismatch_limit = std::max(
+                    static_cast<uint32_t>(max_mismatches + 1),
+                    static_cast<uint32_t>(max_mismatches / 2 + curr.old_score + 1));
+                cache->follow_paths(curr.state, true, [&](const gbwt::BidirectionalState& next_state) -> bool {
+                    handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(gbwt::Node::reverse(next_state.backward.node));
+                    size_t node_length = cache->get_length(handle);
+                    GaplessExtension next {
+                        { }, node_length, next_state,
+                        curr.read_interval, { },
+                        curr.score, curr.left_full, curr.right_full,
+                        curr.left_maximal, curr.right_maximal, curr.internal_score, curr.old_score
+                    };
+                    match_backward(next, sequence, cache->get_sequence_view(handle), mismatch_limit);
+                    if (next.offset >= node_length) { // Did not match anything.
+                        return true;
+                    }
+                    next.path = get_path(handle, curr.path);
+                    // Did the extension become left-maximal?
+                    if (next.read_interval.first == 0) {
+                        next.left_full = true;
+                        next.left_maximal = true;
+                        // No need to set old_score.
+                    } else if (next.offset > 0) {
+                        next.left_maximal = true;
+                        // No need to set old_score.
+                    }
+                    set_score(next, this->aligner);
+                    extensions.push(std::move(next));
+                    found_extension = true;
+                    return true;
+                });
+                if (!found_extension) {
+                    curr.left_maximal = true;
+                    // No need to set old_score.
+                } else {
+                    continue;
+                }
+            }
+
+            // Case 3: Maximal extension with a better score than the best extension so far.
+            if (best_match < curr) {
+                best_match = std::move(curr);
+            }
+        }
+
+        // Add the best match to the result and update the best_alignment offset.
+        if (!best_match.empty()) {
+            if (best_match.full() && (best_alignment >= result.size() || best_match.internal_score < result[best_alignment].internal_score)) {
+                best_alignment = result.size();
+            }
+            result.emplace_back(std::move(best_match));
         }
     }
-    if (trimmed) {
-        remove_duplicates(extensions);
+
+    // If we have a good enough full-length alignment, return the best sufficiently
+    // distinct full-length alignments.
+    if (best_alignment < result.size() && result[best_alignment].internal_score <= max_mismatches) {
+        handle_full_length(*cache, result, overlap_threshold);
+        find_mismatches(sequence, *cache, result);
+    }
+
+    // Otherwise remove duplicates, find mismatches, and trim the extensions to maximize
+    // score.
+    else {
+        remove_duplicates(result);
+        find_mismatches(sequence, *cache, result);
+        bool trimmed = false;
+        for (GaplessExtension& extension : result) {
+            trimmed |= trim_mismatches(extension, *cache, *(this->aligner));
+        }
+        if (trimmed) {
+            remove_duplicates(result);
+        }
     }
 
     // Free the cache if we allocated it.
@@ -661,6 +691,14 @@ void GaplessExtender::trim(std::vector<GaplessExtension>& extensions, size_t max
         delete cache;
         cache = nullptr;
     }
+
+    return result;
+}
+
+//------------------------------------------------------------------------------
+
+bool GaplessExtender::full_length_extensions(const std::vector<GaplessExtension>& result, size_t max_mismatches) {
+    return (result.size() > 0 && result.front().full() && result.front().mismatches() <= max_mismatches);
 }
 
 //------------------------------------------------------------------------------
@@ -677,7 +715,13 @@ struct state_hash {
     }
 };
 
-void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vector<std::vector<handle_t>>& haplotype_paths,  bdsg::HashGraph& unfolded) const {
+void GaplessExtender::unfold_haplotypes(const std::unordered_set<nid_t>& subgraph, std::vector<std::vector<handle_t>>& haplotype_paths,  bdsg::HashGraph& unfolded, const gbwtgraph::CachedGBWTGraph* cache) const {
+
+    // Allocate a cache if we were not provided with one.
+    bool free_cache = (cache == nullptr);
+    if (free_cache) {
+        cache = new gbwtgraph::CachedGBWTGraph(*(this->graph));
+    }
 
     // A state and its reverse complement are equivalent.
     auto get_key = [](gbwt::BidirectionalState state) -> gbwt::BidirectionalState {
@@ -691,19 +735,19 @@ void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vec
     // Find the nodes where paths start/end or enter/exit the subgraph. Extend these states
     // to the other direction. Checking for starts/enters would be enough if we are sure
     // that there are no weird orientation flips.
-    gbwt::CachedGBWT cache = this->graph->get_cache();
     std::stack<std::pair<gbwt::BidirectionalState, std::vector<handle_t>>> states;
-    subgraph.for_each_handle([&](const handle_t& handle) {
-        gbwt::BidirectionalState state = this->graph->get_bd_state(cache, handle);
+    for (nid_t node : subgraph) {
+        handle_t handle = cache->get_handle(node, false);
+        gbwt::BidirectionalState state = cache->get_bd_state(handle);
         size_t forward_covered = 0, backward_covered = 0;
-        this->graph->follow_paths(cache, state, false, [&](const gbwt::BidirectionalState& next) -> bool {
-            if (subgraph.has_node(gbwt::Node::id(next.forward.node))) {
+        cache->follow_paths(state, false, [&](const gbwt::BidirectionalState& next) -> bool {
+            if (subgraph.find(gbwt::Node::id(next.forward.node)) != subgraph.end()) {
                 forward_covered += next.size();
             }
             return true;
         });
-        this->graph->follow_paths(cache, state, true, [&](const gbwt::BidirectionalState& prev) -> bool {
-            if (subgraph.has_node(gbwt::Node::id(prev.backward.node))) {
+        cache->follow_paths(state, true, [&](const gbwt::BidirectionalState& prev) -> bool {
+            if (subgraph.find(gbwt::Node::id(prev.backward.node)) != subgraph.end()) {
                 backward_covered += prev.size();
             }
             return true;
@@ -713,11 +757,11 @@ void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vec
             states.push(std::make_pair(state, path)); // Left-maximal.
         }
         if (forward_covered < state.size()) {
-            std::vector<handle_t> path = { this->graph->flip(handle) };
+            std::vector<handle_t> path = { cache->flip(handle) };
             state.flip();
             states.push(std::make_pair(state, path)); // Right-maximal.
         }
-    }, false);
+    }
 
     // Extend the states as far forward as possible within the subgraph. Because we usually find
     // each haplotype twice, we store the set of states we have reported so far.
@@ -729,8 +773,8 @@ void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vec
         states.pop();
         bool found_extension = false;
         size_t covered_size = 0;
-        this->graph->follow_paths(cache, state, false, [&](const gbwt::BidirectionalState& next) -> bool {
-            if (!subgraph.has_node(gbwt::Node::id(next.forward.node))) {
+        cache->follow_paths(state, false, [&](const gbwt::BidirectionalState& next) -> bool {
+            if (subgraph.find(gbwt::Node::id(next.forward.node)) == subgraph.end()) {
                 return true;
             }
             found_extension = true;
@@ -745,18 +789,24 @@ void GaplessExtender::unfold_haplotypes(const SubHandleGraph& subgraph, std::vec
                 haplotype_paths.push_back(path);
                 size_t result_size = 0;
                 for (handle_t handle : path) {
-                    result_size += this->graph->get_length(handle);
+                    result_size += cache->get_length(handle);
                 }
                 std::string sequence;
                 sequence.reserve(result_size);
                 for (handle_t handle : path) {
-                    gbwtgraph::GBWTGraph::view_type view = this->graph->get_sequence_view(handle);
+                    gbwtgraph::GBWTGraph::view_type view = cache->get_sequence_view(handle);
                     sequence.insert(sequence.size(), view.first, view.second);
                 }
                 unfolded.create_handle(sequence, 2 * haplotype_paths.size() - 1);
                 unfolded.create_handle(reverse_complement(sequence), 2 * haplotype_paths.size());
             }
         }
+    }
+
+    // Free the cache if we allocated it.
+    if (free_cache) {
+        delete cache;
+        cache = nullptr;
     }
 }
 
@@ -847,8 +897,6 @@ void GaplessExtender::transform_alignment(Alignment& aln, const std::vector<std:
             break;
         }
     }
-
-    // FIXME tests
 
     *(aln.mutable_path()) = std::move(result);
 }

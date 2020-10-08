@@ -15,7 +15,7 @@ namespace vg {
         unordered_multimap<id_t, pair<id_t, bool> > injection_trans;
         for (const auto& trans_record : projection_trans) {
 #ifdef debug_multipath_alignment
-            cerr << trans_record.second.first << "->" << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
+            cerr << trans_record.second.first << " -> " << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
 #endif
             injection_trans.emplace(trans_record.second.first, make_pair(trans_record.first, trans_record.second.second));
         }
@@ -89,10 +89,11 @@ namespace vg {
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                                      const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
-                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa) {
+                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa,
+                                                     const MultipathMapper::match_fanouts_t* fanout_breaks) {
         
         // initialize the match nodes
-        create_match_nodes(graph, hits, project, injection_trans);
+        create_match_nodes(graph, hits, project, injection_trans, fanout_breaks);
         
         if (gcsa) {
             // we indicated that these MEMs came from a GCSA, so there might be order-length MEMs that we can combine
@@ -123,25 +124,28 @@ namespace vg {
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                                      const function<pair<id_t, bool>(id_t)>& project,
-                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa) :
+                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa,
+                                                     const MultipathMapper::match_fanouts_t* fanout_breaks) :
                                                      MultipathAlignmentGraph(graph, hits, project,
                                                                              create_injection_trans(graph, project),
-                                                                             max_branch_trim_length, gcsa) {
+                                                                             max_branch_trim_length, gcsa, fanout_breaks) {
         // Nothing to do
         
     }
 
     MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
-                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa) :
+                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa,
+                                                     const MultipathMapper::match_fanouts_t* fanout_breaks) :
                                                      MultipathAlignmentGraph(graph, hits, create_projector(projection_trans),
                                                                              create_injection_trans(projection_trans),
-                                                                             max_branch_trim_length, gcsa) {
+                                                                             max_branch_trim_length, gcsa, fanout_breaks) {
         // Nothing to do
         
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
+                                                     MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
@@ -157,7 +161,7 @@ namespace vg {
         
         // cut the snarls out of the aligned path so we can realign through them
         if (max_snarl_cut_size) {
-            resect_snarls_from_paths(&snarl_manager, project, max_snarl_cut_size);
+            resect_snarls_from_paths(snarl_manager, dist_index, project, max_snarl_cut_size);
         }
         
         // the snarls algorithm adds edges where necessary
@@ -167,17 +171,20 @@ namespace vg {
         trim_hanging_indels(alignment, true);
     }
 
-    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
+                                                     MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans) :
-                                                     MultipathAlignmentGraph(graph, alignment, snarl_manager, max_snarl_cut_size, create_projector(projection_trans),
+                                                     MultipathAlignmentGraph(graph, alignment, snarl_manager, dist_index, max_snarl_cut_size,
+                                                                             create_projector(projection_trans),
                                                                              create_injection_trans(projection_trans)) {
         // Nothing to do
     }
 
-    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
+                                                     MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const function<pair<id_t, bool>(id_t)>& project) :
-                                                     MultipathAlignmentGraph(graph, alignment, snarl_manager, max_snarl_cut_size, project,
-                                                                             create_injection_trans(graph, project)) {
+                                                     MultipathAlignmentGraph(graph, alignment, snarl_manager, dist_index, max_snarl_cut_size,
+                                                                             project, create_injection_trans(graph, project)) {
         // Nothing to do
     }
     
@@ -230,7 +237,7 @@ namespace vg {
                         // position matched the path
                         
 #ifdef debug_multipath_alignment
-                        cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << endl;
+                        cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << ", walked " << stack.size() << " of " << path.mapping_size() << " mappings" << endl;
 #endif
                         
                         if (stack.size() == path.mapping_size()) {
@@ -285,9 +292,16 @@ namespace vg {
                 
 #ifdef debug_multipath_alignment
                 cerr << "walked path: " << debug_string(path_node.path) << endl;
+                cerr << "sequence: " << string(path_node.begin, path_node.end) << endl;
 #endif
             }
         }
+#ifdef debug_multipath_alignment
+        cerr << "final path chunks:" << endl;
+        for (size_t i = 0; i < path_nodes.size(); ++i) {
+            cerr << i << ": " << string(path_nodes[i].begin, path_nodes[i].end) << " " << debug_string(path_nodes[i].path) << endl;
+        }
+#endif
     }
    
     
@@ -585,7 +599,8 @@ namespace vg {
     
     void MultipathAlignmentGraph::create_match_nodes(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                                      const function<pair<id_t, bool>(id_t)>& project,
-                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
+                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                     const MultipathMapper::match_fanouts_t* fanout_breaks) {
         
 #ifdef debug_multipath_alignment
         cerr << "walking out MEMs in graph" << endl;
@@ -594,10 +609,128 @@ namespace vg {
         // map of node ids in the dagified graph to the indices in the matches that contain them
         unordered_map<int64_t, vector<int64_t>> node_matches;
         
-        // walk the matches and filter out redundant sub-MEMs
-        for (int64_t i = 0; i < hits.size(); i++) {
+        // records an existing path node in this map
+        auto record_node_matches = [&](const size_t i) {
+            for (const auto& m : path_nodes[i].path.mapping()) {
+                // record that each node occurs in this match so we can filter out sub-MEMs
+                node_matches[m.position().node_id()].push_back(i);
+#ifdef debug_multipath_alignment
+                cerr << "associating node " << m.position().node_id() << " with a match at idx " << i << endl;
+#endif
+            }
+        };
+        
+        // performs a check to see if a hit is a redundant sub-MEM
+        auto is_redundant = [&](string::const_iterator begin, string::const_iterator end,
+                                const pos_t& hit_pos, id_t injected_id) {
             
-            const pair<const MaximalExactMatch*, pos_t>& hit = hits[i];
+            // check all MEMs that traversed this node to see if this is a redundant sub-MEM
+            if (node_matches.count(injected_id)) {
+#ifdef debug_multipath_alignment
+                cerr << "we need to check if this is a redundant sub MEM, there are previous that visited this hit" << endl;
+#endif
+                
+                for (int64_t j : node_matches[injected_id]) {
+                    PathNode& match_node = path_nodes.at(j);
+                    
+                    if (begin < match_node.begin || end > match_node.end) {
+#ifdef debug_multipath_alignment
+                        if (begin < match_node.begin) {
+                            cerr << "this MEM is earlier in the read than the other, so this is not redundant" << endl;
+                        }
+                        else if (end > match_node.end) {
+                            cerr << "this MEM is later in the read than the other, so this is not redundant" << endl;
+                        }
+#endif
+                        // the hit does not fall on the same section of the read as the other match, so
+                        // it cannot be contained in it
+                        return false;
+                    }
+                    
+                    int64_t relative_offset = begin - match_node.begin;
+#ifdef debug_multipath_alignment
+                    cerr << "the match on node " << j << " has an relative offset of " << relative_offset << " to the this MEM in the read" << endl;
+#endif
+                    
+                    path_t& path = match_node.path;
+                    
+                    // if this is a partial MEM, we should be able to predict its hit location by traversing the path
+                    // of the parent MEM by a distance equal to the relative offset
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "traversing putative parent MEM with path " << debug_string(path) << endl;
+#endif
+                    
+                    int64_t prefix_length = 0;
+                    for (size_t k = 0; k < path.mapping_size(); k++) {
+                        if (prefix_length > relative_offset) {
+#ifdef debug_multipath_alignment
+                            cerr << "we have passed where the location would be, breaking out of loop" << endl;
+#endif
+                            break;
+                        }
+                        const path_mapping_t& mapping = path.mapping(k);
+                        // the length through this mapping
+                        int64_t prefix_through_length = prefix_length + mapping_from_length(mapping);
+#ifdef debug_multipath_alignment
+                        cerr << "after traversing the " << k << "-th step, we have covered a distance of " << prefix_through_length << endl;
+#endif
+                        if (prefix_through_length > relative_offset) {
+                            // we cross the relative offset on this node, so check if the path is in the predicted
+                            // position for a redundant sub-MEM
+                            id_t node_id_here = mapping.position().node_id();
+                            
+#ifdef debug_multipath_alignment
+                            cerr << "this mapping crosses where we would expect a child to be: " << node_id_here << (project(node_id_here).second ? "-" : "+") << ":" << mapping.position().offset() + relative_offset - prefix_length << endl;
+                            cerr << "this MEM is actually at: " << injected_id << (is_rev(hit_pos) ? "-" : "+") << ":" << offset(hit_pos) << endl;
+#endif
+                            
+                            // TODO: shouldn't everything be on the forward strand? i think i could remove the
+                            // reverse checking so that only the offset of hit_pos need be communicated to this
+                            // function
+                            if (injected_id == node_id_here
+                                && offset(hit_pos) == mapping.position().offset() + relative_offset - prefix_length
+                                && project(node_id_here).second == is_rev(hit_pos)) {
+                                
+                                // this MEM is redundant with the earlier
+                                return true;
+                            }
+                            
+
+                            
+                        }
+                        prefix_length = prefix_through_length;
+                    }
+                }
+            }
+            return false;
+        };
+        
+        
+        
+        // we can't filter sub-MEMs on the fly when there are fan-out breaks in this cluster
+        // because it's too hard to make sure match nodes get created in descending size order
+        bool filter_sub_mems_on_fly;
+        if (fanout_breaks != nullptr) {
+            if (fanout_breaks->empty()) {
+                filter_sub_mems_on_fly = true;
+            }
+            else {
+                bool found_any_breaks = false;
+                for (size_t i = 0; i < hits.first.size() && !found_any_breaks; ++i) {
+                    found_any_breaks = fanout_breaks->count(hits.first[i].first);
+                }
+                filter_sub_mems_on_fly = !found_any_breaks;
+            }
+        }
+        else {
+            filter_sub_mems_on_fly = true;
+        }
+        
+        // walk the matches and filter out redundant sub-MEMs
+        for (int64_t i = 0; i < hits.first.size(); i++) {
+            
+            const pair<const MaximalExactMatch*, pos_t>& hit = hits.first[i];
             
             // the part of the read we're going to match
             string::const_iterator begin = hit.first->begin;
@@ -608,6 +741,12 @@ namespace vg {
             
 #ifdef debug_multipath_alignment
             cerr << "walking MEM hit " << hit_pos << " " << hit.first->sequence() << endl;
+            if (fanout_breaks && fanout_breaks->count(hit.first)) {
+                cerr << "fan-out breaks:" << endl;
+                for (auto fanout : fanout_breaks->at(hit.first)) {
+                    cerr << "\t" << (fanout.first - hit.first->begin) << ": " << *fanout.first << " -> " << fanout.second << endl;
+                }
+            }
 #endif
             
             auto hit_range = injection_trans.equal_range(id(hit_pos));
@@ -623,102 +762,45 @@ namespace vg {
 #ifdef debug_multipath_alignment
                 cerr << "hit node exists in graph as " << injected_id << endl;
 #endif
-                
-                // check all MEMs that traversed this node to see if this is a redundant sub-MEM
-                bool is_partial_mem = false;
-                if (node_matches.count(injected_id)) {
+                if (filter_sub_mems_on_fly) {
+                    // don't walk the match of redundant partial hits
+                    if (is_redundant(begin, end, hit_pos, injected_id)) {
 #ifdef debug_multipath_alignment
-                    cerr << "we need to check if this is a redundant sub MEM, there are previous that visited this hit" << endl;
+                        cerr << "this MEM is identified as a redundant sub-MEM, so we skip it" << endl;
 #endif
-                    
-                    for (int64_t j : node_matches[injected_id]) {
-                        PathNode& match_node = path_nodes.at(j);
-                        
-                        if (begin < match_node.begin || end > match_node.end) {
-#ifdef debug_multipath_alignment
-                            if (begin < match_node.begin) {
-                                cerr << "this MEM is earlier in the read than the other, so this is not redundant" << endl;
-                            }
-                            else if (end > match_node.end) {
-                                cerr << "this MEM is later in the read than the other, so this is not redundant" << endl;
-                            }
-#endif
-                            // the hit does not fall on the same section of the read as the other match, so
-                            // it cannot be contained in it
-                            continue;
-                        }
-                        
-                        int64_t relative_offset = begin - match_node.begin;
-#ifdef debug_multipath_alignment
-                        cerr << "the match on node " << j << " has an relative offset of " << relative_offset << " to the this MEM in the read" << endl;
-#endif
-                        
-                        path_t& path = match_node.path;
-                        
-                        // if this is a partial MEM, we should be able to predict its hit location by traversing the path
-                        // of the parent MEM by a distance equal to the relative offset
-                        
-#ifdef debug_multipath_alignment
-                        cerr << "traversing putative parent MEM with path " << debug_string(path) << endl;
-#endif
-                        
-                        int64_t prefix_length = 0;
-                        for (size_t k = 0; k < path.mapping_size(); k++) {
-                            if (prefix_length > relative_offset) {
-#ifdef debug_multipath_alignment
-                                cerr << "we have passed where the location would be, breaking out of loop" << endl;
-#endif
-                                break;
-                            }
-                            const path_mapping_t& mapping = path.mapping(k);
-                            // the length through this mapping
-                            int64_t prefix_through_length = prefix_length + mapping_from_length(mapping);
-#ifdef debug_multipath_alignment
-                            cerr << "after traversing the " << k << "-th step, we have covered a distance of " << prefix_through_length << endl;
-#endif
-                            if (prefix_through_length > relative_offset) {
-                                // we cross the relative offset on this node, so check if the path is in the predicted
-                                // position for a redundant sub-MEM
-                                id_t node_id_here = mapping.position().node_id();
-                                is_partial_mem = is_partial_mem || (injected_id == node_id_here
-                                                                    && offset(hit_pos) == mapping.position().offset() + relative_offset - prefix_length
-                                                                    && project(node_id_here).second == is_rev(hit_pos));
-#ifdef debug_multipath_alignment
-                                cerr << "this mapping crosses where we would expect a child to be: " << node_id_here << (project(node_id_here).second ? "-" : "+") << ":" << mapping.position().offset() + relative_offset - prefix_length << endl;
-                                cerr << "this MEM is actually at: " << injected_id << (is_rev(hit_pos) ? "-" : "+") << ":" << offset(hit_pos) << endl;
-#endif
-                                
-                            }
-                            prefix_length = prefix_through_length;
-                        }
-                        if (is_partial_mem) {
-                            break;
-                        }
+                        continue;
                     }
-                }
-                
-                // don't walk the match of false partial hits
-                if (is_partial_mem) {
-#ifdef debug_multipath_alignment
-                    cerr << "this MEM is identified as a redundant sub-MEM, so we skip it" << endl;
-#endif
-                    continue;
                 }
                 
 #ifdef debug_multipath_alignment
                 cerr << "performing DFS to walk out match" << endl;
 #endif
                 
-                // stack for DFS, each record contains tuples of (read begin, node offset, next node index, next node ids)
-                vector<tuple<string::const_iterator, size_t, size_t, vector<handle_t>>> stack;
-                stack.emplace_back(begin, offset(hit_pos), 0,
-                                   vector<handle_t>{graph.get_handle(injected_id)});
+                // TODO: magic constant
+                size_t matches_found = 0;
+                size_t max_matches_walked = 32;
                 
-                while (!stack.empty()) {
+                // stack for DFS, each record contains tuples of
+                // (read begin, node offset, next node index, next node handles, fan-out index)
+                vector<tuple<string::const_iterator, size_t, size_t, vector<handle_t>, size_t>> stack;
+                stack.emplace_back(begin, offset(hit_pos), 0,
+                                   vector<handle_t>{graph.get_handle(injected_id)}, 0);
+                size_t fanout_size = 0;
+                if (fanout_breaks && fanout_breaks->count(hit.first)) {
+                    fanout_size = fanout_breaks->at(hit.first).size();
+                }
+                while (!stack.empty() && matches_found < max_matches_walked) {
                     auto& back = stack.back();
                     if (get<2>(back) == get<3>(back).size()) {
 #ifdef debug_multipath_alignment
-                        cerr << "traversed all edges out of current traversal" << endl;
+                        cerr << "traversed all edges out of traversals coming from ";
+                        if (stack.size() > 1) {
+                            cerr << graph.get_id(get<3>(stack[stack.size() - 2])[get<2>(stack[stack.size() - 2]) - 1]);
+                        }
+                        else {
+                            cerr << "start";
+                        }
+                        cerr << endl;
 #endif
                         stack.pop_back();
                         continue;
@@ -726,9 +808,10 @@ namespace vg {
                     
                     handle_t trav = get<3>(back)[get<2>(back)];
                     get<2>(back)++;
+                    size_t fanout_idx = get<4>(back);
                     
 #ifdef debug_multipath_alignment
-                    cerr << "checking node " << graph.get_id(trav) << endl;
+                    cerr << "checking node " << graph.get_id(trav) << " at fanout idx " << get<4>(back) << " of " << fanout_size << endl;
 #endif
                     
                     string node_seq = graph.get_sequence(trav);
@@ -737,7 +820,22 @@ namespace vg {
                     
                     // look for a match along the entire node sequence
                     for (; node_idx < node_seq.size() && read_iter != end; node_idx++, read_iter++) {
-                        if (node_seq[node_idx] != *read_iter) {
+                        char read_char;
+                        if (fanout_idx < fanout_size
+                            && fanout_breaks->at(hit.first)[fanout_idx].first == read_iter) {
+                            // we're at the next place where we substituted the read character
+                            // for a different one
+                            read_char = fanout_breaks->at(hit.first)[fanout_idx].second;
+#ifdef debug_multipath_alignment
+                            cerr << "\tapplying fanout break to " << read_char << " instead of " << *read_iter << " at index " << (read_iter - begin) << " of MEM" << endl;
+#endif
+                            ++fanout_idx;
+                        }
+                        else {
+                            // we just want to match the read
+                            read_char = *read_iter;
+                        }
+                        if (node_seq[node_idx] != read_char) {
 #ifdef debug_multipath_alignment
                             cerr << "node sequence does not match read" << endl;
 #endif
@@ -748,56 +846,155 @@ namespace vg {
                     if (read_iter == end) {
                         // finished walking match
 #ifdef debug_multipath_alignment
-                        cerr << "reached end of read sequence, converting into a Path at idx " << path_nodes.size() << endl;
+                        cerr << "reached end of read sequence, converting into path node(s) starting at idx " << path_nodes.size() << endl;
 #endif
+                        assert(fanout_idx == fanout_size);
+                        ++matches_found;
                         
-                        path_nodes.emplace_back();
-                        PathNode& match_node = path_nodes.back();
-                        path_t& path = match_node.path;
-                        match_node.begin = begin;
-                        match_node.end = end;
-                        int64_t length_remaining = end - begin;
+                        path_t path;
+                        int64_t path_length = end - begin;
+                        int64_t length_remaining = path_length;
+                        size_t fanout_idx = 0;
+                        int64_t length_until_fanout;
+                        if (fanout_size) {
+                            length_until_fanout = fanout_breaks->at(hit.first).front().first - begin;
+                        }
+                        else {
+                            length_until_fanout = length_remaining;
+                        }
+                        auto curr_node_begin = begin;
                         
-                        // walk out the match
-                        int32_t rank = 1;
-                        for (auto search_record : stack) {
-                            int64_t offset = get<1>(search_record);
+                        // walk out the match, breaking it at fan-out positions as necessary
+                        int64_t offset = get<1>(stack.front());
+                        for (size_t j = 0; curr_node_begin < end; ) {
+                            auto& search_record = stack[j];
                             handle_t handle = get<3>(search_record)[get<2>(search_record) - 1];
-                            int64_t length = std::min(int64_t(graph.get_length(handle)) - offset, length_remaining);
+                            int64_t length_on_node = min(int64_t(graph.get_length(handle)) - offset, length_remaining);
                             
                             path_mapping_t* mapping = path.add_mapping();
                             
                             edit_t* edit = mapping->add_edit();
-                            edit->set_from_length(length);
-                            edit->set_to_length(length);
                             
                             // note: the graph is dagified and unrolled, so all hits should be on the forward strand
                             position_t* position = mapping->mutable_position();
                             position->set_node_id(graph.get_id(handle));
                             position->set_offset(offset);
                             
-                            // record that each node occurs in this match so we can filter out sub-MEMs
-                            node_matches[graph.get_id(handle)].push_back(path_nodes.size() - 1);
+                            if (length_on_node >= length_until_fanout) {
+                                // we're either at a fan-out position, or at the end of the path, so
+                                // now we want to emit a path node with the path we've just walked out
+                                
+                                edit->set_from_length(length_until_fanout);
+                                edit->set_to_length(length_until_fanout);
+                                
+                                auto node_end = end - length_remaining + length_until_fanout;
+                                
+                                if (curr_node_begin < node_end) {
+                                    // the node is non-empty
+                                    
 #ifdef debug_multipath_alignment
-                            cerr << "associating node " << graph.get_id(handle) << " with a match at idx " << path_nodes.size() - 1 << endl;
+                                    cerr << "adding path node for walked match of sequence " << string(curr_node_begin, node_end) << endl;
+                                    cerr << debug_string(path) << endl;
 #endif
-                            
-                            rank++;
-                            length_remaining -= length;
+                                    
+                                    // create a path node
+                                    path_nodes.emplace_back();
+                                    PathNode& match_node = path_nodes.back();
+                                    match_node.path = move(path);
+                                    match_node.begin = curr_node_begin;
+                                    match_node.end = node_end;
+                                    
+                                    if (filter_sub_mems_on_fly) {
+                                        record_node_matches(path_nodes.size() - 1);
+                                    }
+                                }
+#ifdef debug_multipath_alignment
+                                else {
+                                    cerr << "skipping a walked path that has no sequence" << endl;
+                                }
+#endif
+                                
+                                // set up the next path walk
+                                path = path_t();
+                                
+                                // we need to advance past the fan-out character
+                                curr_node_begin = node_end + 1;
+                                int64_t length_to_advance = length_until_fanout + 1;
+                                
+                                // walk the path until finding the corresponding position
+                                length_remaining -= length_to_advance;
+                                while (j < stack.size() &&
+                                       offset + length_to_advance >= graph.get_length(get<3>(stack[j])[get<2>(stack[j]) - 1])) {
+                                    length_to_advance -= graph.get_length(get<3>(stack[j])[get<2>(stack[j]) - 1]) - offset;
+                                    ++j;
+                                    offset = 0;
+                                }
+                                // manipulate the offset so that we start on the correct position
+                                offset = length_to_advance;
+                                
+                                
+                                // move the marker for the next fan-out ahead
+                                ++fanout_idx;
+                                if (fanout_idx < fanout_size) {
+                                    length_until_fanout = fanout_breaks->at(hit.first)[fanout_idx].first - curr_node_begin;
+                                }
+                                else {
+                                    length_until_fanout = length_remaining;
+                                }
+                            }
+                            else {
+                                edit->set_from_length(length_on_node);
+                                edit->set_to_length(length_on_node);
+                                
+                                // advance to the next stack record
+                                ++j;
+                                offset = 0;
+                                
+                                // tick down the length trackers
+                                length_remaining -= length_on_node;
+                                length_until_fanout -=  length_on_node;
+
+                            }
                         }
-                        
-#ifdef debug_multipath_alignment
-                        cerr << debug_string(path) << endl;
-#endif
                     }
                     else if (node_idx == node_seq.size()) {
                         // matched entire node, move to next node(s)
-                        stack.emplace_back(read_iter, 0, 0, vector<handle_t>());
+                        stack.emplace_back(read_iter, 0, 0, vector<handle_t>(), fanout_idx);
                         graph.follow_edges(trav, false, [&](const handle_t& next) {
                             get<3>(stack.back()).push_back(next);
                         });
                     }
                 }
+            }
+        }
+        
+        if (!filter_sub_mems_on_fly) {
+            // we weren't removing redundant sub-MEMs as we made them, but now we can do it
+            // by sorting the path nodes descending by length
+            
+            stable_sort(path_nodes.begin(), path_nodes.end(), [](const PathNode& a, const PathNode& b) {
+                return a.end - a.begin > b.end - b.begin;
+            });
+            
+            size_t removed_so_far = 0;
+            for (size_t i = 0; i < path_nodes.size(); ++i) {
+                const position_t& pos = path_nodes[i].path.mapping(0).position();
+                // TODO: this seems kinda like overkill, why do we need anything more than the offset in hit_pos?
+                auto proj = project(pos.node_id());
+                pos_t hit_pos(proj.first, proj.second != pos.is_reverse(), pos.offset());
+                
+                if (is_redundant(path_nodes[i].begin, path_nodes[i].end, hit_pos, pos.node_id())) {
+                    ++removed_so_far;
+                }
+                else {
+                    if (removed_so_far > 0) {
+                        path_nodes[i - removed_so_far] = move(path_nodes[i]);
+                    }
+                    record_node_matches(i - removed_so_far);
+                }
+            }
+            if (removed_so_far) {
+                path_nodes.resize(path_nodes.size() - removed_so_far);
             }
         }
     }
@@ -1208,6 +1405,7 @@ namespace vg {
     }
     
     void MultipathAlignmentGraph::resect_snarls_from_paths(SnarlManager* cutting_snarls,
+                                                           MinimumDistanceIndex* dist_index,
                                                            const function<pair<id_t, bool>(id_t)>& project,
                                                            int64_t max_snarl_cut_size) {
 #ifdef debug_multipath_alignment
@@ -1249,7 +1447,7 @@ namespace vg {
                 
                 if (j > 0) {
                     // we have entered this node on this iteration
-                    if (cutting_snarls->into_which_snarl(projected_id, !projected_rev)) {
+                    if (into_cutting_snarl(projected_id, !projected_rev, cutting_snarls, dist_index)) {
                         // as we enter this node, we are leaving the snarl we were in
                         
                         // since we're going up a level, we need to check whether we need to cut out the segment we've traversed
@@ -1272,7 +1470,7 @@ namespace vg {
                 
                 if (j < last) {
                     // we are going to leave this node next iteration
-                    if (cutting_snarls->into_which_snarl(projected_id, projected_rev)) {
+                    if (into_cutting_snarl(projected_id, projected_rev, cutting_snarls, dist_index)) {
                         // as we leave this node, we are entering a new deeper snarl
                         
                         // the segment in the new level will begin at the end of the current node
@@ -1454,7 +1652,6 @@ namespace vg {
                                                           size_t min_anchor_length, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
                                                           double pessimistic_tail_gap_multiplier) {
     
-        
         // Align the tails, not collecting a set of source subpaths.
         // TODO: factor of 1/2 is arbitray, but i do think it should be fewer than the max
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max<size_t>(1, max_alt_alns / 2),
@@ -1762,14 +1959,14 @@ namespace vg {
         for (pair<const id_t, vector<size_t>>& node_starts : path_starts) {
             std::sort(node_starts.second.begin(), node_starts.second.end(),
                       [&](const size_t idx_1, const size_t idx_2) {
-                          return start_offset(idx_1) < start_offset(idx_2);
-                      });
+                return start_offset(idx_1) < start_offset(idx_2);
+            });
         }
         for (pair<const id_t, vector<size_t>>& node_ends : path_ends) {
             std::sort(node_ends.second.begin(), node_ends.second.end(),
                       [&](const size_t idx_1, const size_t idx_2) {
-                          return end_offset(idx_1) < end_offset(idx_2);
-                      });
+                return end_offset(idx_1) < end_offset(idx_2);
+            });
         }
         
         // The "ranges" that are used below (range_start, range_end, etc.)
@@ -2318,8 +2515,8 @@ namespace vg {
         
         vector<unordered_map<size_t, size_t>> noncolinear_shells(path_nodes.size());
         
-        // map from index_from to maps of index_onto to (overlap size, dist)
-        unordered_map<size_t, map<size_t, pair<size_t, size_t>>> confirmed_overlaps;
+        // map from index_from to maps of index_onto to (overlap to length, overlap from length, dist)
+        unordered_map<size_t, map<size_t, tuple<size_t, size_t, size_t>>> confirmed_overlaps;
         // map from path index to set of indexes whose start occurs on the path
         unordered_map<size_t, set<size_t>> path_starts_on_path;
         
@@ -2482,13 +2679,16 @@ namespace vg {
                     
                     PathNode& start_node = path_nodes.at(start);
                     unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
+                    // TODO: kinda ugly
+                    // init this to 0, we'll actually compute it if we need it ever
+                    size_t start_node_from_length = 0;
 
                     // we begin at the start we're searching backward from
                     start_queue.push_or_reprioritize(start, 0);
                     
                     while (!start_queue.empty() || !end_queue.empty()) {
                         // is the next item on the queues a start or an end?
-                        if (start_queue.empty() ? false : (end_queue.empty() ? true : start_queue.top().second < end_queue.top().second)) {
+                        if (!start_queue.empty() && (end_queue.empty() || start_queue.top().second < end_queue.top().second)) {
                             
                             // the next closest endpoint is a start, traverse through it to find ends (which is what we really want)
                             
@@ -2517,8 +2717,8 @@ namespace vg {
                             // the next closest endpoint is an end, so we check if we can make a connection to the start
                             // that we're searching backward from
                             
-                            size_t candidate_end = end_queue.top().first;
-                            size_t candidate_dist = end_queue.top().second;
+                            size_t candidate_end, candidate_dist;
+                            tie(candidate_end, candidate_dist) = end_queue.top();
                             end_queue.pop();
                             
 #ifdef debug_multipath_alignment
@@ -2552,10 +2752,12 @@ namespace vg {
                                     end_queue.push_or_reprioritize(shell_pred.first, candidate_dist + shell_pred.second);
                                 }
                             }
-                            else if (start_node.end > candidate_end_node.end && start_node.begin > candidate_end_node.begin) {
+                            else if (candidate_end_node.begin < start_node.begin && candidate_end_node.end < start_node.end) {
                                 // the MEM can be made colinear by removing an overlap, which will not threaten reachability
-                                size_t overlap = candidate_end_node.end - start_node.begin;
-                                confirmed_overlaps[start][candidate_end] = make_pair(overlap, candidate_dist + overlap);
+                                size_t read_overlap = candidate_end_node.end - start_node.begin;
+                                size_t graph_overlap = corresponding_from_length(start_node.path, read_overlap, false);
+                                confirmed_overlaps[start][candidate_end] = make_tuple(read_overlap, graph_overlap,
+                                                                                      candidate_dist + graph_overlap);
                                 
 #ifdef debug_multipath_alignment
                                 cerr << "connection is overlap colinear, recording to add edge later" << endl;
@@ -2591,16 +2793,19 @@ namespace vg {
                             }
                             else {
                                 // these MEMs are noncolinear, so add this predecessor to the noncolinear shell
+                                if (start_node_from_length == 0) {
+                                    start_node_from_length = path_from_length(start_node.path);
+                                }
                                 if (noncolinear_shell.count(candidate_end)) {
-                                    noncolinear_shell[candidate_end] = std::min(candidate_dist + (start_node.end - start_node.begin),
+                                    noncolinear_shell[candidate_end] = std::min(candidate_dist + start_node_from_length,
                                                                                 noncolinear_shell[candidate_end]);
                                 }
                                 else {
-                                    noncolinear_shell[candidate_end] = candidate_dist + (start_node.end - start_node.begin);
+                                    noncolinear_shell[candidate_end] = candidate_dist + start_node_from_length;
                                 }
                                 
 #ifdef debug_multipath_alignment
-                                cerr << "connection is noncolinear, add to shell at dist " << candidate_dist + (start_node.end - start_node.begin) << " and continue to search backwards" << endl;
+                                cerr << "connection is noncolinear, add to shell at dist " << candidate_dist + start_node_from_length << " and continue to search backwards" << endl;
 #endif
                                 
                                 // there is no connection to block further connections back, so any of this MEMs
@@ -2626,14 +2831,14 @@ namespace vg {
                     cerr << "walking path to look for overlaps" << endl;
 #endif
                     
-                    path_t& path = path_nodes.at(start).path;
+                    path_t& path = start_node.path;
                     
                     // update the path starts index for the paths that start at the same position
                     for (size_t colocated_start : colocated_starts) {
                         path_starts_on_path[colocated_start].insert(start);
                         path_starts_on_path[start].insert(colocated_start);
                     }
-                    // records of (node_idx, overlap length)
+                    // records of (node_idx, graph overlap length)
                     vector<pair<size_t, size_t>> overlap_candidates;
                     
                     if (path.mapping_size() == 1) {
@@ -2646,7 +2851,7 @@ namespace vg {
                         size_t final_offset = end_offset(start);
                         // record which starts are on the path on this node
                         for (size_t path_start_idx = start_idx + 1;
-                             path_start_idx >= starts.size() ? false : start_offset(starts[path_start_idx]) < final_offset;
+                             path_start_idx < starts.size() && start_offset(starts[path_start_idx]) < final_offset;
                              path_start_idx++) {
                             
                             path_starts_on_path[start].insert(starts[path_start_idx]);
@@ -2699,7 +2904,7 @@ namespace vg {
                         size_t final_offset = end_offset(start);
                         // record which starts are on the path on the last node
                         for (size_t path_start_idx = 0;
-                             path_start_idx >= final_starts.size() ? false : start_offset(final_starts[path_start_idx]) < final_offset;
+                             path_start_idx < final_starts.size() && start_offset(final_starts[path_start_idx]) < final_offset;
                              path_start_idx++) {
                             
                             path_starts_on_path[start].insert(final_starts[path_start_idx]);
@@ -2735,29 +2940,36 @@ namespace vg {
                         PathNode& overlap_node = path_nodes.at(overlap_candidate.first);
                         
                         // how much do the paths overlap?
-                        size_t overlap = overlap_candidate.second;
+                        size_t graph_overlap = overlap_candidate.second;
+                        size_t read_overlap = corresponding_to_length(path, graph_overlap, false);
                         
                         // are the paths read colinear after removing the overlap?
-                        if (start_node.begin + overlap >= overlap_node.end) {
+                        if (start_node.begin + read_overlap >= overlap_node.end) {
 #ifdef debug_multipath_alignment
-                            cerr << "confirmed overlap colinear with overlap of " << overlap << endl;
+                            cerr << "confirmed overlap colinear with read overlap of " << read_overlap << ", graph overlap " << graph_overlap << endl;
 #endif
-                            confirmed_overlaps[start][overlap_candidate.first] = pair<size_t, size_t>(overlap, 0);
+                            confirmed_overlaps[start][overlap_candidate.first] = tuple<size_t, size_t, size_t>(read_overlap, graph_overlap, 0);
                         }
                         else if (overlap_node.begin < start_node.begin && overlap_node.end < start_node.end) {
 #ifdef debug_multipath_alignment
                             cerr << "confirmed overlap colinear with longer read overlap of " << overlap_node.end - start_node.begin << endl;
 #endif
                             // there is still an even longer read overlap we need to remove
-                            size_t read_overlap = overlap_node.end - start_node.begin;
-                            confirmed_overlaps[start][overlap_candidate.first] = pair<size_t, size_t>(read_overlap, read_overlap - overlap);
+                            size_t extended_read_overlap = overlap_node.end - start_node.begin;
+                            size_t extended_graph_overlap = corresponding_from_length(path, extended_read_overlap, false);
+                            confirmed_overlaps[start][overlap_candidate.first] = tuple<size_t, size_t, size_t>(extended_read_overlap,
+                                                                                                               extended_graph_overlap,
+                                                                                                               extended_graph_overlap - graph_overlap);
                         }
                         else {
 #ifdef debug_multipath_alignment
                             cerr << "not colinear even with overlap, adding to non-colinear shell at distance " << overlap_candidate.second << endl;
 #endif
                             // the overlapping node is still not reachable so it is in the noncolinear shell of this node
-                            noncolinear_shell[overlap_candidate.first] = (start_node.end - start_node.begin) - overlap_candidate.second;
+                            if (start_node_from_length == 0) {
+                                start_node_from_length = path_from_length(start_node.path);
+                            }
+                            noncolinear_shell[overlap_candidate.first] = start_node_from_length - overlap_candidate.second;
                         }
                     }
                     
@@ -2783,18 +2995,21 @@ namespace vg {
         // about overlaps coming in from both directions)
         
         // sort in descending order of overlap length and group by the node that is being cut among overlaps of same length
-        // tuples of (overlap, index from, index onto, distance)
-        vector<tuple<size_t, size_t, size_t, size_t>> ordered_overlaps;
+        // tuples of (read overlap, graph overlap, index onto, index from, distance)
+        vector<tuple<size_t, size_t, size_t, size_t, size_t>> ordered_overlaps;
         for (const auto& path_overlaps : confirmed_overlaps) {
             for (const auto& overlap_record : path_overlaps.second) {
-                ordered_overlaps.emplace_back(overlap_record.second.first,
+                ordered_overlaps.emplace_back(get<0>(overlap_record.second),
+                                              get<1>(overlap_record.second),
                                               path_overlaps.first,
                                               overlap_record.first,
-                                              overlap_record.second.second);
+                                              get<2>(overlap_record.second));
             }
         }
-        std::sort(ordered_overlaps.begin(), ordered_overlaps.end(),
-                  std::greater<tuple<size_t, size_t, size_t, size_t>>());
+        // because both from and to lengths are monotonic, we should never get into a situations where the
+        // pair (read overlap, graph overlap) is incomparable, so this partial order is actually a total order
+        // barring equal pairs
+        sort(ordered_overlaps.begin(), ordered_overlaps.end(), greater<tuple<size_t, size_t, size_t, size_t, size_t>>());
         
         // keep track of whether another node is holding the suffix of one of the original nodes because of a split
         unordered_map<size_t, size_t> node_with_suffix;
@@ -2804,7 +3019,8 @@ namespace vg {
         while (iter != ordered_overlaps.end()) {
             // find the range of overlaps that want to cut this node at the same place
             auto iter_range_end = iter;
-            while (get<0>(*iter_range_end) == get<0>(*iter) && get<1>(*iter_range_end) == get<1>(*iter)) {
+            while (get<0>(*iter_range_end) == get<0>(*iter) && get<1>(*iter_range_end) == get<1>(*iter)
+                   && get<2>(*iter_range_end) == get<2>(*iter)) {
                 iter_range_end++;
                 if (iter_range_end == ordered_overlaps.end()) {
                     break;
@@ -2812,11 +3028,17 @@ namespace vg {
             }
             
 #ifdef debug_multipath_alignment
-            cerr << "performing an overlap split onto " << get<1>(*iter) << " of length " << get<0>(*iter) << endl;
+            cerr << "performing an overlap split onto " << get<2>(*iter) << " from " << get<3>(*iter);
+            auto it = iter;
+            ++it;
+            for (; it != iter_range_end; ++it) {
+                cerr << ", " << get<3>(*it);
+            }
+            cerr << " of read length " << get<0>(*iter) << " and graph length " << get<1>(*iter) << endl;
 #endif
             
             
-            PathNode* onto_node = &path_nodes.at(get<1>(*iter));
+            PathNode* onto_node = &path_nodes.at(get<2>(*iter));
             
 #ifdef debug_multipath_alignment
             cerr << "before splitting:" << endl;
@@ -2838,31 +3060,33 @@ namespace vg {
             size_t prefix_to_length = 0;
             
             // add mappings from the path until reaching the overlap point
-            int64_t remaining = get<0>(*iter);
+            int64_t to_remaining = get<0>(*iter);
+            int64_t from_remaining = get<1>(*iter);
             int64_t mapping_idx = 0;
-            int64_t mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
-            while (remaining >= mapping_len) {
+            int64_t mapping_from_len = mapping_from_length(full_path.mapping(mapping_idx));
+            int64_t mapping_to_len = mapping_to_length(full_path.mapping(mapping_idx));
+            while (to_remaining >= mapping_to_len && from_remaining >= mapping_from_len) {
                 *onto_node->path.add_mapping() = full_path.mapping(mapping_idx);
-                prefix_to_length += mapping_to_length(full_path.mapping(mapping_idx));
-                remaining -= mapping_len;
-                
+                prefix_to_length += mapping_to_len;
+                to_remaining -= mapping_to_len;
+                from_remaining -= mapping_from_len;
                 mapping_idx++;
                 if (mapping_idx == full_path.mapping_size()) {
                     break;
                 }
                 
-                mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
+                mapping_from_len = mapping_from_length(full_path.mapping(mapping_idx));
+                mapping_to_len = mapping_to_length(full_path.mapping(mapping_idx));
             }
             
-            if (mapping_idx == full_path.mapping_size() && !remaining) {
+            if (mapping_idx == full_path.mapping_size() && !to_remaining && !from_remaining) {
                 // TODO: isn't this case covered by taking the entire range of splits at the same place?
                 
                 // the overlap covered the path, so connect it to the onto node's successors
                 // rather than splitting it into two nodes
-                
                 while (iter != iter_range_end) {
                     for (const pair<size_t, size_t> edge : onto_node->edges) {
-                        path_nodes.at(get<2>(*iter)).edges.emplace_back(edge.first, edge.second + get<3>(*iter));
+                        path_nodes.at(get<3>(*iter)).edges.emplace_back(edge.first, edge.second + get<4>(*iter));
                     }
                     iter++;
                 }
@@ -2877,7 +3101,7 @@ namespace vg {
                 PathNode& suffix_node = path_nodes.back();
                 
                 // get the pointer from the onto node back in case the vector reallocated
-                onto_node = &path_nodes.at(get<1>(*iter));
+                onto_node = &path_nodes.at(get<2>(*iter));
                 
                 // transfer the outgoing edges onto the new node
                 suffix_node.edges = std::move(onto_node->edges);
@@ -2887,13 +3111,13 @@ namespace vg {
                 onto_node->edges.emplace_back(suffix_idx, 0);
                 
                 // keep track of the relationship of suffix nodes to original nodes
-                if (!node_with_suffix.count(get<1>(*iter))) {
+                if (!node_with_suffix.count(get<2>(*iter))) {
                     // since we take longest overlaps first, only the first split onto a node will change
                     // which node contains the suffix of the original node
-                    node_with_suffix[get<1>(*iter)] = suffix_idx;
+                    node_with_suffix[get<2>(*iter)] = suffix_idx;
                 }
                 
-                if (remaining) {
+                if (to_remaining || from_remaining) {
                     // the overlap point is in the middle of a node, need to split a mapping
                     
                     const path_mapping_t& split_mapping = full_path.mapping(mapping_idx);
@@ -2906,38 +3130,40 @@ namespace vg {
                     // add the suffix of the mapping to the new node
                     path_mapping_t* suffix_split = suffix_node.path.add_mapping();
                     suffix_split->mutable_position()->set_node_id(split_mapping.position().node_id());
-                    suffix_split->mutable_position()->set_offset(split_mapping.position().offset() + remaining);
-                    
+                    suffix_split->mutable_position()->set_offset(split_mapping.position().offset() + from_remaining);
+                                        
                     // add the edits up to the point where the split occurs
                     size_t edit_idx = 0;
-                    int64_t mapping_remaining = remaining;
-                    for (; mapping_remaining >= split_mapping.edit(edit_idx).from_length() && edit_idx < split_mapping.edit_size(); edit_idx++) {
-                        mapping_remaining -= split_mapping.edit(edit_idx).from_length();
-                        prefix_to_length += split_mapping.edit(edit_idx).to_length();
+                    int64_t mapping_to_remaining = to_remaining;
+                    int64_t mapping_from_remaining = from_remaining;
+                    for (; edit_idx < split_mapping.edit_size()
+                         && mapping_from_remaining >= split_mapping.edit(edit_idx).from_length()
+                         && mapping_to_remaining >= split_mapping.edit(edit_idx).to_length(); edit_idx++) {
+                        const edit_t& split_edit = split_mapping.edit(edit_idx);
+                        mapping_from_remaining -= split_edit.from_length();
+                        mapping_to_remaining -= split_edit.to_length();
+                        prefix_to_length += split_edit.to_length();
+                        *prefix_split->add_edit() = split_edit;
                     }
                     
                     // do we need to split in the middle of an edit?
-                    if (mapping_remaining) {
+                    if (mapping_from_remaining || mapping_to_remaining) {
                         
                         const edit_t& split_edit = split_mapping.edit(edit_idx);
-                        
                         // add an edit for either side of the split
                         edit_t* prefix_split_edit = prefix_split->add_edit();
-                        prefix_split_edit->set_from_length(mapping_remaining);
+                        prefix_split_edit->set_from_length(mapping_from_remaining);
+                        prefix_split_edit->set_to_length(mapping_to_remaining);
+                        
+                        prefix_to_length += prefix_split_edit->to_length();
                         
                         edit_t* suffix_split_edit = suffix_split->add_edit();
-                        suffix_split_edit->set_from_length(split_edit.from_length() - mapping_remaining);
+                        suffix_split_edit->set_from_length(split_edit.from_length() - mapping_from_remaining);
+                        suffix_split_edit->set_to_length(split_edit.to_length() - mapping_to_remaining);
                         
-                        if (split_edit.to_length()) {
-                            prefix_split_edit->set_to_length(mapping_remaining);
-                            suffix_split_edit->set_to_length(split_edit.to_length() - mapping_remaining);
-                            prefix_to_length += prefix_split_edit->to_length();
-                            
-                            if (!split_edit.sequence().empty()) {
-                                suffix_split_edit->set_sequence(split_edit.sequence().substr(0, mapping_remaining));
-                                prefix_split_edit->set_sequence(split_edit.sequence().substr(mapping_remaining,
-                                                                                             split_edit.sequence().size() -mapping_remaining));
-                            }
+                        if (!split_edit.sequence().empty()) {
+                            prefix_split_edit->set_sequence(split_edit.sequence().substr(0, mapping_to_remaining));
+                            suffix_split_edit->set_sequence(split_edit.sequence().substr(mapping_to_remaining, string::npos));
                         }
                         
                         edit_idx++;
@@ -2977,10 +3203,10 @@ namespace vg {
                 
                 while (iter != iter_range_end) {
                     // index of the node that contains the end of the original node we recorded the overlap from
-                    size_t splitting_idx = node_with_suffix.count(get<2>(*iter)) ? node_with_suffix[get<2>(*iter)] : get<2>(*iter);
+                    size_t splitting_idx = node_with_suffix.count(get<3>(*iter)) ? node_with_suffix[get<3>(*iter)] : get<3>(*iter);
                     
 #ifdef debug_multipath_alignment
-                    cerr << "adding an overlap edge from node " << splitting_idx << " at distance " << get<3>(*iter) << endl;
+                    cerr << "adding an overlap edge from node " << splitting_idx << " at distance " << get<4>(*iter) << endl;
                     cerr << "\t";
                     for (auto node_iter = path_nodes.at(splitting_idx).begin; node_iter != path_nodes.at(splitting_idx).end; node_iter++) {
                         cerr << *node_iter;
@@ -2989,7 +3215,7 @@ namespace vg {
 #endif
                     
                     // get the next node that overlaps onto the other node at this index and add the overlap edge
-                    path_nodes.at(splitting_idx).edges.emplace_back(suffix_idx, get<3>(*iter));
+                    path_nodes.at(splitting_idx).edges.emplace_back(suffix_idx, get<4>(*iter));
                     
                     iter++;
                 }
@@ -3187,10 +3413,11 @@ namespace vg {
         // compute the weight of edges and node matches
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& from_node = path_nodes.at(i);
-            node_weights[i] = aligner->match * (from_node.end - from_node.begin)
-            + aligner->full_length_bonus * ((from_node.begin == alignment.sequence().begin())
-                                            + (from_node.end == alignment.sequence().end()));
-            
+            node_weights[i] = (aligner->score_exact_match(from_node.begin, from_node.end,
+                                                          alignment.quality().begin() + (from_node.begin - alignment.sequence().begin()))
+                               + aligner->full_length_bonus * ((from_node.begin == alignment.sequence().begin())
+                                                               + (from_node.end == alignment.sequence().end())));
+                        
             for (const pair<size_t, size_t>& edge : from_node.edges) {
                 PathNode& to_node = path_nodes.at(edge.first);
                 
@@ -3450,7 +3677,7 @@ namespace vg {
                     intervening_length + min(min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin)), max_gap);
                 
 #ifdef debug_multipath_alignment
-                cerr << "read dist: " << intervening_length << ", source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << ", max allowed gap " << max_gap << endl;
+                cerr << "read dist: " << intervening_length << ", graph dist " << edge.second << " source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << ", max allowed gap " << max_gap << endl;
 #endif
                 
                 // extract the graph between the matches
@@ -3462,9 +3689,8 @@ namespace vg {
                                                                                                dest_pos,          // beginning of later match
                                                                                                false,             // do not bother finding all cycles (it's a DAG)
                                                                                                true,              // only include nodes on connecting paths
-                                                                                               true);             // enforce max distance strictly
-                
-                
+                                                                                               false);            // do not enforce max distance
+                                
                 if (connecting_graph.get_node_count() == 0) {
                     // the MEMs weren't connectable with a positive score after all, mark the edge for removal
 #ifdef debug_multipath_alignment
@@ -3482,7 +3708,6 @@ namespace vg {
                 // TODO a better way of choosing the number of alternate alignments
                 vector<Alignment> alt_alignments;
                 if (num_alt_alns > 0) {
-                
                     // transfer the substring between the matches to a new alignment
                     Alignment intervening_sequence;
                     intervening_sequence.set_sequence(alignment.sequence().substr(src_path_node.end - alignment.sequence().begin(),
@@ -3731,7 +3956,7 @@ namespace vg {
         cerr << "doing tail alignments to:" << endl;
         to_dot(cerr);
 #endif
-        
+                
         // Make a structure to populate
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>> to_return;
         auto& left_alignments = to_return[false];
@@ -3813,11 +4038,17 @@ namespace vg {
                         // align against the graph
                         auto& alt_alignments = right_alignments[j];
                         if (num_alt_alns == 1) {
+#ifdef debug_multipath_alignment
+                            cerr << "align right with dozeu with gap " << gap << endl;
+#endif
                             // we can speed things up by using the dozeu pinned alignment
                             alt_alignments.emplace_back(move(right_tail_sequence));
-                            aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, target_length);
+                            aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
                         }
                         else {
+#ifdef debug_multipath_alignment
+                            cerr << "align right with gssw" << endl;
+#endif
                             aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
                         }
                         
@@ -3920,11 +4151,17 @@ namespace vg {
                         // align against the graph
                         auto& alt_alignments = left_alignments[j];
                         if (num_alt_alns == 1) {
+#ifdef debug_multipath_alignment
+                            cerr << "align left with dozeu using gap " << gap << endl;
+#endif
                             // we can speed things up by using the dozeu pinned alignment
                             alt_alignments.emplace_back(move(left_tail_sequence));
-                            aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, target_length);
+                            aligner->align_pinned(alt_alignments.back(), tail_graph, false, true, gap);
                         }
                         else {
+#ifdef debug_multipath_alignment
+                            cerr << "align left with gssw" << endl;
+#endif
                             aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                         }
                         
@@ -4022,6 +4259,24 @@ namespace vg {
             }
         }
         out << "}" << endl;
+    }
+
+    bool MultipathAlignmentGraph::into_cutting_snarl(id_t node_id, bool is_rev,
+                                                     SnarlManager* snarl_manager, MinimumDistanceIndex* dist_index) {
+        
+        if (dist_index) {
+            auto result = dist_index->into_which_snarl(node_id, is_rev);
+            // points into a snarl and snarl is nontrivial
+            return get<0>(result) != 0 && !get<2>(result);
+        }
+        else if (snarl_manager) {
+            // no mechanism to check for triviality without traversing graph
+            return snarl_manager->into_which_snarl(node_id, is_rev);
+        }
+        else {
+            // no snarls provided
+            return false;
+        }
     }
     
     vector<vector<id_t>> MultipathAlignmentGraph::get_connected_components() const {

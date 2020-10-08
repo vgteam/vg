@@ -21,7 +21,7 @@
 #include "../annotation.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
-#include "../alignment_emitter.hpp"
+#include "../hts_alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
 #include "../index_manager.hpp"
@@ -312,8 +312,8 @@ void help_giraffe(char** argv) {
     << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
     << "computational parameters:" << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
-    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [1500]" << endl
-    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.7]" << endl
+    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [500]" << endl
+    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.9]" << endl
     << "  -D, --distance-limit INT      cluster using this distance limit [200]" << endl
     << "  -e, --max-extensions INT      extend up to INT clusters [800]" << endl
     << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
@@ -325,6 +325,10 @@ void help_giraffe(char** argv) {
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw / haplotypes) [dozeu]" << endl
+    << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
+    << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
+    << "  --paired-distance-limit FLOAT cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean [2.0]" << endl
+    << "  --rescue-subgraph-size FLOAT  search for rescued alignments FLOAT standard deviations greater than the mean [4.0]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
@@ -343,6 +347,10 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_REPORT_NAME 1002
     #define OPT_TRACK_PROVENANCE 1003
     #define OPT_TRACK_CORRECTNESS 1004
+    #define OPT_FRAGMENT_MEAN 1005
+    #define OPT_FRAGMENT_STDEV 1006
+    #define OPT_CLUSTER_STDEV 1007
+    #define OPT_RESCUE_STDEV 1008
     
 
     // initialize parameters with their default options
@@ -354,8 +362,8 @@ int main_giraffe(int argc, char** argv) {
     string report_name;
     // How close should two hits be to be in the same cluster?
     Range<size_t> distance_limit = 200;
-    Range<size_t> hit_cap = 10, hard_hit_cap = 1500;
-    Range<double> minimizer_score_fraction = 0.7;
+    Range<size_t> hit_cap = 10, hard_hit_cap = 500;
+    Range<double> minimizer_score_fraction = 0.9;
     bool show_progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_dp = true;
@@ -373,7 +381,7 @@ int main_giraffe(int argc, char** argv) {
     // How many mappings per read can we emit?
     Range<size_t> max_multimaps = 1;
     // How many clusters should we extend?
-    Range<size_t> max_extensions = 1000;
+    Range<size_t> max_extensions = 800;
     // How many extended clusters should we align, max?
     Range<size_t> max_alignments = 8;
     //Throw away cluster with scores that are this amount below the best
@@ -390,6 +398,18 @@ int main_giraffe(int argc, char** argv) {
     Range<int> rescue_attempts = 15;
     // Which rescue algorithm do we use?
     MinimizerMapper::RescueAlgorithm rescue_algorithm = MinimizerMapper::rescue_dozeu;
+    //Did we force the fragment length distribution?
+    bool forced_mean = false;
+    //And if so what is it?
+    double fragment_mean = 0.0;
+    bool forced_stdev = false;
+    double fragment_stdev = 0.0;
+    //How many sdevs to we look out when clustering pairs?
+    double cluster_stdev = 2.0;
+    //How many stdevs do we look out when rescuing? 
+    double rescue_stdev = 4.0;
+    // How many pairs should we be willing to buffer before giving up on fragment length estimation?
+    size_t MAX_BUFFERED_PAIRS = 100000;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -473,6 +493,10 @@ int main_giraffe(int argc, char** argv) {
             {"no-dp", no_argument, 0, 'O'},
             {"rescue-attempts", required_argument, 0, 'r'},
             {"rescue-algorithm", required_argument, 0, 'A'},
+            {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
+            {"rescue-subgraph-size", required_argument, 0, OPT_RESCUE_STDEV },
+            {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
+            {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
             {"threads", required_argument, 0, 't'},
@@ -612,7 +636,7 @@ int main_giraffe(int argc, char** argv) {
                 if (param_preset == "fast" ) {
 
                     hit_cap = 10;
-                    hard_hit_cap = 1000;
+                    hard_hit_cap = 500;
                     minimizer_score_fraction = 0.5;
                     max_multimaps = 1;
                     max_extensions = 400;
@@ -772,6 +796,24 @@ int main_giraffe(int argc, char** argv) {
                 }
                 break;
 
+            case OPT_FRAGMENT_MEAN:
+                forced_mean = true;
+                fragment_mean = parse<double>(optarg);
+                break;
+
+            case OPT_FRAGMENT_STDEV:
+                forced_stdev = true;
+                fragment_stdev = parse<double>(optarg);
+                break;
+
+            case OPT_CLUSTER_STDEV:
+                cluster_stdev = parse<double>(optarg);
+                break;
+
+            case OPT_RESCUE_STDEV:
+                rescue_stdev = parse<double>(optarg);
+                break;
+
             case OPT_TRACK_PROVENANCE:
                 track_provenance = true;
                 break;
@@ -890,6 +932,15 @@ int main_giraffe(int argc, char** argv) {
         exit(1);
     }
 
+    if ((forced_mean && ! forced_stdev) || (!forced_mean && forced_stdev)) {
+        cerr << "warning:[vg giraffe] Both a mean and standard deviation must be specified for the fragment length distribution" << endl;
+        cerr << "                   Detecting fragment length distribution automatically" << endl;
+        forced_mean = false;
+        forced_stdev = false;
+        fragment_mean = 0.0;
+        fragment_stdev = 0.0;
+    }
+
     // create in-memory objects
     
     // If we are tracking correctness, we will fill this in with a graph for
@@ -939,6 +990,10 @@ int main_giraffe(int argc, char** argv) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
     MinimizerMapper minimizer_mapper(*gbwt_graph, minimizer_indexes, *distance_index, positional_graph);
+    if (forced_mean && forced_stdev) {
+        minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
+    }
+
     
     std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
     std::chrono::duration<double> init_seconds = init - launch;
@@ -1080,9 +1135,17 @@ int main_giraffe(int argc, char** argv) {
         minimizer_mapper.track_correctness = track_correctness;
 
         if (show_progress && paired) {
+            if (forced_mean && forced_stdev) {
+                cerr << "--fragment-mean " << fragment_mean << endl; 
+                cerr << "--fragment-stdev " << fragment_stdev << endl;
+            }
+            cerr << "--paired-distance-limit " << cluster_stdev << endl;
+            cerr << "--rescue-subgraph-size " << rescue_stdev << endl;
             cerr << "--rescue-attempts " << rescue_attempts << endl;
             cerr << "--rescue-algorithm " << algorithm_names[rescue_algorithm] << endl;
         }
+        minimizer_mapper.paired_distance_stdevs = cluster_stdev;
+        minimizer_mapper.rescue_subgraph_stdevs = rescue_stdev;
         minimizer_mapper.max_rescue_attempts = rescue_attempts;
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
 
@@ -1138,6 +1201,18 @@ int main_giraffe(int argc, char** argv) {
                     return is_ready;
                 };
                 
+                // Define a way to force the distribution ready
+                auto require_distribution_finalized = [&]() {
+                    if (!minimizer_mapper.fragment_distr_is_finalized()){
+                        cerr << "warning[vg::giraffe]: Finalizing fragment length distribution before reaching maximum sample size" << endl;
+                        cerr << "                      mapped " << minimizer_mapper.get_fragment_length_sample_size() 
+                             << " reads single ended with " << ambiguous_pair_buffer.size() << " pairs of reads left unmapped" << endl;
+                        cerr << "                      mean: " << minimizer_mapper.get_fragment_length_mean() << ", stdev: " 
+                             << minimizer_mapper.get_fragment_length_stdev() << endl;
+                        minimizer_mapper.finalize_fragment_length_distr();
+                    }
+                };
+                
                 // Define how to align and output a read pair, in a thread.
                 auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
                     
@@ -1148,6 +1223,14 @@ int main_giraffe(int argc, char** argv) {
                         alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second));
                         // Record that we mapped a read.
                         reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
+                    }
+                    
+                    if (!minimizer_mapper.fragment_distr_is_finalized() && ambiguous_pair_buffer.size() >= MAX_BUFFERED_PAIRS) {
+                        // We risk running out of memory if we keep this up.
+                        cerr << "warning[vg::giraffe]: Encountered " << ambiguous_pair_buffer.size() << " ambiguously-paired reads before finding enough" << endl
+                             << "                      unambiguously-paired reads to learn fragment length distribution. Are you sure" << endl
+                             << "                      your reads are paired and your graph is not a hairball?" << endl;
+                        require_distribution_finalized();
                     }
                 };
 
@@ -1167,12 +1250,9 @@ int main_giraffe(int argc, char** argv) {
                     fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready);
                 }
 
-                //Now map all the ambiguous pairs
-                //TODO: What do we do if we haven't finalized the distribution?
-                if (!minimizer_mapper.fragment_distr_is_finalized()){
-                    cerr << "warning[vg::giraffe]: Finalizing fragment length distribution before reaching maximum sample size" << endl;
-                    minimizer_mapper.finalize_fragment_length_distr();
-                }
+                // Now map all the ambiguous pairs
+                // Make sure fragment length distribution is finalized first.
+                require_distribution_finalized();
                 for (pair<Alignment, Alignment>& alignment_pair : ambiguous_pair_buffer) {
 
                     auto mapped_pairs = minimizer_mapper.map_paired(alignment_pair.first, alignment_pair.second);

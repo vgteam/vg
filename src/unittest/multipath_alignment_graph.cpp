@@ -3,10 +3,11 @@
 /// unit tests for the multipath mapper's MultipathAlignmentGraph
 
 #include <iostream>
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "../cactus_snarl_finder.hpp"
 #include "../multipath_alignment_graph.hpp"
+#include "../min_distance.hpp"
 #include "catch.hpp"
 
 namespace vg {
@@ -46,7 +47,8 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
     
     // Make snarls on it
     CactusSnarlFinder bubble_finder(vg);
-    SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+    SnarlManager snarl_manager = bubble_finder.find_snarls();
+    MinimumDistanceIndex dist_index(&vg, &snarl_manager);
     
     // We need a fake read
     string read("GATTACAA");
@@ -70,7 +72,9 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
     
     // This will hold our MEMs and their start positions in the imaginary graph.
     // Note that this is also a memcluster_t
-    vector<pair<const MaximalExactMatch*, pos_t>> mem_hits;
+    pair<vector<pair<const MaximalExactMatch*, pos_t>>, double> mem_hits;
+    mem_hits.second = 1.0;
+    
     
     /*
     SECTION ("Works with right tail only") {
@@ -78,7 +82,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         // Make a MEM hit over all of node 1's sequence
         mems.emplace_back(query.sequence().begin(), query.sequence().begin() + 4, make_pair(5, 5), 1);
         // Drop it on node 1 where it should sit
-        mem_hits.emplace_back(&mems.back(), make_pos_t(1, false, 0));
+        mem_hits.first.emplace_back(&mems.back(), make_pos_t(1, false, 0));
         
         // Make the MultipathAlignmentGraph to test
         MultipathAlignmentGraph mpg(vg, mem_hits, identity);
@@ -173,7 +177,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         // Make a MEM hit over all of node 4's sequence
         mems.emplace_back(query.sequence().begin() + 5, query.sequence().begin() + 6, make_pair(5, 5), 1);
         // Drop it on node 4 where it should sit
-        mem_hits.emplace_back(&mems.back(), make_pos_t(4, false, 0));
+        mem_hits.first.emplace_back(&mems.back(), make_pos_t(4, false, 0));
         
         // Make the MultipathAlignmentGraph to test
         MultipathAlignmentGraph mpg(vg, mem_hits, identity);
@@ -188,7 +192,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
             mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false, 100, 0.0);
             
             // Cut new anchors on snarls
-            mpg.resect_snarls_from_paths(&snarl_manager,
+            mpg.resect_snarls_from_paths(&snarl_manager, nullptr,
                                          MultipathAlignmentGraph::create_projector(identity), 5);
             
             // Make it align, with alignments per gap/tail
@@ -267,7 +271,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         // Make a MEM hit over all of node 7's sequence
         mems.emplace_back(query.sequence().begin() + 7, query.sequence().begin() + 8, make_pair(5, 5), 1);
         // Drop it on node 7 where it should sit
-        mem_hits.emplace_back(&mems.back(), make_pos_t(7, false, 0));
+        mem_hits.first.emplace_back(&mems.back(), make_pos_t(7, false, 0));
         
         // Make the MultipathAlignmentGraph to test
         MultipathAlignmentGraph mpg(vg, mem_hits, identity);
@@ -276,12 +280,11 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         multipath_alignment_t out;
         
         SECTION("Tries multiple traversals of snarls in tails") {
-        
             // Generate 2 fake tail anchors
             mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false, 100, 0.0);
             
             // Cut new anchors on snarls
-            mpg.resect_snarls_from_paths(&snarl_manager,
+            mpg.resect_snarls_from_paths(nullptr, &dist_index,
                                          MultipathAlignmentGraph::create_projector(identity), 5);
             
             // Make it align, with alignments per gap/tail
@@ -358,6 +361,53 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         
 }
 
+TEST_CASE("Corresponding path lengths can be computed", "[multipathalignmentgraph]") {
+    
+    path_t path;
+    auto m0 = path.add_mapping();
+    auto e0 = m0->add_edit();
+    e0->set_from_length(5);
+    e0->set_to_length(5);
+    auto e1 = m0->add_edit();
+    e1->set_from_length(0);
+    e1->set_to_length(5);
+    auto m1 = path.add_mapping();
+    auto e2 = m1->add_edit();
+    e2->set_from_length(5);
+    e2->set_to_length(0);
+    auto e3 = m1->add_edit();
+    e3->set_from_length(5);
+    e3->set_to_length(5);
+    e3->set_sequence("AAAAA");
+    
+    
+    REQUIRE(corresponding_to_length(path, 0, false) == 0);
+    REQUIRE(corresponding_from_length(path, 0, false) == 0);
+    REQUIRE(corresponding_to_length(path, 1, false) == 1);
+    REQUIRE(corresponding_from_length(path, 1, false) == 1);
+    REQUIRE(corresponding_to_length(path, 5, false) == 5);
+    REQUIRE(corresponding_from_length(path, 5, false) == 5);
+    REQUIRE(corresponding_to_length(path, 7, false) == 10);
+    REQUIRE(corresponding_from_length(path, 7, false) == 5);
+    REQUIRE(corresponding_to_length(path, 11, false) == 11);
+    REQUIRE(corresponding_from_length(path, 11, false) == 11);
+    REQUIRE(corresponding_to_length(path, 15, false) == 15);
+    REQUIRE(corresponding_from_length(path, 15, false) == 15);
+    
+    REQUIRE(corresponding_to_length(path, 0, true) == 0);
+    REQUIRE(corresponding_from_length(path, 0, true) == 0);
+    REQUIRE(corresponding_to_length(path, 1, true) == 1);
+    REQUIRE(corresponding_from_length(path, 1, true) == 1);
+    REQUIRE(corresponding_to_length(path, 5, true) == 5);
+    REQUIRE(corresponding_from_length(path, 5, true) == 5);
+    REQUIRE(corresponding_from_length(path, 7, true) == 10);
+    REQUIRE(corresponding_to_length(path, 7, true) == 5);
+    REQUIRE(corresponding_to_length(path, 11, true) == 11);
+    REQUIRE(corresponding_from_length(path, 11, true) == 11);
+    REQUIRE(corresponding_to_length(path, 15, true) == 15);
+    REQUIRE(corresponding_from_length(path, 15, true) == 15);
+    
 }
 
+}
 }

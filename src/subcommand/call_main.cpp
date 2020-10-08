@@ -13,7 +13,7 @@
 #include "subcommand.hpp"
 #include "../path.hpp"
 #include "../graph_caller.hpp"
-#include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -33,8 +33,13 @@ void help_call(char** argv) {
        << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.001]" << endl
        << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
        << "    -b, --het-bias M,N       Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
+       << "GAF options:" << endl
+       << "    -G, --gaf               Output GAF genotypes instead of VCF" << endl
+       << "    -T, --traversals        Output all candidate traversals in GAF without doing any genotyping" << endl
+       << "    -M, --trav-padding N    Extend each flank of traversals (from -T) with reference path by N bases if possible" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
+       << "    -a, --genotype-snarls   Genotype every snarl, including reference calls (use to compare multiple samples)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
        << "    -i, --ins-fasta FILE    Insertions fasta (required if VCF contains symbolic insertions)" << endl
        << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
@@ -65,6 +70,10 @@ int main_call(int argc, char** argv) {
     bool ratio_caller = false;
     bool legacy = false;
     int ploidy = 2;
+    bool traversals_only = false;
+    bool gaf_output = false;
+    size_t trav_padding = 0;
+    bool genotype_snarls = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -72,7 +81,10 @@ int main_call(int argc, char** argv) {
     const size_t min_depth_bin_width = 50;
     const size_t max_depth_bin_width = 50000000;
     const double depth_scale_fac = 1.5;
-    const size_t max_yens_traversals = 50;
+    const size_t max_yens_traversals = traversals_only ? 100 : 50;
+    // used to merge up snarls from chains when generating traversals
+    const size_t max_chain_edges = 1000; 
+    const size_t max_chain_trivial_travs = 5;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -85,6 +97,7 @@ int main_call(int argc, char** argv) {
             {"het-bias", required_argument, 0, 'b'},
             {"min-support", required_argument, 0, 'm'},
             {"vcf", required_argument, 0, 'v'},
+            {"genotype-snarls", no_argument, 0, 'a'},
             {"ref-fasta", required_argument, 0, 'f'},
             {"ins-fasta", required_argument, 0, 'i'},
             {"sample", required_argument, 0, 's'},            
@@ -94,6 +107,9 @@ int main_call(int argc, char** argv) {
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
             {"ploidy", required_argument, 0, 'd'},
+            {"gaf", no_argument, 0, 'G'},
+            {"traversals", no_argument, 0, 'T'},
+            {"min-trav-len", required_argument, 0, 'M'},
             {"legacy", no_argument, 0, 'L'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
@@ -102,7 +118,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:f:i:s:r:g:p:o:l:d:Lt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:af:i:s:r:g:p:o:l:d:GTLM:t:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -128,6 +144,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'v':
             vcf_filename = optarg;
+            break;
+        case 'a':
+            genotype_snarls = true;
             break;
         case 'f':
             ref_fasta_filename = optarg;
@@ -155,6 +174,16 @@ int main_call(int argc, char** argv) {
             break;
         case 'd':
             ploidy = parse<int>(optarg);
+            break;
+        case 'G':
+            gaf_output = true;
+            break;
+        case 'T':
+            traversals_only = true;
+            gaf_output = true;
+            break;
+        case 'M':
+            trav_padding = parse<size_t>(optarg);
             break;
         case 'L':
             legacy = true;
@@ -225,6 +254,16 @@ int main_call(int argc, char** argv) {
         }
     } else if (error_toks.size() != 0) {
         cerr << "error [vg call]: -e option expects exactly two comma-separated numbers X,Y" << endl;
+        return 1;
+    }
+
+    if (trav_padding > 0 && traversals_only == false) {
+        cerr << "error [vg call]: -M option can only be used in conjunction with -T" << endl;
+        return 1;
+    }
+
+    if (!vcf_filename.empty() && genotype_snarls) {
+        cerr << "error [vg call]: -v and -a options cannot be used together" << endl;
         return 1;
     }
     
@@ -317,7 +356,7 @@ int main_call(int argc, char** argv) {
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
     } else {
-        CactusSnarlFinder finder(*graph);
+        IntegratedSnarlFinder finder(*graph);
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
     
@@ -378,6 +417,11 @@ int main_call(int argc, char** argv) {
         return 1;
     }
 
+    unique_ptr<AlignmentEmitter> alignment_emitter;
+    if (gaf_output) {
+      alignment_emitter = vg::io::get_non_hts_alignment_emitter("-", "GAF", {}, get_thread_count(), graph);
+    }
+
     unique_ptr<GraphCaller> graph_caller;
     unique_ptr<TraversalFinder> traversal_finder;
     unique_ptr<gbwt::GBWT> gbwt_index;
@@ -408,7 +452,11 @@ int main_call(int argc, char** argv) {
                                                        *snarl_manager, variant_file,
                                                        sample_name, ref_paths,
                                                        ref_fasta.get(),
-                                                       ins_fasta.get());
+                                                       ins_fasta.get(),
+                                                       alignment_emitter.get(),
+                                                       traversals_only,
+                                                       gaf_output,
+                                                       trav_padding);
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
     } else if (legacy) {
         // de-novo caller (port of the old vg call code, which requires a support based caller)
@@ -446,23 +494,39 @@ int main_call(int argc, char** argv) {
                                                                                  node_support, edge_support);
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
-        
+
         FlowCaller* flow_caller = new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                  *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                  *snarl_manager,
-                                                 sample_name, *traversal_finder, ref_paths, ref_path_offsets);
+                                                 sample_name, *traversal_finder, ref_paths, ref_path_offsets,
+                                                 alignment_emitter.get(),
+                                                 traversals_only,
+                                                 gaf_output,
+                                                 trav_padding,
+                                                 genotype_snarls);
         graph_caller = unique_ptr<GraphCaller>(flow_caller);
     }
 
     // Call the graph
-    graph_caller->call_top_level_snarls(ploidy);
+    if (!traversals_only) {
 
-    // VCF output is our only supported output
-    VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
-    assert(vcf_caller != nullptr);
-    cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
-    vcf_caller->write_variants(cout);
-        
+        // Call each snarl
+        // (todo: try chains in normal mode)
+        graph_caller->call_top_level_snarls(*graph, ploidy);
+    } else {
+        // Attempt to call chains instead of snarls so that the output traversals are longer
+        // Todo: this could probably help in some cases when making VCFs too
+        graph_caller->call_top_level_chains(*graph, ploidy, max_chain_edges,  max_chain_trivial_travs);
+    }
+
+    if (!gaf_output) {
+        // Output VCF
+        VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        assert(vcf_caller != nullptr);
+        cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+        vcf_caller->write_variants(cout);
+    }
+    
     return 0;
 }
 

@@ -6,7 +6,7 @@
 namespace vg {
 
 using namespace std;
-
+using namespace vg::io;
 
 VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     graph.paths.for_each_name([&](const string& name) {
@@ -638,9 +638,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         
         // Turn N/N subs into matches and score the alignments without end bonuses.
         align_ns(left_subgraph, aln_left);
-        aln_left.set_score(aligner.score_ungapped_alignment(aln_left, true));
+        aln_left.set_score(aligner.score_contiguous_alignment(aln_left, true));
         align_ns(right_subgraph, aln_right);
-        aln_right.set_score(aligner.score_ungapped_alignment(aln_right, true));
+        aln_right.set_score(aligner.score_contiguous_alignment(aln_right, true));
         
         
 #ifdef debug
@@ -689,7 +689,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
 
                 // Rescore with Ns as matches again
                 align_ns(left_subgraph, aln);
-                aln.set_score(aligner.score_ungapped_alignment(aln, true));
+                aln.set_score(aligner.score_contiguous_alignment(aln, true));
 
 #ifdef debug                
                 if (aligned_in_band) {
@@ -800,7 +800,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 
                 // Rescore with Ns as matches again
                 align_ns(left_subgraph, aln);
-                aln.set_score(aligner.score_ungapped_alignment(aln, true));
+                aln.set_score(aligner.score_contiguous_alignment(aln, true));
                 
 #ifdef debug
                 cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor)

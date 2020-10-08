@@ -455,6 +455,97 @@ double golden_section_search(const function<double(double)>& f, double x_min, do
     }
 }
 
+double phred_to_prob(uint8_t phred) {
+    // Use a statically initialized lookup table
+    static std::vector<double> prob_by_phred([](void) -> std::vector<double> {
+        std::vector<double> to_return;
+        to_return.reserve((int)numeric_limits<uint8_t>::max() + 1);
+        for (int i = 0; i <= numeric_limits<uint8_t>::max(); i++) {
+            to_return.push_back(phred_to_prob((double) i));
+        }
+        return to_return;
+    }());
+    
+    // Look up in it
+    return prob_by_phred[phred];
+}
+
+double phred_for_at_least_one(size_t p, size_t n) {
+
+    /**
+     * Assume that we have n <= MAX_AT_LEAST_ONE_EVENTS independent events with probability p each.
+     * Let x be the AT_LEAST_ONE_PRECISION most significant bits of p. Then
+     *
+     *   phred_at_least_one[(n << AT_LEAST_ONE_PRECISION) + x]
+     *
+     * is an approximate phred score of at least one event occurring.
+     *
+     * We exploit the magical thread-safety of static local initialization to
+     * fill this in exactly once when needed.
+     */
+    static std::vector<double> phred_at_least_one([](void) -> std::vector<double> {
+        // Initialize phred_at_least_one by copying from the result of this function.
+        std::vector<double> to_return;
+        size_t values = static_cast<size_t>(1) << AT_LEAST_ONE_PRECISION;
+        to_return.resize((MAX_AT_LEAST_ONE_EVENTS + 1) * values, 0.0);
+        for (size_t n = 1; n <= MAX_AT_LEAST_ONE_EVENTS; n++) {
+            for (size_t p = 0; p < values; p++) {
+                // Because each p represents a range of probabilities, we choose a value
+                // in the middle for the approximation.
+                double probability = (2 * p + 1) / (2.0 * values);
+                // Phred for at least one out of n.
+                to_return[(n << AT_LEAST_ONE_PRECISION) + p] = prob_to_phred(1.0 - std::pow(1.0 - probability, n));
+            }
+        }
+        return to_return;
+    }());
+    
+    // Make sure we don't go out of bounds.
+    assert(n <= MAX_AT_LEAST_ONE_EVENTS);
+    
+    p >>= 8 * sizeof(size_t) - AT_LEAST_ONE_PRECISION;
+    return phred_at_least_one[(n << AT_LEAST_ONE_PRECISION) + p];
+}
+
+// This is just like phred_for_at_least_one but we don't prob_to_phred
+// TODO: combine the code somehow?
+double prob_for_at_least_one(size_t p, size_t n) {
+
+    /**
+     * Assume that we have n <= MAX_AT_LEAST_ONE_EVENTS independent events with probability p each.
+     * Let x be the AT_LEAST_ONE_PRECISION most significant bits of p. Then
+     *
+     *   prob_at_least_one[(n << AT_LEAST_ONE_PRECISION) + x]
+     *
+     * is an approximate probability of at least one event occurring.
+     *
+     * We exploit the magical thread-safety of static local initialization to
+     * fill this in exactly once when needed.
+     */
+    static std::vector<double> prob_at_least_one([](void) -> std::vector<double> {
+        // Initialize prob_at_least_one by copying from the result of this function.
+        std::vector<double> to_return;
+        size_t values = static_cast<size_t>(1) << AT_LEAST_ONE_PRECISION;
+        to_return.resize((MAX_AT_LEAST_ONE_EVENTS + 1) * values, 0.0);
+        for (size_t n = 1; n <= MAX_AT_LEAST_ONE_EVENTS; n++) {
+            for (size_t p = 0; p < values; p++) {
+                // Because each p represents a range of probabilities, we choose a value
+                // in the middle for the approximation.
+                double probability = (2 * p + 1) / (2.0 * values);
+                // Prob for at least one out of n.
+                to_return[(n << AT_LEAST_ONE_PRECISION) + p] = 1.0 - std::pow(1.0 - probability, n);
+            }
+        }
+        return to_return;
+    }());
+    
+    // Make sure we don't go out of bounds.
+    assert(n <= MAX_AT_LEAST_ONE_EVENTS);
+    
+    p >>= 8 * sizeof(size_t) - AT_LEAST_ONE_PRECISION;
+    return prob_at_least_one[(n << AT_LEAST_ONE_PRECISION) + p];
+}
+
 vector<vector<double>> transpose(const vector<vector<double>>& A) {
     vector<vector<double>> AT(A.front().size());
     for (size_t i = 0; i < AT.size(); ++i) {

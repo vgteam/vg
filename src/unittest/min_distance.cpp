@@ -3,7 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <set>
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "../vg.hpp"
 #include "catch.hpp"
 #include "../snarls.hpp"
@@ -1242,6 +1242,15 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
                 //Check distances for random pairs of positions 
                 const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
                 const Snarl* snarl2 = allSnarls[randSnarlIndex(generator)];
+
+                id_t start1_id = snarl1->start().node_id();
+                bool start1_rev = snarl1->start().backward();
+                id_t end1_id = snarl1->end().node_id();
+                bool end1_rev = !snarl1->end().backward();
+
+                REQUIRE((di.into_which_snarl(start1_id, start1_rev) == make_tuple(start1_id, start1_rev, snarl_manager.is_trivial(snarl1, graph)) ||
+                         di.into_which_snarl(start1_id, start1_rev) == make_tuple(end1_id, end1_rev,     snarl_manager.is_trivial(snarl1, graph))));
+
                  
                 pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 = 
                     pb_contents(graph, snarl_manager.shallow_contents(snarl1, graph, true));
@@ -1268,6 +1277,20 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
                 auto chain_info = di.get_minimizer_distances(pos1);
                 auto encoded_chain_info = MIPayload::decode(MIPayload::encode(di.get_minimizer_distances(pos1)));
                 assert (chain_info == encoded_chain_info);
+
+                const Snarl* pos1_snarl = snarl_manager.into_which_snarl(nodeID1, false);
+
+                if (pos1_snarl == nullptr) {
+                    REQUIRE(di.into_which_snarl(nodeID1, false) == make_tuple((id_t)0, false, false));
+                } else {
+                    auto result = di.into_which_snarl(nodeID1, false);
+                    //cerr << "node: " << nodeID1 << ": guess: " << std::get<0>(result) << " " << std::get<1>(result) << " " << std::get<2>(result) 
+                    //     << " actual snarl start: "<< pos1_snarl->start().node_id() << " " <<  pos1_snarl->start().backward() 
+                    //     << ", actual snarl end: " << pos1_snarl->end().node_id() << " " <<  pos1_snarl->end().backward() 
+                    //     << " trivial? " <<  snarl_manager.is_trivial(pos1_snarl, graph) << endl; 
+                    REQUIRE((di.into_which_snarl(nodeID1, false) == make_tuple((id_t)pos1_snarl->start().node_id(), pos1_snarl->start().backward(), snarl_manager.is_trivial(pos1_snarl, graph)) ||
+                             di.into_which_snarl(nodeID1, false) == make_tuple((id_t)pos1_snarl->end().node_id(), !pos1_snarl->end().backward(), snarl_manager.is_trivial(pos1_snarl, graph))));
+                }
 
  
                 if (!(nodeID1 != snarl1->start().node_id() && 

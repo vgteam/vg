@@ -4,7 +4,7 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../surjector.hpp"
-#include "../alignment_emitter.hpp"
+#include "../hts_alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -653,12 +653,16 @@ int main_map(int argc, char** argv) {
     
     // One of them may be used to provide haplotype scores
     haplo::ScoreProvider* haplo_score_provider = nullptr;
-
-    // We try opening the file, and then see if it worked
-    ifstream xg_stream(xg_name);
     
-    if(xg_stream) {
+    if(!xg_name.empty()) {
         // We have an xg index!
+
+        // We try opening the file, and then see if it worked
+        ifstream xg_stream(xg_name);
+        if (!xg_stream) {
+            cerr << "Error[vg map]: Unable to open xg file \"" << xg_name << "\"" << endl;
+            exit(1);
+        }
         
         // TODO: tell when the user asked for an XG vs. when we guessed one,
         // and error when the user asked for one and we can't find it.

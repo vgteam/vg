@@ -32,7 +32,7 @@ public:
 
     // deconstruct the entire graph to cout
     void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* grpah, SnarlManager* snarl_manager,
-                     bool path_restricted_traversals,
+                     bool path_restricted_traversals, int ploidy,
                      const unordered_map<string, string>* path_to_sample = nullptr); 
     
 private:
@@ -48,11 +48,11 @@ private:
     // write traversal path names as genotypes
     void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele);
 
-    // given a set of traversals associated with a particular sample, select one for the VCF
+    // given a set of traversals associated with a particular sample, select a set of size <ploidy> for the VCF
     // the highest-frequency ALT traversal is chosen
-    // the bool returned is true if multiple traversals map to different alleles.
-    pair<int, bool> choose_traversal(const vector<int>& travs, const vector<int>& trav_to_allele,
-                                     const vector<string>& trav_to_name);
+    // the bool returned is true if multiple traversals map to different alleles, more than ploidy.
+    pair<vector<int>, bool> choose_traversals(const vector<int>& travs, const vector<int>& trav_to_allele,
+                                              const vector<string>& trav_to_name);
 
 
     // check to see if a snarl is too big to exhaustively traverse
@@ -67,6 +67,9 @@ private:
     
     // toggle between exhaustive and path restricted traversal finder
     bool path_restricted = false;
+
+    // the max ploidy we expect.
+    int ploidy;
 
     // the graph
     const PathPositionHandleGraph* graph;

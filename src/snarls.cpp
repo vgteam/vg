@@ -8,7 +8,7 @@
 #include <vg/io/protobuf_emitter.hpp>
 
 #include "snarls.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include "algorithms/find_tips.hpp"
 #include "algorithms/is_acyclic.hpp"
 #include "algorithms/weakly_connected_components.hpp"
@@ -719,6 +719,19 @@ void SnarlManager::for_each_snarl_parallel(const function<void(const Snarl*)>& l
     };
         
     for_each_top_level_snarl_parallel(process);
+}
+
+void SnarlManager::for_each_top_level_chain(const function<void(const Chain*)>& lambda) const {
+    for (const Chain& chain : root_chains) {
+        lambda(&chain);
+    }    
+}
+
+void SnarlManager::for_each_top_level_chain_parallel(const function<void(const Chain*)>& lambda) const {
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < root_chains.size(); ++i) {
+        lambda(&root_chains[i]);
+    }
 }
 
 void SnarlManager::for_each_chain(const function<void(const Chain*)>& lambda) const {

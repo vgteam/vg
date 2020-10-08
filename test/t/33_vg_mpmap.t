@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 14
+plan tests 17
 
 
 # Exercise the GBWT
@@ -89,3 +89,44 @@ HHHHHHHHHH" > t.fq
 is "$(vg mpmap -B -x t.xg -g t.gcsa -f t.fq | vg view -Kj - | wc -l)" "3" "multipath mapping works in scenarios that trigger branch point trimming"
 
 rm t.vg t.xg t.gcsa t.gcsa.lcp t.fq
+
+# test spliced alignment
+
+vg construct -m 32 -r small/x.fa -v small/x.vcf.gz > s.vg
+vg snarls -T s.vg > s.snarls
+vg index s.vg -x s.xg -g s.gcsa
+vg index s.vg -j s.dist -s s.snarls
+
+echo "@read
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAGATGA
++
+HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH" > s.fq 
+
+is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq | vg view -KG - | vg view -aj - | jq .score)" "108" "spliced alignments can be found when aligning RNA"
+
+echo "@read1
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAG
++
+HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH
+@read2
+TCATCTCCCCGCACCTTTGTCCTTAGTCCACAGGAAACTCTGCTGTCAGTAGTATCATCTCCATATTAGAGATA
++
+HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH" > s.fq 
+
+
+is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq -i -I 350 -D 10 | vg view -Kj - | grep connection | wc -l)" "1" "paired mapping can identify a splice junction on read 1"
+
+echo "@read1
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT
++
+HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH
+@read2
+TCATCTCCCCGCACCTTTGTCCTTAGTCCACAGGAAACTTAAAATGGCCTGGGTAGCTTTGGATGTGGAGTAGTTAAAGGCCCTTGAGG
++
+HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH" > s.fq 
+
+is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq -i -I 530 -D 10 | vg view -Kj - | grep connection | wc -l)" "1" "paired mapping can identify a splice junction on read 2"
+
+rm s.vg s.xg s.gcsa s.gcsa.lcp s.dist s.snarls s.fq
+
+

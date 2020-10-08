@@ -69,22 +69,48 @@ using namespace std;
                           bool allow_negative_scores = false,
                           bool preserve_deletions = false) const;
         
+        /// Same semantics as with alignments except that connections are always
+        /// preserved as splices. The output consists of a multipath alignment with
+        /// a single path, separated by splices (either from large deletions or from
+        /// connections)
+        multipath_alignment_t surject(const multipath_alignment_t& source,
+                                      const set<string>& path_names,
+                                      string& path_name_out, int64_t& path_pos_out,
+                                      bool& path_rev_out,
+                                      bool allow_negative_scores = false,
+                                      bool preserve_deletions = false) const;
+        
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, Path>;
         
-    private:
+        /// the minimum length deletion that the spliced algorithm will interpret as a splice event
+        size_t min_splice_length = 20;
+        
+    protected:
+        
+        void surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
+                              Alignment* aln_out, multipath_alignment_t* mp_aln_out,
+                              const set<string>& path_names,
+                              string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
+                              bool allow_negative_scores, bool preserve_deletions) const;
         
         Alignment
         realigning_surject(const PathPositionHandleGraph* graph, const Alignment& source,
                            const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
-                           bool allow_negative_scores, bool preserve_N_alignments = false,
+                           pair<step_handle_t, step_handle_t>& path_range_out,
+                           bool allow_negative_scores,
+                           bool preserve_N_alignments = false,
                            bool preserve_tail_indel_anchors = false) const;
         
-        Alignment
-        spliced_surject(const PathPositionHandleGraph* path_position_graph, const Alignment& source,
+        multipath_alignment_t
+        spliced_surject(const PathPositionHandleGraph* path_position_graph,
+                        const string& src_sequence, const string& src_quality,
+                        const int32_t src_mapping_quality,
                         const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
                         const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                        bool allow_negative_scores) const;
+                        const vector<tuple<size_t, size_t, int32_t>>& connections,
+                        pair<step_handle_t, step_handle_t>& path_range_out,
+                        bool allow_negative_scores, bool deletions_as_splices) const;
         
         ///////////////////////
         // Support methods for the realigning surject algorithm
@@ -94,6 +120,13 @@ using namespace std;
         unordered_map<path_handle_t, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
         extract_overlapping_paths(const PathPositionHandleGraph* graph, const Alignment& source,
                                   const unordered_set<path_handle_t>& surjection_paths) const;
+        
+        /// same semantics except for a multipath alignment
+        unordered_map<path_handle_t, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
+        extract_overlapping_paths(const PathPositionHandleGraph* graph,
+                                  const multipath_alignment_t& source,
+                                  const unordered_set<path_handle_t>& surjection_paths,
+                                  unordered_map<path_handle_t, vector<tuple<size_t, size_t, int32_t>>>& connections_out) const;
         
         /// compute the widest interval of path positions that the realigned sequence could align to
         pair<size_t, size_t>
@@ -105,16 +138,11 @@ using namespace std;
         extract_linearized_path_graph(const PathPositionHandleGraph* graph, MutableHandleGraph* into,
                                       path_handle_t path_handle, size_t first, size_t last) const;
         
-        
-        /// associate a path position and strand to a surjected alignment against this path
-        void set_path_position(const PathPositionHandleGraph* graph, const Alignment& surjected,
-                               path_handle_t best_path_handle,
+        /// use the graph position bounds and the path range bounds to assign a path position to a surjected read
+        void set_path_position(const PathPositionHandleGraph* graph, const pos_t& init_surj_pos,
+                               const pos_t& final_surj_pos,
+                               const step_handle_t& range_begin, const step_handle_t& range_end,
                                string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
-        
-        /// another  algorithm that doesn't blow up if the alignment preserved deletions
-        void set_path_position_inexact(const PathPositionHandleGraph* graph, const Alignment& surjected,
-                                       path_handle_t best_path_handle,
-                                       string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
         
         ///////////////////////
         // Support methods for the spliced surject algorithm
@@ -139,11 +167,10 @@ using namespace std;
         /// make a sentinel meant to indicate an unmapped read
         static Alignment make_null_alignment(const Alignment& source);
         
+        static multipath_alignment_t make_null_mp_alignment(const multipath_alignment_t& source);
+        
         /// the graph we're surjecting onto
         const PathPositionHandleGraph* graph = nullptr;
-        
-        /// the minimum length deletion that the spliced algorithm will interpret as a splice event
-        size_t min_splice_length = 20;
     };
 }
 

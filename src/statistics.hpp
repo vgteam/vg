@@ -71,55 +71,49 @@ inline double log10_to_ln(double l10) {
     return l10 * log(10);
 }
 
-// Convert a probability to a natural log probability.
-inline double prob_to_logprob(double prob) {
-    return log(prob);
-}
-// Convert natural log probability to a probability
-inline double logprob_to_prob(double logprob) {
-    return exp(logprob);
-}
-// Add two probabilities (expressed as logprobs) together and return the result
-// as a logprob.
-inline double logprob_add(double logprob1, double logprob2) {
-    // Pull out the larger one to avoid underflows
-    double pulled_out = max(logprob1, logprob2);
-    return pulled_out + prob_to_logprob(logprob_to_prob(logprob1 - pulled_out) + logprob_to_prob(logprob2 - pulled_out));
-}
-// Invert a logprob, and get the probability of its opposite.
-inline double logprob_invert(double logprob) {
-    return prob_to_logprob(1.0 - logprob_to_prob(logprob));
+/**
+ * Given the log10 of a value, retunr the log10 of (that value plus one).
+ */
+inline double log10_add_one(double x) {
+    return log10(pow(10, x) + 1);
 }
 
-// Convert integer Phred quality score to probability of wrongness.
-inline double phred_to_prob(int phred) {
-    return pow(10, -((double)phred) / 10);
+/**
+ * Return the log of the sum of two log10-transformed values without taking them
+ * out of log space.
+ */
+inline double add_log10(double i, double j) {
+    if (i < j) {
+        return log10_add_one(j - i) + ((j - i < 10) ? i : j);
+    }
+    return log10_add_one(i - j) + ((i - j <= 10) ? j : i);
 }
 
-// Convert probability of wrongness to integer Phred quality score.
-inline double prob_to_phred(double prob) {
-    return -10.0 * log10(prob);
-}
+/**
+ * Assume that we have n independent random events that occur with probability
+ * p each (p is interpreted as a real number between 0 at 0 and 1 at its
+ * maximum value). Return an approximate probability for at least one event
+ * occurring as a phred score.
+ *
+ * n must be <= MAX_AT_LEAST_ONE_EVENTS.
+ */
+double phred_for_at_least_one(size_t p, size_t n);
 
-// Convert a Phred quality score directly to a natural log probability of wrongness.
-inline double phred_to_logprob(int phred) {
-    return (-((double)phred) / 10) / log10(exp(1.0));
-}
+/**
+ * Assume that we have n independent random events that occur with probability
+ * p each (p is interpreted as a real number between 0 at 0 and 1 at its
+ * maximum value). Return an approximate probability for at least one event
+ * occurring as a raw probability.
+ *
+ * n must be <= MAX_AT_LEAST_ONE_EVENTS.
+ */
+double prob_for_at_least_one(size_t p, size_t n);
 
-// Convert a natural log probability of wrongness directly to a Phred quality score.
-inline double logprob_to_phred(double logprob ) {
-    return -10.0 * logprob * log10(exp(1.0));
-}
-
-// Take the geometric mean of two logprobs
-inline double logprob_geometric_mean(double lnprob1, double lnprob2) {
-    return log(sqrt(exp(lnprob1 + lnprob2)));
-}
-
-// Same thing in phred
-inline double phred_geometric_mean(double phred1, double phred2) {
-    return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
-}
+/// How many events should we allow in phred_for_at_least_one and
+/// prob_for_at_least_one? Should be >= our longest supported minimizer index.
+constexpr static size_t MAX_AT_LEAST_ONE_EVENTS = 32;
+/// Use this many bits for approximate probabilities.
+constexpr static size_t AT_LEAST_ONE_PRECISION = 8; 
 
 // normal pdf, from http://stackoverflow.com/a/10848293/238609
 template <typename T>
@@ -130,6 +124,67 @@ T normal_pdf(T x, T m, T s)
     
     return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
 }
+
+
+/// Convert a probability to a natural log probability.
+inline double prob_to_logprob(double prob) {
+    return log(prob);
+}
+/// Convert natural log probability to a probability
+inline double logprob_to_prob(double logprob) {
+    return exp(logprob);
+}
+/// Add two probabilities (expressed as logprobs) together and return the result
+/// as a logprob.
+inline double logprob_add(double logprob1, double logprob2) {
+    // Pull out the larger one to avoid underflows
+    double pulled_out = max(logprob1, logprob2);
+    return pulled_out + prob_to_logprob(logprob_to_prob(logprob1 - pulled_out) + logprob_to_prob(logprob2 - pulled_out));
+}
+/// Invert a logprob, and get the probability of its opposite.
+inline double logprob_invert(double logprob) {
+    return prob_to_logprob(1.0 - logprob_to_prob(logprob));
+}
+
+/// Convert 8-bit Phred quality score to probability of wrongness, using a lookup table.
+double phred_to_prob(uint8_t phred);
+
+/// Convert floating point Phred quality score to probability of wrongness.
+inline double phred_to_prob(double phred) {
+    return pow(10, -phred / 10);
+}
+
+/// Convert probability of wrongness to integer Phred quality score.
+inline double prob_to_phred(double prob) {
+    return -10.0 * log10(prob);
+}
+
+/// Convert a Phred quality score directly to a natural log probability of wrongness.
+inline double phred_to_logprob(int phred) {
+    return (-((double)phred) / 10) / log10(exp(1.0));
+}
+
+/// Convert a natural log probability of wrongness directly to a Phred quality score.
+inline double logprob_to_phred(double logprob ) {
+    return -10.0 * logprob * log10(exp(1.0));
+}
+
+/// Take the geometric mean of two logprobs
+inline double logprob_geometric_mean(double lnprob1, double lnprob2) {
+    return log(sqrt(exp(lnprob1 + lnprob2)));
+}
+
+/// Take the geometric mean of two phred-encoded probabilities
+inline double phred_geometric_mean(double phred1, double phred2) {
+    return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
+}
+
+/// Add two probabilities (expressed as phred scores) together and return the result
+/// as a phred score.
+inline double phred_add(double phred1, double phred2) {
+    return logprob_to_phred(logprob_add(phred_to_logprob(phred1), phred_to_logprob(phred2)));
+}
+
 
 
 /**
@@ -176,6 +231,63 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
     
     // Re-log and re-scale
     return pulled_out + prob_to_logprob(total);
+}
+
+/**
+ * Compute the sum of the values in a collection, represented by an iterator
+ * range, where the values are Phred scores and the result is the Phred score
+ * of the total probability. Items must be convertible to/from doubles for
+ * math.
+ */
+template<typename Iterator>
+typename std::iterator_traits<Iterator>::value_type phred_sum(const Iterator& begin_it, const Iterator& end_it) {
+    
+    // Set up an alias for the type we're operating on
+    using Item = typename std::iterator_traits<Iterator>::value_type;
+    
+    // Pull out the minimum probability
+    auto min_iterator = max_element(begin_it, end_it);
+    
+    if (min_iterator == end_it) {
+        // Nothing there, p = 0
+        return Item(logprob_to_phred(prob_to_logprob(0)));
+    }
+    
+    auto check_iterator = begin_it;
+    ++check_iterator;
+    if (check_iterator == end_it) {
+        // We only have a single element anyway. We don't want to subtract it
+        // out because we'll get 0s.
+        return *min_iterator;
+    }
+    
+    // Pull this much out of every logprob.
+    double pulled_out = phred_to_logprob(*min_iterator);
+    
+    if (logprob_to_prob(pulled_out) == 0) {
+        // Can't divide by 0!
+        // TODO: fix this in selection
+        pulled_out = prob_to_logprob(1);
+    }
+    
+    double total(0);
+    for(auto to_add_it = begin_it; to_add_it != end_it; ++to_add_it) {
+        // Sum up all the scaled probabilities.
+        total += logprob_to_prob(phred_to_logprob(*to_add_it) - pulled_out);
+    }
+    
+    // Re-log and re-scale
+    return Item(logprob_to_phred(pulled_out + prob_to_logprob(total)));
+}
+
+/**
+ * Compute the sum of the values in a collection, where the values are Phred
+ * scores and the result is the Phred score of the total probability. Items
+ * must be convertible to/from doubles for math.
+ */
+template<typename Collection>
+typename Collection::value_type phred_sum(const Collection& collection) {
+    return phred_sum(begin(collection), end(collection));
 }
 
 
@@ -890,114 +1002,114 @@ public:
         WorkType dest_range_size_minus_1 = (WorkType) m_b - (WorkType) m_a;
         
         if (source_range_size_minus_1 >= dest_range_size_minus_1) {
-        // The generator's result is going to be wide enough
-        return generate_from_wide_generator(_g);
+            // The generator's result is going to be wide enough
+            return generate_from_wide_generator(_g);
         } else {
-        // The hard way is generating a bigger range from a smaller range.
-        // Wrap the generator in something to widen it to our work type
-        // and recurse.
-        WideningPRNG<Generator, WorkType> widened(_g);
-        
-        // Generate with that, which had better be wide enough
-        return generate_from_wide_generator(widened);
+            // The hard way is generating a bigger range from a smaller range.
+            // Wrap the generator in something to widen it to our work type
+            // and recurse.
+            WideningPRNG<Generator, WorkType> widened(_g);
+            
+            // Generate with that, which had better be wide enough
+            return generate_from_wide_generator(widened);
         }
-        }
-        
-        T a() const {
+    }
+            
+    T a() const {
         return m_a;
-        }
-        
-        T b() const {
+    }
+            
+    T b() const {
         return m_b;
-        }
+    }
         
-    protected:
+protected:
         
-        /// Generate a result when we know the generator will produce a result on a
-        /// range as big as or bigger than ours.
-        template<class Generator>
-        T generate_from_wide_generator(Generator &_g) {
+    /// Generate a result when we know the generator will produce a result on a
+    /// range as big as or bigger than ours.
+    template<class Generator>
+    T generate_from_wide_generator(Generator &_g) {
         // Jordan's strategy: discard anything above the highest multiple of your range, then mod down to your range.
-        
+
 #ifdef debug
         cerr << "Source range " << _g.min() << " to " << _g.max() << endl;
         cerr << "Dest range " << m_a << " to " << m_b << endl;
 #endif
-        
+
         // Define an unsigned widest type to work in
         using WorkType = typename make_unsigned<typename common_type<typename Generator::result_type, T>::type>::type;
-        
+
         // How big are the source and destination ranges?
         // Since they are so big and inclusive we can't always hold their real sizes, so hold size-1
         WorkType source_range_size_minus_1 = (WorkType) _g.max() - (WorkType) _g.min();
         WorkType dest_range_size_minus_1 = (WorkType) m_b - (WorkType) m_a;
-        
+
         // We must be generating a smaller range from a bigger rnage here.
         assert(source_range_size_minus_1 >= dest_range_size_minus_1);
-        
+
         if (dest_range_size_minus_1 == source_range_size_minus_1) {
-        // Ranges are the same size. No real work to do.
-        return (WorkType) _g() - (WorkType) _g.min() + (WorkType) m_a;
+            // Ranges are the same size. No real work to do.
+            return (WorkType) _g() - (WorkType) _g.min() + (WorkType) m_a;
         }
-        
+
         // Otherwise the ranges differ in size. Which means the dest range must
         // be smaller. Which means the dest range's real size is representable.
         WorkType dest_range_size = dest_range_size_minus_1 + 1;
-        
+
         // Find how many numbers we have to clip off of the top of the source
         // range so the rest can be covered by tiled destination ranges.
         WorkType remainder = source_range_size_minus_1 % dest_range_size;
         // Change the remainder from source_range_size_minus_1 to the remainder for the actual source range size
         remainder = (remainder + 1) % dest_range_size;
-        
+
         if (remainder == 0) {
-        // We perfectly tiled the source range
-        return ((WorkType) _g() - (WorkType) _g.min()) % dest_range_size + (WorkType) m_a;
+            // We perfectly tiled the source range
+            return ((WorkType) _g() - (WorkType) _g.min()) % dest_range_size + (WorkType) m_a;
         }
-        
+
         // Otherwise there are some values we need to reject
-        
+
         // Sample a value until we get one that isn't too close to the top of the range.
         WorkType sampled;
         do {
-        sampled = (WorkType) _g();
+            sampled = (WorkType) _g();
         } while (_g.max() - sampled < remainder);
-        
+
         // Convert to destination range.
         return (sampled - (WorkType) _g.min()) % dest_range_size + m_a;
-        }
+    }
+
+
+    T m_a;
+    T m_b;
+};
         
-        
-        T m_a;
-        T m_b;
-        };
-        
-        /// We provide a partial discrete_distribution implementation that is just the parts we need
-        template<typename T = int>
-        class discrete_distribution {
-    public:
-        typedef T result_type;
-        typedef double param_type;
-        
-        template<class InputIt>
-        discrete_distribution(InputIt first, InputIt last) : m_weights{first, last} {
+/// We provide a partial discrete_distribution implementation that is just the parts we need
+template<typename T = int>
+class discrete_distribution {
+public:
+    typedef T result_type;
+    typedef double param_type;
+    
+    template<class InputIt>
+    discrete_distribution(InputIt first, InputIt last) : m_weights{first, last} {
         // We can't use an empty weights vector
         assert(!m_weights.empty());
         // Compute partial sums
         std::partial_sum(m_weights.begin(), m_weights.end(), std::back_inserter(m_sums));
-        }
-        
-        discrete_distribution(initializer_list<double> weights = {1}) : discrete_distribution(weights.begin(), weights.end()) {
+    }
+    
+    discrete_distribution(initializer_list<double> weights = {1}) : discrete_distribution(weights.begin(), weights.end()) {
         // Nothing to do
-        }
-        
-        void reset() {
+    }
+    
+    void reset() {
         // Also nothing to do!
-        }
-        
-        template<class Generator>
-        T operator()(Generator &_g) {
-        
+    }
+    
+    template<class Generator>
+    T operator()(Generator &_g) {
+    
         // Set up to generate a double from 0 to max weight
         vg::uniform_real_distribution<double> backing_dist(0, m_sums.back());
         // Do it and find which cumumative sum is greater than it
@@ -1005,46 +1117,46 @@ public:
         
         // Find its category number and return that.
         return winning_iterator - m_sums.begin();
-        
-        }
+    
+    }
         
     protected:
-        // If we ever want to implement the params stuff we need the weights stored.
-        vector<double> m_weights;
-        vector<double> m_sums;
-        
-        };
-        
-        // ewen's allele sampling distribution.  for use in genotype prior (as in freebayes)
-        // gives Pr(a1, ...,an;theta) where ai is the number of sampled haplotypes (out of n) that
-        // have i different alleles at a given locus. theta is the population mutation rate.
-        // ex: for a single diploid genotype, a={2,0} = heterozygous: 2 alleles occur once.
-        //                                    a={0,1} = homozygous: 1 allele occurs twice.
-        //
-        // https://en.wikipedia.org/wiki/Ewens%27s_sampling_formula
-        // https://github.com/ekg/freebayes/blob/master/src/Ewens.cpp#L17
-        inline real_t ewens_af_prob_ln(const vector<int>& a, real_t theta) {
-        
-        // first term (wrt formula as stated on wikipedia)
-        // n! / (theta * (theta + 1) * ... (theta + n - 1))
-        real_t term1_num_ln = factorial_ln(a.size());
-        real_t term1_denom_ln = 0.;
-        for (int i = 0; i < a.size(); ++i) {
+    // If we ever want to implement the params stuff we need the weights stored.
+    vector<double> m_weights;
+    vector<double> m_sums;
+    
+};
+    
+// ewen's allele sampling distribution.  for use in genotype prior (as in freebayes)
+// gives Pr(a1, ...,an;theta) where ai is the number of sampled haplotypes (out of n) that
+// have i different alleles at a given locus. theta is the population mutation rate.
+// ex: for a single diploid genotype, a={2,0} = heterozygous: 2 alleles occur once.
+//                                    a={0,1} = homozygous: 1 allele occurs twice.
+//
+// https://en.wikipedia.org/wiki/Ewens%27s_sampling_formula
+// https://github.com/ekg/freebayes/blob/master/src/Ewens.cpp#L17
+inline real_t ewens_af_prob_ln(const vector<int>& a, real_t theta) {
+
+    // first term (wrt formula as stated on wikipedia)
+    // n! / (theta * (theta + 1) * ... (theta + n - 1))
+    real_t term1_num_ln = factorial_ln(a.size());
+    real_t term1_denom_ln = 0.;
+    for (int i = 0; i < a.size(); ++i) {
         term1_denom_ln += log(theta + i);
-        }
-        real_t term1_ln = term1_num_ln - term1_denom_ln;
-        
-        // second term
-        // prod [ (theta^aj) / (j^aj * aj!)
-        real_t term2_ln = 0.;
-        for (int j = 0; j < a.size(); ++j) {
+    }
+    real_t term1_ln = term1_num_ln - term1_denom_ln;
+
+    // second term
+    // prod [ (theta^aj) / (j^aj * aj!)
+    real_t term2_ln = 0.;
+    for (int j = 0; j < a.size(); ++j) {
         real_t num = log(pow(theta, a[j]));
         real_t denom = log(pow(1. + j, a[j]) + factorial_ln(a[j]));
         term2_ln += num - denom;
-        }
-        
-        return term1_ln + term2_ln;
-        }
+    }
+
+    return term1_ln + term2_ln;
+}
 
 
 }

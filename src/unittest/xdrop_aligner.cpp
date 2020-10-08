@@ -5,7 +5,7 @@
 
 #include <iostream>
 #include <string>
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "../alignment.hpp"
 #include <vg/vg.pb.h>
 #include "test_aligner.hpp"
@@ -15,6 +15,7 @@
 namespace vg {
 namespace unittest {
 using namespace std;
+using namespace vg::io;
 
 TEST_CASE("XdropAligner can compute an alignment with no MEMs", "[xdrop][alignment][mapping]") {
     
@@ -307,6 +308,93 @@ TEST_CASE("XdropAligner can align pinned left", "[xdrop][alignment][mapping]") {
     REQUIRE(aln.path().mapping(0).edit(2).sequence() == "");
 }
 
+TEST_CASE("XdropAligner can align pinned left across a large gap that occurrs immediately at the pin point, when the gap limit is high enough", "[xdrop][alignment][mapping]") {
+    
+    VG graph;
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
+    
+    auto h1 = graph.create_handle("CATCA");
+    auto h2 = graph.create_handle("T");
+    graph.create_edge(h1, h2);
+    auto h3 = graph.create_handle("ATA");
+    graph.create_edge(h2, h3);
+    auto h4 = graph.create_handle("G");
+    graph.create_edge(h3, h4);
+    auto h5 = graph.create_handle("TGTTTGGAA");
+    graph.create_edge(h4, h5);
+    auto h6 = graph.create_handle("AATTACACCTTAAACTCAAGAGAATGAGGGTA");
+    graph.create_edge(h5, h6);
+    auto h7 = graph.create_handle("AAACATCAAATAATGTCTT");
+    graph.create_edge(h6, h7);
+    auto h8 = graph.create_handle("A");
+    graph.create_edge(h7, h8);
+    auto h9 = graph.create_handle("GTAGTATTTGGTGACTTAAATAGTTT");
+    graph.create_edge(h8, h9);
+    auto h10 = graph.create_handle("TGACCTATTGAACCCTCAAGAGTCCCTGGACC");
+    graph.create_edge(h9, h10);
+    auto h11 = graph.create_handle("A");
+    graph.create_edge(h10, h11);
+    auto h12 = graph.create_handle("TACTTTGTGAATTACTGTTTTA");
+    graph.create_edge(h11, h12);
+    auto h13 = graph.create_handle("G");
+    graph.create_edge(h12, h13);
+    auto h14 = graph.create_handle("TTGATGGACTA");
+    graph.create_edge(h13, h14);
+    auto h15 = graph.create_handle("ATAAATGCTATCAGATTCCTATTTTGTCAAGA");
+    graph.create_edge(h14, h15);
+    // Another branch off 12
+    auto h16 = graph.create_handle("A");
+    graph.create_edge(h12, h16);
+    auto h17 = graph.create_handle("TTGATGGACTA");
+    graph.create_edge(h16, h17);
+    auto h18 = graph.create_handle("ATAAATGCTATCAGATTCCTATTTTGTCAAGA");
+    graph.create_edge(h17, h18);
+        
+    string read = string("AAACATCAAATAATGTCTTAGTAGTATTTGGTGACTTAAATAGTTTTGACCTATTGAACCCTCAAGAG");
+    Alignment aln;
+    aln.set_sequence(read);
+    
+    // Align pinned left, letting the graph compute a topological order
+    // Make sure to allow big gaps.
+    aligner.align_pinned(aln, graph, true, true, 60);
+    
+    // Make sure we got the right score.
+    // Account for full length bonus, one gap open, 50 gap extends, and a whole read of matches.
+    REQUIRE(aln.score() == read.size() + 10 - 6 - 50);
+}
+
+TEST_CASE("XdropAligner can align pinned left across an insertion with extra graph at the end", "[xdrop][alignment][mapping]") {
+    
+    VG graph;
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
+    
+    auto h1 = graph.create_handle("AATGAGAAAGGAAAAAGCTTTGGGAAAGTAGCTAAGCAGAGGATGCTTCTTAAAAAATGTCAAAAAAA");
+        
+    string read = string("CACATATGTCACTAGGAATGAGAAAGGAAAAAGCTTTGGGAAAGTAGCTAAGCAGAGGATGCTTCTTAAAAAATGTC");
+    Alignment aln;
+    aln.set_sequence(read);
+    
+    // Align without xdrop
+    aligner.align_pinned(aln, graph, true, false);
+    auto no_xdrop_score = aln.score();
+    
+    // Align with xdrop
+    aligner.align_pinned(aln, graph, true, true);
+        
+    // Score should be the same with and without xdrop.
+    REQUIRE(aln.score() == no_xdrop_score);
+    
+    // Make sure we got the right score.
+    // Account for full length bonus, one gap open, 15 gap extends, and the lack of matches for those.
+    REQUIRE(aln.score() == read.size() + 10 - 6 - 15 - 16);
+}
+
 TEST_CASE("XdropAligner can align pinned right", "[xdrop][alignment][mapping]") {
     
     VG graph;
@@ -421,6 +509,41 @@ TEST_CASE("XdropAligner can align pinned left with a leading insertion", "[xdrop
     REQUIRE(aln.path().mapping(0).edit(0).sequence() == "G");
     REQUIRE(aln.path().mapping(0).edit(1).from_length() == read.size() - 1);
     REQUIRE(aln.path().mapping(0).edit(1).to_length() == read.size() - 1);
+    REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
+}
+
+TEST_CASE("XdropAligner can align pinned left with a leading deletion", "[xdrop][alignment][mapping]") {
+    
+    VG graph;
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 10);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
+    
+    Node* n0 = graph.create_node("GAAAGAGGTCAATAGCCAAAT");
+    
+    string read = string("AAAGAGGTCAATAGCCAAAT");
+    Alignment aln;
+    aln.set_sequence(read);
+    
+    // Align pinned left, letting the graph compute a topological order
+    uint16_t max_gap_length = 40;
+    aligner.align_pinned(aln, graph, true, true, max_gap_length);
+    
+    // Make sure we got the right score.
+    // Account for full length bonus and one open
+    REQUIRE(aln.score() == read.size() + 10 - 6);
+    
+    // Make sure we take the right path (leading 1 bp insertion)
+    REQUIRE(aln.path().mapping_size() == 1);
+    REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+    REQUIRE(aln.path().mapping(0).position().offset() == 0);
+    REQUIRE(aln.path().mapping(0).edit_size() == 2);
+    REQUIRE(aln.path().mapping(0).edit(0).from_length() == 1);
+    REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
+    REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
+    REQUIRE(aln.path().mapping(0).edit(1).from_length() == read.size());
+    REQUIRE(aln.path().mapping(0).edit(1).to_length() == read.size());
     REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
 }
 
@@ -655,6 +778,64 @@ TEST_CASE("XdropAligner doesn't crash on a case where it is hard to find a seed"
     const Aligner& aligner = *aligner_source.get_regular_aligner();
     
     aligner.align_xdrop(aln, graph, vector<MaximalExactMatch>(), false);
+}
+
+TEST_CASE("XdropAligner pinned alignment doesn't crash when aligning to a long stretch of mismatches",
+          "[xdrop][alignment][mapping][pinned]") {
+    
+    bdsg::HashGraph graph;
+    
+    handle_t h0 = graph.create_handle("CCACCATCTTGTTCACTCTGGGGCCACAGACT");
+    handle_t h1 = graph.create_handle("GTCTTTTTCTGGTCTCTGCTTCCCTGCTTCAT");
+    handle_t h2 = graph.create_handle("CCTCCTTCTACTCTCTGCTTCCCTAGCGTGTG");
+    handle_t h3 = graph.create_handle("GCCCAGATGGTCAGTCACAATCCTGACTCCAC");
+    handle_t h4 = graph.create_handle("AGCAGTTTTGGGGTCAAGCCTGTAGACAGGAG");
+    handle_t h5 = graph.create_handle("TTACTTATCATCTTTGAGTTTATTTAATTTTT");
+    handle_t h6 = graph.create_handle("CAATGGGAGAACTAGATTGTCCAGTCTTGGCC");
+    handle_t h7 = graph.create_handle("AAAAAAATGGTCTAGCTTTGAGTCATACTGTA");
+    handle_t h8 = graph.create_handle("ATCATCTGTGGCTCAAAGGCAAGATCCTGCCC");
+    handle_t h9 = graph.create_handle("ACTGTCCACTCGGCAGGGCTGTGGTGGGCACC");
+    handle_t h10 = graph.create_handle("ACAAGGAGGAGTATTTCTTCTTCA");
+    
+    graph.create_edge(h0, h1);
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, h5);
+    graph.create_edge(h5, h6);
+    graph.create_edge(h6, h7);
+    graph.create_edge(h7, h8);
+    graph.create_edge(h8, h9);
+    graph.create_edge(h9, h10);
+    
+    Alignment aln;
+    aln.set_sequence("CAGATCCCTCGACCATCCGGTCAGGATACACAAAAGGACAGCAAAGGGGTTGAGAAGGGCTGAGGGGAGAAAAGCCAGGAAGCTGAGATCAGCAGAGGCCAAGCATAAAAACTGGGAGGATGCTACGAAGCTGCAGATGACAGCATCATTTTCTTGAAGAACATTCAAGGATTTGTCATAGTGGCTGGGCTTTCACTGATTGATTGAAGTCTACAAACAGCACTTCAATTGGTATCGGTCAAGTTCTTTAAGATTTAGGAAATTGATTGGAGCGGAAAATTGTAAGTTACAAAATTCGCACTGAAGTCCCATTAAAACCAC");
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 1, 1, 1, 0);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
+    
+    aligner.align_pinned(aln, graph, false, true, 10);
+}
+
+TEST_CASE("XdropAligner pinned alignment doesn't crash when the optimal alignment column would be x-dropped if not for the full length bonus",
+          "[xdrop][alignment][mapping][pinned]") {
+    
+    bdsg::HashGraph graph;
+    
+    handle_t h0 = graph.create_handle("AAGGG");
+    
+    
+    Alignment aln;
+    aln.set_sequence("AACGT");
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 9);
+    const Aligner& aligner = *aligner_source.get_regular_aligner();
+    
+    aligner.align_pinned(aln, graph, true, true, 0);
+    
+    REQUIRE(aln.score() == 1 + 1 + 1 - 4 - 4 + 9);
 }
    
 }

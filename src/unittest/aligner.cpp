@@ -7,7 +7,7 @@
 #include <iostream>
 #include <string>
 
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "test_aligner.hpp"
 #include "catch.hpp"
@@ -149,7 +149,7 @@ TEST_CASE("Full-length bonus can hold down the left end", "[aligner][alignment][
     aligner_1.align(aln1, graph, true);
     aligner_2.align(aln2, graph, true);
     
-    SECTION("left end is detatched without bonus") {
+    SECTION("left end is detached without bonus") {
         REQUIRE(aln1.path().mapping_size() == 1);
         REQUIRE(aln1.path().mapping(0).position().node_id() == n0->id());
         REQUIRE(aln1.path().mapping(0).position().offset() == 2);
@@ -190,7 +190,7 @@ TEST_CASE("Full-length bonus can hold down the right end", "[aligner][alignment]
     aligner_1.align(aln1, graph, true);
     aligner_2.align(aln2, graph, true);
     
-    SECTION("right end is detatched without bonus") {
+    SECTION("right end is detached without bonus") {
         REQUIRE(aln1.path().mapping_size() == 1);
         REQUIRE(aln1.path().mapping(0).position().node_id() == n0->id());
         REQUIRE(aln1.path().mapping(0).position().offset() == 0);
@@ -361,9 +361,9 @@ TEST_CASE("Full-length bonus is applied to both ends by rescoring", "[aligner][a
     REQUIRE(!softclip_end(aln));
 
     // Normal score would be 129
-    REQUIRE(aligner2.score_ungapped_alignment(aln) == 129);
+    REQUIRE(aligner2.score_contiguous_alignment(aln) == 129);
     // And with a full length bonus at each end it's 139.
-    REQUIRE(aligner1.score_ungapped_alignment(aln) == 139);
+    REQUIRE(aligner1.score_contiguous_alignment(aln) == 139);
 }
 
 TEST_CASE("GSSWAligner mapping quality estimation is robust", "[aligner][alignment][mapping][mapq]") {

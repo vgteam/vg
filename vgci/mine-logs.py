@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 """
 Mine the CI test log XML and the test output files and generate a report
@@ -560,7 +560,7 @@ def write_html_report(xml_root, work_dir, html_dir, html_name = 'index.html'):
                     parsed_testcases.append(tc)
                 except Exception as err:
                     logging.warning('Unexpected error parsing testcase XML {}'.format(testcase))
-                    print(traceback.format_exc())
+                    print((traceback.format_exc()))
 
             # sort test cases so failed first, then sim, the by name
             def sort_key(tc):

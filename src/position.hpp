@@ -4,7 +4,7 @@
 #include <vg/vg.pb.h>
 #include "types.hpp"
 #include "utility.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <gcsa/gcsa.h>
 #include "handle.hpp"
 

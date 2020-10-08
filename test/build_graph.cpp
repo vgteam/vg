@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "vg.hpp"
 

@@ -1,8 +1,10 @@
 #include <thread>
+#include <vg/io/protobuf_iterator.hpp>
 #include "packer.hpp"
 #include "../vg.hpp"
 
 //#define debug
+using namespace vg::io;
 
 namespace vg {
 
@@ -894,7 +896,7 @@ vector<Edit> Packer::edits_at_position(size_t i) const {
         }
         string value = unescape_delims(extract(edit_csa, b, e));
         Edit edit;
-        edit.ParseFromString(value);
+        vg::io::ProtobufIterator<Edit>::parse_from_string(edit, value);
         edits.push_back(edit);
     }
     return edits;

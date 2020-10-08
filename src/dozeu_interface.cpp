@@ -6,11 +6,11 @@
 #include <cstdio>
 #include <assert.h>
 #include <utility>
-
+ 
 #include "dozeu_interface.hpp"
 
 #include "algorithms/topological_sort.hpp"
-
+ 
 // Configure dozeu:
 // We want the full length bonus included
 #ifndef DZ_FULL_LENGTH_BONUS
@@ -27,15 +27,17 @@ enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 #define DZ_CIGAR_OP 0x04030201
 #endif
 
-#include <dozeu/dozeu.h>
 
 // To turn on debugging:
 //#define DEBUG
 //#define DZ_PRINT_VECTOR
 
+#include <dozeu/dozeu.h>
+
 #ifdef DEBUG
 #include <dozeu/log.h>
 #endif
+
 
 using namespace vg;
 
@@ -94,7 +96,7 @@ DozeuInterface::graph_pos_s DozeuInterface::calculate_seed_position(const Ordere
     graph_pos_s pos;
     
     // get node index
-	pos.node_index = graph.index_of.at(graph.graph.get_handle(gcsa::Node::id(seed_pos)));
+	pos.node_index = graph.index_of.at(graph.graph.get_handle(gcsa::Node::id(seed_pos), gcsa::Node::rc(seed_pos)));
     
 	// calc ref_offset
 	pos.ref_offset = direction ? (graph.graph.get_length(graph.order[pos.node_index]) - gcsa::Node::offset(seed_pos))
@@ -126,7 +128,7 @@ DozeuInterface::graph_pos_s DozeuInterface::calculate_max_position(const Ordered
     assert(forefronts.at(max_node_index)->mcap != nullptr);
 
 	// calc max position on the node
-	uint64_t max_pos = (uint64_t) dz_calc_max_pos(dz, forefronts[max_node_index]);
+	uint64_t max_pos = (uint64_t) dz_calc_max_pos(forefronts[max_node_index]);
 
 	// ref-side offset fixup
 	int32_t rpos = (int32_t)(max_pos>>32);
@@ -224,7 +226,9 @@ size_t DozeuInterface::do_poa(const OrderedGraph& graph, const dz_query_s* packe
     
     // initialze an alignment
     dz_alignment_init_s aln_init = dz_align_init(dz, max_gap_length);
-
+    
+    debug("extend pass: %s over %lu forefronts", right_to_left ? "right-to-left" : "left-to-right", forefronts.size());
+    
     // seed an alignment at each of the seed positions
     for (const graph_pos_s& seed_pos : seed_positions) {
         
@@ -234,9 +238,9 @@ size_t DozeuInterface::do_poa(const OrderedGraph& graph, const dz_query_s* packe
         // load position and length
         int64_t rlen = (right_to_left ? 0 : root_seq.size()) - seed_pos.ref_offset;
         
-        debug("extend pass: %s over %lu forefronts from %lu", right_to_left ? "right-to-left" : "left-to-right", forefronts.size(), seed_pos.node_index);
         
-        debug("rpos(%lu), rlen(%ld)", seed_pos.ref_offset, rlen);
+        debug("seed rpos(%lu), rlen(%ld), nid(%ld), rseq(%s)", seed_pos.ref_offset, rlen,
+              graph.graph.get_id(graph.order[seed_pos.node_index]), root_seq.c_str());
         forefronts[seed_pos.node_index] = extend(packed_query, &aln_init.root, 1,
                                                  root_seq.c_str() + seed_pos.ref_offset,
                                                  rlen, seed_pos.node_index, aln_init.xt);
@@ -251,7 +255,7 @@ size_t DozeuInterface::do_poa(const OrderedGraph& graph, const dz_query_s* packe
     }
 
 	size_t max_idx = start_idx;
-	debug("root: node_index(%lu, %ld), ptr(%p), score(%d)", start_idx, graph.graph.get_id(graph.order[start_idx]), forefronts[start_idx], forefronts[start_idx]->max);
+	//debug("root: node_index(%lu, %ld), ptr(%p), score(%d)", start_idx, graph.graph.get_id(graph.order[start_idx]), forefronts[start_idx], forefronts[start_idx]->max);
     
     int64_t inc = right_to_left ? -1 : 1;
     for (int64_t i = start_idx + inc; i < graph.order.size() && i >= 0; i += inc) {
@@ -270,6 +274,10 @@ size_t DozeuInterface::do_poa(const OrderedGraph& graph, const dz_query_s* packe
             // can end up clobbering them here, seems like it might be fragile if anyone develops this again...
             
             auto ref_seq = graph.graph.get_sequence(graph.order[i]);
+            
+            debug("extend rlen(%ld), nid(%ld), rseq(%s)", ref_seq.size(),
+                  graph.graph.get_id(graph.order[i]), ref_seq.c_str());
+            
             forefronts[i] = extend(packed_query, incoming_forefronts.data(), incoming_forefronts.size(),
                                    &ref_seq.c_str()[right_to_left ? ref_seq.length() : 0],
                                    right_to_left ? -ref_seq.length() : ref_seq.length(), i, aln_init.xt);
@@ -285,14 +293,16 @@ size_t DozeuInterface::do_poa(const OrderedGraph& graph, const dz_query_s* packe
     // Get max query pos
     assert(max_idx <= forefronts.size());
     assert(forefronts[max_idx] != nullptr);
-    
+
+#ifdef DEBUG    
     if (forefronts[max_idx]->mcap != nullptr) {
         
-        uint64_t query_max_pos = dz_calc_max_qpos(dz, forefronts[max_idx]);
-        uint64_t ref_node_max_pos = dz_calc_max_rpos(dz, forefronts[max_idx]);
+        uint64_t query_max_pos = dz_calc_max_qpos(forefronts[max_idx]);
+        uint64_t ref_node_max_pos = dz_calc_max_rpos(forefronts[max_idx]);
         
-        debug("max(%p), score(%d), qpos(%lu), rpos(%lu)", forefronts[max_idx], forefronts[max_idx]->max, query_max_pos, ref_node_max_pos);
+        debug("max(%p), score(%d), qpos(%ld), rpos(%ld)", forefronts[max_idx], forefronts[max_idx]->max, query_max_pos, ref_node_max_pos);
     }
+#endif
     return max_idx;
 }
 
@@ -638,7 +648,7 @@ void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const
         
         // we need seed to build edge table (for semi-global extension)
 		graph_pos_s seed_pos = calculate_seed_position(ordered_graph, mems, query_seq.size(), direction);
- 
+
         const char* pack_seq = direction ? query_seq.c_str() : query_seq.c_str() + seed_pos.query_offset;
         const uint8_t* pack_qual = nullptr;
         if (!alignment.quality().empty()) {
@@ -724,7 +734,6 @@ void DozeuInterface::align_pinned(Alignment& alignment, const HandleGraph& g, bo
         handle_t handle = order[i];
         // check if this is a tip in the correct direction so that we'd want to pin on it
         bool do_pinning = g.follow_edges(handle, pin_left, [](const handle_t& neighbor) { return false; });
-        
         if (do_pinning) {
             head_positions.emplace_back();
             head_positions.back().node_index = i;

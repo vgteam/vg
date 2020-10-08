@@ -143,8 +143,7 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
     #endif
 
 
-    util::assign(has_secondary_snarl, 
-                 rank_support_v<1>(&has_secondary_snarl_bv));
+    util::assign(has_secondary_snarl, rank_support_v<1>(&has_secondary_snarl_bv));
     util::assign(has_chain, rank_support_v<1>(&has_chain_bv));
 
     //Remove empty entries of chain/secondary snarl assignments and ranks
@@ -596,7 +595,15 @@ int64_t MinimumDistanceIndex::calculate_min_index(const HandleGraph* graph,
                 int64_t loop_distance = min_pos(rev_loop_dist, last_loop + dist_to_end);
                chain_indexes[curr_chain_assignment].loop_rev[curr_chain_rank+1] = loop_distance + 1;
             }
-            chain_indexes[curr_chain_assignment].max_width += sd.max_width; 
+            if ( c == chain_begin(*chain)) {
+                //If this is the first snarl, include the length of the start node
+                chain_indexes[curr_chain_assignment].max_width += sd.max_width; 
+            } else {
+                //Otherwise don't
+                int64_t start_len = snarl_rev_in_chain
+                    ? sd.node_length(num_nodes * 2 - 1) : sd.node_length(0);
+                chain_indexes[curr_chain_assignment].max_width += sd.max_width - start_len; 
+            }
         }
         
         //Bit compress distance matrix of snarl index
@@ -1126,6 +1133,58 @@ int64_t MinimumDistanceIndex::max_distance(pos_t pos1, pos_t pos2) const {
     }
 }
 
+tuple<id_t, bool, bool> MinimumDistanceIndex::into_which_snarl(id_t node_id, bool reverse) const {
+    size_t primary_assignment = get_primary_assignment(node_id);
+    const SnarlIndex& primary_snarl_index = snarl_indexes[primary_assignment];
+
+    //Rank always returns the rank of the forward orientation of the node
+    //The first (0) and last (num_nodes*2+1) rank will be pointing in, so:
+    //If this is the start node of snarl, 
+    // rank is 0 if it is traversed forward to enter the snarl, 1 if it is traversed backward
+    //If it is the end node of the primary snarl, rank is even if it is traversed backward to enter the snarl
+    pair<id_t, bool> primary_start (primary_snarl_index.id_in_parent, 
+                     get_primary_assignment(primary_snarl_index.id_in_parent) == primary_assignment ? 
+                                    get_primary_rank(primary_snarl_index.id_in_parent) == 1 :
+                                    get_secondary_rank(primary_snarl_index.id_in_parent) == 1 );
+    pair<id_t, bool> primary_end (primary_snarl_index.end_id, 
+                     get_primary_assignment(primary_snarl_index.end_id) == primary_assignment ? 
+                                  get_primary_rank(primary_snarl_index.end_id)%2 == 0 : 
+                                  get_secondary_rank(primary_snarl_index.end_id)%2 == 0);
+    if (primary_snarl_index.is_unary_snarl) {
+        primary_end = primary_start;
+    }
+
+    if ((node_id == primary_start.first && reverse == primary_start.second) || 
+        (node_id == primary_end.first && reverse == primary_end.second )) {
+        //If this is then end node and it points in
+        return make_tuple(primary_start.first, primary_start.second, primary_snarl_index.is_trivial_snarl());
+    }
+
+    if (has_secondary_snarl_bv[node_id-min_node_id]){ 
+        size_t secondary_assignment = get_secondary_assignment(node_id);
+        const SnarlIndex& secondary_snarl_index = snarl_indexes[secondary_assignment];
+        pair<id_t, bool> secondary_start (secondary_snarl_index.id_in_parent, 
+                         get_primary_assignment(secondary_snarl_index.id_in_parent) == secondary_assignment ?
+                         get_primary_rank(secondary_snarl_index.id_in_parent) == 1 :
+                         get_secondary_rank(secondary_snarl_index.id_in_parent) == 1);
+        pair<id_t, bool> secondary_end (secondary_snarl_index.end_id, 
+                         get_primary_assignment(secondary_snarl_index.id_in_parent) == secondary_assignment ?
+                         get_primary_rank(secondary_snarl_index.end_id)%2 == 0 :
+                         get_secondary_rank(secondary_snarl_index.end_id)%2 == 0);
+        if (secondary_snarl_index.is_unary_snarl) {
+            secondary_end = secondary_start;
+        }
+                            
+        if ( (node_id == secondary_start.first && reverse == secondary_start.second) ||
+             (node_id == secondary_end.first && reverse == secondary_end.second)) {
+            //If this is the inward facing start or end node of the secondary snarl
+            return make_tuple(secondary_start.first, secondary_start.second, secondary_snarl_index.is_trivial_snarl());
+        }
+    }
+    //This does not point into a snarl
+    return make_tuple(0, false, false);
+}
+
 int64_t MinimumDistanceIndex::node_length(id_t id) const {
     return snarl_indexes[get_primary_assignment(id)].node_length(get_primary_rank(id));
 }
@@ -1619,7 +1678,7 @@ int64_t MinimumDistanceIndex::min_pos (vector<int64_t> vals) {
    
 };
 
-void MinimumDistanceIndex::print_self() {
+void MinimumDistanceIndex::print_self() const {
     cerr << "node id \t primary snarl \t rank \t secondary snarl \t rank \t chain \t rank" << endl;
     for (size_t i = 0 ; i < primary_snarl_assignments.size() ; i ++ ) {
         if (primary_snarl_assignments[i] != 0){
@@ -1816,8 +1875,40 @@ pair<int64_t, int64_t> MinimumDistanceIndex::SnarlIndex::dist_to_ends(size_t ran
     return make_pair(dist_start, dist_end);
 }
 
+bool MinimumDistanceIndex::SnarlIndex::is_trivial_snarl() const {
+    return num_nodes == 2 && !is_unary_snarl && snarl_distance(0,1) == -1 && snarl_distance(4,3) == -1; 
+}
 
-void MinimumDistanceIndex::SnarlIndex::print_self() {
+json_t*  MinimumDistanceIndex::SnarlIndex::snarl_to_json() {
+    json_t* out_json = json_object();
+    json_object_set_new(out_json, "type", json_string(is_unary_snarl ? "unary snarl" : "snarl"));
+
+    json_t* start_node = json_object();
+    json_object_set_new(start_node, "node_id", json_integer(id_in_parent));
+    json_t* end_node = json_object();
+    json_object_set_new(end_node, "node_id", json_integer(end_id));
+    json_t* parent = json_object();
+    if (parent_id == 0 && depth == 0 && !in_chain ) {
+        json_object_set_new(parent, "type", json_string("root"));
+    } else {
+        json_object_set_new(parent, "type", json_string(in_chain ? "chain" : "snarl"));
+        json_object_set_new(parent, "node_id", json_integer(parent_id));
+    }
+
+    json_object_set_new(out_json, "start", start_node);
+    json_object_set_new(out_json, "end", end_node);
+    json_object_set_new(out_json, "parent", parent);
+
+    json_object_set_new(out_json, "node_count", json_integer(num_nodes));
+    json_object_set_new(out_json, "depth", json_integer(depth));
+    json_object_set_new(out_json, "minimum_length", json_integer(snarl_length()));
+    json_object_set_new(out_json, "maximum_length", json_integer(max_width));
+
+
+    return out_json;
+}
+
+void MinimumDistanceIndex::SnarlIndex::print_self() const {
     //Print the nodes contained in SnarlDistance
     cerr << endl;
     if (is_unary_snarl) {
@@ -1993,7 +2084,33 @@ int64_t MinimumDistanceIndex::ChainIndex::chain_distance(
 }
 
 
-void MinimumDistanceIndex::ChainIndex::print_self() {
+json_t*  MinimumDistanceIndex::ChainIndex::chain_to_json() {
+    json_t* out_json = json_object();
+    json_object_set_new(out_json, "type", json_string("chain"));
+
+    json_t* start_node = json_object();
+    json_object_set_new(start_node, "node_id", json_integer(id_in_parent));
+    json_t* end_node = json_object();
+    json_object_set_new(end_node, "node_id", json_integer(end_id));
+    json_t* parent = json_object();
+    if (parent_id == 0) {
+        json_object_set_new(parent, "type", json_string("root"));
+    } else {
+        json_object_set_new(parent, "type", json_string("snarl"));
+        json_object_set_new(parent, "node_id", json_integer(parent_id));
+    }
+
+    json_object_set_new(out_json, "start", start_node);
+    json_object_set_new(out_json, "end", end_node);
+    json_object_set_new(out_json, "parent", parent);
+
+    json_object_set_new(out_json, "snarl_count", json_integer(prefix_sum.size() - 1));
+    json_object_set_new(out_json, "minimum_length", json_integer(prefix_sum[prefix_sum.size() - 1]));
+    json_object_set_new(out_json, "maximum_length", json_integer(max_width));
+
+    return out_json;
+}
+void MinimumDistanceIndex::ChainIndex::print_self() const {
     //Print the contenst of ChainDistance
    
     if (is_looping_chain) {
@@ -2144,6 +2261,19 @@ cerr << "Making graph acyclic" << endl;
 }
 
 
+void MinimumDistanceIndex::write_snarls_to_json() {
+    for (auto& snarl : snarl_indexes) {
+
+        cout << json_dumps(snarl.snarl_to_json(), JSON_ENCODE_ANY) << endl;
+    }
+    for (auto& chain : chain_indexes) {
+        json_t* chain_json = chain.chain_to_json();
+        size_t depth = snarl_indexes[get_primary_assignment(chain.id_in_parent)].depth; 
+        json_object_set_new(chain_json, "depth", json_integer(depth));
+        cout << json_dumps(chain_json, JSON_ENCODE_ANY) << endl;
+    }
+
+}
 
 void MinimumDistanceIndex::print_snarl_stats() {
     //Print out stats bout the snarl

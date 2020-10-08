@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 histogram: plot a histogram of a file of numbers. Numbers can be floats, one per
 line. Lines with two numbers are interpreted as pre-counted, with the number of
@@ -270,11 +270,11 @@ def main(args):
                 raise Exception("Wrong number of fields on {} line {}".format(
                     data_filename, line_number + 1))
         
-    for category in all_data.keys():
+    for category in list(all_data.keys()):
         # Strip NaNs and Infs and weight-0 entries, and convert to a dict of
         # lists of tuples.
         all_data[category] = [(value, weight) for (value, weight)
-            in all_data[category].items() if 
+            in list(all_data[category].items()) if 
             value < float("+inf") and value > float("-inf") and weight > 0]
         
         
@@ -284,9 +284,9 @@ def main(args):
     # normal for loop order and not the other order.
     # Make sure to filter out 0s from bounds determination if using log space.
     bin_min = options.x_min if options.x_min is not None else min((pair[0]
-        for pair_list in all_data.values() for pair in pair_list if (not options.log or pair[0] != 0)))
+        for pair_list in list(all_data.values()) for pair in pair_list if (not options.log or pair[0] != 0)))
     bin_max = options.x_max if options.x_max is not None else max((pair[0]
-        for pair_list in all_data.values() for pair in pair_list if (not options.log or pair[0] != 0)))
+        for pair_list in list(all_data.values()) for pair in pair_list if (not options.log or pair[0] != 0)))
     
     if options.log:
         # Do our bins in log space, so they look evenly spaced on the plot.
@@ -387,9 +387,9 @@ def main(args):
         
             # TODO: median, mean
             
-            print("Min: {} occurs {} times".format(data_min, data_min_count))
-            print("Mode: {} occurs {} times".format(data_mode, data_mode_count))
-            print("Max: {} occurs {} times".format(data_max, data_max_count))
+            print(("Min: {} occurs {} times".format(data_min, data_min_count)))
+            print(("Mode: {} occurs {} times".format(data_mode, data_mode_count)))
+            print(("Max: {} occurs {} times".format(data_max, data_max_count)))
             
             if options.cutoff is not None:
                 # Work out how much weight is above and below the cutoff
@@ -403,9 +403,9 @@ def main(args):
                         below += weight
                 
                 # Report the results wrt the cutoff.
-                print("{} above {}, {} below".format(
+                print(("{} above {}, {} below".format(
                     above / total_weight_overall, options.cutoff, 
-                    below / total_weight_overall))
+                    below / total_weight_overall)))
             
         if options.line or options.points:
             # Do histogram binning manually

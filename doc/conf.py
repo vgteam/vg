@@ -26,8 +26,8 @@ breathe_default_project = 'vg'
 
 source_suffix = '.rst'
 master_doc = 'index'
-project = u'vg'
-copyright = u'vgteam'
+project = 'vg'
+copyright = 'vgteam'
 exclude_patterns = ['_build']
 pygments_style = 'sphinx'
 

@@ -16,7 +16,7 @@
 #include "path.hpp"
 #include "position.hpp"
 #include "lru_cache.h"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include "entropy.hpp"
 #include "aligner.hpp"
 #include "mem.hpp"
@@ -121,7 +121,7 @@ public:
     double mean() const;
     
     /// Robust standard deviation of the distribution observed so far
-    double stdev() const;
+    double std_dev() const;
     
     /// Returns true if the maximum sample size has been reached, which finalizes the
     /// distribution estimate
@@ -252,6 +252,24 @@ public:
                           size_t max_match_length,
                           size_t target_count);
     
+    // finds MEMs where a pre-specified number of low-quality bases are
+    // allowed to be any base. if the optional vector is provided, then it
+    // will be filled to include all of the places that each returned MEM
+    // mismatches the graph sequence. otherwise, the MEMs are walked out
+    // and split into exact matches (can be expensive)
+    vector<MaximalExactMatch>
+    find_fanout_mems(string::const_iterator seq_begin,
+                     string::const_iterator seq_end,
+                     string::const_iterator qual_begin,
+                     int max_fans_out,
+                     char max_fanout_base_quality,
+                     vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks = nullptr);
+    
+    vector<pos_t> walk_fanout_path(string::const_iterator begin,
+                                   string::const_iterator end,
+                                   const deque<pair<string::const_iterator, char>>& fanout_breaks,
+                                   gcsa::node_type pos);
+    
     /// identifies tracts of order-length MEMs that were unfilled because their hit count was above the max
     /// and fills one MEM in the tract (the one with the smallest hit count), assumes MEMs are lexicographically
     /// ordered by read index
@@ -286,10 +304,13 @@ public:
     int greedy_restart_max_count = 2;
     int greedy_restart_max_lcp = 0; // 0 for no max
     bool greedy_restart_assume_substitution = false;
+    bool filter_short_mems = false;
+    double short_mem_filter_factor = 0.45;
     int unpaired_penalty = 17;
     bool precollapse_order_length_hits = true;
     double avg_node_length = 0;
     size_t total_seq_length = 0;
+    int fanout_length_threshold = 0;
     
     // The recombination rate (negative log per-base recombination probability) for haplotype-aware mapping
     double recombination_penalty = 20.7; // 9 * 2.3 = 20.7

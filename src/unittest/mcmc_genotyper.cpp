@@ -9,7 +9,7 @@
 #include <gbwt/dynamic_gbwt.h>
 #include "../build_index.hpp"
 #include "../haplotypes.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
 #include "../vg.hpp"
 #include "../multipath_alignment.hpp"
@@ -916,7 +916,7 @@ namespace vg {
                 double count_minus = 0.0;
                 vector<double> results = vector<double>();
                 
-                int num_iterations = 25;
+                int num_iterations = 500;
                 int seed_i = std::chrono::system_clock::now().time_since_epoch().count();
                 
                 VG graph;
@@ -995,7 +995,6 @@ namespace vg {
                     move(vect[i].begin(), vect[i].end(), back_inserter(multipath_aln_vector)); 
                 }
                 
-
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 //pass vector with accumulated MultipathAlignment objects to run_genotype()
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base); 

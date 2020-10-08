@@ -110,6 +110,27 @@ std::ostream& operator<<(std::ostream& out, const walk_t& walk) {
     return out;
 }
 
+uint64_t walk_haplotype_frequency(const HandleGraph& graph,
+                                  const gbwt::GBWT& haplotypes,
+                                  const walk_t& walk) {
+    if (walk.path.empty()) {
+        return 0;
+    }
+    auto& first_step = walk.path.front();
+    gbwt::node_type start_node = gbwt::Node::encode(graph.get_id(first_step), graph.get_is_reverse(first_step));
+    gbwt::SearchState search_state = haplotypes.find(start_node);
+    for (uint64_t i = 1; i < walk.path.size(); ++i) {
+        auto& next = walk.path[i];
+        gbwt::node_type next_node = gbwt::Node::encode(graph.get_id(next), graph.get_is_reverse(next));
+        search_state = haplotypes.extend(search_state, next_node);
+        if (search_state.empty()) {
+            break;
+        }
+    }
+    return search_state.size();
+}
+
+
 }
 
 }

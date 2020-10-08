@@ -4,6 +4,7 @@
  */
 
 #include <vg/io/registry.hpp>
+#include <vg/io/protobuf_iterator.hpp>
 #include "register_loader_saver_vg.hpp"
 
 #include "../vg.hpp"
@@ -31,7 +32,7 @@ void register_loader_saver_vg() {
             for_each_message([&](const string& serialized_graph) {
                 // Parse the message to a Graph
                 Graph g;
-                if (!g.ParseFromString(serialized_graph)) {
+                if (!ProtobufIterator<Graph>::parse_from_string(g, serialized_graph)) {
                     // Handle bad graphs.
                     // TODO: make this an exception if we ever want to be allowed to continue from this.
                     cerr << "error[register_loader_saver_vg]: invalid Graph message" << endl;

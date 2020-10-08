@@ -52,7 +52,7 @@ void help_mod(char** argv) {
          << "                            edges from old to new copies to convert the graph into a DAG" << endl
          << "                            until the shortest path through each SCC is N bases long" << endl
          << "    -L, --dagify-len-max N  stop a dagification step if the unrolling component has this much sequence" << endl
-         << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
+         << "    -f, --unfold N          represent inversions accessible up to N from the forward" << endl
          << "                            component of the graph" << endl
          << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
@@ -737,10 +737,12 @@ int main_mod(int argc, char** argv) {
     }
 
     if (chop_to) {
-        // TODO: turn into an algorithm
-        ensure_vg();
-        vg_graph->dice_nodes(chop_to);
-        vg_graph->paths.compact_ranks();
+        if (vg_graph != nullptr) {
+            vg_graph->dice_nodes(chop_to);
+            vg_graph->paths.compact_ranks();
+        } else {
+            algorithms::chop(graph.get(), chop_to);
+        }
     }
 
     if (kill_labels) {

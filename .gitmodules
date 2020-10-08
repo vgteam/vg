@@ -6,7 +6,7 @@
 	url = https://github.com/vgteam/fastahack.git
 [submodule "gssw"]
 	path = deps/gssw
-	url = https://github.com/ekg/gssw.git
+	url = https://github.com/vgteam/gssw.git
 [submodule "bash-tap"]
 	path = deps/bash-tap
 	url = https://github.com/illusori/bash-tap.git
@@ -16,9 +16,6 @@
 [submodule "lru_cache"]
 	path = deps/lru_cache
 	url = https://github.com/ekg/lru_cache.git
-[submodule "htslib"]
-	path = deps/htslib
-	url = https://github.com/samtools/htslib.git
 [submodule "sha1"]
 	path = deps/sha1
 	url = https://github.com/vog/sha1.git

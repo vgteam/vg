@@ -16,6 +16,7 @@
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
 
+#include <gbwt/fast_locate.h>
 #include <gbwtgraph/gbwtgraph.h>
 #include <gbwtgraph/path_cover.h>
 
@@ -25,42 +26,63 @@ using namespace vg::subcommand;
 
 #include <unistd.h>
 
+enum merge_mode { merge_none, merge_insert, merge_fast };
+enum path_cover_mode { path_cover_none, path_cover_augment, path_cover_local, path_cover_greedy };
+enum index_type { index_none, index_compressed, index_dynamic };
+
+void load_gbwt(const std::string& filename, gbwt::GBWT& index, bool show_progress);
+void load_gbwt(const std::string& filename, gbwt::DynamicGBWT& index, bool show_progress);
+
+void get_compressed(gbwt::GBWT& compressed_index, gbwt::DynamicGBWT& dynamic_index, index_type& in_use, const std::string& filename, bool show_progress);
+void get_dynamic(gbwt::GBWT& compressed_index, gbwt::DynamicGBWT& dynamic_index, index_type& in_use, const std::string& filename, bool show_progress);
+
+void get_graph(std::unique_ptr<HandleGraph>& graph, bool& in_use, const std::string& filename, bool show_progress);
+void clear_graph(std::unique_ptr<HandleGraph>& graph, bool& in_use);
 
 void help_gbwt(char** argv) {
-    std::cerr << "usage: " << argv[0] << " [options] [args]" << std::endl;
+    std::cerr << "usage: " << argv[0] << " gbwt [options] [args]" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Manipulate GBWTs." << std::endl;
+    std::cerr << "Manipulate GBWTs. Each input arg represents one input GBWT." << std::endl;
     std::cerr << std::endl;
     std::cerr << "General options:" << std::endl;
-    std::cerr << "    -o, --output X          write output GBWT to X (required with -m, -f, and -P)" << std::endl;
+    std::cerr << "    -x, --xg-name FILE      read the graph from FILE" << std::endl;
+    std::cerr << "    -o, --output FILE       write output GBWT to FILE" << std::endl;
     std::cerr << "    -p, --progress          show progress and statistics" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Merging (requires -o; use deps/gbwt/merge_gbwt for more options):" << std::endl;
-    std::cerr << "    -m, --merge             merge the GBWT files from the input args and write to output" << std::endl;
-    std::cerr << "    -f, --fast              fast merging algorithm (node ids must not overlap; implies -m)" << std::endl;
+    std::cerr << "Step 1: Merge multiple input GBWTs (requires -o; use deps/gbwt/merge_gbwt for more options):" << std::endl;
+    std::cerr << "    -m, --merge             use the insertion algorithm" << std::endl;
+    std::cerr << "    -f, --fast              fast merging algorithm (node ids must not overlap)" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Threads (one GBWT file as an input arg):" << std::endl;
-    std::cerr << "    -c, --count-threads     print the number of threads" << std::endl;
-    std::cerr << "    -e, --extract FILE      extract threads in SDSL format to FILE" << std::endl;
+    std::cerr << "Step 2: Remove samples (requires -o and one input GBWT):" << std::endl;
+    std::cerr << "    -R, --remove-sample X   remove sample X from the index" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "GBWTGraph construction (0 or 1 GBWT files as input args):" << std::endl;
-    std::cerr << "    -g, --graph-name FILE   build GBWTGraph and serialize it to FILE (requires -x)" << std::endl;
-    std::cerr << "    -x, --xg-name FILE      use the node sequences from the graph in FILE" << std::endl;
-    std::cerr << "    -l, --local-haplotypes  sample local haplotypes from the input (requires -o)" << std::endl;
-    std::cerr << "    -P, --path-cover        build GBWT from a greedy path cover (requires -o)" << std::endl;
-    std::cerr << "    -n, --num-paths N       find N paths per component in -l or -P (default " << gbwtgraph::PATH_COVER_DEFAULT_N << ")" << std::endl;
-    std::cerr << "    -k, --context-length N  use N-node contexts in -l or -P (default " << gbwtgraph::PATH_COVER_DEFAULT_K << ")" << std::endl;
+    std::cerr << "Step 3: Path cover (requires -o, -x, and one of { -a, -l, -P }):" << std::endl;
+    std::cerr << "    -a, --augment-gbwt      add a path cover of missing components (one input GBWT)" << std::endl;
+    std::cerr << "    -l, --local-haplotypes  sample local haplotypes (one input GBWT)" << std::endl;
+    std::cerr << "    -P, --path-cover        build a greedy path cover (no input GBWTs)" << std::endl;
+    std::cerr << "    -n, --num-paths N       find N paths per component (default " << gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N << " for -l, " << gbwtgraph::PATH_COVER_DEFAULT_N << " otherwise)" << std::endl;
+    std::cerr << "    -k, --context-length N  use N-node contexts (default " << gbwtgraph::PATH_COVER_DEFAULT_K << ")" << std::endl;
     std::cerr << "    -b, --buffer-size N     GBWT construction buffer size in millions of nodes (default " << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << ")" << std::endl;
     std::cerr << "    -i, --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Metadata (one GBWT file as an input arg; use deps/gbwt/metadata_tool to modify):" << std::endl;
+    std::cerr << "Step 4: GBWTGraph construction (requires -x and one input GBWT):" << std::endl;
+    std::cerr << "    -g, --graph-name FILE   build GBWTGraph and store it in FILE" << std::endl;
+    std::cerr << std::endl;
+    std::cerr << "Step 5: R-index construction (one input GBWT):" << std::endl;
+    std::cerr << "    -r, --r-index FILE      build an r-index and store it in FILE" << std::endl;
+    std::cerr << "    -t, --threads N         use N extraction threads (default " << omp_get_max_threads() << ")" << std::endl;
+    std::cerr << std::endl;
+    std::cerr << "Step 6: Metadata (one input GBWT; use deps/gbwt/metadata_tool to modify):" << std::endl;
     std::cerr << "    -M, --metadata          print basic metadata" << std::endl;
     std::cerr << "    -C, --contigs           print the number of contigs" << std::endl;
     std::cerr << "    -H, --haplotypes        print the number of haplotypes" << std::endl;
     std::cerr << "    -S, --samples           print the number of samples" << std::endl;
     std::cerr << "    -L, --list-names        list contig/sample names (use with -C or -S)" << std::endl;
     std::cerr << "    -T, --thread-names      list thread names" << std::endl;
-    std::cerr << "    -R, --remove-sample X   remove sample X from the index (overwrites input if -o is not used)" << std::endl;
+    std::cerr << std::endl;
+    std::cerr << "Step 7: Threads (one input GBWT):" << std::endl;
+    std::cerr << "    -c, --count-threads     print the number of threads" << std::endl;
+    std::cerr << "    -e, --extract FILE      extract threads in SDSL format to FILE" << std::endl;
     std::cerr << std::endl;
 }
 
@@ -72,27 +94,34 @@ int main_gbwt(int argc, char** argv)
         std::exit(EXIT_FAILURE);
     }
 
-    // Operation modes. Only one of these can be active.
-    bool merge = false, build_graph = false, remove_sample = false, other_options = false;
+    // Requirements and modes.
+    bool produces_one_gbwt = false;
+    merge_mode merge = merge_none;
+    path_cover_mode path_cover = path_cover_none;
+    bool metadata_mode = false, thread_mode = false;
 
-    bool fast_merging = false;
+    // Other parameters and flags.
     bool show_progress = false;
     bool count_threads = false;
     bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, thread_names = false;
-    bool local_haplotypes = false, path_cover = false;
     size_t num_paths = gbwtgraph::PATH_COVER_DEFAULT_N, context_length = gbwtgraph::PATH_COVER_DEFAULT_K;
+    bool num_paths_set = false;
     size_t buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
     size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
+
+    // File/sample names.
     string gbwt_output, thread_output;
     string graph_output, xg_name;
+    std::string r_index_name;
     std::string to_remove;
 
     int c;
-    optind = 2; // force optind past command positional argument    
+    optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
             {
                 // General
+                { "xg-name", required_argument, 0, 'x' },
                 { "output", required_argument, 0, 'o' },
                 { "progress",  no_argument, 0, 'p' },
 
@@ -100,13 +129,11 @@ int main_gbwt(int argc, char** argv)
                 { "merge", no_argument, 0, 'm' },
                 { "fast", no_argument, 0, 'f' },
 
-                // Threads
-                { "count-threads", no_argument, 0, 'c' },
-                { "extract", required_argument, 0, 'e' },
+                // Remove sample
+                { "remove-sample", required_argument, 0, 'R' },
 
-                // GBWTGraph
-                { "graph-name", required_argument, 0, 'g' },
-                { "xg-name", required_argument, 0, 'x' },
+                // Path cover
+                { "augment-gbwt", no_argument, 0, 'a' },
                 { "local-haplotypes", no_argument, 0, 'l' },
                 { "path-cover", no_argument, 0, 'P' },
                 { "num-paths", required_argument, 0, 'n' },
@@ -114,21 +141,31 @@ int main_gbwt(int argc, char** argv)
                 { "buffer-size", required_argument, 0, 'b' },
                 { "id-interval", required_argument, 0, 'i' },
 
+                // GBWTGraph
+                { "graph-name", required_argument, 0, 'g' },
+
+                // R-index
+                { "r-index", required_argument, 0, 'r' },
+                { "threads", required_argument, 0, 't' },
+
                 // Metadata
                 { "metadata", no_argument, 0, 'M' },
                 { "contigs", no_argument, 0, 'C' },
                 { "haplotypes", no_argument, 0, 'H' },
                 { "samples", no_argument, 0, 'S' },
-                { "list_names", no_argument, 0, 'L' },
-                { "thread_names", no_argument, 0, 'T' },
-                { "remove-sample", required_argument, 0, 'R' },
+                { "list-names", no_argument, 0, 'L' },
+                { "thread-names", no_argument, 0, 'T' },
+
+                // Threads
+                { "count-threads", no_argument, 0, 'c' },
+                { "extract", required_argument, 0, 'e' },
 
                 { "help", no_argument, 0, 'h' },
                 { 0, 0, 0, 0 }
             };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "o:pmfce:g:x:lPn:k:b:i:MCHSLTR:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "x:o:pmfR:alPn:k:b:i:g:r:t:MCHSLTce:h?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -137,6 +174,9 @@ int main_gbwt(int argc, char** argv)
         switch (c)
         {
         // General
+        case 'x':
+            xg_name = optarg;
+            break;
         case 'o':
             gbwt_output = optarg;
             break;
@@ -146,39 +186,39 @@ int main_gbwt(int argc, char** argv)
 
         // Merging
         case 'm':
-            merge = true;
+            merge = merge_insert;
+            produces_one_gbwt = true;
             break;
         case 'f':
-            fast_merging = true;
-            merge = true;
+            merge = merge_fast;
+            produces_one_gbwt = true;
             break;
 
-        // Threads
-        case 'c':
-            count_threads = true;
-            other_options = true;
-            break;
-        case 'e':
-            thread_output = optarg;
-            other_options = true;
+        // Remove sample
+        case 'R':
+            to_remove = optarg;
             break;
 
-        // GBWTGraph
-        case 'g':
-            graph_output = optarg;
-            build_graph = true;
-            break;
-        case 'x':
-            xg_name = optarg;
+        // Path cover
+        case 'a':
+            assert(path_cover == path_cover_none);
+            path_cover = path_cover_augment;
             break;
         case 'l':
-            local_haplotypes = true;
+            assert(path_cover == path_cover_none);
+            path_cover = path_cover_local;
+            if (!num_paths_set) {
+                num_paths = gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N;
+            }
             break;
         case 'P':
-            path_cover = true;
+            assert(path_cover == path_cover_none);
+            path_cover = path_cover_greedy;
+            produces_one_gbwt = true;
             break;
         case 'n':
             num_paths = parse<size_t>(optarg);
+            num_paths_set = true;
             break;
         case 'k':
             context_length = parse<size_t>(optarg);
@@ -190,33 +230,53 @@ int main_gbwt(int argc, char** argv)
             id_interval = parse<size_t>(optarg);
             break;
 
+        // GBWTGraph
+        case 'g':
+            graph_output = optarg;
+            break;
+
+        // Build r-index
+        case 'r':
+            r_index_name = optarg;
+            break;
+        case 't':
+            omp_set_num_threads(parse<int>(optarg));
+            break;
+
         // Metadata
         case 'M':
             metadata = true;
-            other_options = true;
+            metadata_mode = true;
             break;
         case 'C':
             contigs = true;
-            other_options = true;
+            metadata_mode = true;
             break;
         case 'H':
             haplotypes = true;
-            other_options = true;
+            metadata_mode = true;
             break;
         case 'S':
             samples = true;
-            other_options = true;
+            metadata_mode = true;
             break;
         case 'L':
             list_names = true;
+            metadata_mode = true;
             break;
         case 'T':
             thread_names = true;
-            other_options = true;
+            metadata_mode = true;
             break;
-        case 'R':
-            to_remove = optarg;
-            remove_sample = true;
+
+        // Threads
+        case 'c':
+            count_threads = true;
+            thread_mode = true;
+            break;
+        case 'e':
+            thread_output = optarg;
+            thread_mode = true;
             break;
 
         case 'h':
@@ -230,360 +290,306 @@ int main_gbwt(int argc, char** argv)
             std::exit(EXIT_FAILURE);
         }
     }
+    int input_gbwts = argc - optind;
+    std::string gbwt_name = (input_gbwts == 0 ? "" : argv[optind]);
 
     // Sanity checks.
-    size_t active_modes = 0;
-    if (merge) {
-        active_modes++;
+    if (merge != merge_none) {
+        if (input_gbwts < 2 || gbwt_output.empty()) {
+            std::cerr << "error: [vg gbwt]: merging requires multiple input GBWTs and output GBWT" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
     }
-    if (build_graph) {
-        active_modes++;
+    if (!to_remove.empty()) {
+        if (input_gbwts != 1 || gbwt_output.empty()) {
+            std::cerr << "error: [vg gbwt]: removing a sample requires one input GBWT and output GBWT" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
     }
-    if (remove_sample) {
-        active_modes++;
+    if (path_cover != path_cover_none) {
+        if (gbwt_output.empty() || xg_name.empty()) {
+            std::cerr << "error: [vg gbwt]: path cover options require output GBWT and a graph" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if (path_cover == path_cover_greedy && input_gbwts != 0) {
+            std::cerr << "error: [vg gbwt]: greedy path cover does not use input GBWTs" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if ((path_cover == path_cover_local || path_cover == path_cover_augment) && !(input_gbwts == 1 || produces_one_gbwt)) {
+            std::cerr << "error: [vg gbwt]: path cover options -a and -l require one input GBWT" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if (num_paths == 0) {
+            std::cerr << "error: [vg gbwt] number of paths must be non-zero for path cover" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if (context_length < gbwtgraph::PATH_COVER_MIN_K) {
+            std::cerr << "error: [vg gbwt] context length must be at least " << gbwtgraph::PATH_COVER_MIN_K << " for path cover" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if (buffer_size == 0) {
+            std::cerr << "error: [vg gbwt] GBWT construction buffer size cannot be 0" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
     }
-    if (other_options) {
-        active_modes++;
+    if (!graph_output.empty()) {
+        if (xg_name.empty() || !(input_gbwts == 1 || produces_one_gbwt)) {
+            std::cerr << "error: [vg gbwt]: GBWTGraph construction requires a graph and one input GBWT" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
     }
-    if (active_modes > 1) {
-        std::cerr << "error: [vg gbwt] merging, graph construction, removing samples, and other options are mutually exclusive" << std::endl;
-        std::exit(EXIT_FAILURE);
+    if (!r_index_name.empty()) {
+        if (!(input_gbwts == 1 || produces_one_gbwt)) {
+            std::cerr << "error: [vg gbwt]: r-index construction requires one input GBWT" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
     }
-    if (active_modes == 0) {
-        help_gbwt(argv);
-        std::exit(EXIT_FAILURE);
+    if (metadata_mode) {
+        if (!(input_gbwts == 1 || produces_one_gbwt)) {
+            std::cerr << "error: [vg gbwt]: metadata operations one input GBWT" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    }
+    if (thread_mode) {
+        if (!(input_gbwts == 1 || produces_one_gbwt)) {
+            std::cerr << "error: [vg gbwt]: thread operations one input GBWT" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
     }
 
-    // Let GBWT operate silently.
+
+    // Let GBWT operate silently and use the same temporary directory as vg.
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+    gbwt::TempFile::setDirectory(temp_file::get_dir());
+
+    // This is the data we are using.
+    gbwt::GBWT compressed_index;
+    gbwt::DynamicGBWT dynamic_index;
+    index_type in_use = index_none;
+    std::unique_ptr<HandleGraph> input_graph;
+    bool graph_in_use = false;
 
 
-    // Merging options.
-    if (merge) {
-
-        // Ugly hack here. GBWT prints to stdout, and we want to direct it to stderr.
-        std::streambuf* cout_buf = std::cout.rdbuf();
-        std::cout.rdbuf(cerr.rdbuf());
-
-        size_t input_files = argc - optind;
-        size_t total_inserted = 0;
-        if (input_files <= 1) {
-            std::cerr << "error: [vg gbwt] at least two input gbwt files required to merge" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        if (gbwt_output.empty()) {
-            std::cerr << "error: [vg gbwt] output file must be specified with -o" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        if (show_progress) {
-            gbwt::printHeader("Algorithm"); std::cout << (fast_merging ? "fast" : "insert") << std::endl;
-            gbwt::printHeader("Input files"); std::cout << input_files << std::endl;
-            gbwt::printHeader("Output name"); std::cout << gbwt_output << std::endl;
-            std::cout << std::endl;
-        }
-
+    // Merge multiple input GBWTs.
+    if (merge != merge_none) {
         double start = gbwt::readTimer();
-        if(fast_merging)
-        {
-            vector<gbwt::GBWT> indexes(argc - optind);
-            for(int i = optind; i < argc; i++)
-            {
-                string input_name = argv[i];
-                
-                // Try loading the GBWT
-                std::unique_ptr<gbwt::GBWT> loaded = vg::io::VPKG::load_one<gbwt::GBWT>(input_name);
-                if (loaded.get() == nullptr) {
-                    std::cerr << "error: [vg gbwt] could not load GBWT " << input_name << std::endl;
-                    std::exit(EXIT_FAILURE);
-                }
-                
-                // Move out of the std::unique_ptr and into the vector that the GBWT library needs.
-                indexes[i - optind] = std::move(*loaded);
-                
-                if (show_progress) {
-                    gbwt::printStatistics(indexes[i - optind], input_name);
-                }
-                total_inserted += indexes[i - optind].size();
-            }
-            
-            // Merge the GBWT.
-            gbwt::GBWT merged(indexes);
-            
-            // Save to a file in VPKG-encapsulated format.
-            vg::io::VPKG::save(merged, gbwt_output);
-            if (show_progress) {
-                gbwt::printStatistics(merged, gbwt_output);
-            }
-        }
-        else
-        {
-            std::unique_ptr<gbwt::DynamicGBWT> index;
-            {
-                // Try to load the first GBWT as a dynamic one.
-                string input_name = argv[optind];
-                index = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(input_name);
-                if (index.get() == nullptr) {
-                    std::cerr << "error: [vg gbwt] could not load dynamic GBWT " << input_name << std::endl;
-                    std::exit(EXIT_FAILURE);
-                }
-                if (show_progress) {
-                    gbwt::printStatistics(*index, input_name);
-                }
-            }
-            for (int curr = optind + 1; curr < argc; curr++)
-            {
-                string input_name = argv[curr];
-                std::unique_ptr<gbwt::GBWT> next = vg::io::VPKG::load_one<gbwt::GBWT>(input_name);
-                if (next.get() == nullptr) {
-                    std::cerr << "error: [vg gbwt]: could not load GBWT " << input_name << std::endl;
-                    std::exit(EXIT_FAILURE);
-                }
-                if (show_progress) {
-                    gbwt::printStatistics(*next, input_name);
-                }
-                index->merge(*next);
-                total_inserted += next->size();
-            }
-            
-            // Save to a file in VPKG-encapsulated format.
-            vg::io::VPKG::save(*index, gbwt_output);
-            if (show_progress) { 
-                gbwt::printStatistics(*index, gbwt_output);
-            }
-        }
-        double seconds = gbwt::readTimer() - start;
-
         if (show_progress) {
-            std::cout << "Inserted " << total_inserted << " nodes in " << seconds << " seconds ("
-                      << (total_inserted / seconds) << " nodes/second)" << std::endl;
-            std::cout << "Memory usage " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << std::endl;
-            std::cout << std::endl;
+            std::string algo_name = (merge == merge_fast ? "fast" : "insertion");
+            std::cerr << "Merging " << input_gbwts << " input GBWTs (" << algo_name << " algorithm)" << std::endl;
         }
-
-        // Revert the hack and exit.
-        std::cout.rdbuf(cout_buf);
-        std::exit(EXIT_SUCCESS);
-    }
-
-
-    // GBWTGraph construction.
-    if (build_graph) {
-        if (local_haplotypes || path_cover) {
-            if (local_haplotypes && path_cover) {
-                std::cerr << "error: [vg gbwt] cannot build both local haplotypes and path cover" << std::endl;
-                std::exit(EXIT_FAILURE);
+        if (merge == merge_fast) {
+            std::vector<gbwt::GBWT> indexes(input_gbwts);
+            for (int i = optind; i < argc; i++) {
+                load_gbwt(argv[i], indexes[i - optind], show_progress);
             }
-            if (local_haplotypes && optind + 1 != argc) {
-                std::cerr << "error: [vg gbwt] no input GBWT given for finding local haplotypes" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (path_cover && optind != argc) {
-                std::cerr << "error: [vg gbwt] input GBWTs are not used with path cover" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (num_paths == 0) {
-                std::cerr << "error: [vg gbwt] number of paths must be non-zero for -l and -P" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (context_length < gbwtgraph::PATH_COVER_MIN_K) {
-                std::cerr << "error: [vg gbwt] context length must be at least " << gbwtgraph::PATH_COVER_MIN_K << " for path cover" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (buffer_size == 0) {
-                std::cerr << "error: [vg gbwt] GBWT construction buffer size cannot be 0" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (gbwt_output.empty()) {
-                std::cerr << "error: [vg gbwt] output file not specified for path cover GBWT" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-        } else {
-            if (optind + 1 != argc) {
-                std::cerr << "error: [vg gbwt] no input GBWT given for GBWTGraph construction" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-        }
-        if (xg_name.empty()) {
-            std::cerr << "error: [vg gbwt] GBWTGraph construction requires an input graph" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-
-        // Load the input graph.
-        if (show_progress) {
-            std::cerr << "Loading input graph " << xg_name << std::endl;
-        }
-        std::unique_ptr<HandleGraph> handle_graph = vg::io::VPKG::load_one<HandleGraph>(xg_name);
-        if (handle_graph == nullptr) {
-            std::cerr << "error: [vg gbwt] could not load graph " << xg_name << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-
-        // Load or build GBWT.
-        std::unique_ptr<gbwt::GBWT> loaded_gbwt(nullptr);
-        gbwt::GBWT generated_gbwt;
-        if (path_cover) {
             if (show_progress) {
-                std::cerr << "Finding " << num_paths << "-path cover with context length " << context_length << std::endl;
+                std::cerr << "Merging the GBWTs" << std::endl;
             }
-            double start = gbwt::readTimer();
-            generated_gbwt = gbwtgraph::path_cover_gbwt(*handle_graph, num_paths, context_length, buffer_size, id_interval, show_progress);
-            if (show_progress) {
-                double seconds = gbwt::readTimer() - start;
-                std::cerr << "GBWT built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
-                std::cerr << "Serializing path cover GBWT to " << gbwt_output << std::endl;
-            }
-            vg::io::VPKG::save(generated_gbwt, gbwt_output);
-        } else {
-            if (show_progress) {
-                std::cerr << "Loading GBWT " << argv[optind] << std::endl;
-            }
-            loaded_gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(argv[optind]);
-            if (loaded_gbwt.get() == nullptr) {
-                std::cerr << "error: [vg gbwt]: could not load GBWT " << argv[optind] << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (local_haplotypes) {
-                if (show_progress) {
-                    std::cerr << "Finding " << num_paths << "-path cover with context length " << context_length << std::endl;
+            compressed_index = gbwt::GBWT(indexes);
+            in_use = index_compressed;
+        }
+        else if (merge == merge_insert) {
+            load_gbwt(gbwt_name, dynamic_index, show_progress);
+            in_use = index_dynamic;
+            for (int curr = optind + 1; curr < argc; curr++) {
+                gbwt::GBWT next;
+                load_gbwt(argv[curr], next, show_progress);
+                if (next.size() > 2 * dynamic_index.size()) {
+                    std::cerr << "warning: [vg gbwt] merging " << argv[curr] << " into a substantially smaller index" << std::endl;
+                    std::cerr << "warning: [vg gbwt] merging would be faster in another order" << std::endl;
                 }
-                double start = gbwt::readTimer();
-                generated_gbwt = gbwtgraph::local_haplotypes(*handle_graph, *loaded_gbwt, num_paths, context_length, buffer_size, id_interval, show_progress);
                 if (show_progress) {
-                    double seconds = gbwt::readTimer() - start;
-                    std::cerr << "GBWT built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
-                    std::cerr << "Serializing local haplotypes to " << gbwt_output << std::endl;
+                    std::cerr << "Inserting " << next.sequences() << " sequences of total length " << next.size() << std::endl;
                 }
-                vg::io::VPKG::save(generated_gbwt, gbwt_output);
-                loaded_gbwt.reset();
+                dynamic_index.merge(next);
             }
         }
-        const gbwt::GBWT& selected_gbwt = ((path_cover || local_haplotypes) ? generated_gbwt : *loaded_gbwt);
-
         if (show_progress) {
-            std::cerr << "Building GBWTGraph" << std::endl;
+            double seconds = gbwt::readTimer() - start;
+            std::cerr << "GBWTs merged in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+            std::cerr << std::endl;
         }
-        gbwtgraph::GBWTGraph graph(selected_gbwt, *handle_graph);
-        if (show_progress) {
-            std::cerr << "Serializing GBWTGraph to " << graph_output << std::endl;
-        }
-        vg::io::VPKG::save(graph, graph_output);
-        std::exit(EXIT_SUCCESS);
     }
 
 
     // Remove a sample from the GBWT.
-    if (remove_sample) {
-        if (optind + 1 != argc) {
-            std::cerr << "error: [vg gbwt] one input GBWT is required for removing a sample" << std::endl;
-            std::exit(EXIT_FAILURE);
+    if (!to_remove.empty()) {
+        double start = gbwt::readTimer();
+        if (show_progress) {
+            std::cerr << "Removing sample " << to_remove << " from the index" << std::endl;
         }
-        std::unique_ptr<gbwt::DynamicGBWT> index = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(argv[optind]);
-        if (index.get() == nullptr) {
-            std::cerr << "error: [vg gbwt]: could not load dynamic GBWT " << argv[optind] << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        if (!(index->hasMetadata() && index->metadata.hasPathNames() && index->metadata.hasSampleNames())) {
+        get_dynamic(compressed_index, dynamic_index, in_use, gbwt_name, show_progress);
+        if (!(dynamic_index.hasMetadata() && dynamic_index.metadata.hasPathNames() && dynamic_index.metadata.hasSampleNames())) {
             std::cerr << "error: [vg gbwt] the index does not contain metadata with thread and sample names" << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        gbwt::size_type sample_id = index->metadata.sample(to_remove);
-        std::vector<gbwt::size_type> path_ids = index->metadata.removeSample(sample_id);
+        gbwt::size_type sample_id = dynamic_index.metadata.sample(to_remove);
+        std::vector<gbwt::size_type> path_ids = dynamic_index.metadata.removeSample(sample_id);
         if (path_ids.empty()) {
             std::cerr << "error: [vg gbwt] the index does not contain sample " << to_remove << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        size_t foo = index->remove(path_ids);
-        std::string output = (gbwt_output.empty() ? argv[optind] : gbwt_output);
-        vg::io::VPKG::save(*index, output);
-        std::exit(EXIT_SUCCESS);
+        if (show_progress) {
+            std::cerr << "Removing " << path_ids.size() << " threads" << std::endl;
+        }
+        size_t foo = dynamic_index.remove(path_ids);
+        if (show_progress) {
+            double seconds = gbwt::readTimer() - start;
+            std::cerr << "Sample removed in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+            std::cerr << std::endl;
+        }
     }
 
 
-    // Other options.
-    if (other_options) {
-        if (optind + 1 != argc) {
-            std::cerr << "error: [vg gbwt] selected options require one input GBWT" << std::endl;
-            std::exit(EXIT_FAILURE);
+    // Path cover options.
+    if (path_cover != path_cover_none) {
+        double start = gbwt::readTimer();
+        if (show_progress) {
+            std::cerr << "Finding a " << num_paths << "-path cover with context length " << context_length << std::endl;
         }
-        std::unique_ptr<gbwt::GBWT> index = vg::io::VPKG::load_one<gbwt::GBWT>(argv[optind]);
-        if (index.get() == nullptr) {
-            std::cerr << "error: [vg gbwt]: could not load GBWT " << argv[optind] << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-
-        // Extract threads in SDSL format.
-        if (!thread_output.empty()) {
-            gbwt::size_type node_width = gbwt::bit_length(index->sigma() - 1);
-            gbwt::text_buffer_type out(thread_output, std::ios::out, gbwt::MEGABYTE, node_width);
-            for (gbwt::size_type id = 0; id < index->sequences(); id += 2) { // Ignore reverse complements.
-                gbwt::vector_type sequence = index->extract(id);
-                for (auto node : sequence) {
-                    out.push_back(node);
-                }
-                out.push_back(gbwt::ENDMARKER);
+        get_graph(input_graph, graph_in_use, xg_name, show_progress);
+        if (path_cover == path_cover_greedy) {
+            if (show_progress) {
+                std::cerr << "Algorithm: greedy" << std::endl;
             }
-            out.close();
+            compressed_index = gbwtgraph::path_cover_gbwt(*input_graph, num_paths, context_length, buffer_size, id_interval, show_progress);
+            in_use = index_compressed;
+        } else if (path_cover == path_cover_augment) {
+            if (show_progress) {
+                std::cerr << "Algorithm: augment" << std::endl;
+            }
+            get_dynamic(compressed_index, dynamic_index, in_use, gbwt_name, show_progress);
+            gbwtgraph::augment_gbwt(*input_graph, dynamic_index, num_paths, context_length, buffer_size, id_interval, show_progress);
+        } else {
+            if (show_progress) {
+                std::cerr << "Algorithm: local haplotypes" << std::endl;
+            }
+            get_compressed(compressed_index, dynamic_index, in_use, gbwt_name, show_progress);
+            compressed_index = gbwtgraph::local_haplotypes(*input_graph, compressed_index, num_paths, context_length, buffer_size, id_interval, show_progress);
         }
-
-        // There are two sequences for each thread.
-        if (count_threads) {
-            std::cout << (index->sequences() / 2) << std::endl;
+        if (show_progress) {
+            double seconds = gbwt::readTimer() - start;
+            std::cerr << "Path cover built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+            std::cerr << std::endl;
         }
+    }
 
+
+    // Now we can serialize the GBWT.
+    if (!gbwt_output.empty() && in_use != index_none) {
+        double start = gbwt::readTimer();
+        if (show_progress) {
+            std::cerr << "Serializing the GBWT to " << gbwt_output << std::endl;
+        }
+        if (in_use == index_compressed) {
+            vg::io::VPKG::save(compressed_index, gbwt_output);
+        } else if (in_use == index_dynamic) {
+            vg::io::VPKG::save(dynamic_index, gbwt_output);
+        }
+        if (show_progress) {
+            double seconds = gbwt::readTimer() - start;
+            std::cerr << "GBWT serialized in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+            std::cerr << std::endl;
+        }
+    }
+
+
+    // GBWTGraph construction.
+    if (!graph_output.empty()) {
+        double start = gbwt::readTimer();
+        if (show_progress) {
+            std::cerr << "Building GBWTGraph" << std::endl;
+        }
+        get_graph(input_graph, graph_in_use, xg_name, show_progress);
+        get_compressed(compressed_index, dynamic_index, in_use, gbwt_name, show_progress);
+        if (show_progress) {
+            std::cerr << "Starting the construction" << std::endl;
+        }
+        gbwtgraph::GBWTGraph graph(compressed_index, *input_graph);
+        if (show_progress) {
+            std::cerr << "Serializing GBWTGraph to " << graph_output << std::endl;
+        }
+        vg::io::VPKG::save(graph, graph_output);
+        if (show_progress) {
+            double seconds = gbwt::readTimer() - start;
+            std::cerr << "GBWTGraph built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+            std::cerr << std::endl;
+        }
+    }
+
+
+    // We no longer need the graph.
+    clear_graph(input_graph, graph_in_use);
+
+
+    // R-index construction.
+    if (!r_index_name.empty()) {
+        double start = gbwt::readTimer();
+        if (show_progress) {
+            std::cerr << "Building r-index" << std::endl;
+        }
+        get_compressed(compressed_index, dynamic_index, in_use, gbwt_name, show_progress);
+        if (show_progress) {
+            std::cerr << "Starting the construction" << std::endl;
+        }
+        gbwt::FastLocate r_index(compressed_index);
+        if (show_progress) {
+            std::cerr << "Serializing the r-index to " << r_index_name << std::endl;
+        }
+        vg::io::VPKG::save(r_index, r_index_name);
+        if (show_progress) {
+            double seconds = gbwt::readTimer() - start;
+            std::cerr << "R-index built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+            std::cerr << std::endl;
+        }
+    }
+
+
+    // Metadata options.
+    if (metadata_mode) {
+        get_compressed(compressed_index, dynamic_index, in_use, gbwt_name, show_progress);
+        if (!compressed_index.hasMetadata()) {
+            std::cerr << "error: [vg gbwt] the GBWT does not contain metadata" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
         if (metadata) {
-            if (index->hasMetadata()) {
-                gbwt::operator<<(std::cout, index->metadata) << std::endl;
-            }
+            gbwt::operator<<(std::cout, compressed_index.metadata) << std::endl;
         }
-
         if (contigs) {
-            if (index->hasMetadata()) {
-                if (list_names) {
-                    if (index->metadata.hasContigNames()) {
-                        for (size_t i = 0; i < index->metadata.contigs(); i++) {
-                            std::cout << index->metadata.contig(i) << std::endl;
-                        }
-                    } else {
-                        std::cerr << "error: [vg gbwt] the metadata does not contain contig names" << std::endl;
+            if (list_names) {
+                if (compressed_index.metadata.hasContigNames()) {
+                    for (size_t i = 0; i < compressed_index.metadata.contigs(); i++) {
+                        std::cout << compressed_index.metadata.contig(i) << std::endl;
                     }
                 } else {
-                    std::cout << index->metadata.contigs() << std::endl;
+                    std::cerr << "error: [vg gbwt] the metadata does not contain contig names" << std::endl;
+                    std::exit(EXIT_FAILURE);
                 }
             } else {
-                std::cout << -1 << std::endl;
+                std::cout << compressed_index.metadata.contigs() << std::endl;
             }
         }
-
         if (haplotypes) {
-            if (index->hasMetadata()) {
-                std::cout << index->metadata.haplotypes() << std::endl;
-            } else {
-                std::cout << -1 << std::endl;
-            }
+            std::cout << compressed_index.metadata.haplotypes() << std::endl;
         }
-
         if (samples) {
-            if (index->hasMetadata()) {
-                if (list_names) {
-                    if (index->metadata.hasSampleNames()) {
-                        for (size_t i = 0; i < index->metadata.samples(); i++) {
-                            std::cout << index->metadata.sample(i) << std::endl;
-                        }
-                    } else {
-                        std::cerr << "error: [vg gbwt] the metadata does not contain sample names" << std::endl;
+            if (list_names) {
+                if (compressed_index.metadata.hasSampleNames()) {
+                    for (size_t i = 0; i < compressed_index.metadata.samples(); i++) {
+                        std::cout << compressed_index.metadata.sample(i) << std::endl;
                     }
                 } else {
-                    std::cout << index->metadata.samples() << std::endl;
+                    std::cerr << "error: [vg gbwt] the metadata does not contain sample names" << std::endl;
+                    std::exit(EXIT_FAILURE);
                 }
             } else {
-                std::cout << -1 << std::endl;
+                std::cout << compressed_index.metadata.samples() << std::endl;
             }
         }
-
         if (thread_names) {
-            if (index->hasMetadata() && index->metadata.hasPathNames()) {
-                for (size_t i = 0; i < index->metadata.paths(); i++) {
-                    std::cout << thread_name(*index, i) << std::endl;
+            if (compressed_index.metadata.hasPathNames()) {
+                for (size_t i = 0; i < compressed_index.metadata.paths(); i++) {
+                    std::cout << thread_name(compressed_index, i) << std::endl;
                 }
             } else {
                 std::cerr << "error: [vg gbwt] the metadata does not contain thread names" << std::endl;
@@ -591,8 +597,132 @@ int main_gbwt(int argc, char** argv)
         }
     }
 
+    // Thread options.
+    if (thread_mode) {
+        // Extract threads in SDSL format.
+        if (!thread_output.empty()) {
+            double start = gbwt::readTimer();
+            if (show_progress) {
+                std::cerr << "Extracting threads to " << thread_output << std::endl;
+            }
+            get_compressed(compressed_index, dynamic_index, in_use, gbwt_name, show_progress);
+            if (show_progress) {
+                std::cerr << "Starting the extraction" << std::endl;
+            }
+            gbwt::size_type node_width = gbwt::bit_length(compressed_index.sigma() - 1);
+            gbwt::text_buffer_type out(thread_output, std::ios::out, gbwt::MEGABYTE, node_width);
+            for (gbwt::size_type id = 0; id < compressed_index.sequences(); id += 2) { // Ignore reverse complements.
+                gbwt::vector_type sequence = compressed_index.extract(id);
+                for (auto node : sequence) {
+                    out.push_back(node);
+                }
+                out.push_back(gbwt::ENDMARKER);
+            }
+            out.close();
+            if (show_progress) {
+                double seconds = gbwt::readTimer() - start;
+                std::cerr << "Threads extracted in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+                std::cerr << std::endl;
+            }
+        }
+
+        // There are two sequences for each thread.
+        if (count_threads) {
+            get_compressed(compressed_index, dynamic_index, in_use, gbwt_name, show_progress);
+            std::cout << (compressed_index.sequences() / 2) << std::endl;
+        }
+    }
+
     return 0;
 }
+
+
+//----------------------------------------------------------------------------
+
+// Utility functions
+
+void load_gbwt(const std::string& filename, gbwt::GBWT& index, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Loading " << filename << std::endl;
+    }
+    std::unique_ptr<gbwt::GBWT> loaded = vg::io::VPKG::load_one<gbwt::GBWT>(filename);
+    if (loaded.get() == nullptr) {
+        std::cerr << "error: [vg gbwt] could not load compressed GBWT " << filename << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    index = std::move(*loaded);
+}
+
+void load_gbwt(const std::string& filename, gbwt::DynamicGBWT& index, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Loading " << filename << std::endl;
+    }
+    std::unique_ptr<gbwt::DynamicGBWT> loaded = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(filename);
+    if (loaded.get() == nullptr) {
+        std::cerr << "error: [vg gbwt] could not load dynamic GBWT " << filename << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    index = std::move(*loaded);
+}
+
+void get_compressed(gbwt::GBWT& compressed_index, gbwt::DynamicGBWT& dynamic_index, index_type& in_use, const std::string& filename, bool show_progress) {
+    if (in_use == index_compressed) {
+        return;
+    } else if (in_use == index_dynamic) {
+        if (show_progress) {
+            std::cerr << "Converting dynamic GBWT into compressed GBWT" << std::endl;
+        }
+        compressed_index = gbwt::GBWT(dynamic_index);
+        dynamic_index = gbwt::DynamicGBWT();
+        in_use = index_compressed;
+    } else {
+        load_gbwt(filename, compressed_index, show_progress);
+        in_use = index_compressed;
+    }
+}
+
+void get_dynamic(gbwt::GBWT& compressed_index, gbwt::DynamicGBWT& dynamic_index, index_type& in_use, const std::string& filename, bool show_progress) {
+    if (in_use == index_dynamic) {
+        return;
+    } else if (in_use == index_compressed) {
+        if (show_progress) {
+            std::cerr << "Converting compressed GBWT into dynamic GBWT" << std::endl;
+        }
+        dynamic_index = gbwt::DynamicGBWT(compressed_index);
+        compressed_index = gbwt::GBWT();
+        in_use = index_dynamic;
+    } else {
+        load_gbwt(filename, dynamic_index, show_progress);
+        in_use = index_dynamic;
+    }
+}
+
+void get_graph(std::unique_ptr<HandleGraph>& graph, bool& in_use, const std::string& filename, bool show_progress) {
+    if (in_use) {
+        return;
+    } else {
+        if (show_progress) {
+            std::cerr << "Loading input graph from " << filename << std::endl;
+        }
+        graph = vg::io::VPKG::load_one<HandleGraph>(filename);
+        if (graph == nullptr) {
+            std::cerr << "error: [vg gbwt] could not load graph " << filename << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        in_use = true;
+    }
+}
+
+void clear_graph(std::unique_ptr<HandleGraph>& graph, bool& in_use) {
+    if (!in_use) {
+        return;
+    } else {
+        graph.reset();
+        in_use = false;
+    }
+}
+
+//----------------------------------------------------------------------------
 
 
 // Register subcommand

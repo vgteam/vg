@@ -45,7 +45,7 @@ void help_chunk(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE       use this graph or xg index to chunk subgraphs" << endl
-         << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction" << endl
+         << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction (for -T)" << endl
          << "    -a, --gam-name FILE      chunk this gam file instead of the graph (multiple allowed)" << endl
          << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
          << "path chunking:" << endl
@@ -74,7 +74,7 @@ void help_chunk(char** argv) {
          << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
          << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl 
          << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
-         << "    -O, --output-fmt         Specifiy output format (vg, pg, hg).  [VG]" << endl
+         << "    -O, --output-fmt         Specify output format (vg, pg, hg).  [VG]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -301,7 +301,7 @@ int main_chunk(int argc, char** argv) {
     // check the output format
     std::transform(output_format.begin(), output_format.end(), output_format.begin(), ::tolower);
     if (!vg::io::valid_output_format(output_format)) {
-        cerr << "error[vg chunk]: invalid ouput format" << endl;
+        cerr << "error[vg chunk]: invalid output format" << endl;
         return 1;
     }
 
