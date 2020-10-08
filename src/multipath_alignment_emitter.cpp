@@ -326,6 +326,18 @@ void MultipathAlignmentEmitter::create_alignment_shim(const string& name, const 
         shim.set_read_group(sample_name);
     }
     shim.set_mapping_quality(mp_aln.mapping_quality());
+    // do we have at least 1 mapping?
+    bool mapped = false;
+    for (size_t i = 0; i < mp_aln.subpath_size() && !mapped; ++i) {
+        const auto& path = mp_aln.subpath(i).path();
+        for (size_t j = 0; j < path.mapping_size() && !mapped; ++j) {
+            mapped = true;
+        }
+    }
+    // hacky way to inform the conversion code that the read is mapped
+    if (mapped) {
+        shim.mutable_path()->add_mapping();
+    } 
 }
 
 void MultipathAlignmentEmitter::convert_to_hts_unpaired(const string& name, const multipath_alignment_t& mp_aln,
