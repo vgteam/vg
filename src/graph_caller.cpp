@@ -297,7 +297,7 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         map<string, const SnarlTraversal*> allele_map;
         for (int i = 0; i < called_traversals.size(); ++i) {
             // todo: verify index below.  it's for uncalled traversals so not important tho
-            string allele_string = trav_to_string(called_traversals, genotype, i, genotype.size() - 1, ref_trav_idx);
+            string allele_string = trav_to_string(called_traversals, genotype, i, max(0, (int)genotype.size() - 1), ref_trav_idx);
             if (!allele_map.count(allele_string)) {
                 allele_map[allele_string] = &called_traversals[i];
             }
