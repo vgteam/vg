@@ -18,13 +18,7 @@ namespace vg {
         #ifdef debug
                 cerr << "some debug statement" << endl; 
         #endif
-        find_min_cut::find_min_cut(vector<Node> graph, const int n_iterations, const int seed):graph(graph), n_iterations(n_iterations), 
-        seed(seed), random_engine(seed){
-            
-    
-        }
-
-        int find_min_cut::kargers_min_cut(vector<Node> graph)const {
+        int kargers_min_cut(vector<Node> graph , const int n_iterations, const int seed) {
 
             
         } 

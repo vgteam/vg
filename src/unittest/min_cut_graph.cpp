@@ -15,7 +15,10 @@ namespace vg {
     namespace unittest {
         
         using namespace std;
-
+        using vg::algorithms::Graph;
+        using vg::algorithms::Edge;
+        using vg::algorithms::Node;
+        using vg::algorithms::kargers_min_cut;
         const int seed = 0;
         const int n_iterations = 100;
 
@@ -87,12 +90,11 @@ namespace vg {
                 graph.push_back(node3);
                 graph.push_back(node4);
 
-                //Karger's min-cut 
-                find_min_cut min_cut_graph = find_min_cut(graph, n_iterations, seed);   
-                auto mincut = min_cut_graph.kargers_min_cut(vector<Node> graph);
+                //Karger's min-cut
+                int mincut = kargers_min_cut(graph, n_iterations, seed);
                 
                 //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
-                REQUIRE(mincut = 2);
+                REQUIRE(mincut == 2);
 
 /*Notes
 for unit test we assume weights have been assigned using match(graph) that assigns weights a score using its consistency with the haplotype phasing

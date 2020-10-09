@@ -20,32 +20,21 @@ namespace algorithms {
 
 using namespace std;
 
-class find_min_cut{ 
-    vector<Node> graph;
-    const int n_iterations;
-    const int seed;
-    mutable minstd_rand0 random_engine;
 
-public:
-    
-    find_min_cut(vector<Node> graph, const int n_iterations, const int seed); 
 
-    int kargers_min_cut(vector<Node> graph)const;    
+    int kargers_min_cut(vector<Node> graph, const int n_iterations, const int seed);    
 
-    
 
+    struct Edge{
+        int other;
+        int weight;
 };
 
-struct Edge{
-    int other;
-    int weight;
-};
-
-struct Node{
+    struct Node{
     int weight;
     vector<Edge> edges;
 };
-using Graph = vector<Node>;
+    using Graph = vector<Node>;
 }
 }
 
