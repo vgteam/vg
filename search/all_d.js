@@ -396,6 +396,7 @@ var searchData=
   ['minimizer_5fmapper_2ecpp',['minimizer_mapper.cpp',['../minimizer__mapper_8cpp.html',1,'']]],
   ['minimizer_5fmapper_2ehpp',['minimizer_mapper.hpp',['../minimizer__mapper_8hpp.html',1,'']]],
   ['minimizer_5foverride',['minimizer_override',['../classvg_1_1IndexManager.html#a2470de3a46478125009a3bd72340f226',1,'vg::IndexManager']]],
+  ['minimizer_5fs',['minimizer_s',['../classvg_1_1IndexManager.html#aeffbd785d4fae45180596cdf0eb33274',1,'vg::IndexManager']]],
   ['minimizer_5fscore_5ffraction',['minimizer_score_fraction',['../classvg_1_1MinimizerMapper.html#a5696bfb7029ca88ec04d0f849365b34f',1,'vg::MinimizerMapper']]],
   ['minimizer_5fw',['minimizer_w',['../classvg_1_1IndexManager.html#a8303c92999ec1253e755ee67932d3a07',1,'vg::IndexManager']]],
   ['minimizermapper',['MinimizerMapper',['../classvg_1_1MinimizerMapper.html',1,'vg::MinimizerMapper'],['../classvg_1_1MinimizerMapper.html#a4133862618010a5b1c54b1dd94732b21',1,'vg::MinimizerMapper::MinimizerMapper()']]],

@@ -140,6 +140,7 @@ var searchData=
   ['get_5fcurrent_5fcolumn',['get_current_column',['../structhaplo_1_1haplo__DP.html#a0061c97ecd2330efdcf0fbabb69d808d',1,'haplo::haplo_DP']]],
   ['get_5fcurrent_5fvmem_5fkb',['get_current_vmem_kb',['../namespacevg.html#a8cd30aaebcab130194ac375f23e6f098',1,'vg']]],
   ['get_5fdefault_5fk',['get_default_k',['../minimizer__main_8cpp.html#a158fc0202c0e73b741f2d1001b34b27d',1,'minimizer_main.cpp']]],
+  ['get_5fdefault_5fs',['get_default_s',['../minimizer__main_8cpp.html#a5176be86bfb97f5d4d6c741b7f128df0',1,'minimizer_main.cpp']]],
   ['get_5fdefault_5fthreads',['get_default_threads',['../minimizer__main_8cpp.html#a849308cddbd36f5fc06c5e1289112bae',1,'minimizer_main.cpp']]],
   ['get_5fdefault_5fvalue',['get_default_value',['../classvg_1_1OptionInterface.html#ade1ab38610fecb31821e13e5e296454c',1,'vg::OptionInterface::get_default_value()'],['../classvg_1_1BaseOption.html#af13c01c387907bb386b591bff8bbb5e9',1,'vg::BaseOption::get_default_value()']]],
   ['get_5fdefault_5fw',['get_default_w',['../minimizer__main_8cpp.html#af6a3711d63673574ef2c3a5db6df7282',1,'minimizer_main.cpp']]],

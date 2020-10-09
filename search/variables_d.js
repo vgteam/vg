@@ -174,6 +174,7 @@ var searchData=
   ['minimizer_5findexes',['minimizer_indexes',['../classvg_1_1MinimizerMapper.html#a8158d7661a52252dd77e2ec0dcaa1964',1,'vg::MinimizerMapper']]],
   ['minimizer_5fk',['minimizer_k',['../classvg_1_1IndexManager.html#a89303cd1df38f4e28dce8f3122d96f5d',1,'vg::IndexManager']]],
   ['minimizer_5foverride',['minimizer_override',['../classvg_1_1IndexManager.html#a2470de3a46478125009a3bd72340f226',1,'vg::IndexManager']]],
+  ['minimizer_5fs',['minimizer_s',['../classvg_1_1IndexManager.html#aeffbd785d4fae45180596cdf0eb33274',1,'vg::IndexManager']]],
   ['minimizer_5fscore_5ffraction',['minimizer_score_fraction',['../classvg_1_1MinimizerMapper.html#a5696bfb7029ca88ec04d0f849365b34f',1,'vg::MinimizerMapper']]],
   ['minimizer_5fw',['minimizer_w',['../classvg_1_1IndexManager.html#a8303c92999ec1253e755ee67932d3a07',1,'vg::IndexManager']]],
   ['mismatch',['mismatch',['../classvg_1_1GSSWAligner.html#abf06d9e9138bbbd23a451d1d0848c503',1,'vg::GSSWAligner::mismatch()'],['../classvg_1_1SSWAligner.html#a49756fbcff60e14c65b58f76c78a923f',1,'vg::SSWAligner::mismatch()']]],
