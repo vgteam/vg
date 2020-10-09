@@ -39,49 +39,33 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
                                                    const map<string, int64_t>& path_length, size_t max_threads,
                                                    const HandleGraph* graph = nullptr);
 
-
-/**
- * Emit Alignments to a stream in SAM/BAM/CRAM format.
- * Thread safe.
+/*
+ * A class that can write SAM/BAM/CRAM files from parallel threads
  */
-class HTSAlignmentEmitter : public AlignmentEmitter {
+class HTSWriter {
 public:
-    /// Create an HTSAlignmentEmitter writing to the given file (or "-") in the
+    /// Create an HTSWriter writing to the given file (or "-") in the
     /// given HTS format ("SAM", "BAM", "CRAM"). path_length must map from
     /// contig name to length to include in the header. Sample names and read
     /// groups for the header will be guessed from the first reads. HTSlib
     /// positions will be read from the alignments' refpos, and the alignments
     /// must be surjected.
-    HTSAlignmentEmitter(const string& filename, const string& format, const map<string, int64_t>& path_length, size_t max_threads);
+    HTSWriter(const string& filename, const string& format, const map<string, int64_t>& path_length, size_t max_threads);
     
-    /// Tear down an HTSAlignmentEmitter and destroy HTSlib structures.
-    ~HTSAlignmentEmitter();
+    /// Tear down an HTSWriter and destroy HTSlib structures.
+    ~HTSWriter();
     
     // Not copyable or movable
-    HTSAlignmentEmitter(const HTSAlignmentEmitter& other) = delete;
-    HTSAlignmentEmitter& operator=(const HTSAlignmentEmitter& other) = delete;
-    HTSAlignmentEmitter(HTSAlignmentEmitter&& other) = delete;
-    HTSAlignmentEmitter& operator=(HTSAlignmentEmitter&& other) = delete;
+    HTSWriter(const HTSWriter& other) = delete;
+    HTSWriter& operator=(const HTSWriter& other) = delete;
+    HTSWriter(HTSWriter&& other) = delete;
+    HTSWriter& operator=(HTSWriter&& other) = delete;
     
+protected:
     
-    /// Emit a batch of Alignments.
-    virtual void emit_singles(vector<Alignment>&& aln_batch);
-    /// Emit a batch of Alignments with secondaries. All secondaries must have
-    /// is_secondary set already.
-    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
-    /// Emit a batch of pairs of Alignments.
-    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
-        vector<int64_t>&& tlen_limit_batch);
-    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
-    /// must have is_secondary set already.
-    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
-        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
-    
-private:
-
     /// We hack about with htslib's BGZF EOF footers, so we need to know how long they are.
     static const size_t BGZF_FOOTER_LENGTH;
-
+    
     /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
     unique_ptr<ofstream> out_file;
     /// This holds a StreamMultiplexer on the output stream, for sharing it
@@ -125,17 +109,6 @@ private:
     /// Remember the HTSlib mode string we need to open our files.
     string hts_mode;
     
-    /// Describe the given alignment as a CIGAR and start position.
-    virtual void convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar, bool& pos_rev, int64_t& pos, string& path_name) const;
-    
-    /// Convert an unpaired alignment to HTS format.
-    /// Header must have been created already.
-    void convert_unpaired(Alignment& aln, bam_hdr_t* header, vector<bam1_t*>& dest);
-    /// Convert a paired alignment to HTS format.
-    /// Header must have been created already.
-    void convert_paired(Alignment& aln1, Alignment& aln2, bam_hdr_t* header, int64_t tlen_limit,
-                        vector<bam1_t*>& dest);
-    
     /// Write and deallocate a bunch of BAM records. Takes care of locking the
     /// file. Header must have been written already.
     void save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number);
@@ -150,7 +123,7 @@ private:
     ///
     /// Returns the header pointer, so we don't have to do another atomic read
     /// later.
-    bam_hdr_t* ensure_header(const Alignment& sniff, size_t thread_number);
+    bam_hdr_t* ensure_header(const string& read_group, const string& sample_name, size_t thread_number);
     
     /// Given a header and a thread number, make sure the samFile* for that
     /// thread is initialized and ready to have alignments written to it. If
@@ -158,9 +131,64 @@ private:
     /// the multiplexer. If the samFile* was already initialized, flushes it
     /// out and makes a breakpoint.
     void initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header = false);
-    
 };
 
+/**
+ * Emit Alignments to a stream in SAM/BAM/CRAM format.
+ * Thread safe.
+ */
+class HTSAlignmentEmitter : public AlignmentEmitter, public HTSWriter {
+public:
+    /// Create an HTSAlignmentEmitter writing to the given file (or "-") in the
+    /// given HTS format ("SAM", "BAM", "CRAM"). path_length must map from
+    /// contig name to length to include in the header. Sample names and read
+    /// groups for the header will be guessed from the first reads. HTSlib
+    /// positions will be read from the alignments' refpos, and the alignments
+    /// must be surjected.
+    HTSAlignmentEmitter(const string& filename, const string& format,
+                        const map<string, int64_t>& path_length, size_t max_threads);
+    
+    /// Tear down an HTSAlignmentEmitter and destroy HTSlib structures.
+    ~HTSAlignmentEmitter() = default;
+    
+    // Not copyable or movable
+    HTSAlignmentEmitter(const HTSAlignmentEmitter& other) = delete;
+    HTSAlignmentEmitter& operator=(const HTSAlignmentEmitter& other) = delete;
+    HTSAlignmentEmitter(HTSAlignmentEmitter&& other) = delete;
+    HTSAlignmentEmitter& operator=(HTSAlignmentEmitter&& other) = delete;
+    
+    
+    /// Emit a batch of Alignments.
+    void emit_singles(vector<Alignment>&& aln_batch);
+    /// Emit a batch of Alignments with secondaries. All secondaries must have
+    /// is_secondary set already.
+    void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
+    /// Emit a batch of pairs of Alignments.
+    void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch);
+    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
+    /// must have is_secondary set already.
+    void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
+    
+private:
+    
+    virtual void convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar, bool& pos_rev, int64_t& pos, string& path_name) const;
+    
+    /// Convert an unpaired alignment to HTS format.
+    /// Header must have been created already.
+    void convert_unpaired(Alignment& aln, bam_hdr_t* header, vector<bam1_t*>& dest);
+    /// Convert a paired alignment to HTS format.
+    /// Header must have been created already.
+    void convert_paired(Alignment& aln1, Alignment& aln2, bam_hdr_t* header, int64_t tlen_limit,
+                        vector<bam1_t*>& dest);
+
+};
+
+/*
+ * An HTSAlgnmentEmitter that tries to detect splice edges in
+ * the input data so that they can be encoded as N CIGAR operations
+ */
 class SplicedHTSAlignmentEmitter : public HTSAlignmentEmitter {
     
 public:
@@ -183,8 +211,8 @@ private:
     /// Convert a spliced alignment against a path to a cigar. The alignment must be
     /// colinear along a path and contain only mappings on the path, but it can have
     /// deletions relative to the path that follow edges in the graph.
-    vector<pair<int, char>> spliced_cigar_against_path(const Alignment& aln, const string& path_name,
-                                                       int64_t pos, bool rev) const;
+    vector<pair<int, char>> spliced_cigar_against_path(const Alignment& aln, const string& path_name, int64_t pos,
+                                                       bool rev) const;
     
     /// Graph that alignments were aligned against
     const PathPositionHandleGraph& graph;

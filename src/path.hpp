@@ -464,6 +464,9 @@ pos_t initial_position(const path_t& path);
 // the last position on the path
 pos_t final_position(const path_t& path);
 
+int corresponding_to_length(const path_t& path, int from_length, bool from_end);
+int corresponding_from_length(const path_t& path, int to_length, bool from_end);
+
 string debug_string(const path_t& path);
 string debug_string(const path_mapping_t& mapping);
 string debug_string(const edit_t& edit);

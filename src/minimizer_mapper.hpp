@@ -325,6 +325,12 @@ protected:
      * alignment has been set.
      */
     void extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const;
+    
+    /**
+     * Set pair partner references for paired mapping results.
+     */
+    void pair_all(pair<vector<Alignment>, vector<Alignment>>& mappings) const;
+    
 
 
 //-----------------------------------------------------------------------------
