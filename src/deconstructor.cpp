@@ -372,7 +372,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
  * Convenience wrapper function for deconstruction of multiple paths.
  */
 void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
-                                bool path_restricted_traversals, int ploidy,
+                                bool path_restricted_traversals, int ploidy, bool include_nested,
                                 const unordered_map<string, string>* path_to_sample) {
 
     this->graph = graph;
@@ -453,7 +453,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                     // if we can't make a variant from the snarl due to not finding
                     // paths through it, we try again on the children
                     // note: we may want to push the parallelism down a bit 
-                    if (!deconstruct_site(next_snarl)) {
+                    if (!deconstruct_site(next_snarl) || include_nested) {
                         const vector<const Snarl*>& children = snarl_manager->children_of(next_snarl);
                         next.insert(next.end(), children.begin(), children.end());
                     }
