@@ -78,7 +78,7 @@ void genotype_svs(VG* graph,
         Deconstructor decon;
         CactusSnarlFinder finder(xg_index);
         SnarlManager snarl_manager = finder.find_snarls();
-        decon.deconstruct({refpath}, &xg_index, &snarl_manager, false, 1);
+        decon.deconstruct({refpath}, &xg_index, &snarl_manager, false, 1, false);
     }
     direct_ins.clear();
 

@@ -32,6 +32,7 @@ void help_deconstruct(char** argv){
          << "    -A, --alt-prefix NAME    Non-reference paths beginning with NAME get lumped together to same sample in VCF (multiple allowed).  Other non-ref paths not considered as samples." << endl
          << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
          << "    -e, --path-traversals    Only consider traversals that correspond to paths in the grpah." << endl
+         << "    -a, --all-snarls         Process all snarls, including nested snarls (by default only top-level snarls reported)." << endl
          << "    -d, --ploidy N           Expected ploidy.  If more traversals found, they will be flagged as conflicts (default: 2)" << endl
          << "    -t, --threads N          Use N threads" << endl
          << "    -v, --verbose            Print some status messages" << endl
@@ -52,6 +53,7 @@ int main_deconstruct(int argc, char** argv){
     bool path_restricted_traversals = false;
     bool show_progress = false;
     int ploidy = 2;
+    bool all_snarls = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -64,7 +66,8 @@ int main_deconstruct(int argc, char** argv){
                 {"alt-prefix", required_argument, 0, 'A'},
                 {"snarls", required_argument, 0, 'r'},
                 {"path-traversals", no_argument, 0, 'e'},
-                {"ploidy", required_argument, 0, 'd'},                
+                {"ploidy", required_argument, 0, 'd'},
+                {"all-snarls", no_argument, 0, 'a'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
@@ -72,7 +75,7 @@ int main_deconstruct(int argc, char** argv){
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:A:r:ed:t:v",
+        c = getopt_long (argc, argv, "hp:P:A:r:ed:at:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -98,7 +101,10 @@ int main_deconstruct(int argc, char** argv){
             break;
         case 'd':
             ploidy = parse<int>(optarg);
-            break;            
+            break;
+        case 'a':
+            all_snarls = true;
+            break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
             break;
@@ -195,7 +201,7 @@ int main_deconstruct(int argc, char** argv){
     if (show_progress) {
         cerr << "Decsontructing top-level snarls" << endl;
     }
-    dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy,
+    dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy, all_snarls,
                    !alt_path_to_prefix.empty() ? &alt_path_to_prefix : nullptr);
     return 0;
 }
