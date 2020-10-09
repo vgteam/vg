@@ -119,6 +119,8 @@ public:
     constexpr static size_t minimizer_k = 29;
     /// Minimizer window size to use when minimizer indexing
     constexpr static size_t minimizer_w = 11;
+    /// Syncmer smer length to use when minimizer indexing
+    constexpr static size_t minimizer_s = 18;
 
 protected:
 

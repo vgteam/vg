@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 12
+plan tests 14
 
 
 # Indexing a single graph
@@ -22,26 +22,32 @@ is $? 0 "default parameters"
 vg minimizer -t 1 -i x.mi -g x.gbwt x.xg
 is $? 0 "single-threaded construction"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 4e409c662cb41fc6dcd4c8a245ee2a1d "construction is deterministic"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 58b2bd98902df9acbe416bcfde649571 "construction is deterministic"
+
+# Indexing syncmers
+vg minimizer -t 1 -i x.mi -b -g x.gbwt x.xg
+is $? 0 "syncmer index"
+vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 111bb0658db34d88a3a075f269513a36 "construction is deterministic"
 
 # Minimizer parameters
 vg minimizer -t 1 -k 7 -w 3 -i x.mi -g x.gbwt x.xg
 is $? 0 "minimizer parameters"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) e3e3fe7ef79452b28f84bd7b5401ac61 "setting -k -w works correctly"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) c69f4f2dfab192fc66055dcf2fa8a7da "setting -k -w works correctly"
 
 # Construction from GBWTGraph
 vg gbwt -x x.xg -g x.gg x.gbwt
 vg minimizer -t 1 -g x.gbwt -G -i x.mi x.gg
 is $? 0 "construction from GBWTGraph"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 4e409c662cb41fc6dcd4c8a245ee2a1d "construction is deterministic"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 58b2bd98902df9acbe416bcfde649571 "construction is deterministic"
 
 # Store payload in the index
 vg minimizer -t 1 -i x.mi -g x.gbwt -d x.dist -G x.gg
 is $? 0 "construction with payload"
 vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
-is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 37b3778ab99e3a751765cb84d5440f25 "construction is deterministic"
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 58a6780c18921e4f6701b57fdb9c2e44 "construction is deterministic"
 
 rm -f x.vg x.xg x.gbwt x.snarls x.dist x.mi x.extracted.mi x.gg
 
@@ -59,7 +65,7 @@ is $? 0 "multiple graphs: first"
 vg minimizer -t 1 -l x.mi -i xy.mi -g y.gbwt y.xg
 is $? 0 "multiple graphs: second"
 vg view --extract-tag MinimizerIndex xy.mi > xy.extracted.mi
-is $(md5sum xy.extracted.mi | cut -f 1 -d\ ) 04a93695acc3b169721f4a6510cc8705 "construction is deterministic"
+is $(md5sum xy.extracted.mi | cut -f 1 -d\ ) 7500d106741f2dd8aa34aa178c917832 "construction is deterministic"
 
 rm -f x.vg y.vg
 rm -f x.xg y.xg
