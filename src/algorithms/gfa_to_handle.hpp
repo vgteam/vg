@@ -11,7 +11,14 @@
 #include <gfakluge.hpp>
 #include <cctype>
 
+
+// Use sonLib pinch graphs
+#include "sonLib/stPinchGraphs.h"
+
+#include <structures/union_find.hpp>
+
 #include "../handle.hpp"
+#include "copy_graph.hpp"
 
 namespace vg {
 namespace algorithms {
@@ -19,6 +26,11 @@ using namespace std;
 
 /// This exception will be thrown if the GFA data is not acceptable.
 struct GFAFormatError : std::runtime_error {
+    // Keep the constructor from a message
+    using std::runtime_error::runtime_error;
+};
+
+struct BluntGFAFormatError : std::runtime_error {
     // Keep the constructor from a message
     using std::runtime_error::runtime_error;
 };
