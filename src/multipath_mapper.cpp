@@ -4373,7 +4373,7 @@ namespace vg {
             for (size_t i = 0; i < multipath_aln.start_size(); i++) {
                 subpath_t* source_subpath = multipath_aln.mutable_subpath(multipath_aln.start(i));
                 const edit_t& edit = source_subpath->path().mapping(0).edit(0);
-                if (edit.to_length() > 0 && edit.from_length() == 0) {
+                if (edit.to_length() != 0 && edit.from_length() != 0) {
                     source_subpath->set_score(source_subpath->score() - full_length_bonus);
                 }
             }
@@ -4394,7 +4394,7 @@ namespace vg {
                 }
                 subpath_t* source_subpath = multipath_aln.mutable_subpath(i);
                 const edit_t& edit = source_subpath->path().mapping(0).edit(0);
-                if (edit.to_length() > 0 && edit.from_length() == 0) {
+                if (edit.to_length() != 0 && edit.from_length() != 0) {
                     source_subpath->set_score(source_subpath->score() - full_length_bonus);
                 }
             }
@@ -4405,7 +4405,7 @@ namespace vg {
             if (subpath->next_size() == 0) {
                 const path_mapping_t& final_mapping = subpath->path().mapping(subpath->path().mapping_size() - 1);
                 const edit_t& edit = final_mapping.edit(final_mapping.edit_size() - 1);
-                if (edit.to_length() > 0 && edit.from_length() == 0) {
+                if (edit.to_length() != 0 && edit.from_length() != 0) {
                     subpath->set_score(subpath->score() - full_length_bonus);
                 }
             }
