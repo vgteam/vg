@@ -690,16 +690,19 @@ using namespace std;
             
             // remove any extraneous full length bonuses
             // TODO: technically, this can give a non-optimal alignment because it's post hoc to the dynamic programming
+            const auto& aligner = *get_aligner(!src_quality.empty());
             if (sections.back().path().mapping_size() != 0) {
                 if (read_range.first != src_sequence.begin()) {
                     if (sections.back().path().mapping(0).edit(0).from_length() > 0) {
-                        sections.back().set_score(sections.back().score() - get_aligner()->full_length_bonus);
+                        sections.back().set_score(sections.back().score()
+                                                  - aligner.score_full_length_bonus(true, section_source));
                     }
                 }
                 if (read_range.second != src_sequence.end()) {
                     const Mapping& m = sections.back().path().mapping(0);
                     if (m.edit(m.edit_size() - 1).from_length() > 0) {
-                        sections.back().set_score(sections.back().score() - get_aligner()->full_length_bonus);
+                        sections.back().set_score(sections.back().score()
+                                                  - aligner.score_full_length_bonus(false, section_source));
                     }
                 }
             }

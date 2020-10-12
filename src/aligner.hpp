@@ -181,6 +181,12 @@ namespace vg {
         /// Note that the return value is SIGNED, and almost certainly NEGATIVE, because mismatches are bad.
         virtual int32_t score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
                                        string::const_iterator base_qual_begin) const = 0;
+        
+        virtual int32_t score_full_length_bonus(bool left_side, string::const_iterator seq_begin,
+                                                string::const_iterator seq_end,
+                                                string::const_iterator base_qual_begin) const = 0;
+        
+        virtual int32_t score_full_length_bonus(bool left_side, const Alignment& alignment) const = 0;
                 
         /// Compute the score of a path against the given range of subsequence with the given qualities.
         virtual int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
@@ -363,6 +369,12 @@ namespace vg {
         /// Score a mismatch given just the length. Only possible since we ignore qualities.
         /// Return value is SIGNED, and almost certainly NEGATIVE
         int32_t score_mismatch(size_t length) const;
+        
+        int32_t score_full_length_bonus(bool left_side, string::const_iterator seq_begin,
+                                        string::const_iterator seq_end,
+                                        string::const_iterator base_qual_begin) const;
+        
+        int32_t score_full_length_bonus(bool left_side, const Alignment& alignment) const;
 
         int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                         string::const_iterator seq_begin, bool no_read_end_scoring = false) const;
@@ -416,7 +428,13 @@ namespace vg {
                                   string::const_iterator base_qual_begin) const;
         int32_t score_mismatch(string::const_iterator seq_begin, string::const_iterator seq_end,
                                string::const_iterator base_qual_begin) const;
-                                  
+        
+        int32_t score_full_length_bonus(bool left_side, string::const_iterator seq_begin,
+                                        string::const_iterator seq_end,
+                                        string::const_iterator base_qual_begin) const;
+        
+        int32_t score_full_length_bonus(bool left_side, const Alignment& alignment) const;
+        
         int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                         string::const_iterator seq_begin, bool no_read_end_scoring = false) const;
         

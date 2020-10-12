@@ -951,10 +951,10 @@ int32_t GSSWAligner::score_discontiguous_alignment(const Alignment& aln, const f
     if (!strip_bonuses) {
         // We should report any bonuses used in the DP in the final score
         if (!softclip_start(aln)) {
-            score += full_length_bonus;
+            score += score_full_length_bonus(true, aln);
         }
         if (!softclip_end(aln)) {
-            score += full_length_bonus;
+            score += score_full_length_bonus(false, aln);
         }
     }
     
@@ -969,11 +969,11 @@ int32_t GSSWAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_
     int32_t score = aln.score();
     if (softclip_start(aln) == 0 && !(pinned && pin_left)) {
         // No softclip at the start, and a left end bonus was applied.
-        score -= full_length_bonus;
+        score -= score_full_length_bonus(true, aln);
     }
     if (softclip_end(aln) == 0 && !(pinned && !pin_left)) {
         // No softclip at the end, and a right end bonus was applied.
-        score -= full_length_bonus;
+        score -= score_full_length_bonus(false, aln);
     }
     return score;
 }
@@ -1529,6 +1529,16 @@ int32_t Aligner::score_mismatch(size_t length) const {
     return -match * length;
 }
 
+int32_t Aligner::score_full_length_bonus(bool left_side, string::const_iterator seq_begin,
+                                         string::const_iterator seq_end,
+                                         string::const_iterator base_qual_begin) const {
+    return full_length_bonus;
+}
+
+int32_t Aligner::score_full_length_bonus(bool left_side, const Alignment& alignment) const {
+    return full_length_bonus;
+}
+
 int32_t Aligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                          string::const_iterator seq_begin, bool no_read_end_scoring) const {
     
@@ -1554,11 +1564,11 @@ int32_t Aligner::score_partial_alignment(const Alignment& alignment, const Handl
                     
                     // apply full length bonus
                     if (read_pos == alignment.sequence().begin() && !no_read_end_scoring) {
-                        score += full_length_bonus;
+                        score += score_full_length_bonus(true, alignment);
                     }
-                    if (read_pos + edit.from_length() == alignment.sequence().end()
+                    if (read_pos + edit.to_length() == alignment.sequence().end()
                          && !no_read_end_scoring) {
-                        score += full_length_bonus;
+                        score += score_full_length_bonus(false, alignment);
                     }
                     in_deletion = false;
                 }
@@ -2197,6 +2207,18 @@ int32_t QualAdjAligner::score_mismatch(string::const_iterator seq_begin, string:
     return score;
 }
 
+int32_t QualAdjAligner::score_full_length_bonus(bool left_side, string::const_iterator seq_begin,
+                                                string::const_iterator seq_end,
+                                                string::const_iterator base_qual_begin) const {
+    
+    return qual_adj_full_length_bonuses[left_side ? *base_qual_begin : *(base_qual_begin + (seq_end - seq_begin))];
+}
+
+int32_t QualAdjAligner::score_full_length_bonus(bool left_side, const Alignment& alignment) const {
+    return score_full_length_bonus(left_side, alignment.sequence().begin(), alignment.sequence().end(),
+                                   alignment.quality().begin());
+}
+
 int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                                 string::const_iterator seq_begin, bool no_read_end_scoring) const {
     
@@ -2220,17 +2242,17 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
             if (edit.from_length() > 0) {
                 if (edit.to_length() > 0) {
                     for (auto siter = read_pos, riter = ref_pos, qiter = qual_pos;
-                         siter != read_pos + edit.from_length(); siter++, qiter++, riter++) {
+                         siter != read_pos + edit.to_length(); siter++, qiter++, riter++) {
                         score += score_matrix[25 * (*qiter) + 5 * nt_table[*riter] + nt_table[*siter]];
                     }
                     
                     // apply full length bonus
                     if (read_pos == alignment.sequence().begin() && !no_read_end_scoring) {
-                        score += full_length_bonus;
+                        score += score_full_length_bonus(true, alignment);
                     }
-                    if (read_pos + edit.from_length() == alignment.sequence().end()
+                    if (read_pos + edit.to_length() == alignment.sequence().end()
                         && !no_read_end_scoring) {
-                        score += full_length_bonus;
+                        score += score_full_length_bonus(false, alignment);
                     }
                     in_deletion = false;
                 }
