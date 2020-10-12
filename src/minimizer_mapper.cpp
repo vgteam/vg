@@ -445,10 +445,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 #endif
             };
             
-            // There's always a best alignment
-            observe_alignment(best_alignments[0]);
-            
-            for(auto aln_it = best_alignments.begin() + 1; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
+            for(auto aln_it = best_alignments.begin() ; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
                 //For each additional alignment with score at least 0.8 of the best score
                 observe_alignment(*aln_it);
             }
@@ -676,6 +673,21 @@ double uncapped_mapq = mapq;
 
 //-----------------------------------------------------------------------------
 
+void MinimizerMapper::pair_all(pair<vector<Alignment>, vector<Alignment>>& mappings) const {
+    if (!mappings.first.empty()) {
+        for (auto& next : mappings.second) {
+            // Each read 2 needs to point to read 1 as its predecessor
+            next.mutable_fragment_prev()->set_name(mappings.first.front().name());
+        }
+    }
+    if (!mappings.second.empty()) {
+        for (auto& prev : mappings.first) {
+            // Each read 1 needs to point to read 2 as its successor
+            prev.mutable_fragment_next()->set_name(mappings.second.front().name());
+        }
+    }
+}
+
 pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2,
                                                       vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer){
     if (fragment_length_distr.is_finalized()) {
@@ -721,6 +733,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             pair<vector<Alignment>, vector<Alignment>> mapped_pair;
             mapped_pair.first.emplace_back(std::move(alns1.front()));
             mapped_pair.second.emplace_back(std::move(alns2.front()));
+            pair_all(mapped_pair);
             return mapped_pair;
 
         } else {
@@ -733,11 +746,33 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }
 }
 
-pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2) {
+pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2) {
     
 #ifdef debug
     cerr << "Read pair " << aln1.name() << ": " << aln1.sequence() << " and " << aln2.name() << ": " << aln2.sequence() << endl;
 #endif
+
+    // Make sure we actually have a working fragment length distribution that the clusterer will accept.
+    int64_t fragment_distance_limit = fragment_length_distr.mean() + paired_distance_stdevs * fragment_length_distr.std_dev();
+    if (fragment_distance_limit < get_distance_limit(aln1.sequence().size())) {
+        // We can't use this distribution
+        
+        if (!warned_about_bad_distribution.test_and_set()) {
+            // We get to print the warning
+            cerr << "warning[vg::giraffe]: Cannot cluster reads with a fragment distance smaller than read distance" << endl;
+            cerr << "                      Fragment length distribution: mean=" << fragment_length_distr.mean() 
+                 << ", stdev=" << fragment_length_distr.std_dev() << endl;
+            cerr << "                      Fragment distance limit: " << fragment_distance_limit 
+                 << ", read distance limit: " << get_distance_limit(aln1.sequence().size()) << endl;
+            cerr << "warning[vg::giraffe]: Falling back on single-end mapping" << endl;
+        }
+        
+        // Map single-ended and bail
+        auto mapped_pair = make_pair(map(aln1), map(aln2));
+        pair_all(mapped_pair);
+        return mapped_pair;
+    }
+
 
     // Assume reads are in inward orientations on input, and
     // convert to rightward orientations before mapping
@@ -780,15 +815,6 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
     if (track_provenance) {
         funnels[0].stage("cluster");
         funnels[1].stage("cluster");
-    }
-    int64_t fragment_distance_limit = fragment_length_distr.mean() + paired_distance_stdevs * fragment_length_distr.std_dev();
-    if (fragment_distance_limit < get_distance_limit(aln1.sequence().size())) {
-        cerr << "error[vg::giraffe]: Cannot cluster reads with a fragment distance smaller than read distance" << endl;
-        cerr << "                    Fragment length distribution: mean=" << fragment_length_distr.mean() 
-             << ", stdev=" << fragment_length_distr.std_dev() << endl;
-        cerr << "                    Fragment distance limit: " << fragment_distance_limit 
-             << ", read distance limit: " << get_distance_limit(aln1.sequence().size()) << endl;
-        exit(1);
     }
     std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
 
@@ -899,7 +925,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
             } else {
                 //Otherwise, its count is the index
                 better_cluster_count[fragment_num] = rank+1;
-                prev_score_sum == curr_score_sum;
+                prev_score_sum = curr_score_sum;
             }
 #ifdef debug
             assert(prev_score_sum == 
@@ -1229,10 +1255,7 @@ pair<vector<Alignment>, vector< Alignment>> MinimizerMapper::map_paired(Alignmen
 #endif
                 };
                 
-                // There's always a best alignment
-                observe_alignment(best_alignments[0]);
-                
-                for(auto aln_it = best_alignments.begin() + 1; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
+                for(auto aln_it = best_alignments.begin() ; aln_it != best_alignments.end() && aln_it->score() != 0 && aln_it->score() >= best_alignments[0].score() * 0.8; ++aln_it) {
                     //For each additional extension with score at least 0.8 of the best score
                     observe_alignment(*aln_it);
                 }
@@ -1875,7 +1898,9 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         set_annotation(mappings.second.front(),"secondary_scores", scores);
     
     }
-       
+    
+    // Make sure pair partners reference each other
+    pair_all(mappings);
         
     if (track_provenance) {
         funnels[0].substage_stop();
@@ -2419,7 +2444,7 @@ void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const Handle
                                       const std::vector<handle_t>& topological_order) const {
 
     const Aligner* aligner = this->get_regular_aligner();
-    int32_t score = aligner->score_ungapped_alignment(rescued_alignment);
+    int32_t score = aligner->score_contiguous_alignment(rescued_alignment);
     if (score > 0) {
         rescued_alignment.set_score(score);
     } else {

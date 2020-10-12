@@ -26,6 +26,23 @@ namespace haplo {
 
 namespace vg {
 
+    class connection_t {
+    public:
+        connection_t() = default;
+        connection_t(const connection_t&) = default;
+        connection_t(connection_t&&) = default;
+        ~connection_t() = default;
+        connection_t& operator=(const connection_t&) = default;
+        connection_t& operator=(connection_t&&) = default;
+        inline int32_t next() const;
+        inline void set_next(int32_t n);
+        inline int32_t score() const;
+        inline void set_score(int32_t s);
+    private:
+        uint32_t _next;
+        int32_t _score;
+    };
+
     /*
      * STL implementations of the protobuf object for use in in-memory operations
      */
@@ -50,10 +67,20 @@ namespace vg {
         inline bool has_next() const;
         inline int32_t score() const;
         inline void set_score(int32_t s);
+        inline const vector<connection_t>& connection() const;
+        inline const connection_t& connection(size_t i) const;
+        inline vector<connection_t>* mutable_connection();
+        inline connection_t* mutable_connection(size_t i);
+        inline void set_connection(size_t i, const connection_t& c);
+        inline connection_t* add_connection();
+        inline void clear_connection();
+        inline size_t connection_size() const;
+        inline bool has_connection() const;
     private:
         path_t _path;
         vector<uint32_t> _next;
         int32_t _score;
+        vector<connection_t> _connection;
     };
 
     // TODO: the metadata could be removed and only added to the protobuf at serialization time
@@ -108,6 +135,7 @@ namespace vg {
         map<string, pair<anno_type_t, void*>> _annotation;
     };
 
+    string debug_string(const connection_t& connection);
     string debug_string(const subpath_t& subpath);
     string debug_string(const multipath_alignment_t& multipath_aln);
     
@@ -177,6 +205,7 @@ namespace vg {
     ///
     vector<Alignment> optimal_alignments_with_disjoint_subpaths(const multipath_alignment_t& multipath_aln, size_t count);
     
+
     /// Finds all alignments consistent with haplotypes available by incremental search with the given haplotype
     /// score provider. Pads to a certain count with haplotype-inconsistent alignments that are population-scorable
     /// (i.e. use only edges used by some haplotype in the index), and then with unscorable alignments if scorable
@@ -200,6 +229,9 @@ namespace vg {
     vector<Alignment> haplotype_consistent_alignments(const multipath_alignment_t& multipath_aln, const haplo::ScoreProvider& score_provider,
         size_t soft_count, size_t hard_count, bool optimal_first = false);
     
+    /// The indexes on the read sequence of the portion of the read that is aligned outside of soft clips
+    pair<int64_t, int64_t> aligned_interval(const multipath_alignment_t& multipath_aln);
+
     /// Stores the reverse complement of a multipath_alignment_t in another multipath_alignment_t
     ///
     ///  Args:
@@ -290,6 +322,7 @@ namespace vg {
     void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln);
 
     /// Removes subpaths that have no aligned bases and adds in any implied edges crossing through them
+    /// Note: not updated for connections yet
     void remove_empty_subpaths(multipath_alignment_t& multipath_aln);
     
     /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
@@ -305,6 +338,24 @@ namespace vg {
     /// Add the subpaths of one multipath alignment onto another
     void append_multipath_alignment(multipath_alignment_t& multipath_aln,
                                     const multipath_alignment_t& to_append);
+
+    /// Returns all of the positions where a given sequence index occurs at a given graph
+    /// graph position (if any), where positions are represented as tuples of
+    /// (subpath index, mapping index, edit index, index within edit)
+    vector<tuple<int64_t, int64_t, int64_t, int64_t>>
+    search_multipath_alignment(const multipath_alignment_t& multipath_aln,
+                               const pos_t& graph_pos, int64_t seq_pos);
+
+    pair<tuple<int64_t, int64_t, int64_t, int64_t>, tuple<int64_t, int64_t, int64_t>>
+    trace_path(const multipath_alignment_t& multipath_aln, const Path& path,
+               int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx);
+
+    /// Convert a surjected multipath alignment into a CIGAR sequence against a path. Splicing will be allowed
+    /// at connections and at any silent deletions of path sequence. Surjected multipath alignment graph must
+    /// consist of a single non-branching path
+    vector<pair<int, char>> cigar_against_path(const multipath_alignment_t& multipath_aln, const string& path_name, bool rev,
+                                               int64_t path_pos, const PathPositionHandleGraph& graph,
+                                               int64_t min_splice_length = numeric_limits<int64_t>::max());
 
     /// Debugging function to check that multipath alignment meets the formalism's basic
     /// invariants. Returns true if multipath alignment is valid, else false. Does not
@@ -322,6 +373,22 @@ namespace vg {
     /*
      * Implementations of inline methods
      */
+
+    /*
+     * connection_t
+     */
+    inline int32_t connection_t::next() const {
+        return _next;
+    }
+    inline void connection_t::set_next(int32_t n) {
+        _next = n;
+    }
+    inline int32_t connection_t::score() const {
+        return _score;
+    }
+    inline void connection_t::set_score(int32_t s) {
+        _score = s;
+    }
 
     /*
      * subpath_t
@@ -364,6 +431,34 @@ namespace vg {
     }
     inline void subpath_t::set_score(int32_t s) {
         _score = s;
+    }
+    inline const vector<connection_t>& subpath_t::connection() const {
+        return _connection;
+    }
+    inline const connection_t& subpath_t::connection(size_t i) const {
+        return _connection[i];
+    }
+    inline vector<connection_t>* subpath_t::mutable_connection() {
+        return &_connection;
+    }
+    inline connection_t* subpath_t::mutable_connection(size_t i) {
+        return &_connection[i];
+    }
+    inline void subpath_t::set_connection(size_t i, const connection_t& c) {
+        _connection[i] = c;
+    }
+    inline connection_t* subpath_t::add_connection() {
+        _connection.emplace_back();
+        return &_connection.back();
+    }
+    inline void subpath_t::clear_connection() {
+        _connection.clear();
+    }
+    inline size_t subpath_t::connection_size() const {
+        return _connection.size();
+    }
+    inline bool subpath_t::has_connection() const {
+        return !_connection.empty();
     }
 
     /*

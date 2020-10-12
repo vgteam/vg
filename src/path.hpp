@@ -1,4 +1,4 @@
-#ifndef VG_PATH_HPP_INCLUDED
+    #ifndef VG_PATH_HPP_INCLUDED
 #define VG_PATH_HPP_INCLUDED
 
 #include <iostream>
@@ -352,7 +352,7 @@ void translate_oriented_node_ids(Path& path, const function<pair<id_t, bool>(id_
 pos_t initial_position(const Path& path);
 // the last position on the path
 pos_t final_position(const Path& path);
-    
+
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 
@@ -463,6 +463,9 @@ void reverse_complement_path_in_place(path_t* path,
 pos_t initial_position(const path_t& path);
 // the last position on the path
 pos_t final_position(const path_t& path);
+
+int corresponding_to_length(const path_t& path, int from_length, bool from_end);
+int corresponding_from_length(const path_t& path, int to_length, bool from_end);
 
 string debug_string(const path_t& path);
 string debug_string(const path_mapping_t& mapping);

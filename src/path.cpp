@@ -2707,5 +2707,54 @@ string debug_string(const edit_t& edit) {
     return to_return;
 }
 
+int corresponding_length_internal(const path_t& path, int given_length, bool is_from_length, bool from_end) {
+    int from_length = 0;
+    if (path.mapping().empty()) {
+        return from_length;
+    }
+    int incr, i_begin;
+    if (from_end) {
+        i_begin = path.mapping_size() - 1;
+        incr = -1;
+    }
+    else {
+        incr = 1;
+        i_begin = 0;
+    }
+    int remaining = given_length;
+    int other_length_total = 0;
+    for (int i = i_begin; i >= 0 && i < path.mapping_size() && remaining != 0; i += incr) {
+        const auto& mapping = path.mapping(i);
+        int j_begin = from_end ? mapping.edit_size() - 1 : 0;
+        for (int j = j_begin; j >= 0 && j < mapping.edit_size() && remaining != 0; j += incr) {
+            const edit_t& edit = mapping.edit(j);
+            int walking_length, other_length;
+            if (is_from_length) {
+                walking_length = edit.from_length();
+                other_length = edit.to_length();
+            }
+            else {
+                walking_length = edit.to_length();
+                other_length = edit.from_length();
+            }
+            if (remaining >= walking_length) {
+                remaining -= walking_length;
+                other_length_total += other_length;
+            }
+            else {
+                other_length_total += (remaining * other_length) / walking_length;
+                remaining = 0;
+            }
+        }
+    }
+    return other_length_total;
+}
+int corresponding_to_length(const path_t& path, int from_length, bool from_end) {
+    return corresponding_length_internal(path, from_length, true, from_end);
+}
+
+int corresponding_from_length(const path_t& path, int to_length, bool from_end) {
+    return corresponding_length_internal(path, to_length, false, from_end);
+}
 
 }

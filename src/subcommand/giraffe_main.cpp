@@ -408,6 +408,8 @@ int main_giraffe(int argc, char** argv) {
     double cluster_stdev = 2.0;
     //How many stdevs do we look out when rescuing? 
     double rescue_stdev = 4.0;
+    // How many pairs should we be willing to buffer before giving up on fragment length estimation?
+    size_t MAX_BUFFERED_PAIRS = 100000;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -634,7 +636,7 @@ int main_giraffe(int argc, char** argv) {
                 if (param_preset == "fast" ) {
 
                     hit_cap = 10;
-                    hard_hit_cap = 1000;
+                    hard_hit_cap = 500;
                     minimizer_score_fraction = 0.5;
                     max_multimaps = 1;
                     max_extensions = 400;
@@ -1199,6 +1201,18 @@ int main_giraffe(int argc, char** argv) {
                     return is_ready;
                 };
                 
+                // Define a way to force the distribution ready
+                auto require_distribution_finalized = [&]() {
+                    if (!minimizer_mapper.fragment_distr_is_finalized()){
+                        cerr << "warning[vg::giraffe]: Finalizing fragment length distribution before reaching maximum sample size" << endl;
+                        cerr << "                      mapped " << minimizer_mapper.get_fragment_length_sample_size() 
+                             << " reads single ended with " << ambiguous_pair_buffer.size() << " pairs of reads left unmapped" << endl;
+                        cerr << "                      mean: " << minimizer_mapper.get_fragment_length_mean() << ", stdev: " 
+                             << minimizer_mapper.get_fragment_length_stdev() << endl;
+                        minimizer_mapper.finalize_fragment_length_distr();
+                    }
+                };
+                
                 // Define how to align and output a read pair, in a thread.
                 auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
                     
@@ -1209,6 +1223,14 @@ int main_giraffe(int argc, char** argv) {
                         alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second));
                         // Record that we mapped a read.
                         reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
+                    }
+                    
+                    if (!minimizer_mapper.fragment_distr_is_finalized() && ambiguous_pair_buffer.size() >= MAX_BUFFERED_PAIRS) {
+                        // We risk running out of memory if we keep this up.
+                        cerr << "warning[vg::giraffe]: Encountered " << ambiguous_pair_buffer.size() << " ambiguously-paired reads before finding enough" << endl
+                             << "                      unambiguously-paired reads to learn fragment length distribution. Are you sure" << endl
+                             << "                      your reads are paired and your graph is not a hairball?" << endl;
+                        require_distribution_finalized();
                     }
                 };
 
@@ -1228,16 +1250,9 @@ int main_giraffe(int argc, char** argv) {
                     fastq_paired_interleaved_for_each_parallel_after_wait(fastq_filename_1, map_read_pair, distribution_is_ready);
                 }
 
-                //Now map all the ambiguous pairs
-                //TODO: What do we do if we haven't finalized the distribution?
-                if (!minimizer_mapper.fragment_distr_is_finalized()){
-                    cerr << "warning[vg::giraffe]: Finalizing fragment length distribution before reaching maximum sample size" << endl;
-                    cerr << "                      mapped " << minimizer_mapper.get_fragment_length_sample_size() 
-                         << " reads single ended with " << ambiguous_pair_buffer.size() << " pairs of reads left unmapped" << endl;
-                    cerr << "                      mean: " << minimizer_mapper.get_fragment_length_mean() << ", stdev: " 
-                         << minimizer_mapper.get_fragment_length_stdev() << endl;
-                    minimizer_mapper.finalize_fragment_length_distr();
-                }
+                // Now map all the ambiguous pairs
+                // Make sure fragment length distribution is finalized first.
+                require_distribution_finalized();
                 for (pair<Alignment, Alignment>& alignment_pair : ambiguous_pair_buffer) {
 
                     auto mapped_pairs = minimizer_mapper.map_paired(alignment_pair.first, alignment_pair.second);

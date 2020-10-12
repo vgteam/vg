@@ -158,6 +158,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_MAX_RESCUE_P_VALUE 1029
     #define OPT_ALT_PATHS 1030
     #define OPT_SUPPRESS_SUPPRESSION 1031
+    #define OPT_NOT_SPLICED 1032
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -284,6 +285,10 @@ int main_mpmap(int argc, char** argv) {
     bool use_pessimistic_tail_alignment = false;
     double pessimistic_gap_multiplier = 3.0;
     bool restrained_graph_extraction = false;
+    bool do_spliced_alignment = false;
+    int max_softclip_overlap = 5;
+    int max_splice_overhang = 5;
+    bool override_spliced_alignment = false;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
     int gap_open_score_arg = std::numeric_limits<int>::min();
@@ -291,9 +296,9 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus_arg = std::numeric_limits<int>::min();
     int reversing_walk_length = 1;
     bool no_output = false;
-    string default_single_path_format = "gam";
+    string default_single_path_format = "GAM";
     string single_path_format = default_single_path_format;
-    string out_format = "gamp";
+    string out_format = "GAMP";
 
     // default presets
     string nt_type = "dna";
@@ -373,6 +378,7 @@ int main_mpmap(int argc, char** argv) {
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, OPT_PRUNE_EXP},
             {"long-read-scoring", no_argument, 0, 'E'},
+            {"not-spliced", no_argument, 0, OPT_NOT_SPLICED},
             {"read-length", required_argument, 0, 'l'},
             {"nt-type", required_argument, 0, 'n'},
             {"error-rate", required_argument, 0, 'e'},
@@ -719,6 +725,10 @@ int main_mpmap(int argc, char** argv) {
                 read_length = "long";
                 break;
                 
+            case OPT_NOT_SPLICED:
+                override_spliced_alignment = true;
+                break;
+                
             case 'l':
                 read_length = optarg;
                 break;
@@ -872,6 +882,10 @@ int main_mpmap(int argc, char** argv) {
         if (distance_index_name.empty()) {
             cerr << "warning:[vg mpmap] It is HIGHLY recommended to use a distance index (-d) for clustering on splice graphs. Both accuracy and speed will suffer without one." << endl;
         }
+        
+        // we'll assume that there might be spliced alignments
+        do_spliced_alignment = true;
+        
         // seed finding, cluster pruning, and rescue parameters tuned for a lower repeat content
         secondary_rescue_attempts = 1;
         max_single_end_mappings_for_rescue = 32;
@@ -912,14 +926,14 @@ int main_mpmap(int argc, char** argv) {
     }
     
     // normalize capitalization
-    if (out_format == "GAM") {
-        out_format = "gam";
+    if (out_format == "gam") {
+        out_format = "GAM";
     }
-    if (out_format == "GAMP") {
-        out_format = "gamp";
+    if (out_format == "gamp") {
+        out_format = "GAMP";
     }
-    if (out_format == "GAF") {
-        out_format = "gaf";
+    if (out_format == "gaf") {
+        out_format = "GAF";
     }
     
     if (single_path_alignment_mode &&
@@ -944,6 +958,10 @@ int main_mpmap(int argc, char** argv) {
         // only get 1 traceback for an inter-MEM or tail alignment
         dynamic_max_alt_alns = false;
         num_alt_alns = 1;
+    }
+    
+    if (override_spliced_alignment) {
+        do_spliced_alignment = false;
     }
         
     // set the overrides to preset-controlled parameters
@@ -1589,6 +1607,12 @@ int main_mpmap(int argc, char** argv) {
         
     }
     
+    // this also takes a while inside the MultipathMapper constructor, but it will only activate if we don't
+    // have a distance index available for oriented distance calculations
+    if (!suppress_progress && distance_index_name.empty() && path_handle_graph->get_path_count() > 0) {
+        cerr << progress_boilerplate() << "Labeling embedded paths by their connected component" << endl;
+    }
+    
     MultipathMapper multipath_mapper(path_position_handle_graph, gcsa_index.get(), lcp_array.get(), haplo_score_provider,
         snarl_manager.get(), distance_index.get());
     
@@ -1701,10 +1725,16 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.simplify_topologies = simplify_topologies;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
     multipath_mapper.agglomerate_multipath_alns = agglomerate_multipath_alns;
+    multipath_mapper.min_softclip_length_for_splice = int(ceil(log(path_position_handle_graph->get_total_length()) / log(4.0))) + 2;
+    multipath_mapper.max_softclip_overlap = max_softclip_overlap;
+    multipath_mapper.max_splice_overhang = max_splice_overhang;
 
 #ifdef mpmap_instrument_mem_statistics
     multipath_mapper._mem_stats.open(MEM_STATS_FILE);
 #endif
+    
+    // we don't want to do spliced alignment while calibrating
+    multipath_mapper.do_spliced_alignment = false;
     
     // if directed to, auto calibrate the mismapping detection to the graph
     if (auto_calibrate_mismapping_detection && !suppress_mismapping_detection) {
@@ -1713,6 +1743,9 @@ int main_mpmap(int argc, char** argv) {
         }
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_lengths);
     }
+    
+    // now we can start doing spliced alignment
+    multipath_mapper.do_spliced_alignment = do_spliced_alignment;
     
     
     // Count our threads 
@@ -1771,7 +1804,8 @@ int main_mpmap(int argc, char** argv) {
     };
     
     // init a writer for the output
-    MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter(cout, thread_count, *path_position_handle_graph, out_format);
+    MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter("-", thread_count, out_format,
+                                                                       path_position_handle_graph);
     emitter->set_read_group(read_group);
     emitter->set_sample_name(sample_name);
     

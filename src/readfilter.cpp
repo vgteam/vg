@@ -473,7 +473,7 @@ ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
         GSSWAligner* aligner = (GSSWAligner*)&unadjusted;
             
         // Rescore and assign the score
-        aln.set_score(aligner->score_ungapped_alignment(aln));
+        aln.set_score(aligner->score_contiguous_alignment(aln));
         // Also use the score
         score = aln.score();
     }

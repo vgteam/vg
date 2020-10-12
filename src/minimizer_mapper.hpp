@@ -20,6 +20,8 @@
 #include <gbwtgraph/minimizer.h>
 #include <structures/immutable_list.hpp>
 
+#include <atomic>
+
 namespace vg {
 
 using namespace std;
@@ -143,7 +145,7 @@ public:
     double paired_distance_stdevs = 2.0; 
 
     ///How close does an alignment have to be to the best alignment for us to rescue on it
-    size_t paired_rescue_score_limit = 0.9;
+    double paired_rescue_score_limit = 0.9;
 
     ///How many stdevs from the mean do we extract a subgraph from?
     double rescue_subgraph_stdevs = 4.0;
@@ -240,6 +242,7 @@ protected:
     SnarlSeedClusterer clusterer;
 
     FragmentLengthDistribution fragment_length_distr;
+    atomic_flag warned_about_bad_distribution = ATOMIC_FLAG_INIT;
 
 //-----------------------------------------------------------------------------
 
@@ -322,6 +325,12 @@ protected:
      * alignment has been set.
      */
     void extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const;
+    
+    /**
+     * Set pair partner references for paired mapping results.
+     */
+    void pair_all(pair<vector<Alignment>, vector<Alignment>>& mappings) const;
+    
 
 
 //-----------------------------------------------------------------------------

@@ -27,18 +27,30 @@ include $(wildcard $(IO_OBJ_DIR)/*.d)
 include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 
+# What pkg-config-controlled system dependencies should we use compile and link flags from?
+# Use PKG_CONFIG_PATH to point the build system at the right versions of these, if they aren't picked up automatically.
+# We can't do this for our bundled, pkg-config-supporting dependencies (like htslib) because they won't be built yet.
+PKG_CONFIG_DEPS := cairo jansson 
+# These are like PKG_CONFIG_DEPS but we try to always link them statically, if possible.
+PKG_CONFIG_STATIC_DEPS := protobuf 
+
 # We don't ask for -fopenmp here because how we get it can depend on the compiler.
 CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g -MMD -MP $(CXXFLAGS)
 
 # Set include flags. All -I options need to go in here, so the first directory listed is genuinely searched first.
-INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell pkg-config --cflags cairo jansson)
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell pkg-config --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS))
 
-# Define libraries to link against. Make sure to always link statically against
-# htslib and libdeflate and Protobuf so that we can use position-dependent code
-# there for speed.
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lprotobuf -lsublinearLS $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lpthread -ljansson -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
-# Use pkg-config to find Cairo and all the libs it uses
-LD_LIB_FLAGS += $(shell pkg-config --libs --static cairo jansson)
+# Define libraries to link against.
+LD_LIB_FLAGS := -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lvw -lboost_program_options -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
+# We define some more libraries to link against at the end, in static linking mode if possible, so we can use faster non-PIC code.
+LD_STATIC_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lz -lbz2 -llzma
+# Some of our static libraries depend on libraries that may not always be svailable in static form.
+LD_STATIC_LIB_DEPS := -lpthread -lm
+# Use pkg-config to find dependencies.
+# Always use --static so that we have the -l flags for transitive dependencies, in case we're doing a full static build.
+# But only force static linking of the dependencies we want to use non-PIC code for, for speed.
+LD_LIB_FLAGS += $(shell pkg-config --libs --static $(PKG_CONFIG_DEPS))
+LD_STATIC_LIB_FLAGS += $(shell pkg-config --libs --static $(PKG_CONFIG_STATIC_DEPS))
 
 # Travis needs -latomic for all builds *but* GCC on Mac
 ifeq ($(strip $(shell $(CXX) -latomic /dev/null -o/dev/null 2>&1 | grep latomic | wc -l)), 0)
@@ -118,14 +130,14 @@ ifeq ($(shell uname -s),Darwin)
     # more restrictive we can have trouble inlining parts of the standard
     # library that were built for something less restrictive.
     CXXFLAGS += -march=native
-
+    
     # Note shared libraries are dylibs
     SHARED_SUFFIX = dylib
-    # Define options to start and end static linking of libraries.
-    # We don't actually do any static linking on Mac, so we leave these empty.
+    # Define options to start static linking of libraries.
+    # We don't actually do any static linking on Mac, so we leave this empty.
     START_STATIC =
     END_STATIC =
-
+    
 else
     # We are not running on OS X
     # We can also have a normal Unix rpath
@@ -142,11 +154,12 @@ else
 
     # We care about building for SSE4.2 only and not AVX, to have vaguely portable binaries
     CXXFLAGS += -msse4.2
-	
+    
     # Note shared libraries are so files
     SHARED_SUFFIX = so
-    # Define options to start and end static linking of libraries on GNU ld
+    # Define options to start static linking of libraries on GNU ld.
     START_STATIC = -Wl,-Bstatic
+    # Note that END_STATIC is only safe to use in a mostly-dynamic build, and has to appear or we will try to statically link secret trailing libraries.
     END_STATIC = -Wl,-Bdynamic
 endif
 
@@ -154,7 +167,7 @@ endif
 export CXXFLAGS
 
 # These libs need to come after libdw if used, because libdw depends on them
-LD_LIB_FLAGS += -ldl -llzma
+LD_LIB_FLAGS += -ldl -llzma -lbz2
 
 # Sometimes we need to filter the assembler output. The assembler can run during
 # ./configure scripts, compiler calls, or $(MAKE) calls (other than $(MAKE)
@@ -218,8 +231,8 @@ GBWTGRAPH_DIR=deps/gbwtgraph
 PROGRESS_BAR_DIR:=deps/progress_bar
 FASTAHACK_DIR:=deps/fastahack
 FERMI_DIR:=deps/fermi-lite
-HTSLIB_DIR:=deps/htslib
 VCFLIB_DIR:=deps/vcflib
+HTSLIB_DIR:=$(VCFLIB_DIR)/tabixpp/htslib
 GSSW_DIR:=deps/gssw
 SPARSEHASH_DIR:=deps/sparsehash
 SPARSEPP_DIR:=deps/sparsepp
@@ -324,12 +337,11 @@ endif
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
-
+	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) 
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
 $(LIB_DIR)/vg_is_static: $(INC_DIR)/vg_environment_version.hpp $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
@@ -376,7 +388,7 @@ else
 endif
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/vg.hpp
-	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(FILTER)
+	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
 
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
@@ -474,7 +486,8 @@ endif
 $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDEFLATE_DIR)/lib/*/*.h $(LIBDEFLATE_DIR)/lib/*.c $(LIBDEFLATE_DIR)/lib/*/*.c
 	+. ./source_me.sh && cd $(LIBDEFLATE_DIR) && V=1 $(MAKE) $(FILTER) && cp libdeflate.a $(CWD)/$(LIB_DIR) && cp libdeflate.h $(CWD)/$(INC_DIR)
 
-# We build htslib after libdeflate so it can use libdeflate
+# We build htslib after libdeflate so it can use libdeflate.
+# We make sure to use the htslib that chips inside vcflib.
 # We have to do a full build in order to install, to get the pkg-config file so libvgio can link against it.
 # We also have to have the shared libdeflate or we will get complaints that the static one is not position independent.
 # If we need either the library or the pkg-config file (which we didn't used to ship), run the whole build.
@@ -483,14 +496,12 @@ $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDE
 $(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
 	+. ./source_me.sh && cd $(HTSLIB_DIR) && rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts* && autoheader && autoconf && CFLAGS="-I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install
 
-# We tell the vcflib build to use our own htslib.
-# We link it and libdeflate statically (on Linux) because our lib directory won't
-# necessarily be on the vcflib binaries' search path.
+# When building vcflib, make sure to force it to use our libdeflate, since we wnt in and configured its htslib to use libdeflate.
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h $(VCFLIB_DIR)/tabixpp/*.cpp $(VCFLIB_DIR)/tabixpp/*.hpp
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && $(MAKE) clean && HTS_LIB="$(CWD)/$(LIB_DIR)/libhts.a" HTS_INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_LDFLAGS="-L$(CWD)/$(LIB_DIR) $(START_STATIC) -lhts -ldeflate $(END_STATIC) -lpthread -lm -lbz2 -llzma -lz" $(MAKE) libvcflib.a $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && $(MAKE) clean && CMAKE_FLAGS="-DHTSLIB_EXTRA_LIBS=-ldeflate" $(MAKE) $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
 
+# vcflib binaries are all automatically built. We need this one.
 $(VCFLIB_DIR)/bin/vcf2tsv: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.h $(LIB_DIR)/libvcflib.a
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && HTS_LIB="$(CWD)/$(LIB_DIR)/libhts.a" HTS_INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_LDFLAGS="-L$(CWD)/$(LIB_DIR) $(START_STATIC) -lhts -ldeflate $(END_STATIC) -lpthread -lm -lbz2 -llzma -lz" $(MAKE) vcf2tsv $(FILTER)
 
 $(FASTAHACK_DIR)/fastahack: $(FASTAHACK_DIR)/*.c $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
 	+. ./source_me.sh && cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER)
@@ -626,8 +637,8 @@ $(LIB_DIR)/libfml.a: $(FERMI_DIR)/*.h $(FERMI_DIR)/*.c
 $(LIB_DIR)/libsublinearLS.a: $(LINLS_DIR)/src/*.cpp $(LINLS_DIR)/src/*.hpp $(LIB_DIR)/libhts.a
 	. ./source_me.sh && cd $(LINLS_DIR) && $(MAKE) clean && INCLUDE_FLAGS="-I$(CWD)/$(INC_DIR)" $(MAKE) libs $(FILTER) && cp lib/libsublinearLS.a $(CWD)/$(LIB_DIR)/ && mkdir -p $(CWD)/$(INC_DIR)/sublinearLS && cp src/*.hpp $(CWD)/$(INC_DIR)/sublinearLS/
 
-$(LIB_DIR)/libbdsg.a: $(INC_DIR)/BooPHF.h $(LIBBDSG_DIR)/src/*.cpp $(LIBBDSG_DIR)/include/bdsg/*.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(INC_DIR)/sparsepp/spp.h $(INC_DIR)/dynamic/dynamic.hpp
-	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/bdsg && cd $(LIBBDSG_DIR) && $(MAKE) clean && CPLUS_INCLUDE_PATH=$(CWD)/$(INC_DIR):$(CWD)/$(INC_DIR)/dynamic:$(CPLUS_INCLUDE_PATH) CXXFLAGS="$(INCLUDE_FLAGS) $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/libbdsg.a $(CWD)/$(LIB_DIR) && pwd && cp -r include/bdsg $(CWD)/$(INC_DIR)
+$(LIB_DIR)/libbdsg.a: $(INC_DIR)/BooPHF.h $(LIBBDSG_DIR)/bdsg/src/*.cpp $(LIBBDSG_DIR)/bdsg/include/bdsg/*.hpp $(LIBBDSG_DIR)/bdsg/include/bdsg/internal/*.hpp $(LIBBDSG_DIR)/bdsg/include/bdsg/overlays/*.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(INC_DIR)/sparsepp/spp.h $(INC_DIR)/dynamic/dynamic.hpp
+	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/bdsg && cd $(LIBBDSG_DIR) && $(MAKE) clean && CPLUS_INCLUDE_PATH=$(CWD)/$(INC_DIR):$(CWD)/$(INC_DIR)/dynamic:$(CPLUS_INCLUDE_PATH) CXXFLAGS="$(INCLUDE_FLAGS) $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/libbdsg.a $(CWD)/$(LIB_DIR) && cp -r bdsg/include/* $(CWD)/$(INC_DIR)
 
 $(INC_DIR)/mmmultiset.hpp: $(MMMULTIMAP_DIR)/src/mmmultiset.hpp $(INC_DIR)/mmmultimap.hpp
 $(INC_DIR)/mmmultimap.hpp: $(MMMULTIMAP_DIR)/src/mmmultimap.hpp $(MMMULTIMAP_DIR)/src/mmmultiset.hpp
