@@ -82,6 +82,7 @@ int main_convert(int argc, char** argv) {
             return 0;
         case 'g':
             input_gfa = true;
+            break;
         case 'v':
             output_format = "vg";
             break;
