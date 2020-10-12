@@ -61,6 +61,11 @@ namespace vg {
     protected:
         
         GSSWAligner() = default;
+        GSSWAligner(const int8_t* _score_matrix,
+                    int8_t _gap_open,
+                    int8_t _gap_extension,
+                    int8_t _full_length_bonus,
+                    double _gc_content);
         ~GSSWAligner();
         
         // for construction
@@ -104,8 +109,12 @@ namespace vg {
                                            const vector<double>* multiplicities = nullptr) const;
         double estimate_next_best_score(int length, double min_diffs) const;
         
-        // for calling in constructors so that mapping quality can be queried
-        void init_mapping_quality(const int8_t* score_matrix, double gc_content);
+        double recover_log_base(const int8_t* score_matrix, double gc_content, double tol) const;
+        
+        bool verify_valid_log_odds_score_matrix(const int8_t* score_matrix, const double* nt_freqs) const;
+        
+        double alignment_score_partition_function(double lambda, const int8_t* score_matrix,
+                                                  const double* nt_freqs) const;
         
         // TODO: this algorithm has numerical problems, just removing it for now
         //vector<double> all_mapping_qualities_exact(vector<double> scaled_scores);
@@ -381,7 +390,7 @@ namespace vg {
                        int8_t _full_length_bonus = default_full_length_bonus,
                        double _gc_content = default_gc_content);
 
-        ~QualAdjAligner(void) = default;
+        ~QualAdjAligner(void);
         
         // base quality adjusted counterparts to functions of same name from Aligner
         
@@ -413,12 +422,17 @@ namespace vg {
         
         
     private:
+        
+        int8_t* qual_adjusted_matrix(const int8_t* score_matrix, double gc_content, uint32_t max_qual) const;
 
+        int8_t* qual_adjusted_bonuses(int8_t _full_length_bonus, uint32_t max_qual) const;
+        
         // internal function interacting with gssw for pinned and local alignment
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
                             bool pinned, bool pin_left, int32_t max_alt_alns,
                             bool traceback_aln) const;
         
+        int8_t* qual_adj_full_length_bonuses = nullptr;
 
         // members
         vector<QualAdjXdropAligner> xdrops;

@@ -17,6 +17,26 @@ GSSWAligner::~GSSWAligner(void) {
     free(score_matrix);
 }
 
+GSSWAligner::GSSWAligner(const int8_t* _score_matrix,
+                         int8_t _gap_open,
+                         int8_t _gap_extension,
+                         int8_t _full_length_bonus,
+                         double _gc_content) {
+    
+    log_base = recover_log_base(_score_matrix, _gc_content, 1e-12);
+    
+    // TODO: now that everything is in terms of score matrices, having match/mismatch is a bit
+    // misleading, but a fair amount of code depends on them
+    match = _score_matrix[0];
+    mismatch = -_score_matrix[1];
+    gap_open = _gap_open;
+    gap_extension = _gap_extension;
+    full_length_bonus = _full_length_bonus;
+    
+    // table to translate chars to their integer value
+    nt_table = gssw_create_nt_table();
+}
+
 gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g) const {
     
     vector<handle_t> topological_order = algorithms::lazier_topological_order(&g);
@@ -315,9 +335,7 @@ string GSSWAligner::graph_cigar(gssw_graph_mapping* gm) const {
     return s.str();
 }
 
-void GSSWAligner::init_mapping_quality(const int8_t* score_matrix, double gc_content) {
-    
-    // TODO: repetitive with QualAdjAligner constructor
+double GSSWAligner::recover_log_base(const int8_t* score_matrix, double gc_content, double tol) const {
     
     // convert gc content into base-wise frequencies
     double* nt_freqs = (double*) malloc(sizeof(double) * 4);
@@ -326,9 +344,91 @@ void GSSWAligner::init_mapping_quality(const int8_t* score_matrix, double gc_con
     nt_freqs[2] = 0.5 * gc_content;
     nt_freqs[3] = 0.5 * (1 - gc_content);
     
-    log_base = gssw_recover_log_base(score_matrix, nt_freqs, 4, 1e-12);
+    if (!verify_valid_log_odds_score_matrix(score_matrix, nt_freqs)) {
+        cerr << "error:[Aligner] Score matrix is invalid. Must have a negative expected score against random sequence." << endl;
+        exit(1);
+    }
+    
+    // searching for a positive value (because it's a base of a logarithm)
+    double lower_bound;
+    double upper_bound;
+    
+    // arbitrary starting point greater than zero
+    double lambda = 1.0;
+    // search for a window containing lambda where total probability is 1
+    double partition = alignment_score_partition_function(lambda, score_matrix, nt_freqs);
+    if (partition < 1.0) {
+        lower_bound = lambda;
+        while (partition <= 1.0) {
+            lower_bound = lambda;
+            lambda *= 2.0;
+            partition = alignment_score_partition_function(lambda, score_matrix, nt_freqs);
+        }
+        upper_bound = lambda;
+    }
+    else {
+        upper_bound = lambda;
+        while (partition >= 1.0) {
+            upper_bound = lambda;
+            lambda /= 2.0;
+            partition = alignment_score_partition_function(lambda, score_matrix, nt_freqs);
+        }
+        lower_bound = lambda;
+    }
+    
+    // bisect to find a log base where total probability is 1
+    while (upper_bound / lower_bound - 1.0 > tol) {
+        lambda = 0.5 * (lower_bound + upper_bound);
+        if (alignment_score_partition_function(lambda, score_matrix, nt_freqs) < 1.0) {
+            lower_bound = lambda;
+        }
+        else {
+            upper_bound = lambda;
+        }
+    }
     
     free(nt_freqs);
+    
+    return 0.5 * (lower_bound + upper_bound);
+}
+
+bool GSSWAligner::verify_valid_log_odds_score_matrix(const int8_t* score_matrix, const double* nt_freqs) const {
+    bool contains_positive_score = false;
+    for (int i = 0; i < 16; i++) {
+        if (score_matrix[i] > 0) {
+            contains_positive_score = 1;
+            break;
+        }
+    }
+    if (!contains_positive_score) {
+        return false;
+    }
+    
+    double expected_score = 0.0;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            expected_score += nt_freqs[i] * nt_freqs[j] * score_matrix[i * 4 + j];
+        }
+    }
+    return expected_score < 0.0;
+}
+
+double GSSWAligner::alignment_score_partition_function(double lambda, const int8_t* score_matrix,
+                                                       const double* nt_freqs) const {
+    
+    double partition = 0.0;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            partition += nt_freqs[i] * nt_freqs[j] * exp(lambda * score_matrix[i * 4 + j]);
+        }
+    }
+    
+    if (isnan(partition)) {
+        cerr << "error:[Aligner] overflow error in log-odds base recovery subroutine." << endl;
+        exit(1);
+    }
+    
+    return partition;
 }
 
 int32_t GSSWAligner::score_gap(size_t gap_length) const {
@@ -889,20 +989,8 @@ Aligner::Aligner(const int8_t* _score_matrix,
                  int8_t _gap_extension,
                  int8_t _full_length_bonus,
                  double _gc_content)
+    : GSSWAligner(_score_matrix, _gap_open, _gap_extension, _full_length_bonus,  _gc_content)
 {
-    // TODO: now that everything is in terms of score matrices, having match/mismatch is a bit
-    // misleading, but a fair amount of code depends on them
-    match = _score_matrix[0];
-    mismatch = -_score_matrix[1];
-    gap_open = _gap_open;
-    gap_extension = _gap_extension;
-    full_length_bonus = _full_length_bonus;
-
-    // table to translate chars to their integer value
-    nt_table = gssw_create_nt_table();
-    
-    // calculate the scale of the scores so we can use it in mapping quality calculations
-    init_mapping_quality(_score_matrix, _gc_content);
     
     // add in the 5th row and column of 0s for N matches like GSSW wants
     score_matrix = (int8_t*) malloc(sizeof(int8_t) * 25);
@@ -1510,60 +1598,108 @@ QualAdjAligner::QualAdjAligner(const int8_t* _score_matrix,
                                int8_t _gap_extension,
                                int8_t _full_length_bonus,
                                double _gc_content)
+    : GSSWAligner(_score_matrix, _gap_open, _gap_extension, _full_length_bonus,  _gc_content)
 {
-    
-    // TODO: now that everything is in terms of score matrices, having match/mismatch is a bit
-    // misleading, but a fair amount of code depends on them
-    match = _score_matrix[0];
-    mismatch = -_score_matrix[1];
-    gap_open = _gap_open;
-    gap_extension = _gap_extension;
-    full_length_bonus = _full_length_bonus;
-    
-    // table to translate chars to their integer value
-    nt_table = gssw_create_nt_table();
-    
-    // calculate the scale of the scores so we can use it in mapping quality calculations
-    init_mapping_quality(_score_matrix, _gc_content);
-    
     // TODO: this interface could really be improved in GSSW, oh well though
     
-    // convert gc content into base-wise frequencies
-    double* nt_freqs = (double*) malloc(sizeof(double) * 4);
-    nt_freqs[0] = 0.5 * (1 - _gc_content);
-    nt_freqs[1] = 0.5 * _gc_content;
-    nt_freqs[2] = 0.5 * _gc_content;
-    nt_freqs[3] = 0.5 * (1 - _gc_content);
-    
-    // find max score and set it to be the max so that scaling doesn't change score
-    // TODO: hacky
-    int8_t max_score = max(gap_open, gap_extension);
-    for (size_t i = 0; i < 16; ++i) {
-        max_score = max<int8_t>(max_score, abs(_score_matrix[i]));
-    }
-    
-    uint8_t max_base_qual = 255;
-    size_t num_nts = 4;
-    
-    // find the quality-adjusted, scaled scores
-    int8_t* scaled_matrix = gssw_scaled_adjusted_qual_matrix(max_score, max_base_qual, &gap_open, &gap_extension,
-                                                             _score_matrix, nt_freqs, num_nts, 1e-10);
-    
+    // find the quality-adjusted scores
+    uint32_t max_base_qual = 255;
         
-    // finally, add in the 0s to the 5-th row and column for Ns
-    score_matrix = gssw_add_ambiguous_char_to_adjusted_matrix(scaled_matrix, max_base_qual, num_nts);
+    // add in the 0s to the 5-th row and column for Ns
+    score_matrix = qual_adjusted_matrix(_score_matrix, _gc_content, max_base_qual);
     
+    // compute the quality adjusted full length bonuses
+    qual_adj_full_length_bonuses = qual_adjusted_bonuses(_full_length_bonus, max_base_qual);
     
     // make a QualAdjXdropAligner for each thread
     int num_threads = get_thread_count();
     xdrops.reserve(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {
-        xdrops.emplace_back(_score_matrix, scaled_matrix, _gap_open, _gap_extension, _full_length_bonus);
+        xdrops.emplace_back(_score_matrix, score_matrix, _gap_open, _gap_extension, _full_length_bonus);
+    }
+}
+
+QualAdjAligner::~QualAdjAligner() {
+    free(qual_adj_full_length_bonuses);
+}
+
+int8_t* QualAdjAligner::qual_adjusted_matrix(const int8_t* _score_matrix, double gc_content, uint32_t max_qual) const {
+    
+    // TODO: duplicative with GSSWAligner()
+    double* nt_freqs = (double*) malloc(sizeof(double) * 4);
+    nt_freqs[0] = 0.5 * (1 - gc_content);
+    nt_freqs[1] = 0.5 * gc_content;
+    nt_freqs[2] = 0.5 * gc_content;
+    nt_freqs[3] = 0.5 * (1 - gc_content);
+    
+    // recover the emission probabilities of the align state of the HMM
+    double* align_prob = (double*) malloc(sizeof(double) * 16);
+    
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            align_prob[i * 4 + j] = (exp(log_base * _score_matrix[i * 4 + j])
+                                     * nt_freqs[i] * nt_freqs[j]);
+        }
     }
     
-    // free the temporary arrays we allocated
-    free(scaled_matrix);
+    // compute the sum of the emission probabilities under a base error
+    double* align_complement_prob = (double*) malloc(sizeof(double) * 16);
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            align_complement_prob[i * 4 + j] = 0.0;
+            for (int k = 0; k < 4; k++) {
+                if (k != j) {
+                    align_complement_prob[i * 4 + j] += align_prob[i * 4 + k];
+                }
+            }
+        }
+    }
+    
+    // quality score of random guessing
+    int lowest_meaningful_qual = ceil(-10.0 * log10(0.75));
+    
+    // compute the adjusted alignment scores for each quality level
+    int8_t* qual_adj_mat = (int8_t*) malloc(25 * (max_qual + 1) * sizeof(int8_t));
+    for (int q = 0; q <= max_qual; q++) {
+        double err = pow(10.0, -q / 10.0);
+        for (int i = 0; i < 5; i++) {
+            for (int j = 0; j < 5; j++) {
+                int8_t score;
+                if (i == 4 || j == 4 || q < lowest_meaningful_qual) {
+                    score = 0;
+                }
+                else {
+                    score = round(log(((1.0 - err) * align_prob[i * 4 + j] + (err / 3.0) * align_complement_prob[i * 4 + j])
+                                      / (nt_freqs[i] * ((1.0 - err) * nt_freqs[j] + (err / 3.0) * (1.0 - nt_freqs[j])))) / log_base);
+                }
+                qual_adj_mat[q * 25 + i * 5 + j] = round(score);
+            }
+        }
+    }
+    
+    free(align_complement_prob);
+    free(align_prob);
     free(nt_freqs);
+    
+    return qual_adj_mat;
+}
+
+int8_t* QualAdjAligner::qual_adjusted_bonuses(int8_t _full_length_bonus, uint32_t max_qual) const {
+    
+    
+    double p_full_len = exp(log_base * _full_length_bonus) / (1.0 + exp(log_base * _full_length_bonus));
+    
+    int8_t* qual_adj_bonuses = (int8_t*) calloc(max_qual + 1, sizeof(int8_t));
+    
+    int lowest_meaningful_qual = ceil(-10.0 * log10(0.75));
+    
+    for (int q = lowest_meaningful_qual; q <= max_qual; ++q) {
+        double err = pow(10.0, -q / 10.0);
+        double score = log(((1.0 - err) * p_full_len + err * (1.0 - p_full_len)) / (1.0 - p_full_len)) / log_base;
+        qual_adj_bonuses[q] = round(score);
+    }
+    
+    return qual_adj_bonuses;
 }
 
 void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
@@ -1632,12 +1768,17 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     // convert into gssw graph
     gssw_graph* graph = create_gssw_graph(*align_graph);
     
+    int8_t front_full_length_bonus = qual_adj_full_length_bonuses[align_quality->front()];
+    int8_t back_full_length_bonus = qual_adj_full_length_bonuses[align_quality->back()];
+    
     // perform dynamic programming
     // offer a full length bonus on each end, or only on the left if the right end is pinned.
     gssw_graph_fill_pinned_qual_adj(graph, align_sequence->c_str(), align_quality->c_str(),
                                     nt_table, score_matrix,
                                     gap_open, gap_extension,
-                                    full_length_bonus, pinned ? 0 : full_length_bonus, 15, 2, traceback_aln);
+                                    front_full_length_bonus,
+                                    pinned ? 0 : back_full_length_bonus,
+                                    15, 2, traceback_aln);
     
     // traceback either from pinned position or optimal local alignment
     if (traceback_aln) {
@@ -1668,7 +1809,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                                                                    score_matrix,
                                                                    gap_open,
                                                                    gap_extension,
-                                                                   full_length_bonus,
+                                                                   front_full_length_bonus,
                                                                    0);
                 
                 free(pinning_nodes);
@@ -1780,8 +1921,8 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                                                                      score_matrix,
                                                                      gap_open,
                                                                      gap_extension,
-                                                                     full_length_bonus,
-                                                                     full_length_bonus);
+                                                                     front_full_length_bonus,
+                                                                     back_full_length_bonus);
         
             gssw_mapping_to_alignment(graph, gm, alignment, pinned, pin_left);
             gssw_graph_mapping_destroy(gm);
