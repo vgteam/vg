@@ -1687,10 +1687,13 @@ int8_t* QualAdjAligner::qual_adjusted_bonuses(int8_t _full_length_bonus, uint32_
     int8_t* qual_adj_bonuses = (int8_t*) calloc(max_qual + 1, sizeof(int8_t));
     
     int lowest_meaningful_qual = ceil(-10.0 * log10(0.75));
+    // hack because i want the minimum qual value from illumina (2) to have zero score, but phred
+    // values are spaced out in a way to approximate this singularity well
+    ++lowest_meaningful_qual;
     
     for (int q = lowest_meaningful_qual; q <= max_qual; ++q) {
         double err = pow(10.0, -q / 10.0);
-        double score = log(((1.0 - err) * p_full_len + err * (1.0 - p_full_len)) / (1.0 - p_full_len)) / log_base;
+        double score = log(((1.0 - err * 4.0 / 3.0) * p_full_len + (err * 4.0 / 3.0) * (1.0 - p_full_len)) / (1.0 - p_full_len)) / log_base;
         qual_adj_bonuses[q] = round(score);
     }
     
