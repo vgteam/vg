@@ -634,10 +634,7 @@ void GSSWAligner::compute_mapping_quality(vector<Alignment>& alignments,
                                           double maybe_mq_threshold,
                                           double identity_weight) const {
     
-    if (log_base <= 0.0) {
-        cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
-        exit(EXIT_FAILURE);
-    }
+    assert(log_base > 0.0);
 
     if (alignments.empty()) {
         return;
@@ -738,10 +735,7 @@ void GSSWAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
                                                  double maybe_mq_threshold,
                                                  double identity_weight) const {
     
-    if (log_base <= 0.0) {
-        cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
-        exit(EXIT_FAILURE);
-    }
+    assert(log_base > 0.0);
     
     size_t size = min(alignment_pairs.first.size(),
                       alignment_pairs.second.size());
@@ -1008,7 +1002,7 @@ Aligner::Aligner(const int8_t* _score_matrix,
     int num_threads = get_thread_count();
     xdrops.reserve(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {
-        xdrops.emplace_back(_score_matrix, _gap_open, _gap_extension, _full_length_bonus);
+        xdrops.emplace_back(_score_matrix, _gap_open, _gap_extension);
     }
 }
 
@@ -1338,7 +1332,7 @@ void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_
         }
         else {
             // do the alignment
-            xdrop.align_pinned(alignment, overlay, pin_left, xdrop_max_gap_length);
+            xdrop.align_pinned(alignment, overlay, pin_left, full_length_bonus, xdrop_max_gap_length);
             
             if (overlay.performed_duplications()) {
                 // the overlay is not a strict subset of the underlying graph, so we may
@@ -1481,7 +1475,8 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
 void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                           bool reverse_complemented, uint16_t max_gap_length) const
 {
-    align_xdrop(alignment, g, algorithms::lazier_topological_order(&g), mems, reverse_complemented, max_gap_length);
+    align_xdrop(alignment, g, algorithms::lazier_topological_order(&g), mems, reverse_complemented,
+                max_gap_length);
 }
 
 void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order,
@@ -1491,7 +1486,7 @@ void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vect
     // for every alignment, which meshes poorly with its stack implementation. We achieve
     // thread-safety by having one per thread, which makes this method const-ish.
     XdropAligner& xdrop = const_cast<XdropAligner&>(xdrops[omp_get_thread_num()]);
-    xdrop.align(alignment, g, order, mems, reverse_complemented, max_gap_length);
+    xdrop.align(alignment, g, order, mems, reverse_complemented, full_length_bonus, max_gap_length);
     if (!alignment.has_path() && mems.empty()) {
         // dozeu couldn't find an alignment, probably because it's seeding heuristic failed
         // we'll just fall back on GSSW
@@ -1615,7 +1610,7 @@ QualAdjAligner::QualAdjAligner(const int8_t* _score_matrix,
     int num_threads = get_thread_count();
     xdrops.reserve(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {
-        xdrops.emplace_back(_score_matrix, score_matrix, _gap_open, _gap_extension, _full_length_bonus);
+        xdrops.emplace_back(_score_matrix, score_matrix, _gap_open, _gap_extension);
     }
 }
 
@@ -1956,9 +1951,6 @@ void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bo
         // thread-safety by having one per thread, which makes this method const-ish.
         QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
         
-        // dozeu declines to produce an alignment when the gap is set to 0
-        xdrop_max_gap_length = max<uint16_t>(xdrop_max_gap_length, 1);
-        
         // wrap the graph so that empty pinning points are handled correctly
         DozeuPinningOverlay overlay(&g, !pin_left);
         if (overlay.get_node_count() == 0 && g.get_node_count() > 0) {
@@ -1988,9 +1980,14 @@ void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bo
             });
         }
         else {
-            //
             
-            xdrop.align_pinned(alignment, overlay, pin_left, xdrop_max_gap_length);
+            // dozeu declines to produce an alignment when the gap is set to 0
+            xdrop_max_gap_length = max<uint16_t>(xdrop_max_gap_length, 1);
+            
+            // get the quality adjusted bonus
+            int8_t bonus = qual_adj_full_length_bonuses[pin_left ? alignment.quality().back() : alignment.quality().front()];
+            
+            xdrop.align_pinned(alignment, overlay, pin_left, bonus, xdrop_max_gap_length);
             
             if (overlay.performed_duplications()) {
                 // the overlay is not a strict subset of the underlying graph, so we may
@@ -2136,7 +2133,11 @@ void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, con
     // for every alignment, which meshes poorly with its stack implementation. We achieve
     // thread-safety by having one per thread, which makes this method const-ish.
     QualAdjXdropAligner& xdrop = const_cast<QualAdjXdropAligner&>(xdrops[omp_get_thread_num()]);
-    xdrop.align(alignment, g, order, mems, reverse_complemented, max_gap_length);
+    
+    // get the quality adjusted bonus
+    int8_t bonus = qual_adj_full_length_bonuses[reverse_complemented ? alignment.quality().front() : alignment.quality().back()];
+    
+    xdrop.align(alignment, g, order, mems, reverse_complemented, bonus, max_gap_length);
     if (!alignment.has_path() && mems.empty()) {
         // dozeu couldn't find an alignment, probably because it's seeding heuristic failed
         // we'll just fall back on GSSW

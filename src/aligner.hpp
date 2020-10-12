@@ -421,7 +421,7 @@ namespace vg {
                                         string::const_iterator seq_begin, bool no_read_end_scoring = false) const;
         
         
-    private:
+    protected:
         
         int8_t* qual_adjusted_matrix(const int8_t* score_matrix, double gc_content, uint32_t max_qual) const;
 

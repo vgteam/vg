@@ -90,7 +90,8 @@ public:
      * true, and the last occurrence of the first MEM otherwise.
      */
     void align(Alignment& alignment, const HandleGraph& graph, const vector<MaximalExactMatch>& mems,
-               bool reverse_complemented, uint16_t max_gap_length = default_xdrop_max_gap_length);
+               bool reverse_complemented, int8_t full_length_bonus,
+               uint16_t max_gap_length = default_xdrop_max_gap_length);
     
     /**
      * Same as above except using a precomputed topological order, which
@@ -98,8 +99,8 @@ public:
      * orientations of a handle.
      */
     void align(Alignment& alignment, const HandleGraph& graph, const vector<handle_t>& order,
-               const vector<MaximalExactMatch>& mems,  bool reverse_complemented,
-               uint16_t max_gap_length = default_xdrop_max_gap_length);
+               const vector<MaximalExactMatch>& mems, bool reverse_complemented,
+               int8_t full_length_bonus, uint16_t max_gap_length = default_xdrop_max_gap_length);
     
     /**
      * Compute a pinned alignment, where the start (pin_left=true) or end
@@ -111,7 +112,7 @@ public:
      * order; whichever comes first/last ends up being used for the pin.
      */
     void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left,
-                      uint16_t max_gap_length = default_xdrop_max_gap_length);
+                      int8_t full_length_bonus, uint16_t max_gap_length = default_xdrop_max_gap_length);
     
 protected:
     /**
@@ -142,8 +143,10 @@ protected:
     
     // wrappers for dozeu functions that can be used to toggle between between quality
     // adjusted and standard alignments
-    virtual dz_query_s* pack_query_forward(const char* seq, const uint8_t* qual, size_t len) = 0;
-    virtual dz_query_s* pack_query_reverse(const char* seq, const uint8_t* qual, size_t len) = 0;
+    virtual dz_query_s* pack_query_forward(const char* seq, const uint8_t* qual,
+                                           int8_t full_length_bonus, size_t len) = 0;
+    virtual dz_query_s* pack_query_reverse(const char* seq, const uint8_t* qual,
+                                           int8_t full_length_bonus, size_t len) = 0;
     virtual const dz_forefront_s* scan(const dz_query_s* query, const dz_forefront_s** forefronts,
                                        size_t n_forefronts, const char* ref, int32_t rlen, uint32_t rid,
                                        uint16_t xt) = 0;
@@ -178,7 +181,7 @@ protected:
     /// If the scan failed, then the alignment should not be attempted.
     pair<graph_pos_s, bool> scan_seed_position(const OrderedGraph& graph, const Alignment& alignment,
                                                bool direction, vector<const dz_forefront_s*>& forefronts,
-                                               uint16_t max_gap_length);
+                                               int8_t full_length_bonus, uint16_t max_gap_length);
     
     /// Append an edit at the end of the current mapping array.
     /// Returns the length passed in.
@@ -234,7 +237,7 @@ protected:
     void align_downward(Alignment &alignment, const OrderedGraph& graph,
                         const vector<graph_pos_s>& head_positions,
                         bool left_to_right, vector<const dz_forefront_s*>& forefronts,
-                        uint16_t max_gap_length);
+                        int8_t full_length_bonus, uint16_t max_gap_length);
     
     
     /// The core dozeu class, which does the alignments
@@ -251,8 +254,7 @@ public:
     /// Main constructor. Expects a 4 x 4 score matrix.
     XdropAligner(const int8_t* _score_matrix,
                  int8_t _gap_open,
-                 int8_t _gap_extension,
-                 int32_t _full_length_bonus);
+                 int8_t _gap_extension);
     
     // see DozeuInterface::align and DozeuInterface::align_pinned below for alignment
     // interface
@@ -260,8 +262,8 @@ public:
 private:
     
     // implementations of virtual functions from DozeuInterface
-    dz_query_s* pack_query_forward(const char* seq, const uint8_t* qual, size_t len);
-    dz_query_s* pack_query_reverse(const char* seq, const uint8_t* qual, size_t len);
+    dz_query_s* pack_query_forward(const char* seq, const uint8_t* qual, int8_t full_length_bonus, size_t len);
+    dz_query_s* pack_query_reverse(const char* seq, const uint8_t* qual, int8_t full_length_bonus, size_t len);
     const dz_forefront_s* scan(const dz_query_s* query, const dz_forefront_s** forefronts,
                                size_t n_forefronts, const char* ref, int32_t rlen, uint32_t rid,
                                uint16_t xt);
@@ -297,8 +299,7 @@ public:
     QualAdjXdropAligner(const int8_t* _score_matrix,
                         const int8_t* _qual_adj_score_matrix,
                         int8_t _gap_open,
-                        int8_t _gap_extension,
-                        int32_t _full_length_bonus);
+                        int8_t _gap_extension);
     
     
     // see DozeuInterface::align and DozeuInterface::align_pinned below for alignment
@@ -307,8 +308,8 @@ public:
 private:
     
     // implementations of virtual functions from DozeuInterface
-    dz_query_s* pack_query_forward(const char* seq, const uint8_t* qual, size_t len);
-    dz_query_s* pack_query_reverse(const char* seq, const uint8_t* qual, size_t len);
+    dz_query_s* pack_query_forward(const char* seq, const uint8_t* qual, int8_t full_length_bonus, size_t len);
+    dz_query_s* pack_query_reverse(const char* seq, const uint8_t* qual, int8_t full_length_bonus, size_t len);
     const dz_forefront_s* scan(const dz_query_s* query, const dz_forefront_s** forefronts,
                                        size_t n_forefronts, const char* ref, int32_t rlen, uint32_t rid,
                                        uint16_t xt);
