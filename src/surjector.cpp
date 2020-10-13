@@ -1708,23 +1708,29 @@ using namespace std;
         }
         
         // sort the path chunks in lexicographic order like the downstream code expects
-        for (size_t i = 0; i < path_chunks.size(); ++i) {
-            order[i] = i;
-        }
-        order.resize(path_chunks.size());
-        stable_sort(order.begin(), order.end(), [&](size_t i, size_t j) {
-            return path_chunks[i].first < path_chunks[j].first;
-        });
-        vector<size_t> index(order.size());
-        for (size_t i = 0; i < order.size(); ++i) {
-            index[order[i]] = i;
-        }
-        // co-sort the vectors into the computed indexes
-        for (size_t i = 0; i < index.size(); ++i) {
-            while (index[i] != i) {
-                std::swap(path_chunks[i], path_chunks[index[i]]);
-                std::swap(ref_chunks[i], ref_chunks[index[i]]);
-                std::swap(index[i], index[index[i]]);
+        
+        if (!is_sorted(path_chunks.begin(), path_chunks.end(),
+                       [&](path_chunk_t& a, path_chunk_t& b) { return a.first < b.first; })) {
+            
+            // compute which index the chunks should end up in
+            for (size_t i = 0; i < path_chunks.size(); ++i) {
+                order[i] = i;
+            }
+            order.resize(path_chunks.size());
+            stable_sort(order.begin(), order.end(), [&](size_t i, size_t j) {
+                return path_chunks[i].first < path_chunks[j].first;
+            });
+            vector<size_t> index(order.size());
+            for (size_t i = 0; i < order.size(); ++i) {
+                index[order[i]] = i;
+            }
+            // co-sort the vectors into the computed indexes
+            for (size_t i = 0; i < index.size(); ++i) {
+                while (index[i] != i) {
+                    std::swap(path_chunks[i], path_chunks[index[i]]);
+                    std::swap(ref_chunks[i], ref_chunks[index[i]]);
+                    std::swap(index[i], index[index[i]]);
+                }
             }
         }
     }
