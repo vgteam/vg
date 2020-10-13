@@ -238,9 +238,9 @@ int main_surject(int argc, char** argv) {
     surjector.min_splice_length = spliced ? min_splice_length : numeric_limits<int64_t>::max();
     
     // Get the lengths of all the paths in the XG to populate the HTS headers
-    map<string, int64_t> path_length;
+    vector<pair<string, int64_t>> path_order_and_length;
     xgidx->for_each_path_handle([&](path_handle_t path_handle) {
-            path_length[xgidx->get_path_name(path_handle)] = xgidx->get_path_length(path_handle);
+            path_order_and_length.emplace_back(xgidx->get_path_name(path_handle), xgidx->get_path_length(path_handle));
         });
    
     // Count our threads
@@ -249,7 +249,7 @@ int main_surject(int argc, char** argv) {
     if (input_format == "GAM" || input_format == "GAF") {
         
         // Set up output to an emitter that will handle serialization
-        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count,
+        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_order_and_length, thread_count,
                                                                                spliced ? xgidx : nullptr);
 
         if (interleaved) {
@@ -334,7 +334,7 @@ int main_surject(int argc, char** argv) {
         }
     } else if (input_format == "GAMP") {
 
-        MultipathAlignmentEmitter mp_alignment_emitter("-", thread_count, output_format, xgidx, &path_length);
+        MultipathAlignmentEmitter mp_alignment_emitter("-", thread_count, output_format, xgidx, &path_order_and_length);
         mp_alignment_emitter.set_read_group(read_group);
         mp_alignment_emitter.set_sample_name(sample_name);
         mp_alignment_emitter.set_min_splice_length(spliced ? min_splice_length : numeric_limits<int64_t>::max());

@@ -94,11 +94,22 @@ bam_hdr_t* hts_file_header(string& filename, string& header) {
 }
 
 bam_hdr_t* hts_string_header(string& header,
-                             map<string, int64_t>& path_length,
-                             map<string, string>& rg_sample) {
+                             const map<string, int64_t>& path_length,
+                             const map<string, string>& rg_sample) {
+    
+    // Copy the map into a vecotr in its own order
+    vector<pair<string, int64_t>> path_order_and_length(path_length.begin(), path_length.end());
+    
+    // Make header in that order.
+    return hts_string_header(header, path_order_and_length, rg_sample);
+}
+
+bam_hdr_t* hts_string_header(string& header,
+                             const vector<pair<string, int64_t>>& path_order_and_length,
+                             const map<string, string>& rg_sample) {
     stringstream hdr;
     hdr << "@HD\tVN:1.5\tSO:unknown\n";
-    for (auto& p : path_length) {
+    for (auto& p : path_order_and_length) {
         hdr << "@SQ\tSN:" << p.first << "\t" << "LN:" << p.second << "\n";
     }
     for (auto& s : rg_sample) {

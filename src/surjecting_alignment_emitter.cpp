@@ -19,7 +19,7 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter_with_surjection(const string&
     
     // Build a path length map by name
     // TODO: be able to pass along dict order!
-    map<string, int64_t> path_length;
+    vector<pair<string, int64_t>> path_names_and_lengths;
     if (format == "SAM" || format == "BAM" || format == "CRAM") {
         // Make sure we actually have a PathPositionalHandleGraph
         const PathPositionHandleGraph* path_graph = dynamic_cast<const PathPositionHandleGraph*>(graph);
@@ -30,12 +30,12 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter_with_surjection(const string&
     
         // We will actually use it, so fill it in.
         for (auto& path_handle : paths_in_dict_order) {
-            path_length[path_graph->get_path_name(path_handle)] = path_graph->get_path_length(path_handle);
+            path_names_and_lengths.emplace_back(path_graph->get_path_name(path_handle), path_graph->get_path_length(path_handle));
         }
     }
     
     // Get the non-surjecting emitter
-    unique_ptr<AlignmentEmitter> emitter = get_alignment_emitter(filename, format, path_length, max_threads, graph);
+    unique_ptr<AlignmentEmitter> emitter = get_alignment_emitter(filename, format, path_names_and_lengths, max_threads, graph);
     
     if (format == "SAM" || format == "BAM" || format == "CRAM") {
         // Need to surject
