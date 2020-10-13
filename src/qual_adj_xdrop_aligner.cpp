@@ -23,7 +23,7 @@ enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 #include <dozeu/dozeu.h>
 
 using namespace vg;
-
+ 
 QualAdjXdropAligner::QualAdjXdropAligner(const QualAdjXdropAligner& other)
 {
     *this = other;
@@ -47,8 +47,7 @@ QualAdjXdropAligner& QualAdjXdropAligner::operator=(const QualAdjXdropAligner& o
         dz = dz_qual_adj_init(other.dz->matrix,
                               qual_adj_matrix,
                               *((const uint16_t*) &other.dz->giv),
-                              *((const uint16_t*) &other.dz->gev),
-                              other.dz->bonus);
+                              *((const uint16_t*) &other.dz->gev));
         
         free(qual_adj_matrix);
     }
@@ -76,16 +75,28 @@ QualAdjXdropAligner& QualAdjXdropAligner::operator=(QualAdjXdropAligner&& other)
 
 QualAdjXdropAligner::QualAdjXdropAligner(const int8_t* _score_matrix,
                                          const int8_t* _qual_adj_score_matrix,
-                                         int8_t _gap_open, int8_t _gap_extension,
-                                         int32_t _full_length_bonus)
+                                         int8_t _gap_open, int8_t _gap_extension)
 {
     // xdrop aligner uses the parameterization where both gap open and gap extend
     // are added when opening a gap
     assert(_gap_open - _gap_extension >= 0);
     assert(_gap_extension > 0);
-    assert(_full_length_bonus >= 0);
-    dz = dz_qual_adj_init(_score_matrix, _qual_adj_score_matrix, _gap_open - _gap_extension,
-                          _gap_extension, _full_length_bonus);
+    
+    // convert the 5x5 matrices into a 4x4 like dozeu wants
+    uint32_t max_qual = 255;
+    int8_t* qual_adj_scores_4x4 = (int8_t*) malloc(16 * (max_qual + 1));
+    for (int q = 0; q < max_qual; ++q) {
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                qual_adj_scores_4x4[q * 16 + i * 4 + j] = _qual_adj_score_matrix[q * 25 + i * 5 + j];
+            }
+        }
+    }
+    
+    dz = dz_qual_adj_init(_score_matrix, qual_adj_scores_4x4, _gap_open - _gap_extension,
+                          _gap_extension);
+    
+    free(qual_adj_scores_4x4);
 }
 
 QualAdjXdropAligner::~QualAdjXdropAligner(void)
@@ -93,12 +104,14 @@ QualAdjXdropAligner::~QualAdjXdropAligner(void)
     dz_destroy(dz);
 }
 
-dz_query_s* QualAdjXdropAligner::pack_query_forward(const char* seq, const uint8_t* qual, size_t len) {
-    return dz_qual_adj_pack_query_forward(dz, seq, qual, len);
+dz_query_s* QualAdjXdropAligner::pack_query_forward(const char* seq, const uint8_t* qual,
+                                                    int8_t full_length_bonus, size_t len) {
+    return dz_qual_adj_pack_query_forward(dz, seq, qual, full_length_bonus, len);
 }
 
-dz_query_s* QualAdjXdropAligner::pack_query_reverse(const char* seq, const uint8_t* qual, size_t len) {
-    return dz_qual_adj_pack_query_reverse(dz, seq, qual, len);
+dz_query_s* QualAdjXdropAligner::pack_query_reverse(const char* seq, const uint8_t* qual,
+                                                    int8_t full_length_bonus, size_t len) {
+    return dz_qual_adj_pack_query_reverse(dz, seq, qual, full_length_bonus, len);
 }
 
 const dz_forefront_s* QualAdjXdropAligner::scan(const dz_query_s* query, const dz_forefront_s** forefronts,

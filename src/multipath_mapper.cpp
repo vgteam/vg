@@ -4366,7 +4366,7 @@ namespace vg {
     void MultipathMapper::strip_full_length_bonuses(multipath_alignment_t& multipath_aln) const {
         
         // TODO: this could technically be wrong if only one read in a pair has qualities
-        int32_t full_length_bonus = get_aligner(!multipath_aln.quality().empty())->full_length_bonus;
+        const auto& aligner = *get_aligner(!multipath_aln.quality().empty());
         // strip bonus from source paths
         if (multipath_aln.start_size()) {
             // use the precomputed list of sources if we have it
@@ -4374,7 +4374,10 @@ namespace vg {
                 subpath_t* source_subpath = multipath_aln.mutable_subpath(multipath_aln.start(i));
                 const edit_t& edit = source_subpath->path().mapping(0).edit(0);
                 if (edit.to_length() != 0 && edit.from_length() != 0) {
-                    source_subpath->set_score(source_subpath->score() - full_length_bonus);
+                    source_subpath->set_score(source_subpath->score()
+                                              - aligner.score_full_length_bonus(true, multipath_aln.sequence().begin(),
+                                                                                multipath_aln.sequence().end(),
+                                                                                multipath_aln.quality().begin()));
                 }
             }
         }
@@ -4395,7 +4398,10 @@ namespace vg {
                 subpath_t* source_subpath = multipath_aln.mutable_subpath(i);
                 const edit_t& edit = source_subpath->path().mapping(0).edit(0);
                 if (edit.to_length() != 0 && edit.from_length() != 0) {
-                    source_subpath->set_score(source_subpath->score() - full_length_bonus);
+                    source_subpath->set_score(source_subpath->score()
+                                              - aligner.score_full_length_bonus(true, multipath_aln.sequence().begin(),
+                                                                                multipath_aln.sequence().end(),
+                                                                                multipath_aln.quality().begin()));
                 }
             }
         }
@@ -4406,7 +4412,10 @@ namespace vg {
                 const path_mapping_t& final_mapping = subpath->path().mapping(subpath->path().mapping_size() - 1);
                 const edit_t& edit = final_mapping.edit(final_mapping.edit_size() - 1);
                 if (edit.to_length() != 0 && edit.from_length() != 0) {
-                    subpath->set_score(subpath->score() - full_length_bonus);
+                    subpath->set_score(subpath->score()
+                                       - aligner.score_full_length_bonus(false, multipath_aln.sequence().begin(),
+                                                                         multipath_aln.sequence().end(),
+                                                                         multipath_aln.quality().begin()));
                 }
             }
         }

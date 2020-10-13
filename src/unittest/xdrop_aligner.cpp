@@ -837,6 +837,36 @@ TEST_CASE("XdropAligner pinned alignment doesn't crash when the optimal alignmen
     
     REQUIRE(aln.score() == 1 + 1 + 1 - 4 - 4 + 9);
 }
+
+
+
+TEST_CASE("QualAdjXdropAligner uses quality adjusted full length bonuses",
+          "[xdrop][alignment][mapping][pinned]") {
+
+    bdsg::HashGraph graph;
+    
+    handle_t h0 = graph.create_handle("AAGGG");
+    
+    Alignment aln1;
+    aln1.set_sequence("AA");
+    aln1.set_quality("H#");
+    alignment_quality_char_to_short(aln1);
+    
+    Alignment aln2;
+    aln2.set_sequence("GG");
+    aln2.set_quality("#H");
+    alignment_quality_char_to_short(aln2);
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 5);
+    const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
+    
+    aligner.align_pinned(aln1, graph, true, true, 0);
+    aligner.align_pinned(aln2, graph, false, true, 0);
+        
+    REQUIRE(aln1.score() == 1);
+    REQUIRE(aln2.score() == 1);
+}
    
 }
 }

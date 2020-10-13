@@ -42,8 +42,7 @@ XdropAligner& XdropAligner::operator=(const XdropAligner& other)
         }
         dz = dz_init(other.dz->matrix,
                      *((const uint16_t*) &other.dz->giv),
-                     *((const uint16_t*) &other.dz->gev),
-                     other.dz->bonus);
+                     *((const uint16_t*) &other.dz->gev));
     }
 
 	return *this;
@@ -67,15 +66,13 @@ XdropAligner& XdropAligner::operator=(XdropAligner&& other)
 	return *this;
 }
 
-XdropAligner::XdropAligner(const int8_t* _score_matrix, int8_t _gap_open, int8_t _gap_extension,
-                           int32_t _full_length_bonus)
+XdropAligner::XdropAligner(const int8_t* _score_matrix, int8_t _gap_open, int8_t _gap_extension)
 {
     // xdrop aligner uses the parameterization where both gap open and gap extend
     // are added when opening a gap
     assert(_gap_open - _gap_extension >= 0);
     assert(_gap_extension > 0);
-    assert(_full_length_bonus >= 0);
-    dz = dz_init(_score_matrix, _gap_open - _gap_extension, _gap_extension, _full_length_bonus);
+    dz = dz_init(_score_matrix, _gap_open - _gap_extension, _gap_extension);
 }
 
 XdropAligner::~XdropAligner(void)
@@ -83,12 +80,14 @@ XdropAligner::~XdropAligner(void)
     dz_destroy(dz);
 }
 
-dz_query_s* XdropAligner::pack_query_forward(const char* seq, const uint8_t* qual, size_t len) {
-    return dz_pack_query_forward(dz, seq, len);
+dz_query_s* XdropAligner::pack_query_forward(const char* seq, const uint8_t* qual,
+                                             int8_t full_length_bonus, size_t len) {
+    return dz_pack_query_forward(dz, seq, full_length_bonus, len);
 }
 
-dz_query_s* XdropAligner::pack_query_reverse(const char* seq, const uint8_t* qual, size_t len) {
-    return dz_pack_query_reverse(dz, seq, len);
+dz_query_s* XdropAligner::pack_query_reverse(const char* seq, const uint8_t* qual,
+                                             int8_t full_length_bonus, size_t len) {
+    return dz_pack_query_reverse(dz, seq, full_length_bonus, len);
 }
 
 const dz_forefront_s* XdropAligner::scan(const dz_query_s* query, const dz_forefront_s** forefronts,
