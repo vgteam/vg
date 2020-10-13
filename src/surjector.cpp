@@ -1259,9 +1259,7 @@ using namespace std;
                 });
             }
         }
-        
-        // TODO: filter redundant paths that come from mp alns with repetitive topologies
-        
+                
         return to_return;
     }
     
@@ -1416,6 +1414,10 @@ using namespace std;
         }
         
 #ifdef debug_filter_paths
+        cerr << "original order for chunks" << endl;
+        for (size_t i = 0; i < path_chunks.size(); ++i) {
+            cerr << i << ": " << string(path_chunks[i].first.first, path_chunks[i].first.second) << " " << pb2json(path_chunks[i].second) << endl;
+        }
         cerr << "connections" << endl;
         for (size_t i = 0; i < outward_connections.size(); ++i) {
             cerr << i << ":";
@@ -1474,7 +1476,7 @@ using namespace std;
         for (int64_t i = 0; i < order.size(); ++i) {
             auto& chunk_here = path_chunks[order[i]];
 #ifdef debug_filter_paths
-            cerr << "looking for overlapping chunks for" << endl;
+            cerr << "looking for overlapping chunks for " << order[i] << endl;
             cerr << string(chunk_here.first.first, chunk_here.first.second) << " " << pb2json(chunk_here.second) << endl;
 #endif
             // remove items from the heap if they are outside the window of this read interval
@@ -1484,26 +1486,31 @@ using namespace std;
             }
             
             for (auto j : curr_chunks) {
-                if (redundant[j]
-                    || path_chunks[j].first.first > chunk_here.first.first
-                    || path_chunks[j].first.second < chunk_here.first.second) {
-                    // either already been marked as redundant or doesn't contain i's read interval
+                if (path_chunks[j].first.first > chunk_here.first.first ||
+                    path_chunks[j].first.second < chunk_here.first.second) {
+                    // doesn't contain the right read interval
                     continue;
                 }
                 
                 auto& chunk_over = path_chunks[j];
+                auto remaining = chunk_here.first.first - chunk_over.first.first;
 #ifdef debug_filter_paths
-                cerr << "overlap candidate" << endl;
+                cerr << "overlap candidate " << j << endl;
                 cerr << string(chunk_over.first.first, chunk_over.first.second) << " " << pb2json(chunk_over.second) << endl;
+                cerr << "at relative read offset " << remaining << endl;
 #endif
                 
                 // walk the part of the overlapping path that comes before the path here
-                auto remaining = chunk_here.first.first - chunk_over.first.first;
                 int64_t m_over_idx = 0, e_over_idx = 0;
                 while (m_over_idx < chunk_over.second.mapping_size()
-                       && remaining >= chunk_over.second.mapping(m_over_idx).edit(e_over_idx).to_length()) {
+                       && remaining >= chunk_over.second.mapping(m_over_idx).edit(e_over_idx).to_length()
+                       && remaining > 0) {
                     
                     remaining -= chunk_over.second.mapping(m_over_idx).edit(e_over_idx).to_length();
+                    
+#ifdef debug_filter_paths
+                    cerr << "walk down overlapper before match at " << m_over_idx << " " << e_over_idx << endl;
+#endif
                     
                     ++e_over_idx;
                     if (e_over_idx == chunk_over.second.mapping(m_over_idx).edit_size()) {
@@ -1522,7 +1529,9 @@ using namespace std;
                            != chunk_here.second.mapping(0).position().is_reverse())
                        && (chunk_over.second.mapping(m_over_idx).position().offset()
                            != chunk_here.second.mapping(0).position().offset())) {
-                    
+#ifdef debug_filter_paths
+                    cerr << "walking forward through a deletion to find match" << endl;
+#endif
                     ++e_over_idx;
                     if (e_over_idx == chunk_over.second.mapping(m_over_idx).edit_size()) {
                         ++m_over_idx;
@@ -1652,8 +1661,11 @@ using namespace std;
                 }
             }
             
-            curr_chunks.push_back(order[i]);
-            push_heap(curr_chunks.begin(), curr_chunks.end());
+            // we only need to look at nonredundant chunks on later iterations
+            if (!redundant[order[i]]) {
+                curr_chunks.push_back(order[i]);
+                push_heap(curr_chunks.begin(), curr_chunks.end());
+            }
         }
         
         // filter down to nonredundant paths
@@ -1693,6 +1705,27 @@ using namespace std;
         }
         if (removed_so_far) {
             connections.resize(connections.size() - removed_so_far);
+        }
+        
+        // sort the path chunks in lexicographic order like the downstream code expects
+        for (size_t i = 0; i < path_chunks.size(); ++i) {
+            order[i] = i;
+        }
+        order.resize(path_chunks.size());
+        stable_sort(order.begin(), order.end(), [&](size_t i, size_t j) {
+            return path_chunks[i].first < path_chunks[j].first;
+        });
+        vector<size_t> index(order.size());
+        for (size_t i = 0; i < order.size(); ++i) {
+            index[order[i]] = i;
+        }
+        // co-sort the vectors into the computed indexes
+        for (size_t i = 0; i < index.size(); ++i) {
+            while (index[i] != i) {
+                std::swap(path_chunks[i], path_chunks[index[i]]);
+                std::swap(ref_chunks[i], ref_chunks[index[i]]);
+                std::swap(index[i], index[index[i]]);
+            }
         }
     }
     
