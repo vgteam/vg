@@ -108,6 +108,14 @@ using namespace std;
                                                    : extract_overlapping_paths(&memoizing_graph, *source_mp_aln,
                                                                                paths, connections);
         
+        if (source_mp_aln) {
+            // the multipath alignment anchor algorithm can produce redundant paths if
+            // the alignment's graph is not parsimonious, so we filter the shorter ones out
+            for (pair<const path_handle_t, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>& path_chunk_record : path_overlapping_anchors) {
+                filter_redundant_path_chunks(path_chunk_record.second.first, path_chunk_record.second.second);
+            }
+        }
+        
 #ifdef debug_anchored_surject
         cerr << "got path overlapping segments" << endl;
         for (const auto& surjection_record : path_overlapping_anchors) {
