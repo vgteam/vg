@@ -44,25 +44,72 @@ using namespace std;
     Alignment Surjector::surject(const Alignment& source, const set<string>& path_names, string& path_name_out,
                                  int64_t& path_pos_out, bool& path_rev_out, bool allow_negative_scores,
                                  bool preserve_deletions) const {
-        Alignment surjected;
-        surject_internal(&source, nullptr, &surjected, nullptr, path_names, path_name_out, path_pos_out,
-                         path_rev_out, allow_negative_scores, preserve_deletions);
-        return surjected;
+        
+        // translate the path names and path handles
+        unordered_set<path_handle_t> path_handles;
+        for (const string& path_name : path_names) {
+            path_handles.insert(graph->get_path_handle(path_name));
+        }
+        
+        return surject(source, path_handles, path_name_out, path_pos_out, path_rev_out, allow_negative_scores, preserve_deletions);
     }
 
     multipath_alignment_t Surjector::surject(const multipath_alignment_t& source, const set<string>& path_names,
                                              string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
                                              bool allow_negative_scores, bool preserve_deletions) const {
 
+        // translate the path names and path handles
+        unordered_set<path_handle_t> path_handles;
+        for (const string& path_name : path_names) {
+            path_handles.insert(graph->get_path_handle(path_name));
+        }
+        
+        return surject(source, path_handles, path_name_out, path_pos_out, path_rev_out, allow_negative_scores, preserve_deletions);
+    }
+    
+    Alignment Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& path_handles,
+                                 bool allow_negative_scores, bool preserve_deletions) const {
+    
+        // Allocate the annotation info
+        string path_name_out;
+        int64_t path_pos_out;
+        bool path_rev_out;
+        
+        // Do the surjection
+        Alignment surjected = surject(source, path_handles, path_name_out, path_pos_out, path_rev_out, allow_negative_scores, preserve_deletions);
+        
+        // Pack all the info into the refpos field
+        surjected.clear_refpos();
+        auto* pos = surjected.add_refpos();
+        pos->set_name(path_name_out);
+        pos->set_offset(path_pos_out);
+        pos->set_is_reverse(path_rev_out);
+    
+        return surjected;
+    }
+    
+    Alignment Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& path_handles, string& path_name_out,
+                                 int64_t& path_pos_out, bool& path_rev_out, bool allow_negative_scores,
+                                 bool preserve_deletions) const {
+        Alignment surjected;
+        surject_internal(&source, nullptr, &surjected, nullptr, path_handles, path_name_out, path_pos_out,
+                         path_rev_out, allow_negative_scores, preserve_deletions);
+        return surjected;
+    }
+
+    multipath_alignment_t Surjector::surject(const multipath_alignment_t& source, const unordered_set<path_handle_t>& path_handles,
+                                             string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
+                                             bool allow_negative_scores, bool preserve_deletions) const {
+
         multipath_alignment_t surjected;
-        surject_internal(nullptr, &source, nullptr, &surjected, path_names, path_name_out, path_pos_out,
+        surject_internal(nullptr, &source, nullptr, &surjected, path_handles, path_name_out, path_pos_out,
                          path_rev_out, allow_negative_scores, preserve_deletions);
         return surjected;
     }
     
     void Surjector::surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                                      Alignment* aln_out, multipath_alignment_t* mp_aln_out,
-                                     const set<string>& path_names,
+                                     const unordered_set<path_handle_t>& path_handles,
                                      string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
                                      bool allow_negative_scores, bool preserve_deletions) const {
 
@@ -79,8 +126,8 @@ using namespace std;
             cerr << pb2json(*source_aln);
         }
         cerr << " onto paths ";
-        for (const string& path_name : path_names) {
-            cerr << path_name << " ";
+        for (const path_handle_t& path : path_handles) {
+            cerr << graph.get_path_name(path) << " ";
         }
         cerr << endl;
 #endif
@@ -98,21 +145,15 @@ using namespace std;
             }
         }
         
-        // translate the path names and path handles
-        unordered_set<path_handle_t> surjection_path_handles;
-        for (const string& path_name : path_names) {
-            surjection_path_handles.insert(graph->get_path_handle(path_name));
-        }
-        
         // make an overlay that will memoize the results of some expensive XG operations
         MemoizingGraph memoizing_graph(graph);
         
         // get the chunks of the aligned path that overlap the ref path
         unordered_map<path_handle_t, vector<tuple<size_t, size_t, int32_t>>> connections;
         auto path_overlapping_anchors = source_aln ? extract_overlapping_paths(&memoizing_graph, *source_aln,
-                                                                               surjection_path_handles)
+                                                                               path_handles)
                                                    : extract_overlapping_paths(&memoizing_graph, *source_mp_aln,
-                                                                               surjection_path_handles, connections);
+                                                                               path_handles, connections);
         
 #ifdef debug_anchored_surject
         cerr << "got path overlapping segments" << endl;

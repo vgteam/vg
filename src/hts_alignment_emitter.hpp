@@ -35,6 +35,8 @@ using namespace vg::io;
 /// the graph can be provided in order to form spliced CIGAR strings for the HTSlib
 /// formats. Note: it must be castable to PathPositionHandleGraph to be used for splicing
 /// Other output formats except GAF (for which it's required) ignore the graph.
+///
+/// See also: get_alignment_emitter_with_surjection()
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
                                                    const map<string, int64_t>& path_length, size_t max_threads,
                                                    const HandleGraph* graph = nullptr);

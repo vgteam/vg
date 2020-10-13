@@ -3,8 +3,7 @@
 #include "../xg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
-#include "../surjector.hpp"
-#include "../hts_alignment_emitter.hpp"
+#include "../surjecting_alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -182,7 +181,6 @@ int main_map(int argc, char** argv) {
     int max_sub_mem_recursion_depth = 2;
     bool xdrop_alignment = false;
     uint32_t max_gap_length = 40;
-    bool surject_subpath_global = true; // force full length alignment in mpmap surjection resolution
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -723,70 +721,37 @@ int main_map(int argc, char** argv) {
     // When outputting single-ended alignments, we need an empty vector to pass around
     vector<Alignment> empty_alns;
     
-    // if no paths were given take all of those in the index
-    set<string> path_names;
-    if ((output_format == "SAM" || output_format == "BAM" || output_format == "CRAM") && path_names.empty()) {
-        xgidx->for_each_path_handle([&](const path_handle_t& path_handle) {
-            path_names.insert(xgidx->get_path_name(path_handle));
+    // Look up all the paths we might need to surject to.
+    vector<path_handle_t> surjection_paths;
+    if (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM") {
+        xgidx->for_each_path_handle([&](path_handle_t path_handle) {
+            surjection_paths.push_back(path_handle);
         });
     }
     
-    // If we need to do surjection, we will need a surjector. So set one up.
-    Surjector surjector(xgidx);
-
-    // Look up all the path info we need for the HTSlib header, in case we output to HTS format.
-    map<string, int64_t> path_length;
-    xgidx->for_each_path_handle([&](path_handle_t path_handle) {
-            path_length[xgidx->get_path_name(path_handle)] = xgidx->get_path_length(path_handle);
-        });
-
-    // Set up output to an emitter that will handle serialization
-    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count, xgidx);
-
-    // TODO: Refactor the surjection code out of surject_main and into somewhere where we can just use it here!
-
-    auto surject_alignments = [&](const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
-        
-        if (alns1.empty()) return;
-        vector<Alignment> surjects1, surjects2;
-        int tid = omp_get_thread_num();
-        for (auto& aln : alns1) {
-            // Surject each alignment of the first read in the pair and annotate with surjected path position
-            surjects1.push_back(surjector.surject(aln, path_names, surject_subpath_global));
-        }
-        
-        for (auto& aln : alns2) {
-            // Surject each alignment of the second read in the pair, if any, and annotate with surjected path position
-            surjects2.push_back(surjector.surject(aln, path_names, surject_subpath_global));
-        }
-        
-        if (surjects2.empty()) {
-            // Write out surjected single-end reads
-            alignment_emitter->emit_mapped_single(std::move(surjects1));
-        } else {
-            // Look up the paired end distribution stats for deciding if reads are propelry paired
-            auto& stats = mapper[omp_get_thread_num()]->frag_stats;
-            // Put a proper pair bound at 6 std devs.
-            // If distribution hasn't been computed yet, this comes out 0 and no bound is applied.
-            int64_t tlen_limit = stats.cached_fragment_length_mean + 6 * stats.cached_fragment_length_stdev;
-        
-            // Write out surjected paired-end reads
-            alignment_emitter->emit_mapped_pair(std::move(surjects1), std::move(surjects2), tlen_limit);
-        }
-    };
+    // Set up output to an emitter that will handle serialization and surjection
+    unique_ptr<vg::io::AlignmentEmitter> alignment_emitter = get_alignment_emitter_with_surjection("-", output_format, surjection_paths, thread_count, xgidx);
 
     // We have one function to dump alignments into
     auto output_alignments = [&](vector<Alignment>& alns1, vector<Alignment>& alns2) {
-        if (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM") {
-            // Surject and emit, making sure to pass tlen limit for proper pairing if paired.
-            surject_alignments(alns1, alns2);
+        if (alns2.empty()) {
+            // Single-ended read
+            alignment_emitter->emit_mapped_single(std::move(alns1));
         } else {
-            // Just emit. No need for a tlen limit.
-            if (alns2.empty()) {
-                // Single-ended read
-                alignment_emitter->emit_mapped_single(std::move(alns1));
+            // Paired reads
+            if (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM") {
+                // We need a tlen limit for flags
+                
+                // Look up the paired end distribution stats for deciding if reads are propelry paired
+                auto& stats = mapper[omp_get_thread_num()]->frag_stats;
+                // Put a proper pair bound at 6 std devs.
+                // If distribution hasn't been computed yet, this comes out 0 and no bound is applied.
+                int64_t tlen_limit = stats.cached_fragment_length_mean + 6 * stats.cached_fragment_length_stdev;
+                
+                // Send the tlen limit when emitting
+                alignment_emitter->emit_mapped_pair(std::move(alns1), std::move(alns2), tlen_limit);
             } else {
-                // Paired reads
+                // No need for a tlen limit
                 alignment_emitter->emit_mapped_pair(std::move(alns1), std::move(alns2));
             }
         }
