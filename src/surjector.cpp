@@ -8,6 +8,7 @@
 //#define debug_spliced_surject
 //#define debug_anchored_surject
 //#define debug_multipath_surject
+//#define debug_filter_paths
 //#define debug_validate_anchored_multipath_alignment
 
 namespace vg {
@@ -20,7 +21,7 @@ using namespace std;
         }
     }
     
-    Alignment Surjector::surject(const Alignment& source, const set<string>& path_names,
+    Alignment Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& paths,
                                  bool allow_negative_scores, bool preserve_deletions) const {
     
         // Allocate the annotation info
@@ -29,7 +30,7 @@ using namespace std;
         bool path_rev_out;
         
         // Do the surjection
-        Alignment surjected = surject(source, path_names, path_name_out, path_pos_out, path_rev_out, allow_negative_scores, preserve_deletions);
+        Alignment surjected = surject(source, paths, path_name_out, path_pos_out, path_rev_out, allow_negative_scores, preserve_deletions);
         
         // Pack all the info into the refpos field
         surjected.clear_refpos();
@@ -41,28 +42,28 @@ using namespace std;
         return surjected;
     }
 
-    Alignment Surjector::surject(const Alignment& source, const set<string>& path_names, string& path_name_out,
+    Alignment Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& paths, string& path_name_out,
                                  int64_t& path_pos_out, bool& path_rev_out, bool allow_negative_scores,
                                  bool preserve_deletions) const {
         Alignment surjected;
-        surject_internal(&source, nullptr, &surjected, nullptr, path_names, path_name_out, path_pos_out,
+        surject_internal(&source, nullptr, &surjected, nullptr, paths, path_name_out, path_pos_out,
                          path_rev_out, allow_negative_scores, preserve_deletions);
         return surjected;
     }
 
-    multipath_alignment_t Surjector::surject(const multipath_alignment_t& source, const set<string>& path_names,
+    multipath_alignment_t Surjector::surject(const multipath_alignment_t& source, const unordered_set<path_handle_t>& paths,
                                              string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
                                              bool allow_negative_scores, bool preserve_deletions) const {
 
         multipath_alignment_t surjected;
-        surject_internal(nullptr, &source, nullptr, &surjected, path_names, path_name_out, path_pos_out,
+        surject_internal(nullptr, &source, nullptr, &surjected, paths, path_name_out, path_pos_out,
                          path_rev_out, allow_negative_scores, preserve_deletions);
         return surjected;
     }
     
     void Surjector::surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                                      Alignment* aln_out, multipath_alignment_t* mp_aln_out,
-                                     const set<string>& path_names,
+                                     const unordered_set<path_handle_t>& paths,
                                      string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
                                      bool allow_negative_scores, bool preserve_deletions) const {
 
@@ -79,8 +80,8 @@ using namespace std;
             cerr << pb2json(*source_aln);
         }
         cerr << " onto paths ";
-        for (const string& path_name : path_names) {
-            cerr << path_name << " ";
+        for (const path_handle_t& path : paths) {
+            cerr << graph->get_path_name(path) << " ";
         }
         cerr << endl;
 #endif
@@ -98,21 +99,14 @@ using namespace std;
             }
         }
         
-        // translate the path names and path handles
-        unordered_set<path_handle_t> surjection_path_handles;
-        for (const string& path_name : path_names) {
-            surjection_path_handles.insert(graph->get_path_handle(path_name));
-        }
-        
         // make an overlay that will memoize the results of some expensive XG operations
         MemoizingGraph memoizing_graph(graph);
         
         // get the chunks of the aligned path that overlap the ref path
         unordered_map<path_handle_t, vector<tuple<size_t, size_t, int32_t>>> connections;
-        auto path_overlapping_anchors = source_aln ? extract_overlapping_paths(&memoizing_graph, *source_aln,
-                                                                               surjection_path_handles)
+        auto path_overlapping_anchors = source_aln ? extract_overlapping_paths(&memoizing_graph, *source_aln, paths)
                                                    : extract_overlapping_paths(&memoizing_graph, *source_mp_aln,
-                                                                               surjection_path_handles, connections);
+                                                                               paths, connections);
         
 #ifdef debug_anchored_surject
         cerr << "got path overlapping segments" << endl;
@@ -1376,6 +1370,202 @@ using namespace std;
         }
         
         return to_return;
+    }
+
+    void Surjector::filter_redundant_path_chunks(vector<path_chunk_t>& path_chunks,
+                                                 vector<pair<step_handle_t, step_handle_t>>& ref_chunks) const {
+        
+        assert(path_chunks.size() == ref_chunks.size());
+        vector<size_t> order(path_chunks.size(), 0);
+        for (size_t i = 1; i < order.size(); ++i) {
+            order[i] = i;
+        }
+        
+        // order the path chunks by the left index of their read interval
+        // and break ties in favor of longer intervals (so that the filteree
+        // will come later in the vector as we expect)
+        stable_sort(order.begin(), order.end(), [&](size_t i, size_t j) {
+            auto& chunk1 = path_chunks[i];
+            auto& chunk2 = path_chunks[j];
+            return (chunk1.first.first < chunk2.first.first ||
+                    (chunk1.first.first == chunk2.first.first && chunk1.first.second > chunk2.first.second));
+        });
+        
+#ifdef debug_filter_paths
+        cerr << "sort order for chunks" << endl;
+        for (auto i : order) {
+            cerr << i << ": " << string(path_chunks[i].first.first, path_chunks[i].first.second) << " " << pb2json(path_chunks[i].second) << endl;
+        }
+#endif
+        
+        vector<bool> redundant(path_chunks.size(), false);
+        
+        // a heap where the top always points to the leftmost end of a read interval
+        auto cmp = [&](int64_t i, int64_t j) {
+            return path_chunks[i].first.second > path_chunks[j].first.second;
+        };
+        vector<int64_t> curr_chunks;
+        
+        for (int64_t i = 0; i < order.size(); ++i) {
+            auto& chunk_here = path_chunks[order[i]];
+#ifdef debug_filter_paths
+            cerr << "looking for overlapping chunks for" << endl;
+            cerr << string(chunk_here.first.first, chunk_here.first.second) << " " << pb2json(chunk_here.second) << endl;
+#endif
+            // remove items from the heap if they are outside the window of this read interval
+            while (!curr_chunks.empty() && path_chunks[curr_chunks.front()].first.second <= chunk_here.first.first) {
+                pop_heap(curr_chunks.begin(), curr_chunks.end(), cmp);
+                curr_chunks.pop_back();
+            }
+            
+            for (auto j : curr_chunks) {
+                if (redundant[j]
+                    || path_chunks[j].first.first > chunk_here.first.first
+                    || path_chunks[j].first.second < chunk_here.first.second) {
+                    // either already been marked as redundant or doesn't contain i's read interval
+                    continue;
+                }
+                
+                auto& chunk_over = path_chunks[j];
+#ifdef debug_filter_paths
+                cerr << "overlap candidate" << endl;
+                cerr << string(chunk_over.first.first, chunk_over.first.second) << " " << pb2json(chunk_over.second) << endl;
+#endif
+                
+                // walk the part of the overlapping path that comes before the path here
+                auto remaining = chunk_here.first.first - chunk_over.first.first;
+                int64_t m_over_idx = 0, e_over_idx = 0;
+                while (m_over_idx < chunk_over.second.mapping_size()
+                       && remaining >= chunk_over.second.mapping(m_over_idx).edit(e_over_idx).to_length()) {
+                    
+                    remaining -= chunk_over.second.mapping(m_over_idx).edit(e_over_idx).to_length();
+                    
+                    ++e_over_idx;
+                    if (e_over_idx == chunk_over.second.mapping(m_over_idx).edit_size()) {
+                        ++m_over_idx;
+                        e_over_idx = 0;
+                    }
+                }
+                
+                // we might need to walk another subpath of with to length of 0 to get to the start
+                // of the short path
+                while (m_over_idx < chunk_over.second.mapping_size()
+                       && chunk_over.second.mapping(m_over_idx).edit(e_over_idx).to_length() == 0
+                       && (chunk_over.second.mapping(m_over_idx).position().node_id()
+                           != chunk_here.second.mapping(0).position().node_id())
+                       && (chunk_over.second.mapping(m_over_idx).position().is_reverse()
+                           != chunk_here.second.mapping(0).position().is_reverse())
+                       && (chunk_over.second.mapping(m_over_idx).position().offset()
+                           != chunk_here.second.mapping(0).position().offset())) {
+                    
+                    ++e_over_idx;
+                    if (e_over_idx == chunk_over.second.mapping(m_over_idx).edit_size()) {
+                        ++m_over_idx;
+                        e_over_idx = 0;
+                    }
+                }
+                
+#ifdef debug_filter_paths
+                cerr << "search for overlap begins at over idx " << m_over_idx << " " << e_over_idx << endl;
+#endif
+                
+                // we'll only consider it to match the paths meet at a mapping boundary
+                bool matches = (remaining == 0 && e_over_idx == 0
+                                && m_over_idx < chunk_over.second.mapping_size());
+                if (!matches) {
+#ifdef debug_filter_paths
+                    cerr << "shorter path not at an internal mapping boundary" << endl;
+#endif
+                    continue;
+                }
+                
+                // try to walk the part of the path where they overlap
+                int64_t m_here_idx = 0, e_here_idx = 0;
+                while (m_over_idx < chunk_over.second.mapping_size() &&
+                       m_here_idx < chunk_here.second.mapping_size()) {
+#ifdef debug_filter_paths
+                    cerr << "looking for match at " << m_over_idx << " " << e_over_idx << ", " << m_here_idx << " " << e_here_idx << endl;
+#endif
+                    
+                    if (e_here_idx == 0) {
+                        const auto& pos_over = chunk_over.second.mapping(m_over_idx).position();
+                        const auto& pos_here = chunk_here.second.mapping(m_here_idx).position();
+                        if (pos_here.node_id() != pos_over.node_id()
+                            || pos_here.is_reverse() != pos_over.is_reverse()
+                            || pos_here.offset() != pos_over.offset()) {
+#ifdef debug_filter_paths
+                            cerr << "mappings not at the same position" << endl;
+#endif
+                            matches = false;
+                            break;
+                        }
+                    }
+                    const auto& edit_over = chunk_over.second.mapping(m_over_idx).edit(e_over_idx);
+                    const auto& edit_here = chunk_here.second.mapping(m_here_idx).edit(e_here_idx);
+                    if (edit_here.from_length() != edit_over.from_length()
+                        || edit_here.to_length() != edit_here.to_length()) {
+                        // note: we don't need to worry about edit sequence because we know we're at
+                        // the same read interval
+                        
+                        // the edits don't match
+#ifdef debug_filter_paths
+                        cerr << "edits don't match" << endl;
+#endif
+                        matches = false;
+                        break;
+                    }
+                    
+                    ++e_over_idx;
+                    ++e_here_idx;
+                    if (e_over_idx == chunk_over.second.mapping(m_over_idx).edit_size()) {
+                        if (e_here_idx != chunk_here.second.mapping(m_here_idx).edit_size()) {
+#ifdef debug_filter_paths
+                            cerr << "mapping boundaries don't occur at the same place" << endl;
+#endif
+                            matches = false;
+                            break;
+                        }
+                        ++m_over_idx;
+                        e_over_idx = 0;
+                    }
+                    if (e_here_idx == chunk_over.second.mapping(m_here_idx).edit_size()) {
+                        ++m_here_idx;
+                        e_here_idx = 0;
+                    }
+                }
+                
+                if (matches && m_here_idx == chunk_here.second.mapping_size()) {
+                    // the whole path matches an earlier, longer path
+                    redundant[order[i]] = true;
+#ifdef debug_filter_paths
+                    cerr << "marking path chunk " << order[i] << " redundant" << endl;
+#endif
+                    break;
+                }
+            }
+            
+            curr_chunks.push_back(order[i]);
+            push_heap(curr_chunks.begin(), curr_chunks.end());
+        }
+        
+        // filter down to nonredundant paths
+        size_t removed_so_far = 0;
+        for (size_t i = 0; i < path_chunks.size(); ++i) {
+            if (redundant[i]) {
+#ifdef debug_filter_paths
+                cerr << "filtering path chunk " << i << ": " << string(path_chunks[i].first.first, path_chunks[i].first.second) << " " << pb2json(path_chunks[i].second) << endl;
+#endif
+                ++removed_so_far;
+            }
+            else if (removed_so_far) {
+                path_chunks[i - removed_so_far] = move(path_chunks[i]);
+                ref_chunks[i - removed_so_far] = move(ref_chunks[i]);
+            }
+        }
+        if (removed_so_far) {
+            path_chunks.resize(path_chunks.size() - removed_so_far);
+            ref_chunks.resize(ref_chunks.size() - removed_so_far);
+        }
     }
     
     pair<size_t, size_t>
