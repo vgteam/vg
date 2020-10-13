@@ -112,7 +112,8 @@ using namespace std;
             // the multipath alignment anchor algorithm can produce redundant paths if
             // the alignment's graph is not parsimonious, so we filter the shorter ones out
             for (pair<const path_handle_t, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>& path_chunk_record : path_overlapping_anchors) {
-                filter_redundant_path_chunks(path_chunk_record.second.first, path_chunk_record.second.second);
+                filter_redundant_path_chunks(path_chunk_record.second.first, path_chunk_record.second.second,
+                                             connections[path_chunk_record.first]);
             }
         }
         
@@ -460,6 +461,10 @@ using namespace std;
                 cerr << " " << j;
             }
             cerr << endl;
+        }
+        cerr << "connections:" << endl;
+        for (const auto& connection : connections) {
+            cerr << get<0>(connection) << " -> " << get<1>(connection) << ", " << get<2>(connection) << endl;
         }
         
         cerr << "computing transitive reduction" << endl;
@@ -1381,7 +1386,13 @@ using namespace std;
     }
 
     void Surjector::filter_redundant_path_chunks(vector<path_chunk_t>& path_chunks,
-                                                 vector<pair<step_handle_t, step_handle_t>>& ref_chunks) const {
+                                                 vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                                                 vector<tuple<size_t, size_t, int32_t>>& connections) const {
+        
+        
+#ifdef debug_filter_paths
+        cerr << "filtering redundant path chunks" << endl;
+#endif
         
         assert(path_chunks.size() == ref_chunks.size());
         vector<size_t> order(path_chunks.size(), 0);
@@ -1389,14 +1400,60 @@ using namespace std;
             order[i] = i;
         }
         
+        // convert connections to adjacency lists
+        vector<vector<pair<size_t, int32_t>>> inward_connections(path_chunks.size()), outward_connections(path_chunks.size());
+        for (const auto& connection : connections) {
+            inward_connections[get<1>(connection)].emplace_back(get<0>(connection), get<2>(connection));
+            outward_connections[get<0>(connection)].emplace_back(get<1>(connection), get<2>(connection));
+        }
+        
+        // sort the adjacency lists for easy determination of subsets
+        for (auto& adj : inward_connections) {
+            sort(adj.begin(), adj.end());
+        }
+        for (auto& adj : outward_connections) {
+            sort(adj.begin(), adj.end());
+        }
+        
+#ifdef debug_filter_paths
+        cerr << "connections" << endl;
+        for (size_t i = 0; i < outward_connections.size(); ++i) {
+            cerr << i << ":";
+            for (const auto& c : outward_connections[i]) {
+                cerr << " (" << c.first << " " << c.second << ")";
+            }
+            cerr << endl;
+        }
+#endif
+        
+        // test it one adjacency list entry is a subset of another (assumes sort)
+        auto is_subset = [](const vector<pair<size_t, int32_t>>& sub, const vector<pair<size_t, int32_t>>& super) {
+            size_t i = 0, j = 0;
+            while (i < sub.size() && j < super.size()) {
+                if (sub[i] == super[j]) {
+                    ++i;
+                    ++j;
+                }
+                else {
+                    ++j;
+                }
+            }
+            return (i == sub.size());
+        };
+        
         // order the path chunks by the left index of their read interval
         // and break ties in favor of longer intervals (so that the filteree
         // will come later in the vector as we expect)
+        // among paths that are still tied, prioritize path chunks with more
+        // connections
         stable_sort(order.begin(), order.end(), [&](size_t i, size_t j) {
             auto& chunk1 = path_chunks[i];
             auto& chunk2 = path_chunks[j];
             return (chunk1.first.first < chunk2.first.first ||
-                    (chunk1.first.first == chunk2.first.first && chunk1.first.second > chunk2.first.second));
+                    (chunk1.first.first == chunk2.first.first && chunk1.first.second > chunk2.first.second) ||
+                    (chunk1.first.first == chunk2.first.first && chunk1.first.second == chunk2.first.second &&
+                     (inward_connections[i].size() + outward_connections[i].size()
+                      > inward_connections[j].size() + outward_connections[j].size())));
         });
         
 #ifdef debug_filter_paths
@@ -1487,6 +1544,8 @@ using namespace std;
                     continue;
                 }
                 
+                bool shares_start = m_over_idx == 0;
+                
                 // try to walk the part of the path where they overlap
                 int64_t m_here_idx = 0, e_here_idx = 0;
                 while (m_over_idx < chunk_over.second.mapping_size() &&
@@ -1536,13 +1595,54 @@ using namespace std;
                         ++m_over_idx;
                         e_over_idx = 0;
                     }
-                    if (e_here_idx == chunk_over.second.mapping(m_here_idx).edit_size()) {
+                    if (e_here_idx == chunk_here.second.mapping(m_here_idx).edit_size()) {
                         ++m_here_idx;
                         e_here_idx = 0;
                     }
                 }
                 
+                                
                 if (matches && m_here_idx == chunk_here.second.mapping_size()) {
+                    
+                    if (shares_start) {
+#ifdef debug_filter_paths
+                        cerr << "checking shared inward connections" << endl;
+#endif
+                        if (!is_subset(inward_connections[order[i]], inward_connections[j])) {
+#ifdef debug_filter_paths
+                            cerr << "connections are non-redundant" << endl;
+#endif
+                            // the chunk has unique inward connections, we can't eliminate it
+                            continue;
+                        }
+                    }
+                    else if (!inward_connections[order[i]].empty()) {
+#ifdef debug_filter_paths
+                        cerr << "has internal inward connections" << endl;
+#endif
+                        // has inward connections to the interior of the chunk
+                        continue;
+                    }
+                    if (m_over_idx == chunk_over.second.mapping_size()) {
+#ifdef debug_filter_paths
+                        cerr << "checking shared outward connections" << endl;
+#endif
+                        if (!is_subset(outward_connections[order[i]], outward_connections[j])) {
+#ifdef debug_filter_paths
+                            cerr << "connections are non-redundant" << endl;
+#endif
+                            // the chunk has unique outward connections, we can't eliminate it
+                            continue;
+                        }
+                    }
+                    else if (!outward_connections[order[i]].empty()) {
+#ifdef debug_filter_paths
+                        cerr << "has internal outward connections" << endl;
+#endif
+                        // has outward connections to the interior of the chunk
+                        continue;
+                    }
+                    
                     // the whole path matches an earlier, longer path
                     redundant[order[i]] = true;
 #ifdef debug_filter_paths
@@ -1557,22 +1657,42 @@ using namespace std;
         }
         
         // filter down to nonredundant paths
-        size_t removed_so_far = 0;
+        vector<size_t> removed_before(path_chunks.size() + 1, 0);
         for (size_t i = 0; i < path_chunks.size(); ++i) {
             if (redundant[i]) {
 #ifdef debug_filter_paths
                 cerr << "filtering path chunk " << i << ": " << string(path_chunks[i].first.first, path_chunks[i].first.second) << " " << pb2json(path_chunks[i].second) << endl;
 #endif
+                ++removed_before[i];
+            }
+            else if (removed_before[i]) {
+                path_chunks[i - removed_before[i]] = move(path_chunks[i]);
+                ref_chunks[i - removed_before[i]] = move(ref_chunks[i]);
+            }
+            removed_before[i + 1] = removed_before[i];
+        }
+        if (removed_before.back() != 0) {
+            path_chunks.resize(path_chunks.size() - removed_before.back());
+            ref_chunks.resize(ref_chunks.size() - removed_before.back());
+        }
+        
+        // update the indexes on connections and remove redundant ones
+        size_t removed_so_far = 0;
+        for (size_t i = 0; i < connections.size(); ++i) {
+            auto& connection = connections[i];
+            if (redundant[get<0>(connection)] || redundant[get<1>(connection)]) {
                 ++removed_so_far;
             }
-            else if (removed_so_far) {
-                path_chunks[i - removed_so_far] = move(path_chunks[i]);
-                ref_chunks[i - removed_so_far] = move(ref_chunks[i]);
+            else {
+                get<0>(connection) -= removed_before[get<0>(connection)];
+                get<1>(connection) -= removed_before[get<1>(connection)];
+                if (removed_so_far) {
+                    connections[i - removed_so_far] = move(connection);
+                }
             }
         }
         if (removed_so_far) {
-            path_chunks.resize(path_chunks.size() - removed_so_far);
-            ref_chunks.resize(ref_chunks.size() - removed_so_far);
+            connections.resize(connections.size() - removed_so_far);
         }
     }
     

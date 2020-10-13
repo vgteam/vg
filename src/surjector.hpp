@@ -131,7 +131,8 @@ using namespace std;
         /// remove any path chunks and corresponding ref chunks that are identical to a longer
         /// path chunk over the region where they overlap
         void filter_redundant_path_chunks(vector<path_chunk_t>& path_chunks,
-                                          vector<pair<step_handle_t, step_handle_t>>& ref_chunks) const;
+                                          vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                                          vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
         /// compute the widest interval of path positions that the realigned sequence could align to
         pair<size_t, size_t>
