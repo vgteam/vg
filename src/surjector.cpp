@@ -1732,6 +1732,12 @@ using namespace std;
                     std::swap(index[i], index[index[i]]);
                 }
             }
+            
+            // and update the indexes of the connections
+            for (auto& connection : connections) {
+                get<0>(connection) = order[get<0>(connection)];
+                get<1>(connection) = order[get<1>(connection)];
+            }
         }
     }
     
