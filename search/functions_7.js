@@ -319,5 +319,5 @@ var searchData=
   ['group_5fmapping_5fquality_5fexact',['group_mapping_quality_exact',['../classvg_1_1GSSWAligner.html#ab28b533e37bb8cfa19c2e080a7e88bd2',1,'vg::GSSWAligner']]],
   ['growth',['Growth',['../structvg_1_1FlowSort_1_1Growth.html#aa156ae24695e73aee936d00a7ef70d22',1,'vg::FlowSort::Growth']]],
   ['gssw_5fmapping_5fto_5falignment',['gssw_mapping_to_alignment',['../classvg_1_1GSSWAligner.html#a3c6dcbacb6dd77cbd5b672c7a06a66ae',1,'vg::GSSWAligner']]],
-  ['gsswaligner',['GSSWAligner',['../classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79',1,'vg::GSSWAligner']]]
+  ['gsswaligner',['GSSWAligner',['../classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79',1,'vg::GSSWAligner::GSSWAligner()=default'],['../classvg_1_1GSSWAligner.html#a8dc84b7b4cf4632d7a21c328c4b94b4b',1,'vg::GSSWAligner::GSSWAligner(const int8_t *_score_matrix, int8_t _gap_open, int8_t _gap_extension, int8_t _full_length_bonus, double _gc_content)']]]
 ];

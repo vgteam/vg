@@ -421,6 +421,6 @@ var searchData=
   ['group_5fvo',['group_vo',['../classvg_1_1io_1_1MessageIterator.html#ae569fd7dc6129edc5e5dac52b1a67f84',1,'vg::io::MessageIterator']]],
   ['growth',['Growth',['../structvg_1_1FlowSort_1_1Growth.html',1,'vg::FlowSort::Growth'],['../structvg_1_1FlowSort_1_1Growth.html#aa156ae24695e73aee936d00a7ef70d22',1,'vg::FlowSort::Growth::Growth()']]],
   ['gssw_5fmapping_5fto_5falignment',['gssw_mapping_to_alignment',['../classvg_1_1GSSWAligner.html#a3c6dcbacb6dd77cbd5b672c7a06a66ae',1,'vg::GSSWAligner']]],
-  ['gsswaligner',['GSSWAligner',['../classvg_1_1GSSWAligner.html',1,'vg::GSSWAligner'],['../classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79',1,'vg::GSSWAligner::GSSWAligner()']]],
+  ['gsswaligner',['GSSWAligner',['../classvg_1_1GSSWAligner.html',1,'vg::GSSWAligner'],['../classvg_1_1GSSWAligner.html#a02c1c427118eb1a8244274d852684c79',1,'vg::GSSWAligner::GSSWAligner()=default'],['../classvg_1_1GSSWAligner.html#a8dc84b7b4cf4632d7a21c328c4b94b4b',1,'vg::GSSWAligner::GSSWAligner(const int8_t *_score_matrix, int8_t _gap_open, int8_t _gap_extension, int8_t _full_length_bonus, double _gc_content)']]],
   ['protobuf',['protobuf',['../namespacegoogle_1_1protobuf.html',1,'google']]]
 ];

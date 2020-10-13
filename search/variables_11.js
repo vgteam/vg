@@ -1,6 +1,7 @@
 var searchData=
 [
   ['qual_5fadj_5faligner',['qual_adj_aligner',['../classvg_1_1AlignerClient.html#ad808371671d657c01a8c0a57b34a2046',1,'vg::AlignerClient']]],
+  ['qual_5fadj_5ffull_5flength_5fbonuses',['qual_adj_full_length_bonuses',['../classvg_1_1QualAdjAligner.html#a1ada9d3482ad01904b72041f7051647f',1,'vg::QualAdjAligner']]],
   ['qual_5foffset',['qual_offset',['../classvg_1_1Filter.html#ac989d47373aa80519790159a8a67cfc8',1,'vg::Filter']]],
   ['qualities',['qualities',['../structvg_1_1BasePileup.html#aad9e72ab33cea5e54f6f3b37724699d9',1,'vg::BasePileup::qualities()'],['../structvg_1_1EdgePileup.html#a0102dbbfce9153e00bae0520dd15d1ec',1,'vg::EdgePileup::qualities()']]],
   ['quality',['quality',['../structvg_1_1Alignment.html#afe4dfd54e11b8139c3ccbb493faf98dc',1,'vg::Alignment::quality()'],['../structvg_1_1MultipathAlignment.html#aa507c2c93acbbcc309d7808ebae603b6',1,'vg::MultipathAlignment::quality()'],['../structvg_1_1Support.html#aef1cd52697f504165b42fb74ab55bfa9',1,'vg::Support::quality()']]],

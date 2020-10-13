@@ -71,6 +71,7 @@ var searchData=
   ['record_5fread_5fpair_5fquality',['record_read_pair_quality',['../classvg_1_1NGSSimulator.html#aec434f0c212aec15e1760f4c4b1185e2',1,'vg::NGSSimulator']]],
   ['record_5fread_5fquality',['record_read_quality',['../classvg_1_1NGSSimulator.html#a8f34614e3dc660e31d26d9c18970e736',1,'vg::NGSSimulator']]],
   ['record_5ftransition',['record_transition',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#ab3609f759c7b20d77c1bc0ca7160c26a',1,'vg::NGSSimulator::MarkovDistribution']]],
+  ['recover_5flog_5fbase',['recover_log_base',['../classvg_1_1GSSWAligner.html#aad24254cfb12b181cb153a082988cfbc',1,'vg::GSSWAligner']]],
   ['recurse_5fand_5ferror',['recurse_and_error',['../crash__main_8cpp.html#aeb6eea4af54e0b8433638abdee595e96',1,'crash_main.cpp']]],
   ['recursively_5femit_5fsnarls',['recursively_emit_snarls',['../classvg_1_1CactusSnarlFinder.html#aad8a90f6cd0fddf6ab908f6287e3ddf3',1,'vg::CactusSnarlFinder']]],
   ['reduce_5fto_5fsingle_5fpath',['reduce_to_single_path',['../classvg_1_1MultipathMapper.html#a0a3360fde5883dc2c0927b63be0a3bd5',1,'vg::MultipathMapper']]],

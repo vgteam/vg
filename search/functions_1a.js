@@ -109,7 +109,7 @@ var searchData=
   ['_7epoissonsupportsnarlcaller',['~PoissonSupportSnarlCaller',['../classvg_1_1PoissonSupportSnarlCaller.html#a5bef85e69a8ae047888c4fb72356f215',1,'vg::PoissonSupportSnarlCaller']]],
   ['_7eposition_5ft',['~position_t',['../classvg_1_1position__t.html#a5746bca2e97a32c1f6e941c4775a511f',1,'vg::position_t']]],
   ['_7eprotobufemitter',['~ProtobufEmitter',['../classvg_1_1io_1_1ProtobufEmitter.html#ab1994a31484b9a52710a38315adb2bcc',1,'vg::io::ProtobufEmitter']]],
-  ['_7equaladjaligner',['~QualAdjAligner',['../classvg_1_1QualAdjAligner.html#ad46461869b49eb5b7e4fe90437c86c99',1,'vg::QualAdjAligner']]],
+  ['_7equaladjaligner',['~QualAdjAligner',['../classvg_1_1QualAdjAligner.html#a611f96202de903220d924bf918950e7c',1,'vg::QualAdjAligner']]],
   ['_7equaladjxdropaligner',['~QualAdjXdropAligner',['../classvg_1_1QualAdjXdropAligner.html#adcaec532a190e022823a64ea56c47d3a',1,'vg::QualAdjXdropAligner']]],
   ['_7eratiosupportsnarlcaller',['~RatioSupportSnarlCaller',['../classvg_1_1RatioSupportSnarlCaller.html#a791e985fb18b5fdd13056d609d793eff',1,'vg::RatioSupportSnarlCaller']]],
   ['_7ereadrestrictedtraversalfinder',['~ReadRestrictedTraversalFinder',['../classvg_1_1ReadRestrictedTraversalFinder.html#a8753fffb0d164d41a61de388a148448f',1,'vg::ReadRestrictedTraversalFinder']]],
