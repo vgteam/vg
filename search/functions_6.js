@@ -31,6 +31,7 @@ var searchData=
   ['filter_5fbreakpoints_5fby_5fcoverage',['filter_breakpoints_by_coverage',['../namespacevg.html#a5ddba9dd6dcb384cbbea06c535e00d6d',1,'vg']]],
   ['filter_5fhits_5fto',['filter_hits_to',['../classvg_1_1MaximalExactMatch.html#a106b116185bf9cc3e3e675ce0ed81da0',1,'vg::MaximalExactMatch']]],
   ['filter_5flocal_5fvariants',['filter_local_variants',['../classvg_1_1VariantAdder.html#a6b24cf8ab4c33de19f070bbd932c6d34',1,'vg::VariantAdder']]],
+  ['filter_5fredundant_5fpath_5fchunks',['filter_redundant_path_chunks',['../classvg_1_1Surjector.html#aa5bf36e4334688af92729d6ca4f6d112',1,'vg::Surjector']]],
   ['final_5fposition',['final_position',['../namespacevg.html#ad435098725ff21d822052abee009d2bd',1,'vg::final_position(const Path &amp;path)'],['../namespacevg.html#a28e15d36e2ee202f8a194cca31d91d65',1,'vg::final_position(const path_t &amp;path)']]],
   ['finalize',['finalize',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a43e6001b25d634ccd6e3fd026c970b45',1,'vg::NGSSimulator::MarkovDistribution::finalize()'],['../classvg_1_1NGSSimulator.html#ab5cda05ad8931a60efd9f19c3889b0d2',1,'vg::NGSSimulator::finalize()']]],
   ['finalize_5falignment',['finalize_alignment',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#aa88bda9825a69406a7913f4a911cc242',1,'vg::BandedGlobalAligner::BABuilder']]],
