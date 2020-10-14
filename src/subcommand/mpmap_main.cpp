@@ -249,7 +249,6 @@ int main_mpmap(int argc, char** argv) {
     double recombination_penalty = 20.7;
     bool always_check_population = false;
     size_t force_haplotype_count = 0;
-    bool single_path_alignment_mode = false;
     int max_mapq = 60;
     double mapq_scaling_factor = 1.0;
     size_t frag_length_sample_size = 1000;
@@ -854,10 +853,7 @@ int main_mpmap(int argc, char** argv) {
     
     bool hts_output = (out_format == "SAM" || out_format == "BAM" || out_format == "CRAM");
     bool transcriptomic = (nt_type == "rna");
-    
-    if (out_format != "GAMP") {
-        single_path_alignment_mode = true;
-    }
+    bool single_path_alignment_mode = (out_format != "GAMP");
         
     // set baseline parameters according to presets
     
@@ -953,8 +949,12 @@ int main_mpmap(int argc, char** argv) {
         simplify_topologies = false;
     }
     
+    // TODO: i think it should be possible to trip the splice site variant realignment bug in the
+    // the spliced surject algorithm sometimes by having better multipath alignments, but i should
+    // revisit this at some point
     if (single_path_alignment_mode &&
-        (population_max_paths == 0 || (sublinearLS_name.empty() && gbwt_name.empty()))) {
+        (population_max_paths == 0 || (sublinearLS_name.empty() && gbwt_name.empty())) &&
+        !hts_output) {
         // adjust parameters that produce irrelevant extra work single path mode
         if (!snarls_name.empty()) {
             cerr << "warning:[vg mpmap] Snarl file (-s) is ignored for single path alignment formats (-F) without multipath population scoring (--max-paths)." << endl;
@@ -1419,7 +1419,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     ifstream ref_paths_stream;
-    if (!ref_paths_name.empty()) {
+    if (!ref_paths_name.empty() && hts_output) {
         ref_paths_stream.open(ref_paths_name);
         if (!ref_paths_stream) {
             cerr << "error:[vg mpmap] Cannot open reference paths file " << ref_paths_name << endl;
