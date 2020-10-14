@@ -954,7 +954,7 @@ int main_mpmap(int argc, char** argv) {
     // revisit this at some point
     if (single_path_alignment_mode &&
         (population_max_paths == 0 || (sublinearLS_name.empty() && gbwt_name.empty())) &&
-        !hts_output) {
+        !(hts_output && transcriptomic)) {
         // adjust parameters that produce irrelevant extra work single path mode
         if (!snarls_name.empty()) {
             cerr << "warning:[vg mpmap] Snarl file (-s) is ignored for single path alignment formats (-F) without multipath population scoring (--max-paths)." << endl;
@@ -1900,6 +1900,9 @@ int main_mpmap(int argc, char** argv) {
                                                                        path_lengths.get());
     emitter->set_read_group(read_group);
     emitter->set_sample_name(sample_name);
+    if (transcriptomic) {
+        emitter->set_min_splice_length(min_splice_length);
+    }
     
     // a buffer to hold read pairs that can't be unambiguously mapped before the fragment length distribution
     // is estimated
