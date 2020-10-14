@@ -739,8 +739,10 @@ namespace vg {
         identify_start_subpaths(rescue_multipath_aln);
         
         vector<double> score(1, aln.score());
-        int32_t raw_mapq = aligner->compute_mapping_quality(score, mapping_quality_method == None || mapping_quality_method == Approx);
-        int32_t adjusted_mapq = min(raw_mapq, min(max_mapping_quality, multipath_aln.mapping_quality()));
+        int32_t solo_mapq = mapq_scaling_factor * aligner->compute_mapping_quality(score,
+                                                                                   mapping_quality_method == None
+                                                                                   || mapping_quality_method == Approx);
+        int32_t adjusted_mapq = min<int32_t>(solo_mapq, min(max_mapping_quality, multipath_aln.mapping_quality()));
         rescue_multipath_aln.set_mapping_quality(adjusted_mapq);
         
 #ifdef debug_multipath_mapper
@@ -749,10 +751,10 @@ namespace vg {
         cerr << "rescued alignment has effective match length " << pseudo_length(rescue_multipath_aln) << ", which gives p-value " << random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size()) << endl;
 #endif
 
-        
-        if (raw_mapq < min(25, max_mapping_quality)) {
+        // TODO: magic number
+        if (solo_mapq < min(25, max_mapping_quality)) {
 #ifdef debug_multipath_mapper
-            cerr << "rescue fails because raw_mapq " << raw_mapq << " < " << min(25, max_mapping_quality) << endl;
+            cerr << "rescue fails because raw_mapq " << solo_mapq << " < " << min(25, max_mapping_quality) << endl;
 #endif
             return false;
         }
