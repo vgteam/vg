@@ -298,6 +298,7 @@ int main_mpmap(int argc, char** argv) {
     int gap_extension_score_arg = std::numeric_limits<int>::min();
     int full_length_bonus_arg = std::numeric_limits<int>::min();
     int reversing_walk_length = 1;
+    int min_splice_length = 20;
     bool no_output = false;
     string out_format = "GAMP";
 
@@ -1643,10 +1644,14 @@ int main_mpmap(int argc, char** argv) {
         // init the data structures
         path_lengths = unique_ptr<map<string, int64_t>>(new map<string, int64_t>());
         surjector = unique_ptr<Surjector>(new Surjector(path_position_handle_graph));
+        surjector->min_splice_length = transcriptomic ? min_splice_length : numeric_limits<int64_t>::max();
+        surjector->adjust_alignments_for_base_quality = qual_adjusted;
         
         if (ref_paths_stream.is_open()) {
             // get reference paths from a file
-            cerr << progress_boilerplate() << "Choosing reference paths from " << ref_paths_name << endl;
+            if (!suppress_progress) {
+                cerr << progress_boilerplate() << "Choosing reference paths from " << ref_paths_name << endl;
+            }
             string line;
             while (ref_paths_stream.good()) {
                 getline(ref_paths_stream, line);
@@ -1676,7 +1681,9 @@ int main_mpmap(int argc, char** argv) {
         }
         else {
             // default to using all embedded paths as
-            cerr << progress_boilerplate() << "No reference path file given. Interpreting all paths in graph as reference sequences." << endl;
+            if (!suppress_progress) {
+                cerr << progress_boilerplate() << "No reference path file given. Interpreting all paths in graph as reference sequences." << endl;
+            }
             
             if (path_position_handle_graph->get_path_count() == 0) {
                 cerr << "error:[vg mpmap] Graph does not have embedded paths to treat as reference sequences. Cannot produces HTSlib output formats (SAM/BAM/CRAM)." << endl;
