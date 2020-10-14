@@ -2,7 +2,6 @@
 #include "vg/io/gafkluge.hpp"
 
 #include <sstream>
-#include <regex>
 
 using namespace vg::io;
 
@@ -558,13 +557,14 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     bam1_t* bam = bam_init1();
     
     // strip the pair order identifiers
-    string alignment_name;
-    if (paired) {
+    string alignment_name = alignment.name();
+    if (paired && alignment_name.size() >= 2) {
         // We need to strip the /1 and /2 or _1 and _2 from paired reads so the two ends have the same name.
-        alignment_name = regex_replace(alignment.name(), regex("[/_][12]$"), "");
-    } else {
-        // Keep the alignment name as is because even if the name looks paired, the reads are semantically unpaired.
-        alignment_name = alignment.name();
+        char c1 = alignment_name[alignment_name.size() - 2];
+        char c2 = alignment_name[alignment_name.size() - 1];
+        if ((c1 == '_' || c1 == '/') && (c2 == '1' || c2 == '2')) {
+            alignment_name = alignment_name.substr(0, alignment_name.size() - 2);
+        }
     }
     
     // calculate the size in bytes of the variable length fields (which are all concatenated in memory)

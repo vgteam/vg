@@ -851,6 +851,9 @@ using namespace std;
         }
 #endif
         
+        // the alignment we will fill out
+        Alignment surjected;
+        
         // find the interval of the ref path we need to consider
         pair<size_t, size_t> ref_path_interval = compute_path_interval(path_position_graph, source, path_handle,
                                                                        path_chunks);
@@ -863,79 +866,96 @@ using namespace std;
         if (ref_path_interval.second + 1 < path_position_graph->get_path_length(path_handle)) {
             ++ref_path_interval.second;
         }
+        
+        if (path_chunks.size() == 1
+            && path_chunks.front().first.first == source.sequence().begin()
+            && path_chunks.front().first.second == source.sequence().end()) {
 #ifdef debug_anchored_surject
-        cerr << "final path interval is " << ref_path_interval.first << ":" << ref_path_interval.second << " on path of length " << path_position_graph->get_path_length(path_handle) << endl;
+            cerr << "path chunk already constitutes a full alignment, skipping realignment" << endl;
 #endif
-        
-        // get the path graph corresponding to this interval
-        bdsg::HashGraph path_graph;
-        unordered_map<id_t, pair<id_t, bool>> path_trans = extract_linearized_path_graph(path_position_graph, &path_graph, path_handle,
-                                                                                         ref_path_interval.first, ref_path_interval.second);
-        
-        // split it into a forward and reverse strand
-        StrandSplitGraph split_path_graph(&path_graph);
-        
-        // make a translator down to the original graph
-        unordered_map<id_t, pair<id_t, bool>> node_trans;
-        split_path_graph.for_each_handle([&](const handle_t& handle) {
-            handle_t underlying = split_path_graph.get_underlying_handle(handle);
-            const pair<id_t, bool>& original = path_trans[path_graph.get_id(underlying)];
-            node_trans[split_path_graph.get_id(handle)] = make_pair(original.first,
-                                                                    original.second != path_graph.get_is_reverse(underlying));
-        });
-        
+            
+            // just copy it over
+            surjected.set_sequence(source.sequence());
+            surjected.set_quality(source.quality());
+            *surjected.mutable_path() = path_chunks.front().second;
+            
+        }
+        else {
+            // we're going to have to realign some portions
+            
+            
 #ifdef debug_anchored_surject
-        cerr << "made split, linearized path graph with " << split_path_graph.get_node_count() << " nodes" << endl;
+            cerr << "final path interval is " << ref_path_interval.first << ":" << ref_path_interval.second << " on path of length " << path_position_graph->get_path_length(path_handle) << endl;
 #endif
-        
-        // compute the connectivity between the path chunks
-        MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans, !preserve_N_alignments,
-                                             preserve_tail_indel_anchors);
-                
-        // we don't overlap this reference path at all or we filtered out all of the path chunks, so just make a sentinel
-        if (mp_aln_graph.empty()) {
-            return move(make_null_alignment(source));
-        }
-                
-        // TODO: is this necessary in a linear graph?
-        vector<size_t> topological_order;
-        mp_aln_graph.topological_sort(topological_order);
-        mp_aln_graph.remove_transitive_edges(topological_order);
-                
-        // align the intervening segments and store the result in a multipath alignment
-        multipath_alignment_t mp_aln;
-        mp_aln_graph.align(source, split_path_graph, get_aligner(), false, 1, false, numeric_limits<int64_t>::max(),
-                           false, 1, mp_aln, allow_negative_scores);
-        topologically_order_subpaths(mp_aln);
-        
-        if (preserve_tail_indel_anchors) {
-            // this code path sometimes produces subpaths that have no aligned bases, which
-            // sometimes play poorly with other parts of the code base
-            remove_empty_subpaths(mp_aln);
-        }
-                
-        for (size_t i = 0; i < mp_aln.subpath_size(); i++) {
-            // translate back into the original ID space
-            translate_oriented_node_ids(*mp_aln.mutable_subpath(i)->mutable_path(), node_trans);
-        }
-        
-        // identify the source subpaths (necessary for subpath-global optimal alignment algorithm)
-        identify_start_subpaths(mp_aln);
-        
+            
+            // get the path graph corresponding to this interval
+            bdsg::HashGraph path_graph;
+            unordered_map<id_t, pair<id_t, bool>> path_trans = extract_linearized_path_graph(path_position_graph, &path_graph, path_handle,
+                                                                                             ref_path_interval.first, ref_path_interval.second);
+            
+            // split it into a forward and reverse strand
+            StrandSplitGraph split_path_graph(&path_graph);
+            
+            // make a translator down to the original graph
+            unordered_map<id_t, pair<id_t, bool>> node_trans;
+            split_path_graph.for_each_handle([&](const handle_t& handle) {
+                handle_t underlying = split_path_graph.get_underlying_handle(handle);
+                const pair<id_t, bool>& original = path_trans[path_graph.get_id(underlying)];
+                node_trans[split_path_graph.get_id(handle)] = make_pair(original.first,
+                                                                        original.second != path_graph.get_is_reverse(underlying));
+            });
+            
 #ifdef debug_anchored_surject
-        cerr << "made multipath alignment " << debug_string(mp_aln) << endl;
+            cerr << "made split, linearized path graph with " << split_path_graph.get_node_count() << " nodes" << endl;
 #endif
-        
+            
+            // compute the connectivity between the path chunks
+            MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans, !preserve_N_alignments,
+                                                 preserve_tail_indel_anchors);
+            
+            // we don't overlap this reference path at all or we filtered out all of the path chunks, so just make a sentinel
+            if (mp_aln_graph.empty()) {
+                return move(make_null_alignment(source));
+            }
+            
+            // TODO: is this necessary in a linear graph?
+            vector<size_t> topological_order;
+            mp_aln_graph.topological_sort(topological_order);
+            mp_aln_graph.remove_transitive_edges(topological_order);
+            
+            // align the intervening segments and store the result in a multipath alignment
+            multipath_alignment_t mp_aln;
+            mp_aln_graph.align(source, split_path_graph, get_aligner(), false, 1, false, numeric_limits<int64_t>::max(),
+                               false, 1, mp_aln, allow_negative_scores);
+            topologically_order_subpaths(mp_aln);
+            
+            if (preserve_tail_indel_anchors) {
+                // this code path sometimes produces subpaths that have no aligned bases, which
+                // sometimes play poorly with other parts of the code base
+                remove_empty_subpaths(mp_aln);
+            }
+            
+            for (size_t i = 0; i < mp_aln.subpath_size(); i++) {
+                // translate back into the original ID space
+                translate_oriented_node_ids(*mp_aln.mutable_subpath(i)->mutable_path(), node_trans);
+            }
+            
+            // identify the source subpaths (necessary for subpath-global optimal alignment algorithm)
+            identify_start_subpaths(mp_aln);
+            
+#ifdef debug_anchored_surject
+            cerr << "made multipath alignment " << debug_string(mp_aln) << endl;
+#endif
+            
 #ifdef debug_validate_anchored_multipath_alignment
-        if (!validate_multipath_alignment(mp_aln, *graph)) {
-            cerr << "WARNING: multipath alignment for surjection of " << source.name() << " failed to validate" << endl;
-        }
+            if (!validate_multipath_alignment(mp_aln, *graph)) {
+                cerr << "WARNING: multipath alignment for surjection of " << source.name() << " failed to validate" << endl;
+            }
 #endif
-        
-        // concatenate the subpaths either locally or globally, depending on whether we're
-        // allowing negative scores
-        Alignment surjected;
-        optimal_alignment(mp_aln, surjected, allow_negative_scores);
+            // concatenate the subpaths either locally or globally, depending on whether we're
+            // allowing negative scores
+            optimal_alignment(mp_aln, surjected, allow_negative_scores);
+        }
         
         const auto& surj_path = surjected.path();
         if (surj_path.mapping_size() > 0) {
