@@ -878,6 +878,7 @@ using namespace std;
             surjected.set_sequence(source.sequence());
             surjected.set_quality(source.quality());
             *surjected.mutable_path() = path_chunks.front().second;
+            surjected.set_score(get_aligner(!source.quality().empty())->score_contiguous_alignment(surjected));
             
         }
         else {
