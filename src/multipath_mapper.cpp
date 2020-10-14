@@ -555,7 +555,7 @@ namespace vg {
         
     }
     
-    void MultipathMapper::attempt_unpaired_multipath_map_of_pair(const Alignment& alignment1, const Alignment& alignment2,
+    bool MultipathMapper::attempt_unpaired_multipath_map_of_pair(const Alignment& alignment1, const Alignment& alignment2,
                                                                  vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                                  vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer) {
         
@@ -654,6 +654,8 @@ namespace vg {
             cerr << endl;
         }
 #endif
+        
+        return !is_ambiguous;
     }
     
     bool MultipathMapper::attempt_rescue(const multipath_alignment_t& multipath_aln, const Alignment& other_aln,
@@ -1691,7 +1693,7 @@ namespace vg {
         }
     }
     
-    void MultipathMapper::multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
+    bool MultipathMapper::multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
                                                vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer) {
         
@@ -1710,9 +1712,7 @@ namespace vg {
             cerr << "no fragment length distribution yet, looking for unambiguous single ended pairs" << endl;
 #endif
             
-            attempt_unpaired_multipath_map_of_pair(alignment1, alignment2, multipath_aln_pairs_out, ambiguous_pair_buffer);
-            
-            return;
+            return attempt_unpaired_multipath_map_of_pair(alignment1, alignment2, multipath_aln_pairs_out, ambiguous_pair_buffer);
         }
         
         // the fragment length distribution has been estimated, so we can do full-fledged paired mode
@@ -1976,6 +1976,8 @@ namespace vg {
             view_multipath_alignment(cerr, multipath_aln_pair.second, *xindex);
         }
 #endif
+        
+        return proper_paired;
     }
     
     void MultipathMapper::reduce_to_single_path(const multipath_alignment_t& multipath_aln, vector<Alignment>& alns_out,
