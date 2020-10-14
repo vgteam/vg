@@ -731,6 +731,11 @@ int main_map(int argc, char** argv) {
         });
     }
     
+    unordered_set<path_handle_t> paths;
+    for (const auto& path_name : path_names) {
+        paths.insert(xgidx->get_path_handle(path_name));
+    }
+    
     // If we need to do surjection, we will need a surjector. So set one up.
     Surjector surjector(xgidx);
 
@@ -752,12 +757,12 @@ int main_map(int argc, char** argv) {
         int tid = omp_get_thread_num();
         for (auto& aln : alns1) {
             // Surject each alignment of the first read in the pair and annotate with surjected path position
-            surjects1.push_back(surjector.surject(aln, path_names, surject_subpath_global));
+            surjects1.push_back(surjector.surject(aln, paths, surject_subpath_global));
         }
         
         for (auto& aln : alns2) {
             // Surject each alignment of the second read in the pair, if any, and annotate with surjected path position
-            surjects2.push_back(surjector.surject(aln, path_names, surject_subpath_global));
+            surjects2.push_back(surjector.surject(aln, paths, surject_subpath_global));
         }
         
         if (surjects2.empty()) {
