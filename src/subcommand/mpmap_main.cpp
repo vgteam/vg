@@ -62,7 +62,7 @@ void help_mpmap(char** argv) {
     << "output:" << endl
     << "  -F, --output-fmt FMT          format to output alignments in: GAMP for multipath, GAM or GAF for single path," << endl
     << "                                SAM, CRAM, or BAM for linear reference alignments (may also require -S) [GAMP]" << endl
-    << "  -S, --ref-paths FILE          paths in the graph, one per line, to treat as reference for HTSlib output (see -F) [all paths]" << endl
+    << "  -S, --ref-paths FILE          paths in the graph, one per line, to treat as reference for HTSlib formats (see -F) [all paths]" << endl
     << "  -a, --agglomerate-alns        combine separate multipath alignments into one (possibly disconnected) alignment" << endl
     << "  -N, --sample NAME             add this sample name to output" << endl
     << "  -R, --read-group NAME         add this read group to output" << endl
