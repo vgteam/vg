@@ -231,6 +231,11 @@ int main_surject(int argc, char** argv) {
             path_names.insert(xgidx->get_path_name(path_handle));
         });
     }
+    
+    unordered_set<path_handle_t> paths;
+    for (const string& path_name : path_names) {
+        paths.insert(xgidx->get_path_handle(path_name));
+    }
 
     // Make a single thread-safe Surjector.
     Surjector surjector(xgidx);
@@ -239,9 +244,9 @@ int main_surject(int argc, char** argv) {
     
     // Get the lengths of all the paths in the XG to populate the HTS headers
     vector<pair<string, int64_t>> path_order_and_length;
-    xgidx->for_each_path_handle([&](path_handle_t path_handle) {
-            path_order_and_length.emplace_back(xgidx->get_path_name(path_handle), xgidx->get_path_length(path_handle));
-        });
+    for (auto& path_handle : paths) {
+        path_order_and_length.emplace_back(xgidx->get_path_name(path_handle), xgidx->get_path_length(path_handle));
+    };
    
     // Count our threads
     int thread_count = get_thread_count();
@@ -301,8 +306,8 @@ int main_surject(int argc, char** argv) {
                 set_metadata(src2);
                 
                 // Surject and emit.
-                alignment_emitter->emit_pair(surjector.surject(src1, path_names, subpath_global, spliced),
-                                             surjector.surject(src2, path_names, subpath_global, spliced),
+                alignment_emitter->emit_pair(surjector.surject(src1, paths, subpath_global, spliced),
+                                             surjector.surject(src2, paths, subpath_global, spliced),
                                              max_frag_len);
                 
             };
@@ -322,7 +327,7 @@ int main_surject(int argc, char** argv) {
                 set_metadata(src);
                 
                 // Surject and emit the single read.
-                alignment_emitter->emit_single(surjector.surject(src, path_names, subpath_global, spliced));
+                alignment_emitter->emit_single(surjector.surject(src, paths, subpath_global, spliced));
             };
             if (input_format == "GAM") {
                 get_input_file(file_name, [&](istream& in) {
@@ -379,10 +384,10 @@ int main_surject(int argc, char** argv) {
                     // surject and record path positions
                     vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>> positions(1);
                     vector<pair<multipath_alignment_t, multipath_alignment_t>> surjected;
-                    surjected.emplace_back(surjector.surject(mp_src1, path_names, get<0>(positions.front().first),
+                    surjected.emplace_back(surjector.surject(mp_src1, paths, get<0>(positions.front().first),
                                                              get<2>(positions.front().first), get<1>(positions.front().first),
                                                              subpath_global, spliced),
-                                           surjector.surject(mp_src2, path_names, get<0>(positions.front().second),
+                                           surjector.surject(mp_src2, paths, get<0>(positions.front().second),
                                                              get<2>(positions.front().second), get<1>(positions.front().second),
                                                              subpath_global, spliced));
                     
@@ -399,7 +404,7 @@ int main_surject(int argc, char** argv) {
                     // surject and record path positions
                     vector<tuple<string, bool, int64_t>> positions(1);
                     vector<multipath_alignment_t> surjected;
-                    surjected.emplace_back(surjector.surject(mp_src, path_names, get<0>(positions.front()),
+                    surjected.emplace_back(surjector.surject(mp_src, paths, get<0>(positions.front()),
                                                              get<2>(positions.front()), get<1>(positions.front()),
                                                              subpath_global, spliced));
                     

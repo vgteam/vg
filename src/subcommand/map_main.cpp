@@ -722,15 +722,15 @@ int main_map(int argc, char** argv) {
     vector<Alignment> empty_alns;
     
     // Look up all the paths we might need to surject to.
-    vector<path_handle_t> surjection_paths;
+    vector<path_handle_t> paths;
     if (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM") {
         xgidx->for_each_path_handle([&](path_handle_t path_handle) {
-            surjection_paths.push_back(path_handle);
+            paths.push_back(path_handle);
         });
     }
     
     // Set up output to an emitter that will handle serialization and surjection
-    unique_ptr<vg::io::AlignmentEmitter> alignment_emitter = get_alignment_emitter_with_surjection("-", output_format, surjection_paths, thread_count, xgidx);
+    unique_ptr<vg::io::AlignmentEmitter> alignment_emitter = get_alignment_emitter_with_surjection("-", output_format, paths, thread_count, xgidx);
 
     // We have one function to dump alignments into
     auto output_alignments = [&](vector<Alignment>& alns1, vector<Alignment>& alns2) {

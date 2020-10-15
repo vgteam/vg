@@ -21,6 +21,7 @@ public:
     ~TestSurjector() = default;
     
     using Surjector::extract_overlapping_paths;
+    using Surjector::filter_redundant_path_chunks;
     
 };
 
@@ -72,8 +73,8 @@ TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[s
     
     read.set_score(Aligner().score_contiguous_alignment(read));
     
-    set<string> path_names{pos_graph.get_path_name(p)};
-    Alignment surjected = surjector.surject(read, path_names, true, true);
+    unordered_set<path_handle_t> paths{p};
+    Alignment surjected = surjector.surject(read, paths, true, true);
     
     vector<handle_t> surjected_path{h1, h3, h4, h6};
     
@@ -109,7 +110,7 @@ TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[s
     
     rev_read.set_score(Aligner().score_contiguous_alignment(rev_read));
     
-    Alignment rev_surjected = surjector.surject(rev_read, path_names, true, true);
+    Alignment rev_surjected = surjector.surject(rev_read, paths, true, true);
     
     REQUIRE(rev_surjected.path().mapping_size() == read_path.size());
     for (size_t i = 0; i < surjected_path.size(); ++i) {
@@ -365,8 +366,7 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
     }
 }
 
-TEST_CASE("Multipath alignments can be surjected",
-          "[surject][multipath][newsurject]"){
+TEST_CASE("Multipath alignments can be surjected", "[surject][multipath]") {
 
     bdsg::HashGraph graph;
     handle_t h1 = graph.create_handle("A");
@@ -480,8 +480,8 @@ TEST_CASE("Multipath alignments can be surjected",
         string path_name;
         int64_t path_pos;
         bool path_rev;
-        set<string> path_names{graph.get_path_name(p)};
-        auto surjected = surjector.surject(mp_aln, path_names, path_name,
+        unordered_set<path_handle_t> paths{p};
+        auto surjected = surjector.surject(mp_aln, paths, path_name,
                                            path_pos, path_rev, true, true);
         
         REQUIRE(path_name == graph.get_path_name(p));
@@ -522,8 +522,8 @@ TEST_CASE("Multipath alignments can be surjected",
         string path_name;
         int64_t path_pos;
         bool path_rev;
-        set<string> path_names{graph.get_path_name(p)};
-        auto surjected = surjector.surject(rc_mp_aln, path_names, path_name,
+        unordered_set<path_handle_t> paths{p};
+        auto surjected = surjector.surject(rc_mp_aln, paths, path_name,
                                            path_pos, path_rev, true, true);
         
         REQUIRE(path_name == graph.get_path_name(p));
@@ -564,8 +564,8 @@ TEST_CASE("Multipath alignments can be surjected",
         string path_name;
         int64_t path_pos;
         bool path_rev;
-        set<string> path_names{graph.get_path_name(p)};
-        auto surjected = surjector.surject(mp_aln, path_names, path_name,
+        unordered_set<path_handle_t> paths{p};
+        auto surjected = surjector.surject(mp_aln, paths, path_name,
                                            path_pos, path_rev, true, false);
         
         REQUIRE(path_name == graph.get_path_name(p));
@@ -603,6 +603,90 @@ TEST_CASE("Multipath alignments can be surjected",
         REQUIRE(surjected.subpath(1).next_size() == 0);
         REQUIRE(surjected.subpath(1).connection_size() == 0);
     }
+}
+
+TEST_CASE("Duplicate path chunks can be detected", "[surject][multipath]") {
+    
+    Alignment aln;
+    aln.set_sequence("ACGT");
+    
+    Surjector::path_chunk_t chunk1;
+    Surjector::path_chunk_t chunk2;
+    Surjector::path_chunk_t chunk3;
+    Surjector::path_chunk_t chunk4;
+    
+    chunk1.first.first = aln.sequence().begin();
+    chunk1.first.second = aln.sequence().begin() + 4;
+    auto m00 = chunk1.second.add_mapping();
+    m00->mutable_position()->set_node_id(1);
+    m00->mutable_position()->set_is_reverse(false);
+    m00->mutable_position()->set_offset(2);
+    auto e00 = m00->add_edit();
+    e00->set_from_length(2);
+    e00->set_to_length(2);
+    auto m01 = chunk1.second.add_mapping();
+    m01->mutable_position()->set_node_id(2);
+    m01->mutable_position()->set_is_reverse(false);
+    m01->mutable_position()->set_offset(0);
+    auto e01 = m01->add_edit();
+    e01->set_from_length(2);
+    e01->set_to_length(2);
+    
+    chunk2.first.first = aln.sequence().begin();
+    chunk2.first.second = aln.sequence().begin() + 2;
+    auto m10 = chunk2.second.add_mapping();
+    m10->mutable_position()->set_node_id(1);
+    m10->mutable_position()->set_is_reverse(false);
+    m10->mutable_position()->set_offset(2);
+    auto e10 = m10->add_edit();
+    e10->set_from_length(2);
+    e10->set_to_length(2);
+    
+    chunk3.first.first = aln.sequence().begin() + 2;
+    chunk3.first.second = aln.sequence().begin() + 4;
+    auto m20 = chunk3.second.add_mapping();
+    m20->mutable_position()->set_node_id(2);
+    m20->mutable_position()->set_is_reverse(false);
+    m20->mutable_position()->set_offset(0);
+    auto e20 = m20->add_edit();
+    e20->set_from_length(2);
+    e20->set_to_length(2);
+    
+    chunk4.first.first = aln.sequence().begin();
+    chunk4.first.second = aln.sequence().begin() + 4;
+    auto m30 = chunk4.second.add_mapping();
+    m30->mutable_position()->set_node_id(1);
+    m30->mutable_position()->set_is_reverse(false);
+    m30->mutable_position()->set_offset(2);
+    auto e30 = m30->add_edit();
+    e30->set_from_length(2);
+    e30->set_to_length(2);
+    auto m31 = chunk4.second.add_mapping();
+    m31->mutable_position()->set_node_id(3);
+    m31->mutable_position()->set_is_reverse(false);
+    m31->mutable_position()->set_offset(0);
+    auto e31 = m31->add_edit();
+    e31->set_from_length(2);
+    e31->set_to_length(2);
+    
+    bdsg::HashGraph graph;
+    bdsg::PositionOverlay pos_graph(&graph);
+    TestSurjector surjector(&pos_graph);
+    
+    vector<Surjector::path_chunk_t> path_chunks{chunk1, chunk2, chunk3, chunk4};
+    vector<pair<step_handle_t, step_handle_t>> ref_chunks;
+    ref_chunks.emplace_back();
+    ref_chunks.emplace_back();
+    ref_chunks.emplace_back();
+    ref_chunks.emplace_back();
+    
+    vector<tuple<size_t, size_t, int32_t>> connections;
+    
+    surjector.filter_redundant_path_chunks(path_chunks, ref_chunks, connections);
+    
+    REQUIRE(ref_chunks.size() == path_chunks.size());
+    REQUIRE(path_chunks.size() == 2);
+    
 }
 }
 }

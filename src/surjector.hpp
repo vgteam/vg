@@ -43,7 +43,7 @@ using namespace std;
         /// Also optionally leaves deletions against the reference path in the final alignment
         /// (useful for splicing).
         Alignment surject(const Alignment& source,
-                          const unordered_set<path_handle_t>& path_handles,
+                          const unordered_set<path_handle_t>& paths,
                           string& path_name_out,
                           int64_t& path_pos_out,
                           bool& path_rev_out,
@@ -65,58 +65,7 @@ using namespace std;
         /// Also optionally leaves deletions against the reference path in the final
         /// alignment (useful for splicing).
         Alignment surject(const Alignment& source,
-                          const unordered_set<path_handle_t>& path_handles,
-                          bool allow_negative_scores = false,
-                          bool preserve_deletions = false) const;
-                          
-        /// Same semantics as with alignments except that connections are always
-        /// preserved as splices. The output consists of a multipath alignment with
-        /// a single path, separated by splices (either from large deletions or from
-        /// connections)
-        multipath_alignment_t surject(const multipath_alignment_t& source,
-                                      const unordered_set<path_handle_t>& path_handles,
-                                      string& path_name_out, int64_t& path_pos_out,
-                                      bool& path_rev_out,
-                                      bool allow_negative_scores = false,
-                                      bool preserve_deletions = false) const;
-        
-        /// Extract the portions of an alignment that are on a chosen set of paths and try to
-        /// align realign the portions that are off of the chosen paths to the intervening
-        /// path segments to obtain an alignment that is fully restricted to the paths.
-        ///
-        /// Also returns the path name, position, and strand of the new alignment.
-        ///
-        /// Optionally either allow softclips so that the alignment has a nonnegative score on
-        /// the path or require the full-length alignment, possibly creating a negative score.
-        ///
-        /// Also optionally leaves deletions against the reference path in the final alignment
-        /// (useful for splicing).
-        [[deprecated("Use handle-based path specification instead")]] 	
-        Alignment surject(const Alignment& source,
-                          const set<string>& path_names,
-                          string& path_name_out,
-                          int64_t& path_pos_out,
-                          bool& path_rev_out,
-                          bool allow_negative_scores = false,
-                          bool preserve_deletions = false) const;
-                          
-        /// Extract the portions of an alignment that are on a chosen set of
-        /// paths and try to align realign the portions that are off of the
-        /// chosen paths to the intervening path segments to obtain an
-        /// alignment that is fully restricted to the paths.
-        ///
-        /// Replaces the alignment's refpos with the path name, position, and
-        /// strand the alignment has been surjected to.
-        ///
-        /// Optionally either allow softclips so that the alignment has a
-        /// nonnegative score on the path or require the full-length alignment,
-        /// possibly creating a negative score.
-        ///
-        /// Also optionally leaves deletions against the reference path in the final
-        /// alignment (useful for splicing).
-        [[deprecated("Use handle-based path specification instead")]]
-        Alignment surject(const Alignment& source,
-                          const set<string>& path_names,
+                          const unordered_set<path_handle_t>& paths,
                           bool allow_negative_scores = false,
                           bool preserve_deletions = false) const;
         
@@ -124,9 +73,8 @@ using namespace std;
         /// preserved as splices. The output consists of a multipath alignment with
         /// a single path, separated by splices (either from large deletions or from
         /// connections)
-        [[deprecated("Use handle-based path specification instead")]]
         multipath_alignment_t surject(const multipath_alignment_t& source,
-                                      const set<string>& path_names,
+                                      const unordered_set<path_handle_t>& paths,
                                       string& path_name_out, int64_t& path_pos_out,
                                       bool& path_rev_out,
                                       bool allow_negative_scores = false,
@@ -142,7 +90,7 @@ using namespace std;
         
         void surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                               Alignment* aln_out, multipath_alignment_t* mp_aln_out,
-                              const unordered_set<path_handle_t>& path_handles,
+                              const unordered_set<path_handle_t>& paths,
                               string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
                               bool allow_negative_scores, bool preserve_deletions) const;
         
@@ -179,6 +127,12 @@ using namespace std;
                                   const multipath_alignment_t& source,
                                   const unordered_set<path_handle_t>& surjection_paths,
                                   unordered_map<path_handle_t, vector<tuple<size_t, size_t, int32_t>>>& connections_out) const;
+        
+        /// remove any path chunks and corresponding ref chunks that are identical to a longer
+        /// path chunk over the region where they overlap
+        void filter_redundant_path_chunks(vector<path_chunk_t>& path_chunks,
+                                          vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                                          vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
         /// compute the widest interval of path positions that the realigned sequence could align to
         pair<size_t, size_t>

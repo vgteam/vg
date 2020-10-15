@@ -1173,10 +1173,10 @@ int main_giraffe(int argc, char** argv) {
         {
         
             // Look up all the paths we might need to surject to.
-            vector<path_handle_t> surjection_paths;
+            vector<path_handle_t> paths;
             if (surjecting) {
                 path_position_graph->for_each_path_handle([&](path_handle_t path_handle) {
-                    surjection_paths.push_back(path_handle);
+                    paths.push_back(path_handle);
                 });
             }
             
@@ -1185,7 +1185,7 @@ int main_giraffe(int argc, char** argv) {
             // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
             unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
                 make_unique<NullAlignmentEmitter>() :
-                get_alignment_emitter_with_surjection("-", output_format, surjection_paths, thread_count, path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)gbwt_graph.get());
+                get_alignment_emitter_with_surjection("-", output_format, paths, thread_count, path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)gbwt_graph.get());
             
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.
