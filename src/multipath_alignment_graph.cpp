@@ -150,7 +150,8 @@ namespace vg {
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
         // this can only be done on aligned sequences
-        if (!alignment.has_path()) {
+        if (!alignment.has_path() || alignment.path().mapping_size() == 0) {
+            has_reachability_edges = true;
             return;
         }
         
