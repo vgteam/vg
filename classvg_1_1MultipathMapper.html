@@ -109,8 +109,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a9ea318c04336aa79020b7c012e468ef8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a9ea318c04336aa79020b7c012e468ef8">multipath_map</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;multipath_alns_out)</td></tr>
 <tr class="memdesc:a9ea318c04336aa79020b7c012e468ef8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Map read in alignment to graph and make multipath alignments.  <a href="#a9ea318c04336aa79020b7c012e468ef8">More...</a><br /></td></tr>
 <tr class="separator:a9ea318c04336aa79020b7c012e468ef8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad19dbded2161398bc08085a45fdc7a3a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad19dbded2161398bc08085a45fdc7a3a">multipath_map_paired</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;ambiguous_pair_buffer)</td></tr>
-<tr class="separator:ad19dbded2161398bc08085a45fdc7a3a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a240c4502e41aa0e5961772a12b1b42a8"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a240c4502e41aa0e5961772a12b1b42a8">multipath_map_paired</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;ambiguous_pair_buffer)</td></tr>
+<tr class="separator:a240c4502e41aa0e5961772a12b1b42a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0a3360fde5883dc2c0927b63be0a3bd5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a0a3360fde5883dc2c0927b63be0a3bd5">reduce_to_single_path</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns_out, size_t max_number) const</td></tr>
 <tr class="separator:a0a3360fde5883dc2c0927b63be0a3bd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac0a6f15f0273faa48ff52a59a08855e1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ac0a6f15f0273faa48ff52a59a08855e1">set_automatic_min_clustering_length</a> (double random_mem_probability=0.5)</td></tr>
@@ -421,8 +421,8 @@ Public Attributes</h2></td></tr>
 Protected Member Functions</h2></td></tr>
 <tr class="memitem:a33b59953d2581381a256f76aa5162c91"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a33b59953d2581381a256f76aa5162c91">multipath_map_internal</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39">MappingQualityMethod</a> mapq_method, vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;multipath_alns_out)</td></tr>
 <tr class="separator:a33b59953d2581381a256f76aa5162c91"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0f43974edc215737b6c9d5f6155d64ce"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a0f43974edc215737b6c9d5f6155d64ce">attempt_unpaired_multipath_map_of_pair</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;ambiguous_pair_buffer)</td></tr>
-<tr class="separator:a0f43974edc215737b6c9d5f6155d64ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9bdb30363cd02187fb0a1ca07ea2cb20"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a9bdb30363cd02187fb0a1ca07ea2cb20">attempt_unpaired_multipath_map_of_pair</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;ambiguous_pair_buffer)</td></tr>
+<tr class="separator:a9bdb30363cd02187fb0a1ca07ea2cb20"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a007fc06565e2f9b1aa084cc4cc60a55d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a007fc06565e2f9b1aa084cc4cc60a55d">attempt_rescue</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;other_aln, bool rescue_forward, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;rescue_multipath_aln)</td></tr>
 <tr class="separator:a007fc06565e2f9b1aa084cc4cc60a55d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abbe3a65d5493fa016e9e1e0025678db2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#abbe3a65d5493fa016e9e1e0025678db2">extract_rescue_graph</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;other_aln, bool rescue_forward, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *rescue_graph) const</td></tr>
@@ -1366,8 +1366,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a0f43974edc215737b6c9d5f6155d64ce"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0f43974edc215737b6c9d5f6155d64ce">&#9670;&nbsp;</a></span>attempt_unpaired_multipath_map_of_pair()</h2>
+<a id="a9bdb30363cd02187fb0a1ca07ea2cb20"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9bdb30363cd02187fb0a1ca07ea2cb20">&#9670;&nbsp;</a></span>attempt_unpaired_multipath_map_of_pair()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1376,7 +1376,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::MultipathMapper::attempt_unpaired_multipath_map_of_pair </td>
+          <td class="memname">bool vg::MultipathMapper::attempt_unpaired_multipath_map_of_pair </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment1</em>, </td>
@@ -1411,7 +1411,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Before the fragment length distribution has been estimated, look for an unambiguous mapping of the reads using the single ended routine. If we find one record the fragment length and report the pair, if we don't find one, add the read pair to a buffer instead of the output vector. </p>
+<p>Before the fragment length distribution has been estimated, look for an unambiguous mapping of the reads using the single ended routine. If we find one record the fragment length and report the pair, if we don't find one, add the read pair to a buffer instead of the output vector. Returns true if we successfully find a measurable pair. </p>
 
 </div>
 </div>
@@ -2834,14 +2834,14 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ad19dbded2161398bc08085a45fdc7a3a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad19dbded2161398bc08085a45fdc7a3a">&#9670;&nbsp;</a></span>multipath_map_paired()</h2>
+<a id="a240c4502e41aa0e5961772a12b1b42a8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a240c4502e41aa0e5961772a12b1b42a8">&#9670;&nbsp;</a></span>multipath_map_paired()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::MultipathMapper::multipath_map_paired </td>
+          <td class="memname">bool vg::MultipathMapper::multipath_map_paired </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>alignment1</em>, </td>
@@ -2871,7 +2871,7 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Map a paired read to the graph and make paired multipath alignments. Assumes reads are on the same strand of the DNA/RNA molecule. If the fragment length distribution is still being estimated and the pair cannot be mapped unambiguously, adds the reads to a buffer for ambiguous pairs and does not output any multipath alignments. </p>
+<p>Map a paired read to the graph and make paired multipath alignments. Assumes reads are on the same strand of the DNA/RNA molecule. If the fragment length distribution is still being estimated and the pair cannot be mapped unambiguously, adds the reads to a buffer for ambiguous pairs and does not output any multipath alignments. Returns true if the output is properly paired, or false if it is independent end mappings. </p>
 
 </div>
 </div>
