@@ -1243,7 +1243,10 @@ int main_giraffe(int argc, char** argv) {
                         // HTSlib terms no matter how far away it is in linear
                         // space (on the same contig), because it went into
                         // pair distribution estimation.
-                        int64_t tlen_limit = numeric_limits<int64_t>::max();
+                        // TODO: The semantics are weird here. 0 means
+                        // "properly paired at any distance" and
+                        // numeric_limits<int64_t>::max() doesn't.
+                        int64_t tlen_limit = 0;
                         if (surjecting && minimizer_mapper.fragment_distr_is_finalized()) {
                              tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
                         }
