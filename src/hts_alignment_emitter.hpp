@@ -35,8 +35,10 @@ using namespace vg::io;
 /// the graph can be provided in order to form spliced CIGAR strings for the HTSlib
 /// formats. Note: it must be castable to PathPositionHandleGraph to be used for splicing
 /// Other output formats except GAF (for which it's required) ignore the graph.
+///
+/// See also: get_alignment_emitter_with_surjection()
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
-                                                   const map<string, int64_t>& path_length, size_t max_threads,
+                                                   const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads,
                                                    const HandleGraph* graph = nullptr);
 
 /*
@@ -45,12 +47,12 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
 class HTSWriter {
 public:
     /// Create an HTSWriter writing to the given file (or "-") in the
-    /// given HTS format ("SAM", "BAM", "CRAM"). path_length must map from
-    /// contig name to length to include in the header. Sample names and read
+    /// given HTS format ("SAM", "BAM", "CRAM"). path_order_and_length must give each
+    /// contig name and length to include in the header. Sample names and read
     /// groups for the header will be guessed from the first reads. HTSlib
     /// positions will be read from the alignments' refpos, and the alignments
     /// must be surjected.
-    HTSWriter(const string& filename, const string& format, const map<string, int64_t>& path_length, size_t max_threads);
+    HTSWriter(const string& filename, const string& format, const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads);
     
     /// Tear down an HTSWriter and destroy HTSlib structures.
     ~HTSWriter();
@@ -75,8 +77,10 @@ protected:
     /// This holds our format name, for later error messages.
     string format;
     
-    /// Store the path length map until the header can be made.
-    map<string, int64_t> path_length;
+    /// Store the path names and lengths in the order to put them in the header.
+    vector<pair<string, int64_t>> path_order_and_length;
+    /// Index into that by path name
+    map<string, vector<pair<string, int64_t>>::iterator> path_index;
     
     /// To back our samFile*s, we need the hFILE* objects wrapping our C++
     /// streams. We need to manually flush these after HTS headers are written,
@@ -140,13 +144,13 @@ protected:
 class HTSAlignmentEmitter : public AlignmentEmitter, public HTSWriter {
 public:
     /// Create an HTSAlignmentEmitter writing to the given file (or "-") in the
-    /// given HTS format ("SAM", "BAM", "CRAM"). path_length must map from
-    /// contig name to length to include in the header. Sample names and read
-    /// groups for the header will be guessed from the first reads. HTSlib
-    /// positions will be read from the alignments' refpos, and the alignments
-    /// must be surjected.
+    /// given HTS format ("SAM", "BAM", "CRAM"). path_order_and_length must give
+    /// contig names and lengths to include in the header, in order. Sample
+    /// names and read groups for the header will be guessed from the first
+    /// reads. HTSlib positions will be read from the alignments' refpos, and
+    /// the alignments must be surjected.
     HTSAlignmentEmitter(const string& filename, const string& format,
-                        const map<string, int64_t>& path_length, size_t max_threads);
+                        const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads);
     
     /// Tear down an HTSAlignmentEmitter and destroy HTSlib structures.
     ~HTSAlignmentEmitter() = default;
@@ -194,7 +198,7 @@ class SplicedHTSAlignmentEmitter : public HTSAlignmentEmitter {
 public:
     
     SplicedHTSAlignmentEmitter(const string& filename, const string& format,
-                               const map<string, int64_t>& path_length,
+                               const vector<pair<string, int64_t>>& path_order_and_length,
                                const PathPositionHandleGraph& graph,
                                size_t max_threads);
     

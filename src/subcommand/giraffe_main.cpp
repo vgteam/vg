@@ -21,7 +21,7 @@
 #include "../annotation.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
-#include "../hts_alignment_emitter.hpp"
+#include "../surjecting_alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
 #include "../index_manager.hpp"
@@ -304,7 +304,7 @@ void help_giraffe(char** argv) {
     << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
-    << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv) [gam]" << endl
+    << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
     << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
@@ -440,7 +440,7 @@ int main_giraffe(int argc, char** argv) {
 
     // Formats for alignment output.
     std::string output_format = "GAM";
-    std::set<std::string> output_formats = { "GAM", "GAF", "JSON", "TSV" };
+    std::set<std::string> output_formats = { "GAM", "GAF", "JSON", "TSV", "SAM", "BAM", "CRAM" };
 
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
@@ -889,6 +889,9 @@ int main_giraffe(int argc, char** argv) {
         rescue_attempts = 0;
         rescue_algorithm = MinimizerMapper::rescue_none;
     }
+    
+    // Determine if we are surjecting
+    bool surjecting = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
 
     // Now all the arguments are parsed, so see if they make sense
     if (!indexes.can_get_gbwtgraph() && !indexes.can_get_graph()) {
@@ -898,6 +901,11 @@ int main_giraffe(int argc, char** argv) {
     
     if (track_correctness && !indexes.can_get_graph()) {
         cerr << "error:[vg giraffe] Tracking correctness requires a normal graph (-x)" << endl;
+        exit(1);
+    }
+    
+    if (surjecting && !indexes.can_get_graph()) {
+        cerr << "error:[vg giraffe] Mapping to a linear format requires a normal graph (-x)" << endl;
         exit(1);
     }
     
@@ -945,16 +953,16 @@ int main_giraffe(int argc, char** argv) {
     
     // If we are tracking correctness, we will fill this in with a graph for
     // getting offsets along ref paths.
-    PathPositionHandleGraph* positional_graph = nullptr;
+    PathPositionHandleGraph* path_position_graph = nullptr;
     // One of these will actually own it
     bdsg::PathPositionOverlayHelper overlay_helper;
     shared_ptr<PathHandleGraph> graph;
-    if (track_correctness) {
+    if (track_correctness || surjecting) {
         // Load the base graph
         graph = indexes.get_graph();
         // And make sure it has path position support.
         // Overlay is owned by the overlay_helper, if one is needed.
-        positional_graph = overlay_helper.apply(graph.get());
+        path_position_graph = overlay_helper.apply(graph.get());
     }
 
     vector<unique_ptr<gbwtgraph::DefaultMinimizerIndex>> minimizer_index_owner;
@@ -989,7 +997,7 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(*gbwt_graph, minimizer_indexes, *distance_index, positional_graph);
+    MinimizerMapper minimizer_mapper(*gbwt_graph, minimizer_indexes, *distance_index, path_position_graph);
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }
@@ -1163,12 +1171,22 @@ int main_giraffe(int argc, char** argv) {
         std::chrono::time_point<std::chrono::system_clock> all_threads_start;
         
         {
-            // Set up output to an emitter that will handle serialization
-            // Discard alignments if asked to. Otherwise spit them out in the selected format.
+        
+            // Look up all the paths we might need to surject to.
+            vector<path_handle_t> paths;
+            if (surjecting) {
+                path_position_graph->for_each_path_handle([&](path_handle_t path_handle) {
+                    paths.push_back(path_handle);
+                });
+            }
+            
+            // Set up output to an emitter that will handle serialization and surjection.
+            // Unless we want to discard all the alignments in which case do that.
+            // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
             unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
                 make_unique<NullAlignmentEmitter>() :
-                get_alignment_emitter(output_filename, output_format, {}, thread_count, gbwt_graph.get());
-
+                get_alignment_emitter_with_surjection("-", output_format, paths, thread_count, path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)gbwt_graph.get());
+            
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.
             CALLGRIND_START_INSTRUMENTATION;
@@ -1219,8 +1237,21 @@ int main_giraffe(int argc, char** argv) {
                     pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2, ambiguous_pair_buffer);
                     if (!mapped_pairs.first.empty() && !mapped_pairs.second.empty()) {
                         //If we actually tried to map this paired end
-
-                        alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second));
+                        
+                        // Work out whether it could be properly paired or not, if that is relevant.
+                        // If we're here, let the read be properly paired in
+                        // HTSlib terms no matter how far away it is in linear
+                        // space (on the same contig), because it went into
+                        // pair distribution estimation.
+                        // TODO: The semantics are weird here. 0 means
+                        // "properly paired at any distance" and
+                        // numeric_limits<int64_t>::max() doesn't.
+                        int64_t tlen_limit = 0;
+                        if (surjecting && minimizer_mapper.fragment_distr_is_finalized()) {
+                             tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
+                        }
+                        // Emit it
+                        alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second), tlen_limit);
                         // Record that we mapped a read.
                         reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
                     }
@@ -1256,7 +1287,13 @@ int main_giraffe(int argc, char** argv) {
                 for (pair<Alignment, Alignment>& alignment_pair : ambiguous_pair_buffer) {
 
                     auto mapped_pairs = minimizer_mapper.map_paired(alignment_pair.first, alignment_pair.second);
-                    alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second));
+                    // Work out whether it could be properly paired or not, if that is relevant.
+                    int64_t tlen_limit = 0;
+                    if (surjecting && minimizer_mapper.fragment_distr_is_finalized()) {
+                         tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
+                    }
+                    // Emit the read
+                    alignment_emitter->emit_mapped_pair(std::move(mapped_pairs.first), std::move(mapped_pairs.second), tlen_limit);
                     // Record that we mapped a read.
                     reads_mapped_by_thread.at(omp_get_thread_num()) += 2;
                 }

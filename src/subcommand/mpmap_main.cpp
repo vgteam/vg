@@ -1637,12 +1637,12 @@ int main_mpmap(int argc, char** argv) {
     }
     
     // Load structures that we need for HTS lib outputs
-    unique_ptr<map<string, int64_t>> path_lengths;
+    unique_ptr<vector<pair<string, int64_t>>> path_length_and_order;
     unordered_set<path_handle_t> surjection_paths;
     unique_ptr<Surjector> surjector;
     if (hts_output) {
         // init the data structures
-        path_lengths = unique_ptr<map<string, int64_t>>(new map<string, int64_t>());
+        path_length_and_order = unique_ptr<vector<pair<string, int64_t>>>(new vector<pair<string, int64_t>>());
         surjector = unique_ptr<Surjector>(new Surjector(path_position_handle_graph));
         surjector->min_splice_length = transcriptomic ? min_splice_length : numeric_limits<int64_t>::max();
         surjector->adjust_alignments_for_base_quality = qual_adjusted;
@@ -1671,10 +1671,10 @@ int main_mpmap(int argc, char** argv) {
                     exit(1);
                 }
                 path_handle_t path_handle = path_position_handle_graph->get_path_handle(line);
-                path_lengths->insert(pair<string, int64_t>(line, path_position_handle_graph->get_path_length(path_handle)));
+                path_length_and_order->emplace_back(line, path_position_handle_graph->get_path_length(path_handle));
                 surjection_paths.insert(path_handle);
             }
-            if (path_lengths->empty()) {
+            if (path_length_and_order->empty()) {
                 cerr << "error:[vg mpmap] Reference path file (-S) " << ref_paths_name << " does not contain any path names" << endl;
                 exit(1);
             }
@@ -1692,8 +1692,8 @@ int main_mpmap(int argc, char** argv) {
             
             path_position_handle_graph->for_each_path_handle([&](const path_handle_t& path_handle) {
                 surjection_paths.insert(path_handle);
-                path_lengths->insert(pair<string, int64_t>(path_position_handle_graph->get_path_name(path_handle),
-                                                           path_position_handle_graph->get_path_length(path_handle)));
+                path_length_and_order->emplace_back(path_position_handle_graph->get_path_name(path_handle),
+                                                    path_position_handle_graph->get_path_length(path_handle));
             });
         }
     }
@@ -1897,7 +1897,7 @@ int main_mpmap(int argc, char** argv) {
     // init a writer for the output
     MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter("-", thread_count, out_format,
                                                                        path_position_handle_graph,
-                                                                       path_lengths.get());
+                                                                       path_length_and_order.get());
     emitter->set_read_group(read_group);
     emitter->set_sample_name(sample_name);
     if (transcriptomic) {

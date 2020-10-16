@@ -18,7 +18,7 @@ namespace vg {
 using namespace std;
 
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format,
-    const map<string, int64_t>& path_length, size_t max_threads, const HandleGraph* graph) {
+    const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads, const HandleGraph* graph) {
 
     if (format == "SAM" || format == "BAM" || format == "CRAM") {
         // Make the backing, non-buffered emitter
@@ -29,15 +29,17 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
             const PathPositionHandleGraph* splicing_graph = dynamic_cast<const PathPositionHandleGraph*>(graph);
             assert(splicing_graph != nullptr);
             // Use the graph to look for spliced alignments
-            backing = new SplicedHTSAlignmentEmitter(filename, format, path_length, *splicing_graph, max_threads);
+            backing = new SplicedHTSAlignmentEmitter(filename, format, path_order_and_length, *splicing_graph, max_threads);
         }
         else {
             // Assume alignments are contiguous
-            backing = new HTSAlignmentEmitter(filename, format, path_length, max_threads);
+            backing = new HTSAlignmentEmitter(filename, format, path_order_and_length, max_threads);
         }
         return unique_ptr<AlignmentEmitter>(backing);
     } else {
-        return get_non_hts_alignment_emitter(filename, format, path_length, max_threads, graph);
+        // The non-HTSlib formats don't actually use the path name and length info.
+        // See https://github.com/vgteam/libvgio/issues/34
+        return get_non_hts_alignment_emitter(filename, format, {}, max_threads, graph);
     }
 }
 
@@ -45,10 +47,10 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
 const size_t HTSWriter::BGZF_FOOTER_LENGTH = 28;
 
 HTSWriter::HTSWriter(const string& filename, const string& format,
-    const map<string, int64_t>& path_length, size_t max_threads) :
+    const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads) :
     out_file(filename == "-" ? nullptr : new ofstream(filename)),
     multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads),
-    format(format), path_length(path_length),
+    format(format), path_order_and_length(path_order_and_length), path_index(),
     backing_files(max_threads, nullptr), sam_files(max_threads, nullptr),
     atomic_header(nullptr), sam_header(), header_mutex(), output_is_bgzf(format != "SAM"),
     hts_mode() {
@@ -87,7 +89,12 @@ HTSWriter::HTSWriter(const string& filename, const string& format,
     }
     // Save to a C++ string that we will use later.
     hts_mode = out_mode;
-   
+    
+    for (auto it = this->path_order_and_length.begin(); it != this->path_order_and_length.end(); ++it) {
+        // Compute the index to look up path lengths in the ordered path list.
+        path_index.emplace(it->first, it);
+    }
+    
     // Each thread will lazily open its samFile*, once it has a header ready
 }
 
@@ -150,7 +157,7 @@ bam_hdr_t* HTSWriter::ensure_header(const string& read_group,
             }
             
             // Make the header
-            header = hts_string_header(sam_header, path_length, rg_sample);
+            header = hts_string_header(sam_header, path_order_and_length, rg_sample);
             
             // Initialize the SAM file for this thread and actually keep the header
             // we write, since we are the first thread.
@@ -257,8 +264,8 @@ void HTSWriter::initialize_sam_file(bam_hdr_t* header, size_t thread_number, boo
 }
 
 HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format,
-                                         const map<string, int64_t>& path_length, size_t max_threads)
-    : HTSWriter(filename, format, path_length, max_threads)
+                                         const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads)
+    : HTSWriter(filename, format, path_order_and_length, max_threads)
 {
     // nothing else to do
 }
@@ -270,7 +277,7 @@ void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<in
     path_name = aln.refpos(0).name();
     size_t path_len = 0;
     if (path_name != "") {
-        path_len = path_length.at(path_name);
+        path_len = path_index.at(path_name)->second;
     }
     // Extract the position so that it could be adjusted by cigar_against_path if we decided to supperss softclips. Which we don't.
     // TODO: Separate out softclip suppression.
@@ -492,10 +499,10 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
 }
 
 SplicedHTSAlignmentEmitter::SplicedHTSAlignmentEmitter(const string& filename, const string& format,
-                                                       const map<string, int64_t>& path_length,
+                                                       const vector<pair<string, int64_t>>& path_order_and_length,
                                                        const PathPositionHandleGraph& graph,
                                                        size_t max_threads) :
-    HTSAlignmentEmitter(filename, format, path_length, max_threads), graph(graph) {
+    HTSAlignmentEmitter(filename, format, path_order_and_length, max_threads), graph(graph) {
     
     // nothing else to do
 }
