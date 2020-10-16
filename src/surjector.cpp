@@ -147,7 +147,7 @@ using namespace std;
                 auto surjection = realigning_surject(&memoizing_graph, *source_aln, surj_record.first,
                                                      surj_record.second.first, path_range, allow_negative_scores,
                                                      false, false);
-                if (surjection.path_size() != 0) {
+                if (surjection.path().mapping_size() != 0) {
                     aln_surjections[surj_record.first] = make_pair(move(surjection), path_range);
                 }
             }
@@ -170,7 +170,7 @@ using namespace std;
                                                   surj_record.first, surj_record.second.first,
                                                   surj_record.second.second, connections[surj_record.first],
                                                   path_range, allow_negative_scores, preserve_deletions);
-                if (surjected.subpath_size() != 0) {
+                if (surjection.subpath_size() != 0) {
                     mp_aln_surjections[surj_record.first] = make_pair(move(surjection), path_range);
                 }
             }
