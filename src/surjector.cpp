@@ -147,18 +147,22 @@ using namespace std;
                 auto surjection = realigning_surject(&memoizing_graph, *source_aln, surj_record.first,
                                                      surj_record.second.first, path_range, allow_negative_scores,
                                                      false, false);
-                aln_surjections[surj_record.first] = make_pair(move(surjection), path_range);
+                if (surjection.path_size() != 0) {
+                    aln_surjections[surj_record.first] = make_pair(move(surjection), path_range);
+                }
             }
             else if (source_aln) {
-                auto surjected = spliced_surject(&memoizing_graph, source_aln->sequence(), source_aln->quality(),
+                auto surjection = spliced_surject(&memoizing_graph, source_aln->sequence(), source_aln->quality(),
                                                  source_aln->mapping_quality(), surj_record.first, surj_record.second.first,
                                                  surj_record.second.second, connections[surj_record.first], path_range,
                                                  allow_negative_scores, preserve_deletions);
-                // this internal method is written for multipath alignments, so we need to convert to standard alignments
-                aln_surjections[surj_record.first] = make_pair(Alignment(), path_range);
-                auto& surjected_aln = aln_surjections[surj_record.first].first;
-                optimal_alignment(surjected, surjected_aln, allow_negative_scores);
-                transfer_read_metadata(*source_aln, surjected_aln);
+                if (surjection.subpath_size() != 0) {
+                    // this internal method is written for multipath alignments, so we need to convert to standard alignments
+                    aln_surjections[surj_record.first] = make_pair(Alignment(), path_range);
+                    auto& surjected_aln = aln_surjections[surj_record.first].first;
+                    optimal_alignment(surjection, surjected_aln, allow_negative_scores);
+                    transfer_read_metadata(*source_aln, surjected_aln);
+                }
             }
             else {
                 auto surjection = spliced_surject(&memoizing_graph, source_mp_aln->sequence(),
@@ -166,7 +170,9 @@ using namespace std;
                                                   surj_record.first, surj_record.second.first,
                                                   surj_record.second.second, connections[surj_record.first],
                                                   path_range, allow_negative_scores, preserve_deletions);
-                mp_aln_surjections[surj_record.first] = make_pair(move(surjection), path_range);
+                if (surjected.subpath_size() != 0) {
+                    mp_aln_surjections[surj_record.first] = make_pair(move(surjection), path_range);
+                }
             }
         }
         
@@ -839,7 +845,9 @@ using namespace std;
         }
         
         // since the mp aln is a non-branching path, this is always the only start
-        surjected.add_start(0);
+        if (surjected.subpath_size() != 0) {
+            surjected.add_start(0);
+        }
         
 #ifdef debug_spliced_surject
         cerr << "final spliced surjection " << debug_string(surjected) << endl;
