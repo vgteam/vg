@@ -130,6 +130,8 @@ var searchData=
   ['suppress_5fp_5fvalue_5fmemoization',['suppress_p_value_memoization',['../classvg_1_1MultipathMapper.html#afd6fee3779079af7a2932c7c29098b2d',1,'vg::MultipathMapper']]],
   ['suppress_5ftail_5fanchors',['suppress_tail_anchors',['../classvg_1_1MultipathMapper.html#ad4c0e1fea285f378ef5c7eb23e9baf89',1,'vg::MultipathMapper']]],
   ['surface',['surface',['../classvg_1_1Viz.html#ad93aa239a30c3b7a017348e22f184b85',1,'vg::Viz']]],
+  ['surject_5fsubpath_5fglobal',['surject_subpath_global',['../classvg_1_1SurjectingAlignmentEmitter.html#a730237d7e198244c27b29aff8a7d8b7d',1,'vg::SurjectingAlignmentEmitter']]],
+  ['surjector',['surjector',['../classvg_1_1SurjectingAlignmentEmitter.html#a7ff6c0ffab9177150fe4941a8ae71c70',1,'vg::SurjectingAlignmentEmitter']]],
   ['sv_5ftype',['SV_TYPE',['../structvg_1_1BREAKPOINT.html#a52c38d41e036406a3c2e79d9f4bbfc50',1,'vg::BREAKPOINT']]],
   ['symbol_5fcount',['symbol_count',['../classvg_1_1Pictographs.html#a38abbb70a4bdb0b40e5beb2b43cee1d5',1,'vg::Pictographs']]],
   ['symbolic_5fallele_5fwarnings',['symbolic_allele_warnings',['../classvg_1_1Constructor.html#a245d775942ede32387b95497803e114c',1,'vg::Constructor']]],

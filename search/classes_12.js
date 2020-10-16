@@ -49,6 +49,7 @@ var searchData=
   ['supportaugmentedgraph',['SupportAugmentedGraph',['../structvg_1_1SupportAugmentedGraph.html',1,'vg']]],
   ['supportbasedsnarlcaller',['SupportBasedSnarlCaller',['../classvg_1_1SupportBasedSnarlCaller.html',1,'vg']]],
   ['supportrestrictedtraversalfinder',['SupportRestrictedTraversalFinder',['../classvg_1_1SupportRestrictedTraversalFinder.html',1,'vg']]],
+  ['surjectingalignmentemitter',['SurjectingAlignmentEmitter',['../classvg_1_1SurjectingAlignmentEmitter.html',1,'vg']]],
   ['surjector',['Surjector',['../classvg_1_1Surjector.html',1,'vg']]],
   ['swaphaplotypescommand',['SwapHaplotypesCommand',['../structvg_1_1SwapHaplotypesCommand.html',1,'vg']]]
 ];

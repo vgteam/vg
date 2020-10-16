@@ -3,7 +3,7 @@ var searchData=
   ['backbone',['backbone',['../structvg_1_1FlowSort_1_1Growth.html#a5ccf8c38e2125849aa7ca9881fd382a2',1,'vg::FlowSort::Growth']]],
   ['backed_5fup',['backed_up',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a29a0e513c0dbdb75df3eccd7171f7126',1,'vg::io::BlockedGzipOutputStream']]],
   ['background_5fsampler',['background_sampler',['../classvg_1_1NGSSimulator.html#af563bf84d1cde24a88de7c99c80bb554',1,'vg::NGSSimulator']]],
-  ['backing',['backing',['../classvg_1_1ExtraNodeGraph.html#aa446c8a449571a12838c7854f6cd6e62',1,'vg::ExtraNodeGraph::backing()'],['../classvg_1_1SourceSinkOverlay.html#a7b24e9281e335eff4f843d8bcc404338',1,'vg::SourceSinkOverlay::backing()']]],
+  ['backing',['backing',['../classvg_1_1ExtraNodeGraph.html#aa446c8a449571a12838c7854f6cd6e62',1,'vg::ExtraNodeGraph::backing()'],['../classvg_1_1SourceSinkOverlay.html#a7b24e9281e335eff4f843d8bcc404338',1,'vg::SourceSinkOverlay::backing()'],['../classvg_1_1SurjectingAlignmentEmitter.html#af0f444c46830595ef5e59b3a5a3ecf7f',1,'vg::SurjectingAlignmentEmitter::backing()']]],
   ['backing_5ffiles',['backing_files',['../classvg_1_1HTSWriter.html#ad6b1fd5c6e6dc4f91601f115bd1e7410',1,'vg::HTSWriter']]],
   ['backing_5fgraph',['backing_graph',['../classvg_1_1GenomeState.html#a6f80e8bfc104b6cdd893e5c4f531b7a5',1,'vg::GenomeState::backing_graph()'],['../classvg_1_1SubgraphOverlay.html#ad8dfd04e7366558348cbdfc8d2dcbe82',1,'vg::SubgraphOverlay::backing_graph()']]],
   ['backing_5fheads',['backing_heads',['../classvg_1_1SourceSinkOverlay.html#a140bd95f83c688d57ee20d94f9d87632',1,'vg::SourceSinkOverlay']]],

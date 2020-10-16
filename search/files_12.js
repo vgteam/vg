@@ -60,6 +60,8 @@ var searchData=
   ['subgraph_5foverlay_2ecpp',['subgraph_overlay.cpp',['../subgraph__overlay_8cpp.html',1,'']]],
   ['subgraph_5foverlay_2ehpp',['subgraph_overlay.hpp',['../subgraph__overlay_8hpp.html',1,'']]],
   ['surject_5fmain_2ecpp',['surject_main.cpp',['../surject__main_8cpp.html',1,'']]],
+  ['surjecting_5falignment_5femitter_2ecpp',['surjecting_alignment_emitter.cpp',['../surjecting__alignment__emitter_8cpp.html',1,'']]],
+  ['surjecting_5falignment_5femitter_2ehpp',['surjecting_alignment_emitter.hpp',['../surjecting__alignment__emitter_8hpp.html',1,'']]],
   ['surjector_2ecpp',['surjector.cpp',['../surjector_8cpp.html',1,'']]],
   ['surjector_2ehpp',['surjector.hpp',['../surjector_8hpp.html',1,'']]],
   ['swap_5fremove_2ehpp',['swap_remove.hpp',['../swap__remove_8hpp.html',1,'']]]

@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/hts_alignment_emitter.hpp File Reference</title>
+<title>vg: src/surjecting_alignment_emitter.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -68,29 +68,19 @@ $(function() {
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">hts_alignment_emitter.hpp File Reference</div>  </div>
+<div class="title">surjecting_alignment_emitter.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;mutex&gt;</code><br />
-<code>#include &lt;thread&gt;</code><br />
-<code>#include &lt;vector&gt;</code><br />
-<code>#include &lt;deque&gt;</code><br />
-<code>#include &lt;htslib/hfile.h&gt;</code><br />
-<code>#include &lt;htslib/hts.h&gt;</code><br />
-<code>#include &lt;htslib/sam.h&gt;</code><br />
-<code>#include &lt;vg/vg.pb.h&gt;</code><br />
-<code>#include &lt;<a class="el" href="protobuf__emitter_8hpp.html">vg/io/protobuf_emitter.hpp</a>&gt;</code><br />
-<code>#include &lt;<a class="el" href="stream__multiplexer_8hpp.html">vg/io/stream_multiplexer.hpp</a>&gt;</code><br />
-<code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;<a class="el" href="surjector_8hpp.html">surjector.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="alignment__emitter_8hpp.html">vg/io/alignment_emitter.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
+<code>#include &lt;unordered_set&gt;</code><br />
+<code>#include &lt;string&gt;</code><br />
+<code>#include &lt;vector&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSWriter.html">vg::HTSWriter</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html">vg::HTSAlignmentEmitter</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SplicedHTSAlignmentEmitter.html">vg::SplicedHTSAlignmentEmitter</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html">vg::SurjectingAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -100,10 +90,12 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a879f67c5ea3f65226d41a8d2697654df"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a879f67c5ea3f65226d41a8d2697654df">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const vector&lt; pair&lt; string, int64_t &gt;&gt; &amp;path_order_and_length, size_t max_threads, const HandleGraph *graph)</td></tr>
-<tr class="separator:a879f67c5ea3f65226d41a8d2697654df"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1dc2d3477496337988333ee23aef0544"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1dc2d3477496337988333ee23aef0544">vg::get_alignment_emitter_with_surjection</a> (const string &amp;filename, const string &amp;format, const vector&lt; path_handle_t &gt; paths_in_dict_order, size_t max_threads, const HandleGraph *graph)</td></tr>
+<tr class="separator:a1dc2d3477496337988333ee23aef0544"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-</div><!-- contents -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Holds a surjecting wrapper AlignmentEmitter, and an entry point for getting AlignmentEmitters that can use it. </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
