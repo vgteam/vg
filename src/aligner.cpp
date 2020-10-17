@@ -2210,8 +2210,12 @@ int32_t QualAdjAligner::score_mismatch(string::const_iterator seq_begin, string:
 int32_t QualAdjAligner::score_full_length_bonus(bool left_side, string::const_iterator seq_begin,
                                                 string::const_iterator seq_end,
                                                 string::const_iterator base_qual_begin) const {
-    
-    return qual_adj_full_length_bonuses[left_side ? *base_qual_begin : *(base_qual_begin + (seq_end - seq_begin))];
+    if (seq_begin == seq_end) {
+        return 0;
+    }
+    else {
+        return qual_adj_full_length_bonuses[left_side ? *base_qual_begin : *(base_qual_begin + (seq_end - seq_begin) - 1)];
+    }
 }
 
 int32_t QualAdjAligner::score_full_length_bonus(bool left_side, const Alignment& alignment) const {
