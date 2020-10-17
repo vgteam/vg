@@ -1418,15 +1418,6 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
-    ifstream ref_paths_stream;
-    if (!ref_paths_name.empty() && hts_output) {
-        ref_paths_stream.open(ref_paths_name);
-        if (!ref_paths_stream) {
-            cerr << "error:[vg mpmap] Cannot open reference paths file " << ref_paths_name << endl;
-            exit(1);
-        }
-    }
-    
     // check to make sure we can open the reads
     for (string reads_name : {fastq_name_1, fastq_name_2, gam_file_name}) {
         if (!reads_name.empty() && reads_name != "-") {
@@ -1642,59 +1633,22 @@ int main_mpmap(int argc, char** argv) {
     unique_ptr<Surjector> surjector;
     if (hts_output) {
         // init the data structures
-        path_length_and_order = unique_ptr<vector<pair<string, int64_t>>>(new vector<pair<string, int64_t>>());
         surjector = unique_ptr<Surjector>(new Surjector(path_position_handle_graph));
         surjector->min_splice_length = transcriptomic ? min_splice_length : numeric_limits<int64_t>::max();
         surjector->adjust_alignments_for_base_quality = qual_adjusted;
         
-        if (ref_paths_stream.is_open()) {
-            // get reference paths from a file
-            if (!suppress_progress) {
+        if (!suppress_progress) {
+            if (!ref_paths_name.empty()) {
                 cerr << progress_boilerplate() << "Choosing reference paths from " << ref_paths_name << endl;
-            }
-            string line;
-            while (ref_paths_stream.good()) {
-                getline(ref_paths_stream, line);
-                // trim whitespace from ends
-                line.erase(line.begin(), find_if(line.begin(), line.end(), [](char ch) {
-                    return !isspace(ch);
-                }));
-                line.erase(find_if(line.rbegin(), line.rend(), [](char ch) {
-                    return !isspace(ch);
-                }).base(), line.end());
-                if (line.empty()) {
-                    // skip blank lines
-                    continue;
-                }
-                if (!path_position_handle_graph->has_path(line)) {
-                    cerr << "error:[vg mpmap] Graph does not have a path named " << line << ", which was indicated in " << ref_paths_name << endl;
-                    exit(1);
-                }
-                path_handle_t path_handle = path_position_handle_graph->get_path_handle(line);
-                path_length_and_order->emplace_back(line, path_position_handle_graph->get_path_length(path_handle));
-                surjection_paths.insert(path_handle);
-            }
-            if (path_length_and_order->empty()) {
-                cerr << "error:[vg mpmap] Reference path file (-S) " << ref_paths_name << " does not contain any path names" << endl;
-                exit(1);
+            } else {
+                cerr << progress_boilerplate() << "No reference path file given. Interpreting all non-alt-allele paths in graph as reference sequences." << endl;
             }
         }
-        else {
-            // default to using all embedded paths as
-            if (!suppress_progress) {
-                cerr << progress_boilerplate() << "No reference path file given. Interpreting all paths in graph as reference sequences." << endl;
-            }
-            
-            if (path_position_handle_graph->get_path_count() == 0) {
-                cerr << "error:[vg mpmap] Graph does not have embedded paths to treat as reference sequences. Cannot produces HTSlib output formats (SAM/BAM/CRAM)." << endl;
-                exit(1);
-            }
-            
-            path_position_handle_graph->for_each_path_handle([&](const path_handle_t& path_handle) {
-                surjection_paths.insert(path_handle);
-                path_length_and_order->emplace_back(path_position_handle_graph->get_path_name(path_handle),
-                                                    path_position_handle_graph->get_path_length(path_handle));
-            });
+        path_length_and_order = make_unique<vector<pair<string, int64_t>>>(get_sequence_dictionary(ref_paths_name, *path_position_handle_graph));
+        
+        for (auto& name_and_length : *path_length_and_order) {
+            // We don't have a way to get the path handles along with the order (yet?) so we re-look them up here.
+            surjection_paths.insert(path_position_handle_graph->get_path_handle(name_and_length.first));
         }
     }
     

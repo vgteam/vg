@@ -164,6 +164,19 @@ std::vector<std::string> split_delims(const std::string &s, const std::string& d
     return split_delims(s, delims, elems);
 }
 
+bool starts_with(const std::string& value, const std::string& prefix) {
+#if __cplusplus > 201703L
+    // C++20 provides this
+    return value.starts_with(prefix);
+#else
+    // Before then, C++ is terrible and we have to do it ourselves.
+    if (value.size() < prefix.size()) {
+        return false;
+    }
+    return std::equal(prefix.begin(), prefix.end(), value.begin());
+#endif
+}
+
 const std::string sha1sum(const std::string& data) {
     SHA1 checksum;
     checksum.update(data);

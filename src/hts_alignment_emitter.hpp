@@ -40,6 +40,16 @@ using namespace vg::io;
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
                                                    const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads,
                                                    const HandleGraph* graph = nullptr);
+                                                   
+                                                   
+/**
+ * Produce a list of contig names and lengths in a fixed order, suitable for use with get_alignment_emitter(), by parsing a file.
+ * The file may be an HTSlib-style "sequence dictionary" (consisting of SAM @SQ header lines), or a plain list of sequence names (which do not start with "@SQ").
+ * If a plain sequence name appears, its length will be looked up in the passed PathPositionHandleGraph.
+ * If the file is not openable or contains no entries, reports an error and quits.
+ * If the filename is itself an empty string, all non-alt-allele paths from the graph will be collected in arbitrary order.
+ */
+vector<pair<string, int64_t>> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph);
 
 /*
  * A class that can write SAM/BAM/CRAM files from parallel threads

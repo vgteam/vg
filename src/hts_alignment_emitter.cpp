@@ -5,6 +5,7 @@
  */
 
 #include "hts_alignment_emitter.hpp"
+#include "surjecting_alignment_emitter.hpp"
 #include "alignment.hpp"
 #include "vg/io/json2pb.h"
 #include <vg/io/hfile_cppstream.hpp>
@@ -41,6 +42,18 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
         // See https://github.com/vgteam/libvgio/issues/34
         return get_non_hts_alignment_emitter(filename, format, {}, max_threads, graph);
     }
+}
+
+vector<pair<string, int64_t>> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph) {
+    
+    // We fill in the "dictionary" (which is what SAM calls it; it's not a mapping for us)
+    vector<pair<string, int64_t>> dictionary;
+    
+    for (auto path_handle : get_sequence_dictionary_handles(filename, graph)) {
+        dictionary.emplace_back(graph.get_path_name(path_handle), graph.get_path_length(path_handle));
+    }
+    
+    return dictionary;
 }
 
 // Give the footer length for rewriting BGZF EOF markers.
