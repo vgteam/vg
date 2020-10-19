@@ -28,28 +28,44 @@ using namespace std;
 using namespace vg::io;
 
 /// Get an AlignmentEmitter that can emit to the given file (or "-") in the
-/// given format. A table of contig lengths is required for HTSlib formats.
+/// given format. When writing HTSlib formats (SAM, BAM, CRAM), paths should
+/// contain the paths in the linear reference in sequence dictionary order (see
+/// get_sequence_dictionary), and a PathPositionHandleGraph must be provided.
+/// When writing GAF, a HandleGraph must be provided for obtaining node lengths
+/// and sequences. Other formats do not need a graph.
+///
+/// If hts_raw is set, skips surjection, and expects pre-surjected alignments.
+///
+/// If hts_spliced is set, uses splicing-aware conversion to HTSlib formats:
+/// alignments are spliced at known splice sites (i.e. edges in the graph), so
+/// form spliced CIGAR strings
+///
 /// Automatically applies per-thread buffering, but needs to know how many OMP
 /// threads will be in use.
-/// If the alignments are spliced at known splice sites (i.e. edges in the graph),
-/// the graph can be provided in order to form spliced CIGAR strings for the HTSlib
-/// formats. Note: it must be castable to PathPositionHandleGraph to be used for splicing
-/// Other output formats except GAF (for which it's required) ignore the graph.
-///
-/// See also: get_alignment_emitter_with_surjection()
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
-                                                   const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads,
-                                                   const HandleGraph* graph = nullptr);
+                                                   const vector<path_handle_t>& paths, size_t max_threads,
+                                                   const HandleGraph* graph = nullptr, bool hts_raw = false,
+                                                   bool hts_spliced = false);
+                                                   
+/**
+ * Produce a list of path handles in a fixed order, suitable for use with
+ * get_alignment_emitter_with_surjection(), by parsing a file. The file may be
+ * an HTSlib-style "sequence dictionary" (consisting of SAM @SQ header lines),
+ * or a plain list of sequence names (which do not start with "@SQ"). If the
+ * file is not openable or contains no entries, reports an error and quits. If
+ * the filename is itself an empty string, all non-alt-allele paths from the
+ * graph will be collected in arbitrary order.
+ *
+ * TODO: Be able to generate the autosomes human-sort, X, Y, MT order typical
+ * of references.
+ */
+vector<path_handle_t> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph);
                                                    
                                                    
 /**
- * Produce a list of contig names and lengths in a fixed order, suitable for use with get_alignment_emitter(), by parsing a file.
- * The file may be an HTSlib-style "sequence dictionary" (consisting of SAM @SQ header lines), or a plain list of sequence names (which do not start with "@SQ").
- * If a plain sequence name appears, its length will be looked up in the passed PathPositionHandleGraph.
- * If the file is not openable or contains no entries, reports an error and quits.
- * If the filename is itself an empty string, all non-alt-allele paths from the graph will be collected in arbitrary order.
+ * Given a list of path handles, extract the names and lengths of all of them in order.
  */
-vector<pair<string, int64_t>> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph);
+vector<pair<string, int64_t>> extract_path_metadata(const vector<path_handle_t>& paths, const PathPositionHandleGraph& graph);
 
 /*
  * A class that can write SAM/BAM/CRAM files from parallel threads

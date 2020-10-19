@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 16
+plan tests 18
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -G x.gbwt -v small/x.vcf.gz x.vg
@@ -67,4 +67,17 @@ is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16'
 
 rm -f x.vg x.gbwt x.gg x.snarls x.min x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
 
+cp small/xy.fa .
+cp small/xy.vcf.gz .
+cp small/xy.vcf.gz.tbi .
+vg giraffe xy.fa xy.vcf.gz -f small/x.fa_1.fastq -o SAM --ref-paths small/yx.dict | grep "@SQ" > surjected-yx.dict
+vg giraffe xy.fa xy.vcf.gz -f small/x.fa_1.fastq -o SAM --ref-paths small/xy.dict | grep "@SQ" > surjected-xy.dict
+
+diff surjected-yx.dict small/yx.dict
+is "${?}" "0" "surjecting with a sequence dictionary in non-sorted order produces headers in non-sorted order"
+
+diff surjected-xy.dict small/xy.dict
+is "${?}" "0" "surjecting with a sequence dictionary in sorted order produces headers in sorted order"
+
+rm -f xy.vg xy.gbwt xy.gg xy.snarls xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi surjected-yx.dict surjected-xy.dict
 

@@ -62,7 +62,7 @@ void help_mpmap(char** argv) {
     << "output:" << endl
     << "  -F, --output-fmt FMT          format to output alignments in: GAMP for multipath, GAM or GAF for single path," << endl
     << "                                SAM, CRAM, or BAM for linear reference alignments (may also require -S) [GAMP]" << endl
-    << "  -S, --ref-paths FILE          paths in the graph, one per line, to treat as reference for HTSlib formats (see -F) [all paths]" << endl
+    << "  -S, --ref-paths FILE          paths in the graph, one per line or HTSlib .dict, to treat as reference for HTSlib formats (see -F) [all paths]" << endl
     << "  -a, --agglomerate-alns        combine separate multipath alignments into one (possibly disconnected) alignment" << endl
     << "  -N, --sample NAME             add this sample name to output" << endl
     << "  -R, --read-group NAME         add this read group to output" << endl
@@ -1078,7 +1078,7 @@ int main_mpmap(int argc, char** argv) {
         cerr << "warning:[vg mpmap] Ignoring same strand parameter (-e) because no paired end input provided." << endl;
     }
     
-    if (!ref_paths_name.empty() && hts_output) {
+    if (!ref_paths_name.empty() && !hts_output) {
         cerr << "warning:[vg mpmap] Reference path file (-S) is only used when output format (-F) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
     }
@@ -1628,8 +1628,9 @@ int main_mpmap(int argc, char** argv) {
     }
     
     // Load structures that we need for HTS lib outputs
-    unique_ptr<vector<pair<string, int64_t>>> path_length_and_order;
+    vector<path_handle_t> paths;
     unordered_set<path_handle_t> surjection_paths;
+    vector<pair<string, int64_t>> path_names_and_length;
     unique_ptr<Surjector> surjector;
     if (hts_output) {
         // init the data structures
@@ -1644,12 +1645,13 @@ int main_mpmap(int argc, char** argv) {
                 cerr << progress_boilerplate() << "No reference path file given. Interpreting all non-alt-allele paths in graph as reference sequences." << endl;
             }
         }
-        path_length_and_order = make_unique<vector<pair<string, int64_t>>>(get_sequence_dictionary(ref_paths_name, *path_position_handle_graph));
         
-        for (auto& name_and_length : *path_length_and_order) {
-            // We don't have a way to get the path handles along with the order (yet?) so we re-look them up here.
-            surjection_paths.insert(path_position_handle_graph->get_path_handle(name_and_length.first));
-        }
+        // Load all the paths in the right order
+        vector<path_handle_t> paths = get_sequence_dictionary(ref_paths_name, *path_position_handle_graph);
+        // Make them into a set for directing surjection.
+        std::copy(paths.begin(), paths.end(), std::inserter(surjection_paths, surjection_paths.begin()));
+        // Copy out the metadata for making the emitter later
+        path_names_and_length = extract_path_metadata(paths, *path_position_handle_graph);
     }
     
     // this also takes a while inside the MultipathMapper constructor, but it will only activate if we don't
@@ -1851,7 +1853,7 @@ int main_mpmap(int argc, char** argv) {
     // init a writer for the output
     MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter("-", thread_count, out_format,
                                                                        path_position_handle_graph,
-                                                                       path_length_and_order.get());
+                                                                       &path_names_and_length);
     emitter->set_read_group(read_group);
     emitter->set_sample_name(sample_name);
     if (transcriptomic) {
