@@ -186,6 +186,7 @@ int main_map(int argc, char** argv) {
     bool xdrop_alignment = false;
     uint32_t max_gap_length = 40;
     bool surject_subpath_global = true; // force full length alignment in mpmap surjection resolution
+    bool log_time = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -262,11 +263,12 @@ int main_map(int argc, char** argv) {
                 {"max-gap-length", required_argument, 0, 1},
                 {"xdrop-alignment", no_argument, 0, 2},
                 {"gaf", no_argument, 0, '%'},
+                {"log-time", no_argument, 0, '^'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m:7:v5:824:3:9:0:%",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m:7:v5:824:3:9:0:%^",
                          long_options, &option_index);
 
 
@@ -578,6 +580,9 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'h':
+        case '^':
+            log_time = true;
+            break;
         case '?':
             /* getopt_long already printed an error message. */
             help_map(argv);
@@ -1260,15 +1265,18 @@ int main_map(int argc, char** argv) {
     std::chrono::duration<double> mapping_seconds = end - init;
     std::chrono::duration<double> index_load_seconds = init - launch;
 
-    size_t total_reads_mapped = 0;
-    for (auto& reads_mapped : reads_mapped_by_thread) {
-        total_reads_mapped += reads_mapped;
-    }
+    if (log_time){
 
-    double reads_per_second_per_thread = total_reads_mapped / (mapping_seconds.count() * thread_count);
-    cerr << "Index load time: " << index_load_seconds.count() << endl;
-    cerr << "Mapped " << total_reads_mapped << " reads" << endl;
-    cerr << "Mapping speed: " << reads_per_second_per_thread << " reads per second per thread" << endl; 
+        size_t total_reads_mapped = 0;
+        for (auto& reads_mapped : reads_mapped_by_thread) {
+            total_reads_mapped += reads_mapped;
+        }
+    
+        double reads_per_second_per_thread = total_reads_mapped / (mapping_seconds.count() * thread_count);
+        cerr << "Index load time: " << index_load_seconds.count() << endl;
+        cerr << "Mapped " << total_reads_mapped << " reads" << endl;
+        cerr << "Mapping speed: " << reads_per_second_per_thread << " reads per second per thread" << endl; 
+    }
     
     cout.flush();
 
