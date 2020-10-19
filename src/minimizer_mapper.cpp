@@ -690,60 +690,27 @@ void MinimizerMapper::pair_all(pair<vector<Alignment>, vector<Alignment>>& mappi
 
 pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2,
                                                       vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer){
-    if (fragment_length_distr.is_finalized()) {
 
-        //If we know the fragment length distribution then we just map paired ended 
-        return map_paired(aln1, aln2);
+    vector<Alignment> alns1(map(aln1));
+    vector<Alignment> alns2(map(aln2));
+    //Flip the second alignment to get the proper fragment distance 
+    reverse_complement_alignment_in_place(&alns2.front(), [&](vg::id_t node_id) {
+            return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
+            });           
+    int64_t dist = distance_between(alns1.front(), alns2.front());
+    reverse_complement_alignment_in_place(&alns2.front(), [&](vg::id_t node_id) {
+            return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
+            });           
 
-    } else {
-        //If we don't know the fragment length distribution, map the reads single ended
+    set_annotation(alns1.front(), "fragment_length", (double) dist);
+    set_annotation(alns2.front(), "fragment_length", (double) dist);
 
-        vector<Alignment> alns1(map(aln1));
-        vector<Alignment> alns2(map(aln2));
+    pair<vector<Alignment>, vector<Alignment>> mapped_pair;
+    mapped_pair.first.emplace_back(std::move(alns1.front()));
+    mapped_pair.second.emplace_back(std::move(alns2.front()));
+    pair_all(mapped_pair);
+    return mapped_pair;
 
-        // Check if the separately-mapped ends are both sufficiently perfect and sufficiently unique
-        int32_t max_score_aln_1 = get_regular_aligner()->score_exact_match(aln1, 0, aln1.sequence().size());
-        int32_t max_score_aln_2 = get_regular_aligner()->score_exact_match(aln2, 0, aln2.sequence().size());
-        if (!alns1.empty() && ! alns2.empty()  && 
-            alns1.front().mapping_quality() == 60 && alns2.front().mapping_quality() == 60 &&
-            alns1.front().score() >= max_score_aln_1 * 0.85 && alns2.front().score() >= max_score_aln_2 * 0.85) {
-
-            //Flip the second alignment to get the proper fragment distance 
-            reverse_complement_alignment_in_place(&alns2.front(), [&](vg::id_t node_id) {
-                    return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
-                    });           
-            int64_t dist = distance_between(alns1.front(), alns2.front());
-            // And that they have an actual pair distance and set of relative orientations
-
-            if (dist == std::numeric_limits<int64_t>::max()) {
-                //If the distance between them is ambiguous, leave them unmapped
-
-                ambiguous_pair_buffer.emplace_back(aln1, aln2);
-                pair<vector<Alignment>, vector<Alignment>> empty;
-                return empty;
-            }
-
-            //If we're keeping this alignment, flip the second alignment back
-            reverse_complement_alignment_in_place(&alns2.front(), [&](vg::id_t node_id) {
-                    return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
-                    });           
-            // If that all checks out, say they're mapped, emit them, and register their distance and orientations
-            fragment_length_distr.register_fragment_length(dist);
-
-            pair<vector<Alignment>, vector<Alignment>> mapped_pair;
-            mapped_pair.first.emplace_back(std::move(alns1.front()));
-            mapped_pair.second.emplace_back(std::move(alns2.front()));
-            pair_all(mapped_pair);
-            return mapped_pair;
-
-        } else {
-            // Otherwise, discard the mappings and put them in the ambiguous buffer
-
-            ambiguous_pair_buffer.emplace_back(aln1, aln2);
-            pair<vector<Alignment>, vector<Alignment>> empty;
-            return empty;
-        }
-    }
 }
 
 pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment& aln1, Alignment& aln2) {
