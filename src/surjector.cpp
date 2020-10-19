@@ -524,8 +524,8 @@ using namespace std;
             
             // how much of the path did we skip?
             if (deletions_as_splices
-                && connected_by_edge(i, target)
                 && path_chunks[i].first.second == path_chunks[target].first.first
+                && connected_by_edge(i, target)
                 && path_distance(i, target) >= min_splice_length) {
                 
 #ifdef debug_spliced_surject
