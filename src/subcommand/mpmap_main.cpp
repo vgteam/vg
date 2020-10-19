@@ -197,7 +197,6 @@ int main_mpmap(int argc, char** argv) {
     // TODO: create an option.
     int localization_max_paths = 5;
     int max_num_mappings = 1;
-    int buffer_size = 200;
     int hit_max = 1024;
     int hit_max_arg = numeric_limits<int>::min();
     int hard_hit_max_muliplier = 3;
@@ -392,13 +391,12 @@ int main_mpmap(int argc, char** argv) {
             {"remove-bonuses", no_argument, 0, 'm'},
             {"no-qual-adjust", no_argument, 0, 'A'},
             {"threads", required_argument, 0, 't'},
-            {"buffer-size", required_argument, 0, 'Z'},
             {"no-output", no_argument, 0, OPT_NO_OUTPUT},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iS:s:vX:u:b:I:D:BP:Q:UpM:r:W:K:F:c:C:R:En:l:e:q:z:w:o:y:L:mAt:Z:a",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iS:s:vX:u:b:I:D:BP:Q:UpM:r:W:K:F:c:C:R:En:l:e:q:z:w:o:y:L:mAt:a",
                          long_options, &option_index);
 
 
@@ -787,10 +785,6 @@ int main_mpmap(int argc, char** argv) {
                 }
                 omp_set_num_threads(num_threads);
             }
-                break;
-                
-            case 'Z':
-                buffer_size = parse<int>(optarg);
                 break;
                 
             case OPT_NO_OUTPUT:
@@ -1303,11 +1297,6 @@ int main_mpmap(int argc, char** argv) {
         cerr << "error:[vg mpmap] Max alignment grap set to " << max_alignment_gap << ", must set to a non-negative integer." << endl;
         exit(1);
     }
-        
-    if (buffer_size <= 0) {
-        cerr << "error:[vg mpmap] Buffer size (-Z) set to " << buffer_size << ", must set to a positive integer." << endl;
-        exit(1);
-    }
     
     if (filter_short_mems && (short_mem_filter_factor < 0.0 || short_mem_filter_factor > 1.0)) {
         cerr << "error:[vg mpmap] Short MEM filtraction factor (--filter-factor) set to " << short_mem_filter_factor << ", must set to a number between 0.0 and 1.0." << endl;
@@ -1636,10 +1625,10 @@ int main_mpmap(int argc, char** argv) {
         
     }
     
-    // Load structures that we need for HTS lib outputs
-    unique_ptr<map<string, int64_t>> path_lengths;
+    // Load structures that we need for HTSlib outputs
+    unique_ptr<map<string, int64_t>> path_lengths(nullptr);
     unordered_set<path_handle_t> surjection_paths;
-    unique_ptr<Surjector> surjector;
+    unique_ptr<Surjector> surjector(nullptr);
     if (hts_output) {
         // init the data structures
         path_lengths = unique_ptr<map<string, int64_t>>(new map<string, int64_t>());
@@ -1656,12 +1645,8 @@ int main_mpmap(int argc, char** argv) {
             while (ref_paths_stream.good()) {
                 getline(ref_paths_stream, line);
                 // trim whitespace from ends
-                line.erase(line.begin(), find_if(line.begin(), line.end(), [](char ch) {
-                    return !isspace(ch);
-                }));
-                line.erase(find_if(line.rbegin(), line.rend(), [](char ch) {
-                    return !isspace(ch);
-                }).base(), line.end());
+                line.erase(line.begin(), find_if(line.begin(), line.end(), [](char ch) {return !isspace(ch);}));
+                line.erase(find_if(line.rbegin(), line.rend(), [](char ch) {return !isspace(ch);}).base(), line.end());
                 if (line.empty()) {
                     // skip blank lines
                     continue;
@@ -1849,9 +1834,6 @@ int main_mpmap(int argc, char** argv) {
     // are we doing paired ends?
     if (interleaved_input || !fastq_name_2.empty()) {
         // make sure buffer size is even (ensures that output will be interleaved)
-        if (buffer_size % 2 == 1) {
-            buffer_size++;
-        }
 
         if (!std::isnan(frag_length_mean) && !std::isnan(frag_length_stddev)) {
             // Force a fragment length distribution
