@@ -2427,14 +2427,16 @@ void MinimizerMapper::fix_dozeu_score(Alignment& rescued_alignment, const Handle
 //-----------------------------------------------------------------------------
 
 int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment& aln2) {
-    assert(aln1.path().mapping_size() != 0); 
-    assert(aln2.path().mapping_size() != 0); 
+    if(aln1.path().mapping_size() != 0 and aln2.path().mapping_size() != 0){ 
      
-    pos_t pos1 = initial_position(aln1.path()); 
-    pos_t pos2 = final_position(aln2.path());
+        pos_t pos1 = initial_position(aln1.path()); 
+        pos_t pos2 = final_position(aln2.path());
 
-    int64_t min_dist = distance_index.min_distance(pos1, pos2);
-    return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
+        int64_t min_dist = distance_index.min_distance(pos1, pos2);
+        return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
+    } else {
+        return std::numeric_limits<int64_t>::max();
+    }
 }
 
 void MinimizerMapper::extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const {
