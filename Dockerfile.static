@@ -16,7 +16,7 @@ ENV DEBCONF_NONINTERACTIVE_SEEN true
 # Install dependencies for scripts
 RUN apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
-    apt-get -qq -y install \
+    apt-get -qq -y install --no-upgrade \
     numactl \
     python3-matplotlib \
     python3-numpy \
