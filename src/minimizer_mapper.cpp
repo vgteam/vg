@@ -738,6 +738,23 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 #ifdef debug_fragment_distr
             //Print stats about finalizing the fragment length distribution, copied from mpmap
             if (fragment_length_distr.is_finalized()) {
+                cerr << "finalized read distribution with " << fragment_length_distr.max_sample_size() << " measurements on read pair " << alignment1.name() << ", " << alignment2.name() << endl;
+                cerr << "mean: " << fragment_length_distr.mean() << endl;
+                cerr << "std dev: " << fragment_length_distr.std_dev() << endl;
+                cerr << "ambiguous buffer contains pairs:" << endl;
+                for (pair<Alignment,Alignment>& aln_pair : ambiguous_pair_buffer) {
+                    cerr << "\t" << aln_pair.first.name() << ", " << aln_pair.second.name() << endl;
+                }
+                cerr << "distance measurements:" << endl;
+                auto iter = fragment_length_distr.measurements_begin();
+                if (iter != fragment_length_distr.measurements_end()) {
+                    cerr << *iter;
+                    iter++;
+                }
+                for (; iter != fragment_length_distr.measurements_end(); iter++) {
+                    cerr << ", " << *iter;
+                }
+                cerr << endl;
             }
 #endif
 
