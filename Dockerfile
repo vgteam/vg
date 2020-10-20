@@ -27,7 +27,7 @@ COPY . /vg
 # make get-deps to make sure it isn't missing something
 RUN apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
-    apt-get -qq -y install \
+    apt-get -qq -y install --no-upgrade \
     make \
     sudo \
     git
@@ -57,7 +57,7 @@ RUN echo test > /stage.txt
 # No clean necessary since we aren't shipping this
 RUN apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
-    apt-get -qq -y install \
+    apt-get -qq -y install --no-upgrade \
     bwa \
     pigz \
     dstat \
@@ -94,7 +94,7 @@ COPY deps/FlameGraph /vg/deps/FlameGraph
 RUN ls -lah /vg && \
     apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
-    apt-get -qq -y install \
+    apt-get -qq -y install --no-upgrade \
     curl \
     wget \
     pigz \
