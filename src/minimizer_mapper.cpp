@@ -24,7 +24,7 @@
 //#define debug
 //#define print_minimizers
 //#define debug_dump_graph
-#define debug_fragment_distr
+//#define debug_fragment_distr
 
 namespace vg {
 
@@ -36,7 +36,7 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     path_graph(path_graph), minimizer_indexes(minimizer_indexes),
     distance_index(distance_index), gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index),
-    fragment_length_distr(1000,1000,0.95) {
+    fragment_length_distr(2000,1000,0.90) {
 
    
 }

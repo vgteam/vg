@@ -643,6 +643,8 @@ protected:
     
     /// Print a sequence with base numbering
     static void dump_debug_sequence(ostream& out, const string& sequence);
+
+    friend class TestMinimizerMapper;
 };
 
 template<typename Item, typename Score>
