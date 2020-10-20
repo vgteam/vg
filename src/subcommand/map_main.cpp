@@ -92,7 +92,7 @@ void help_map(char** argv) {
          << "    -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
          << "    -Q, --mq-max INT              cap the mapping quality at INT [60]" << endl
          << "    --exclude-unaligned           exclude reads with no alignment" << endl
-         << "    -D, --debug                   print debugging information about alignment to stderr" << endl;
+         << "    -D, --debug                   print debugging information about alignment to stderr" << endl
          << "    --log-time                    print runtime to stderr" << endl;
 
 }
