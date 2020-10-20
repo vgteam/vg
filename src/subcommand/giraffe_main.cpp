@@ -774,10 +774,6 @@ int main_giraffe(int argc, char** argv) {
                         cerr << "error: [vg giraffe] Rescue attempts must be positive" << endl;
                         exit(1);
                     }
-                    if (!paired) {
-                        cerr << "error: [vg giraffe] Rescue can only be done on paired-end reads" << endl;
-                        exit(1);
-                    }
                 }
                 break;
 
@@ -947,6 +943,9 @@ int main_giraffe(int argc, char** argv) {
         forced_stdev = false;
         fragment_mean = 0.0;
         fragment_stdev = 0.0;
+    }
+    if ((forced_mean or forced_stdev or rescue_attempts!=15) and (!paired)) {
+        cerr << "warning:[vg giraffe] Attempting to set paired-end parameters but running in single-end mode" << endl;
     }
 
     // create in-memory objects
