@@ -24,6 +24,7 @@
 //#define debug
 //#define print_minimizers
 //#define debug_dump_graph
+#define debug_fragment_distr
 
 namespace vg {
 
@@ -694,7 +695,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
         //If we know the fragment length distribution then we just map paired ended 
         return map_paired(aln1, aln2);
-
     } else {
         //If we don't know the fragment length distribution, map the reads single ended
 
@@ -734,6 +734,14 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             mapped_pair.first.emplace_back(std::move(alns1.front()));
             mapped_pair.second.emplace_back(std::move(alns2.front()));
             pair_all(mapped_pair);
+
+#ifdef debug_fragment_distr
+            //Print stats about finalizing the fragment length distribution, copied from mpmap
+            if (fragment_length_distr.is_finalized()) {
+            }
+#endif
+
+
             return mapped_pair;
 
         } else {
