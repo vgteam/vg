@@ -40,6 +40,8 @@ void load_gbwt(const std::string& filename, gbwt::DynamicGBWT& index, bool show_
 void get_compressed(gbwt::GBWT& compressed_index, gbwt::DynamicGBWT& dynamic_index, index_type& in_use, const std::string& filename, bool show_progress);
 void get_dynamic(gbwt::GBWT& compressed_index, gbwt::DynamicGBWT& dynamic_index, index_type& in_use, const std::string& filename, bool show_progress);
 
+void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, gbwt::DynamicGBWT& dynamic_index, index_type& in_use, std::vector<std::string>& filenames, size_t i, bool show_progress);
+
 void get_graph(std::unique_ptr<PathHandleGraph>& graph, bool& in_use, const std::string& filename, bool show_progress);
 void clear_graph(std::unique_ptr<PathHandleGraph>& graph, bool& in_use);
 
@@ -577,19 +579,19 @@ int main_gbwt(int argc, char** argv)
                     path_handles.push_back(path_handle);
                 }
             });
-            for (std::string& filename : input_filenames) {
+            for (size_t i = 0; i < input_filenames.size(); i++) {
                 if (show_progress) {
-                    std::cerr << "Indexing " << filename << std::endl;
+                    std::cerr << "Indexing " << input_filenames[i] << std::endl;
                 }
                 if (!haplotype_indexer.batch_file_prefix.empty()) {
                     vcflib::VariantCallFile variant_file;
                     variant_file.parseSamples = false; // vcflib parsing is very slow if there are many samples.
-                    variant_file.open(filename);
+                    variant_file.open(input_filenames[i]);
                     if (!variant_file.is_open()) {
-                        cerr << "error: [vg gbwt] could not open VCF file " << filename << endl;
+                        cerr << "error: [vg gbwt] could not open VCF file " << input_filenames[i] << endl;
                         std::exit(EXIT_FAILURE);
                     } else if (show_progress) {
-                        cerr << "Opened variant file " << filename << endl;
+                        cerr << "Opened variant file " << input_filenames[i] << endl;
                     }
                     // Run VCF parsing but do nothing with the generated phasing batches.
                     std::vector<std::string> sample_names;
@@ -597,19 +599,8 @@ int main_gbwt(int argc, char** argv)
                         [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {},
                         false);
                 } else {
-                    std::unique_ptr<gbwt::DynamicGBWT> temp = haplotype_indexer.build_gbwt(input_graph.get(), filename, false);
-                    // FIXME we should print both input and temp filenames
-                    if (input_filenames.size() == 1) {
-                        dynamic_index = std::move(*temp);
-                        in_use = index_dynamic;
-                    } else {
-                        // We have multiple inputs, so we save each GBWT into a temporary file that will be loaded during merging.
-                        filename = temp_file::create("gbwt");
-                        if (show_progress) {
-                            std::cerr << "Saving the GBWT to " << filename << std::endl;
-                        }
-                        vg::io::VPKG::save(*temp, filename);
-                    }
+                    std::unique_ptr<gbwt::DynamicGBWT> temp = haplotype_indexer.build_gbwt(input_graph.get(), input_filenames[i], false);
+                    use_or_save(temp, dynamic_index, in_use, input_filenames, i, show_progress);
                 }
             }
         } else if (build == build_paths) {
@@ -623,24 +614,13 @@ int main_gbwt(int argc, char** argv)
             if (show_progress) {
                 std::cerr << "Input type: " << (gam_format ? "GAM" : "GAF") << std::endl;
             }
-            for (std::string& filename : input_filenames) {
+            for (size_t i = 0; i < input_filenames.size(); i++) {
                 if (show_progress) {
-                    std::cerr << "Indexing " << filename << std::endl;
+                    std::cerr << "Indexing " << input_filenames[i] << std::endl;
                 }
-                std::vector<std::string> curr = { filename };
+                std::vector<std::string> curr = { input_filenames[i] };
                 std::unique_ptr<gbwt::DynamicGBWT> temp = haplotype_indexer.build_gbwt(input_graph.get(), curr, (gam_format ? "GAM" : "GAF"));
-                // FIXME merge output handling with the VCF case
-                if (input_filenames.size() == 1) {
-                    dynamic_index = std::move(*temp);
-                    in_use = index_dynamic;
-                } else {
-                    // We have multiple inputs, so we save each GBWT into a temporary file that will be loaded during merging.
-                    filename = temp_file::create("gbwt");
-                    if (show_progress) {
-                        std::cerr << "Saving the GBWT to " << filename << std::endl;
-                    }
-                    vg::io::VPKG::save(*temp, filename);
-                }
+                use_or_save(temp, dynamic_index, in_use, input_filenames, i, show_progress);
             }
         }
         if (show_progress) {
@@ -975,6 +955,21 @@ void get_dynamic(gbwt::GBWT& compressed_index, gbwt::DynamicGBWT& dynamic_index,
     } else {
         load_gbwt(filename, dynamic_index, show_progress);
         in_use = index_dynamic;
+    }
+}
+
+void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, gbwt::DynamicGBWT& dynamic_index, index_type& in_use, std::vector<std::string>& filenames, size_t i, bool show_progress) {
+    if (filenames.size() == 1) {
+        dynamic_index = std::move(*index);
+        in_use = index_dynamic;
+    } else {
+        // FIXME critical section
+        std::string temp = temp_file::create("gbwt");
+        if (show_progress) {
+            std::cerr << "Saving the GBWT of " << filenames[i] << " to " << temp << std::endl;
+        }
+        vg::io::VPKG::save(*index, temp);
+        filenames[i] = temp;
     }
 }
 
