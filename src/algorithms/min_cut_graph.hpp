@@ -16,26 +16,28 @@
 
 
 namespace vg {
-namespace algorithms {
+    namespace algorithms {
 
-using namespace std;
+    using namespace std;
+       
+        struct Edge{
+            int other;
+            int weight;
+        };
 
+        struct Node{
+            int weight;
+            vector<Edge> edges;
+        };
+        struct Graph {
+            vector<Node> nodes;
 
+        }; 
 
-    int kargers_min_cut(vector<Node> graph, const int n_iterations, const int seed);    
+        int64_t kargers_min_cut(Graph graph, const int n_iterations, const int seed, int V);
 
-
-    struct Edge{
-        int other;
-        int weight;
-};
-
-    struct Node{
-    int weight;
-    vector<Edge> edges;
-};
-    using Graph = vector<Node>;
-}
+        
+    }
 }
 
 #endif
