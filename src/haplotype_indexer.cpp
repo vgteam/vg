@@ -79,9 +79,29 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
         if (this->show_progress) {
             cerr << "Processing path " << path_name << " as VCF contig " << vcf_contig_name << endl;
         }
-        std::string parse_file = (this->batch_file_prefix.empty() ? "" : this->batch_file_prefix + '_' + vcf_contig_name);
+
+        // Set the VCF region or process the entire contig.
+        if (this->regions.count(vcf_contig_name)) {
+            std::pair<size_t, size_t> region = this->regions.at(vcf_contig_name);
+            if (show_progress) {
+                std::cerr << "- Setting region " << region.first << " to " << region.second << std::endl;
+            }
+            variant_file.setRegion(vcf_contig_name, region.first, region.second);
+        } else {
+            variant_file.setRegion(vcf_contig_name);
+        }
+
+        // Check that the VCF file contains this contig.
+        vcflib::Variant var(variant_file);
+        if (!(variant_file.is_open() && variant_file.getNextVariant(var) && var.sequenceName == vcf_contig_name)) {
+            if (this->show_progress) {
+                std::cerr << "Contig " << vcf_contig_name << " not present in the VCF file" << std::endl;
+            }
+            continue;
+        }
 
         // Structures to parse the VCF file into.
+        std::string parse_file = (this->batch_file_prefix.empty() ? "" : this->batch_file_prefix + '_' + vcf_contig_name);
         gbwt::VariantPaths variants(graph->get_step_count(contigs[contig]));
         variants.setSampleNames(sample_names);
         variants.setContigName(path_name);
@@ -105,27 +125,15 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
                 phasings.emplace_back(batch_start, batch_size);
             }
         }
-
-        // Set the VCF region or process the entire contig.
-        if (this->regions.count(vcf_contig_name)) {
-            std::pair<size_t, size_t> region = this->regions.at(vcf_contig_name);
-            if (show_progress) {
-                std::cerr << "- Setting region " << region.first << " to " << region.second << std::endl;
-            }
-            variant_file.setRegion(vcf_contig_name, region.first, region.second);
-        } else {
-            variant_file.setRegion(vcf_contig_name);
-        }
         
         if (this->rename_variants && this->show_progress) {
             std::cerr << "- Moving variants from " << vcf_contig_name << " to " << path_name << std::endl;
         }
 
         // Parse the variants and the phasings.
-        vcflib::Variant var(variant_file);
         size_t variants_processed = 0;
         std::vector<bool> was_diploid(sample_range.second, true); // Was the sample diploid at the previous site?
-        while (variant_file.is_open() && variant_file.getNextVariant(var) && var.sequenceName == vcf_contig_name) {
+        do {
             // Skip variants with non-DNA sequence, as they are not included in the graph.
             bool isDNA = allATGC(var.ref);
             for (std::vector<std::string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
@@ -227,7 +235,8 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
                 phasings[batch].append(current_phasings);
             }
             variants_processed++;
-        } // End of variants.
+        }
+        while (variant_file.is_open() && variant_file.getNextVariant(var) && var.sequenceName == vcf_contig_name); // End of variants.
         if (this->show_progress) {
             std::cerr << "- Parsed " << variants_processed << " variants" << std::endl;
             size_t phasing_bytes = 0;
