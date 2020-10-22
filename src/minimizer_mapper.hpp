@@ -153,6 +153,9 @@ public:
     /// For paired end mapping, how many times should we attempt rescue (per read)?
     size_t max_rescue_attempts = 15;
 
+    ///What is the maximum fragment length that we accept as valid for paired-end reads?
+    size_t max_fragment_length = 2000;
+
     /// Implemented rescue algorithms: no rescue, dozeu, GSSW, dozeu on local haplotypes.
     enum RescueAlgorithm { rescue_none, rescue_dozeu, rescue_gssw, rescue_haplotypes };
 

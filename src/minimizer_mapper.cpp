@@ -36,7 +36,7 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     path_graph(path_graph), minimizer_indexes(minimizer_indexes),
     distance_index(distance_index), gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index),
-    fragment_length_distr(2000,1000,0.90) {
+    fragment_length_distr(1000,1000,0.95) {
 
    
 }
@@ -715,8 +715,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             int64_t dist = distance_between(alns1.front(), alns2.front());
             // And that they have an actual pair distance and set of relative orientations
 
-            if (dist == std::numeric_limits<int64_t>::max()) {
-                //If the distance between them is ambiguous, leave them unmapped
+            if (dist == std::numeric_limits<int64_t>::max() ||
+                dist >= max_fragment_length) {
+                //If the distance between them is ambiguous or it it large enough that we don't think it's valid, leave them unmapped
 
                 ambiguous_pair_buffer.emplace_back(aln1, aln2);
                 pair<vector<Alignment>, vector<Alignment>> empty;
