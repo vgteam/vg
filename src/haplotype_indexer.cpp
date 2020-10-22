@@ -305,6 +305,21 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
 std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph* graph, std::string vcf_filename,
     bool delete_graph) const {
 
+    // Generate threads for all non-alt paths.
+    std::vector<path_handle_t> path_handles;
+    graph->for_each_path_handle([&](path_handle_t path_handle) {
+        std::string path_name = graph->get_path_name(path_handle);
+        if (!Paths::is_alt(path_name)) {
+            path_handles.push_back(path_handle);
+        }
+    });
+
+    return this->build_gbwt(graph, vcf_filename, path_handles, delete_graph);
+}
+
+std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph* graph, std::string vcf_filename,
+    const std::vector<path_handle_t>& path_handles, bool delete_graph) const {
+
     // GBWT metadata.
     std::vector<std::string> sample_names, contig_names;
     size_t haplotype_count = 0;
@@ -332,15 +347,10 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph*
         }
     }
     
-    // Determine the non-alt paths and use their names as contig names.
-    std::vector<path_handle_t> path_handles;
-    graph->for_each_path_handle([&](path_handle_t path_handle) {
-        std::string path_name = graph->get_path_name(path_handle);
-        if (!Paths::is_alt(path_name)) {
-            path_handles.push_back(path_handle);
-            contig_names.push_back(path_name);
-        }
-    });
+    // Use path names as contig names.
+    for (path_handle_t path_handle : path_handles) {
+        contig_names.push_back(graph->get_path_name(path_handle));
+    }
 
     // Actual work.
     unordered_set<gbwt::size_type> skipped_sample_numbers;

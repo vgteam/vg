@@ -128,7 +128,20 @@ public:
      */
     std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(PathHandleGraph* graph, std::string vcf_filename,
         bool delete_graph) const;
-    
+
+    /**
+     * Build a GBWT from the haplotypes in the given VCF file, but only
+     * for the specified paths.
+     *
+     * Respects excluded_samples and does not produce threads for them.
+     *
+     * If needed, this function can delete the graph to save memory.
+     *
+     * TODO: We copy the file name, as vcflib requires a non-const name.
+     */
+    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(PathHandleGraph* graph, std::string vcf_filename,
+        const std::vector<path_handle_t>& path_handles, bool delete_graph) const;
+
     /**
      * Build a GBWT from the embedded non-alt paths in the graph. Use
      * paths_as_samples to choose whether we treat the paths as contigs or
