@@ -2431,8 +2431,21 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
      
         pos_t pos1 = initial_position(aln1.path()); 
         pos_t pos2 = final_position(aln2.path());
+        pos_t pos1_rev = reverse_base_pos(pos1, this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos1))));
+        pos_t pos2_rev = reverse_base_pos(pos2, this->gbwt_graph.get_length(this->gbwt_graph.get_handle(id(pos2))));
 
-        int64_t min_dist = distance_index.min_distance(pos1, pos2);
+        int64_t min_dist1 = distance_index.min_distance(pos1, pos2);
+        int64_t min_dist2 = distance_index.min_distance(pos1, pos2_rev);
+        int64_t min_dist3 = distance_index.min_distance(pos1_rev, pos2);
+        int64_t min_dist4 = distance_index.min_distance(pos1_rev, pos2_rev);
+        int64_t min_dist = -1;
+        for (int64_t dist : {min_dist1, min_dist2, min_dist3, min_dist4}){
+            if (min_dist == -1) {
+                min_dist = dist;
+            } else if (dist != -1) {
+                min_dist = min(min_dist, dist); 
+            }
+        }
         return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
     } else {
         return std::numeric_limits<int64_t>::max();
