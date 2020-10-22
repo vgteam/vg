@@ -166,9 +166,10 @@ using namespace std;
         /// returns the transitive reduction of a topologically sorted DAG's adjacency list
         vector<vector<size_t>> transitive_reduction(const vector<vector<size_t>>& adj) const;
         
-        /// returns the nodes in an adjacency list that have an outgoing edge through which all of their component's
-        /// source-to-sink paths flow
-        vector<size_t> find_constriction_edges(const vector<vector<size_t>>& adj) const;
+        /// returns the nodes that are the center of a directed star through which all source-to-sink
+        /// paths in their connected component flow. paired bool indicates whether the star faces
+        /// forward (false) or backward (true).
+        vector<pair<size_t, bool>> find_constriction_stars(const vector<vector<size_t>>& adj) const;
         
         /// make a sentinel meant to indicate an unmapped read
         static Alignment make_null_alignment(const Alignment& source);
