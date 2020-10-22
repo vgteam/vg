@@ -76,7 +76,7 @@ var searchData=
   ['find_5fbreakpoints',['find_breakpoints',['../namespacevg.html#ac80bc94af296d0a543d983eae79afac0',1,'vg']]],
   ['find_5fbubble',['find_bubble',['../classvg_1_1NestedTraversalFinder.html#ad9fd7aef8b98fdc56b429e4613113c6f',1,'vg::NestedTraversalFinder::find_bubble()'],['../classvg_1_1RepresentativeTraversalFinder.html#ad8cc120dc63491eadfdc7b00cd1dc519',1,'vg::RepresentativeTraversalFinder::find_bubble()']]],
   ['find_5fconnecting_5fpaths',['find_connecting_paths',['../classvg_1_1MinimizerMapper.html#ab3256c8c0ebc49ff72af298684580fa4',1,'vg::MinimizerMapper']]],
-  ['find_5fconstriction_5fedges',['find_constriction_edges',['../classvg_1_1Surjector.html#a040e8e24345e350614bfcee128d4989c',1,'vg::Surjector']]],
+  ['find_5fconstriction_5fstars',['find_constriction_stars',['../classvg_1_1Surjector.html#a10ba1fad2731d7830eb07becf5eb0bc2',1,'vg::Surjector']]],
   ['find_5fcycle_5fpath_5fin_5fcactus',['find_cycle_path_in_cactus',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#af554cefbab4c2bd70529342b2916d30e',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
   ['find_5fedges_5fto_5fprune',['find_edges_to_prune',['../namespacevg.html#a4b1a635d2dfecadd8fe795cb80cedfb7',1,'vg']]],
   ['find_5ffanout_5fmems',['find_fanout_mems',['../classvg_1_1BaseMapper.html#aeb048d786d78b3a545f724bf45cf11d6',1,'vg::BaseMapper']]],

@@ -154,8 +154,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a2149d1e5e6aba2e07b92030e6afc617d"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a2149d1e5e6aba2e07b92030e6afc617d">transitive_reduction</a> (const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj) const</td></tr>
 <tr class="memdesc:a2149d1e5e6aba2e07b92030e6afc617d"><td class="mdescLeft">&#160;</td><td class="mdescRight">returns the transitive reduction of a topologically sorted DAG's adjacency list  <a href="#a2149d1e5e6aba2e07b92030e6afc617d">More...</a><br /></td></tr>
 <tr class="separator:a2149d1e5e6aba2e07b92030e6afc617d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a040e8e24345e350614bfcee128d4989c"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a040e8e24345e350614bfcee128d4989c">find_constriction_edges</a> (const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj) const</td></tr>
-<tr class="separator:a040e8e24345e350614bfcee128d4989c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a10ba1fad2731d7830eb07becf5eb0bc2"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; size_t, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a10ba1fad2731d7830eb07becf5eb0bc2">find_constriction_stars</a> (const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj) const</td></tr>
+<tr class="separator:a10ba1fad2731d7830eb07becf5eb0bc2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#ab180631766b1e787e29dd202ad455d90">AlignerClient</a> (double <a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a>=vg::default_gc_content)</td></tr>
 <tr class="separator:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -510,8 +510,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a040e8e24345e350614bfcee128d4989c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a040e8e24345e350614bfcee128d4989c">&#9670;&nbsp;</a></span>find_constriction_edges()</h2>
+<a id="a10ba1fad2731d7830eb07becf5eb0bc2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a10ba1fad2731d7830eb07becf5eb0bc2">&#9670;&nbsp;</a></span>find_constriction_stars()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -520,7 +520,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; size_t &gt; vg::Surjector::find_constriction_edges </td>
+          <td class="memname">vector&lt; pair&lt; size_t, bool &gt; &gt; vg::Surjector::find_constriction_stars </td>
           <td>(</td>
           <td class="paramtype">const vector&lt; vector&lt; size_t &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>adj</em></td><td>)</td>
@@ -533,7 +533,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>returns the nodes in an adjacency list that have an outgoing edge through which all of their component's source-to-sink paths flow </p>
+<p>returns the nodes that are the center of a directed star through which all source-to-sink paths in their connected component flow. paired bool indicates whether the star faces forward (false) or backward (true). </p>
 
 </div>
 </div>
