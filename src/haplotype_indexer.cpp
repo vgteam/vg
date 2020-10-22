@@ -57,17 +57,20 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
                         variant_file.sampleNames.begin() + sample_range.second);
     size_t haplotype_count = 2 * (sample_range.second - sample_range.first); // Assuming a diploid genome
     if (show_progress) {
-        cerr << "Haplotype generation parameters:" << endl;
-        cerr << "- Samples " << sample_range.first << " to " << (sample_range.second - 1) << endl;
-        cerr << "- Batch size " << samples_in_batch << endl;
-        if (this->phase_homozygous) {
-            cerr << "- Phase homozygous genotypes" << endl;
-        }
-        if (this->force_phasing) {
-            cerr << "- Force phasing" << endl;
-        }
-        if (this->discard_overlaps) {
-            cerr << "- Discard overlaps" << endl;
+        #pragma omp critical
+        {
+            cerr << "Haplotype generation parameters:" << endl;
+            cerr << "- Samples " << sample_range.first << " to " << (sample_range.second - 1) << endl;
+            cerr << "- Batch size " << samples_in_batch << endl;
+            if (this->phase_homozygous) {
+                cerr << "- Phase homozygous genotypes" << endl;
+            }
+            if (this->force_phasing) {
+                cerr << "- Force phasing" << endl;
+            }
+            if (this->discard_overlaps) {
+                cerr << "- Discard overlaps" << endl;
+            }
         }
     }
 
@@ -76,16 +79,10 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
     for (size_t contig = 0; contig < contigs.size(); contig++) {
         std::string path_name = graph->get_path_name(contigs[contig]);
         std::string vcf_contig_name = (this->path_to_vcf.count(path_name) > 0 ? this->path_to_vcf.at(path_name) : path_name);
-        if (this->show_progress) {
-            cerr << "Processing path " << path_name << " as VCF contig " << vcf_contig_name << endl;
-        }
 
         // Set the VCF region or process the entire contig.
         if (this->regions.count(vcf_contig_name)) {
             std::pair<size_t, size_t> region = this->regions.at(vcf_contig_name);
-            if (show_progress) {
-                std::cerr << "- Setting region " << region.first << " to " << region.second << std::endl;
-            }
             variant_file.setRegion(vcf_contig_name, region.first, region.second);
         } else {
             variant_file.setRegion(vcf_contig_name);
@@ -94,10 +91,17 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
         // Check that the VCF file contains this contig.
         vcflib::Variant var(variant_file);
         if (!(variant_file.is_open() && variant_file.getNextVariant(var) && var.sequenceName == vcf_contig_name)) {
-            if (this->show_progress) {
-                std::cerr << "Contig " << vcf_contig_name << " not present in the VCF file" << std::endl;
-            }
             continue;
+        }
+        if (this->show_progress) {
+            #pragma omp critical
+            {
+                std::cerr << "Processing path " << path_name << " as VCF contig " << vcf_contig_name << std::endl;
+                if (this->regions.count(vcf_contig_name)) {
+                    std::pair<size_t, size_t> region = this->regions.at(vcf_contig_name);
+                    std::cerr << "- Setting region " << region.first << " to " << region.second << std::endl;
+                }
+            }
         }
 
         // Structures to parse the VCF file into.
@@ -127,7 +131,10 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
         }
         
         if (this->rename_variants && this->show_progress) {
-            std::cerr << "- Moving variants from " << vcf_contig_name << " to " << path_name << std::endl;
+            #pragma omp critical
+            {
+                std::cerr << "- Moving variants from " << vcf_contig_name << " to " << path_name << std::endl;
+            }
         }
 
         // Parse the variants and the phasings.
@@ -159,8 +166,11 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
             if (!ref_path.empty()) {
                 ref_pos = variants.firstOccurrence(ref_path.front());
                 if (ref_pos == variants.invalid_position()) {
-                    std::cerr << "warning: [HaplotypeIndexer::parse_vcf] invalid ref path for " << var_name << " at "
-                         << var.sequenceName << ":" << var.position << std::endl;
+                    #pragma omp critical
+                    {
+                        std::cerr << "warning: [HaplotypeIndexer::parse_vcf] invalid ref path for " << var_name << " at "
+                            << var.sequenceName << ":" << var.position << std::endl;
+                    }
                     continue;
                 }
             } else {
@@ -196,12 +206,15 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
                     // This variant from the VCF is just not in the graph, so skip it.
                     found_missing_variants++;
                     if (this->warn_on_missing_variants && found_missing_variants <= this->max_missing_variant_warnings) {
-                        // The user might not know it. Warn them in case they mixed up their VCFs.
-                        std::cerr << "warning: [HaplotypeIndexer::parse_vcf] alt and ref paths for " << var_name
-                                << " at " << var.sequenceName << ":" << var.position
-                                << " missing/empty! Was the variant skipped during construction?" << std::endl;
-                        if (found_missing_variants == this->max_missing_variant_warnings) {
-                            std::cerr << "warning: [HaplotypeIndexer::parse_vcf] suppressing further missing variant warnings" << std::endl;
+                        #pragma omp critical
+                        {
+                            // The user might not know it. Warn them in case they mixed up their VCFs.
+                            std::cerr << "warning: [HaplotypeIndexer::parse_vcf] alt and ref paths for " << var_name
+                                    << " at " << var.sequenceName << ":" << var.position
+                                    << " missing/empty! Was the variant skipped during construction?" << std::endl;
+                            if (found_missing_variants == this->max_missing_variant_warnings) {
+                                std::cerr << "warning: [HaplotypeIndexer::parse_vcf] suppressing further missing variant warnings" << std::endl;
+                            }
                         }
                     }
                     continue;
@@ -238,12 +251,15 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
         }
         while (variant_file.is_open() && variant_file.getNextVariant(var) && var.sequenceName == vcf_contig_name); // End of variants.
         if (this->show_progress) {
-            std::cerr << "- Parsed " << variants_processed << " variants" << std::endl;
             size_t phasing_bytes = 0;
             for (size_t batch = 0; batch < phasings.size(); batch++) {
                 phasing_bytes += phasings[batch].bytes();
             }
-            std::cerr << "- Phasing information: " << gbwt::inMegabytes(phasing_bytes) << " MB" << std::endl;
+            #pragma omp critical
+            {
+                std::cerr << "- Parsed " << variants_processed << " variants" << std::endl;
+                std::cerr << "- Phasing information: " << gbwt::inMegabytes(phasing_bytes) << " MiB" << std::endl;
+            }
         }
 
         // Save memory by closing the phasings files.
@@ -276,8 +292,11 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
     } // End of contigs.
         
     if (this->warn_on_missing_variants && found_missing_variants > 0) {
-        std::cerr << "warning: [HaplotypeIndexer::parse_vcf] Found " << found_missing_variants << "/" << total_variants_processed
-             << " variants in phasing VCF but not in graph! Do your graph and VCF match?" << std::endl;
+        #pragma omp critical
+        {
+            std::cerr << "warning: [HaplotypeIndexer::parse_vcf] Found " << found_missing_variants << "/" << total_variants_processed
+                << " variants in phasing VCF but not in graph! Do your graph and VCF match?" << std::endl;
+        }
     }
     
     return haplotype_count;
@@ -305,9 +324,12 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph*
             delete graph;
             graph = nullptr;
         }
-        throw runtime_error("Could not open " + vcf_filename);
+        std::exit(1);
     } else if (this->show_progress) {
-        std::cerr << "Opened variant file " << vcf_filename << std::endl;
+        #pragma omp critical
+        {
+            std::cerr << "Opened variant file " << vcf_filename << std::endl;
+        }
     }
     
     // Determine the non-alt paths and use their names as contig names.
@@ -345,7 +367,10 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph*
             return this->discard_overlaps;
         });
         if (this->show_progress) {
-            std::cerr << "- Processed samples " << phasings_batch.offset() << " to " << (phasings_batch.offset() + phasings_batch.size() - 1) << std::endl;
+            #pragma omp critical
+            {
+                std::cerr << "- Processed samples " << phasings_batch.offset() << " to " << (phasings_batch.offset() + phasings_batch.size() - 1) << std::endl;
+            }
         }
     }, delete_graph);
     haplotype_count += parsed_haplotypes - skipped_sample_numbers.size() * 2;
@@ -376,7 +401,10 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
 
     // Actual work.
     if (show_progress) {
-        cerr << "Converting paths to threads..." << endl;
+        #pragma omp critical
+        {
+            std::cerr << "Indexing embedded paths" << std::endl;
+        }
     }
     graph->for_each_path_handle([&](path_handle_t path_handle) {
         std::string path_name = graph->get_path_name(path_handle);
@@ -431,7 +459,10 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
 
     // Actual work.
     if (this->show_progress) {
-        std::cerr << "Converting " << aln_format << " to threads..." << std::endl;
+        #pragma omp critical
+        {
+            std::cerr << "Converting " << aln_format << " to threads" << std::endl;
+        }
     }
     std::function<void(Alignment&)> lambda = [&](Alignment& aln) {
         gbwt::vector_type buffer;

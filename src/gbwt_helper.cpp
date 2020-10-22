@@ -93,9 +93,12 @@ void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
     builder.index.metadata.setHaplotypes(haplotype_count);
     builder.index.metadata.setContigs(contig_names);
     if (print_metadata) {
-        std::cerr << "GBWT metadata: ";
-        gbwt::operator<<(std::cerr, builder.index.metadata);
-        std::cerr << std::endl;
+        #pragma omp critical
+        {
+            std::cerr << "GBWT metadata: ";
+            gbwt::operator<<(std::cerr, builder.index.metadata);
+            std::cerr << std::endl;
+        }
     }
 }
 
