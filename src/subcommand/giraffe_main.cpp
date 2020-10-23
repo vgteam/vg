@@ -326,6 +326,7 @@ void help_giraffe(char** argv) {
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw / haplotypes) [dozeu]" << endl
+    << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution" << endl
     << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
     << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
     << "  --paired-distance-limit FLOAT cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean [2.0]" << endl
@@ -397,7 +398,10 @@ int main_giraffe(int argc, char** argv) {
     //Throw away extensions with scores that are this amount below the best
     Range<int> extension_score = 1;
     //Attempt up to this many rescues of reads with no pairs
+    bool forced_rescue_attempts = false;
     Range<int> rescue_attempts = 15;
+    //Don't let distances larger than this contribute to the fragment length distribution
+    size_t fragment_length = 2000;
     // Which rescue algorithm do we use?
     MinimizerMapper::RescueAlgorithm rescue_algorithm = MinimizerMapper::rescue_dozeu;
     //Did we force the fragment length distribution?
@@ -501,6 +505,7 @@ int main_giraffe(int argc, char** argv) {
             {"rescue-algorithm", required_argument, 0, 'A'},
             {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
             {"rescue-subgraph-size", required_argument, 0, OPT_RESCUE_STDEV },
+            {"max-fragment-length", required_argument, 0, 'L' },
             {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
             {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
@@ -510,7 +515,7 @@ int main_giraffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:o:nb:c:C:D:F:e:a:S:u:v:w:Ot:r:A:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:o:nb:c:C:D:F:e:a:S:u:v:w:Ot:r:A:L:",
                          long_options, &option_index);
 
 
@@ -779,13 +784,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case 'r':
                 {
+                    forced_rescue_attempts = true;
                     rescue_attempts = parse<Range<int>>( optarg);
                     if (rescue_attempts < 0) {
                         cerr << "error: [vg giraffe] Rescue attempts must be positive" << endl;
-                        exit(1);
-                    }
-                    if (!paired) {
-                        cerr << "error: [vg giraffe] Rescue can only be done on paired-end reads" << endl;
                         exit(1);
                     }
                 }
@@ -814,6 +816,9 @@ int main_giraffe(int argc, char** argv) {
             case OPT_FRAGMENT_STDEV:
                 forced_stdev = true;
                 fragment_stdev = parse<double>(optarg);
+                break;
+            case 'L':
+                fragment_length = parse<size_t>(optarg);
                 break;
 
             case OPT_CLUSTER_STDEV:
@@ -968,6 +973,9 @@ int main_giraffe(int argc, char** argv) {
         forced_stdev = false;
         fragment_mean = 0.0;
         fragment_stdev = 0.0;
+    }
+    if ((forced_mean || forced_stdev || forced_rescue_attempts) && (!paired)) {
+        cerr << "warning:[vg giraffe] Attempting to set paired-end parameters but running in single-end mode" << endl;
     }
 
     // create in-memory objects
@@ -1173,6 +1181,7 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--rescue-attempts " << rescue_attempts << endl;
             cerr << "--rescue-algorithm " << algorithm_names[rescue_algorithm] << endl;
         }
+        minimizer_mapper.max_fragment_length = fragment_length;
         minimizer_mapper.paired_distance_stdevs = cluster_stdev;
         minimizer_mapper.rescue_subgraph_stdevs = rescue_stdev;
         minimizer_mapper.max_rescue_attempts = rescue_attempts;

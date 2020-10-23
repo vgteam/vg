@@ -24,6 +24,7 @@
 //#define debug
 //#define print_minimizers
 //#define debug_dump_graph
+//#define debug_fragment_distr
 
 namespace vg {
 
@@ -694,7 +695,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
         //If we know the fragment length distribution then we just map paired ended 
         return map_paired(aln1, aln2);
-
     } else {
         //If we don't know the fragment length distribution, map the reads single ended
 
@@ -715,8 +715,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             int64_t dist = distance_between(alns1.front(), alns2.front());
             // And that they have an actual pair distance and set of relative orientations
 
-            if (dist == std::numeric_limits<int64_t>::max()) {
-                //If the distance between them is ambiguous, leave them unmapped
+            if (dist == std::numeric_limits<int64_t>::max() ||
+                dist >= max_fragment_length) {
+                //If the distance between them is ambiguous or it it large enough that we don't think it's valid, leave them unmapped
 
                 ambiguous_pair_buffer.emplace_back(aln1, aln2);
                 pair<vector<Alignment>, vector<Alignment>> empty;
@@ -734,6 +735,31 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             mapped_pair.first.emplace_back(std::move(alns1.front()));
             mapped_pair.second.emplace_back(std::move(alns2.front()));
             pair_all(mapped_pair);
+
+#ifdef debug_fragment_distr
+            //Print stats about finalizing the fragment length distribution, copied from mpmap
+            if (fragment_length_distr.is_finalized()) {
+                cerr << "finalized read distribution with " << fragment_length_distr.max_sample_size() << " measurements" << endl;
+                cerr << "mean: " << fragment_length_distr.mean() << endl;
+                cerr << "std dev: " << fragment_length_distr.std_dev() << endl;
+                cerr << "ambiguous buffer contains pairs:" << endl;
+                for (pair<Alignment,Alignment>& aln_pair : ambiguous_pair_buffer) {
+                    cerr << "\t" << aln_pair.first.name() << ", " << aln_pair.second.name() << endl;
+                }
+                cerr << "distance measurements:" << endl;
+                auto iter = fragment_length_distr.measurements_begin();
+                if (iter != fragment_length_distr.measurements_end()) {
+                    cerr << *iter;
+                    iter++;
+                }
+                for (; iter != fragment_length_distr.measurements_end(); iter++) {
+                    cerr << ", " << *iter;
+                }
+                cerr << endl;
+            }
+#endif
+
+
             return mapped_pair;
 
         } else {
