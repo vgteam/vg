@@ -21,7 +21,7 @@
 #include "../annotation.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
-#include "../surjecting_alignment_emitter.hpp"
+#include "../hts_alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
 #include "../index_manager.hpp"
@@ -305,6 +305,7 @@ void help_giraffe(char** argv) {
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
+    << "  --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
     << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
@@ -351,6 +352,7 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_FRAGMENT_STDEV 1006
     #define OPT_CLUSTER_STDEV 1007
     #define OPT_RESCUE_STDEV 1008
+    #define OPT_REF_PATHS 1009
     
 
     // initialize parameters with their default options
@@ -442,6 +444,9 @@ int main_giraffe(int argc, char** argv) {
     std::string output_format = "GAM";
     std::set<std::string> output_formats = { "GAM", "GAF", "JSON", "TSV", "SAM", "BAM", "CRAM" };
 
+    // For HTSlib formats, where do we get sequence header info?
+    std::string ref_paths_name;
+
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
         { "none", MinimizerMapper::rescue_none },
@@ -475,6 +480,7 @@ int main_giraffe(int argc, char** argv) {
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
             {"output-format", required_argument, 0, 'o'},
+            {"ref-paths", required_argument, 0, OPT_REF_PATHS},
             {"discard", no_argument, 0, 'n'},
             {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
             {"report-name", required_argument, 0, OPT_REPORT_NAME},
@@ -617,6 +623,10 @@ int main_giraffe(int argc, char** argv) {
                         std::exit(1);
                     }
                 }
+                break;
+                
+            case OPT_REF_PATHS:
+                ref_paths_name = optarg;
                 break;
 
             case 'n':
@@ -890,10 +900,21 @@ int main_giraffe(int argc, char** argv) {
         rescue_algorithm = MinimizerMapper::rescue_none;
     }
     
-    // Determine if we are surjecting
-    bool surjecting = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
-
     // Now all the arguments are parsed, so see if they make sense
+    
+    // Decide if we are outputting to an htslib format
+    bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
+
+    if (!ref_paths_name.empty() && !hts_output) {
+        cerr << "warning:[vg giraffe] Reference path file (--ref-paths) is only used when output format (-o) is SAM, BAM, or CRAM." << endl;
+        ref_paths_name = "";
+    }
+    
+    if (output_format != "GAM" && !output_basename.empty()) {
+        cerr << "error:[vg giraffe] Using an output basename (--output-basename) only makes sense for GAM format (-o)" << endl;
+        exit(1);
+    }
+    
     if (!indexes.can_get_gbwtgraph() && !indexes.can_get_graph()) {
         cerr << "error:[vg giraffe] Mapping requires a normal graph (-x) or a GBWTGraph (-g)" << endl;
         exit(1);
@@ -904,7 +925,7 @@ int main_giraffe(int argc, char** argv) {
         exit(1);
     }
     
-    if (surjecting && !indexes.can_get_graph()) {
+    if (hts_output && !indexes.can_get_graph()) {
         cerr << "error:[vg giraffe] Mapping to a linear format requires a normal graph (-x)" << endl;
         exit(1);
     }
@@ -957,7 +978,7 @@ int main_giraffe(int argc, char** argv) {
     // One of these will actually own it
     bdsg::PathPositionOverlayHelper overlay_helper;
     shared_ptr<PathHandleGraph> graph;
-    if (track_correctness || surjecting) {
+    if (track_correctness || hts_output) {
         // Load the base graph
         graph = indexes.get_graph();
         // And make sure it has path position support.
@@ -1174,10 +1195,10 @@ int main_giraffe(int argc, char** argv) {
         
             // Look up all the paths we might need to surject to.
             vector<path_handle_t> paths;
-            if (surjecting) {
-                path_position_graph->for_each_path_handle([&](path_handle_t path_handle) {
-                    paths.push_back(path_handle);
-                });
+            if (hts_output) {
+                // For htslib we need a non-empty list of paths.
+                assert(path_position_graph != nullptr);
+                paths = get_sequence_dictionary(ref_paths_name, *path_position_graph);
             }
             
             // Set up output to an emitter that will handle serialization and surjection.
@@ -1185,7 +1206,7 @@ int main_giraffe(int argc, char** argv) {
             // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
             unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
                 make_unique<NullAlignmentEmitter>() :
-                get_alignment_emitter_with_surjection("-", output_format, paths, thread_count, path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)gbwt_graph.get());
+                get_alignment_emitter("-", output_format, paths, thread_count, path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)gbwt_graph.get());
             
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.
@@ -1247,7 +1268,7 @@ int main_giraffe(int argc, char** argv) {
                         // "properly paired at any distance" and
                         // numeric_limits<int64_t>::max() doesn't.
                         int64_t tlen_limit = 0;
-                        if (surjecting && minimizer_mapper.fragment_distr_is_finalized()) {
+                        if (hts_output && minimizer_mapper.fragment_distr_is_finalized()) {
                              tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
                         }
                         // Emit it
@@ -1289,7 +1310,7 @@ int main_giraffe(int argc, char** argv) {
                     auto mapped_pairs = minimizer_mapper.map_paired(alignment_pair.first, alignment_pair.second);
                     // Work out whether it could be properly paired or not, if that is relevant.
                     int64_t tlen_limit = 0;
-                    if (surjecting && minimizer_mapper.fragment_distr_is_finalized()) {
+                    if (hts_output && minimizer_mapper.fragment_distr_is_finalized()) {
                          tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
                     }
                     // Emit the read

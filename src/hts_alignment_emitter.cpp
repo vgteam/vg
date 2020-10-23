@@ -5,6 +5,7 @@
  */
 
 #include "hts_alignment_emitter.hpp"
+#include "surjecting_alignment_emitter.hpp"
 #include "alignment.hpp"
 #include "vg/io/json2pb.h"
 #include <vg/io/hfile_cppstream.hpp>
@@ -17,30 +18,161 @@
 namespace vg {
 using namespace std;
 
-unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format,
-    const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads, const HandleGraph* graph) {
+unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
+                                                   const vector<path_handle_t>& paths, size_t max_threads,
+                                                   const HandleGraph* graph, bool hts_raw,
+                                                   bool hts_spliced) {
 
+    
+    unique_ptr<AlignmentEmitter> emitter;
+    
     if (format == "SAM" || format == "BAM" || format == "CRAM") {
-        // Make the backing, non-buffered emitter
-        AlignmentEmitter* backing = nullptr;
+        // We are doing linear HTSLib output
         
-        // Make an emitter that supports HTSlib formats
-        if (graph) {
-            const PathPositionHandleGraph* splicing_graph = dynamic_cast<const PathPositionHandleGraph*>(graph);
-            assert(splicing_graph != nullptr);
-            // Use the graph to look for spliced alignments
-            backing = new SplicedHTSAlignmentEmitter(filename, format, path_order_and_length, *splicing_graph, max_threads);
+        // Make sure we actually have a PathPositionalHandleGraph
+        const PathPositionHandleGraph* path_graph = dynamic_cast<const PathPositionHandleGraph*>(graph);
+        if (path_graph == nullptr) {
+            cerr << "error[vg::get_alignment_emitter]: No graph available supporting path length queries needed for " << format << " output." << endl;
+            exit(1);
         }
-        else {
-            // Assume alignments are contiguous
-            backing = new HTSAlignmentEmitter(filename, format, path_order_and_length, max_threads);
+        
+        // Build a path name and length list from the handles
+        vector<pair<string, int64_t>> path_names_and_lengths = extract_path_metadata(paths, *path_graph);
+    
+        if (hts_spliced) {
+            // Use a splicing emitter as the final emitter
+            emitter = make_unique<SplicedHTSAlignmentEmitter>(filename, format, path_names_and_lengths, *path_graph, max_threads);
+        } else {
+            // Use a normal emitter
+            emitter = make_unique<HTSAlignmentEmitter>(filename, format, path_names_and_lengths, max_threads);
         }
-        return unique_ptr<AlignmentEmitter>(backing);
+        
+        if (!hts_raw) {
+            // Need to surject
+            
+            // Make a set of the path handles to surject into
+            unordered_set<path_handle_t> target_paths(paths.begin(), paths.end());
+            // Interpose a surjecting AlignmentEmitter
+            emitter = make_unique<SurjectingAlignmentEmitter>(path_graph, target_paths, std::move(emitter));
+        }
+    
     } else {
         // The non-HTSlib formats don't actually use the path name and length info.
         // See https://github.com/vgteam/libvgio/issues/34
-        return get_non_hts_alignment_emitter(filename, format, {}, max_threads, graph);
+        emitter = get_non_hts_alignment_emitter(filename, format, {}, max_threads, graph);
     }
+    
+    return emitter;
+}
+
+vector<pair<string, int64_t>> extract_path_metadata(const vector<path_handle_t>& paths, const PathPositionHandleGraph& graph) {
+    
+    vector<pair<string, int64_t>> extracted;
+    
+    for (auto path_handle : paths) {
+        // Get the name and length of each path.
+        extracted.emplace_back(graph.get_path_name(path_handle), graph.get_path_length(path_handle));
+    }
+    
+    return extracted;
+}
+
+vector<path_handle_t> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph) {
+    
+    // We fill in the "dictionary" (which is what SAM calls it; it's not a mapping for us)
+    vector<path_handle_t> dictionary;
+    
+    if (!filename.empty()) {
+        // TODO: As of right now HTSLib doesn't really let you iterate the sequence dictionary when you use its parser. So we use our own parser.
+        get_input_file(filename, [&](istream& in) {
+            for (string line; getline(in, line);) {
+                // Each line will produce a sequence name and a handle
+                string sequence_name = "";
+                path_handle_t path;
+            
+                if (line.size() == 0) {
+                    // Unless it is empty
+                    continue;
+                }
+            
+                // See if each line starts with @SQ or if we have to handle it as a name.
+                if (starts_with(line, "@SQ")) {
+                    // If it is SAM, split on tabs
+                    auto parts = split_delims(line, "\t");
+                    
+                    // We want to find the length in addition to the name
+                    int64_t length = -1;
+                    
+                    for (size_t i = 1; i < parts.size(); i++) {
+                        if (starts_with(parts[i], "SN:")) {
+                            // The rest of this field is the name
+                            sequence_name = parts[i].substr(3);
+                        } else if (starts_with(parts[i], "LN:")) {
+                            // The rest of this field is a length number
+                            length = stoll(parts[i].substr(3));
+                        }
+                    }
+                    
+                    if (sequence_name == "") {
+                        cerr << "error:[vg::get_sequence_dictionary] No sequence name for @SQ line " << line << endl;
+                        exit(1);
+                    }
+                    if (length < 0) {
+                        cerr << "error:[vg::get_sequence_dictionary] Unacceptable sequence length " << length << " for sequence " << sequence_name << endl;
+                        exit(1);
+                    }
+                    
+                    // Check the sequence against the graph
+                    if (!graph.has_path(sequence_name)) {
+                        // Name doesn't exist
+                        cerr << "error:[vg mpmap] Graph does not have a path named " << line << ", which was indicated in " << filename << endl;
+                        exit(1);
+                    }
+                    path = graph.get_path_handle(sequence_name);
+                    size_t graph_path_length = graph.get_path_length(path);
+                    if (graph_path_length != length) {
+                        // Length doesn't match
+                        cerr << "error:[vg mpmap] Graph contains a path " << sequence_name << " of length " << graph_path_length
+                            << " but sequence dictionary in " << filename << " indicates a length of " << length << endl;
+                        exit(1);
+                    }
+                    
+                } else {
+                    // Get the name from the line and the sequence from the graph
+                    sequence_name = line;
+                    if (!graph.has_path(sequence_name)) {
+                        cerr << "error:[vg mpmap] Graph does not have a path named " << line << ", which was indicated in " << filename << endl;
+                        exit(1);
+                    }
+                    path = graph.get_path_handle(sequence_name);
+                }
+                
+                // Save the path handle
+                dictionary.push_back(path);
+            }
+        });
+        
+        if (dictionary.empty()) {
+            // There were no entries in the file
+            cerr << "error:[vg::get_sequence_dictionary] No sequence dictionary available in file: " << filename << endl;
+            exit(1);
+        }
+    } else {
+        graph.for_each_path_handle([&](const path_handle_t& path_handle) {
+            string sequence_name = graph.get_path_name(path_handle);
+            if (!Paths::is_alt(sequence_name)) {
+                // This isn't an alt allele path, so we want it.
+                dictionary.push_back(path_handle);
+            }
+        });
+        
+        if (dictionary.empty()) {
+            cerr << "error:[vg::get_sequence_dictionary] No non-alt-allele paths available in the graph!" << endl;
+            exit(1);
+        }
+    }
+    
+    return dictionary;
 }
 
 // Give the footer length for rewriting BGZF EOF markers.

@@ -48,6 +48,9 @@ bool is_number(const string& s);
 std::vector<std::string>& split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems);
 std::vector<std::string> split_delims(const std::string &s, const std::string& delims);
 
+/// Check if a string starts with another string
+bool starts_with(const std::string& value, const std::string& prefix);
+
 const std::string sha1sum(const std::string& data);
 const std::string sha1head(const std::string& data, size_t head);
 
