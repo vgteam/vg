@@ -72,6 +72,7 @@ $(function() {
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-static-methods">Static Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
+<a href="#friends">Friends</a> &#124;
 <a href="classvg_1_1MinimizerMapper-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::MinimizerMapper Class Reference</div>  </div>
@@ -196,6 +197,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0985bcf3a1ed28098bf0271b251dd6e2">max_rescue_attempts</a> = 15</td></tr>
 <tr class="memdesc:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">For paired end mapping, how many times should we attempt rescue (per read)?  <a href="#a0985bcf3a1ed28098bf0271b251dd6e2">More...</a><br /></td></tr>
 <tr class="separator:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4575d140e45d04d3d36e6a99bf7b0241"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4575d140e45d04d3d36e6a99bf7b0241">max_fragment_length</a> = 2000</td></tr>
+<tr class="memdesc:a4575d140e45d04d3d36e6a99bf7b0241"><td class="mdescLeft">&#160;</td><td class="mdescRight">What is the maximum fragment length that we accept as valid for paired-end reads?  <a href="#a4575d140e45d04d3d36e6a99bf7b0241">More...</a><br /></td></tr>
+<tr class="separator:a4575d140e45d04d3d36e6a99bf7b0241"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a17f800e4588567e473ea18a55bd186b9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4">RescueAlgorithm</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a17f800e4588567e473ea18a55bd186b9">rescue_algorithm</a> = <a class="el" href="classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4a4120cab71587100aa2d1308010fec524">rescue_dozeu</a></td></tr>
 <tr class="memdesc:a17f800e4588567e473ea18a55bd186b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">The algorithm used for rescue.  <a href="#a17f800e4588567e473ea18a55bd186b9">More...</a><br /></td></tr>
 <tr class="separator:a17f800e4588567e473ea18a55bd186b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -322,6 +326,11 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:ab019d5888d75bbe36d8eb444d148ac50"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3915618267605133f2e9144c693e68e5"><td class="memItemLeft" align="right" valign="top">atomic_flag&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a3915618267605133f2e9144c693e68e5">warned_about_bad_distribution</a> = ATOMIC_FLAG_INIT</td></tr>
 <tr class="separator:a3915618267605133f2e9144c693e68e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="friends"></a>
+Friends</h2></td></tr>
+<tr class="memitem:a8239430f869fd4cc597359f38a1ab29e"><td class="memItemLeft" align="right" valign="top">class&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a8239430f869fd4cc597359f38a1ab29e">TestMinimizerMapper</a></td></tr>
+<tr class="separator:a8239430f869fd4cc597359f38a1ab29e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
 Additional Inherited Members</h2></td></tr>
@@ -2404,6 +2413,29 @@ template&lt;typename Item , typename Score &gt; </div>
 
 </div>
 </div>
+<h2 class="groupheader">Friends And Related Function Documentation</h2>
+<a id="a8239430f869fd4cc597359f38a1ab29e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8239430f869fd4cc597359f38a1ab29e">&#9670;&nbsp;</a></span>TestMinimizerMapper</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">friend class TestMinimizerMapper</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">friend</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <h2 class="groupheader">Member Data Documentation</h2>
 <a id="a4aa953562a49de5befd8c80ee5e84a22"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4aa953562a49de5befd8c80ee5e84a22">&#9670;&nbsp;</a></span>cluster_coverage_threshold</h2>
@@ -2666,6 +2698,22 @@ template&lt;typename Item , typename Score &gt; </div>
 </div><div class="memdoc">
 
 <p>How many clusters should we align? </p>
+
+</div>
+</div>
+<a id="a4575d140e45d04d3d36e6a99bf7b0241"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4575d140e45d04d3d36e6a99bf7b0241">&#9670;&nbsp;</a></span>max_fragment_length</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::max_fragment_length = 2000</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>What is the maximum fragment length that we accept as valid for paired-end reads? </p>
 
 </div>
 </div>
