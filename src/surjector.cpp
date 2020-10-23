@@ -134,6 +134,12 @@ using namespace std;
                 cerr << endl;
                 cerr << "\t" << pb2json(anchor.second) << endl;
             }
+            if (connections.count(surjection_record.first)) {
+                cerr << "\tconnections" << endl;
+                for (const auto& connection : connections[surjection_record.first]) {
+                    cerr << "\t\t" << get<0>(connection) << " -> " << get<1>(connection) << " (" << get<2>(connection) << ")" << endl;
+                }
+            }
         }
 #endif
         // the surjected alignment for each path we overlapped
@@ -1921,6 +1927,9 @@ using namespace std;
                 ++removed_so_far;
             }
             else {
+#ifdef debug_filter_paths
+                cerr << "updating connection " << get<0>(connection) << " -> " << get<1>(connection) << endl;
+#endif
                 get<0>(connection) -= removed_before[get<0>(connection)];
                 get<1>(connection) -= removed_before[get<1>(connection)];
                 if (removed_so_far) {
@@ -1937,6 +1946,10 @@ using namespace std;
         if (!is_sorted(path_chunks.begin(), path_chunks.end(),
                        [&](path_chunk_t& a, path_chunk_t& b) { return a.first < b.first; })) {
             
+#ifdef debug_filter_paths
+            cerr << "putting path chunks in lexicographic order" << endl;
+#endif
+            
             // compute which index the chunks should end up in
             for (size_t i = 0; i < path_chunks.size(); ++i) {
                 order[i] = i;
@@ -1949,19 +1962,20 @@ using namespace std;
             for (size_t i = 0; i < order.size(); ++i) {
                 index[order[i]] = i;
             }
-            // co-sort the vectors into the computed indexes
+            
+            // update the indexes of the connections
+            for (auto& connection : connections) {
+                get<0>(connection) = index[get<0>(connection)];
+                get<1>(connection) = index[get<1>(connection)];
+            }
+            
+            // and co-sort the vectors into the computed indexes
             for (size_t i = 0; i < index.size(); ++i) {
                 while (index[i] != i) {
                     std::swap(path_chunks[i], path_chunks[index[i]]);
                     std::swap(ref_chunks[i], ref_chunks[index[i]]);
                     std::swap(index[i], index[index[i]]);
                 }
-            }
-            
-            // and update the indexes of the connections
-            for (auto& connection : connections) {
-                get<0>(connection) = order[get<0>(connection)];
-                get<1>(connection) = order[get<1>(connection)];
             }
         }
     }
