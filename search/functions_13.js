@@ -220,6 +220,7 @@ var searchData=
   ['start_5fvcf',['start_vcf',['../classvg_1_1Genotyper.html#a8a5aed6de86a488fe78a223d5e4d6bd6',1,'vg::Genotyper']]],
   ['startfile',['StartFile',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#aaf788a0a0553f9cc0c531fecb941f228',1,'vg::io::BlockedGzipOutputStream']]],
   ['starting_5fposition',['starting_position',['../structvg_1_1GaplessExtension.html#a2dc9687b1ac33335f593028c981fe494',1,'vg::GaplessExtension']]],
+  ['starts_5fwith',['starts_with',['../namespacevg.html#a7b58d5d004a85a09906301781567970a',1,'vg']]],
   ['std_5fdev',['std_dev',['../classvg_1_1FragmentLengthDistribution.html#a4da22f6209796ad178bd6ae88a995c03',1,'vg::FragmentLengthDistribution']]],
   ['stddev',['stddev',['../classvg_1_1normal__distribution.html#aaf593ce22610d686f290face7b5db895',1,'vg::normal_distribution']]],
   ['stdev',['stdev',['../namespacevg.html#a11df8bd14dab3c0cfb7ecfa377a362f5',1,'vg']]],

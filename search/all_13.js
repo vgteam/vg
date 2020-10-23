@@ -366,6 +366,7 @@ var searchData=
   ['start_5fvcf',['start_vcf',['../classvg_1_1Genotyper.html#a8a5aed6de86a488fe78a223d5e4d6bd6',1,'vg::Genotyper']]],
   ['startfile',['StartFile',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#aaf788a0a0553f9cc0c531fecb941f228',1,'vg::io::BlockedGzipOutputStream']]],
   ['starting_5fposition',['starting_position',['../structvg_1_1GaplessExtension.html#a2dc9687b1ac33335f593028c981fe494',1,'vg::GaplessExtension']]],
+  ['starts_5fwith',['starts_with',['../namespacevg.html#a7b58d5d004a85a09906301781567970a',1,'vg']]],
   ['state',['state',['../structvg_1_1GaplessExtension.html#a1b799cab247ae9b2551e902a9f7f2b25',1,'vg::GaplessExtension::state()'],['../classvg_1_1GenomeState.html#ab0f68d58776dcd18a1ef85409a29e452',1,'vg::GenomeState::state()'],['../structhaplo_1_1haplo__DP__rectangle.html#aff798553a0dfd177413b1649e049e574',1,'haplo::haplo_DP_rectangle::state()'],['../classvg_1_1Watchdog.html#a0cecf66da11a5f71e837a9d1b6f6c291',1,'vg::Watchdog::state()']]],
   ['state_5fhash',['state_hash',['../structvg_1_1state__hash.html',1,'vg']]],
   ['state_5ftype',['state_type',['../classvg_1_1PhaseUnfolder.html#a95529e399d5ef61f6a426e1b5cfe9237',1,'vg::PhaseUnfolder']]],
