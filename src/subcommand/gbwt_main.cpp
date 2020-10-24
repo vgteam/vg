@@ -88,8 +88,9 @@ void help_gbwt(char** argv) {
     std::cerr << "    -v, --vcf-input         index the haplotypes in the VCF files specified in input args in parallel" << std::endl;
     std::cerr << "                            (inputs must be over different contigs; implies -f)" << std::endl;
     std::cerr << "        --num-jobs N        use at most N parallel build jobs (default " << default_build_jobs() << ")" << std::endl;
-    std::cerr << "        --inputs-as-jobs    create one build job for each input instead of using a greedy heuristic" << std::endl;
-    std::cerr << "        --parse-only FILE   store the VCF parses with prefix FILE without GBWTs (skip subsequent steps)" << std::endl;
+    std::cerr << "        --inputs-as-jobs    create one build job for each input instead of using first-fit heuristic" << std::endl;
+    std::cerr << "        --parse-only        store the VCF parses without building GBWTs" << std::endl;
+    std::cerr << "                            (use -o for the file name prefix; skips subsequent steps)" << std::endl;
     std::cerr << "        --ignore-missing    do not warn when variants are missing from the graph" << std::endl;
     std::cerr << "        --actual-phasing    do not interpret unphased homozygous genotypes as phased" << std::endl;
     std::cerr << "        --force-phasing     replace unphased genotypes with randomly phased ones" << std::endl;
@@ -98,7 +99,6 @@ void help_gbwt(char** argv) {
     std::cerr << "        --batch-size N      index the haplotypes in batches of N samples (default 200)" << std::endl; // FIXME source for the default
     std::cerr << "        --sample-range X-Y  index samples X to Y (inclusive, 0-based)" << std::endl;
     std::cerr << "        --rename V=P        VCF contig V matches path P in the graph (may repeat)" << std::endl;
-    std::cerr << "        --rename-variants   the graph stores variants using path names instead of VCF contig names" << std::endl;
     std::cerr << "        --vcf-region C:X-Y  restrict VCF contig to coordinates X to Y (inclusive, 1-based; may repeat)" << std::endl;
     std::cerr << "        --exclude-sample X  do not index the sample with name X (faster than -R; may repeat)" << std::endl;
     std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (no input args)" << std::endl;
@@ -160,7 +160,7 @@ int main_gbwt(int argc, char** argv)
     constexpr int OPT_BATCH_SIZE = 1107;
     constexpr int OPT_SAMPLE_RANGE = 1108;
     constexpr int OPT_RENAME = 1109;
-    constexpr int OPT_RENAME_VARIANTS = 1110;
+    constexpr int OPT_RENAME_VARIANTS = 1110; // FIXME this is on by default
     constexpr int OPT_VCF_REGION = 1111;
     constexpr int OPT_EXCLUDE_SAMPLE = 1112;
     constexpr int OPT_PATHS_AS_SAMPLES = 1113;
@@ -176,7 +176,7 @@ int main_gbwt(int argc, char** argv)
 
     // Input GBWT construction.
     HaplotypeIndexer haplotype_indexer;
-    bool gam_format = false, inputs_as_jobs = false;
+    bool gam_format = false, inputs_as_jobs = false, parse_only = false;
     size_t build_jobs = default_build_jobs();
 
     // Other parameters and flags.
@@ -212,7 +212,7 @@ int main_gbwt(int argc, char** argv)
                 { "vcf-input", no_argument, 0, 'v' },
                 { "num-jobs", required_argument, 0, OPT_NUM_JOBS },
                 { "inputs-as-jobs", no_argument, 0, OPT_INPUTS_AS_JOBS },
-                { "parse-only", required_argument, 0, OPT_PARSE_ONLY },
+                { "parse-only", no_argument, 0, OPT_PARSE_ONLY },
                 { "ignore-missing", no_argument, 0, OPT_IGNORE_MISSING },
                 { "actual-phasing", no_argument, 0, OPT_ACTUAL_PHASING },
                 { "force-phasing", no_argument, 0, OPT_FORCE_PHASING },
@@ -286,6 +286,7 @@ int main_gbwt(int argc, char** argv)
             break;
         case 'p':
             show_progress = true;
+            haplotype_indexer.show_progress = true;
             break;
 
         // GBWT construction parameters
@@ -308,7 +309,7 @@ int main_gbwt(int argc, char** argv)
             inputs_as_jobs = true;
             break;
         case OPT_PARSE_ONLY:
-            haplotype_indexer.batch_file_prefix = optarg;
+            parse_only = true;
             break;
         case OPT_IGNORE_MISSING:
             haplotype_indexer.warn_on_missing_variants = false;
@@ -499,10 +500,17 @@ int main_gbwt(int argc, char** argv)
 
     // Sanity checks.
     if (build != build_none) {
+        if (xg_name.empty() || gbwt_output.empty()) {
+            std::cerr << "error: [vg gbwt]: GBWT construction requires a graph and output GBWT" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
         if (build == build_vcf) {
             if (input_filenames.empty()) {
                 std::cerr << "error: [vg gbwt]: GBWT construction from VCF files requires input args" << std::endl;
                 std::exit(EXIT_FAILURE);
+            }
+            if (parse_only) {
+                haplotype_indexer.batch_file_prefix = gbwt_output;
             }
         } else if (build == build_alignments) {
             if (input_filenames.empty()) {
@@ -514,10 +522,6 @@ int main_gbwt(int argc, char** argv)
                 std::cerr << "error: [vg gbwt]: GBWT construction from embedded paths does not use input args" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
-        }
-        if (xg_name.empty() || gbwt_output.empty()) {
-            std::cerr << "error: [vg gbwt]: GBWT construction requires a graph and output GBWT" << std::endl;
-            std::exit(EXIT_FAILURE);
         }
     }
     if (merge != merge_none) {
@@ -568,13 +572,13 @@ int main_gbwt(int argc, char** argv)
     }
     if (metadata_mode) {
         if (!(input_filenames.size() == 1 || produces_one_gbwt)) {
-            std::cerr << "error: [vg gbwt]: metadata operations one input GBWT" << std::endl;
+            std::cerr << "error: [vg gbwt]: metadata operations require one input GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
     }
     if (thread_mode) {
         if (!(input_filenames.size() == 1 || produces_one_gbwt)) {
-            std::cerr << "error: [vg gbwt]: thread operations one input GBWT" << std::endl;
+            std::cerr << "error: [vg gbwt]: thread operations require one input GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
     }
@@ -615,14 +619,14 @@ int main_gbwt(int argc, char** argv)
                 if (show_progress) {
                     #pragma omp critical
                     {
-                        std::cerr << "Job " << i << ": file " << jobs[i].filename << ", paths";
+                        std::cerr << "Job " << i << ": file " << jobs[i].filename << ", paths {";
                         for (path_handle_t handle : jobs[i].paths) {
                             std::cerr << " " << input_graph->get_path_name(handle);
                         }
-                        std::cerr << std::endl;
+                        std::cerr << " }" << std::endl;
                     }
                 }
-                if (!haplotype_indexer.batch_file_prefix.empty()) {
+                if (parse_only) {
                     vcflib::VariantCallFile variant_file;
                     variant_file.parseSamples = false; // vcflib parsing is very slow if there are many samples.
                     variant_file.open(jobs[i].filename);
@@ -663,7 +667,7 @@ int main_gbwt(int argc, char** argv)
             std::cerr << "GBWTs built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
             std::cerr << std::endl;
         }
-        if (!haplotype_indexer.batch_file_prefix.empty()) {
+        if (parse_only) {
             return 0; // VCF parsing does not produce GBWTs to continue with.
         }
     }
@@ -1002,7 +1006,7 @@ void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, gbwt::DynamicGBWT& d
         dynamic_index = std::move(*index);
         in_use = index_dynamic;
     } else {
-        std::string temp = temp_file::create("gbwt");
+        std::string temp = temp_file::create("gbwt-");
         if (show_progress) {
             #pragma omp critical
             {
@@ -1059,7 +1063,7 @@ std::vector<job_type> determine_jobs(const std::vector<std::string>& vcf_files, 
     }
 
     struct vcf_paths {
-        size_t file, total_length;
+        size_t file;
         std::vector<job_type::path_type> paths;
 
         // In descending order by length.
@@ -1069,21 +1073,19 @@ std::vector<job_type> determine_jobs(const std::vector<std::string>& vcf_files, 
             });
         }
 
-        // For sorting in descending order by total length.
-        bool operator<(const vcf_paths& another) const {
-            return (this->total_length > another.total_length);
-        }
-
         void insert(job_type::path_type path) {
             this->paths.push_back(path);
-            this->total_length += path.second;
+        }
+
+        bool empty() const {
+            return this->paths.empty();
         }
     };
 
     // Initialize the files.
     std::vector<vcf_paths> paths_by_file;
     for (size_t i = 0; i < vcf_files.size(); i++) {
-        paths_by_file.push_back({ i, 0, {} });
+        paths_by_file.push_back({ i, {} });
     }
 
     // Determine which VCF file contains each path.
@@ -1119,7 +1121,7 @@ std::vector<job_type> determine_jobs(const std::vector<std::string>& vcf_files, 
     // Special case: Each input file is a single job.
     if (inputs_as_jobs) {
         for (const vcf_paths& curr : paths_by_file) {
-            if (curr.total_length == 0) {
+            if (curr.empty()) {
                 continue;
             }
             job_type job({ vcf_files[curr.file], {}, 0 });
@@ -1131,15 +1133,12 @@ std::vector<job_type> determine_jobs(const std::vector<std::string>& vcf_files, 
         return result;
     }
 
-    // Longest paths and largest files first for the greedy heuristic.
+    // First-fit heuristic: Create jobs of size at most max_length from each file.
     for (size_t i = 0; i < paths_by_file.size(); i++) {
         paths_by_file[i].sort_paths();
     }
-    std::sort(paths_by_file.begin(), paths_by_file.end());
-
-    // Greedy heuristic: Create jobs of size at most max_length from each file.
     for (const vcf_paths& curr : paths_by_file) {
-        if (curr.total_length == 0) {
+        if (curr.empty()) {
             continue;
         }
         std::vector<job_type> jobs;
