@@ -84,7 +84,9 @@ using namespace std;
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, Path>;
         
         /// the minimum length deletion that the spliced algorithm will interpret as a splice event
-        size_t min_splice_length = 20;
+        int64_t min_splice_length = 20;
+        
+        int64_t dominated_path_chunk_diff = 10;
         
     protected:
         
@@ -106,9 +108,9 @@ using namespace std;
         spliced_surject(const PathPositionHandleGraph* path_position_graph,
                         const string& src_sequence, const string& src_quality,
                         const int32_t src_mapping_quality,
-                        const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
-                        const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                        const vector<tuple<size_t, size_t, int32_t>>& connections,
+                        const path_handle_t& path_handle, vector<path_chunk_t>& path_chunks,
+                        vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                        vector<tuple<size_t, size_t, int32_t>>& connections,
                         pair<step_handle_t, step_handle_t>& path_range_out,
                         bool allow_negative_scores, bool deletions_as_splices) const;
         
@@ -165,6 +167,12 @@ using namespace std;
         
         /// returns the transitive reduction of a topologically sorted DAG's adjacency list
         vector<vector<size_t>> transitive_reduction(const vector<vector<size_t>>& adj) const;
+        
+        /// eliminate any path chunks that have the exact same colinearities as another but are much shorter
+        vector<vector<size_t>> remove_dominated_chunks(const vector<vector<size_t>>& adj,
+                                                       vector<path_chunk_t>& path_chunks,
+                                                       vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                                                       vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
         /// returns the nodes that are the center of a directed star through which all source-to-sink
         /// paths in their connected component flow. paired bool indicates whether the star faces
