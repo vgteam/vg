@@ -1191,6 +1191,8 @@ namespace unittest {
         Node* n12 = graph.create_node("G");
         Node* n13 = graph.create_node("CTGA");
 
+        Node* n14 = graph.create_node("AGCCGTGTGC");
+
         Edge* e1 = graph.create_edge(n1, n2);
         Edge* e2 = graph.create_edge(n1, n3);
         Edge* e3 = graph.create_edge(n2, n3);
@@ -1297,6 +1299,47 @@ namespace unittest {
 
             REQUIRE( clusters.size() == 2);
             REQUIRE( clusters[0].size() == 2);
+            REQUIRE( clusters[1].size() == 2);
+            REQUIRE( clusters[0][0].fragment != clusters[0][1].fragment);
+            REQUIRE( clusters[1][0].fragment != clusters[1][1].fragment);
+
+            REQUIRE(( clusters[0][0].fragment == clusters[1][0].fragment || clusters[0][0].fragment == clusters[1][1].fragment));
+            REQUIRE(( clusters[0][1].fragment == clusters[1][0].fragment || clusters[0][1].fragment == clusters[1][1].fragment));
+
+
+        }
+        SECTION("Disconnected node") {
+
+            vector<id_t> ids({1, 3, 11, 14, 14});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : ids) {
+                pos_t pos = make_pos_t(n, false, 0);
+                std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+            }
+            vector<id_t> ids1({5, 13});
+            vector<SnarlSeedClusterer::Seed> seeds1;
+            for (id_t n : ids1) {
+                pos_t pos = make_pos_t(n, false, 0);
+                std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
+                seeds1.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+            }
+            //Clusters are 
+            //Read 1: {1, 3} in a fragment cluster with Read 2: {5}
+            //Read 1: {11} in a fragment cluster with Read 2: {13}
+            //Read 1 : {14, 14}
+            vector<vector<SnarlSeedClusterer::Seed>> all_seeds;
+            all_seeds.emplace_back(seeds);
+            all_seeds.emplace_back(seeds1);
+
+
+            vector<vector<SnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds, 5, 10); 
+
+
+            REQUIRE( clusters.size() == 2);
+            REQUIRE( clusters[0].size() == 3);
             REQUIRE( clusters[1].size() == 2);
             REQUIRE( clusters[0][0].fragment != clusters[0][1].fragment);
             REQUIRE( clusters[1][0].fragment != clusters[1][1].fragment);
