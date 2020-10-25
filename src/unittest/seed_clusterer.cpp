@@ -7,6 +7,7 @@
 #include "catch.hpp"
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../genotypekit.hpp"
 #include "random_graph.hpp"
 #include "../seed_clusterer.hpp"
@@ -1813,14 +1814,15 @@ namespace unittest {
             // For each random graph
             
             default_random_engine generator(time(NULL));
+            uniform_int_distribution<int> variant_count(5, 500);
+            uniform_int_distribution<int> chrom_len(10, 2000);
 
-            uniform_int_distribution<int> variant_count(5, 200);
-
+            //Make a random graph with three chromosomes of random lengths
             VG graph;
-            random_graph(1000, 30, variant_count(generator), &graph);
+            random_graph({chrom_len(generator), chrom_len(generator), chrom_len(generator)}, 30, variant_count(generator), &graph);
 
 
-            CactusSnarlFinder bubble_finder(graph);
+            IntegratedSnarlFinder bubble_finder(graph);
 
             SnarlManager snarl_manager = bubble_finder.find_snarls();
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
@@ -1846,7 +1848,7 @@ namespace unittest {
                 int64_t read_lim = 30;// Distance between read clusters
                 int64_t fragment_lim = 50;// Distance between fragment clusters
                 for (size_t read = 0 ; read < 2 ; read ++) {
-                    uniform_int_distribution<int> randPosCount(1, 50);
+                    uniform_int_distribution<int> randPosCount(1, 100);
                     for (int j = 0; j < randPosCount(generator); j++) {
                         //Check clusters of j random positions 
  
