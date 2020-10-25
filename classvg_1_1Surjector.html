@@ -114,9 +114,11 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:abe89487faa7dc39d61d299606ed9ac6b"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#abe89487faa7dc39d61d299606ed9ac6b">min_splice_length</a> = 20</td></tr>
-<tr class="memdesc:abe89487faa7dc39d61d299606ed9ac6b"><td class="mdescLeft">&#160;</td><td class="mdescRight">the minimum length deletion that the spliced algorithm will interpret as a splice event  <a href="#abe89487faa7dc39d61d299606ed9ac6b">More...</a><br /></td></tr>
-<tr class="separator:abe89487faa7dc39d61d299606ed9ac6b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9046bb2c7267f996a6636518e2747b89"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a9046bb2c7267f996a6636518e2747b89">min_splice_length</a> = 20</td></tr>
+<tr class="memdesc:a9046bb2c7267f996a6636518e2747b89"><td class="mdescLeft">&#160;</td><td class="mdescRight">the minimum length deletion that the spliced algorithm will interpret as a splice event  <a href="#a9046bb2c7267f996a6636518e2747b89">More...</a><br /></td></tr>
+<tr class="separator:a9046bb2c7267f996a6636518e2747b89"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ace7092128b309c97f00fc688d3311c14"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ace7092128b309c97f00fc688d3311c14">dominated_path_chunk_diff</a> = 10</td></tr>
+<tr class="separator:ace7092128b309c97f00fc688d3311c14"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_attribs_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a25db3953c246e94a7e08ef59fc31b82f">adjust_alignments_for_base_quality</a> = false</td></tr>
 <tr class="separator:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -127,8 +129,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:ae96dd1321ff616a23b471e069e8597ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1ca787971c88c602434bd70073f7df2b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a1ca787971c88c602434bd70073f7df2b">realigning_surject</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle, const vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;path_range_out, bool allow_negative_scores, bool preserve_N_alignments=false, bool preserve_tail_indel_anchors=false) const</td></tr>
 <tr class="separator:a1ca787971c88c602434bd70073f7df2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6a7b45c042a43bae7521437eff8ddc1b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a6a7b45c042a43bae7521437eff8ddc1b">spliced_surject</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *path_position_graph, const string &amp;src_sequence, const string &amp;src_quality, const int32_t src_mapping_quality, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle, const vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, const vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, const vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections, pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;path_range_out, bool allow_negative_scores, bool deletions_as_splices) const</td></tr>
-<tr class="separator:a6a7b45c042a43bae7521437eff8ddc1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8c12eebabcf714e75d4c0feea05c781f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a8c12eebabcf714e75d4c0feea05c781f">spliced_surject</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *path_position_graph, const string &amp;src_sequence, const string &amp;src_quality, const int32_t src_mapping_quality, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle, vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections, pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;path_range_out, bool allow_negative_scores, bool deletions_as_splices) const</td></tr>
+<tr class="separator:a8c12eebabcf714e75d4c0feea05c781f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a160910efa71892d87e316fe86d668150"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, pair&lt; vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a160910efa71892d87e316fe86d668150">extract_overlapping_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;surjection_paths) const</td></tr>
 <tr class="memdesc:a160910efa71892d87e316fe86d668150"><td class="mdescLeft">&#160;</td><td class="mdescRight">get the chunks of the alignment path that follow the given reference paths  <a href="#a160910efa71892d87e316fe86d668150">More...</a><br /></td></tr>
 <tr class="separator:a160910efa71892d87e316fe86d668150"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -154,6 +156,9 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a2149d1e5e6aba2e07b92030e6afc617d"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a2149d1e5e6aba2e07b92030e6afc617d">transitive_reduction</a> (const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj) const</td></tr>
 <tr class="memdesc:a2149d1e5e6aba2e07b92030e6afc617d"><td class="mdescLeft">&#160;</td><td class="mdescRight">returns the transitive reduction of a topologically sorted DAG's adjacency list  <a href="#a2149d1e5e6aba2e07b92030e6afc617d">More...</a><br /></td></tr>
 <tr class="separator:a2149d1e5e6aba2e07b92030e6afc617d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ace96dc0ef3e19c5de75b90217d871d4d"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ace96dc0ef3e19c5de75b90217d871d4d">remove_dominated_chunks</a> (const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj, vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections) const</td></tr>
+<tr class="memdesc:ace96dc0ef3e19c5de75b90217d871d4d"><td class="mdescLeft">&#160;</td><td class="mdescRight">eliminate any path chunks that have the exact same colinearities as another but are much shorter  <a href="#ace96dc0ef3e19c5de75b90217d871d4d">More...</a><br /></td></tr>
+<tr class="separator:ace96dc0ef3e19c5de75b90217d871d4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a10ba1fad2731d7830eb07becf5eb0bc2"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; size_t, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a10ba1fad2731d7830eb07becf5eb0bc2">find_constriction_stars</a> (const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj) const</td></tr>
 <tr class="separator:a10ba1fad2731d7830eb07becf5eb0bc2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
@@ -663,6 +668,56 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="ace96dc0ef3e19c5de75b90217d871d4d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ace96dc0ef3e19c5de75b90217d871d4d">&#9670;&nbsp;</a></span>remove_dominated_chunks()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; vector&lt; size_t &gt; &gt; vg::Surjector::remove_dominated_chunks </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; vector&lt; size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>adj</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>path_chunks</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_chunks</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>connections</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>eliminate any path chunks that have the exact same colinearities as another but are much shorter </p>
+
+</div>
+</div>
 <a id="a98ca84936638bdcb054e3304b6f959f1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a98ca84936638bdcb054e3304b6f959f1">&#9670;&nbsp;</a></span>reverse_adjacencies()</h2>
 
@@ -765,8 +820,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a6a7b45c042a43bae7521437eff8ddc1b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6a7b45c042a43bae7521437eff8ddc1b">&#9670;&nbsp;</a></span>spliced_surject()</h2>
+<a id="a8c12eebabcf714e75d4c0feea05c781f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8c12eebabcf714e75d4c0feea05c781f">&#9670;&nbsp;</a></span>spliced_surject()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -807,19 +862,19 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>path_chunks</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>ref_chunks</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>connections</em>, </td>
         </tr>
         <tr>
@@ -1133,6 +1188,20 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="ace7092128b309c97f00fc688d3311c14"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ace7092128b309c97f00fc688d3311c14">&#9670;&nbsp;</a></span>dominated_path_chunk_diff</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::Surjector::dominated_path_chunk_diff = 10</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a118010284d37b604a7bcd7eb8dd13537"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a118010284d37b604a7bcd7eb8dd13537">&#9670;&nbsp;</a></span>graph</h2>
 
@@ -1157,14 +1226,14 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="abe89487faa7dc39d61d299606ed9ac6b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abe89487faa7dc39d61d299606ed9ac6b">&#9670;&nbsp;</a></span>min_splice_length</h2>
+<a id="a9046bb2c7267f996a6636518e2747b89"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9046bb2c7267f996a6636518e2747b89">&#9670;&nbsp;</a></span>min_splice_length</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::Surjector::min_splice_length = 20</td>
+          <td class="memname">int64_t vg::Surjector::min_splice_length = 20</td>
         </tr>
       </table>
 </div><div class="memdoc">

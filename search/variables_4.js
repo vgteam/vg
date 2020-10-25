@@ -47,6 +47,7 @@ var searchData=
   ['do_5fremap',['do_remap',['../classvg_1_1Filter.html#a7c02ec9d43e85148a82acf980728e9ac',1,'vg::Filter']]],
   ['do_5fspliced_5falignment',['do_spliced_alignment',['../classvg_1_1MultipathMapper.html#a450de2dc7f618164fec361a296be0df3',1,'vg::MultipathMapper']]],
   ['do_5fsvs',['do_svs',['../classvg_1_1Constructor.html#a2e48ae756193c44a889202591a562d18',1,'vg::Constructor']]],
+  ['dominated_5fpath_5fchunk_5fdiff',['dominated_path_chunk_diff',['../classvg_1_1Surjector.html#ace7092128b309c97f00fc688d3311c14',1,'vg::Surjector']]],
   ['doubling_5fsteps',['doubling_steps',['../classvg_1_1VariantAdder.html#a07970f9f50038e088ef054cde57755af',1,'vg::VariantAdder']]],
   ['downsample_5fprobability',['downsample_probability',['../classvg_1_1ReadFilter.html#af11c0f9ba830e35a5b92a041b0a24ded',1,'vg::ReadFilter']]],
   ['downsample_5fseed_5fmask',['downsample_seed_mask',['../classvg_1_1ReadFilter.html#acad7bd40167b335fee96b0475a625aef',1,'vg::ReadFilter']]],

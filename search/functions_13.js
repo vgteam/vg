@@ -195,7 +195,7 @@ var searchData=
   ['splice_5fgraph',['splice_graph',['../classvg_1_1Transcriptome.html#a9c11eaeb2e884919a7411bf1f2591452',1,'vg::Transcriptome']]],
   ['splice_5fgraph_5fnode_5fupdated',['splice_graph_node_updated',['../classvg_1_1Transcriptome.html#a7ea6de834f3fcd52a0788000cf181a1d',1,'vg::Transcriptome']]],
   ['spliced_5fcigar_5fagainst_5fpath',['spliced_cigar_against_path',['../classvg_1_1SplicedHTSAlignmentEmitter.html#ac447d6f996b11f12c3b8b2267ff4110e',1,'vg::SplicedHTSAlignmentEmitter']]],
-  ['spliced_5fsurject',['spliced_surject',['../classvg_1_1Surjector.html#a6a7b45c042a43bae7521437eff8ddc1b',1,'vg::Surjector']]],
+  ['spliced_5fsurject',['spliced_surject',['../classvg_1_1Surjector.html#a8c12eebabcf714e75d4c0feea05c781f',1,'vg::Surjector']]],
   ['splicedhtsalignmentemitter',['SplicedHTSAlignmentEmitter',['../classvg_1_1SplicedHTSAlignmentEmitter.html#ad3379dd46d41563f330165f67324ec67',1,'vg::SplicedHTSAlignmentEmitter']]],
   ['splicemotifs',['SpliceMotifs',['../classvg_1_1SpliceMotifs.html#a48e0bcbd1d35262774d237464a359fe9',1,'vg::SpliceMotifs::SpliceMotifs(const GSSWAligner &amp;scorer)'],['../classvg_1_1SpliceMotifs.html#af4f870ffd1f5dd279439b0e816f8e005',1,'vg::SpliceMotifs::SpliceMotifs(const vector&lt; tuple&lt; string, string, double &gt;&gt; &amp;motifs, const GSSWAligner &amp;scorer)']]],
   ['spliceregion',['SpliceRegion',['../classvg_1_1SpliceRegion.html#a8efb510b641b5a137b653c9c8d588d9b',1,'vg::SpliceRegion::SpliceRegion(const pos_t &amp;seed_pos, bool search_left, int64_t search_dist, const HandleGraph &amp;graph, const DinucleotideMachine &amp;dinuc_machine, const SpliceMotifs &amp;splice_motifs)'],['../classvg_1_1SpliceRegion.html#a5935bbc5e17cceae08ee9ef0b91b9abe',1,'vg::SpliceRegion::SpliceRegion()=default']]],
