@@ -12,6 +12,11 @@ namespace unittest{
 /// is the number of variations added to the graph
 void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                   MutablePathMutableHandleGraph* graph);
+
+/// Create a random graph with multiple connected components. 
+/// Each connected component created with a sequence length in seq_sizes
+void random_graph(vector<int64_t> seq_sizes, int64_t variant_len, int64_t total_variant_count,
+                  MutablePathMutableHandleGraph* graph);
                   
               
 /// Create a random undirected graph over numbered nodes.
