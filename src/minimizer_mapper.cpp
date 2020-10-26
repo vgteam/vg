@@ -2111,7 +2111,7 @@ double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<s
     vector<double> c(minimizers_explored.size() + 1, -numeric_limits<double>::infinity());
     c[0] = 0.0;
     
-    for_each_aglomeration_interval(minimizers, sequence, quality_bytes, minimizers_explored, [&](size_t left, size_t right, size_t bottom, size_t top) {
+    for_each_agglomeration_interval(minimizers, sequence, quality_bytes, minimizers_explored, [&](size_t left, size_t right, size_t bottom, size_t top) {
         // For each overlap range in the agglomerations
         
 #ifdef debug
@@ -2159,7 +2159,7 @@ double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<s
     return result;
 }
 
-void MinimizerMapper::for_each_aglomeration_interval(const vector<Minimizer>& minimizers,
+void MinimizerMapper::for_each_agglomeration_interval(const vector<Minimizer>& minimizers,
     const string& sequence, const string& quality_bytes,
     const vector<size_t>& minimizer_indices,
     const function<void(size_t, size_t, size_t, size_t)>& iteratee) {
