@@ -366,7 +366,7 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph*
         if (this->show_progress) {
             #pragma omp critical
             {
-                std::cerr << "Path " << variants.contig_name << ": processed samples " << phasings_batch.offset() << " to " << (phasings_batch.offset() + phasings_batch.size() - 1) << std::endl;
+                std::cerr << "Path " << variants.contig_name << ": Processed samples " << phasings_batch.offset() << " to " << (phasings_batch.offset() + phasings_batch.size() - 1) << std::endl;
             }
         }
     }, delete_graph);
