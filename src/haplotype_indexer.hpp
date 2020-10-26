@@ -127,7 +127,7 @@ public:
      * TODO: We copy the file name, as vcflib requires a non-const name.
      */
     std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(PathHandleGraph* graph, std::string vcf_filename,
-        bool delete_graph) const;
+        bool delete_graph, const std::string& job_name = "GBWT") const;
 
     /**
      * Build a GBWT from the haplotypes in the given VCF file, but only
@@ -140,7 +140,7 @@ public:
      * TODO: We copy the file name, as vcflib requires a non-const name.
      */
     std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(PathHandleGraph* graph, std::string vcf_filename,
-        const std::vector<path_handle_t>& path_handles, bool delete_graph) const;
+        const std::vector<path_handle_t>& path_handles, bool delete_graph, const std::string& job_name = "GBWT") const;
 
     /**
      * Build a GBWT from the embedded non-alt paths in the graph. Use

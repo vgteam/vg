@@ -69,7 +69,8 @@ gbwt::size_type gbwt_node_width(const HandleGraph& graph);
 void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
     const std::vector<std::string>& sample_names,
     const std::vector<std::string>& contig_names,
-    size_t haplotype_count, bool print_metadata);
+    size_t haplotype_count, bool print_metadata,
+    const std::string& header = "GBWT");
 
 //------------------------------------------------------------------------------
 

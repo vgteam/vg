@@ -69,6 +69,8 @@ size_t default_build_jobs() {
     return std::max(static_cast<size_t>(1), static_cast<size_t>(omp_get_max_threads() / 2));
 }
 
+void use_preset(HaplotypeIndexer& haplotype_indexer, std::string preset_name);
+
 void help_gbwt(char** argv) {
     std::cerr << "usage: " << argv[0] << " gbwt [options] [args]" << std::endl;
     std::cerr << std::endl;
@@ -84,9 +86,10 @@ void help_gbwt(char** argv) {
     std::cerr << "    -b, --buffer-size N     GBWT construction buffer size in millions of nodes (default " << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << ")" << std::endl;
     std::cerr << "    -i, --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Step 1: Input GBWT construction (requires -o, -x, and one of { -v, -E, A }):" << std::endl;
+    std::cerr << "Step 1: GBWT construction (requires -o, -x, and one of { -v, -E, A }):" << std::endl;
     std::cerr << "    -v, --vcf-input         index the haplotypes in the VCF files specified in input args in parallel" << std::endl;
     std::cerr << "                            (inputs must be over different contigs; implies -f)" << std::endl;
+    std::cerr << "        --preset X          use preset X (available: 1000gp)" << std::endl;
     std::cerr << "        --num-jobs N        use at most N parallel build jobs (default " << default_build_jobs() << ")" << std::endl;
     std::cerr << "        --inputs-as-jobs    create one build job for each input instead of using first-fit heuristic" << std::endl;
     std::cerr << "        --parse-only        store the VCF parses without building GBWTs" << std::endl;
@@ -100,7 +103,7 @@ void help_gbwt(char** argv) {
     std::cerr << "        --sample-range X-Y  index samples X to Y (inclusive, 0-based)" << std::endl;
     std::cerr << "        --rename V=P        VCF contig V matches path P in the graph (may repeat)" << std::endl;
     std::cerr << "        --vcf-variants      variants in the graph use VCF contig names instead of path names" << std::endl;
-    std::cerr << "        --vcf-region C:X-Y  restrict VCF contig to coordinates X to Y (inclusive, 1-based; may repeat)" << std::endl;
+    std::cerr << "        --vcf-region C:X-Y  restrict VCF contig C to coordinates X to Y (inclusive, 1-based; may repeat)" << std::endl;
     std::cerr << "        --exclude-sample X  do not index the sample with name X (faster than -R; may repeat)" << std::endl;
     std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (no input args)" << std::endl;
     std::cerr << "        --paths-as-samples  each path becomes a sample instead of a contig in the metadata" << std::endl;
@@ -151,21 +154,22 @@ int main_gbwt(int argc, char** argv)
     }
 
     // Long options with no corresponding short options.
-    constexpr int OPT_NUM_JOBS = 1100;
-    constexpr int OPT_INPUTS_AS_JOBS = 1101;
-    constexpr int OPT_PARSE_ONLY = 1102;
-    constexpr int OPT_IGNORE_MISSING = 1103;
-    constexpr int OPT_ACTUAL_PHASING = 1104;
-    constexpr int OPT_FORCE_PHASING = 1105;
-    constexpr int OPT_DISCARD_OVERLAPS = 1106;
-    constexpr int OPT_BATCH_SIZE = 1107;
-    constexpr int OPT_SAMPLE_RANGE = 1108;
-    constexpr int OPT_RENAME = 1109;
-    constexpr int OPT_VCF_VARIANTS = 1110;
-    constexpr int OPT_VCF_REGION = 1111;
-    constexpr int OPT_EXCLUDE_SAMPLE = 1112;
-    constexpr int OPT_PATHS_AS_SAMPLES = 1113;
-    constexpr int OPT_GAM_FORMAT = 1114;
+    constexpr int OPT_PRESET = 1100;
+    constexpr int OPT_NUM_JOBS = 1101;
+    constexpr int OPT_INPUTS_AS_JOBS = 1102;
+    constexpr int OPT_PARSE_ONLY = 1103;
+    constexpr int OPT_IGNORE_MISSING = 1104;
+    constexpr int OPT_ACTUAL_PHASING = 1105;
+    constexpr int OPT_FORCE_PHASING = 1106;
+    constexpr int OPT_DISCARD_OVERLAPS = 1107;
+    constexpr int OPT_BATCH_SIZE = 1108;
+    constexpr int OPT_SAMPLE_RANGE = 1109;
+    constexpr int OPT_RENAME = 1110;
+    constexpr int OPT_VCF_VARIANTS = 1111;
+    constexpr int OPT_VCF_REGION = 1112;
+    constexpr int OPT_EXCLUDE_SAMPLE = 1113;
+    constexpr int OPT_PATHS_AS_SAMPLES = 1114;
+    constexpr int OPT_GAM_FORMAT = 1115;
     constexpr int OPT_NUM_THREADS = 1600;
 
     // Requirements and modes.
@@ -211,6 +215,7 @@ int main_gbwt(int argc, char** argv)
 
                 // Input GBWT construction
                 { "vcf-input", no_argument, 0, 'v' },
+                { "preset", required_argument, 0, OPT_PRESET },
                 { "num-jobs", required_argument, 0, OPT_NUM_JOBS },
                 { "inputs-as-jobs", no_argument, 0, OPT_INPUTS_AS_JOBS },
                 { "parse-only", no_argument, 0, OPT_PARSE_ONLY },
@@ -302,6 +307,9 @@ int main_gbwt(int argc, char** argv)
         case 'v':
             assert(build == build_none);
             build = build_vcf;
+            break;
+        case OPT_PRESET:
+            use_preset(haplotype_indexer, optarg);
             break;
         case OPT_NUM_JOBS:
             build_jobs = parse<size_t>(optarg);
@@ -620,7 +628,7 @@ int main_gbwt(int argc, char** argv)
                 if (show_progress) {
                     #pragma omp critical
                     {
-                        std::cerr << "Job " << i << ": file " << jobs[i].filename << ", paths {";
+                        std::cerr << "Job " << i << ": File " << jobs[i].filename << ", paths {";
                         for (path_handle_t handle : jobs[i].paths) {
                             std::cerr << " " << input_graph->get_path_name(handle);
                         }
@@ -641,7 +649,8 @@ int main_gbwt(int argc, char** argv)
                         [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {},
                         false);
                 } else {
-                    std::unique_ptr<gbwt::DynamicGBWT> temp = haplotype_indexer.build_gbwt(input_graph.get(), jobs[i].filename, jobs[i].paths, false);
+                    std::string job_name = "Job " + std::to_string(i);
+                    std::unique_ptr<gbwt::DynamicGBWT> temp = haplotype_indexer.build_gbwt(input_graph.get(), jobs[i].filename, jobs[i].paths, false, job_name);
                     use_or_save(temp, dynamic_index, in_use, gbwt_files, i, show_progress);
                 }
             }
@@ -1163,6 +1172,23 @@ std::vector<job_type> determine_jobs(const std::vector<std::string>& vcf_files, 
     // Sort the jobs in descending order by size.
     std::sort(result.begin(), result.end());
     return result;
+}
+
+//----------------------------------------------------------------------------
+
+void use_preset(HaplotypeIndexer& haplotype_indexer, std::string preset_name) {
+    for (char& c : preset_name) {
+        c = std::tolower(c);
+    }
+    if (preset_name == "1000gp") {
+        haplotype_indexer.gbwt_buffer_size = 200;
+        haplotype_indexer.samples_in_batch = 100;
+        haplotype_indexer.force_phasing = true;
+        haplotype_indexer.discard_overlaps = true;
+    } else {
+        std::cerr << "error : [vg gbwt] invalid preset: " << preset_name << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 //----------------------------------------------------------------------------

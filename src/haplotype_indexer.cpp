@@ -59,8 +59,8 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
     if (show_progress) {
         #pragma omp critical
         {
-            std::cerr << "File " << vcf_name << ": samples " << sample_range.first << " to " << sample_range.second << ", batch size " << samples_in_batch << std::endl;
-            std::cerr << "File " << vcf_name << ": options";
+            std::cerr << "File " << vcf_name << ": Samples " << sample_range.first << " to " << (sample_range.second - 1) << ", batch size " << samples_in_batch << std::endl;
+            std::cerr << "File " << vcf_name << ": Options";
             if (!this->phase_homozygous) {
                 std::cerr << " --actual-phasing";
             }
@@ -250,7 +250,7 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
             }
             #pragma omp critical
             {
-                std::cerr << "Path " << path_name << ": " << variants_processed << " variants, " << gbwt::inMegabytes(phasing_bytes) << " MiB phasing" << std::endl;
+                std::cerr << "Path " << path_name << ": " << variants_processed << " variants, " << gbwt::inMegabytes(phasing_bytes) << " MiB phasing information" << std::endl;
             }
         }
 
@@ -295,7 +295,7 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
 }
 
 std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph* graph, std::string vcf_filename,
-    bool delete_graph) const {
+    bool delete_graph, const std::string& job_name) const {
 
     // Generate threads for all non-alt paths.
     std::vector<path_handle_t> path_handles;
@@ -306,11 +306,11 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph*
         }
     });
 
-    return this->build_gbwt(graph, vcf_filename, path_handles, delete_graph);
+    return this->build_gbwt(graph, vcf_filename, path_handles, delete_graph, job_name);
 }
 
 std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph* graph, std::string vcf_filename,
-    const std::vector<path_handle_t>& path_handles, bool delete_graph) const {
+    const std::vector<path_handle_t>& path_handles, bool delete_graph, const std::string& job_name) const {
 
     // GBWT metadata.
     std::vector<std::string> sample_names, contig_names;
@@ -373,7 +373,7 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph*
     haplotype_count += parsed_haplotypes - skipped_sample_numbers.size() * 2;
         
     // Finish the construction and extract the index.
-    finish_gbwt_constuction(builder, sample_names, contig_names, haplotype_count, this->show_progress);
+    finish_gbwt_constuction(builder, sample_names, contig_names, haplotype_count, this->show_progress, job_name);
     std::unique_ptr<gbwt::DynamicGBWT> built(new gbwt::DynamicGBWT());
     builder.swapIndex(*built);
     return built;

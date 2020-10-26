@@ -86,7 +86,8 @@ gbwt::size_type gbwt_node_width(const HandleGraph& graph) {
 void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
     const std::vector<std::string>& sample_names,
     const std::vector<std::string>& contig_names,
-    size_t haplotype_count, bool print_metadata) {
+    size_t haplotype_count, bool print_metadata,
+    const std::string& header) {
 
     builder.finish();
     builder.index.metadata.setSamples(sample_names);
@@ -95,7 +96,7 @@ void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
     if (print_metadata) {
         #pragma omp critical
         {
-            std::cerr << "GBWT metadata: ";
+            std::cerr << header << ": ";
             gbwt::operator<<(std::cerr, builder.index.metadata);
             std::cerr << std::endl;
         }
