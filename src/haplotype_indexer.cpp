@@ -29,7 +29,7 @@ HaplotypeIndexer::HaplotypeIndexer() {
 }
 
 size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<path_handle_t>& contigs,
-    vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names,
+    vcflib::VariantCallFile& variant_file, const std::string& vcf_name, std::vector<std::string>& sample_names,
     const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch,
     bool delete_graph) const {
 
@@ -59,18 +59,21 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
     if (show_progress) {
         #pragma omp critical
         {
-            cerr << "Haplotype generation parameters:" << endl;
-            cerr << "- Samples " << sample_range.first << " to " << (sample_range.second - 1) << endl;
-            cerr << "- Batch size " << samples_in_batch << endl;
-            if (this->phase_homozygous) {
-                cerr << "- Phase homozygous genotypes" << endl;
+            std::cerr << "File " << vcf_name << ": samples " << sample_range.first << " to " << sample_range.second << ", batch size " << samples_in_batch << std::endl;
+            std::cerr << "File " << vcf_name << ": options";
+            if (!this->phase_homozygous) {
+                std::cerr << " --actual-phasing";
             }
             if (this->force_phasing) {
-                cerr << "- Force phasing" << endl;
+                std::cerr << " --force-phasing";
             }
             if (this->discard_overlaps) {
-                cerr << "- Discard overlaps" << endl;
+                std::cerr << " --discard-overlaps";
             }
+            if (!this->rename_variants) {
+                std::cerr << "  --vcf-variants";
+            }
+            std::cerr << std::endl;
         }
     }
 
@@ -96,11 +99,12 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
         if (this->show_progress) {
             #pragma omp critical
             {
-                std::cerr << "Processing path " << path_name << " as VCF contig " << vcf_contig_name << std::endl;
+                std::cerr << "Path " << path_name << ": VCF contig " << vcf_contig_name;
                 if (this->regions.count(vcf_contig_name)) {
                     std::pair<size_t, size_t> region = this->regions.at(vcf_contig_name);
-                    std::cerr << "- Setting region " << region.first << " to " << region.second << std::endl;
+                    std::cerr << ", region " << region.first << " to " << region.second;
                 }
+                std::cerr << std::endl;
             }
         }
 
@@ -127,13 +131,6 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
             } else {
                 // Use a temporary file.
                 phasings.emplace_back(batch_start, batch_size);
-            }
-        }
-        
-        if (this->rename_variants && this->show_progress) {
-            #pragma omp critical
-            {
-                std::cerr << "- Moving variants from " << vcf_contig_name << " to " << path_name << std::endl;
             }
         }
 
@@ -185,10 +182,6 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
                         for (auto node : pred_nodes) {
                             size_t pred_pos = variants.firstOccurrence(node);
                             if (pred_pos != variants.invalid_position()) {
-#ifdef debug
-                                cerr << "Found predecessor node " << gbwt::Node::id(node) << " " << gbwt::Node::is_reverse(node)
-                                     << " occurring at valid pos " << pred_pos << endl;
-#endif
                                 candidate_pos = std::max(candidate_pos, pred_pos + 1);
                                 candidate_found = true;
                                 found = true;
@@ -257,8 +250,7 @@ size_t HaplotypeIndexer::parse_vcf(PathHandleGraph* graph, const std::vector<pat
             }
             #pragma omp critical
             {
-                std::cerr << "- Parsed " << variants_processed << " variants" << std::endl;
-                std::cerr << "- Phasing information: " << gbwt::inMegabytes(phasing_bytes) << " MiB" << std::endl;
+                std::cerr << "Path " << path_name << ": " << variants_processed << " variants, " << gbwt::inMegabytes(phasing_bytes) << " MiB phasing" << std::endl;
             }
         }
 
@@ -340,11 +332,6 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph*
             graph = nullptr;
         }
         std::exit(1);
-    } else if (this->show_progress) {
-        #pragma omp critical
-        {
-            std::cerr << "Opened variant file " << vcf_filename << std::endl;
-        }
     }
     
     // Use path names as contig names.
@@ -354,7 +341,7 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph*
 
     // Actual work.
     unordered_set<gbwt::size_type> skipped_sample_numbers;
-    size_t parsed_haplotypes = this->parse_vcf(graph, path_handles, variant_file, sample_names,
+    size_t parsed_haplotypes = this->parse_vcf(graph, path_handles, variant_file, vcf_filename, sample_names,
         [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {
         gbwt::generateHaplotypes(variants, phasings_batch, [&](gbwt::size_type sample) -> bool {
             // Decide if we should process this sample or not.
@@ -379,7 +366,7 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(PathHandleGraph*
         if (this->show_progress) {
             #pragma omp critical
             {
-                std::cerr << "- Processed samples " << phasings_batch.offset() << " to " << (phasings_batch.offset() + phasings_batch.size() - 1) << std::endl;
+                std::cerr << "Path " << variants.contig_name << ": processed samples " << phasings_batch.offset() << " to " << (phasings_batch.offset() + phasings_batch.size() - 1) << std::endl;
             }
         }
     }, delete_graph);

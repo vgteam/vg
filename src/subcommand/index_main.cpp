@@ -574,8 +574,6 @@ int main_index(int argc, char** argv) {
                 if (!variant_file.is_open()) {
                     cerr << "error: [vg index] could not open " << vcf_name << endl;
                     return 1;
-                } else if (show_progress) {
-                    cerr << "Opened variant file " << vcf_name << endl;
                 }
                 
                 // Process each VCF contig corresponding to a non-alt path.
@@ -589,7 +587,7 @@ int main_index(int argc, char** argv) {
                 // Run VCF parsing but do nothing with the generated phasing batches.
                 // This will write all the parse files for us.
                 std::vector<std::string> sample_names;
-                haplotype_indexer.parse_vcf(path_handle_graph.release(), path_handles, variant_file, sample_names,
+                haplotype_indexer.parse_vcf(path_handle_graph.release(), path_handles, variant_file, vcf_name, sample_names,
                     [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {},
                     true);
             } else {

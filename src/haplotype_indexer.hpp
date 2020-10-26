@@ -113,7 +113,7 @@ public:
      * sample range.
      */
     size_t parse_vcf(PathHandleGraph* graph, const std::vector<path_handle_t>& contigs,
-        vcflib::VariantCallFile& variant_file, std::vector<std::string>& sample_names,
+        vcflib::VariantCallFile& variant_file, const std::string& vcf_name, std::vector<std::string>& sample_names,
         const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch,
         bool delete_graph) const;
     

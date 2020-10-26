@@ -99,6 +99,7 @@ void help_gbwt(char** argv) {
     std::cerr << "        --batch-size N      index the haplotypes in batches of N samples (default 200)" << std::endl; // FIXME source for the default
     std::cerr << "        --sample-range X-Y  index samples X to Y (inclusive, 0-based)" << std::endl;
     std::cerr << "        --rename V=P        VCF contig V matches path P in the graph (may repeat)" << std::endl;
+    std::cerr << "        --vcf-variants      variants in the graph use VCF contig names instead of path names" << std::endl;
     std::cerr << "        --vcf-region C:X-Y  restrict VCF contig to coordinates X to Y (inclusive, 1-based; may repeat)" << std::endl;
     std::cerr << "        --exclude-sample X  do not index the sample with name X (faster than -R; may repeat)" << std::endl;
     std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (no input args)" << std::endl;
@@ -160,7 +161,7 @@ int main_gbwt(int argc, char** argv)
     constexpr int OPT_BATCH_SIZE = 1107;
     constexpr int OPT_SAMPLE_RANGE = 1108;
     constexpr int OPT_RENAME = 1109;
-    constexpr int OPT_RENAME_VARIANTS = 1110; // FIXME this is on by default
+    constexpr int OPT_VCF_VARIANTS = 1110;
     constexpr int OPT_VCF_REGION = 1111;
     constexpr int OPT_EXCLUDE_SAMPLE = 1112;
     constexpr int OPT_PATHS_AS_SAMPLES = 1113;
@@ -220,7 +221,7 @@ int main_gbwt(int argc, char** argv)
                 { "batch-size", required_argument, 0, OPT_BATCH_SIZE },
                 { "sample-range", required_argument, 0, OPT_SAMPLE_RANGE },
                 { "rename", required_argument, 0, OPT_RENAME },
-                { "rename-variants", no_argument, 0, OPT_RENAME_VARIANTS },
+                { "vcf-variants", no_argument, 0, OPT_VCF_VARIANTS },
                 { "vcf-region", required_argument, 0, OPT_VCF_REGION },
                 { "exclude-sample", required_argument, 0, OPT_EXCLUDE_SAMPLE },
                 { "index-paths", no_argument, 0, 'E' },
@@ -355,8 +356,8 @@ int main_gbwt(int argc, char** argv)
                 haplotype_indexer.path_to_vcf[graph_contig] = vcf_contig;
             }
             break;
-        case OPT_RENAME_VARIANTS:
-            haplotype_indexer.rename_variants = true;
+        case OPT_VCF_VARIANTS:
+            haplotype_indexer.rename_variants = false;
             break;
         case OPT_VCF_REGION:
             {
@@ -636,7 +637,7 @@ int main_gbwt(int argc, char** argv)
                     }
                     // Run VCF parsing but do nothing with the generated phasing batches.
                     std::vector<std::string> sample_names;
-                    haplotype_indexer.parse_vcf(input_graph.get(), jobs[i].paths, variant_file, sample_names,
+                    haplotype_indexer.parse_vcf(input_graph.get(), jobs[i].paths, variant_file, jobs[i].filename, sample_names,
                         [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {},
                         false);
                 } else {
