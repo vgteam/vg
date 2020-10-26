@@ -1020,7 +1020,7 @@ void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, gbwt::DynamicGBWT& d
         if (show_progress) {
             #pragma omp critical
             {
-                std::cerr << "Job " << i << ": saving the GBWT to " << temp << std::endl;
+                std::cerr << "Job " << i << ": Saving the GBWT to " << temp << std::endl;
             }
         }
         vg::io::VPKG::save(*index, temp);
