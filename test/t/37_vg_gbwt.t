@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 84
+plan tests 85
 
 
 # Build vg graphs for two chromosomes
@@ -107,6 +107,10 @@ is $? 0 "direct construction with multiple chromosomes and multiple VCFs"
 cmp xy.direct.gbwt xy.multi.gbwt
 is $? 0 "identical construction results with a single VCF and multiple VCFs"
 
+# Multiple chromosomes: haplotypes with presets
+vg gbwt -x xy-alt.xg -o xy.1000gp.gbwt --preset 1000gp -v small/xy2.vcf.gz
+is $? 0 "construction preset: 1000gp"
+
 # Multiple chromosomes: metadata for haplotypes
 is $(vg gbwt -c xy.merge.gbwt) 4 "multiple chromosomes: 4 threads"
 is $(vg gbwt -C xy.merge.gbwt) 2 "multiple chromosomes: 2 contigs"
@@ -114,6 +118,7 @@ is $(vg gbwt -H xy.merge.gbwt) 2 "multiple chromosomes: 2 haplotypes"
 is $(vg gbwt -S xy.merge.gbwt) 1 "multiple chromosomes: 1 sample"
 
 rm -f x.gbwt y.gbwt xy.merge.gbwt xy.fast.gbwt xy.direct.gbwt xy.multi.gbwt
+rm -f xy.1000gp.gbwt
 
 
 # Multiple chromosomes: paths as contigs
