@@ -90,7 +90,11 @@ vector<path_handle_t> get_sequence_dictionary(const string& filename, const Path
                 string sequence_name = "";
                 path_handle_t path;
             
-                if (line.size() == 0) {
+                // Trim leading and trailing whitespace
+                line.erase(line.begin(), find_if(line.begin(), line.end(), [](char ch) {return !isspace(ch);}));
+                line.erase(find_if(line.rbegin(), line.rend(), [](char ch) {return !isspace(ch);}).base(), line.end());
+            
+                if (line.empty()) {
                     // Unless it is empty
                     continue;
                 }
