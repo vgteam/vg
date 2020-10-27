@@ -287,8 +287,8 @@ int main_mpmap(int argc, char** argv) {
     double pessimistic_gap_multiplier = 3.0;
     bool restrained_graph_extraction = false;
     bool do_spliced_alignment = false;
-    int max_softclip_overlap = 5;
-    int max_splice_overhang = 5;
+    int max_softclip_overlap = 8;
+    int max_splice_overhang = 8;
     bool override_spliced_alignment = false;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();

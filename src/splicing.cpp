@@ -83,17 +83,26 @@ void SpliceMotifs::init(const vector<tuple<string, string, double>>& motifs,
     
     data.reserve(motifs.size());
     for (const auto& record : motifs) {
+        int32_t score = round(log(get<2>(record)) / scorer.log_base);
         data.emplace_back();
         get<0>(data.back()) = get<0>(record);
         // reverse the second string because it's encountered in reverse when going into
         // an intron
         get<1>(data.back()) = string(get<1>(record).rbegin(), get<1>(record).rend());
         // convert frequency to a log likelihood
-        get<2>(data.back()) = int32_t(round(log(get<2>(record)) / scorer.log_base));
-#ifdef debug_splice_region
-        cerr << "\t" << get<0>(data.back()) << "\t" << get<1>(data.back()) << "\t" << get<2>(data.back()) << endl;
-#endif
+        get<2>(data.back()) = score;
+        
+        // now do the reverse complement
+        data.emplace_back();
+        get<0>(data.back()) = reverse_complement(get<1>(record));
+        get<1>(data.back()) = reverse_complement(string(get<0>(record).rbegin(), get<0>(record).rend()));
+        get<2>(data.back()) = score;
     }
+#ifdef debug_splice_region
+    for (const auto& record : data) {
+        cerr << "\t" << get<0>(record) << "\t" << get<1>(record) << "\t" << get<2>(record) << endl;
+    }
+#endif
 }
 
 SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t search_dist,

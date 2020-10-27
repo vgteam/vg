@@ -23,7 +23,7 @@ using namespace std;
 class SpliceMotifs {
 public:
     // Defaults to the three canonical human splicing motifs with the frequencies
-    // reported in Burset, et al. (2000):
+    // reported in Burset, Seledstov, and Solovyev (2000):
     // - GT-AG: 0.9924
     // - GC-AG: 0.0069
     // - AT-AC: 0.0005
