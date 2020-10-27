@@ -609,7 +609,7 @@ int main_gbwt(int argc, char** argv)
     if (build != build_none) {
         double start = gbwt::readTimer();
         if (show_progress) {
-            std::cerr << "Building input GBWTs (" << input_filenames.size() << " inputs)" << std::endl;
+            std::cerr << "Building input GBWTs" << std::endl;
         }
         get_graph(input_graph, graph_in_use, xg_name, show_progress);
         if (build == build_vcf) {
@@ -622,53 +622,54 @@ int main_gbwt(int argc, char** argv)
             if (jobs.size() > 1 && merge == merge_none) {
                 merge = merge_fast;
             }
-            std::vector<std::string> gbwt_files(jobs.size(), "");
+            std::vector<std::vector<std::string>> vcf_parses(jobs.size());
+            if (show_progress) {
+                std::cerr << "Parsing " << jobs.size() << " VCF files using " << build_jobs << " jobs" << std::endl;
+            }
             #pragma omp parallel for schedule(static, 1)
             for (size_t i = 0; i < jobs.size(); i++) {
+                std::string job_name = "Job " + std::to_string(i);
                 if (show_progress) {
                     #pragma omp critical
                     {
-                        std::cerr << "Job " << i << ": File " << jobs[i].filename << ", paths {";
+                        std::cerr << job_name << ": File " << jobs[i].filename << ", paths {";
                         for (path_handle_t handle : jobs[i].paths) {
                             std::cerr << " " << input_graph->get_path_name(handle);
                         }
                         std::cerr << " }" << std::endl;
                     }
                 }
-                if (parse_only) {
-                    vcflib::VariantCallFile variant_file;
-                    variant_file.parseSamples = false; // vcflib parsing is very slow if there are many samples.
-                    variant_file.open(jobs[i].filename);
-                    if (!variant_file.is_open()) {
-                        cerr << "error: [vg gbwt] could not open VCF file " << jobs[i].filename << endl;
-                        std::exit(EXIT_FAILURE);
-                    }
-                    // Run VCF parsing but do nothing with the generated phasing batches.
-                    std::vector<std::string> sample_names;
-                    haplotype_indexer.parse_vcf(input_graph.get(), jobs[i].paths, variant_file, jobs[i].filename, sample_names,
-                        [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {},
-                        false);
-                } else {
+                vcf_parses[i] = haplotype_indexer.parse_vcf(jobs[i].filename, *input_graph, jobs[i].paths, job_name);
+            }
+            // Delete the graph to save memory.
+            clear_graph(input_graph, graph_in_use);
+            if (!parse_only) {
+                std::vector<std::string> gbwt_files(vcf_parses.size(), "");
+                if (show_progress) {
+                    std::cerr << "Building " << vcf_parses.size() << " GBWTs using " << build_jobs << " jobs" << std::endl;
+                }
+                #pragma omp parallel for schedule(static, 1)
+                for (size_t i = 0; i < vcf_parses.size(); i++) {
                     std::string job_name = "Job " + std::to_string(i);
-                    std::unique_ptr<gbwt::DynamicGBWT> temp = haplotype_indexer.build_gbwt(input_graph.get(), jobs[i].filename, jobs[i].paths, false, job_name);
+                    std::unique_ptr<gbwt::DynamicGBWT> temp = haplotype_indexer.build_gbwt(vcf_parses[i], job_name);
                     use_or_save(temp, dynamic_index, in_use, gbwt_files, i, show_progress);
                 }
-            }
-            if (jobs.size() > 1) {
-                input_filenames = gbwt_files; // Use the temporary GBWTs as inputs.
+                if (vcf_parses.size() > 1) {
+                    input_filenames = gbwt_files; // Use the temporary GBWTs as inputs.
+                }
             }
         } else if (build == build_paths) {
             if(show_progress) {
                 std::cerr << "Input type: embedded paths" << std::endl;
             }
-            std::unique_ptr<gbwt::DynamicGBWT> temp = haplotype_indexer.build_gbwt(input_graph.get());
+            std::unique_ptr<gbwt::DynamicGBWT> temp = haplotype_indexer.build_gbwt(*input_graph);
             dynamic_index = std::move(*temp);
             in_use = index_dynamic;
         } else if (build == build_alignments) {
             if (show_progress) {
                 std::cerr << "Input type: " << (gam_format ? "GAM" : "GAF") << std::endl;
             }
-            std::unique_ptr<gbwt::DynamicGBWT> temp = haplotype_indexer.build_gbwt(input_graph.get(), input_filenames, (gam_format ? "GAM" : "GAF"));
+            std::unique_ptr<gbwt::DynamicGBWT> temp = haplotype_indexer.build_gbwt(*input_graph, input_filenames, (gam_format ? "GAM" : "GAF"));
             dynamic_index = std::move(*temp);
             in_use = index_dynamic;
         }

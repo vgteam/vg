@@ -567,38 +567,17 @@ int main_index(int argc, char** argv) {
 
         std::unique_ptr<gbwt::DynamicGBWT> gbwt_index(nullptr);
         if (thread_source == thread_source_vcf) {
-            if (!haplotype_indexer.batch_file_prefix.empty()) {
-                vcflib::VariantCallFile variant_file;
-                variant_file.parseSamples = false; // vcflib parsing is very slow if there are many samples.
-                variant_file.open(vcf_name);
-                if (!variant_file.is_open()) {
-                    cerr << "error: [vg index] could not open " << vcf_name << endl;
-                    return 1;
-                }
-                
-                // Process each VCF contig corresponding to a non-alt path.
-                vector<path_handle_t> path_handles;
-                path_handle_graph->for_each_path_handle([&](path_handle_t path_handle) {
-                    if (!Paths::is_alt(path_handle_graph->get_path_name(path_handle))) {
-                        path_handles.push_back(path_handle);
-                    }
-                });
-
-                // Run VCF parsing but do nothing with the generated phasing batches.
-                // This will write all the parse files for us.
-                std::vector<std::string> sample_names;
-                haplotype_indexer.parse_vcf(path_handle_graph.release(), path_handles, variant_file, vcf_name, sample_names,
-                    [&](size_t contig, const gbwt::VariantPaths& variants, gbwt::PhasingInformation& phasings_batch) {},
-                    true);
-            } else {
-                gbwt_index = haplotype_indexer.build_gbwt(path_handle_graph.release(), vcf_name, true);
+            std::vector<std::string> parse_files = haplotype_indexer.parse_vcf(vcf_name, *path_handle_graph);
+            path_handle_graph.reset(); // Save memory by deleting the graph.
+            if (haplotype_indexer.batch_file_prefix.empty()) {
+                gbwt_index = haplotype_indexer.build_gbwt(parse_files);
             }
         } else if (thread_source == thread_source_paths) {
-            gbwt_index = haplotype_indexer.build_gbwt(path_handle_graph.get());
+            gbwt_index = haplotype_indexer.build_gbwt(*path_handle_graph);
         } else if (thread_source == thread_source_gam) {
-            gbwt_index = haplotype_indexer.build_gbwt(path_handle_graph.get(), aln_file_names, "GAM");
+            gbwt_index = haplotype_indexer.build_gbwt(*path_handle_graph, aln_file_names, "GAM");
         } else if (thread_source == thread_source_gaf) {
-            gbwt_index = haplotype_indexer.build_gbwt(path_handle_graph.get(), aln_file_names, "GAF");
+            gbwt_index = haplotype_indexer.build_gbwt(*path_handle_graph, aln_file_names, "GAF");
         }
         if (build_gbwt && gbwt_index.get() != nullptr) {
             if (show_progress) {

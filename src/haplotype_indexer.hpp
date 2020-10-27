@@ -89,65 +89,39 @@ public:
     HaplotypeIndexer();
 
     /**
-     * Parse a VCF file into the types needed for GBWT indexing.
+     * Parse the VCF file into the types needed for GBWT indexing.
      *
-     * Takes a graph, a vector of contigs in the graph to process, in order,
-     * and the corresponding VCF file, already open. Sample parsing on the VCF
-     * file should be turned off.
-     *
-     * Inserts the sample names from the VCF into sample_names.
-     *
-     * Calls the callback serially with the contig number, each contig's
-     * gbwt::VariantPaths, for each gbwt::PhasingInformation batch of samples.
-     * The gbwt::PhasingInformation is not const because the GBWT library needs
-     * to modify it in order to generate haplotypes from it efficiently.
-     *
-     * If batch_file_prefix is set on the object, also dumps VCF parse
-     * information.
-     *
-     * If needed, this function can delete the graph to save memory.
-     *
-     * Returns the number of haplotypes created (2 per sample) This number will
-     * need to be adjusted if any samples' haplotypes are filtered out later.
-     * This function ignores any sample filters and processes the entire
-     * sample range.
+     * Returns the file names for the VCF parses of the specified paths. If
+     * batch_file_prefix is set, these are permanent files. Otherwise they
+     * are temporary files that persist until the program exits.
      */
-    size_t parse_vcf(PathHandleGraph* graph, const std::vector<path_handle_t>& contigs,
-        vcflib::VariantCallFile& variant_file, const std::string& vcf_name, std::vector<std::string>& sample_names,
-        const function<void(size_t, const gbwt::VariantPaths&, gbwt::PhasingInformation&)>& handle_contig_haplotype_batch,
-        bool delete_graph) const;
-    
-    /**
-     * Build a GBWT from the haplotypes in the given VCF file.
-     *
-     * Respects excluded_samples and does not produce threads for them.
-     *
-     * If needed, this function can delete the graph to save memory.
-     *
-     * TODO: We copy the file name, as vcflib requires a non-const name.
-     */
-    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(PathHandleGraph* graph, std::string vcf_filename,
-        bool delete_graph, const std::string& job_name = "GBWT") const;
+    std::vector<std::string> parse_vcf(const std::string& filename, const PathHandleGraph& graph, const std::string& job_name = "GBWT") const;
 
     /**
-     * Build a GBWT from the haplotypes in the given VCF file, but only
-     * for the specified paths.
+     * Parse the VCF file into the types needed for GBWT indexing.
+     *
+     * Returns the file names for the VCF parses of non-alt paths. If
+     * batch_file_prefix is set, these are permanent files. Otherwise they
+     * are temporary files that persist until the program exits.
+     */
+    std::vector<std::string> parse_vcf(const std::string& filename, const PathHandleGraph& graph, const std::vector<path_handle_t>& paths, const std::string& job_name = "GBWT") const;
+
+    /**
+     * Build a GBWT from the haplotypes in the given VCF parse files.
      *
      * Respects excluded_samples and does not produce threads for them.
      *
-     * If needed, this function can delete the graph to save memory.
-     *
-     * TODO: We copy the file name, as vcflib requires a non-const name.
+     * We expect that all parse files contain sample/contig names and
+     * that the sample names are the same in all files.
      */
-    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(PathHandleGraph* graph, std::string vcf_filename,
-        const std::vector<path_handle_t>& path_handles, bool delete_graph, const std::string& job_name = "GBWT") const;
+    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const std::vector<std::string>& vcf_parse_files, const std::string& job_name = "GBWT") const;
 
     /**
      * Build a GBWT from the embedded non-alt paths in the graph. Use
      * paths_as_samples to choose whether we treat the paths as contigs or
      * samples.
      */
-    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const PathHandleGraph* graph) const;
+    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const PathHandleGraph& graph) const;
 
     /**
      * Build a GBWT from the alignments. Each distinct alignment name becomes
@@ -157,7 +131,7 @@ public:
      *
      * aln_format can be "GAM" or "GAF"
      */
-    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const PathHandleGraph* graph,
+    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const PathHandleGraph& graph,
         const std::vector<std::string>& aln_filenames, const std::string& aln_format) const;
 };
 
