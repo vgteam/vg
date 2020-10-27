@@ -42,6 +42,8 @@ void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, gbwt::DynamicGBWT& d
 void get_compressed(gbwt::GBWT& compressed_index, gbwt::DynamicGBWT& dynamic_index, index_type& in_use, const std::string& filename, bool show_progress);
 void get_dynamic(gbwt::GBWT& compressed_index, gbwt::DynamicGBWT& dynamic_index, index_type& in_use, const std::string& filename, bool show_progress);
 
+void print_metadata(std::ostream& out, const gbwt::GBWT& compressed_index, const gbwt::DynamicGBWT& dynamic_index, index_type in_use);
+
 void get_graph(std::unique_ptr<PathHandleGraph>& graph, bool& in_use, const std::string& filename, bool show_progress);
 void clear_graph(std::unique_ptr<PathHandleGraph>& graph, bool& in_use);
 
@@ -624,7 +626,7 @@ int main_gbwt(int argc, char** argv)
             }
             std::vector<std::vector<std::string>> vcf_parses(jobs.size());
             if (show_progress) {
-                std::cerr << "Parsing " << jobs.size() << " VCF files using " << build_jobs << " jobs" << std::endl;
+                std::cerr << "Parsing " << jobs.size() << " VCF files using up to " << build_jobs << " parallel jobs" << std::endl;
             }
             #pragma omp parallel for schedule(static, 1)
             for (size_t i = 0; i < jobs.size(); i++) {
@@ -646,7 +648,7 @@ int main_gbwt(int argc, char** argv)
             if (!parse_only) {
                 std::vector<std::string> gbwt_files(vcf_parses.size(), "");
                 if (show_progress) {
-                    std::cerr << "Building " << vcf_parses.size() << " GBWTs using " << build_jobs << " jobs" << std::endl;
+                    std::cerr << "Building " << vcf_parses.size() << " GBWTs using up to " << build_jobs << " parallel jobs" << std::endl;
                 }
                 #pragma omp parallel for schedule(static, 1)
                 for (size_t i = 0; i < vcf_parses.size(); i++) {
@@ -719,6 +721,7 @@ int main_gbwt(int argc, char** argv)
             }
         }
         if (show_progress) {
+            print_metadata(std::cerr, compressed_index, dynamic_index, in_use);
             double seconds = gbwt::readTimer() - start;
             std::cerr << "GBWTs merged in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
             std::cerr << std::endl;
@@ -868,7 +871,7 @@ int main_gbwt(int argc, char** argv)
             std::exit(EXIT_FAILURE);
         }
         if (metadata) {
-            gbwt::operator<<(std::cout, compressed_index.metadata) << std::endl;
+            print_metadata(std::cout, compressed_index, dynamic_index, in_use);
         }
         if (contigs) {
             if (list_names) {
@@ -1012,12 +1015,21 @@ void get_dynamic(gbwt::GBWT& compressed_index, gbwt::DynamicGBWT& dynamic_index,
     }
 }
 
+void print_metadata(std::ostream& out, const gbwt::GBWT& compressed_index, const gbwt::DynamicGBWT& dynamic_index, index_type in_use) {
+    if (in_use == index_compressed) {
+        gbwt::operator<<(out, compressed_index.metadata) << std::endl;
+        std::cerr << std::endl;
+    } else if (in_use == index_dynamic) {
+        gbwt::operator<<(out, dynamic_index.metadata) << std::endl;
+    }
+}
+
 void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, gbwt::DynamicGBWT& dynamic_index, index_type& in_use, std::vector<std::string>& filenames, size_t i, bool show_progress) {
     if (filenames.size() == 1) {
         dynamic_index = std::move(*index);
         in_use = index_dynamic;
     } else {
-        std::string temp = temp_file::create("gbwt-");
+        std::string temp = temp_file::create("gbwt-" + std::to_string(i) + "-");
         if (show_progress) {
             #pragma omp critical
             {
