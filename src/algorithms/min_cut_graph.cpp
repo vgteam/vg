@@ -23,13 +23,13 @@ namespace vg {
 
 
         int64_t kargers_min_cut(Graph graph, const int n_iterations, const int seed, int V) {
-            int V = graph.nodes.size();
+            // 
             minstd_rand0 random_engine(seed);
             structures::UnionFind uf(V, true);
-            
+            vector<unordered_map<size_t, size_t>> group_total_edge_weights;
 
             // make adjacency list
-            vector<int> adj[V];
+            vector<vector<int> > adj;
             for(int i = 0; i< V; i++){
                 for(int j = 0; j< graph.nodes.at(i).edges.size(); j++ ){
                     adj[i].push_back(graph.nodes.at(i).edges[j].other);
@@ -37,10 +37,12 @@ namespace vg {
                 }
 
             }
+            
 
             ContractingGraph cg(graph, V, adj, uf); 
             // pick a random edge and contract it
             while(V > 2){
+
                 //pick a random node 
                 uniform_int_distribution<int> distribution(0, V-1);  
                 size_t random_node = distribution(random_engine);
@@ -55,8 +57,14 @@ namespace vg {
 
                 //get the random_edge located between random_node and other_node 
                 uf.union_groups(random_node, other_node);
+
+                //subtract the contracted edge from the incident edges total weight 
+                graph.nodes[random_node].weight = graph.nodes[random_node].weight - graph.nodes[random_node].edges[random_edge].weight;
+                graph.nodes[other_node].weight = graph.nodes[other_node].weight - graph.nodes[other_node].edges[random_edge].weight;
+                
+                
                 size_t group_id = uf.find_group(random_node);
-                unordered_map<size_t, size_t> group_edges = cg.get_edges(group_id);
+                group_total_edge_weights.push_back(cg.get_edges(group_id));
                 
 
             }
@@ -66,12 +74,6 @@ namespace vg {
 
         return 0;    
         } 
-       
-    
-
-        
-        
-        
-    
+         
     }
 }

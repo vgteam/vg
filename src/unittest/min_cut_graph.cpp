@@ -19,12 +19,13 @@ namespace vg {
         using vg::algorithms::Edge;
         using vg::algorithms::Node;
         using vg::algorithms::kargers_min_cut;
+
         const int seed = 0;
         const int n_iterations = 100;
 
         TEST_CASE("Test1") {
             
-            SECTION("Test1: ") {
+            SECTION("Test1: Can find a min-cut on a 4 node graph") {
                 /* Let us create following undirected, weighted graph  
                       e1 10  
                     1--------2  
@@ -34,22 +35,10 @@ namespace vg {
                     3--------4  
                        e3 4 
                 */
-            //    struct Edge{ 
-            //        int other; //destination node 
-            //        //source node will be implied because edge will be contained as an edge from source node
-            //        int weight;
-            //     }; 
-                
-            //     struct Node { 
-            //        int weight; //weight of incident edges
-            //        vector<Edge> edges; 
-            //     }; 
-            //     using Graph = vector<Node>;
-
                 Graph graph; 
                 Edge edge12, edge21, edge13, edge31, edge14, edge41, edge34, edge43,edge24, edge42; //naming convention edge:source:destination
                 Node node1, node2, node3, node4;
-
+                int V = 4; //size of nodes
                 //weights
                 edge12.weight = 10;
                 edge21.weight = 10;
@@ -61,6 +50,18 @@ namespace vg {
                 edge43.weight = 4;
                 edge24.weight = 15;
                 edge42.weight = 15;
+
+                //other node
+                edge12.other = 2;
+                edge21.other = 1;
+                edge13.other = 3;
+                edge31.other = 1;
+                edge14.other = 4;
+                edge41.other = 1;
+                edge34.other = 4;
+                edge43.other = 3;
+                edge24.other = 4;
+                edge42.other = 2;
 
                 //node 1
                 node1.edges.push_back(edge12);
@@ -85,13 +86,14 @@ namespace vg {
                 node4.edges.push_back(edge43);
                 node4.weight = 24;
 
-                graph.push_back(node1);
-                graph.push_back(node2);
-                graph.push_back(node3);
-                graph.push_back(node4);
-
+                graph.nodes.push_back(node1);
+                graph.nodes.push_back(node2);
+                graph.nodes.push_back(node3);
+                graph.nodes.push_back(node4);
+                
+            
                 //Karger's min-cut
-                int mincut = kargers_min_cut(graph, n_iterations, seed);
+                int64_t mincut = kargers_min_cut(graph, n_iterations, seed, V);
                 
                 //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
                 REQUIRE(mincut == 2);
