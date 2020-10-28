@@ -119,6 +119,7 @@ var searchData=
   ['mark_5fsmallvariant_5falignments',['mark_smallVariant_alignments',['../classvg_1_1Filter.html#a2ab59f83f673047f5c2106456c4426c3',1,'vg::Filter']]],
   ['mark_5fsv_5falignments',['mark_sv_alignments',['../classvg_1_1Filter.html#a267d55220fcf5239f12dcc852586bc71',1,'vg::Filter']]],
   ['markovdistribution',['MarkovDistribution',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a26aa251e0cb4297e7519261c5dede0be',1,'vg::NGSSimulator::MarkovDistribution']]],
+  ['mask_5fsequence',['mask_sequence',['../classvg_1_1GaplessExtender.html#a17fe5ccc4a4a09de4672776564a05501',1,'vg::GaplessExtender']]],
   ['match_5fbackward',['match_backward',['../namespacevg.html#a7c9b40bcf6e0d60e4de971d702d577b3',1,'vg']]],
   ['match_5fforward',['match_forward',['../namespacevg.html#a2818a9f845648a5853b256df6849adf1',1,'vg']]],
   ['match_5finitial',['match_initial',['../namespacevg.html#a42bc45580d0c9ea8d2b56abc80fed5c1',1,'vg']]],

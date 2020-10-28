@@ -69,6 +69,7 @@ $(function() {
 <a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pub-static-attribs">Static Public Attributes</a> &#124;
+<a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="classvg_1_1GaplessExtender-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::GaplessExtender Class Reference</div>  </div>
@@ -92,8 +93,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aaebc8d221df2787a68023fce2d99290a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#aaebc8d221df2787a68023fce2d99290a">GaplessExtender</a> (const gbwtgraph::GBWTGraph &amp;<a class="el" href="classvg_1_1GaplessExtender.html#a8780650e736d01abf2dd910a3dd235c3">graph</a>, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &amp;<a class="el" href="classvg_1_1GaplessExtender.html#ac041ad7cec145f55b68442ac58aeaeed">aligner</a>)</td></tr>
 <tr class="memdesc:aaebc8d221df2787a68023fce2d99290a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> using the given GBWTGraph and <a class="el" href="classvg_1_1Aligner.html">Aligner</a> objects.  <a href="#aaebc8d221df2787a68023fce2d99290a">More...</a><br /></td></tr>
 <tr class="separator:aaebc8d221df2787a68023fce2d99290a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa8a27641953b262ee165cdce0041f886"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#aa8a27641953b262ee165cdce0041f886">extend</a> (<a class="el" href="classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04">cluster_type</a> &amp;cluster, const std::string &amp;sequence, const gbwtgraph::CachedGBWTGraph *cache=nullptr, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>, double overlap_threshold=<a class="el" href="classvg_1_1GaplessExtender.html#a3d436577897604304729afc521928ee8">OVERLAP_THRESHOLD</a>) const</td></tr>
-<tr class="separator:aa8a27641953b262ee165cdce0041f886"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a299703b0831263ee49626f4309ad6889"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a299703b0831263ee49626f4309ad6889">extend</a> (<a class="el" href="classvg_1_1GaplessExtender.html#a7ac1326772ac23e766774279d39e9c04">cluster_type</a> &amp;cluster, std::string sequence, const gbwtgraph::CachedGBWTGraph *cache=nullptr, size_t max_mismatches=<a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a>, double overlap_threshold=<a class="el" href="classvg_1_1GaplessExtender.html#a3d436577897604304729afc521928ee8">OVERLAP_THRESHOLD</a>) const</td></tr>
+<tr class="separator:a299703b0831263ee49626f4309ad6889"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad7c50fb56db47cdcd112ef0d4b40a6e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ad7c50fb56db47cdcd112ef0d4b40a6e2">unfold_haplotypes</a> (const std::unordered_set&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &amp;subgraph, std::vector&lt; std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;haplotype_paths, <a class="el" href="classbdsg_1_1HashGraph.html">bdsg::HashGraph</a> &amp;unfolded, const gbwtgraph::CachedGBWTGraph *cache=nullptr) const</td></tr>
 <tr class="separator:ad7c50fb56db47cdcd112ef0d4b40a6e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae97368246f0be8630c0247324576cbfd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ae97368246f0be8630c0247324576cbfd">transform_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&gt; &amp;haplotype_paths) const</td></tr>
@@ -125,6 +126,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a8780650e736d01abf2dd910a3dd235c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac041ad7cec145f55b68442ac58aeaeed"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ac041ad7cec145f55b68442ac58aeaeed">aligner</a></td></tr>
 <tr class="separator:ac041ad7cec145f55b68442ac58aeaeed"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad94f1c3994aa856c06d795d9e0658ecb"><td class="memItemLeft" align="right" valign="top">std::vector&lt; char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ad94f1c3994aa856c06d795d9e0658ecb">mask</a></td></tr>
+<tr class="separator:ad94f1c3994aa856c06d795d9e0658ecb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
@@ -133,6 +136,13 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:aaa77a2fc74630664d12527818826e28b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3d436577897604304729afc521928ee8"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a3d436577897604304729afc521928ee8">OVERLAP_THRESHOLD</a> = 0.8</td></tr>
 <tr class="separator:a3d436577897604304729afc521928ee8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
+Private Member Functions</h2></td></tr>
+<tr class="memitem:ab7d6b2b3636e1decd561871b36950dd2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#ab7d6b2b3636e1decd561871b36950dd2">init_mask</a> ()</td></tr>
+<tr class="separator:ab7d6b2b3636e1decd561871b36950dd2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a17fe5ccc4a4a09de4672776564a05501"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a17fe5ccc4a4a09de4672776564a05501">mask_sequence</a> (std::string &amp;sequence) const</td></tr>
+<tr class="separator:a17fe5ccc4a4a09de4672776564a05501"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>A class that supports haplotype-consistent seed extension using GBWTGraph. Each seed is a pair of matching read/graph positions and each extension is a gapless alignment of an interval of the read to a haplotype. A cluster is an unordered set of distinct seeds. Seeds in the same node with the same (read_offset - node_offset) difference are considered equivalent. <a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a> also needs an <a class="el" href="classvg_1_1Aligner.html">Aligner</a> object for scoring the extension candidates. </p>
@@ -224,8 +234,8 @@ Static Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="aa8a27641953b262ee165cdce0041f886"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa8a27641953b262ee165cdce0041f886">&#9670;&nbsp;</a></span>extend()</h2>
+<a id="a299703b0831263ee49626f4309ad6889"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a299703b0831263ee49626f4309ad6889">&#9670;&nbsp;</a></span>extend()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -239,7 +249,7 @@ Static Public Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramtype">std::string&#160;</td>
           <td class="paramname"><em>sequence</em>, </td>
         </tr>
         <tr>
@@ -267,7 +277,7 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Find the highest-scoring extension for each seed in the cluster. If there is a full-length extension with at most max_mismatches mismatches, sort them in descending order by score and return the best non-overlapping full-length extensions. Two extensions overlap if the fraction of identical base mappings is greater than overlap_threshold. If there are no good enough full-length extensions, trim the extensions to maximize the score and remove duplicates. In this case, the extensions are sorted by read interval. Use <a class="el" href="classvg_1_1GaplessExtender.html#a0381d55bcbba7e1ea297dc9a915dac1d">full_length_extensions()</a> to determine the type of the returned extension set. Allow any number of mismatches in the initial node, at least max_mismatches mismatches in the entire extension, and at least max_mismatches / 2 mismatches on each flank. Use the provided CachedGBWTGraph or allocate a new one. </p>
+<p>Find the highest-scoring extension for each seed in the cluster. If there is a full-length extension with at most max_mismatches mismatches, sort them in descending order by score and return the best non-overlapping full-length extensions. Two extensions overlap if the fraction of identical base mappings is greater than overlap_threshold. If there are no good enough full-length extensions, trim the extensions to maximize the score and remove duplicates. In this case, the extensions are sorted by read interval. Use <a class="el" href="classvg_1_1GaplessExtender.html#a0381d55bcbba7e1ea297dc9a915dac1d">full_length_extensions()</a> to determine the type of the returned extension set. The sequence that will be aligned is passed by value. All non-ACGT characters are masked with character X, which should not match any character in the graph. Allow any number of mismatches in the initial node, at least max_mismatches mismatches in the entire extension, and at least max_mismatches / 2 mismatches on each flank. Use the provided CachedGBWTGraph or allocate a new one. </p>
 
 </div>
 </div>
@@ -304,7 +314,7 @@ Static Public Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Determine whether the extension set contains non-overlapping full-length extensions sorted in descending order by score. Use the same value of max_mismatches as in <a class="el" href="classvg_1_1GaplessExtender.html#aa8a27641953b262ee165cdce0041f886">extend()</a>. </p>
+<p>Determine whether the extension set contains non-overlapping full-length extensions sorted in descending order by score. Use the same value of max_mismatches as in <a class="el" href="classvg_1_1GaplessExtender.html#a299703b0831263ee49626f4309ad6889">extend()</a>. </p>
 
 </div>
 </div>
@@ -417,6 +427,57 @@ Static Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Get the read offset from a seed. </p>
+
+</div>
+</div>
+<a id="ab7d6b2b3636e1decd561871b36950dd2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab7d6b2b3636e1decd561871b36950dd2">&#9670;&nbsp;</a></span>init_mask()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::GaplessExtender::init_mask </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a17fe5ccc4a4a09de4672776564a05501"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a17fe5ccc4a4a09de4672776564a05501">&#9670;&nbsp;</a></span>mask_sequence()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::GaplessExtender::mask_sequence </td>
+          <td>(</td>
+          <td class="paramtype">std::string &amp;&#160;</td>
+          <td class="paramname"><em>sequence</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -551,6 +612,20 @@ Static Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">const gbwtgraph::GBWTGraph* vg::GaplessExtender::graph</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad94f1c3994aa856c06d795d9e0658ecb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad94f1c3994aa856c06d795d9e0658ecb">&#9670;&nbsp;</a></span>mask</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt;char&gt; vg::GaplessExtender::mask</td>
         </tr>
       </table>
 </div><div class="memdoc">

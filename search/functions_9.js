@@ -44,6 +44,7 @@ var searchData=
   ['init_5fcoverage_5fbin',['init_coverage_bin',['../classvg_1_1Packer.html#abdd9bd13b38dced4c61d78e5baf3c0fb',1,'vg::Packer']]],
   ['init_5fedge_5fcoverage_5fbin',['init_edge_coverage_bin',['../classvg_1_1Packer.html#a693598b3d8227598075e02fbc8124789',1,'vg::Packer']]],
   ['init_5fmapper',['init_mapper',['../classvg_1_1Filter.html#abd9fa5045b867b20e1b20e3d74d77e4b',1,'vg::Filter']]],
+  ['init_5fmask',['init_mask',['../classvg_1_1GaplessExtender.html#ab7d6b2b3636e1decd561871b36950dd2',1,'vg::GaplessExtender']]],
   ['init_5fnode_5fquality_5fbin',['init_node_quality_bin',['../classvg_1_1Packer.html#aff44bf5abf4eacda46958eeb436eb2e4',1,'vg::Packer']]],
   ['init_5fstate',['init_state',['../classvg_1_1DinucleotideMachine.html#a35193673a88abc7f0933d2f65fd7f2ea',1,'vg::DinucleotideMachine']]],
   ['init_5ftraceback_5findexes',['init_traceback_indexes',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ab251d4ff6f6b7f351f29c5dd29ead002',1,'vg::BandedGlobalAligner::BAMatrix']]],

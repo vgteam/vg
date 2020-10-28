@@ -21,6 +21,7 @@ var searchData=
   ['mappings_5fby_5frank',['mappings_by_rank',['../classvg_1_1Paths.html#a27d349c3f4795f1389d3824e1c1e3e8f',1,'vg::Paths']]],
   ['mapq',['mapq',['../structgafkluge_1_1GafRecord.html#a09ffb165e71177223d73e2fea5ed1399',1,'gafkluge::GafRecord']]],
   ['mapq_5fscaling_5ffactor',['mapq_scaling_factor',['../classvg_1_1MultipathMapper.html#aadbb94f74824864d7bed5c63cb85687e',1,'vg::MultipathMapper']]],
+  ['mask',['mask',['../classvg_1_1GaplessExtender.html#ad94f1c3994aa856c06d795d9e0658ecb',1,'vg::GaplessExtender']]],
   ['match',['match',['../classvg_1_1GSSWAligner.html#a7323efd4ef078ab5866b8c2b9fea87a8',1,'vg::GSSWAligner::match()'],['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a4fdc2b0adb79d04c4e928a61e891aa84',1,'vg::BandedGlobalAligner::BAMatrix::match()'],['../classvg_1_1SSWAligner.html#a8ec16a3583a2d8347ee9eaf1853b8cc8',1,'vg::SSWAligner::match()']]],
   ['match_5fcount',['match_count',['../classvg_1_1MaximalExactMatch.html#ab7a9c66468635a1498efdeb394c1fad6',1,'vg::MaximalExactMatch']]],
   ['matches',['matches',['../structgafkluge_1_1GafRecord.html#a0cac64f74ee1a099fafc4148d08a630c',1,'gafkluge::GafRecord']]],
