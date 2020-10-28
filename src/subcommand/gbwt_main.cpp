@@ -1018,7 +1018,6 @@ void get_dynamic(gbwt::GBWT& compressed_index, gbwt::DynamicGBWT& dynamic_index,
 void print_metadata(std::ostream& out, const gbwt::GBWT& compressed_index, const gbwt::DynamicGBWT& dynamic_index, index_type in_use) {
     if (in_use == index_compressed) {
         gbwt::operator<<(out, compressed_index.metadata) << std::endl;
-        std::cerr << std::endl;
     } else if (in_use == index_dynamic) {
         gbwt::operator<<(out, dynamic_index.metadata) << std::endl;
     }
