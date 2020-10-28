@@ -1,0 +1,15 @@
+##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1	SAMPLE2	SAMPLE3	SAMPLE4
+ref	18	.	TC	T	100	PASS	.	GT	1/0	0/0	0|0	././1
+ref	21	.	CGA	GAC	100	PASS	.	GT	0/1	0/0	./1	./1/.
+ref	23	.	A	AC	100	PASS	.	GT	0/0	1/0	.	./0
+ref3	18	.	TC	T	100	PASS	.	GT	1/0	0/0	0|0	././1
+ref3	21	.	CGA	GAC	100	PASS	.	GT	0/1	0/0	./1	./1/.
+ref3	23	.	A	AC	100	PASS	.	GT	0/0	1/0	.	./0
