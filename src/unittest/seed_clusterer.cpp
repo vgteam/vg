@@ -7,6 +7,7 @@
 #include "catch.hpp"
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../genotypekit.hpp"
 #include "random_graph.hpp"
 #include "../seed_clusterer.hpp"
@@ -1191,6 +1192,8 @@ namespace unittest {
         Node* n12 = graph.create_node("G");
         Node* n13 = graph.create_node("CTGA");
 
+        Node* n14 = graph.create_node("AGCCGTGTGC");
+
         Edge* e1 = graph.create_edge(n1, n2);
         Edge* e2 = graph.create_edge(n1, n3);
         Edge* e3 = graph.create_edge(n2, n3);
@@ -1297,6 +1300,47 @@ namespace unittest {
 
             REQUIRE( clusters.size() == 2);
             REQUIRE( clusters[0].size() == 2);
+            REQUIRE( clusters[1].size() == 2);
+            REQUIRE( clusters[0][0].fragment != clusters[0][1].fragment);
+            REQUIRE( clusters[1][0].fragment != clusters[1][1].fragment);
+
+            REQUIRE(( clusters[0][0].fragment == clusters[1][0].fragment || clusters[0][0].fragment == clusters[1][1].fragment));
+            REQUIRE(( clusters[0][1].fragment == clusters[1][0].fragment || clusters[0][1].fragment == clusters[1][1].fragment));
+
+
+        }
+        SECTION("Disconnected node") {
+
+            vector<id_t> ids({1, 3, 11, 14, 14});
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (id_t n : ids) {
+                pos_t pos = make_pos_t(n, false, 0);
+                std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+            }
+            vector<id_t> ids1({5, 13});
+            vector<SnarlSeedClusterer::Seed> seeds1;
+            for (id_t n : ids1) {
+                pos_t pos = make_pos_t(n, false, 0);
+                std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
+                seeds1.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+            }
+            //Clusters are 
+            //Read 1: {1, 3} in a fragment cluster with Read 2: {5}
+            //Read 1: {11} in a fragment cluster with Read 2: {13}
+            //Read 1 : {14, 14}
+            vector<vector<SnarlSeedClusterer::Seed>> all_seeds;
+            all_seeds.emplace_back(seeds);
+            all_seeds.emplace_back(seeds1);
+
+
+            vector<vector<SnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds, 5, 10); 
+
+
+            REQUIRE( clusters.size() == 2);
+            REQUIRE( clusters[0].size() == 3);
             REQUIRE( clusters[1].size() == 2);
             REQUIRE( clusters[0][0].fragment != clusters[0][1].fragment);
             REQUIRE( clusters[1][0].fragment != clusters[1][1].fragment);
@@ -1770,14 +1814,15 @@ namespace unittest {
             // For each random graph
             
             default_random_engine generator(time(NULL));
+            uniform_int_distribution<int> variant_count(5, 500);
+            uniform_int_distribution<int> chrom_len(10, 2000);
 
-            uniform_int_distribution<int> variant_count(5, 200);
-
+            //Make a random graph with three chromosomes of random lengths
             VG graph;
-            random_graph(1000, 30, variant_count(generator), &graph);
+            random_graph({chrom_len(generator), chrom_len(generator), chrom_len(generator)}, 30, variant_count(generator), &graph);
 
 
-            CactusSnarlFinder bubble_finder(graph);
+            IntegratedSnarlFinder bubble_finder(graph);
 
             SnarlManager snarl_manager = bubble_finder.find_snarls();
             MinimumDistanceIndex dist_index (&graph, &snarl_manager);
@@ -1803,7 +1848,7 @@ namespace unittest {
                 int64_t read_lim = 30;// Distance between read clusters
                 int64_t fragment_lim = 50;// Distance between fragment clusters
                 for (size_t read = 0 ; read < 2 ; read ++) {
-                    uniform_int_distribution<int> randPosCount(1, 50);
+                    uniform_int_distribution<int> randPosCount(1, 100);
                     for (int j = 0; j < randPosCount(generator); j++) {
                         //Check clusters of j random positions 
  
