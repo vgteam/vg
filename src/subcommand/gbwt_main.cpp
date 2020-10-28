@@ -628,7 +628,7 @@ int main_gbwt(int argc, char** argv)
             if (show_progress) {
                 std::cerr << "Parsing " << jobs.size() << " VCF files using up to " << build_jobs << " parallel jobs" << std::endl;
             }
-            #pragma omp parallel for schedule(static, 1)
+            #pragma omp parallel for schedule(dynamic, 1)
             for (size_t i = 0; i < jobs.size(); i++) {
                 std::string job_name = "Job " + std::to_string(i);
                 if (show_progress) {
@@ -650,7 +650,7 @@ int main_gbwt(int argc, char** argv)
                 if (show_progress) {
                     std::cerr << "Building " << vcf_parses.size() << " GBWTs using up to " << build_jobs << " parallel jobs" << std::endl;
                 }
-                #pragma omp parallel for schedule(static, 1)
+                #pragma omp parallel for schedule(dynamic, 1)
                 for (size_t i = 0; i < vcf_parses.size(); i++) {
                     std::string job_name = "Job " + std::to_string(i);
                     std::unique_ptr<gbwt::DynamicGBWT> temp = haplotype_indexer.build_gbwt(vcf_parses[i], job_name);
