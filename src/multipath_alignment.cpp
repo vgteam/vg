@@ -14,6 +14,7 @@
 //#define debug_trace
 //#define debug_verbose_validation
 //#define debug_cigar
+//#define debug_find_match
 
 using namespace std;
 using namespace structures;
@@ -2680,6 +2681,130 @@ namespace vg {
             }
         }
         return make_pair(mfarthest, pfarthest);
+    }
+
+    bool contains_match(const multipath_alignment_t& multipath_aln, const pos_t& pos,
+                        int64_t read_pos, int64_t match_length) {
+        
+#ifdef debug_find_match
+        cerr << "starting search for match at graph pos " << pos << ", read pos " << read_pos << ", length " << match_length << endl;
+#endif
+        
+        // to keep track of the read interval corresponding to each subpath
+        vector<int64_t> to_length(multipath_aln.subpath_size(), 0);
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                        
+            const subpath_t& subpath = multipath_aln.subpath(i);
+            const path_t& path = subpath.path();
+            
+            int64_t to_length_here = to_length[i];
+            
+#ifdef debug_find_match
+            cerr << "at subpath " << i << " at read pos " << to_length_here << endl;
+#endif
+            
+            for (size_t j = 0; j < path.mapping_size(); ++j) {
+                
+                const path_mapping_t& mapping = path.mapping(j);
+                const position_t& position = mapping.position();
+                
+#ifdef debug_find_match
+                cerr << "at mapping " << j << ", graph pos " << make_pos_t(position) << ", read pos " << to_length_here << endl;
+#endif
+                
+                if (id(pos) == position.node_id() && is_rev(pos) == position.is_reverse()) {
+                    // we're on the node with the position we're looking for
+                    int64_t offset_here = position.offset();
+                    for (size_t k = 0; k < mapping.edit_size(); ++k) {
+                        const edit_t& edit = mapping.edit(k);
+#ifdef debug_find_match
+                        cerr << "at edit " << k << ", offset " << offset_here << ", read pos " << to_length_here << endl;
+#endif
+                        if (offset_here <= offset(pos) && offset_here + edit.from_length() > offset(pos) &&
+                            to_length_here <= read_pos && to_length_here + edit.to_length() > read_pos
+                            && (offset(pos) - offset_here) == (read_pos - to_length_here)
+                            && edit.sequence().empty()) {
+                            // we're going to pass a place where we might find a match
+                            
+                            
+#ifdef debug_find_match
+                            cerr << "starting a DFS for the match on edit " << k << ", offset " << offset_here << ", read pos " << to_length_here << ", initial walked " << offset(pos) - offset_here << endl;
+#endif
+                            
+                            // do DFS to find the match
+                            // records of (remaining, subpath idx, mapping idx, edit idx, which next)
+                            vector<tuple<int64_t, size_t, size_t, size_t>> stack;
+                            stack.emplace_back(offset(pos) - offset_here, i, j, k);
+                            while (!stack.empty()) {
+                                
+                                int64_t walked;
+                                size_t di, dj, dk;
+                                tie(walked, di, dj, dk) = stack.back();
+                                stack.pop_back();
+                                
+#ifdef debug_find_match
+                                cerr << "DFS location " << di << ", " << dj << ", " << dk << ", walked " << walked << endl;
+#endif
+                                
+                                const subpath_t& subpath_here = multipath_aln.subpath(di);
+                                const path_t& path_here = subpath.path();
+                                const path_mapping_t& mapping_here = path_here.mapping(dj);
+                                const edit_t& edit_here = mapping_here.edit(dk);
+                                
+                                if (edit_here.to_length() && edit_here.from_length() && edit.sequence().empty()) {
+                                    // this edit can continue the match
+                                    walked += edit_here.to_length();
+                                    if (walked >= match_length) {
+                                        // we found the match
+                                        return true;
+                                    }
+                                    // advance by one edit
+                                    ++dk;
+                                    if (dk == mapping_here.edit_size()) {
+                                        // we're to the next mapping
+                                        dk = 0;
+                                        ++dj;
+                                    }
+                                    if (dj == path_here.mapping_size()) {
+                                        // we're at the boundary to the next subpaths
+                                        for (auto n : subpath_here.next()) {
+                                            stack.emplace_back(walked, n, 0, 0);
+#ifdef debug_find_match
+                                            cerr << "queue up next subpath " << n << ", walked " << walked << endl;
+#endif
+                                        }
+                                    }
+                                    else {
+                                        stack.emplace_back(walked, di, dj, dk);
+#ifdef debug_find_match
+                                        cerr << "queue up next edit " << di << ", " << dj << ", " << dk << ", walked " << walked << endl;
+#endif
+                                    }
+                                }
+                            }
+                            
+                        }
+                        offset_here += edit.from_length();
+                        to_length_here += edit.to_length();
+                    }
+                }
+                else {
+                    // we're not on the node we want, just record the read interval of this mapping
+                    to_length_here += mapping_to_length(mapping);
+                }
+            }
+            
+            // record the read interval of the successors
+            for (auto n : subpath.next()) {
+                to_length[n] = to_length_here;
+            }
+            for (const auto& connection : subpath.connection()) {
+                to_length[connection.next()] = to_length_here;
+            }
+        }
+        
+        // we never found the match
+        return false;
     }
 
     // TODO: does it really make sense to split this algorithm into a separate surject

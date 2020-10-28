@@ -2780,6 +2780,102 @@ namespace vg {
             
         }
     }
+
+    TEST_CASE("Matches can be located in a multipath alignment", "[multipath][splicing][newmultipath]") {
+        
+        bdsg::HashGraph graph;
+        
+        handle_t h1 = graph.create_handle("GAT");
+        handle_t h2 = graph.create_handle("T");
+        handle_t h3 = graph.create_handle("C");
+        handle_t h4 = graph.create_handle("AAA");
+        
+        graph.create_edge(h1, h2);
+        graph.create_edge(h2, h2);
+        graph.create_edge(h2, h3);
+        graph.create_edge(h3, h4);
+        
+        multipath_alignment_t mp_aln;
+        mp_aln.set_sequence("CATTAAA");
+        
+        auto s0 = mp_aln.add_subpath();
+        auto m0 = s0->mutable_path()->add_mapping();
+        m0->mutable_position()->set_node_id(graph.get_id(h1));
+        auto e0 = m0->add_edit();
+        e0->set_from_length(1);
+        e0->set_to_length(1);
+        e0->set_sequence("C");
+        auto e1 = m0->add_edit();
+        e1->set_from_length(1);
+        e1->set_to_length(1);
+        auto e2 = m0->add_edit();
+        e2->set_from_length(1);
+        e2->set_to_length(1);
+        
+        s0->add_next(1);
+        s0->add_next(2);
+        
+        auto s1 = mp_aln.add_subpath();
+        auto m1 = s1->mutable_path()->add_mapping();
+        m1->mutable_position()->set_node_id(graph.get_id(h2));
+        auto e3 = m1->add_edit();
+        e3->set_from_length(1);
+        e3->set_to_length(1);
+        
+        s1->add_next(3);
+        
+        auto s2 = mp_aln.add_subpath();
+        auto m2 = s2->mutable_path()->add_mapping();
+        m2->mutable_position()->set_node_id(graph.get_id(h3));
+        auto e4 = m2->add_edit();
+        e4->set_from_length(1);
+        e4->set_to_length(1);
+        e4->set_sequence("T");
+        
+        s2->add_next(3);
+        
+        auto s3 = mp_aln.add_subpath();
+        auto m3 = s3->mutable_path()->add_mapping();
+        m3->mutable_position()->set_node_id(graph.get_id(h4));
+        auto e5 = m3->add_edit();
+        e5->set_from_length(2);
+        e5->set_to_length(2);
+        auto m4 = s3->mutable_path()->add_mapping();
+        m4->mutable_position()->set_node_id(graph.get_id(h4));
+        m4->mutable_position()->set_offset(2);
+        auto e6 = m4->add_edit();
+        e6->set_from_length(1);
+        e6->set_to_length(1);
+        
+        SECTION("A simple match can be located") {
+            REQUIRE(contains_match(mp_aln, pos_t(graph.get_id(h2), false, 0), 3, 1));
+        }
+
+        SECTION("A match across multiple edits can be located") {
+            REQUIRE(contains_match(mp_aln, pos_t(graph.get_id(h1), false, 1), 1, 2));
+        }
+
+        SECTION("A match across multiple mappings can be located") {
+            REQUIRE(contains_match(mp_aln, pos_t(graph.get_id(h4), false, 0), 4, 2));
+        }
+
+        SECTION("A match starting in the middle of an edit can be located") {
+            REQUIRE(contains_match(mp_aln, pos_t(graph.get_id(h4), false, 1), 5, 2));
+        }
+
+        SECTION("A match across multiple subpaths can be located") {
+            REQUIRE(contains_match(mp_aln, pos_t(graph.get_id(h1), false, 1), 1, 6));
+        }
+
+        SECTION("A match can be rejected if the graph pos isn't right") {
+            REQUIRE(!contains_match(mp_aln, pos_t(graph.get_id(h4), false, 0), 5, 3));
+        }
+
+        SECTION("A match can be rejected if the edit isn't a match") {
+            REQUIRE(!contains_match(mp_aln, pos_t(graph.get_id(h3), false, 3), 0, 1));
+        }
+        
+    }
 }
 
 

@@ -23,6 +23,8 @@ namespace vg {
     //size_t MultipathMapper::SECONDARY_RESCUE_ATTEMPT = 0;
     //size_t MultipathMapper::SECONDARY_RESCUE_TOTAL = 0;
     
+    const size_t MultipathMapper::RESCUED = numeric_limits<size_t>::max();
+
     MultipathMapper::MultipathMapper(PathPositionHandleGraph* graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                                      haplo::ScoreProvider* haplo_score_provider, SnarlManager* snarl_manager,
                                      MinimumDistanceIndex* distance_index) :
@@ -519,7 +521,7 @@ namespace vg {
         
         if (!suppress_multicomponent_splitting) {
             // split up any alignments that ended up being disconnected
-            split_multicomponent_alignments(multipath_alns_out, cluster_idxs, &multiplicities_out);
+            split_multicomponent_alignments(multipath_alns_out, &alignment, &cluster_graphs, cluster_idxs, &multiplicities_out);
         }
         
 #ifdef debug_multipath_mapper
@@ -1317,7 +1319,7 @@ namespace vg {
                         cerr << "adding read1 and rescued read2 " << i << " to output vector" << endl;
 #endif
                         multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(rescue_multipath_alns_2[i]));
-                        pair_distances.emplace_back(make_pair(cluster_idxs_1[i], cluster_graphs2.size()), dist);
+                        pair_distances.emplace_back(make_pair(cluster_idxs_1[i], RESCUED), dist);
                         pair_multiplicities.emplace_back(estimated_multiplicity_from_1 * multiplicities_1[i]);
                         found_consistent = true;
                     }
@@ -1336,7 +1338,7 @@ namespace vg {
                     cerr << "adding rescued read1 and read2 " << j << " to output vector" << endl;
 #endif
                     multipath_aln_pairs_out.emplace_back(move(rescue_multipath_alns_1[j]), move(multipath_alns_2[j]));
-                    pair_distances.emplace_back(make_pair(cluster_graphs1.size(), cluster_idxs_2[j]), dist);
+                    pair_distances.emplace_back(make_pair(RESCUED, cluster_idxs_2[j]), dist);
                     pair_multiplicities.emplace_back(estimated_multiplicity_from_2 * multiplicities_2[j]);
                     found_consistent = true;
                 }
@@ -1350,7 +1352,7 @@ namespace vg {
                 int64_t dist = distance_between(multipath_alns_1[i], rescue_multipath_alns_2[i], true);
                 if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
                     multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(rescue_multipath_alns_2[i]));
-                    pair_distances.emplace_back(make_pair(cluster_idxs_1[i], cluster_graphs2.size()), dist);
+                    pair_distances.emplace_back(make_pair(cluster_idxs_1[i], RESCUED), dist);
                     pair_multiplicities.emplace_back(estimated_multiplicity_from_1 * multiplicities_1[i]);
                     found_consistent = true;
                 }
@@ -1364,7 +1366,7 @@ namespace vg {
                 int64_t dist = distance_between(rescue_multipath_alns_1[i], multipath_alns_2[i], true);
                 if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
                     multipath_aln_pairs_out.emplace_back(move(rescue_multipath_alns_1[i]), move(multipath_alns_2[i]));
-                    pair_distances.emplace_back(make_pair(cluster_graphs1.size(), cluster_idxs_2[i]), dist);
+                    pair_distances.emplace_back(make_pair(RESCUED, cluster_idxs_2[i]), dist);
                     pair_multiplicities.emplace_back(estimated_multiplicity_from_2 * multiplicities_2[i]);
                     found_consistent = true;
                 }
@@ -1596,7 +1598,7 @@ namespace vg {
             for (size_t i = num_preexisting_pairs; i < rescued_secondaries.size(); ++i) {
                 const auto& rescued_cluster_pair = rescued_distances[i];
                 double clust_multiplicity;
-                if (rescued_cluster_pair.first.first == cluster_graphs1.size()) {
+                if (rescued_cluster_pair.first.first == RESCUED) {
                     // the read 1 mapping is from a rescue, get the cluster multiplicity for read 2
                     clust_multiplicity = cluster_multiplicity(get<1>(cluster_graphs2[rescued_cluster_pair.first.second]));
                 }
@@ -3099,6 +3101,8 @@ namespace vg {
     }
     
     void MultipathMapper::split_multicomponent_alignments(vector<multipath_alignment_t>& multipath_alns_out,
+                                                          const Alignment* alignment,
+                                                          vector<clustergraph_t>* cluster_graphs,
                                                           vector<size_t>* cluster_idxs,
                                                           vector<double>* multiplicities) const {
         
@@ -3129,6 +3133,95 @@ namespace vg {
                 extract_sub_multipath_alignment(multipath_alns_out[i], comps[0], last_component);
                 multipath_alns_out[i] = move(last_component);
             }
+        }
+        
+        if (alignment && cluster_graphs && cluster_idxs && do_spliced_alignment) {
+            // we only do this in spliced alignment because we want to clustering to
+            // unclaim certain hits so they can be seen as spliced alignment candidates
+            
+            function<const multipath_alignment_t&(size_t)> get_mp_aln = [&](size_t i) { return multipath_alns_out[i]; };
+            function<size_t(size_t)> get_cluster_idx = [&](size_t i) { return (*cluster_idxs)[i]; };
+            function<void(size_t, size_t)> set_cluster_idx = [&](size_t i, size_t j) { (*cluster_idxs)[i] = j; };
+            
+            reassign_split_clusters(*alignment, num_original_alns, multipath_alns_out.size(),
+                                    *cluster_graphs, get_mp_aln, get_cluster_idx, set_cluster_idx);
+        }
+    }
+
+    void MultipathMapper::reassign_split_clusters(const Alignment& alignment,
+                                                  size_t begin, size_t end,
+                                                  vector<clustergraph_t>& cluster_graphs,
+                                                  const function<const multipath_alignment_t&(size_t)>& get_mp_aln,
+                                                  const function<size_t(size_t)>& get_cluster_idx,
+                                                  const function<void(size_t,size_t)>& set_cluster_idx) const {
+        // it's often possible to divvy up the hits into smaller clusters now
+        
+        // reorganize the split alignments by their original cluster
+        unordered_map<size_t, vector<size_t>> original_cluster;
+        for (size_t i = begin; i < end; ++i) {
+            original_cluster[get_cluster_idx(i)].push_back(i);
+        }
+        
+        for (const auto& record : original_cluster) {
+            
+            bool all_hits_found = true;
+            vector<vector<size_t>> hits_found_in_aln(record.second.size());
+            
+            // note: we use the ugly "get" function every time because we're also going to be modifying
+            // the cluster graphs vector and we don't want there to be trouble with a local reference
+            
+            for (size_t i = 0; i < get<1>(cluster_graphs[record.first]).first.size() && all_hits_found; ++i) {
+                all_hits_found = false;
+                auto& hit = get<1>(cluster_graphs[record.first]).first[i];
+                for (size_t j = 0; j < record.second.size(); ++j) {
+                    // check if the i-th MEM is contained in the j-th split up component
+                    if (contains_match(get_mp_aln(record.second[j]), hit.second,
+                                       hit.first->begin - alignment.sequence().begin(), hit.first->length())) {
+                        
+                        all_hits_found = true;
+                        hits_found_in_aln[j].push_back(i);
+                    }
+                }
+            }
+            
+            if (!all_hits_found) {
+                // our partition is incomplete, which makes the process of divvying up the
+                // hits too complicated (some will get lost), so just skip it
+                continue;
+            }
+            
+            map<vector<size_t>, size_t> new_cluster;
+            for (size_t j = 0; j < record.second.size(); ++j) {
+                if (hits_found_in_aln[j].size() == get<1>(cluster_graphs[record.first]).first.size()) {
+                    // this alignment still contains the whole cluster, so we don't need
+                    // to point it at anything else
+                    continue;
+                }
+                
+                auto it = new_cluster.find(hits_found_in_aln[j]);
+                if (it == new_cluster.end()) {
+                    // this is the first time we're encountering this combination of hits, so we need to make
+                    // a corresponding cluster
+                    it = new_cluster.insert(make_pair(move(hits_found_in_aln[j]), cluster_graphs.size())).first;
+                    
+                    // and now make the cluster graph itself
+                    cluster_graphs.emplace_back();
+                    get<0>(cluster_graphs.back()) = new bdsg::HashGraph();
+                    algorithms::copy_handle_graph(get<0>(cluster_graphs[record.first]), get<0>(cluster_graphs.back()));
+                    
+                    for (auto i : hits_found_in_aln[j]) {
+                        get<1>(cluster_graphs.back()).first.emplace_back(get<1>(cluster_graphs[record.first]).first[i]);
+                    }
+                    get<1>(cluster_graphs.back()).second = get<1>(cluster_graphs[record.first]).second;
+                    
+                    get<2>(cluster_graphs.back()) = read_coverage(get<1>(cluster_graphs.back()));
+                }
+                
+                // reassign the cluster idx to the newer cluster
+                set_cluster_idx(record.second[j], it->second);
+            }
+            
+            // TODO: is there any benefit to removing the original cluster if we can?
         }
     }
 
@@ -3186,8 +3279,8 @@ namespace vg {
         double multiplicity = 1.0;
         
         // did we use an out-of-bounds cluster index to flag either end as coming from a rescue?
-        bool opt_aln_1_is_rescued = cluster_pairs[which_pair].first.first >= cluster_graphs1.size();
-        bool opt_aln_2_is_rescued = cluster_pairs[which_pair].first.second >= cluster_graphs2.size();
+        bool opt_aln_1_is_rescued = cluster_pairs[which_pair].first.first == RESCUED;
+        bool opt_aln_2_is_rescued = cluster_pairs[which_pair].first.second == RESCUED;
         
         // was the optimal cluster pair obtained by rescue?
         if (opt_aln_1_is_rescued || opt_aln_2_is_rescued) {
@@ -3282,7 +3375,10 @@ namespace vg {
         return match_fanouts;
     }
     
-    void MultipathMapper::split_multicomponent_alignments(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+    void MultipathMapper::split_multicomponent_alignments(const Alignment& alignment1, const Alignment& alignment2,
+                                                          vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                                          vector<clustergraph_t>& cluster_graphs1,
+                                                          vector<clustergraph_t>& cluster_graphs2,
                                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                           vector<double>& pair_multiplicities) const {
         
@@ -3295,8 +3391,6 @@ namespace vg {
             cerr << "finding connected components for mapping:" << endl;
             view_multipath_alignment_as_dot(cerr, multipath_aln_pairs_out[i].first);
             view_multipath_alignment_as_dot(cerr, multipath_aln_pairs_out[i].second);
-            //cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
-            //cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
             cerr << "read 1 connected components:" << endl;
             for (vector<int64_t>& comp : connected_components_1) {
                 cerr << "\t";
@@ -3388,6 +3482,24 @@ namespace vg {
                     }
                 }
             }
+        }
+        
+        if (do_spliced_alignment) {
+            // we only do this in spliced alignment because we want to clustering to
+            // unclaim certain hits so they can be seen as spliced alignment candidates
+            
+            function<const multipath_alignment_t&(size_t)> get_mp_aln_1 = [&](size_t i) { return multipath_aln_pairs_out[i].first; };
+            function<size_t(size_t)> get_cluster_idx_1 = [&](size_t i) { return cluster_pairs[i].first.first; };
+            function<void(size_t,size_t)> set_cluster_idx_1 = [&](size_t i, size_t j) { cluster_pairs[i].first.first = j; };
+            
+            function<const multipath_alignment_t&(size_t)> get_mp_aln_2 = [&](size_t i) { return multipath_aln_pairs_out[i].second; };
+            function<size_t(size_t)> get_cluster_idx_2 = [&](size_t i) { return cluster_pairs[i].first.second; };
+            function<void(size_t,size_t)> set_cluster_idx_2 = [&](size_t i, size_t j) { cluster_pairs[i].first.second = j; };
+            
+            reassign_split_clusters(alignment1, original_num_pairs, multipath_aln_pairs_out.size(),
+                                    cluster_graphs1, get_mp_aln_1, get_cluster_idx_1, set_cluster_idx_1);
+            reassign_split_clusters(alignment2, original_num_pairs, multipath_aln_pairs_out.size(),
+                                    cluster_graphs2, get_mp_aln_2, get_cluster_idx_2, set_cluster_idx_2);
         }
     }
     
@@ -3556,7 +3668,9 @@ namespace vg {
         
         if (!suppress_multicomponent_splitting) {
             // split up any multi-component multipath alignments
-            split_multicomponent_alignments(multipath_aln_pairs_out, cluster_pairs, pair_multiplicities);
+            split_multicomponent_alignments(alignment1, alignment2,
+                                            multipath_aln_pairs_out, cluster_graphs1, cluster_graphs2,
+                                            cluster_pairs, pair_multiplicities);
         }
         
         // downstream algorithms assume multipath alignments are topologically sorted (including the scoring
@@ -5149,6 +5263,7 @@ namespace vg {
                 }
                 
                 if (!to_remove.empty()) {
+                    
                     // remove the full duplicates from all relevant vectors
                     for (size_t i = 1, removed_so_far = 0; i < multipath_aln_pairs.size(); i++) {
                         if (removed_so_far < to_remove.size() ? i == to_remove[removed_so_far] : false) {

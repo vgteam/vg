@@ -46,6 +46,7 @@
 #include "algorithms/reverse_complement.hpp"
 #include "algorithms/extend.hpp"
 #include "algorithms/jump_along_path.hpp"
+#include "algorithms/copy_graph.hpp"
 
 #include "bdsg/hash_graph.hpp"
 
@@ -361,6 +362,8 @@ namespace vg {
         /// Properly handles multipath_alignment_ts that are unmapped.
         /// Does not depend on or guarantee topological order in the multipath_alignment_ts.
         void split_multicomponent_alignments(vector<multipath_alignment_t>& multipath_alns_out,
+                                             const Alignment* alignment = nullptr,
+                                             vector<clustergraph_t>* cluster_graphs = nullptr,
                                              vector<size_t>* cluster_idxs = nullptr,
                                              vector<double>* multiplicities = nullptr) const;
         
@@ -369,9 +372,21 @@ namespace vg {
         /// a record to the cluster pairs vector.
         /// Properly handles multipath_alignment_ts that are unmapped.
         /// Does not depend on or guarantee topological order in the multipath_alignment_ts.
-        void split_multicomponent_alignments(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+        void split_multicomponent_alignments(const Alignment& alignment1, const Alignment& alignment2,
+                                             vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                             vector<clustergraph_t>& cluster_graphs1,
+                                             vector<clustergraph_t>& cluster_graphs2,
                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                              vector<double>& multiplicities) const;
+        
+        /// Helper function to be called by split_multicomponent_alignments to reassign hits to the
+        /// split clusters
+        void reassign_split_clusters(const Alignment& alignment,
+                                     size_t begin, size_t end,
+                                     vector<clustergraph_t>& cluster_graphs,
+                                     const function<const multipath_alignment_t&(size_t)>& get_mp_aln,
+                                     const function<size_t(size_t)>& get_cluster_idx,
+                                     const function<void(size_t,size_t)>& set_cluster_idx) const;
         
         /// Combine all of the significant alignments into one. Requires alignments to be sorted by
         /// significance already
@@ -577,6 +592,8 @@ namespace vg {
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
         PathComponentIndex* path_component_index = nullptr;
+        
+        static const size_t RESCUED;
         
         /// Memos used by population model
         static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;
