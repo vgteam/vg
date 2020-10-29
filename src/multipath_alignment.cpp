@@ -2688,12 +2688,12 @@ namespace vg {
         
 #ifdef debug_find_match
         cerr << "starting search for match at graph pos " << pos << ", read pos " << read_pos << ", length " << match_length << endl;
+        cerr << debug_string(multipath_aln) << endl;
 #endif
         
         // to keep track of the read interval corresponding to each subpath
         vector<int64_t> to_length(multipath_aln.subpath_size(), 0);
         for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
-                        
             const subpath_t& subpath = multipath_aln.subpath(i);
             const path_t& path = subpath.path();
             
@@ -2747,7 +2747,7 @@ namespace vg {
 #endif
                                 
                                 const subpath_t& subpath_here = multipath_aln.subpath(di);
-                                const path_t& path_here = subpath.path();
+                                const path_t& path_here = subpath_here.path();
                                 const path_mapping_t& mapping_here = path_here.mapping(dj);
                                 const edit_t& edit_here = mapping_here.edit(dk);
                                 

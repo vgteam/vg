@@ -2624,9 +2624,13 @@ namespace vg {
                                                                vector<size_t>& cluster_candidates_out,
                                                                vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates_out) const {
         
+#ifdef debug_multipath_mapper
+        cerr << "looking for unaligned splice candidates" << endl;
+#endif
+        
         for (size_t i = 0; i < cluster_graphs.size(); ++i) {
             
-            if (clusters_already_used.count(i)) {
+            if (clusters_already_used.count(i) || get<1>(cluster_graphs[i]).first.empty()) {
                 continue;
             }
             
@@ -3107,6 +3111,7 @@ namespace vg {
                                                           vector<double>* multiplicities) const {
         
         size_t num_original_alns = multipath_alns_out.size();
+        vector<size_t> split_idxs;
         for (size_t i = 0; i < num_original_alns; i++) {
             
             vector<vector<int64_t>> comps = connected_components(multipath_alns_out[i]);
@@ -3117,6 +3122,7 @@ namespace vg {
 #endif
                 // split this multipath alignment into its connected components
                 for (size_t j = 1; j < comps.size(); j++) {
+                    split_idxs.push_back(multipath_alns_out.size());
                     multipath_alns_out.emplace_back();
                     extract_sub_multipath_alignment(multipath_alns_out[i], comps[j],
                                                     multipath_alns_out.back());
@@ -3132,37 +3138,67 @@ namespace vg {
                 multipath_alignment_t last_component;
                 extract_sub_multipath_alignment(multipath_alns_out[i], comps[0], last_component);
                 multipath_alns_out[i] = move(last_component);
+                split_idxs.push_back(i);
             }
         }
         
-        if (alignment && cluster_graphs && cluster_idxs && do_spliced_alignment) {
+        if (alignment && cluster_graphs && cluster_idxs && do_spliced_alignment && !split_idxs.empty()) {
             // we only do this in spliced alignment because we want to clustering to
             // unclaim certain hits so they can be seen as spliced alignment candidates
             
-            function<const multipath_alignment_t&(size_t)> get_mp_aln = [&](size_t i) { return multipath_alns_out[i]; };
-            function<size_t(size_t)> get_cluster_idx = [&](size_t i) { return (*cluster_idxs)[i]; };
-            function<void(size_t, size_t)> set_cluster_idx = [&](size_t i, size_t j) { (*cluster_idxs)[i] = j; };
+            vector<const multipath_alignment_t*> split_mp_alns(split_idxs.size());
+            vector<size_t*> cluster_assignments(split_idxs.size());
+            for (size_t i = 0; i < split_idxs.size(); ++i) {
+                auto& mp_aln = multipath_alns_out[split_idxs[i]];
+                // TODO: we need to have these be ordered to find the MEMs, but this will be wastefully repeated later
+                topologically_order_subpaths(mp_aln);
+                split_mp_alns[i] = &mp_aln;
+                cluster_assignments[i] = &(*cluster_idxs)[split_idxs[i]];
+            }
             
-            reassign_split_clusters(*alignment, num_original_alns, multipath_alns_out.size(),
-                                    *cluster_graphs, get_mp_aln, get_cluster_idx, set_cluster_idx);
+            vector<size_t*> all_cluster_assignments(cluster_idxs->size());
+            for (size_t i = 0; i < all_cluster_assignments.size(); ++i) {
+                all_cluster_assignments[i] = &(*cluster_idxs)[i];
+            }
+            
+            // TODO: the mp alns aren't ordered yet
+            reassign_split_clusters(*alignment, *cluster_graphs, split_mp_alns, cluster_assignments,
+                                    all_cluster_assignments);
         }
     }
 
     void MultipathMapper::reassign_split_clusters(const Alignment& alignment,
-                                                  size_t begin, size_t end,
                                                   vector<clustergraph_t>& cluster_graphs,
-                                                  const function<const multipath_alignment_t&(size_t)>& get_mp_aln,
-                                                  const function<size_t(size_t)>& get_cluster_idx,
-                                                  const function<void(size_t,size_t)>& set_cluster_idx) const {
+                                                  const vector<const multipath_alignment_t*>& split_mp_alns,
+                                                  const vector<size_t*>& cluster_assignments,
+                                                  const vector<size_t*>& all_cluster_assignments) const {
+#ifdef debug_multipath_mapper
+        cerr << "reassigning split clusters for mp alns" << endl;
+        for (auto mp_aln : split_mp_alns) {
+            cerr << debug_string(*mp_aln) << endl;
+        }
+#endif
+        
         // it's often possible to divvy up the hits into smaller clusters now
         
         // reorganize the split alignments by their original cluster
         unordered_map<size_t, vector<size_t>> original_cluster;
-        for (size_t i = begin; i < end; ++i) {
-            original_cluster[get_cluster_idx(i)].push_back(i);
+        for (size_t i = 0; i < cluster_assignments.size(); ++i) {
+            original_cluster[*cluster_assignments[i]].push_back(i);
+#ifdef debug_multipath_mapper
+            cerr << "mp aln " << i << " associated with cluster " << *cluster_assignments[i] << endl;
+#endif
         }
         
+        bool any_new_clusters = false;
         for (const auto& record : original_cluster) {
+            
+#ifdef debug_multipath_mapper
+            cerr << "reassigning clusters originally from " << record.first << ":" << endl;
+            for (auto i : record.second) {
+                cerr << "\t" << i << endl;
+            }
+#endif
             
             bool all_hits_found = true;
             vector<vector<size_t>> hits_found_in_aln(record.second.size());
@@ -3174,9 +3210,17 @@ namespace vg {
                 all_hits_found = false;
                 auto& hit = get<1>(cluster_graphs[record.first]).first[i];
                 for (size_t j = 0; j < record.second.size(); ++j) {
+#ifdef debug_multipath_mapper
+                    cerr << "checking for hit " << i << " in " << j << "-th mp aln" << endl;
+#endif
+                    
                     // check if the i-th MEM is contained in the j-th split up component
-                    if (contains_match(get_mp_aln(record.second[j]), hit.second,
+                    if (contains_match(*split_mp_alns[record.second[j]], hit.second,
                                        hit.first->begin - alignment.sequence().begin(), hit.first->length())) {
+                        
+#ifdef debug_multipath_mapper
+                        cerr << "hit found" << endl;
+#endif
                         
                         all_hits_found = true;
                         hits_found_in_aln[j].push_back(i);
@@ -3187,19 +3231,34 @@ namespace vg {
             if (!all_hits_found) {
                 // our partition is incomplete, which makes the process of divvying up the
                 // hits too complicated (some will get lost), so just skip it
+                // TODO: is it really a problem if we lose some hits?
+#ifdef debug_multipath_mapper
+                cerr << "not all hits are still found, skipping reassignment" << endl;
+#endif
                 continue;
             }
             
             map<vector<size_t>, size_t> new_cluster;
             for (size_t j = 0; j < record.second.size(); ++j) {
+#ifdef debug_multipath_mapper
+                cerr << "reassigning cluster of " << j << "-th mp aln, " << record.second[j] << endl;
+#endif
                 if (hits_found_in_aln[j].size() == get<1>(cluster_graphs[record.first]).first.size()) {
                     // this alignment still contains the whole cluster, so we don't need
                     // to point it at anything else
+                    
                     continue;
                 }
                 
                 auto it = new_cluster.find(hits_found_in_aln[j]);
                 if (it == new_cluster.end()) {
+#ifdef debug_multipath_mapper
+                    cerr << "making a new cluster with hits:" << endl;
+                    for (auto hit_idx : hits_found_in_aln[j]) {
+                        cerr << "\t" << hit_idx << endl;
+                    }
+#endif
+                    
                     // this is the first time we're encountering this combination of hits, so we need to make
                     // a corresponding cluster
                     it = new_cluster.insert(make_pair(move(hits_found_in_aln[j]), cluster_graphs.size())).first;
@@ -3215,13 +3274,37 @@ namespace vg {
                     get<1>(cluster_graphs.back()).second = get<1>(cluster_graphs[record.first]).second;
                     
                     get<2>(cluster_graphs.back()) = read_coverage(get<1>(cluster_graphs.back()));
+                    
+                    
+                    
+                    any_new_clusters = true;
                 }
                 
                 // reassign the cluster idx to the newer cluster
-                set_cluster_idx(record.second[j], it->second);
+                *cluster_assignments[record.second[j]] = it->second;
+            }
+        }
+        
+        if (any_new_clusters) {
+            // we reassigned some clusters, now let's check if we can clear any of the old clusters
+            
+            // clear the original clusters out of the map if at least one alignment is
+            // still using them
+            for (auto cluster_ptr : all_cluster_assignments) {
+                auto it = original_cluster.find(*cluster_ptr);
+                if (it != original_cluster.end()) {
+                    original_cluster.erase(it);
+                }
             }
             
-            // TODO: is there any benefit to removing the original cluster if we can?
+            // any remainiing clusters aren't being used by any alignment and they can
+            // have their hits released
+            for (const auto& record : original_cluster) {
+#ifdef debug_multipath_mapper
+                cerr << "cluster " << record.first << " has no more assignees, unclaiming all of its hits" << endl;
+#endif
+                get<1>(cluster_graphs[record.first]).first.clear();
+            }
         }
     }
 
@@ -3383,6 +3466,7 @@ namespace vg {
                                                           vector<double>& pair_multiplicities) const {
         
         size_t original_num_pairs = multipath_aln_pairs_out.size();
+        vector<size_t> split_idxs_1, split_idxs_2;
         for (size_t i = 0; i < original_num_pairs; i++) {
             vector<vector<int64_t>> connected_components_1 = connected_components(multipath_aln_pairs_out[i].first);
             vector<vector<int64_t>> connected_components_2 = connected_components(multipath_aln_pairs_out[i].second);
@@ -3455,8 +3539,7 @@ namespace vg {
                 bool replaced_original = false;
                 for (pair<multipath_alignment_t, multipath_alignment_t>& split_multipath_aln_pair : split_multipath_alns) {
                     // we also need to measure the disance for scoring
-                    int64_t dist = distance_between(split_multipath_aln_pair.first, split_multipath_aln_pair.second,
-                                                    true);
+                    int64_t dist = distance_between(split_multipath_aln_pair.first, split_multipath_aln_pair.second, true);
                     
                     // if we can't measure a distance, then don't add the pair
                     if (dist != numeric_limits<int64_t>::max()) {
@@ -3472,9 +3555,21 @@ namespace vg {
                             multipath_aln_pairs_out[i] = move(split_multipath_aln_pair);
                             cluster_pairs[i].second = dist;
                             replaced_original = true;
+                            if (connected_components_1.size() > 1) {
+                                split_idxs_1.push_back(i);
+                            }
+                            if (connected_components_2.size() > 1) {
+                                split_idxs_2.push_back(i);
+                            }
                         }
                         else {
                             // append the rest of them to the end
+                            if (connected_components_1.size() > 1) {
+                                split_idxs_1.push_back(multipath_aln_pairs_out.size());
+                            }
+                            if (connected_components_2.size() > 1) {
+                                split_idxs_2.push_back(multipath_aln_pairs_out.size());
+                            }
                             multipath_aln_pairs_out.emplace_back(move(split_multipath_aln_pair));
                             cluster_pairs.emplace_back(cluster_pairs[i].first, dist);
                             pair_multiplicities.emplace_back(pair_multiplicities[i]);
@@ -3488,18 +3583,46 @@ namespace vg {
             // we only do this in spliced alignment because we want to clustering to
             // unclaim certain hits so they can be seen as spliced alignment candidates
             
-            function<const multipath_alignment_t&(size_t)> get_mp_aln_1 = [&](size_t i) { return multipath_aln_pairs_out[i].first; };
-            function<size_t(size_t)> get_cluster_idx_1 = [&](size_t i) { return cluster_pairs[i].first.first; };
-            function<void(size_t,size_t)> set_cluster_idx_1 = [&](size_t i, size_t j) { cluster_pairs[i].first.first = j; };
+            if (!split_idxs_1.empty()) {
+                
+                vector<const multipath_alignment_t*> split_mp_alns_1(split_idxs_1.size());
+                vector<size_t*> cluster_assignments_1(split_idxs_1.size());
+                for (size_t i = 0; i < split_idxs_1.size(); ++i) {
+                    auto& mp_aln = multipath_aln_pairs_out[split_idxs_1[i]].first;
+                    // TODO: we need to have these be ordered to find the MEMs, but this will be wastefully repeated later
+                    topologically_order_subpaths(mp_aln);
+                    split_mp_alns_1[i] = &mp_aln;
+                    cluster_assignments_1[i] = &cluster_pairs[split_idxs_1[i]].first.first;
+                }
+                
+                vector<size_t*> all_cluster_assignments_1(cluster_pairs.size());
+                for (size_t i = 0; i < all_cluster_assignments_1.size(); ++i) {
+                    all_cluster_assignments_1[i] = &cluster_pairs[i].first.first;
+                }
+                
+                reassign_split_clusters(alignment1, cluster_graphs1, split_mp_alns_1, cluster_assignments_1,
+                                        all_cluster_assignments_1);
+            }
             
-            function<const multipath_alignment_t&(size_t)> get_mp_aln_2 = [&](size_t i) { return multipath_aln_pairs_out[i].second; };
-            function<size_t(size_t)> get_cluster_idx_2 = [&](size_t i) { return cluster_pairs[i].first.second; };
-            function<void(size_t,size_t)> set_cluster_idx_2 = [&](size_t i, size_t j) { cluster_pairs[i].first.second = j; };
-            
-            reassign_split_clusters(alignment1, original_num_pairs, multipath_aln_pairs_out.size(),
-                                    cluster_graphs1, get_mp_aln_1, get_cluster_idx_1, set_cluster_idx_1);
-            reassign_split_clusters(alignment2, original_num_pairs, multipath_aln_pairs_out.size(),
-                                    cluster_graphs2, get_mp_aln_2, get_cluster_idx_2, set_cluster_idx_2);
+            if (!split_idxs_2.empty()) {
+                vector<const multipath_alignment_t*> split_mp_alns_2(split_idxs_2.size());
+                vector<size_t*> cluster_assignments_2(split_idxs_2.size());
+                for (size_t i = 0; i < split_idxs_2.size(); ++i) {
+                    auto& mp_aln = multipath_aln_pairs_out[split_idxs_2[i]].second;
+                    // TODO: we need to have these be ordered to find the MEMs, but this will be wastefully repeated later
+                    topologically_order_subpaths(mp_aln);
+                    split_mp_alns_2[i] = &mp_aln;
+                    cluster_assignments_2[i] = &cluster_pairs[split_idxs_2[i]].first.second;
+                }
+                
+                vector<size_t*> all_cluster_assignments_2(cluster_pairs.size());
+                for (size_t i = 0; i < all_cluster_assignments_2.size(); ++i) {
+                    all_cluster_assignments_2[i] = &cluster_pairs[i].first.second;
+                }
+                
+                reassign_split_clusters(alignment2, cluster_graphs2, split_mp_alns_2, cluster_assignments_2,
+                                        all_cluster_assignments_2);
+            }
         }
     }
     
