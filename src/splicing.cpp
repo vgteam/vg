@@ -37,13 +37,16 @@ size_t SpliceMotifs::size() const {
     return data.size();
 }
 
-
 const string& SpliceMotifs::oriented_motif(size_t motif_num, bool left_side) const {
     return left_side ? get<1>(data[motif_num]) : get<0>(data[motif_num]);
 }
 
+bool SpliceMotifs::motif_is_reverse(size_t motif_num) const {
+    return motif_num % 2;
+}
+
 string SpliceMotifs::unoriented_motif(size_t motif_num, bool left_side) const {
-    return left_side ? get<1>(unaltered_data[motif_num]) : get<0>(unaltered_data[motif_num]);
+    return left_side ? get<1>(unaltered_data[motif_num / 2]) : get<0>(unaltered_data[motif_num / 2]);
 }
 
 int32_t SpliceMotifs::score(size_t motif_num) const {
@@ -641,8 +644,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 cerr << "after mapping " << i << ", remaining length " << len << endl;
 #endif
                 
-                Mapping* dummy_mapping = dummy_path.add_mapping();
-                *dummy_mapping->mutable_edit() = path.mapping(i).edit();
+                *dummy_path.add_mapping() = path.mapping(i);
                 --i;
             }
             if (i < 0) {
@@ -698,6 +700,9 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 get_id(get<0>(return_val)) = position.node_id();
                 get_is_rev(get<0>(return_val)) = position.is_reverse();
                 get_offset(get<0>(return_val)) = position.offset() + mapping_from_length(mapping) - from_length;
+                if (dummy_mapping) {
+                    *dummy_mapping->mutable_position() = make_position(get<0>(return_val));
+                }
             }
         }
         else {
@@ -717,8 +722,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 cerr << "after mapping " << i << ", remaining length " << len << endl;
 #endif
                 
-                Mapping* dummy_mapping = dummy_path.add_mapping();
-                *dummy_mapping->mutable_edit() = path.mapping(i).edit();
+                *dummy_path.add_mapping() = path.mapping(i);
                 ++i;
             }
             if (i == path.mapping_size()) {
@@ -748,6 +752,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                     
                     if (!dummy_mapping) {
                         dummy_mapping = dummy_path.add_mapping();
+                        *dummy_mapping->mutable_position() = mapping.position();
                     }
                     *dummy_mapping->add_edit() = mapping.edit(j);
                     ++j;
@@ -763,6 +768,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                     
                     if (!dummy_mapping) {
                         dummy_mapping = dummy_path.add_mapping();
+                        *dummy_mapping->mutable_position() = mapping.position();
                     }
                     Edit* dummy_edit = dummy_mapping->add_edit();
                     dummy_edit->set_from_length(last_from_length);

@@ -938,14 +938,14 @@ namespace vg {
     }
 
     
-    size_t MultipathMapper::pseudo_length(const multipath_alignment_t& multipath_aln) const {
+    int64_t MultipathMapper::pseudo_length(const multipath_alignment_t& multipath_aln) const {
         return optimal_alignment_score(multipath_aln);
     }
     
     // make the memo live in this .o file
-    thread_local unordered_map<pair<size_t, size_t>, double> MultipathMapper::p_value_memo;
+    thread_local unordered_map<pair<int64_t, size_t>, double> MultipathMapper::p_value_memo;
     
-    double MultipathMapper::random_match_p_value(size_t match_length, size_t read_length) {
+    double MultipathMapper::random_match_p_value(int64_t match_length, size_t read_length) {
         // memoized to avoid transcendental functions (at least in cases where read lengths don't vary too much)
         auto iter = p_value_memo.find(make_pair(match_length, read_length));
         if (iter != p_value_memo.end()) {
@@ -1015,7 +1015,7 @@ namespace vg {
             log_mle_max_exponential_shapes.push_back(log(max_exp_params.second));
                         
 #ifdef debug_report_startup_training
-            unordered_map<size_t, size_t> length_counts;
+            unordered_map<int64_t, size_t> length_counts;
             for (auto length : pseudo_lengths) {
                 length_counts[round(length)]++;
             }
@@ -2159,6 +2159,12 @@ namespace vg {
 #endif
         }
         
+        
+#ifdef debug_multipath_mapper
+        cerr << "testing splice candidates for mp aln: " << endl;
+        cerr << debug_string(anchor_mp_aln) << endl;
+#endif
+        
         vector<unique_ptr<SpliceRegion>> splice_regions;
         vector<PrejoinSide> left_prejoin_sides, right_prejoin_sides;
         
@@ -2170,7 +2176,7 @@ namespace vg {
         optimal_alignment(anchor_mp_aln, opt);
         
         auto anchor_pos = trimmed_end(opt, max_splice_overhang, !searching_left, *xindex,
-                                      *get_aligner(opt.quality().empty()));
+                                      *get_aligner(!opt.quality().empty()));
         
         splice_regions.emplace_back(new SpliceRegion(get<0>(anchor_pos), searching_left, 2 * max_splice_overhang,
                                                      *xindex, dinuc_machine, splice_motifs));
@@ -2204,7 +2210,7 @@ namespace vg {
             optimal_alignment(candidate, candidate_opt);
             
             auto candidate_pos = trimmed_end(candidate_opt, max_splice_overhang, searching_left, *xindex,
-                                             *get_aligner(opt.quality().empty()));
+                                             *get_aligner(!opt.quality().empty()));
             
             splice_regions.emplace_back(new SpliceRegion(get<0>(candidate_pos), !searching_left, 2 * max_splice_overhang,
                                                          *xindex, dinuc_machine, splice_motifs));
@@ -2472,11 +2478,16 @@ namespace vg {
         
         for (auto i : cluster_candidates) {
             // do a multipath alignment
+#ifdef debug_multipath_mapper
+            size_t num_before_align = candidates_out.size();
+#endif
             align_to_candidate(cluster_graphs[i]);
             
 #ifdef debug_multipath_mapper
-            cerr << "made alignment to a cluster splice candidate " << i << ":" << endl;
-            cerr << debug_string(candidates_out.back()) << endl;
+            if (candidates_out.size() > num_before_align) {
+                cerr << "made alignment to a cluster splice candidate " << i << ":" << endl;
+                cerr << debug_string(candidates_out.back()) << endl;
+            }
 #endif
         }
         
@@ -2488,12 +2499,17 @@ namespace vg {
             clusters.front().second = 1.0;
             auto cluster_graphs = query_cluster_graphs(alignment, mems, clusters);
             
+#ifdef debug_multipath_mapper
+            size_t num_before_align = candidates_out.size();
+#endif
             // and align to it
             align_to_candidate(cluster_graphs.front());
             
 #ifdef debug_multipath_mapper
-            cerr << "made alignment to a seed splice candidate " << hit.first->sequence() << " " << hit.second << endl;
-            cerr << debug_string(candidates_out.back()) << endl;
+            if (candidates_out.size() > num_before_align) {
+                cerr << "made alignment to a seed splice candidate " << hit.first->sequence() << " " << hit.second << endl;
+                cerr << debug_string(candidates_out.back()) << endl;
+            }
 #endif
         }
         

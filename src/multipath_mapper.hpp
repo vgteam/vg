@@ -540,10 +540,10 @@ namespace vg {
         bool likely_misrescue(const multipath_alignment_t& multipath_aln);
         
         /// A scaling of a score so that it approximately follows the distribution of the longest match in p-value test
-        size_t pseudo_length(const multipath_alignment_t& multipath_aln) const;
+        int64_t pseudo_length(const multipath_alignment_t& multipath_aln) const;
         
         /// The approximate p-value for a match length of the given size against the current graph
-        double random_match_p_value(size_t match_length, size_t read_length);
+        double random_match_p_value(int64_t match_length, size_t read_length);
         
         /// Reorganizes the fan-out breaks into the format that MultipathAlignmentGraph wants it in
         match_fanouts_t record_fanouts(const vector<MaximalExactMatch>& mems,
@@ -598,7 +598,7 @@ namespace vg {
         static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;
         
         // a memo for the transcendental p-value function (thread local to maintain threadsafety)
-        static thread_local unordered_map<pair<size_t, size_t>, double> p_value_memo;
+        static thread_local unordered_map<pair<int64_t, size_t>, double> p_value_memo;
         
         // a memo for the transcendental restrained extraction function (thread local to maintain threadsafety)
         static thread_local unordered_map<double, vector<int64_t>> pessimistic_gap_memo;
