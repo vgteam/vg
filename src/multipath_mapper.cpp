@@ -1567,7 +1567,7 @@ namespace vg {
                             int64_t dist = distance_between(cluster_multipath_alns.front(), rescue_multipath_aln, true);
                             if (dist >= 0 && dist != numeric_limits<int64_t>::max()) {
                                 rescued_secondaries.emplace_back(move(cluster_multipath_alns.front()), move(rescue_multipath_aln));
-                                rescued_distances.emplace_back(make_pair(i, cluster_graphs2.size()), dist);
+                                rescued_distances.emplace_back(make_pair(i, RESCUED), dist);
                                 
                             }
                         }
@@ -1575,7 +1575,7 @@ namespace vg {
                             int64_t dist = distance_between(rescue_multipath_aln, cluster_multipath_alns.front(), true);
                             if (dist >= 0 && dist != numeric_limits<int64_t>::max()) {
                                 rescued_secondaries.emplace_back(move(rescue_multipath_aln), move(cluster_multipath_alns.front()));
-                                rescued_distances.emplace_back(make_pair(cluster_graphs1.size(), i), dist);
+                                rescued_distances.emplace_back(make_pair(RESCUED, i), dist);
                                 
                             }
                         }
