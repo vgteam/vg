@@ -382,11 +382,10 @@ namespace vg {
         /// Helper function to be called by split_multicomponent_alignments to reassign hits to the
         /// split clusters
         void reassign_split_clusters(const Alignment& alignment,
-                                     size_t begin, size_t end,
                                      vector<clustergraph_t>& cluster_graphs,
-                                     const function<const multipath_alignment_t&(size_t)>& get_mp_aln,
-                                     const function<size_t(size_t)>& get_cluster_idx,
-                                     const function<void(size_t,size_t)>& set_cluster_idx) const;
+                                     const vector<const multipath_alignment_t*>& split_mp_alns,
+                                     const vector<size_t*>& cluster_assignments,
+                                     const vector<size_t*>& all_cluster_assignments) const;
         
         /// Combine all of the significant alignments into one. Requires alignments to be sorted by
         /// significance already
