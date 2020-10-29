@@ -115,6 +115,38 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
         }
     }
 
+    auto add_single_nodes = [&](const handle_t& h)-> bool {
+        id_t id = graph->get_id(h); 
+        if (primary_snarl_assignments[id - min_node_id] == 0) {
+            //If this node hasn't already been added to the distance index, make a fake snarl for it
+            handle_t handle = graph->get_handle(id, false);
+            int64_t node_len = graph->get_length(handle);
+
+            //TODO: Do components properly
+
+            //Make a new connected component for this one node
+            size_t component_num = component_to_chain_index.size()+1;
+            component_to_chain_index.resize(curr_component);
+            //Assign it to a chain that doesn't exist?
+            component_to_chain_index[curr_component-1] = chain_indexes.size();
+            component_to_chain_length[curr_component-1] = node_len;
+            //Also assign this node to a connected component
+            node_to_component[id - min_node_id] = component_num;
+            
+
+            //Make a snarl index for it
+            size_t snarl_assignment = snarl_indexes.size();
+            primary_snarl_assignments[id-min_node_id] = snarl_assignment+1;
+            primary_snarl_ranks[id - min_node_id] = 1;
+
+            snarl_indexes.emplace_back(0, false, id, id, false, 0, 1, false);
+            snarl_indexes.back().distances[0]  = node_len + 1; 
+        }
+        return true;
+               
+    };
+    graph->for_each_handle(add_single_nodes);
+
     #ifdef debugIndex
     //Every node should be assigned to a snarl
     auto check_assignments = [&](const handle_t& h)-> bool {

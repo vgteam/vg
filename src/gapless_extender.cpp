@@ -145,11 +145,13 @@ Path GaplessExtension::to_path(const HandleGraph& graph, const std::string& sequ
 GaplessExtender::GaplessExtender() :
     graph(nullptr), aligner(nullptr)
 {
+    this->init_mask();
 }
 
 GaplessExtender::GaplessExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner) :
     graph(&graph), aligner(&aligner)
 {
+    this->init_mask();
 }
 
 //------------------------------------------------------------------------------
@@ -501,13 +503,14 @@ bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::CachedGBWTGra
 
 //------------------------------------------------------------------------------
 
-std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, const std::string& sequence, const gbwtgraph::CachedGBWTGraph* cache, size_t max_mismatches, double overlap_threshold) const {
+std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std::string sequence, const gbwtgraph::CachedGBWTGraph* cache, size_t max_mismatches, double overlap_threshold) const {
 
     std::vector<GaplessExtension> result;
     if (this->graph == nullptr || this->aligner == nullptr || cluster.empty() || sequence.empty()) {
         return result;
     }
     result.reserve(cluster.size());
+    this->mask_sequence(sequence);
 
     // Allocate a cache if we were not provided with one.
     bool free_cache = (cache == nullptr);
@@ -899,6 +902,22 @@ void GaplessExtender::transform_alignment(Alignment& aln, const std::vector<std:
     }
 
     *(aln.mutable_path()) = std::move(result);
+}
+
+//------------------------------------------------------------------------------
+
+void GaplessExtender::init_mask() {
+    this->mask = std::vector<char>(256, 'X');
+    this->mask[static_cast<size_t>('A')] = 'A';
+    this->mask[static_cast<size_t>('C')] = 'C';
+    this->mask[static_cast<size_t>('G')] = 'G';
+    this->mask[static_cast<size_t>('T')] = 'T';
+}
+
+void GaplessExtender::mask_sequence(std::string& sequence) const {
+    for (char& c : sequence) {
+        c = this->mask[static_cast<size_t>(c)];
+    }
 }
 
 //------------------------------------------------------------------------------

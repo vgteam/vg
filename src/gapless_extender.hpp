@@ -167,12 +167,15 @@ public:
      * case, the extensions are sorted by read interval.
      * Use full_length_extensions() to determine the type of the returned
      * extension set.
+     * The sequence that will be aligned is passed by value. All non-ACGT
+     * characters are masked with character X, which should not match any
+     * character in the graph.
      * Allow any number of mismatches in the initial node, at least
      * max_mismatches mismatches in the entire extension, and at least
      * max_mismatches / 2 mismatches on each flank.
      * Use the provided CachedGBWTGraph or allocate a new one.
      */
-    std::vector<GaplessExtension> extend(cluster_type& cluster, const std::string& sequence, const gbwtgraph::CachedGBWTGraph* cache = nullptr, size_t max_mismatches = MAX_MISMATCHES, double overlap_threshold = OVERLAP_THRESHOLD) const;
+    std::vector<GaplessExtension> extend(cluster_type& cluster, std::string sequence, const gbwtgraph::CachedGBWTGraph* cache = nullptr, size_t max_mismatches = MAX_MISMATCHES, double overlap_threshold = OVERLAP_THRESHOLD) const;
 
     /**
      * Determine whether the extension set contains non-overlapping
@@ -197,6 +200,12 @@ public:
 
     const gbwtgraph::GBWTGraph* graph;
     const Aligner*   aligner;
+
+    std::vector<char> mask;
+
+private:
+    void init_mask();
+    void mask_sequence(std::string& sequence) const;
 };
 
 //------------------------------------------------------------------------------
