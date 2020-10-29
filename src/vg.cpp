@@ -4004,7 +4004,7 @@ void VG::divide_node(Node* node, vector<int>& positions, vector<Node*>& parts) {
 #ifdef debug_divide
 
 #pragma omp critical (cerr)
-            cerr << omp_get_thread_num() << ": dividing mapping " << pb2json(*m) << endl;
+            cerr << omp_get_thread_num() << ": dividing mapping " << *m << endl;
 #endif
 
             string path_name = paths.mapping_path_name(m);
@@ -4077,7 +4077,7 @@ void VG::divide_node(Node* node, vector<int>& positions, vector<Node*>& parts) {
 #pragma omp critical (cerr)
             cerr << omp_get_thread_num() << ": produced mappings:" << endl;
             for(auto mapping : mapping_parts) {
-                cerr << "\t" << pb2json(mapping) << endl;
+                cerr << "\t" << mapping << endl;
             }
 #endif
         }

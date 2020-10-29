@@ -8,7 +8,17 @@ namespace vg {
 using namespace std;
 
 GraphSynchronizer::GraphSynchronizer(VG& graph) : graph(graph) {
-    // Nothing to do!
+    // Because in general paths can overlap each other, and because we can't
+    // build a path index after a path has been modified (since we don't keep
+    // the ranks up to date internally), we need to build all the indexes up
+    // front, even if we're just working on a single path.
+    graph.for_each_path_handle([&](const path_handle_t& path) {
+        string name = graph.get_path_name(path);
+        if (!Paths::is_alt(name)) {
+            // We only care about reference paths.
+            get_path_index(name);
+        }
+    });
 }
 
 void GraphSynchronizer::with_path_index(const string& path_name, const function<void(const PathIndex&)>& to_run) {
@@ -29,7 +39,10 @@ const string& GraphSynchronizer::get_path_sequence(const string& path_name) {
     
 // We need a function to grab the index for a path
 PathIndex& GraphSynchronizer::get_path_index(const string& path_name) {
-
+    
+    // We don't work on alt paths; there could be too many to pre-index.
+    assert(!Paths::is_alt(path_name));
+    
     if (!indexes.count(path_name)) {
         // Not already made. Generate it.
         indexes.emplace(piecewise_construct,
@@ -115,7 +128,7 @@ void GraphSynchronizer::Lock::lock() {
                 cerr << endl;
             }
 #endif
-            
+
             // Make them into pos_ts that point left to right, the way Jordan thinks.
             pos_t left_pos = make_pos_t(start_left.node, start_left.is_end, 0);
             pos_t right_pos = make_pos_t(end_right.node, !end_right.is_end,
