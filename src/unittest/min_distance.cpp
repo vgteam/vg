@@ -116,6 +116,30 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
     return shortestDistance == -1 ? -1 : shortestDistance-1;
 };
 
+    TEST_CASE( "One node",
+                   "[min_dist]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCATGGAGCGTTGAGTGCGGGTG");
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+
+
+        
+        SECTION( "Create distance index" ) {
+
+            MinimumDistanceIndex di (&graph, &snarl_manager);
+#ifdef print
+            di.print_self();
+#endif
+
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
+                                   make_pos_t(1, false, 3) ) == 3);
+
+        }
+
+    }
     TEST_CASE( "Create min distance index for simple nested snarl",
                    "[min_dist]" ) {
         VG graph;

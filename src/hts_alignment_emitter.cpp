@@ -90,12 +90,16 @@ vector<path_handle_t> get_sequence_dictionary(const string& filename, const Path
                 string sequence_name = "";
                 path_handle_t path;
             
-                if (line.size() == 0) {
+                // Trim leading and trailing whitespace
+                line.erase(line.begin(), find_if(line.begin(), line.end(), [](char ch) {return !isspace(ch);}));
+                line.erase(find_if(line.rbegin(), line.rend(), [](char ch) {return !isspace(ch);}).base(), line.end());
+            
+                if (line.empty()) {
                     // Unless it is empty
                     continue;
                 }
             
-                // See if each line starts with @SQ or if we have to handle it as a name.
+                // See if each line starts with @SQ and we have to parse it, or @HD and we have to drop it, or if we have to handle it as a name.
                 if (starts_with(line, "@SQ")) {
                     // If it is SAM, split on tabs
                     auto parts = split_delims(line, "\t");
@@ -137,6 +141,10 @@ vector<path_handle_t> get_sequence_dictionary(const string& filename, const Path
                         exit(1);
                     }
                     
+                } else if (starts_with(line, "@HD")) {
+                    // SAM header line also found in dict files. Drop it.
+                    // TODO: Hope nobody named a sequence "@HD"-something
+                    continue;
                 } else {
                     // Get the name from the line and the sequence from the graph
                     sequence_name = line;

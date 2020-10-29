@@ -843,6 +843,42 @@ TEST_CASE("Local alignments", "[gapless_extender]") {
 
 //------------------------------------------------------------------------------
 
+TEST_CASE("Non-ACGT characters do not match", "[gapless_extender]") {
+
+    // Create a single-node GBWTGraph.
+    bdsg::HashGraph graph;
+    graph.create_handle("NNNGATTACANNN", 1);
+    std::vector<gbwt::vector_type> paths = {
+        { static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(1, false)) }
+    };
+    gbwt::GBWT gbwt_index = get_gbwt(paths);
+    gbwtgraph::GBWTGraph gbwt_graph(gbwt_index, graph);
+
+
+    // Wrap it in a GaplessExtender with an Aligner.
+    Aligner aligner;
+    GaplessExtender extender(gbwt_graph, aligner);
+
+    SECTION("exact matching") {
+        std::vector<std::pair<pos_t, size_t>> seeds {
+            { make_pos_t(1, false, 5), 4 }
+        };
+        std::string read = "NNGATTACANN";
+        std::vector<std::vector<std::pair<pos_t, std::string>>> correct_extensions {
+            {
+                { make_pos_t(1, false, 3), "7" }
+            }
+        };
+        std::vector<size_t> correct_offsets {
+            static_cast<size_t>(2)
+        };
+        size_t error_bound = 0;
+        partial_matches(seeds, read, correct_extensions, correct_offsets, extender, error_bound);
+    }
+}
+
+//------------------------------------------------------------------------------
+
 TEST_CASE("Haplotype unfolding", "[gapless_extender]") {
 
     // Build a GBWT with three threads including a duplicate.
