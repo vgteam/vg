@@ -150,7 +150,8 @@ namespace vg {
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
         // this can only be done on aligned sequences
-        if (!alignment.has_path()) {
+        if (!alignment.has_path() || alignment.path().mapping_size() == 0) {
+            has_reachability_edges = true;
             return;
         }
         
@@ -3415,8 +3416,8 @@ namespace vg {
             PathNode& from_node = path_nodes.at(i);
             node_weights[i] = (aligner->score_exact_match(from_node.begin, from_node.end,
                                                           alignment.quality().begin() + (from_node.begin - alignment.sequence().begin()))
-                               + aligner->full_length_bonus * ((from_node.begin == alignment.sequence().begin())
-                                                               + (from_node.end == alignment.sequence().end())));
+                               + (from_node.begin == alignment.sequence().begin() ? aligner->score_full_length_bonus(true, alignment) : 0)
+                               + (from_node.end == alignment.sequence().end() ? aligner->score_full_length_bonus(false, alignment) : 0));
                         
             for (const pair<size_t, size_t>& edge : from_node.edges) {
                 PathNode& to_node = path_nodes.at(edge.first);
@@ -3570,9 +3571,9 @@ namespace vg {
                 int32_t match_score = aligner->score_exact_match(path_node.begin, path_node.end,
                                                                  alignment.quality().begin() + (path_node.begin - alignment.sequence().begin()));
                 
-                subpath->set_score(match_score + aligner->full_length_bonus *
-                                   ((path_node.begin == alignment.sequence().begin()) +
-                                    (path_node.end == alignment.sequence().end())));
+                subpath->set_score(match_score
+                                   + (path_node.begin == alignment.sequence().begin() ? aligner->score_full_length_bonus(true, alignment) : 0)
+                                   + (path_node.end == alignment.sequence().end() ? aligner->score_full_length_bonus(false, alignment) : 0));
             }
         }
         else {

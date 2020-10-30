@@ -1,6 +1,7 @@
 #include "path.hpp"
 #include <vg/io/stream.hpp>
 #include "region.hpp"
+#include <sstream>
 
 using namespace vg::io;
 
@@ -1692,8 +1693,16 @@ const string mapping_sequence(const Mapping& mp, const string& node_seq) {
 
 const string mapping_sequence(const Mapping& mp, const Node& n) {
     if (!mp.has_position() || !mp.position().node_id()) {
-        assert(mp.edit_size()==1);
-        return mp.edit(0).sequence();
+        // With no grap position we must be a pure insert.
+        // n is undefined.
+        // But we might have multiple edits.
+        std::stringstream s;
+        for (auto& e : mp.edit()) {
+            // We can't have any from bases if we have no graph position.
+            assert(e.from_length() == 0);
+            s << e.sequence();
+        }
+        return s.str();
     }
     assert(mp.position().node_id() == n.id());
     auto& node_seq = n.sequence();

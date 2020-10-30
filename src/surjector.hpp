@@ -43,7 +43,7 @@ using namespace std;
         /// Also optionally leaves deletions against the reference path in the final alignment
         /// (useful for splicing).
         Alignment surject(const Alignment& source,
-                          const set<string>& path_names,
+                          const unordered_set<path_handle_t>& paths,
                           string& path_name_out,
                           int64_t& path_pos_out,
                           bool& path_rev_out,
@@ -65,7 +65,7 @@ using namespace std;
         /// Also optionally leaves deletions against the reference path in the final
         /// alignment (useful for splicing).
         Alignment surject(const Alignment& source,
-                          const set<string>& path_names,
+                          const unordered_set<path_handle_t>& paths,
                           bool allow_negative_scores = false,
                           bool preserve_deletions = false) const;
         
@@ -74,7 +74,7 @@ using namespace std;
         /// a single path, separated by splices (either from large deletions or from
         /// connections)
         multipath_alignment_t surject(const multipath_alignment_t& source,
-                                      const set<string>& path_names,
+                                      const unordered_set<path_handle_t>& paths,
                                       string& path_name_out, int64_t& path_pos_out,
                                       bool& path_rev_out,
                                       bool allow_negative_scores = false,
@@ -84,13 +84,15 @@ using namespace std;
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, Path>;
         
         /// the minimum length deletion that the spliced algorithm will interpret as a splice event
-        size_t min_splice_length = 20;
+        int64_t min_splice_length = 20;
+        
+        int64_t dominated_path_chunk_diff = 10;
         
     protected:
         
         void surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                               Alignment* aln_out, multipath_alignment_t* mp_aln_out,
-                              const set<string>& path_names,
+                              const unordered_set<path_handle_t>& paths,
                               string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
                               bool allow_negative_scores, bool preserve_deletions) const;
         
@@ -106,9 +108,9 @@ using namespace std;
         spliced_surject(const PathPositionHandleGraph* path_position_graph,
                         const string& src_sequence, const string& src_quality,
                         const int32_t src_mapping_quality,
-                        const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
-                        const vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
-                        const vector<tuple<size_t, size_t, int32_t>>& connections,
+                        const path_handle_t& path_handle, vector<path_chunk_t>& path_chunks,
+                        vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                        vector<tuple<size_t, size_t, int32_t>>& connections,
                         pair<step_handle_t, step_handle_t>& path_range_out,
                         bool allow_negative_scores, bool deletions_as_splices) const;
         
@@ -127,6 +129,12 @@ using namespace std;
                                   const multipath_alignment_t& source,
                                   const unordered_set<path_handle_t>& surjection_paths,
                                   unordered_map<path_handle_t, vector<tuple<size_t, size_t, int32_t>>>& connections_out) const;
+        
+        /// remove any path chunks and corresponding ref chunks that are identical to a longer
+        /// path chunk over the region where they overlap
+        void filter_redundant_path_chunks(vector<path_chunk_t>& path_chunks,
+                                          vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                                          vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
         /// compute the widest interval of path positions that the realigned sequence could align to
         pair<size_t, size_t>
@@ -160,9 +168,16 @@ using namespace std;
         /// returns the transitive reduction of a topologically sorted DAG's adjacency list
         vector<vector<size_t>> transitive_reduction(const vector<vector<size_t>>& adj) const;
         
-        /// returns the nodes in an adjacency list that have an outgoing edge through which all of their component's
-        /// source-to-sink paths flow
-        vector<size_t> find_constriction_edges(const vector<vector<size_t>>& adj) const;
+        /// eliminate any path chunks that have the exact same colinearities as another but are much shorter
+        vector<vector<size_t>> remove_dominated_chunks(const vector<vector<size_t>>& adj,
+                                                       vector<path_chunk_t>& path_chunks,
+                                                       vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                                                       vector<tuple<size_t, size_t, int32_t>>& connections) const;
+        
+        /// returns the nodes that are the center of a directed star through which all source-to-sink
+        /// paths in their connected component flow. paired bool indicates whether the star faces
+        /// forward (false) or backward (true).
+        vector<pair<size_t, bool>> find_constriction_stars(const vector<vector<size_t>>& adj) const;
         
         /// make a sentinel meant to indicate an unmapped read
         static Alignment make_null_alignment(const Alignment& source);

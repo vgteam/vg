@@ -153,6 +153,9 @@ public:
     /// For paired end mapping, how many times should we attempt rescue (per read)?
     size_t max_rescue_attempts = 15;
 
+    ///What is the maximum fragment length that we accept as valid for paired-end reads?
+    size_t max_fragment_length = 2000;
+
     /// Implemented rescue algorithms: no rescue, dozeu, GSSW, dozeu on local haplotypes.
     enum RescueAlgorithm { rescue_none, rescue_dozeu, rescue_gssw, rescue_haplotypes };
 
@@ -414,7 +417,7 @@ protected:
      * minimizers itself. Only contiguous ranges in minimizer_indices actually
      * make sense.
      */
-    static void for_each_aglomeration_interval(const vector<Minimizer>& minimizers,
+    static void for_each_agglomeration_interval(const vector<Minimizer>& minimizers,
         const string& sequence, const string& quality_bytes,
         const vector<size_t>& minimizer_indices,
         const function<void(size_t, size_t, size_t, size_t)>& iteratee);      
@@ -643,6 +646,8 @@ protected:
     
     /// Print a sequence with base numbering
     static void dump_debug_sequence(ostream& out, const string& sequence);
+
+    friend class TestMinimizerMapper;
 };
 
 template<typename Item, typename Score>

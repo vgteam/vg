@@ -32,7 +32,7 @@ public:
 
     // deconstruct the entire graph to cout
     void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* grpah, SnarlManager* snarl_manager,
-                     bool path_restricted_traversals, int ploidy,
+                     bool path_restricted_traversals, int ploidy, bool include_nested,
                      const unordered_map<string, string>* path_to_sample = nullptr); 
     
 private:

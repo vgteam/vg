@@ -13,10 +13,10 @@ namespace vg {
 using namespace std;
 
 MultipathAlignmentEmitter::MultipathAlignmentEmitter(const string& filename, size_t num_threads, const string out_format,
-                                                     const PathPositionHandleGraph* graph, const map<string, int64_t>* path_length) :
+                                                     const PathPositionHandleGraph* graph, const vector<pair<string, int64_t>>* path_order_and_length) :
     HTSWriter(filename,
               out_format == "SAM" || out_format == "BAM" || out_format == "CRAM" ? out_format : "SAM", // just so the assert passes
-              path_length ? *path_length : map<string, int64_t>(),
+              path_order_and_length ? *path_order_and_length : vector<pair<string, int64_t>>(),
               num_threads),
     graph(graph)
 {

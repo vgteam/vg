@@ -86,7 +86,7 @@ void help_index(char** argv) {
          << "    -D, --dump             print the contents of the db to stdout" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "snarl distance index options" << endl
-         << "    -s  --snarl-name FILE  load snarls from FILE" << endl
+         << "    -s  --snarl-name FILE  load snarls from FILE (snarls must include trivial snarls)" << endl
          << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
          << "    -w  --max_dist N       cap beyond which the maximum distance is no longer accurate. If this is not included or is 0, don't build maximum distance index" << endl;
 }
