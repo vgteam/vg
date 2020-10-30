@@ -1039,7 +1039,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     // check for any before-the-beginning positions on the left side
     auto it1 = find_if(left_locations.begin(), left_locations.end(),
                       [](const tuple<int64_t, int64_t, int64_t, int64_t>& loc) {
-        return get<0>(loc) != 0 && get<1>(loc) == 0 && get<2>(loc) == 0 && get<3>(loc) == 0;
+        return get<1>(loc) == 0 && get<2>(loc) == 0 && get<3>(loc) == 0;
     });
     auto it2 = find_if(right_locations.begin(), right_locations.end(),
                        [&](const tuple<int64_t, int64_t, int64_t, int64_t>& loc) {

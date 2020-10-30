@@ -15,6 +15,7 @@
 //#define debug_verbose_validation
 //#define debug_cigar
 //#define debug_find_match
+//#define debug_remove_empty
 
 using namespace std;
 using namespace structures;
@@ -248,10 +249,21 @@ namespace vg {
             any_empty = any_empty || empty;
         }
         
+#ifdef debug_remove_empty
+        cerr << "subpaths empty:" << endl;
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+            cerr << "\t" << i << " " << is_empty[i] << endl;
+        }
+#endif
+        
         if (any_empty) {
             // there's at least one empty subpath
             
+            // compute the transitive edges through empty subpaths
             for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                if (is_empty[i]) {
+                    continue;
+                }
                 // check if any of this subpaths nexts are empty
                 subpath_t& subpath = *multipath_aln.mutable_subpath(i);
                 
@@ -319,6 +331,16 @@ namespace vg {
                         }
                     }
                 }
+#ifdef debug_remove_empty
+                cerr << "transitive nexts for subpath " << i << endl;
+                for (size_t j : transitive_nexts) {
+                    cerr << "\t" << j << endl;
+                }
+                cerr << "transitive connections for subpath " << i << endl;
+                for (auto c : transitive_connections) {
+                    cerr << "\t" << c.first << " " << c.second << endl;
+                }
+#endif
                 
                 // add edges for the nexts reachable through empty subpaths
                 for (size_t j : transitive_nexts) {
@@ -348,6 +370,11 @@ namespace vg {
                 }
             }
             
+#ifdef debug_remove_empty
+            cerr << "before removing subpaths" << endl;
+            cerr << debug_string(multipath_aln) << endl;
+#endif
+            
             // relocate the subpaths we're keeping at the front of the vector
             vector<size_t> removed_so_far(multipath_aln.subpath_size() + 1, 0);
             for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
@@ -363,6 +390,11 @@ namespace vg {
                     *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*multipath_aln.mutable_subpath(i));
                 }
             }
+            
+#ifdef debug_remove_empty
+            cerr << "before updating edges" << endl;
+            cerr << debug_string(multipath_aln) << endl;
+#endif
             
             // delete the end of the subpaths
             multipath_aln.mutable_subpath()->resize(multipath_aln.subpath_size() - removed_so_far.back());
@@ -399,6 +431,12 @@ namespace vg {
                     subpath.mutable_next()->resize(subpath.connection_size() - connections_removed_so_far);
                 }
             }
+            
+            
+#ifdef debug_remove_empty
+            cerr << "before updating starts" << endl;
+            cerr << debug_string(multipath_aln) << endl;
+#endif
             
             // update the starts
             bool found_deleted_start = false;
