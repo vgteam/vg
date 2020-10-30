@@ -1761,7 +1761,10 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.simplify_topologies = simplify_topologies;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
     multipath_mapper.agglomerate_multipath_alns = agglomerate_multipath_alns;
-    multipath_mapper.min_softclip_length_for_splice = int(ceil(log(path_position_handle_graph->get_total_length()) / log(4.0))) + 2;
+    
+    // splicing parameters
+    int64_t min_softclip_length_for_splice = int(ceil(log(path_position_handle_graph->get_total_length() * 2) / log(4.0))) + 2;
+    multipath_mapper.set_min_softclip_length_for_splice(min_softclip_length_for_splice);
     multipath_mapper.max_softclip_overlap = max_softclip_overlap;
     multipath_mapper.max_splice_overhang = max_splice_overhang;
 
