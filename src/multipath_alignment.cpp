@@ -3422,7 +3422,6 @@ namespace vg {
                         }
                     }
                     else {
-                        cerr << "\textending subseq end to " << connection.next() << endl;
                         subpath_read_interval[connection.next()].first = subpath_read_interval[i].second;
                     }
                 }
