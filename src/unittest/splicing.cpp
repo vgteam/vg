@@ -62,8 +62,8 @@ TEST_CASE("SpliceRegion can detect a splice site on a trivial example",
     SpliceRegion splice_region(pos, search_left, search_dist, graph, machine, splice_motifs);
 
     auto m0 = splice_region.candidate_splice_sites(0);
-    auto m1 = splice_region.candidate_splice_sites(1);
-    auto m2 = splice_region.candidate_splice_sites(2);
+    auto m1 = splice_region.candidate_splice_sites(2);
+    auto m2 = splice_region.candidate_splice_sites(4);
 
     REQUIRE(m0.size() == 1);
     REQUIRE(m1.size() == 1);
@@ -102,8 +102,8 @@ TEST_CASE("SpliceRegion can detect a splice site leftward",
     SpliceRegion splice_region(pos, search_left, search_dist, graph, machine, splice_motifs);
 
     auto m0 = splice_region.candidate_splice_sites(0);
-    auto m1 = splice_region.candidate_splice_sites(1);
-    auto m2 = splice_region.candidate_splice_sites(2);
+    auto m1 = splice_region.candidate_splice_sites(2);
+    auto m2 = splice_region.candidate_splice_sites(4);
 
     REQUIRE(m0.size() == 1);
     REQUIRE(m1.size() == 0);
@@ -152,9 +152,9 @@ TEST_CASE("SpliceRegion can detect a splice sites across node boundaries",
     SpliceRegion splice_region(pos, search_left, search_dist, graph, machine, splice_motifs);
 
     auto m0 = splice_region.candidate_splice_sites(0);
-    auto m1 = splice_region.candidate_splice_sites(1);
-    auto m2 = splice_region.candidate_splice_sites(2);
-    auto m3 = splice_region.candidate_splice_sites(3);
+    auto m1 = splice_region.candidate_splice_sites(2);
+    auto m2 = splice_region.candidate_splice_sites(4);
+    auto m3 = splice_region.candidate_splice_sites(6);
 
     REQUIRE(m0.size() == 1);
     REQUIRE(m1.size() == 2);
@@ -217,7 +217,7 @@ TEST_CASE("SpliceRegion can detect a splice sites across node boundaries going l
     SpliceRegion splice_region(pos, search_left, search_dist, graph, machine, splice_motifs);
 
     auto m0 = splice_region.candidate_splice_sites(0);
-    auto m1 = splice_region.candidate_splice_sites(1);
+    auto m1 = splice_region.candidate_splice_sites(2);
 
     REQUIRE(m0.size() == 1);
     REQUIRE(m1.size() == 1);
