@@ -2781,7 +2781,7 @@ namespace vg {
         }
     }
 
-    TEST_CASE("Matches can be located in a multipath alignment", "[multipath][splicing][newmultipath]") {
+    TEST_CASE("Matches can be located in a multipath alignment", "[multipath][splicing]") {
         
         bdsg::HashGraph graph;
         

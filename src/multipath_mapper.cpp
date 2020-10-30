@@ -1700,7 +1700,7 @@ namespace vg {
     bool MultipathMapper::multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
                                                vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                                vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer) {
-        
+        cerr << alignment1.name() << endl;
 #ifdef debug_multipath_mapper
         cerr << "multipath mapping paired reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
 #endif
@@ -4905,6 +4905,10 @@ namespace vg {
 
     vector<double> MultipathMapper::pair_mapping_likelihoods(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
                                                              const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const {
+        
+#ifdef debug_multipath_mapper
+        cerr << "computing paired read likelihoods" << endl;
+#endif
         
         // Only do the population MAPQ if it might disambiguate two paths (since it's not
         // as cheap as just using the score), or if we set the setting to always do it.

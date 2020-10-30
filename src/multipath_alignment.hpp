@@ -322,7 +322,6 @@ namespace vg {
     void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln);
 
     /// Removes subpaths that have no aligned bases and adds in any implied edges crossing through them
-    /// Note: not updated for connections yet
     void remove_empty_subpaths(multipath_alignment_t& multipath_aln);
     
     /// Returns a vector whose elements are vectors with the indexes of the Subpaths in

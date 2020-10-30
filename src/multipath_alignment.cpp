@@ -235,12 +235,17 @@ namespace vg {
         
         // find subpaths that don't have any aligned bases
         for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
-            const subpath_t& subpath = multipath_aln.subpath(i);
-            if (path_from_length(subpath.path()) == 0 &&
-                path_to_length(subpath.path()) == 0) {
-                is_empty[i] = true;
-                any_empty = true;
+            const path_t& path = multipath_aln.subpath(i).path();
+            bool empty = true;
+            for (size_t j = 0; j < path.mapping_size() && empty; ++j) {
+                const path_mapping_t& mapping = path.mapping(j);
+                for (size_t k = 0; k < mapping.edit_size() && empty; ++k) {
+                    const edit_t& edit = mapping.edit(k);
+                    empty = edit.from_length() == 0 && edit.to_length() == 0;
+                }
             }
+            is_empty[i] = empty;
+            any_empty = any_empty || empty;
         }
         
         if (any_empty) {
@@ -248,25 +253,68 @@ namespace vg {
             
             for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
                 // check if any of this subpaths nexts are empty
-                vector<size_t> transitive_nexts;
                 subpath_t& subpath = *multipath_aln.mutable_subpath(i);
-                for (size_t j = 0; j < subpath.next_size(); ++j) {
-                    if (is_empty[subpath.next(j)]) {
-                        // traverse to all nexts that can be reached by only empty subpaths
-                        //
-                        // technically this implementation can be exponential, but i don't
-                        // think it will ever come up
-                        vector<size_t> stack(1, subpath.next(j));
-                        while (!stack.empty()) {
-                            auto k = stack.back();
-                            stack.pop_back();
-                            for (auto n : multipath_aln.subpath(k).next()) {
-                                if (is_empty[n]) {
-                                    stack.push_back(n);
-                                }
-                                else {
-                                    transitive_nexts.push_back(n);
-                                }
+                
+                set<size_t> transitive_nexts;
+                map<size_t, int32_t> transitive_connections;
+                
+                unordered_set<size_t> dequeued;
+                // records of (index, no connections, score)
+                priority_queue<tuple<int32_t, bool, size_t>> queue;
+                for (auto n : subpath.next()) {
+                    if (is_empty[n]) {
+                        queue.emplace(0, true, n);
+                    }
+                }
+                for (const auto& connection : subpath.connection()) {
+                    if (is_empty[connection.next()]) {
+                        queue.emplace(connection.score(), false, connection.next());
+                    }
+                }
+                // dijkstra works to compute max here because it's a DAG
+                while (!queue.empty()) {
+                    
+                    int32_t score;
+                    bool not_connection;
+                    size_t idx;
+                    tie(score, not_connection, idx) = queue.top();
+                    queue.pop();
+                    
+                    if (dequeued.count(idx)) {
+                        continue;
+                    }
+                    dequeued.insert(idx);
+                    
+                    const auto& subpath_here = multipath_aln.subpath(idx);
+                    for (auto next : subpath_here.next()) {
+                        if (is_empty[next]) {
+                            queue.emplace(score, not_connection, next);
+                        }
+                        else if (not_connection) {
+                            transitive_nexts.insert(next);
+                        }
+                        else {
+                            auto it = transitive_connections.find(next);
+                            if (it == transitive_connections.end()) {
+                                transitive_connections[next] = score;
+                            }
+                            else {
+                                it->second = max(score, it->second);
+                            }
+                        }
+                    }
+                    for (const auto& connection : subpath_here.connection()) {
+                        int32_t score_thru = connection.score() + score;
+                        if (is_empty[connection.next()]) {
+                            queue.emplace(score_thru, false, connection.next());
+                        }
+                        else {
+                            auto it = transitive_connections.find(connection.next());
+                            if (it == transitive_connections.end()) {
+                                transitive_connections[connection.next()] = score_thru;
+                            }
+                            else {
+                                it->second = max(score_thru, it->second);
                             }
                         }
                     }
@@ -280,6 +328,22 @@ namespace vg {
                     }
                     if (!found) {
                         subpath.add_next(j);
+                    }
+                }
+                
+                for (const pair<size_t, int32_t>& cnxn : transitive_connections) {
+                    bool found = false;
+                    size_t k = 0;
+                    for (; k < subpath.connection_size() && !found; ++k) {
+                        found = (subpath.connection(k).next() == cnxn.first);
+                    }
+                    if (!found) {
+                        auto connection = subpath.add_connection();
+                        connection->set_next(cnxn.first);
+                        connection->set_score(cnxn.second);
+                    }
+                    else {
+                        subpath.mutable_connection(k - 1)->set_score(max(subpath.connection(k - 1).score(), cnxn.second));
                     }
                 }
             }
@@ -336,15 +400,16 @@ namespace vg {
                 }
             }
             
-            // maybe recompute the starts
+            // update the starts
             bool found_deleted_start = false;
             for (size_t i = 0; !found_deleted_start && i < multipath_aln.start_size(); ++i) {
                 found_deleted_start = is_empty[multipath_aln.start(i)];
+                multipath_aln.set_start(i, multipath_aln.start(i) - removed_so_far[multipath_aln.start(i)]);
             }
             
             if (found_deleted_start) {
                 // recompute the edges from scratch (could be done faster, but
-                // this is easy)
+                // this is easy);
                 identify_start_subpaths(multipath_aln);
             }
         }

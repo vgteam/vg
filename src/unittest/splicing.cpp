@@ -1,6 +1,6 @@
-/// \file dinucleotide_machine.cpp
+/// \file splicing.cpp
 ///  
-/// Unit tests for the DinucleotideMachine
+/// Unit tests for the splicing functions
 ///
 
 #include <iostream>
