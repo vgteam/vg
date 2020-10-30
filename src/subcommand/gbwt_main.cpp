@@ -76,7 +76,7 @@ void use_preset(HaplotypeIndexer& haplotype_indexer, std::string preset_name);
 void help_gbwt(char** argv) {
     std::cerr << "usage: " << argv[0] << " gbwt [options] [args]" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Manipulate GBWTs. Input GBWTs are loaded from input args or built in Step 1." << std::endl;
+    std::cerr << "Manipulate GBWTs. Input GBWTs are loaded from input args or built in earlier steps." << std::endl;
     std::cerr << std::endl;
     std::cerr << "General options:" << std::endl;
     std::cerr << "    -x, --xg-name FILE      read the graph from FILE" << std::endl;
@@ -84,7 +84,7 @@ void help_gbwt(char** argv) {
     std::cerr << "    -d, --temp-dir DIR      use directory DIR for temporary files" << std::endl;
     std::cerr << "    -p, --progress          show progress and statistics" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "GBWT construction parameters:" << std::endl;
+    std::cerr << "GBWT construction parameters (for steps 1 and 4):" << std::endl;
     std::cerr << "    -b, --buffer-size N     GBWT construction buffer size in millions of nodes (default " << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << ")" << std::endl;
     std::cerr << "    -i, --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
     std::cerr << std::endl;
