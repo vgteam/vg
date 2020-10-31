@@ -60,8 +60,8 @@ void help_mpmap(char** argv) {
     << "  -l, --read-length TYPE      read length preset: 'very-short', 'short', or 'long' (approx. <50bp, 50-500bp, and >500bp) [short]" << endl
     << "  -e, --error-rate TYPE       error rate preset: 'low' or 'high' (approx. PHRED >20 and <20) [low]" << endl
     << "output:" << endl
-    << "  -F, --output-fmt TYPE       format to output alignments in: 'GAMP for' multipath alignments, 'GAM' or 'GAF' for single-path," << endl
-    << "                              alignments, 'SAM', 'BAM', or 'CRAM 'for linear reference alignments (may also require -S) [GAMP]" << endl
+    << "  -F, --output-fmt TYPE       format to output alignments in: 'GAMP for' multipath alignments, 'GAM' or 'GAF' for single-path" << endl
+    << "                              alignments, 'SAM', 'BAM', or 'CRAM' for linear reference alignments (may also require -S) [GAMP]" << endl
     << "  -S, --ref-paths FILE        paths in the graph, one per line or HTSlib .dict, to treat as reference for HTSlib formats (see -F) [all paths]" << endl
     << "  -N, --sample NAME           add this sample name to output" << endl
     << "  -R, --read-group NAME       add this read group to output" << endl
