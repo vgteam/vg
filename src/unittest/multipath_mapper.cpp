@@ -27,7 +27,6 @@ public:
     using MultipathMapper::strip_full_length_bonuses;
     using MultipathMapper::sort_and_compute_mapping_quality;
     using MultipathMapper::read_coverage;
-    using MultipathMapper::read_coverage_z_score;        
 };
 
 TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipathmapper]" ) {

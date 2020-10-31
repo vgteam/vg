@@ -1657,6 +1657,10 @@ namespace vg {
 
     pair<int64_t, int64_t> aligned_interval(const multipath_alignment_t& multipath_aln) {
         
+        if (multipath_aln.subpath().empty()) {
+            return pair<int64_t, int64_t>(0, 0);
+        }
+        
         int64_t min_softclip_left = numeric_limits<int64_t>::max();
         int64_t min_softclip_right = numeric_limits<int64_t>::max();
         

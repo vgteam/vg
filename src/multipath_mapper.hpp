@@ -562,9 +562,6 @@ namespace vg {
         /// Is this a consistent inter-pair distance based on the learned fragment length distribution?
         bool is_consistent(int64_t distance) const;
         
-        /// Computes the Z-score of the number of matches against an equal length random DNA string.
-        double read_coverage_z_score(int64_t coverage, const Alignment& alignment) const;
-        
         /// Return true if any of the initial positions of the source Subpaths are shared between the two
         /// multipath alignments
         bool share_terminal_positions(const multipath_alignment_t& multipath_aln_1, const multipath_alignment_t& multipath_aln_2) const;
