@@ -2801,6 +2801,7 @@ namespace vg {
         for (int64_t i = 1; i < multipath_alns_out.size(); ++i) {
             index[i] = i;
         }
+        vector<int64_t> order = index;
         
         // we'll keep track of whether any spliced alignments succeeded
         bool any_splices = false;
@@ -2900,8 +2901,14 @@ namespace vg {
                         cluster_idxs.pop_back();
                         
                         // do the bookkeeping to track the original indexes
-                        index[multipath_alns_out.size()] = mp_aln_candidates[i];
-                        index[mp_aln_candidates[i]] = -1;
+                        int64_t consuming_original_index = order[mp_aln_candidates[i]];
+                        int64_t moving_original_index = order[multipath_alns_out.size()];
+                        
+                        index[moving_original_index] = multipath_alns_out.size();
+                        index[consuming_original_index] = -1;
+                        
+                        order[mp_aln_candidates[i]] = moving_original_index;
+                        order[multipath_alns_out.size()] = -1;
                         
                         // TODO: also do bookkeeping on the clusters to claim the hits
                         
@@ -2909,6 +2916,10 @@ namespace vg {
                         cerr << "indexes are now:" << endl;
                         for (size_t i = 0; i < index.size(); ++i) {
                             cerr << "\t" << i << " " << index[i] << endl;
+                        }
+                        cerr << "orders are now:" << endl;
+                        for (size_t i = 0; i < order.size(); ++i) {
+                            cerr << "\t" << i << " " << order[i] << endl;
                         }
 #endif
                         
@@ -2964,6 +2975,7 @@ namespace vg {
         for (int64_t i = 1; i < multipath_aln_pairs_out.size(); ++i) {
             index[i] = i;
         }
+        vector<int64_t> order = index;
         
         // we'll keep track of whether any spliced alignments succeeded
         bool any_splices = false;
@@ -3106,8 +3118,17 @@ namespace vg {
                                 cluster_pairs.pop_back();
                                 
                                 // do the bookkeeping to track the original indexes
-                                index[multipath_aln_pairs_out.size()] = mp_aln_candidates[i];
-                                index[mp_aln_candidates[i]] = -1;
+                                int64_t consuming_original_index = order[mp_aln_candidates[i]];
+                                int64_t moving_original_index = order[multipath_aln_pairs_out.size()];
+                                
+                                index[moving_original_index] = multipath_aln_pairs_out.size();
+                                index[consuming_original_index] = -1;
+                                
+                                order[mp_aln_candidates[i]] = moving_original_index;
+                                order[multipath_aln_pairs_out.size()] = -1;
+                                
+                                // TODO: also do bookkeeping on the clusters to claim the hits
+                                
                             }
                             else {
                                 // we don't want to mess up pairs, so just copy it out
@@ -3119,6 +3140,10 @@ namespace vg {
                             cerr << "pair indexes are now:" << endl;
                             for (size_t i = 0; i < index.size(); ++i) {
                                 cerr << "\t" << i << " " << index[i] << endl;
+                            }
+                            cerr << "pair orders are now:" << endl;
+                            for (size_t i = 0; i < order.size(); ++i) {
+                                cerr << "\t" << i << " " << order[i] << endl;
                             }
 #endif
                             
