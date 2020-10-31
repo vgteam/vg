@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['filtername',['FilterName',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388',1,'vg::ReadFilter::Counts']]]
+  ['childnodetype',['ChildNodeType',['../classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225',1,'vg::SnarlSeedClusterer']]],
+  ['commandcategory',['CommandCategory',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838',1,'vg::subcommand']]]
 ];

@@ -85,7 +85,7 @@ var searchData=
   ['finish',['finish',['../classvg_1_1SnarlManager.html#aacf5fd439b35298107ddf2900559259c',1,'vg::SnarlManager::finish()'],['../namespacevg_1_1io.html#a9b562b3e8bd001bb10bcd0353bf5a929',1,'vg::io::finish()']]],
   ['finish_5fcurrent_5fedit',['finish_current_edit',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#a7bafadc0a8c3160bcc2b3949edc3de17',1,'vg::BandedGlobalAligner::BABuilder']]],
   ['finish_5fcurrent_5fnode',['finish_current_node',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#ad460ee763b7b15cf8206038283423e89',1,'vg::BandedGlobalAligner::BABuilder']]],
-  ['finish_5fgbwt_5fconstuction',['finish_gbwt_constuction',['../namespacevg.html#a0b4f86bb616e609804ac37215714d499',1,'vg']]],
+  ['finish_5fgbwt_5fconstuction',['finish_gbwt_constuction',['../namespacevg.html#ac2fee40d55dfda86b1e0cc2f2500b280',1,'vg']]],
   ['first_5fkmer_5fkey',['first_kmer_key',['../classvg_1_1Index.html#afc5035b858c22439a9c9e86c53149f76',1,'vg::Index']]],
   ['first_5fpath_5fposition',['first_path_position',['../namespacevg.html#ada7557d06abd0fca3d66f9ca73fe81db',1,'vg']]],
   ['fit_5ffixed_5frate_5fmax_5fexponential',['fit_fixed_rate_max_exponential',['../namespacevg.html#a4b47bdda079acc49d455953a91db12bd',1,'vg']]],

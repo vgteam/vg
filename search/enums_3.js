@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['index_5ftype',['index_type',['../gbwt__main_8cpp.html#ae64cdae0e55ff5e53a48409a6fc1af1d',1,'gbwt_main.cpp']]]
+  ['filtername',['FilterName',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388',1,'vg::ReadFilter::Counts']]]
 ];

@@ -57,7 +57,7 @@ var searchData=
   ['site_5fmanager',['site_manager',['../classvg_1_1SmallSnarlSimplifier.html#a4991294aedb029a70d1d4f459e009bd3',1,'vg::SmallSnarlSimplifier']]],
   ['site_5fstarts',['site_starts',['../classvg_1_1PhasedGenome.html#accfaae53e12f924b914623734a68102f',1,'vg::PhasedGenome']]],
   ['sites',['sites',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a7fee7818b260154898be386649d3bfe7',1,'vg::PhasedGenome::Haplotype']]],
-  ['size',['size',['../classvg_1_1DepthMap.html#acb11be955a40c316fcdd1c261bfb639e',1,'vg::DepthMap']]],
+  ['size',['size',['../classvg_1_1DepthMap.html#acb11be955a40c316fcdd1c261bfb639e',1,'vg::DepthMap::size()'],['../structjob__type.html#adbc606f42800cfce3697b017578356b9',1,'job_type::size()']]],
   ['skip_5falt',['skip_alt',['../classvg_1_1VCFTraversalFinder.html#acc753182667fd49d9afe5eba697c92da',1,'vg::VCFTraversalFinder']]],
   ['skip_5fstructural_5fduplications',['skip_structural_duplications',['../classvg_1_1VariantAdder.html#a0c90a9845a662358588f517e2cf91501',1,'vg::VariantAdder']]],
   ['snarl',['snarl',['../structvg_1_1ReplaceSnarlHaplotypeCommand.html#aee85ad3c21e883f05b67c62fbf05be72',1,'vg::ReplaceSnarlHaplotypeCommand::snarl()'],['../structvg_1_1SnarlManager_1_1SnarlRecord.html#acad9926afa69d4de3d5424ac1f03582d',1,'vg::SnarlManager::SnarlRecord::snarl()'],['../structvg_1_1Visit.html#a7e671bbc7437a16dd3549a6fc49fd2a9',1,'vg::Visit::snarl()']]],

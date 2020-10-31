@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['loadprogress',['LoadProgress',['../classvg_1_1io_1_1VPKG.html#a8628083f85511abc137b64c80985160f',1,'vg::io::VPKG']]]
+  ['index_5ftype',['index_type',['../gbwt__main_8cpp.html#ae64cdae0e55ff5e53a48409a6fc1af1d',1,'gbwt_main.cpp']]]
 ];
