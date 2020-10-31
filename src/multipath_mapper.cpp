@@ -2798,6 +2798,9 @@ namespace vg {
         }
          
         auto primary_interval = aligned_interval(multipath_alns_out.front());
+        if (primary_interval.first == primary_interval.second) {
+            return;
+        }
         bool search_left = primary_interval.first >= min_softclip_length_for_splice;
         bool search_right = alignment.sequence().size() - primary_interval.second >= min_softclip_length_for_splice;
         
@@ -2912,6 +2915,11 @@ namespace vg {
             
             // decide if this read looks like it could benefit from a spliced alignment
             auto primary_interval = aligned_interval(*anchor_mp_aln);
+            
+            if (primary_interval.first == primary_interval.second) {
+                continue;
+            }
+            
             bool search_left = primary_interval.first >= min_softclip_length_for_splice;
             bool search_right = aln->sequence().size() - primary_interval.second >= min_softclip_length_for_splice;
             
