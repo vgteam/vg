@@ -2120,8 +2120,6 @@ namespace vg {
                                                  int64_t num_candidates,
                                                  const function<const multipath_alignment_t&(int64_t)>& get_candidate,
                                                  const function<multipath_alignment_t&&(int64_t)>& consume_candidate) {
-        
-        
         /*
          * The region around a candidate's end, which could contain a splice junction
          */
@@ -2810,6 +2808,7 @@ namespace vg {
         for (size_t i = 0; i < index.size(); ) {
             if (index[i] < 0) {
                 // this alignment has been consumed as a splice candidate
+                ++i;
                 continue;
             }
             
@@ -2828,22 +2827,23 @@ namespace vg {
             // TODO: repetitive with paired version
             auto alnr = get_aligner(!alignment.quality().empty());
             int64_t left_max_score = (alnr->score_exact_match(alignment, 0, interval.first)
-                                      + alnr->score_full_length_bonus(true, alignment));
+                                      + (interval.first == 0 ? 0 : alnr->score_full_length_bonus(true, alignment)));
             int64_t right_max_score = (alnr->score_exact_match(alignment, interval.second,
                                                                alignment.sequence().size() - interval.second)
-                                       + alnr->score_full_length_bonus(false, alignment));
+                                       + (interval.second == alignment.sequence().size() ? 0 : alnr->score_full_length_bonus(false, alignment)));
             bool search_left = left_max_score >= min_softclipped_score_for_splice;
             bool search_right = right_max_score >= min_softclipped_score_for_splice;
             
             if (!(search_left || search_right)) {
 #ifdef debug_multipath_mapper
-                cerr << "soft clips are not sufficiently large to look for spliced alignment on interval " << interval.first << ":" << primary_interval.second << endl;
+                cerr << "soft clips are not sufficiently large to look for spliced alignment on interval " << interval.first << ":" << interval.second << endl;
 #endif
+                ++i;
                 continue;
             }
             
 #ifdef debug_multipath_mapper
-            cerr << "looking for spliced alignments, to left? " << search_left << ", to right? " << search_right << ", interval: " << primary_interval.first << " " << primary_interval.second << endl;
+            cerr << "looking for spliced alignments, to left? " << search_left << ", to right? " << search_right << ", interval: " << interval.first << " " << interval.second << endl;
 #endif
             
             bool found_splice_for_anchor = false;
@@ -2884,6 +2884,10 @@ namespace vg {
                         // TODO: this will need to change if I start allowing multiple splices in one alignment
                         // because indexes will need to stay stable
                         
+#ifdef debug_multipath_mapper
+                        cerr << "consuming alignment at index " << mp_aln_candidates[i] << endl;
+#endif
+                        
                         // pull the alignment out
                         tmp = move(multipath_alns_out[mp_aln_candidates[i]]);
                         
@@ -2900,6 +2904,13 @@ namespace vg {
                         index[mp_aln_candidates[i]] = -1;
                         
                         // TODO: also do bookkeeping on the clusters to claim the hits
+                        
+#ifdef debug_multipath_mapper
+                        cerr << "indexes are now:" << endl;
+                        for (size_t i = 0; i < index.size(); ++i) {
+                            cerr << "\t" << i << " " << index[i] << endl;
+                        }
+#endif
                         
                         return move(tmp);
                     }
@@ -2957,9 +2968,10 @@ namespace vg {
         // we'll keep track of whether any spliced alignments succeeded
         bool any_splices = false;
         
-        for (size_t i = 0; i < index.size(); ) {
+        for (size_t i = 0; i < index.size(); ++i) {
             if (index[i] < 0) {
                 // this alignment has been consumed as a splice candidate
+                ++i;
                 continue;
             }
             
@@ -2969,6 +2981,10 @@ namespace vg {
                 // the rest of the alignments are too low scoring to consider
                 break;
             }
+            
+#ifdef debug_multipath_mapper
+            cerr << "determining whether to make spliced alignment for pair at index " << index[i] << endl;
+#endif
             
             for (int read_num = 0; read_num < 2; ) {
                 
@@ -2996,15 +3012,15 @@ namespace vg {
                 auto interval = aligned_interval(*anchor_mp_aln);
                 auto alnr = get_aligner(!aln->quality().empty());
                 int64_t left_max_score = (alnr->score_exact_match(*aln, 0, interval.first)
-                                          + alnr->score_full_length_bonus(true, *aln));
+                                          + (interval.first == 0 ? 0 : alnr->score_full_length_bonus(true, *aln)));
                 int64_t right_max_score = (alnr->score_exact_match(*aln, interval.second,
                                                                    aln->sequence().size() - interval.second)
-                                           + alnr->score_full_length_bonus(false, *aln));
+                                           + (interval.second == aln->sequence().size() ? 0 : alnr->score_full_length_bonus(false, *aln)));
                 bool search_left = left_max_score >= min_softclipped_score_for_splice;
                 bool search_right = right_max_score >= min_softclipped_score_for_splice;
                 
 #ifdef debug_multipath_mapper
-                cerr << "on read " << (do_read_1 ? 1 : 2) << " looking for spliced alignments, to left? " << search_left << ", to right? " << search_right << ", interval: " << primary_interval.first << " " << primary_interval.second << endl;
+                cerr << "on read " << (do_read_1 ? 1 : 2) << " looking for spliced alignments, to left? " << search_left << ", to right? " << search_right << ", interval: " << interval.first << " " << interval.second << endl;
 #endif
                 
                 bool found_splice_for_anchor = false;
@@ -3054,6 +3070,9 @@ namespace vg {
                             return move(*anchor_mp_aln);
                         }
                         else if (i < mp_aln_candidates.size()) {
+#ifdef debug_multipath_mapper
+                            cerr << "consuming read " << (do_read_1 ? 1 : 2) << " of pair " << mp_aln_candidates[i] << endl;
+#endif
                             
                             // look to see if the opposite side of this pair exists in multiple pairs
                             size_t opposite_cluster = do_read_1 ? cluster_pairs[mp_aln_candidates[i]].first.second
@@ -3071,6 +3090,10 @@ namespace vg {
                             if (opposite_duplicated) {
                                 // the other side will continue to live in its other pair, so we can scavenge
                                 // this multipath alignment
+#ifdef debug_multipath_mapper
+                                cerr << "the opposite side is duplicated, removing pair" << endl;
+#endif
+                                
                                 tmp = do_read_1 ? move(multipath_aln_pairs_out[mp_aln_candidates[i]].first)
                                                 : move(multipath_aln_pairs_out[mp_aln_candidates[i]].second);
                                 
@@ -3091,6 +3114,13 @@ namespace vg {
                                 tmp = do_read_1 ? multipath_aln_pairs_out[mp_aln_candidates[i]].first
                                                 : multipath_aln_pairs_out[mp_aln_candidates[i]].second;
                             }
+                            
+#ifdef debug_multipath_mapper
+                            cerr << "pair indexes are now:" << endl;
+                            for (size_t i = 0; i < index.size(); ++i) {
+                                cerr << "\t" << i << " " << index[i] << endl;
+                            }
+#endif
                             
                             return move(tmp);
                         }
