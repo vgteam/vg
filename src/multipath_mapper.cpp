@@ -2202,6 +2202,13 @@ namespace vg {
             
             auto& candidate = get_candidate(i);
             
+            if (candidate.subpath().empty()) {
+#ifdef debug_multipath_mapper
+                cerr << "skipping empty candidate " << i << endl;
+#endif
+                continue;
+            }
+            
 #ifdef debug_multipath_mapper
             cerr << "extracting splice region for candidate " << i << ":" << endl;
             cerr << debug_string(candidate) << endl;
@@ -2825,6 +2832,10 @@ namespace vg {
             }
             
             auto interval = aligned_interval(splice_anchor);
+            if (interval.first == interval.second) {
+                ++i;
+                continue;
+            }
             // TODO: repetitive with paired version
             auto alnr = get_aligner(!alignment.quality().empty());
             int64_t left_max_score = (alnr->score_exact_match(alignment, 0, interval.first)
@@ -3022,6 +3033,11 @@ namespace vg {
                 
                 // decide if this read looks like it could benefit from a spliced alignment
                 auto interval = aligned_interval(*anchor_mp_aln);
+                if (interval.first == interval.second) {
+                    read_num++;
+                    continue;
+                }
+                
                 auto alnr = get_aligner(!aln->quality().empty());
                 int64_t left_max_score = (alnr->score_exact_match(*aln, 0, interval.first)
                                           + (interval.first == 0 ? 0 : alnr->score_full_length_bonus(true, *aln)));
@@ -3461,7 +3477,7 @@ namespace vg {
                 auto it = new_cluster.find(hits_found_in_aln[j]);
                 if (it == new_cluster.end()) {
 #ifdef debug_multipath_mapper
-                    cerr << "making a new cluster with hits:" << endl;
+                    cerr << "making a new cluster at index " << cluster_graphs.size() << " with hits:" << endl;
                     for (auto hit_idx : hits_found_in_aln[j]) {
                         cerr << "\t" << hit_idx << endl;
                     }
@@ -3473,18 +3489,38 @@ namespace vg {
                     
                     // and now make the cluster graph itself
                     cluster_graphs.emplace_back();
-                    get<0>(cluster_graphs.back()) = new bdsg::HashGraph();
-                    algorithms::copy_handle_graph(get<0>(cluster_graphs[record.first]), get<0>(cluster_graphs.back()));
+                    auto& cluster_graph = cluster_graphs.back();
+                    get<0>(cluster_graph) = new bdsg::HashGraph();
+                    algorithms::copy_handle_graph(get<0>(cluster_graphs[record.first]), get<0>(cluster_graph));
                     
-                    for (auto i : hits_found_in_aln[j]) {
-                        get<1>(cluster_graphs.back()).first.emplace_back(get<1>(cluster_graphs[record.first]).first[i]);
+                    for (auto i : it->first) {
+                        get<1>(cluster_graph).first.emplace_back(get<1>(cluster_graphs[record.first]).first[i]);
                     }
-                    get<1>(cluster_graphs.back()).second = get<1>(cluster_graphs[record.first]).second;
+                    get<1>(cluster_graph).second = get<1>(cluster_graphs[record.first]).second;
                     
-                    get<2>(cluster_graphs.back()) = read_coverage(get<1>(cluster_graphs.back()));
+                    // sort lexicographically to compute read coverage
+                    sort(get<1>(cluster_graph).first.begin(), get<1>(cluster_graph).first.end(),
+                         [](const pair<const MaximalExactMatch*, pos_t>& hit_1,
+                            const pair<const MaximalExactMatch*, pos_t>& hit_2) {
+                        return (hit_1.first->begin < hit_2.first->begin ||
+                                (hit_1.first->begin == hit_2.first->begin && hit_1.first->end < hit_2.first->end));
+                    });
                     
+                    get<2>(cluster_graph) = read_coverage(get<1>(cluster_graph));
                     
+                    // and then sort back into length first order
+                    sort(get<1>(cluster_graph).first.begin(), get<1>(cluster_graph).first.end(),
+                         [](const pair<const MaximalExactMatch*, pos_t>& hit_1,
+                            const pair<const MaximalExactMatch*, pos_t>& hit_2) {
+                        return (hit_1.first->length() > hit_2.first->length() ||
+                                (hit_1.first->length() == hit_2.first->length() &&
+                                 (hit_1.first->begin < hit_2.first->begin ||
+                                  (hit_1.first->begin == hit_2.first->begin && hit_1.first->end < hit_2.first->end))));
+                    });
                     
+#ifdef debug_multipath_mapper
+                    cerr << "assign total coverage " << get<2>(cluster_graphs.back()) << endl;
+#endif
                     any_new_clusters = true;
                 }
                 
@@ -3505,14 +3541,62 @@ namespace vg {
                 }
             }
             
-            // any remainiing clusters aren't being used by any alignment and they can
+            // any remaining clusters aren't being used by any alignment and they can
             // have their hits released
             for (const auto& record : original_cluster) {
 #ifdef debug_multipath_mapper
                 cerr << "cluster " << record.first << " has no more assignees, unclaiming all of its hits" << endl;
 #endif
                 get<1>(cluster_graphs[record.first]).first.clear();
+                get<2>(cluster_graphs[record.first]) = 0;
             }
+            
+            
+            // reorder the clusters based on the new coverage
+            vector<size_t> order(cluster_graphs.size(), 0);
+            for (size_t i = 1; i < cluster_graphs.size(); ++i) {
+                order[i] = i;
+            }
+            
+            stable_sort(order.begin(), order.end(), [&](size_t i, size_t j) {
+                return get<2>(cluster_graphs[i]) > get<2>(cluster_graphs[j]);
+            });
+            
+            vector<size_t> index(order.size());
+            for (size_t i = 0; i < order.size(); ++i) {
+                index[order[i]] = i;
+            }
+            
+#ifdef debug_multipath_mapper
+            cerr << "reordering clusters based on coverage" << endl;
+            for (size_t i = 0; i < index.size(); ++i) {
+                cerr << "\t" << i << " -> " << index[i] << endl;
+            }
+#endif
+            
+            for (size_t* cluster_assignment : all_cluster_assignments) {
+                if (*cluster_assignment != RESCUED) {
+                    *cluster_assignment = index[*cluster_assignment];
+                }
+            }
+            
+            for (size_t i = 0; i < index.size(); ++i) {
+                while (index[i] != i) {
+                    std::swap(cluster_graphs[index[i]], cluster_graphs[i]);
+                    std::swap(index[index[i]], index[i]);
+                    
+                }
+            }
+            
+#ifdef debug_multipath_mapper
+            cerr << "new cluster ordering" << endl;
+            for (int i = 0; i < cluster_graphs.size(); i++) {
+                cerr << "cluster " << i << ", coverage " << get<2>(cluster_graphs[i]) << endl;
+                for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs[i]).first) {
+                    cerr << "\t" << hit.second << " " <<  hit.first->sequence() << endl;
+                }
+            }
+#endif
         }
     }
 
@@ -5730,19 +5814,6 @@ namespace vg {
                                       haploMath::RRMemo(recombination_penalty, population_size)));
             return rr_memos.at(make_pair(recombination_penalty, population_size));
         }
-    }
-    
-    double MultipathMapper::read_coverage_z_score(int64_t coverage, const Alignment& alignment) const {
-        /* algebraically equivalent to
-         *
-         *      Coverage - ReadLen / 4
-         *  -------------------------------
-         *  sqrt(ReadLen * 1/4 * (1 - 1/4))
-         * 
-         * from the Normal approximation to a Binomal(ReadLen, 1/4)
-         */
-        double root_len = sqrt(alignment.sequence().size());
-        return 0.5773502691896258 * (4.0 * coverage / root_len - root_len);
     }
 }
 
