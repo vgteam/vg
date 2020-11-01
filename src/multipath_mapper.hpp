@@ -422,6 +422,7 @@ namespace vg {
                                                 const pair<int64_t, int64_t>& primary_interval,
                                                 const vector<multipath_alignment_t>& multipath_alns,
                                                 const vector<size_t>& cluster_idxs,
+                                                const vector<int64_t>& current_index, int64_t anchor,
                                                 unordered_set<size_t>& clusters_used_out,
                                                 vector<size_t>& mp_aln_candidates_out) const;
 
@@ -429,6 +430,7 @@ namespace vg {
                                                 const pair<int64_t, int64_t>& primary_interval,
                                                 const vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
                                                 const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                const vector<int64_t>& current_index, int64_t anchor,
                                                 unordered_set<size_t>& clusters_used_out,
                                                 vector<size_t>& mp_aln_candidates_out) const;
 

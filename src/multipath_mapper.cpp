@@ -1,4 +1,4 @@
-//
+`//
 //  multipath_mapper.cpp
 //  
 //
@@ -2540,6 +2540,7 @@ namespace vg {
                                                              const pair<int64_t, int64_t>& primary_interval,
                                                              const vector<multipath_alignment_t>& multipath_alns,
                                                              const vector<size_t>& cluster_idxs,
+                                                             const vector<int64_t>& current_index, int64_t anchor,
                                                              unordered_set<size_t>& clusters_used_out,
                                                              vector<size_t>& mp_aln_candidates_out) const {
         // TODO: should i generalize this to look for alignments of not only the primary?
@@ -2547,7 +2548,12 @@ namespace vg {
         // don't look at the primary again
         clusters_used_out.insert(cluster_idxs.front());
         
-        for (size_t i = 1; i < multipath_alns.size(); ++i) {
+        for (size_t idx = anchor + 1; idx < current_index.size(); ++idx) {
+            
+            int64_t i = current_index[idx];
+            if (i < 0) {
+                continue;
+            }
             
             // check that the alignment is mostly disjoint of the primary and that
             // that the independent aligned portion is significant to call this a potential splice alignment
@@ -2588,6 +2594,7 @@ namespace vg {
                                                              const pair<int64_t, int64_t>& primary_interval,
                                                              const vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
                                                              const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                             const vector<int64_t>& current_index, int64_t anchor,
                                                              unordered_set<size_t>& clusters_used_out,
                                                              vector<size_t>& mp_aln_candidates_out) const {
         
@@ -2596,7 +2603,12 @@ namespace vg {
         // don't look at the primary again
         clusters_used_out.insert(read_1 ? cluster_pairs.front().first.first : cluster_pairs.front().first.second);
         
-        for (size_t i = 1; i < multipath_aln_pairs.size(); ++i) {
+        for (size_t idx = anchor + 1; idx < current_index.size(); ++idx) {
+            
+            int64_t i = current_index[idx];
+            if (i < 0) {
+                continue;
+            }
             
             const multipath_alignment_t& mp_aln = read_1 ? multipath_aln_pairs[i].first : multipath_aln_pairs[i].second;
             
@@ -2869,9 +2881,8 @@ namespace vg {
                 unordered_set<size_t> clusters_used;
                 vector<size_t> cluster_candidates;
                 vector<pair<const MaximalExactMatch*, pos_t>> hit_candidates;
-                identify_aligned_splice_candidates(alignment, do_left, interval,
-                                                   multipath_alns_out, cluster_idxs, clusters_used,
-                                                   mp_aln_candidates);
+                identify_aligned_splice_candidates(alignment, do_left, interval, multipath_alns_out, cluster_idxs,
+                                                   index, i, clusters_used, mp_aln_candidates);
                 identify_unaligned_splice_candidates(alignment, do_left, interval, mems,
                                                      cluster_graphs, clusters_used, cluster_candidates,
                                                      hit_candidates);
@@ -3063,9 +3074,8 @@ namespace vg {
                     unordered_set<size_t> clusters_used;
                     vector<size_t> cluster_candidates;
                     vector<pair<const MaximalExactMatch*, pos_t>> hit_candidates;
-                    identify_aligned_splice_candidates(*aln, do_read_1, do_left, interval,
-                                                       multipath_aln_pairs_out, cluster_pairs, clusters_used,
-                                                       mp_aln_candidates);
+                    identify_aligned_splice_candidates(*aln, do_read_1, do_left, interval, multipath_aln_pairs_out, cluster_pairs,
+                                                       index, i, clusters_used, mp_aln_candidates);
                     identify_unaligned_splice_candidates(*aln, do_left, interval, *mems,
                                                          *cluster_graphs, clusters_used, cluster_candidates,
                                                          hit_candidates);
@@ -5819,3 +5829,4 @@ namespace vg {
 
 
 
+`
