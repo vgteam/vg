@@ -14,6 +14,8 @@
 //#define debug_trace
 //#define debug_verbose_validation
 //#define debug_cigar
+//#define debug_find_match
+//#define debug_remove_empty
 
 using namespace std;
 using namespace structures;
@@ -234,42 +236,111 @@ namespace vg {
         
         // find subpaths that don't have any aligned bases
         for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
-            const subpath_t& subpath = multipath_aln.subpath(i);
-            if (path_from_length(subpath.path()) == 0 &&
-                path_to_length(subpath.path()) == 0) {
-                is_empty[i] = true;
-                any_empty = true;
+            const path_t& path = multipath_aln.subpath(i).path();
+            bool empty = true;
+            for (size_t j = 0; j < path.mapping_size() && empty; ++j) {
+                const path_mapping_t& mapping = path.mapping(j);
+                for (size_t k = 0; k < mapping.edit_size() && empty; ++k) {
+                    const edit_t& edit = mapping.edit(k);
+                    empty = edit.from_length() == 0 && edit.to_length() == 0;
+                }
             }
+            is_empty[i] = empty;
+            any_empty = any_empty || empty;
         }
+        
+#ifdef debug_remove_empty
+        cerr << "subpaths empty:" << endl;
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+            cerr << "\t" << i << " " << is_empty[i] << endl;
+        }
+#endif
         
         if (any_empty) {
             // there's at least one empty subpath
             
+            // compute the transitive edges through empty subpaths
             for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                if (is_empty[i]) {
+                    continue;
+                }
                 // check if any of this subpaths nexts are empty
-                vector<size_t> transitive_nexts;
                 subpath_t& subpath = *multipath_aln.mutable_subpath(i);
-                for (size_t j = 0; j < subpath.next_size(); ++j) {
-                    if (is_empty[subpath.next(j)]) {
-                        // traverse to all nexts that can be reached by only empty subpaths
-                        //
-                        // technically this implementation can be exponential, but i don't
-                        // think it will ever come up
-                        vector<size_t> stack(1, subpath.next(j));
-                        while (!stack.empty()) {
-                            auto k = stack.back();
-                            stack.pop_back();
-                            for (auto n : multipath_aln.subpath(k).next()) {
-                                if (is_empty[n]) {
-                                    stack.push_back(n);
-                                }
-                                else {
-                                    transitive_nexts.push_back(n);
-                                }
+                
+                set<size_t> transitive_nexts;
+                map<size_t, int32_t> transitive_connections;
+                
+                unordered_set<size_t> dequeued;
+                // records of (index, no connections, score)
+                priority_queue<tuple<int32_t, bool, size_t>> queue;
+                for (auto n : subpath.next()) {
+                    if (is_empty[n]) {
+                        queue.emplace(0, true, n);
+                    }
+                }
+                for (const auto& connection : subpath.connection()) {
+                    if (is_empty[connection.next()]) {
+                        queue.emplace(connection.score(), false, connection.next());
+                    }
+                }
+                // dijkstra works to compute max here because it's a DAG
+                while (!queue.empty()) {
+                    
+                    int32_t score;
+                    bool not_connection;
+                    size_t idx;
+                    tie(score, not_connection, idx) = queue.top();
+                    queue.pop();
+                    
+                    if (dequeued.count(idx)) {
+                        continue;
+                    }
+                    dequeued.insert(idx);
+                    
+                    const auto& subpath_here = multipath_aln.subpath(idx);
+                    for (auto next : subpath_here.next()) {
+                        if (is_empty[next]) {
+                            queue.emplace(score, not_connection, next);
+                        }
+                        else if (not_connection) {
+                            transitive_nexts.insert(next);
+                        }
+                        else {
+                            auto it = transitive_connections.find(next);
+                            if (it == transitive_connections.end()) {
+                                transitive_connections[next] = score;
+                            }
+                            else {
+                                it->second = max(score, it->second);
+                            }
+                        }
+                    }
+                    for (const auto& connection : subpath_here.connection()) {
+                        int32_t score_thru = connection.score() + score;
+                        if (is_empty[connection.next()]) {
+                            queue.emplace(score_thru, false, connection.next());
+                        }
+                        else {
+                            auto it = transitive_connections.find(connection.next());
+                            if (it == transitive_connections.end()) {
+                                transitive_connections[connection.next()] = score_thru;
+                            }
+                            else {
+                                it->second = max(score_thru, it->second);
                             }
                         }
                     }
                 }
+#ifdef debug_remove_empty
+                cerr << "transitive nexts for subpath " << i << endl;
+                for (size_t j : transitive_nexts) {
+                    cerr << "\t" << j << endl;
+                }
+                cerr << "transitive connections for subpath " << i << endl;
+                for (auto c : transitive_connections) {
+                    cerr << "\t" << c.first << " " << c.second << endl;
+                }
+#endif
                 
                 // add edges for the nexts reachable through empty subpaths
                 for (size_t j : transitive_nexts) {
@@ -281,7 +352,28 @@ namespace vg {
                         subpath.add_next(j);
                     }
                 }
+                
+                for (const pair<size_t, int32_t>& cnxn : transitive_connections) {
+                    bool found = false;
+                    size_t k = 0;
+                    for (; k < subpath.connection_size() && !found; ++k) {
+                        found = (subpath.connection(k).next() == cnxn.first);
+                    }
+                    if (!found) {
+                        auto connection = subpath.add_connection();
+                        connection->set_next(cnxn.first);
+                        connection->set_score(cnxn.second);
+                    }
+                    else {
+                        subpath.mutable_connection(k - 1)->set_score(max(subpath.connection(k - 1).score(), cnxn.second));
+                    }
+                }
             }
+            
+#ifdef debug_remove_empty
+            cerr << "before removing subpaths" << endl;
+            cerr << debug_string(multipath_aln) << endl;
+#endif
             
             // relocate the subpaths we're keeping at the front of the vector
             vector<size_t> removed_so_far(multipath_aln.subpath_size() + 1, 0);
@@ -298,6 +390,11 @@ namespace vg {
                     *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*multipath_aln.mutable_subpath(i));
                 }
             }
+            
+#ifdef debug_remove_empty
+            cerr << "before updating edges" << endl;
+            cerr << debug_string(multipath_aln) << endl;
+#endif
             
             // delete the end of the subpaths
             multipath_aln.mutable_subpath()->resize(multipath_aln.subpath_size() - removed_so_far.back());
@@ -335,15 +432,22 @@ namespace vg {
                 }
             }
             
-            // maybe recompute the starts
+            
+#ifdef debug_remove_empty
+            cerr << "before updating starts" << endl;
+            cerr << debug_string(multipath_aln) << endl;
+#endif
+            
+            // update the starts
             bool found_deleted_start = false;
             for (size_t i = 0; !found_deleted_start && i < multipath_aln.start_size(); ++i) {
                 found_deleted_start = is_empty[multipath_aln.start(i)];
+                multipath_aln.set_start(i, multipath_aln.start(i) - removed_so_far[multipath_aln.start(i)]);
             }
             
             if (found_deleted_start) {
                 // recompute the edges from scratch (could be done faster, but
-                // this is easy)
+                // this is easy);
                 identify_start_subpaths(multipath_aln);
             }
         }
@@ -1553,6 +1657,10 @@ namespace vg {
 
     pair<int64_t, int64_t> aligned_interval(const multipath_alignment_t& multipath_aln) {
         
+        if (multipath_aln.subpath().empty()) {
+            return pair<int64_t, int64_t>(0, 0);
+        }
+        
         int64_t min_softclip_left = numeric_limits<int64_t>::max();
         int64_t min_softclip_right = numeric_limits<int64_t>::max();
         
@@ -2682,6 +2790,130 @@ namespace vg {
         return make_pair(mfarthest, pfarthest);
     }
 
+    bool contains_match(const multipath_alignment_t& multipath_aln, const pos_t& pos,
+                        int64_t read_pos, int64_t match_length) {
+        
+#ifdef debug_find_match
+        cerr << "starting search for match at graph pos " << pos << ", read pos " << read_pos << ", length " << match_length << endl;
+        cerr << debug_string(multipath_aln) << endl;
+#endif
+        
+        // to keep track of the read interval corresponding to each subpath
+        vector<int64_t> to_length(multipath_aln.subpath_size(), 0);
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+            const subpath_t& subpath = multipath_aln.subpath(i);
+            const path_t& path = subpath.path();
+            
+            int64_t to_length_here = to_length[i];
+            
+#ifdef debug_find_match
+            cerr << "at subpath " << i << " at read pos " << to_length_here << endl;
+#endif
+            
+            for (size_t j = 0; j < path.mapping_size(); ++j) {
+                
+                const path_mapping_t& mapping = path.mapping(j);
+                const position_t& position = mapping.position();
+                
+#ifdef debug_find_match
+                cerr << "at mapping " << j << ", graph pos " << make_pos_t(position) << ", read pos " << to_length_here << endl;
+#endif
+                
+                if (id(pos) == position.node_id() && is_rev(pos) == position.is_reverse()) {
+                    // we're on the node with the position we're looking for
+                    int64_t offset_here = position.offset();
+                    for (size_t k = 0; k < mapping.edit_size(); ++k) {
+                        const edit_t& edit = mapping.edit(k);
+#ifdef debug_find_match
+                        cerr << "at edit " << k << ", offset " << offset_here << ", read pos " << to_length_here << endl;
+#endif
+                        if (offset_here <= offset(pos) && offset_here + edit.from_length() > offset(pos) &&
+                            to_length_here <= read_pos && to_length_here + edit.to_length() > read_pos
+                            && (offset(pos) - offset_here) == (read_pos - to_length_here)
+                            && edit.sequence().empty()) {
+                            // we're going to pass a place where we might find a match
+                            
+                            
+#ifdef debug_find_match
+                            cerr << "starting a DFS for the match on edit " << k << ", offset " << offset_here << ", read pos " << to_length_here << ", initial walked " << offset(pos) - offset_here << endl;
+#endif
+                            
+                            // do DFS to find the match
+                            // records of (remaining, subpath idx, mapping idx, edit idx, which next)
+                            vector<tuple<int64_t, size_t, size_t, size_t>> stack;
+                            stack.emplace_back(offset(pos) - offset_here, i, j, k);
+                            while (!stack.empty()) {
+                                
+                                int64_t walked;
+                                size_t di, dj, dk;
+                                tie(walked, di, dj, dk) = stack.back();
+                                stack.pop_back();
+                                
+#ifdef debug_find_match
+                                cerr << "DFS location " << di << ", " << dj << ", " << dk << ", walked " << walked << endl;
+#endif
+                                
+                                const subpath_t& subpath_here = multipath_aln.subpath(di);
+                                const path_t& path_here = subpath_here.path();
+                                const path_mapping_t& mapping_here = path_here.mapping(dj);
+                                const edit_t& edit_here = mapping_here.edit(dk);
+                                
+                                if (edit_here.to_length() && edit_here.from_length() && edit.sequence().empty()) {
+                                    // this edit can continue the match
+                                    walked += edit_here.to_length();
+                                    if (walked >= match_length) {
+                                        // we found the match
+                                        return true;
+                                    }
+                                    // advance by one edit
+                                    ++dk;
+                                    if (dk == mapping_here.edit_size()) {
+                                        // we're to the next mapping
+                                        dk = 0;
+                                        ++dj;
+                                    }
+                                    if (dj == path_here.mapping_size()) {
+                                        // we're at the boundary to the next subpaths
+                                        for (auto n : subpath_here.next()) {
+                                            stack.emplace_back(walked, n, 0, 0);
+#ifdef debug_find_match
+                                            cerr << "queue up next subpath " << n << ", walked " << walked << endl;
+#endif
+                                        }
+                                    }
+                                    else {
+                                        stack.emplace_back(walked, di, dj, dk);
+#ifdef debug_find_match
+                                        cerr << "queue up next edit " << di << ", " << dj << ", " << dk << ", walked " << walked << endl;
+#endif
+                                    }
+                                }
+                            }
+                            
+                        }
+                        offset_here += edit.from_length();
+                        to_length_here += edit.to_length();
+                    }
+                }
+                else {
+                    // we're not on the node we want, just record the read interval of this mapping
+                    to_length_here += mapping_to_length(mapping);
+                }
+            }
+            
+            // record the read interval of the successors
+            for (auto n : subpath.next()) {
+                to_length[n] = to_length_here;
+            }
+            for (const auto& connection : subpath.connection()) {
+                to_length[connection.next()] = to_length_here;
+            }
+        }
+        
+        // we never found the match
+        return false;
+    }
+
     // TODO: does it really make sense to split this algorithm into a separate surject
     // and CIGAR conversion? it seems like i'm replicating a lot of the same work
     vector<pair<int, char>> cigar_against_path(const multipath_alignment_t& multipath_aln, const string& path_name,
@@ -3232,7 +3464,6 @@ namespace vg {
                         }
                     }
                     else {
-                        cerr << "\textending subseq end to " << connection.next() << endl;
                         subpath_read_interval[connection.next()].first = subpath_read_interval[i].second;
                     }
                 }
