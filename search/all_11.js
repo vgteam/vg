@@ -17,7 +17,7 @@ var searchData=
   ['quality_5fshort_5fto_5fchar',['quality_short_to_char',['../namespacevg_1_1io.html#a62d15de4c2614e383b6bc00e34eefe15',1,'vg::io']]],
   ['queried_5fcount',['queried_count',['../classvg_1_1MaximalExactMatch.html#a538bd4e79e6c025d41031bcc46b3a516',1,'vg::MaximalExactMatch']]],
   ['query',['query',['../structvg_1_1IndexedVG_1_1CacheEntry.html#a75221ee25fded8f4d4afcf7a11357413',1,'vg::IndexedVG::CacheEntry']]],
-  ['query_5fcluster_5fgraphs',['query_cluster_graphs',['../classvg_1_1MultipathMapper.html#a961427b7963da3d8ba3ae3c075dcb55d',1,'vg::MultipathMapper']]],
+  ['query_5fcluster_5fgraphs',['query_cluster_graphs',['../classvg_1_1MultipathMapper.html#aa07b31689dd15a1f85752cbebbb42994',1,'vg::MultipathMapper']]],
   ['query_5fend',['query_end',['../structgafkluge_1_1GafRecord.html#a44e865cbd6ee8693c0ecda102e7271b9',1,'gafkluge::GafRecord']]],
   ['query_5flength',['query_length',['../structgafkluge_1_1GafRecord.html#a63f1b67e656da360cc9260005e8c0ecd',1,'gafkluge::GafRecord']]],
   ['query_5fname',['query_name',['../structgafkluge_1_1GafRecord.html#adb0c145a0585ca84e235acb160506811',1,'gafkluge::GafRecord']]],

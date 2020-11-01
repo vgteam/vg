@@ -1322,6 +1322,7 @@ Functions</h2></td></tr>
 <tr class="memdesc:a3ca9ccb5a2301ed1ce48f6334b3c4937"><td class="mdescLeft">&#160;</td><td class="mdescRight">Put subpaths in topological order (assumed to be true for other algorithms)  <a href="#a3ca9ccb5a2301ed1ce48f6334b3c4937">More...</a><br /></td></tr>
 <tr class="separator:a3ca9ccb5a2301ed1ce48f6334b3c4937"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abb632e1f2772495562643cf312a7886f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abb632e1f2772495562643cf312a7886f">remove_empty_subpaths</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
+<tr class="memdesc:abb632e1f2772495562643cf312a7886f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Removes subpaths that have no aligned bases and adds in any implied edges crossing through them.  <a href="#abb632e1f2772495562643cf312a7886f">More...</a><br /></td></tr>
 <tr class="separator:abb632e1f2772495562643cf312a7886f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0844cc3c2da56dfed0e9436d7f0dd7de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0844cc3c2da56dfed0e9436d7f0dd7de">identify_start_subpaths</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
 <tr class="separator:a0844cc3c2da56dfed0e9436d7f0dd7de"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1403,6 +1404,8 @@ Functions</h2></td></tr>
 <tr class="separator:aa9d71371be6972c8284b267d42fac754"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a422ee7d48c95e4cdea8ec163fae32d6d"><td class="memItemLeft" align="right" valign="top">pair&lt; tuple&lt; int64_t, int64_t, int64_t, int64_t &gt;, tuple&lt; int64_t, int64_t, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a422ee7d48c95e4cdea8ec163fae32d6d">trace_path</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx)</td></tr>
 <tr class="separator:a422ee7d48c95e4cdea8ec163fae32d6d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:accfb6f4fc450e420c5b147cff9e6ae31"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#accfb6f4fc450e420c5b147cff9e6ae31">contains_match</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos, int64_t read_pos, int64_t match_length)</td></tr>
+<tr class="separator:accfb6f4fc450e420c5b147cff9e6ae31"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaa223d83f7bc78267d7c7a522c909231"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int, char &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaa223d83f7bc78267d7c7a522c909231">cigar_against_path</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const string &amp;path_name, bool rev, int64_t path_pos, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, int64_t min_splice_length)</td></tr>
 <tr class="separator:aaa223d83f7bc78267d7c7a522c909231"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a026842b7758f60f2be6a474cf41d3fe1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a026842b7758f60f2be6a474cf41d3fe1">validate_multipath_alignment</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;handle_graph)</td></tr>
@@ -5470,6 +5473,47 @@ template&lt;typename Annotated &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="accfb6f4fc450e420c5b147cff9e6ae31"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#accfb6f4fc450e420c5b147cff9e6ae31">&#9670;&nbsp;</a></span>contains_match()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::contains_match </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>pos</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>read_pos</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>match_length</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Returns true if the multipath alignment contains a match of a given length starting at the graph and read position </p>
 
 </div>
 </div>
@@ -16072,7 +16116,8 @@ template&lt;class Decoder &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Removes subpaths that have no aligned bases and adds in any implied edges crossing through them Note: not updated for connections yet </p>
+
+<p>Removes subpaths that have no aligned bases and adds in any implied edges crossing through them. </p>
 
 </div>
 </div>

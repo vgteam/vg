@@ -9,6 +9,6 @@ var searchData=
   ['quality_5fchar_5fto_5fshort',['quality_char_to_short',['../namespacevg_1_1io.html#a64f819396b817978940de263c04713f9',1,'vg::io']]],
   ['quality_5fshort_5fto_5fchar',['quality_short_to_char',['../namespacevg_1_1io.html#a62d15de4c2614e383b6bc00e34eefe15',1,'vg::io']]],
   ['query',['query',['../structvg_1_1IndexedVG_1_1CacheEntry.html#a75221ee25fded8f4d4afcf7a11357413',1,'vg::IndexedVG::CacheEntry']]],
-  ['query_5fcluster_5fgraphs',['query_cluster_graphs',['../classvg_1_1MultipathMapper.html#a961427b7963da3d8ba3ae3c075dcb55d',1,'vg::MultipathMapper']]],
+  ['query_5fcluster_5fgraphs',['query_cluster_graphs',['../classvg_1_1MultipathMapper.html#aa07b31689dd15a1f85752cbebbb42994',1,'vg::MultipathMapper']]],
   ['query_5foverlap',['query_overlap',['../namespacevg.html#acffe466a3ca83097eceac30a09b9a010',1,'vg']]]
 ];
