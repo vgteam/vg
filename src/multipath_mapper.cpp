@@ -1,6 +1,6 @@
-`//
+//
 //  multipath_mapper.cpp
-//  
+//
 //
 //
 
@@ -1585,7 +1585,7 @@ namespace vg {
                     } else {
 #ifdef debug_multipath_mapper
                         cerr << "rescue failed" << endl;
-#endif 
+#endif
                     }
                 } else {
 #ifdef debug_multipath_mapper
@@ -1992,7 +1992,7 @@ namespace vg {
     
 #ifdef debug_multipath_mapper
         cerr << "linearizing multipath alignment to assess positional diversity" << endl;
-#endif        
+#endif
         // Compute a few optimal alignments using disjoint sets of subpaths.
         // This hopefully gives us a feel for the positional diversity of the MultipathMapping.
         // But we still may have duplicates or overlaps in vg node space.
@@ -2042,7 +2042,7 @@ namespace vg {
             }
             
 #ifdef debug_multipath_mapper
-            cerr << "found suboptimal mapping overlapping " << overlapped << "/" << alns[i].path().mapping_size() << " with score " 
+            cerr << "found suboptimal mapping overlapping " << overlapped << "/" << alns[i].path().mapping_size() << " with score "
                 << alns[i].score() << endl;
             cerr << "\t" << pb2json(alns[i]) << endl;
 #endif
@@ -2069,7 +2069,7 @@ namespace vg {
             cerr << " with best score " << alns_out[1].score();
         }
         cerr << endl;
-#endif   
+#endif
        
         if (mapping_quality_method != None) {
             // Now compute the MAPQ for the best alignment
@@ -5602,7 +5602,7 @@ namespace vg {
         }
         sort_shuffling_ties(order.begin(), order.end(),
             [&](const size_t i, const size_t j) {
-                return scores[i] > scores[j]; 
+                return scores[i] > scores[j];
             },
             [&](const size_t seed_source) {
                 return multipath_aln_pairs[seed_source].first.sequence() + multipath_aln_pairs[seed_source].second.sequence();
