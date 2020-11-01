@@ -97,6 +97,7 @@ var searchData=
   ['set_5fmin_5fdepth',['set_min_depth',['../classvg_1_1Filter.html#a94d0c4f93831a6faf70411dc6caf0ac3',1,'vg::Filter']]],
   ['set_5fmin_5fpercent_5fidentity',['set_min_percent_identity',['../classvg_1_1Filter.html#ae1837a93c7c3575c52dcba37538070f8',1,'vg::Filter']]],
   ['set_5fmin_5fqual',['set_min_qual',['../classvg_1_1Filter.html#a5c3851f5838da69576fd3e59443bb8d3',1,'vg::Filter']]],
+  ['set_5fmin_5fsoftclip_5flength_5ffor_5fsplice',['set_min_softclip_length_for_splice',['../classvg_1_1MultipathMapper.html#ad3848a9b82e967ca119dd94add068597',1,'vg::MultipathMapper']]],
   ['set_5fmin_5fsplice_5flength',['set_min_splice_length',['../classvg_1_1MultipathAlignmentEmitter.html#aa6e3289654a2ebe8ed2b934a1fcd6d40',1,'vg::MultipathAlignmentEmitter']]],
   ['set_5fmin_5fsupports',['set_min_supports',['../classvg_1_1SupportBasedSnarlCaller.html#a3afbd8d1bc78b6716c587b93424db8cb',1,'vg::SupportBasedSnarlCaller']]],
   ['set_5fminimizer_5foverride',['set_minimizer_override',['../classvg_1_1IndexManager.html#ad69c4f66f97f3ad35eb72b6f55607b0c',1,'vg::IndexManager']]],
