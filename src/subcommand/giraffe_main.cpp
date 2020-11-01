@@ -21,7 +21,7 @@
 #include "../annotation.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
-#include "../surjecting_alignment_emitter.hpp"
+#include "../hts_alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
 #include "../index_manager.hpp"
@@ -305,6 +305,7 @@ void help_giraffe(char** argv) {
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
+    << "  --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
     << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
@@ -325,6 +326,7 @@ void help_giraffe(char** argv) {
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
     << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw / haplotypes) [dozeu]" << endl
+    << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution" << endl
     << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
     << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
     << "  --paired-distance-limit FLOAT cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean [2.0]" << endl
@@ -351,6 +353,7 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_FRAGMENT_STDEV 1006
     #define OPT_CLUSTER_STDEV 1007
     #define OPT_RESCUE_STDEV 1008
+    #define OPT_REF_PATHS 1009
     
 
     // initialize parameters with their default options
@@ -395,7 +398,10 @@ int main_giraffe(int argc, char** argv) {
     //Throw away extensions with scores that are this amount below the best
     Range<int> extension_score = 1;
     //Attempt up to this many rescues of reads with no pairs
+    bool forced_rescue_attempts = false;
     Range<int> rescue_attempts = 15;
+    //Don't let distances larger than this contribute to the fragment length distribution
+    size_t fragment_length = 2000;
     // Which rescue algorithm do we use?
     MinimizerMapper::RescueAlgorithm rescue_algorithm = MinimizerMapper::rescue_dozeu;
     //Did we force the fragment length distribution?
@@ -442,6 +448,9 @@ int main_giraffe(int argc, char** argv) {
     std::string output_format = "GAM";
     std::set<std::string> output_formats = { "GAM", "GAF", "JSON", "TSV", "SAM", "BAM", "CRAM" };
 
+    // For HTSlib formats, where do we get sequence header info?
+    std::string ref_paths_name;
+
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
         { "none", MinimizerMapper::rescue_none },
@@ -475,6 +484,7 @@ int main_giraffe(int argc, char** argv) {
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
             {"output-format", required_argument, 0, 'o'},
+            {"ref-paths", required_argument, 0, OPT_REF_PATHS},
             {"discard", no_argument, 0, 'n'},
             {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
             {"report-name", required_argument, 0, OPT_REPORT_NAME},
@@ -495,6 +505,7 @@ int main_giraffe(int argc, char** argv) {
             {"rescue-algorithm", required_argument, 0, 'A'},
             {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
             {"rescue-subgraph-size", required_argument, 0, OPT_RESCUE_STDEV },
+            {"max-fragment-length", required_argument, 0, 'L' },
             {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
             {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
@@ -504,7 +515,7 @@ int main_giraffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:o:nb:c:C:D:F:e:a:S:u:v:w:Ot:r:A:",
+        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:o:nb:c:C:D:F:e:a:S:u:v:w:Ot:r:A:L:",
                          long_options, &option_index);
 
 
@@ -617,6 +628,10 @@ int main_giraffe(int argc, char** argv) {
                         std::exit(1);
                     }
                 }
+                break;
+                
+            case OPT_REF_PATHS:
+                ref_paths_name = optarg;
                 break;
 
             case 'n':
@@ -769,13 +784,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case 'r':
                 {
+                    forced_rescue_attempts = true;
                     rescue_attempts = parse<Range<int>>( optarg);
                     if (rescue_attempts < 0) {
                         cerr << "error: [vg giraffe] Rescue attempts must be positive" << endl;
-                        exit(1);
-                    }
-                    if (!paired) {
-                        cerr << "error: [vg giraffe] Rescue can only be done on paired-end reads" << endl;
                         exit(1);
                     }
                 }
@@ -804,6 +816,9 @@ int main_giraffe(int argc, char** argv) {
             case OPT_FRAGMENT_STDEV:
                 forced_stdev = true;
                 fragment_stdev = parse<double>(optarg);
+                break;
+            case 'L':
+                fragment_length = parse<size_t>(optarg);
                 break;
 
             case OPT_CLUSTER_STDEV:
@@ -890,10 +905,21 @@ int main_giraffe(int argc, char** argv) {
         rescue_algorithm = MinimizerMapper::rescue_none;
     }
     
-    // Determine if we are surjecting
-    bool surjecting = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
-
     // Now all the arguments are parsed, so see if they make sense
+    
+    // Decide if we are outputting to an htslib format
+    bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
+
+    if (!ref_paths_name.empty() && !hts_output) {
+        cerr << "warning:[vg giraffe] Reference path file (--ref-paths) is only used when output format (-o) is SAM, BAM, or CRAM." << endl;
+        ref_paths_name = "";
+    }
+    
+    if (output_format != "GAM" && !output_basename.empty()) {
+        cerr << "error:[vg giraffe] Using an output basename (--output-basename) only makes sense for GAM format (-o)" << endl;
+        exit(1);
+    }
+    
     if (!indexes.can_get_gbwtgraph() && !indexes.can_get_graph()) {
         cerr << "error:[vg giraffe] Mapping requires a normal graph (-x) or a GBWTGraph (-g)" << endl;
         exit(1);
@@ -904,7 +930,7 @@ int main_giraffe(int argc, char** argv) {
         exit(1);
     }
     
-    if (surjecting && !indexes.can_get_graph()) {
+    if (hts_output && !indexes.can_get_graph()) {
         cerr << "error:[vg giraffe] Mapping to a linear format requires a normal graph (-x)" << endl;
         exit(1);
     }
@@ -948,6 +974,9 @@ int main_giraffe(int argc, char** argv) {
         fragment_mean = 0.0;
         fragment_stdev = 0.0;
     }
+    if ((forced_mean || forced_stdev || forced_rescue_attempts) && (!paired)) {
+        cerr << "warning:[vg giraffe] Attempting to set paired-end parameters but running in single-end mode" << endl;
+    }
 
     // create in-memory objects
     
@@ -957,7 +986,7 @@ int main_giraffe(int argc, char** argv) {
     // One of these will actually own it
     bdsg::PathPositionOverlayHelper overlay_helper;
     shared_ptr<PathHandleGraph> graph;
-    if (track_correctness || surjecting) {
+    if (track_correctness || hts_output) {
         // Load the base graph
         graph = indexes.get_graph();
         // And make sure it has path position support.
@@ -1152,6 +1181,7 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--rescue-attempts " << rescue_attempts << endl;
             cerr << "--rescue-algorithm " << algorithm_names[rescue_algorithm] << endl;
         }
+        minimizer_mapper.max_fragment_length = fragment_length;
         minimizer_mapper.paired_distance_stdevs = cluster_stdev;
         minimizer_mapper.rescue_subgraph_stdevs = rescue_stdev;
         minimizer_mapper.max_rescue_attempts = rescue_attempts;
@@ -1174,10 +1204,10 @@ int main_giraffe(int argc, char** argv) {
         
             // Look up all the paths we might need to surject to.
             vector<path_handle_t> paths;
-            if (surjecting) {
-                path_position_graph->for_each_path_handle([&](path_handle_t path_handle) {
-                    paths.push_back(path_handle);
-                });
+            if (hts_output) {
+                // For htslib we need a non-empty list of paths.
+                assert(path_position_graph != nullptr);
+                paths = get_sequence_dictionary(ref_paths_name, *path_position_graph);
             }
             
             // Set up output to an emitter that will handle serialization and surjection.
@@ -1185,7 +1215,7 @@ int main_giraffe(int argc, char** argv) {
             // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
             unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
                 make_unique<NullAlignmentEmitter>() :
-                get_alignment_emitter_with_surjection("-", output_format, paths, thread_count, path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)gbwt_graph.get());
+                get_alignment_emitter("-", output_format, paths, thread_count, path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)gbwt_graph.get());
             
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.
@@ -1247,7 +1277,7 @@ int main_giraffe(int argc, char** argv) {
                         // "properly paired at any distance" and
                         // numeric_limits<int64_t>::max() doesn't.
                         int64_t tlen_limit = 0;
-                        if (surjecting && minimizer_mapper.fragment_distr_is_finalized()) {
+                        if (hts_output && minimizer_mapper.fragment_distr_is_finalized()) {
                              tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
                         }
                         // Emit it
@@ -1289,7 +1319,7 @@ int main_giraffe(int argc, char** argv) {
                     auto mapped_pairs = minimizer_mapper.map_paired(alignment_pair.first, alignment_pair.second);
                     // Work out whether it could be properly paired or not, if that is relevant.
                     int64_t tlen_limit = 0;
-                    if (surjecting && minimizer_mapper.fragment_distr_is_finalized()) {
+                    if (hts_output && minimizer_mapper.fragment_distr_is_finalized()) {
                          tlen_limit = minimizer_mapper.get_fragment_length_mean() + 6 * minimizer_mapper.get_fragment_length_stdev();
                     }
                     // Emit the read

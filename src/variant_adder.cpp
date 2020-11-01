@@ -8,7 +8,13 @@ namespace vg {
 using namespace std;
 using namespace vg::io;
 
-VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
+VariantAdder::VariantAdder(VG& graph) : graph(graph), sync([&](VG& g) -> VG& {
+        // Dice nodes in the graph for GCSA indexing *before* constructing the synchronizer.
+        g.dice_nodes(max_node_size);
+        return g;
+    }(this->graph)) {
+    
+    
     graph.paths.for_each_name([&](const string& name) {
         // Save the names of all the graph paths, so we don't need to lock the
         // graph to check them.
@@ -17,10 +23,6 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     
     // Show progress if the graph does.
     show_progress = graph.show_progress;
-    
-    // Make sure to dice nodes to 1024 or smaller, the max size that GCSA2
-    // supports, in case we need to GCSA-index part of the graph.
-    graph.dice_nodes(max_node_size);
     
     // Configure the aligner to use a full length bonus
     aligner.full_length_bonus = 5;

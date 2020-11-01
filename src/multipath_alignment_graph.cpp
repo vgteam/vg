@@ -86,7 +86,7 @@ namespace vg {
         
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                                      const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa,
@@ -122,7 +122,7 @@ namespace vg {
         add_reachability_edges(graph, project, injection_trans);
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                                      const function<pair<id_t, bool>(id_t)>& project,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa,
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) :
@@ -133,7 +133,7 @@ namespace vg {
         
     }
 
-    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa,
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) :
@@ -598,7 +598,7 @@ namespace vg {
 #endif
     }
     
-    void MultipathAlignmentGraph::create_match_nodes(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+    void MultipathAlignmentGraph::create_match_nodes(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                                      const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) {
@@ -728,10 +728,12 @@ namespace vg {
             filter_sub_mems_on_fly = true;
         }
         
+        size_t num_failed_walks = 0;
+        
         // walk the matches and filter out redundant sub-MEMs
         for (int64_t i = 0; i < hits.first.size(); i++) {
             
-            const pair<const MaximalExactMatch*, pos_t>& hit = hits.first[i];
+            pair<const MaximalExactMatch*, pos_t>& hit = hits.first[i];
             
             // the part of the read we're going to match
             string::const_iterator begin = hit.first->begin;
@@ -749,7 +751,7 @@ namespace vg {
                 }
             }
 #endif
-            
+            bool walked_out_hit = false;
             auto hit_range = injection_trans.equal_range(id(hit_pos));
             for (auto iter = hit_range.first; iter != hit_range.second; iter++) {
                 // this graph is unrolled/dagified, so all orientations should match
@@ -851,6 +853,7 @@ namespace vg {
 #endif
                         assert(fanout_idx == fanout_size);
                         ++matches_found;
+                        walked_out_hit = true;
                         
                         path_t path;
                         int64_t path_length = end - begin;
@@ -967,6 +970,18 @@ namespace vg {
                     }
                 }
             }
+            
+            // filter out failed walks so they are marked as unclustered
+            if (!walked_out_hit) {
+                ++num_failed_walks;
+            }
+            else if (num_failed_walks) {
+                hits.first[i - num_failed_walks] = hit;
+            }
+        }
+        
+        if (num_failed_walks != 0) {
+            hits.first.resize(hits.first.size() - num_failed_walks);
         }
         
         if (!filter_sub_mems_on_fly) {
@@ -3396,7 +3411,9 @@ namespace vg {
     }
     
     void MultipathAlignmentGraph::prune_to_high_scoring_paths(const Alignment& alignment, const GSSWAligner* aligner,
-                                                              double max_suboptimal_score_ratio, const vector<size_t>& topological_order) {
+                                                              double max_suboptimal_score_ratio, const vector<size_t>& topological_order,
+                                                              vector<pair<const MaximalExactMatch*, pos_t>>& cluster,
+                                                              function<pair<id_t, bool>(id_t)>& translator) {
         
         // Can only prune when edges exist.
         assert(has_reachability_edges);
@@ -3429,15 +3446,15 @@ namespace vg {
                     // the read length in between the MEMs is longer than the distance, suggesting a read insert
                     // and potentially another mismatch on the other end
                     int64_t gap_length = read_dist - graph_dist;
-                    edge_weights[make_pair(i, edge.first)] = -(gap_length - 1) * aligner->gap_extension - aligner->gap_open
-                    - (graph_dist > 0) * aligner->mismatch;
+                    edge_weights[make_pair(i, edge.first)] = (-(gap_length - 1) * aligner->gap_extension - aligner->gap_open
+                                                              - (graph_dist > 0) * aligner->mismatch);
                 }
                 else if (read_dist < graph_dist) {
                     // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
                     // and potentially another mismatch on the other end
                     int64_t gap_length = graph_dist - read_dist;
-                    edge_weights[make_pair(i, edge.first)] = -(gap_length - 1) * aligner->gap_extension - aligner->gap_open
-                    - (read_dist > 0) * aligner->mismatch;
+                    edge_weights[make_pair(i, edge.first)] = (-(gap_length - 1) * aligner->gap_extension - aligner->gap_open
+                                                              - (read_dist > 0) * aligner->mismatch);
                 }
                 else {
                     // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
@@ -3472,52 +3489,38 @@ namespace vg {
         // compute the minimum score we will require of a node or edge
         int32_t min_path_score = *std::max_element(forward_scores.begin(), forward_scores.end()) / max_suboptimal_score_ratio;
         
-        // use forward-backward to find nodes/edges on some path with a score above the minimum
-        unordered_set<size_t> keep_nodes;
-        unordered_set<pair<size_t, size_t>> keep_edges;
+        // use forward-backward to find nodes on some path with a score above the minimum
         vector<size_t> removed_in_prefix(path_nodes.size() + 1, 0);
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            if (forward_scores[i] + backward_scores[i] - node_weights[i] >= min_path_score) {
-                keep_nodes.insert(i);
-                for (const pair<size_t, size_t>& edge : path_nodes.at(i).edges) {
-                    if (forward_scores[i] + backward_scores[edge.first] + edge_weights[make_pair(i, edge.first)] >= min_path_score) {
-                        keep_edges.emplace(i, edge.first);
+            removed_in_prefix[i + 1] = (removed_in_prefix[i]
+                                        + int(forward_scores[i] + backward_scores[i] - node_weights[i] < min_path_score));
+        }
+        
+        // remove any nodes that failed to meet the threshold
+        for (size_t i = 0; i < path_nodes.size(); ++i) {
+            if (removed_in_prefix[i] == removed_in_prefix[i + 1]) {
+                // we're keeping this node
+                auto& path_node = path_nodes[i];
+                
+                // remove its edges that aren't on a sufficiently high-scoring path too
+                size_t edges_removed = 0;
+                for (size_t j = 0; j < path_node.edges.size(); ++j) {
+                    auto& edge = path_node.edges[j];
+                    if (forward_scores[i] + backward_scores[edge.first] + edge_weights[make_pair(i, edge.first)] < min_path_score) {
+                        ++edges_removed;
+                    }
+                    else {
+                        path_node.edges[j - edges_removed] = make_pair(edge.first - removed_in_prefix[edge.first], edge.second);
                     }
                 }
-                removed_in_prefix[i + 1] = removed_in_prefix[i];
-            }
-            else {
-                removed_in_prefix[i + 1] = removed_in_prefix[i] + 1;
+                path_node.edges.resize(path_node.edges.size() - edges_removed);
+                if (removed_in_prefix[i]) {
+                    path_nodes[i - removed_in_prefix[i]] = move(path_node);
+                }
             }
         }
         
-        // prune down to these nodes and edges
-        size_t next = 0;
-        for (size_t i = 0; i < path_nodes.size(); i++) {
-            if (keep_nodes.count(i)) {
-                if (i != next) {
-                    path_nodes.at(next) = std::move(path_nodes.at(i));
-                }
-                vector<pair<size_t, size_t>>& edges = path_nodes.at(next).edges;
-                
-                size_t new_end = edges.size();
-                for (size_t j = 0; j < new_end;) {
-                    pair<size_t, size_t>& edge = edges[j];
-                    if (!keep_edges.count(make_pair(i, edge.first))) {
-                        new_end--;
-                        edge = edges[new_end];
-                    }
-                    else {
-                        edge.first -= removed_in_prefix[edge.first];
-                        j++;
-                    }
-                }
-                edges.resize(new_end);
-                
-                next++;
-            }
-        }
-        path_nodes.resize(next);
+        path_nodes.resize(path_nodes.size() - removed_in_prefix.back());
         
 #ifdef debug_multipath_alignment
         cerr << "pruned to high scoring paths, topology is:" << endl;
@@ -3532,6 +3535,38 @@ namespace vg {
             }
         }
 #endif
+        
+        if (removed_in_prefix.back() != 0) {
+            // we may also need to update the cluster to indicate if any MEMs aren't part of it anymore
+            
+            // identify the hits that we kept
+            unordered_set<pair<pos_t, pair<int64_t, int64_t>>> hits_surviving;
+            for (const auto& path_node : path_nodes) {
+                const auto& pos = path_node.path.mapping().front().position();
+                auto trans = translator(pos.node_id());
+                hits_surviving.insert(make_pair(pos_t(trans.first, trans.second != pos.is_reverse(), pos.offset()),
+                                                pair<int64_t, int64_t>(path_node.begin - alignment.sequence().begin(),
+                                                                       path_node.end - alignment.sequence().begin())));
+            }
+            
+            // if necessary remove the ones we didn't keep
+            size_t cluster_hits_removed = 0;
+            for (size_t i = 0; i < cluster.size(); ++i) {
+                auto hit = cluster[i];
+                if (!hits_surviving.count(make_pair(hit.second,
+                                                    pair<int64_t, int64_t>(hit.first->begin - alignment.sequence().begin(),
+                                                                           hit.first->end - alignment.sequence().begin())))) {
+#ifdef debug_multipath_alignment
+                    cerr << "completely pruned hit from cluster: " << hit.second << " " << hit.first->sequence() << endl;
+#endif
+                    ++cluster_hits_removed;
+                }
+                else if (cluster_hits_removed) {
+                    cluster[i - cluster_hits_removed] = hit;
+                }
+            }
+            cluster.resize(cluster.size() - cluster_hits_removed);
+        }
     }
     
     void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,

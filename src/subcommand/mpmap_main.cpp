@@ -62,7 +62,7 @@ void help_mpmap(char** argv) {
     << "output:" << endl
     << "  -F, --output-fmt TYPE       format to output alignments in: 'GAMP for' multipath alignments, 'GAM' or 'GAF' for single-path," << endl
     << "                              alignments, 'SAM', 'BAM', or 'CRAM 'for linear reference alignments (may also require -S) [GAMP]" << endl
-    << "  -S, --ref-paths FILE        paths in the graph, one per line, to treat as reference for HTSlib formats (see -F) [all paths]" << endl
+    << "  -S, --ref-paths FILE        paths in the graph, one per line or HTSlib .dict, to treat as reference for HTSlib formats (see -F) [all paths]" << endl
     << "  -N, --sample NAME           add this sample name to output" << endl
     << "  -R, --read-group NAME       add this read group to output" << endl
     << "  -p, --suppress-progress     do not report progress to stderr" << endl
@@ -197,7 +197,6 @@ int main_mpmap(int argc, char** argv) {
     // TODO: create an option.
     int localization_max_paths = 5;
     int max_num_mappings = 1;
-    int buffer_size = 200;
     int hit_max = 1024;
     int hit_max_arg = numeric_limits<int>::min();
     int hard_hit_max_muliplier = 3;
@@ -288,8 +287,8 @@ int main_mpmap(int argc, char** argv) {
     double pessimistic_gap_multiplier = 3.0;
     bool restrained_graph_extraction = false;
     bool do_spliced_alignment = false;
-    int max_softclip_overlap = 5;
-    int max_splice_overhang = 5;
+    int max_softclip_overlap = 8;
+    int max_splice_overhang = 2 * max_softclip_overlap;
     bool override_spliced_alignment = false;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
@@ -392,13 +391,12 @@ int main_mpmap(int argc, char** argv) {
             {"remove-bonuses", no_argument, 0, 'm'},
             {"no-qual-adjust", no_argument, 0, 'A'},
             {"threads", required_argument, 0, 't'},
-            {"buffer-size", required_argument, 0, 'Z'},
             {"no-output", no_argument, 0, OPT_NO_OUTPUT},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iS:s:vX:u:b:I:D:BP:Q:UpM:r:W:K:F:c:C:R:En:l:e:q:z:w:o:y:L:mAt:Z:a",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iS:s:vX:u:b:I:D:BP:Q:UpM:r:W:K:F:c:C:R:En:l:e:q:z:w:o:y:L:mAt:a",
                          long_options, &option_index);
 
 
@@ -789,10 +787,6 @@ int main_mpmap(int argc, char** argv) {
             }
                 break;
                 
-            case 'Z':
-                buffer_size = parse<int>(optarg);
-                break;
-                
             case OPT_NO_OUTPUT:
                 no_output = true;
                 break;
@@ -1078,7 +1072,7 @@ int main_mpmap(int argc, char** argv) {
         cerr << "warning:[vg mpmap] Ignoring same strand parameter (-e) because no paired end input provided." << endl;
     }
     
-    if (!ref_paths_name.empty() && hts_output) {
+    if (!ref_paths_name.empty() && !hts_output) {
         cerr << "warning:[vg mpmap] Reference path file (-S) is only used when output format (-F) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
     }
@@ -1303,11 +1297,6 @@ int main_mpmap(int argc, char** argv) {
         cerr << "error:[vg mpmap] Max alignment grap set to " << max_alignment_gap << ", must set to a non-negative integer." << endl;
         exit(1);
     }
-        
-    if (buffer_size <= 0) {
-        cerr << "error:[vg mpmap] Buffer size (-Z) set to " << buffer_size << ", must set to a positive integer." << endl;
-        exit(1);
-    }
     
     if (filter_short_mems && (short_mem_filter_factor < 0.0 || short_mem_filter_factor > 1.0)) {
         cerr << "error:[vg mpmap] Short MEM filtraction factor (--filter-factor) set to " << short_mem_filter_factor << ", must set to a number between 0.0 and 1.0." << endl;
@@ -1414,15 +1403,6 @@ int main_mpmap(int argc, char** argv) {
         ls_stream.open(sublinearLS_name);
         if (!ls_stream) {
             cerr << "error:[vg mpmap] Cannot open sublinear Li & Stevens file " << sublinearLS_name << endl;
-            exit(1);
-        }
-    }
-    
-    ifstream ref_paths_stream;
-    if (!ref_paths_name.empty() && hts_output) {
-        ref_paths_stream.open(ref_paths_name);
-        if (!ref_paths_stream) {
-            cerr << "error:[vg mpmap] Cannot open reference paths file " << ref_paths_name << endl;
             exit(1);
         }
     }
@@ -1637,65 +1617,30 @@ int main_mpmap(int argc, char** argv) {
     }
     
     // Load structures that we need for HTS lib outputs
-    unique_ptr<vector<pair<string, int64_t>>> path_length_and_order;
+    vector<path_handle_t> paths;
     unordered_set<path_handle_t> surjection_paths;
-    unique_ptr<Surjector> surjector;
+    vector<pair<string, int64_t>> path_names_and_length;
+    unique_ptr<Surjector> surjector(nullptr);
     if (hts_output) {
         // init the data structures
-        path_length_and_order = unique_ptr<vector<pair<string, int64_t>>>(new vector<pair<string, int64_t>>());
         surjector = unique_ptr<Surjector>(new Surjector(path_position_handle_graph));
         surjector->min_splice_length = transcriptomic ? min_splice_length : numeric_limits<int64_t>::max();
         surjector->adjust_alignments_for_base_quality = qual_adjusted;
         
-        if (ref_paths_stream.is_open()) {
-            // get reference paths from a file
-            if (!suppress_progress) {
+        if (!suppress_progress) {
+            if (!ref_paths_name.empty()) {
                 cerr << progress_boilerplate() << "Choosing reference paths from " << ref_paths_name << endl;
-            }
-            string line;
-            while (ref_paths_stream.good()) {
-                getline(ref_paths_stream, line);
-                // trim whitespace from ends
-                line.erase(line.begin(), find_if(line.begin(), line.end(), [](char ch) {
-                    return !isspace(ch);
-                }));
-                line.erase(find_if(line.rbegin(), line.rend(), [](char ch) {
-                    return !isspace(ch);
-                }).base(), line.end());
-                if (line.empty()) {
-                    // skip blank lines
-                    continue;
-                }
-                if (!path_position_handle_graph->has_path(line)) {
-                    cerr << "error:[vg mpmap] Graph does not have a path named " << line << ", which was indicated in " << ref_paths_name << endl;
-                    exit(1);
-                }
-                path_handle_t path_handle = path_position_handle_graph->get_path_handle(line);
-                path_length_and_order->emplace_back(line, path_position_handle_graph->get_path_length(path_handle));
-                surjection_paths.insert(path_handle);
-            }
-            if (path_length_and_order->empty()) {
-                cerr << "error:[vg mpmap] Reference path file (-S) " << ref_paths_name << " does not contain any path names" << endl;
-                exit(1);
+            } else {
+                cerr << progress_boilerplate() << "No reference path file given. Interpreting all non-alt-allele paths in graph as reference sequences." << endl;
             }
         }
-        else {
-            // default to using all embedded paths as
-            if (!suppress_progress) {
-                cerr << progress_boilerplate() << "No reference path file given. Interpreting all paths in graph as reference sequences." << endl;
-            }
-            
-            if (path_position_handle_graph->get_path_count() == 0) {
-                cerr << "error:[vg mpmap] Graph does not have embedded paths to treat as reference sequences. Cannot produces HTSlib output formats (SAM/BAM/CRAM)." << endl;
-                exit(1);
-            }
-            
-            path_position_handle_graph->for_each_path_handle([&](const path_handle_t& path_handle) {
-                surjection_paths.insert(path_handle);
-                path_length_and_order->emplace_back(path_position_handle_graph->get_path_name(path_handle),
-                                                    path_position_handle_graph->get_path_length(path_handle));
-            });
-        }
+        
+        // Load all the paths in the right order
+        vector<path_handle_t> paths = get_sequence_dictionary(ref_paths_name, *path_position_handle_graph);
+        // Make them into a set for directing surjection.
+        std::copy(paths.begin(), paths.end(), std::inserter(surjection_paths, surjection_paths.begin()));
+        // Copy out the metadata for making the emitter later
+        path_names_and_length = extract_path_metadata(paths, *path_position_handle_graph);
     }
     
     // this also takes a while inside the MultipathMapper constructor, but it will only activate if we don't
@@ -1849,9 +1794,6 @@ int main_mpmap(int argc, char** argv) {
     // are we doing paired ends?
     if (interleaved_input || !fastq_name_2.empty()) {
         // make sure buffer size is even (ensures that output will be interleaved)
-        if (buffer_size % 2 == 1) {
-            buffer_size++;
-        }
 
         if (!std::isnan(frag_length_mean) && !std::isnan(frag_length_stddev)) {
             // Force a fragment length distribution
@@ -1897,7 +1839,7 @@ int main_mpmap(int argc, char** argv) {
     // init a writer for the output
     MultipathAlignmentEmitter* emitter = new MultipathAlignmentEmitter("-", thread_count, out_format,
                                                                        path_position_handle_graph,
-                                                                       path_length_and_order.get());
+                                                                       &path_names_and_length);
     emitter->set_read_group(read_group);
     emitter->set_sample_name(sample_name);
     if (transcriptomic) {

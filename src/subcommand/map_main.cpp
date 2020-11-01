@@ -3,13 +3,14 @@
 #include "../xg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
-#include "../surjecting_alignment_emitter.hpp"
+#include "../hts_alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
+#include <chrono>
 
 using namespace vg;
 using namespace vg::subcommand;
@@ -84,6 +85,7 @@ void help_map(char** argv) {
          << "    -j, --output-json             output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -%, --gaf                     output alignments in GAF format" << endl
          << "    --surject-to TYPE             surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
+         << "    --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
          << "    --buffer-size INT             buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare                 realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table            for efficient testing output a table of name, chr, pos, mq, score" << endl
@@ -91,11 +93,14 @@ void help_map(char** argv) {
          << "    -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
          << "    -Q, --mq-max INT              cap the mapping quality at INT [60]" << endl
          << "    --exclude-unaligned           exclude reads with no alignment" << endl
-         << "    -D, --debug                   print debugging information about alignment to stderr" << endl;
+         << "    -D, --debug                   print debugging information about alignment to stderr" << endl
+         << "    --log-time                    print runtime to stderr" << endl;
 
 }
 
 int main_map(int argc, char** argv) {
+
+    std::chrono::time_point<std::chrono::system_clock> launch = std::chrono::system_clock::now();
 
     if (argc == 2) {
         help_map(argv);
@@ -105,6 +110,7 @@ int main_map(int argc, char** argv) {
     #define OPT_SCORE_MATRIX 1000
     #define OPT_RECOMBINATION_PENALTY 1001
     #define OPT_EXCLUDE_UNALIGNED 1002
+    #define OPT_REF_PATHS 1003
     string matrix_file_name;
     string seq;
     string qual;
@@ -121,6 +127,7 @@ int main_map(int argc, char** argv) {
     int max_multimaps = 1;
     int thread_count = 1;
     string output_format = "GAM";
+    string ref_paths_name;
     bool exclude_unaligned = false;
     bool debug = false;
     float min_score = 0;
@@ -181,6 +188,7 @@ int main_map(int argc, char** argv) {
     int max_sub_mem_recursion_depth = 2;
     bool xdrop_alignment = false;
     uint32_t max_gap_length = 40;
+    bool log_time = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -251,17 +259,19 @@ int main_map(int argc, char** argv) {
                 {"id-mq-weight", required_argument, 0, '7'},
                 {"refpos-table", no_argument, 0, 'v'},
                 {"surject-to", required_argument, 0, '5'},
+                {"ref-paths", required_argument, 0, OPT_REF_PATHS},
                 {"no-patch-aln", no_argument, 0, '8'},
                 {"drop-full-l-bonus", no_argument, 0, '2'},
                 {"unpaired-cost", required_argument, 0, 'S'},
                 {"max-gap-length", required_argument, 0, 1},
                 {"xdrop-alignment", no_argument, 0, 2},
                 {"gaf", no_argument, 0, '%'},
+                {"log-time", no_argument, 0, '^'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m:7:v5:824:3:9:0:%",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m:7:v5:824:3:9:0:%^",
                          long_options, &option_index);
 
 
@@ -519,6 +529,10 @@ int main_map(int argc, char** argv) {
                 return 1;
             }
             break;
+            
+        case OPT_REF_PATHS:
+            ref_paths_name = optarg;
+            break;
 
         case '8':
             patch_alignments = false;
@@ -573,6 +587,9 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'h':
+        case '^':
+            log_time = true;
+            break;
         case '?':
             /* getopt_long already printed an error message. */
             help_map(argv);
@@ -584,6 +601,14 @@ int main_map(int argc, char** argv) {
             cerr << "Unimplemented option " << (char) c << endl;
             exit(1);
         }
+    }
+
+    // Decide if we are outputting to an htslib format
+    bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
+
+    if (!ref_paths_name.empty() && !hts_output) {
+        cerr << "warning:[vg map] Reference path file (--ref-paths) is only used when output format (--surject-to) is SAM, BAM, or CRAM." << endl;
+        ref_paths_name = "";
     }
 
     if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty() && gam_input.empty() && fasta_file.empty()) {
@@ -604,7 +629,7 @@ int main_map(int argc, char** argv) {
         return 1;
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
-
+    
     MappingQualityMethod mapping_quality_method = Approx;
 
     string file_name;
@@ -720,17 +745,15 @@ int main_map(int argc, char** argv) {
     
     // When outputting single-ended alignments, we need an empty vector to pass around
     vector<Alignment> empty_alns;
-    
+   
     // Look up all the paths we might need to surject to.
     vector<path_handle_t> paths;
-    if (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM") {
-        xgidx->for_each_path_handle([&](path_handle_t path_handle) {
-            paths.push_back(path_handle);
-        });
+    if (hts_output) {
+        paths = get_sequence_dictionary(ref_paths_name, *xgidx);
     }
     
     // Set up output to an emitter that will handle serialization and surjection
-    unique_ptr<vg::io::AlignmentEmitter> alignment_emitter = get_alignment_emitter_with_surjection("-", output_format, paths, thread_count, xgidx);
+    unique_ptr<vg::io::AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, paths, thread_count, xgidx);
 
     // We have one function to dump alignments into
     auto output_alignments = [&](vector<Alignment>& alns1, vector<Alignment>& alns2) {
@@ -739,7 +762,7 @@ int main_map(int argc, char** argv) {
             alignment_emitter->emit_mapped_single(std::move(alns1));
         } else {
             // Paired reads
-            if (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM") {
+            if (hts_output) {
                 // We need a tlen limit for flags
                 
                 // Look up the paired end distribution stats for deciding if reads are propelry paired
@@ -824,6 +847,9 @@ int main_map(int argc, char** argv) {
         m->patch_alignments = patch_alignments;
         mapper[i] = m;
     }
+    vector<size_t> reads_mapped_by_thread(thread_count, 0);
+
+    std::chrono::time_point<std::chrono::system_clock> init = std::chrono::system_clock::now();
 
     if (!seq.empty()) {
         int tid = omp_get_thread_num();
@@ -857,6 +883,7 @@ int main_map(int argc, char** argv) {
 
         // Output the alignments in the correct format, possibly surjecting.
         output_alignments(alignments, empty_alns);
+        reads_mapped_by_thread[tid] += 1;
     }
 
     if (!read_file.empty()) {
@@ -895,6 +922,7 @@ int main_map(int argc, char** argv) {
                     // Output the alignments in the correct format, possibly surjecting. 
                     output_alignments(alignments, empty_alns);
                 }
+                reads_mapped_by_thread[tid] += 1;
             }
         }
     }
@@ -924,6 +952,8 @@ int main_map(int argc, char** argv) {
                 }
                 // Output the alignments in the correct format, possibly surjecting.
                 output_alignments(alignments, empty_alns);
+
+                reads_mapped_by_thread[tid] += 1;
             }
         };
 #pragma omp parallel for
@@ -958,6 +988,8 @@ int main_map(int argc, char** argv) {
 
             // Output the alignments in JSON or protobuf as appropriate.
             output_alignments(alignments, empty_alns);
+
+            reads_mapped_by_thread[tid] += 1;
         };
         // run
         hts_for_each_parallel(hts_file, lambda);
@@ -1004,6 +1036,8 @@ int main_map(int argc, char** argv) {
                         our_mapper->imperfect_pairs_to_retry.clear();
                     }
                 }
+
+                reads_mapped_by_thread[omp_get_thread_num()] += 2;
             };
             fastq_paired_interleaved_for_each_parallel(fastq1, lambda);
 #pragma omp parallel
@@ -1036,6 +1070,7 @@ int main_map(int argc, char** argv) {
                                                                                 xdrop_alignment);
                         //cerr << "This is just before output_alignments" << alignment.DebugString() << endl;
                         output_alignments(alignments, empty_alns);
+                        reads_mapped_by_thread[tid] += 1;
                     };
             fastq_unpaired_for_each_parallel(fastq1, lambda);
         } else {
@@ -1077,6 +1112,8 @@ int main_map(int argc, char** argv) {
                         our_mapper->imperfect_pairs_to_retry.clear();
                     }
                 }
+
+                reads_mapped_by_thread[omp_get_thread_num()] += 2;
             };
             fastq_paired_two_files_for_each_parallel(fastq1, fastq2, lambda);
 #pragma omp parallel
@@ -1094,6 +1131,8 @@ int main_map(int argc, char** argv) {
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
+
+                reads_mapped_by_thread[omp_get_thread_num()] += 2;
             }
         }
     }
@@ -1146,6 +1185,7 @@ int main_map(int argc, char** argv) {
                         our_mapper->imperfect_pairs_to_retry.clear();
                     }
                 }
+                reads_mapped_by_thread[omp_get_thread_num()] += 2;
             };
             vg::io::for_each_interleaved_pair_parallel(gam_in, lambda);
 #pragma omp parallel
@@ -1181,6 +1221,7 @@ int main_map(int argc, char** argv) {
                     alignment_set_distance_to_correct(alignments.front(), alignment);
                 }
                 output_alignments(alignments, empty_alns);
+                reads_mapped_by_thread[tid] += 1;
             };
             vg::io::for_each_parallel(gam_in, lambda);
         }
@@ -1199,6 +1240,22 @@ int main_map(int argc, char** argv) {
     if (haplo_score_provider) {
         delete haplo_score_provider;
         haplo_score_provider = nullptr;
+    }
+    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+    std::chrono::duration<double> mapping_seconds = end - init;
+    std::chrono::duration<double> index_load_seconds = init - launch;
+
+    if (log_time){
+
+        size_t total_reads_mapped = 0;
+        for (auto& reads_mapped : reads_mapped_by_thread) {
+            total_reads_mapped += reads_mapped;
+        }
+    
+        double reads_per_second_per_thread = total_reads_mapped / (mapping_seconds.count() * thread_count);
+        cerr << "Index load time: " << index_load_seconds.count() << endl;
+        cerr << "Mapped " << total_reads_mapped << " reads" << endl;
+        cerr << "Mapping speed: " << reads_per_second_per_thread << " reads per second per thread" << endl; 
     }
     
     cout.flush();

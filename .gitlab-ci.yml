@@ -12,7 +12,7 @@ before_script:
   # Make sure we have some curl stuff for pycurl which we need for some Python stuff
   # We also need Node >4 for junit merging (so we need to be on Ubuntu 18.04+)
   # And the CI report upload needs uuidgen from uuid-runtime
-  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libcurl4-gnutls-dev python-dev npm nodejs node-gyp nodejs-dev libssl1.0-dev uuid-runtime libgnutls28-dev
+  - sudo apt-get -q -y install --no-upgrade docker.io python-pip python-virtualenv libcurl4-gnutls-dev python-dev npm nodejs node-gyp nodejs-dev libssl1.0-dev uuid-runtime libgnutls28-dev
   - which junit-merge || sudo npm install -g junit-merge
   - cat /etc/hosts
   - startdocker || true

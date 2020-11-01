@@ -18,19 +18,7 @@
 namespace vg {
 
 using namespace std;
-
-/**
- * Get an AlignmentEmitter that emits in the given format.
- * Supported formats are: GAF, GAM, SAM, BAM, CRAM, JSON.
- * When emitting in linear formats (SAM/BAM/CRAM), automatically surjects, and uses spliced alignment output.
- * When surjecting, surjects into the paths in the given vector, with the order
- * used to define the order of names in the SAM/BAM/CRAM header.
- * When surjecting, graph must be a PahtPositionalHandleGraph.
- */
-unique_ptr<vg::io::AlignmentEmitter> get_alignment_emitter_with_surjection(const string& filename, const string& format, 
-                                                                           const vector<path_handle_t> paths_in_dict_order, size_t max_threads,
-                                                                           const HandleGraph* graph);
-
+                                                                           
 /**
  * An AlignmentEmitter implementation that surjects alignments before emitting them via a backing AlignmentEmitter, which it owns.
  */

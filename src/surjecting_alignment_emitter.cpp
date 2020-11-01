@@ -13,46 +13,6 @@ namespace vg {
 
 using namespace std;
 
-unique_ptr<AlignmentEmitter> get_alignment_emitter_with_surjection(const string& filename, const string& format, 
-                                                                   const vector<path_handle_t> paths_in_dict_order, size_t max_threads,
-                                                                   const HandleGraph* graph) {
-    
-    // Build a path length map by name
-    // TODO: be able to pass along dict order!
-    vector<pair<string, int64_t>> path_names_and_lengths;
-    if (format == "SAM" || format == "BAM" || format == "CRAM") {
-        // Make sure we actually have a PathPositionalHandleGraph
-        const PathPositionHandleGraph* path_graph = dynamic_cast<const PathPositionHandleGraph*>(graph);
-        if (path_graph == nullptr) {
-            cerr << "error[vg::get_alignment_emitter_with_surjection]: Graph does not contain paths to surject into." << endl;
-            exit(1);
-        }
-    
-        // We will actually use it, so fill it in.
-        for (auto& path_handle : paths_in_dict_order) {
-            path_names_and_lengths.emplace_back(path_graph->get_path_name(path_handle), path_graph->get_path_length(path_handle));
-        }
-    }
-    
-    // Get the non-surjecting emitter
-    unique_ptr<AlignmentEmitter> emitter = get_alignment_emitter(filename, format, path_names_and_lengths, max_threads, graph);
-    
-    if (format == "SAM" || format == "BAM" || format == "CRAM") {
-        // Need to surject
-        
-        // Make sure (again) we actually have a PathPositionalHandleGraph
-        const PathPositionHandleGraph* path_graph = dynamic_cast<const PathPositionHandleGraph*>(graph);
-        assert(path_graph != nullptr);
-        
-        // Make a set of the path handles to surject into
-        unordered_set<path_handle_t> target_paths(paths_in_dict_order.begin(), paths_in_dict_order.end());
-        // Interpose a surjecting AlignmentEmitter
-        emitter = make_unique<SurjectingAlignmentEmitter>(path_graph, target_paths, std::move(emitter));
-    }
-    
-    return emitter;
-}
-
 SurjectingAlignmentEmitter::SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph, unordered_set<path_handle_t> paths,
     unique_ptr<AlignmentEmitter>&& backing) : surjector(graph), paths(paths), backing(std::move(backing)) {
     
