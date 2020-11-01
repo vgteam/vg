@@ -60,8 +60,8 @@ void help_mpmap(char** argv) {
     << "  -l, --read-length TYPE      read length preset: 'very-short', 'short', or 'long' (approx. <50bp, 50-500bp, and >500bp) [short]" << endl
     << "  -e, --error-rate TYPE       error rate preset: 'low' or 'high' (approx. PHRED >20 and <20) [low]" << endl
     << "output:" << endl
-    << "  -F, --output-fmt TYPE       format to output alignments in: 'GAMP for' multipath alignments, 'GAM' or 'GAF' for single-path," << endl
-    << "                              alignments, 'SAM', 'BAM', or 'CRAM 'for linear reference alignments (may also require -S) [GAMP]" << endl
+    << "  -F, --output-fmt TYPE       format to output alignments in: 'GAMP for' multipath alignments, 'GAM' or 'GAF' for single-path" << endl
+    << "                              alignments, 'SAM', 'BAM', or 'CRAM' for linear reference alignments (may also require -S) [GAMP]" << endl
     << "  -S, --ref-paths FILE        paths in the graph, one per line or HTSlib .dict, to treat as reference for HTSlib formats (see -F) [all paths]" << endl
     << "  -N, --sample NAME           add this sample name to output" << endl
     << "  -R, --read-group NAME       add this read group to output" << endl
@@ -1761,7 +1761,10 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.simplify_topologies = simplify_topologies;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
     multipath_mapper.agglomerate_multipath_alns = agglomerate_multipath_alns;
-    multipath_mapper.min_softclip_length_for_splice = int(ceil(log(path_position_handle_graph->get_total_length()) / log(4.0))) + 2;
+    
+    // splicing parameters
+    int64_t min_softclip_length_for_splice = int(ceil(log(path_position_handle_graph->get_total_length() * 2) / log(4.0))) + 2;
+    multipath_mapper.set_min_softclip_length_for_splice(min_softclip_length_for_splice);
     multipath_mapper.max_softclip_overlap = max_softclip_overlap;
     multipath_mapper.max_splice_overhang = max_splice_overhang;
 

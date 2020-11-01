@@ -117,6 +117,9 @@ namespace vg {
         /// score matrix should by a 4 x 4 array in the order (ACGT)
         void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
+        /// How big of a softclip should lead us to attempt spliced alignment?
+        void set_min_softclip_length_for_splice(size_t length);
+        
         // parameters
         
         size_t max_branch_trim_length = 1;
@@ -200,7 +203,6 @@ namespace vg {
         size_t max_alignment_gap = 5000;
         bool suppress_mismapping_detection = false;
         bool do_spliced_alignment = false;
-        int64_t min_softclip_length_for_splice = 16;
         int64_t max_softclip_overlap = 8;
         int64_t max_splice_overhang = 3;
         // about 250k
@@ -420,6 +422,7 @@ namespace vg {
                                                 const pair<int64_t, int64_t>& primary_interval,
                                                 const vector<multipath_alignment_t>& multipath_alns,
                                                 const vector<size_t>& cluster_idxs,
+                                                const vector<int64_t>& current_index, int64_t anchor,
                                                 unordered_set<size_t>& clusters_used_out,
                                                 vector<size_t>& mp_aln_candidates_out) const;
 
@@ -427,6 +430,7 @@ namespace vg {
                                                 const pair<int64_t, int64_t>& primary_interval,
                                                 const vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
                                                 const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                const vector<int64_t>& current_index, int64_t anchor,
                                                 unordered_set<size_t>& clusters_used_out,
                                                 vector<size_t>& mp_aln_candidates_out) const;
 
@@ -582,6 +586,10 @@ namespace vg {
         /// return a vector of their breaks.
         vector<MaximalExactMatch> find_mems(const Alignment& alignment,
                                             vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks = nullptr);
+        
+        
+        int64_t min_softclip_length_for_splice = 20;
+        int64_t min_softclipped_score_for_splice = 25;
         
         DinucleotideMachine dinuc_machine;
         SpliceMotifs splice_motifs;

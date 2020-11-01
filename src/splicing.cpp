@@ -1374,7 +1374,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         for (size_t j = 0; j < subpath->connection_size(); ++j) {
             auto connection = subpath->mutable_connection(j);
             if (to_keep_right[connection->next()]) {
-                connection->set_next(connection->next() - right_removed_so_far[connection->next()]);
+                connection->set_next(connection->next() - right_removed_so_far[connection->next()] + right_subpaths_begin);
                 if (connections_removed_so_far) {
                     *subpath->mutable_connection(j - connections_removed_so_far) = *connection;
                 }
