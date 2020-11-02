@@ -27,7 +27,7 @@ void test(const HandleGraph &graph){
 void help_vpkg_wrap(char **argv) {
     cerr
         << "usage: " << argv[0] << " vpkg_wrap [options] <graph.vg> >[vpkg_wrapped.hg]" << endl
-        << "Wraps given vg graph into vpkg format, saves as hg." << endl
+        << "Wraps given vg graph into vpkg format, saves as vg." << endl
         << endl
         << "options:" << endl;
         // << "    -v, --input_vg       unwrapped vg." << endl;
