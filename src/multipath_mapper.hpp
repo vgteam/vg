@@ -229,6 +229,9 @@ namespace vg {
         
     protected:
         
+        /// Enum for the strand of a splice alignment's splice motifs
+        enum SpliceStrand {Undetermined, Forward, Reverse};
+        
         /// Wrapped internal function that allows some code paths to circumvent the current
         /// mapping quality method option.
         void multipath_map_internal(const Alignment& alignment,
@@ -455,16 +458,9 @@ namespace vg {
         
         bool test_splice_candidates(const Alignment& alignment, bool searching_left,
                                     multipath_alignment_t& anchor_mp_aln, double& anchor_multiplicity,
-                                    int64_t num_candidates,
+                                    SpliceStrand& strand, int64_t num_candidates,
                                     const function<const multipath_alignment_t&(int64_t)>& get_candidate,
                                     const function<multipath_alignment_t&&(int64_t)>& consume_candidate);
-        
-//        void test_splice_candidates(const Alignment& alignment, bool searching_left,
-//                                    vector<multipath_alignment_t>& multipath_alns,
-//                                    vector<double>& multiplicities,
-//                                    const vector<size_t>& mp_aln_candidates,
-//                                    vector<multipath_alignment_t>& unaligned_candidates,
-//                                    const vector<double>& unaligned_multiplicities);
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.

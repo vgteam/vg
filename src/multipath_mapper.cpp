@@ -2117,7 +2117,7 @@ namespace vg {
 
     bool MultipathMapper::test_splice_candidates(const Alignment& alignment, bool searching_left,
                                                  multipath_alignment_t& anchor_mp_aln, double& anchor_multiplicity,
-                                                 int64_t num_candidates,
+                                                 SpliceStrand& strand, int64_t num_candidates,
                                                  const function<const multipath_alignment_t&(int64_t)>& get_candidate,
                                                  const function<multipath_alignment_t&&(int64_t)>& consume_candidate) {
         /*
@@ -2252,6 +2252,10 @@ namespace vg {
                 auto& right_region = *right_prejoin_side.splice_region;
                 
                 for (size_t j = 0; j < splice_motifs.size(); ++j) {
+                    if (strand != Undetermined && splice_motifs.motif_is_reverse(j) != (strand == Reverse)) {
+                        // we can only find splicing at junctions that have a consistent strand
+                        continue;
+                    }
                     for (const auto& left_location : left_region.candidate_splice_sites(j)) {
                         for (const auto& right_location : right_region.candidate_splice_sites(j)) {
                             
@@ -2338,7 +2342,7 @@ namespace vg {
             cerr << "putative candidate at index " << i << " has net score " << net_score << endl;
 #endif
             
-            // TODO: this could get messy if i change the pseudolength function
+            // TODO: this could get messy if i change the pseudo_length function
             // TODO: should i use only the length of the candidate region rather than the whole read?
             if (random_match_p_value(net_score, alignment.sequence().size()) >= max_splice_p_value) {
                 // this is not a statistically significant splicing event
@@ -2374,7 +2378,8 @@ namespace vg {
         
         // TODO: for now just tie-breaking in favor of shorter intron lengths
         // TODO: use a frechet mixture likelihood
-        sort(putative_joins.begin(), putative_joins.end(),
+        // TODO: allow multiple splices in a multipath alignment
+        auto& best_join = *max_element(putative_joins.begin(), putative_joins.end(),
              [&](const PutativeJoin& join_1, const PutativeJoin& join_2) {
             auto net_score_1 = join_net_score(join_1);
             auto net_score_2 = join_net_score(join_2);
@@ -2382,14 +2387,15 @@ namespace vg {
                     (net_score_1 == net_score_2 && join_1.estimated_intron_length < join_2.estimated_intron_length));
         });
         
-        // TODO: allow multiple splices in a multipath alignment
-        auto& best_join = putative_joins.front();
-        int64_t connect_begin = alignment.sequence().size() - best_join.left.side.clip_length;
+        // greedily fix the strand
+        // TODO: ideally we'd probably try fixing it each way and see which is better
+        strand = (splice_motifs.motif_is_reverse(best_join.motif_idx) ? Reverse : Forward);
 
         anchor_mp_aln = fuse_spliced_alignments(alignment,
                                                 consume_candidate(best_join.left.side.candidate_idx),
                                                 consume_candidate(best_join.right.side.candidate_idx),
-                                                connect_begin, best_join.connecting_aln, best_join.splice_idx,
+                                                alignment.sequence().size() - best_join.left.side.clip_length,
+                                                best_join.connecting_aln, best_join.splice_idx,
                                                 splice_motifs.score(best_join.motif_idx),
                                                 *get_aligner(!alignment.quality().empty()), *xindex);
         
@@ -2824,6 +2830,8 @@ namespace vg {
         
         // we'll keep track of whether any spliced alignments succeeded
         bool any_splices = false;
+        // so far we haven't restricted to splice motifs on any particular strand
+        SpliceStrand strand = Undetermined;
         
         for (size_t i = 0; i < index.size(); ) {
             if (index[i] < 0) {
@@ -2845,6 +2853,7 @@ namespace vg {
             
             auto interval = aligned_interval(splice_anchor);
             if (interval.first == interval.second) {
+                // this anchor is unmapped
                 ++i;
                 continue;
             }
@@ -2953,7 +2962,7 @@ namespace vg {
                 };
                 
                 bool did_splice = test_splice_candidates(alignment, do_left, splice_anchor, multiplicities[index[i]],
-                                                         mp_aln_candidates.size() + unaligned_candidates.size(),
+                                                         strand, mp_aln_candidates.size() + unaligned_candidates.size(),
                                                          get_candidate, consume_candidate);
                 
                 any_splices = any_splices || did_splice;
@@ -3002,6 +3011,9 @@ namespace vg {
         // we'll keep track of whether any spliced alignments succeeded
         bool any_splices = false;
         
+        // so far we haven't restricted to splice motifs on any particular strand
+        SpliceStrand strand = Undetermined;
+        
         for (size_t i = 0; i < index.size(); ++i) {
             if (index[i] < 0) {
                 // this alignment has been consumed as a splice candidate
@@ -3045,6 +3057,7 @@ namespace vg {
                 // decide if this read looks like it could benefit from a spliced alignment
                 auto interval = aligned_interval(*anchor_mp_aln);
                 if (interval.first == interval.second) {
+                    // this anchor is unmapped
                     read_num++;
                     continue;
                 }
@@ -3182,7 +3195,7 @@ namespace vg {
                     
                     // see if we can actually make spliced alignments
                     bool spliced_side = test_splice_candidates(*aln, do_left, *anchor_mp_aln, pair_multiplicities.front(),
-                                                               mp_aln_candidates.size() + unaligned_candidates.size(),
+                                                               strand, mp_aln_candidates.size() + unaligned_candidates.size(),
                                                                get_candidate, consume_candidate);
                     any_splices = any_splices || spliced_side;
                     found_splice_for_anchor = found_splice_for_anchor || spliced_side;
@@ -5798,7 +5811,6 @@ namespace vg {
         string dummy_c(length, 'C');
         string dummy_g(length, 'G');
         string dummy_t(length, 'T');
-        string dummy_qual(length, char(40));
         int32_t score_a = get_regular_aligner()->score_exact_match(dummy_a);
         int32_t score_c = get_regular_aligner()->score_exact_match(dummy_c);
         int32_t score_g = get_regular_aligner()->score_exact_match(dummy_g);
@@ -5806,6 +5818,7 @@ namespace vg {
         int32_t lowest_score = min(score_a, min(score_c, min(score_g, score_t)));
         
         // add in the full length bonus, this is the criterion we will actually check against
+        string dummy_qual(length, char(40));
         min_softclipped_score_for_splice = lowest_score + get_regular_aligner()->score_full_length_bonus(false, dummy_a.begin(),
                                                                                                          dummy_a.end(),
                                                                                                          dummy_qual.begin());
