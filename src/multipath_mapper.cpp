@@ -1742,12 +1742,6 @@ namespace vg {
         }
 #endif
         
-        // initialize cluster variables
-        vector<memcluster_t> clusters1, clusters2;
-        vector<clustergraph_t> cluster_graphs1, cluster_graphs2;
-        vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs;
-        vector<double> pair_multiplicities;
-        vector<pair<size_t, size_t>> duplicate_pairs;
         
         MemoizingGraph memoizing_graph(xindex);
         unique_ptr<OrientedDistanceMeasurer> distance_measurer;
@@ -1774,12 +1768,12 @@ namespace vg {
         rescue_high_count_order_length_mems(mems2, order_length_repeat_hit_max);
         
         // do the clustering
-        clusters1 = get_clusters(alignment1, mems1, &(*distance_measurer), fanouts1.get());
-        clusters2 = get_clusters(alignment2, mems2, &(*distance_measurer), fanouts2.get());
+        vector<memcluster_t> clusters1 = get_clusters(alignment1, mems1, &(*distance_measurer), fanouts1.get());
+        vector<memcluster_t> clusters2 = get_clusters(alignment2, mems2, &(*distance_measurer), fanouts2.get());
         
         // extract graphs around the clusters and get the assignments of MEMs to these graphs
-        cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
-        cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
+        vector<clustergraph_t> cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
+        vector<clustergraph_t> cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
         
 #ifdef debug_multipath_mapper
         cerr << "obtained independent clusters:" << endl;
@@ -1802,7 +1796,9 @@ namespace vg {
         // we haven't already obtained a paired mapping by rescuing into a repeat, so we should try to get one
         // by cluster pairing
         
-        cluster_pairs = get_cluster_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, &(*distance_measurer));
+        vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs = get_cluster_pairs(alignment1, alignment2,
+                                                                                      cluster_graphs1, cluster_graphs2,
+                                                                                      &(*distance_measurer));
         
 #ifdef debug_multipath_mapper
         cerr << "obtained cluster pairs:" << endl;
@@ -1818,6 +1814,11 @@ namespace vg {
             }
         }
 #endif
+        
+        // initialize some pair variables
+        vector<double> pair_multiplicities;
+        vector<pair<size_t, size_t>> duplicate_pairs;
+
         bool proper_paired = true;
         // do we find any pairs that satisfy the distance requirements?
         if (!cluster_pairs.empty()) {
@@ -1846,8 +1847,9 @@ namespace vg {
                                                                    mems2, rescue_aln_pairs, rescue_distances, rescue_multiplicities,
                                                                    fanouts1.get(), fanouts2.get());
                 
-                // if we find consistent pairs by rescue, merge the two lists
                 if (rescued) {
+                    // we found consistent pairs by rescue, merge the two lists
+                    
 #ifdef debug_multipath_mapper
                     cerr << "found some rescue pairs, merging into current list of consistent mappings" << endl;
 #endif
@@ -1878,9 +1880,11 @@ namespace vg {
                 
                 if (multipath_aln_pairs_out.front().first.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff &&
                     multipath_aln_pairs_out.front().second.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff) {
+                    
                     // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
                     // or because of problems with the seeds. we use this routine to use rescue on other very good looking
                     // independent end clusters
+                    
                     attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
                                                    duplicate_pairs, multipath_aln_pairs_out, cluster_pairs,
                                                    pair_multiplicities, fanouts1.get(), fanouts2.get());
@@ -1896,7 +1900,6 @@ namespace vg {
             cerr << "could not find a consistent pair, reverting to single ended mapping" << endl;
 #endif
             
-            // have it record the multiplicities, even though we don't need them in thiss code path
             vector<double> rescue_multiplicities;
             proper_paired = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2, mems1,
                                                                 mems2, multipath_aln_pairs_out, cluster_pairs, rescue_multiplicities,
@@ -1931,7 +1934,7 @@ namespace vg {
                                     mems1, mems2, cluster_graphs1, cluster_graphs2);
         }
         
-        // only agglomerate if the pairs are true pairs, otherwise gets too complicated
+        // only agglomerate if the pairs are true pairs, otherwise it gets too complicated
         // to estimate mapping qualities
         if (proper_paired && agglomerate_multipath_alns) {
             agglomerate_alignment_pairs(multipath_aln_pairs_out, cluster_pairs, pair_multiplicities);
