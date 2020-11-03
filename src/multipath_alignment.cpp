@@ -2848,17 +2848,18 @@ namespace vg {
                                 size_t di, dj, dk;
                                 tie(walked, di, dj, dk) = stack.back();
                                 stack.pop_back();
-                                
-#ifdef debug_find_match
-                                cerr << "DFS location " << di << ", " << dj << ", " << dk << ", walked " << walked << endl;
-#endif
+
                                 
                                 const subpath_t& subpath_here = multipath_aln.subpath(di);
                                 const path_t& path_here = subpath_here.path();
                                 const path_mapping_t& mapping_here = path_here.mapping(dj);
                                 const edit_t& edit_here = mapping_here.edit(dk);
                                 
-                                if (edit_here.to_length() && edit_here.from_length() && edit.sequence().empty()) {
+#ifdef debug_find_match
+                                cerr << "DFS location " << di << ", " << dj << ", " << dk << ", walked " << walked << ", edit " << debug_string(edit_here) <<  endl;
+#endif
+                                
+                                if (edit_here.to_length() && edit_here.from_length() && edit_here.sequence().empty()) {
                                     // this edit can continue the match
                                     walked += edit_here.to_length();
                                     if (walked >= match_length) {
