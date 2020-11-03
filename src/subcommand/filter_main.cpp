@@ -14,8 +14,10 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../readfilter.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/vpkg.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -30,15 +32,15 @@ void help_filter(char** argv) {
          << "    -N, --name-prefixes FILE   keep reads with names with one of many prefixes, one per nonempty line" << endl
          << "    -X, --exclude-contig REGEX drop reads with refpos annotations on contigs matching the given regex (may repeat)" << endl
          << "    -F, --exclude-feature NAME drop reads with the given feature in the \"features\" annotation (may repeat)" << endl
-         << "    -s, --min-secondary N      minimum score to keep secondary alignment [default=0]" << endl
-         << "    -r, --min-primary N        minimum score to keep primary alignment [default=0]" << endl
+         << "    -s, --min-secondary N      minimum score to keep secondary alignment" << endl
+         << "    -r, --min-primary N        minimum score to keep primary alignment" << endl
          << "    -O, --rescore              re-score reads using default parameters and only alignment information" << endl
          << "    -f, --frac-score           normalize score based on length" << endl
          << "    -u, --substitutions        use substitution count instead of score" << endl
          << "    -o, --max-overhang N       filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
          << "    -m, --min-end-matches N    filter reads that don't begin with at least N matches on each end" << endl
          << "    -S, --drop-split           remove split reads taking nonexistent edges" << endl
-         << "    -x, --xg-name FILE         use this xg index (required for -S and -D)" << endl
+         << "    -x, --xg-name FILE         use this xg index or graph (required for -S and -D)" << endl
          << "    -A, --append-regions       append to alignments created with -RB" << endl
          << "    -v, --verbose              print out statistics on numbers of reads filtered by what." << endl
          << "    -V, --no-output            print out statistics (as above) but do not write out filtered GAM." << endl
@@ -276,12 +278,15 @@ int main_filter(int argc, char** argv) {
     sort(filter.name_prefixes.begin(), filter.name_prefixes.end());
     
      // If the user gave us an XG index, we probably ought to load it up.
-    unique_ptr<xg::XG> xindex;
+    PathPositionHandleGraph* xindex = nullptr;
+    unique_ptr<PathHandleGraph> path_handle_graph;
+    bdsg::PathPositionOverlayHelper overlay_helper;
     if (!xg_name.empty()) {
         // read the xg index
-        xindex = stream::VPKG::load_one<xg::XG>(xg_name);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xindex = overlay_helper.apply(path_handle_graph.get());
     }
-    filter.xindex = xindex.get();
+    filter.graph = xindex;
     
     // Read in the alignments and filter them.
     get_input_file(optind, argc, argv, [&](istream& in) {

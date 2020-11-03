@@ -1,200 +1,233 @@
 #include "vg_set.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "source_sink_overlay.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
+#include "io/save_handle_graph.hpp"
 
 namespace vg {
-// sets of VGs on disk
+// sets of MutablePathMutableHandleGraphs on disk
 
-void VGset::transform(std::function<void(VG*)> lambda) {
+void VGset::transform(std::function<void(MutableHandleGraph*)> lambda) {
+    // TODO: add a way to cache graphs here for multiple scans
     for (auto& name : filenames) {
         // load
-        VG* g = NULL;
-        if (name == "-") {
-            g = new VG(std::cin, show_progress & progress_bars);
-        } else {
-            ifstream in(name.c_str());
-            if (!in) throw ifstream::failure("failed to open " + name);
-            g = new VG(in, show_progress & progress_bars);
-            in.close();
+        unique_ptr<MutableHandleGraph> g;
+        get_input_file(name, [&](istream& in) {
+            // Note: I would have liked to just load a MutableHandleGraph here but the resulting pointer
+            // is broken (tested: VG and PackedGraph)
+            g = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
+            });
+        // legacy:
+        VG* vg_g = dynamic_cast<VG*>(g.get());
+        if (vg_g != nullptr) {
+            vg_g->name = name;
         }
-        g->name = name;
         // apply
-        lambda(g);
+        lambda(g.get());
         // write to the same file
-        ofstream out(name.c_str());
-        g->serialize_to_ostream(out);
-        out.close();
-        delete g;
+        vg::io::save_handle_graph(g.get(), name);
     }
 }
 
-void VGset::for_each(std::function<void(VG*)> lambda) {
+void VGset::for_each(std::function<void(HandleGraph*)> lambda) {
+    // TODO: add a way to cache graphs here for multiple scans
     for (auto& name : filenames) {
         // load
-        VG* g = NULL;
-        if (name == "-") {
-            g = new VG(std::cin, show_progress & progress_bars);
-        } else {
-            ifstream in(name.c_str());
-            if (!in) throw ifstream::failure("failed to open " + name);
-            g = new VG(in, show_progress & progress_bars);
-            in.close();
-        }
-        g->name = name;
+        unique_ptr<HandleGraph> g;
+        get_input_file(name, [&](istream& in) {
+                g = vg::io::VPKG::load_one<HandleGraph>(in);
+            });
+        // legacy:
+        VG* vg_g = dynamic_cast<VG*>(g.get());
+        if (vg_g != nullptr) {
+            vg_g->name = name;
+        }        
         // apply
-        lambda(g);
-        delete g;
-    }
-}
-
-void VGset::for_each_graph_chunk(std::function<void(Graph&)> lamda) {
-    for (auto& name : filenames) {
-        ifstream in(name.c_str());
-        stream::for_each(in, lamda);
+        lambda(g.get());
     }
 }
 
 id_t VGset::max_node_id(void) {
     id_t max_id = 0;
-    for_each_graph_chunk([&](const Graph& graph) {
-            for (size_t i = 0; i < graph.node_size(); ++i) {
-                max_id = max(graph.node(i).id(), max_id);
-            }
+    for_each([&](HandleGraph* graph) {
+            max_id = max(graph->max_node_id(), max_id);
         });
     return max_id;
 }
 
 int64_t VGset::merge_id_space(void) {
     int64_t max_node_id = 0;
-    auto lambda = [&max_node_id](VG* g) {
-        if (max_node_id > 0) g->increment_node_ids(max_node_id);
+    auto lambda = [&max_node_id](MutableHandleGraph* g) {
+        int64_t delta = max_node_id - g->min_node_id();
+        if (delta >= 0) {
+            g->increment_node_ids(delta + 1);
+        }
         max_node_id = g->max_node_id();
     };
     transform(lambda);
     return max_node_id;
 }
 
-void VGset::to_xg(xg::XG& index, bool store_threads) {
+void VGset::to_xg(xg::XG& index) {
     // Send a predicate to match nothing
-    to_xg(index, store_threads, [](const string& ignored) {
+    to_xg(index, [](const string& ignored) {
         return false;
     });
 }
 
-void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take, map<string, Path>* removed_paths) {
-    to_xg(index, store_threads, [&](const string& path_name) -> bool {
-        // Take paths that match the regex.
-        return std::regex_match(path_name, paths_to_take);
-    }, removed_paths);
-}
+void VGset::to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_remove, map<string, Path>* removed_paths) {
 
-void VGset::to_xg(xg::XG& index, bool store_threads, const function<bool(const string&)>& paths_to_take, map<string, Path>* removed_paths) {
+    // We make multiple passes through the input graphs, loading each and going through its nodes/edges/paths.
+    // TODO: This is going to go load all the graphs multiple times, even if there's only one graph!
+    // TODO: streaming HandleGraph API?
+    // TODO: push-driven XG build?
+    // TODO: XG::from_path_handle_graphs?
     
     // We need to recostruct full removed paths from fragmentary paths encountered in each chunk.
     // This maps from path name to all the Mappings in the path in the order we encountered them
-    map<string, list<Mapping>> mappings;
-    
-    // Set up an XG index
-    index.from_callback([&](function<void(Graph&)> callback) {
-        for (auto& name : filenames) {
-#ifdef debug
-            cerr << "Loading chunks from " << name << endl;
-#endif
-            // Load chunks from all the files and pass them into XG.
-            std::ifstream in(name);
+    auto for_each_sequence = [&](const std::function<void(const std::string& seq, const nid_t& node_id)>& lambda) {
+        for_each([&](HandleGraph* graph) {
+            // For each graph in the set
             
-            if (name == "-"){
-                if (!in) throw ifstream::failure("vg_set: cannot read from stdin. Failed to open " + name);
+            // ID-sort its handles. This is the order that we have historically
+            // used, and may be required for e.g. vg map to work correctly.
+            // TODO: Compute this only once and not each time we want to visit
+            // all the nodes during XG construction?
+            vector<handle_t> order;
+            // TODO: reserve if counting handles will be efficient. Can we know?
+            graph->for_each_handle([&](const handle_t& h) {
+                order.push_back(h);
+            });
+            std::sort(order.begin(), order.end(), [&](const handle_t& a, const handle_t& b) {
+                // Return true if a must come first
+                // We know everything is locally forward already.
+                return graph->get_id(a) < graph->get_id(b);
+            });
+            
+            for (const handle_t& h : order) {
+                // For each node in the graph, tell the XG about it.
+                // Assume it is locally forward.
+#ifdef debug
+                cerr << "Yield node " << graph->get_id(h) << " sequence " << graph->get_sequence(h) << endl;
+#endif
+                lambda(graph->get_sequence(h), graph->get_id(h));
             }
-            
-            if (!in) throw ifstream::failure("failed to open " + name);
-            
-            function<void(Graph&)> handle_graph = [&](Graph& graph) {
-#ifdef debug
-                cerr << "Got chunk of " << name << "!" << endl;
-#endif
+        });
+    };
 
-                // We'll move all the path fragments into one of these (if removed_paths is not null)
-                std::list<Path> paths_taken;
-
-                // Remove the matching paths.
-                remove_paths(graph, paths_to_take, removed_paths ? &paths_taken : nullptr);
-
-                for (auto& path : paths_taken) {
-                    // Copy all the mappings from each path into the collection of mappings in order encountered
-                    std::copy(path.mapping().begin(), path.mapping().end(), std::back_inserter(mappings[path.name()]));
-                }
-
-                // Ship out the corrected graph
-                callback(graph);
-            };
-            
-            stream::for_each(in, handle_graph);
-            
-            // Now that we got all the chunks, reconstitute any siphoned-off paths into Path objects and return them.
-            // We have to handle chunks being encountered in any order, if ranks are set, or in path-forward order, if ranks are missing.
-            for(auto& kv : mappings) {
-                // We'll fill in this Path object
-                Path path;
-                path.set_name(kv.first);
-
-                // This will hold mappings by rank.
-                // If they don't have ranks assigned, we will assign them in the order encountered.
-                map<int64_t, Mapping> mappings_by_rank;
-
-                for (auto& mapping : kv.second) {
-                    if (mapping.rank() != 0) {
-                        // It has a rank already.
-                        // Make sure we didn't try to assign something to its rank
-                        assert(!mappings_by_rank.count(mapping.rank()));
-
-                        mappings_by_rank[mapping.rank()] = mapping;
-                    } else {
-                        // Assign it the next available rank in its path
-                        int64_t next_rank;
-                        if (!mappings_by_rank.empty()) {
-                            next_rank = mappings_by_rank.rbegin()->first + 1;
-                        } else {
-                            next_rank = 1;
-                        }
-
-                        mapping.set_rank(next_rank);
-
-                        assert(!mappings_by_rank.count(mapping.rank()));
-                        mappings_by_rank[mapping.rank()] = mapping;
-                    }
-                }
-
-                for(auto& rank_and_mapping : mappings_by_rank) {
-                    // Put in all the mappings. Ignore the rank since thay're already marked with and sorted by rank.
-                    *path.add_mapping() = rank_and_mapping.second;
-                }
+    auto for_each_edge = [&](const std::function<void(const nid_t& from, const bool& from_rev, const nid_t& to, const bool& to_rev)>& lambda) {
+        for_each([&](HandleGraph* graph) {
+            // For each graph in the set
+            graph->for_each_edge([&](const edge_t& e) {
+                // For each edge in the graph, tell the XG about it
                 
-                // Now the Path is rebuilt; stick it in the big output map.
-                (*removed_paths)[path.name()] = path;
-            }
-            
 #ifdef debug
-            cerr << "Got all chunks; building XG index" << endl;
+                cerr << "Yield edge " << graph->get_id(e.first) << " " << graph->get_is_reverse(e.first)
+                    << " " << graph->get_id(e.second) << " " << graph->get_is_reverse(e.second) << endl;
 #endif
-        }
-    });
+                
+                lambda(graph->get_id(e.first), graph->get_is_reverse(e.first), graph->get_id(e.second), graph->get_is_reverse(e.second));
+            });
+        });
+    };
+    
+    // We no longer need to reconstitute paths ourselves; we require that each
+    // input file has all the parts of its paths.
+    
+    auto for_each_path_element = [&](const std::function<void(const std::string& path_name,
+                                     const nid_t& node_id, const bool& is_rev,
+                                     const std::string& cigar,
+                                     bool is_empty, bool is_circular)>& lambda) {
+                                 
+        for_each([&](HandleGraph* graph) {
+            // Look at each graph and see if it has path support
+            // TODO: do we need a different for_each to push this down to the loader?
+            PathHandleGraph* path_graph = dynamic_cast<PathHandleGraph*>(graph);
+            if (path_graph != nullptr) {
+                // The graph we loaded actually can have paths, so it can have visits
+                path_graph->for_each_path_handle([&](const path_handle_t& p) {
+                    // For each path
+                    
+                    // Get its metadata
+                    string path_name = path_graph->get_path_name(p);
+                    bool is_circular = path_graph->get_is_circular(p);
+                    
+                    if(paths_to_remove(path_name)) {
+                        // We want to filter out this path
+                        if (removed_paths != nullptr) {
+                            // When we filter out a path, we need to send our caller a Protobuf version of it.
+                            Path proto_path;
+                            proto_path.set_name(path_name);
+                            proto_path.set_is_circular(is_circular);
+                            size_t rank = 1;
+                            path_graph->for_each_step_in_path(p, [&](const step_handle_t& s) {
+                                handle_t stepped_on = path_graph->get_handle_of_step(s);
+                                
+                                Mapping* mapping = proto_path.add_mapping();
+                                mapping->mutable_position()->set_node_id(path_graph->get_id(stepped_on));
+                                mapping->mutable_position()->set_is_reverse(path_graph->get_is_reverse(stepped_on));
+                                mapping->set_rank(rank++);
+                            });
+                            removed_paths->emplace(std::move(path_name), std::move(proto_path));
+                        }
+                    } else {
+                        // We want to leave this path in
+                    
+                        // Assume it is empty
+                        bool is_empty = true;
+                        
+                        path_graph->for_each_step_in_path(p, [&](const step_handle_t& s) {
+                            // For each visit on the path
+                            handle_t stepped_on = path_graph->get_handle_of_step(s);
+                            // The path can't be empty
+                            is_empty = false;
+                            // Tell the XG about it
+#ifdef debug
+                            cerr << "Yield path " << path_name << " visit to "
+                                << path_graph->get_id(stepped_on) << " " << path_graph->get_is_reverse(stepped_on) << endl;
+#endif
+                            lambda(path_name, path_graph->get_id(stepped_on), path_graph->get_is_reverse(stepped_on), "", is_empty, is_circular); 
+                        });
+                        
+                        if (is_empty) {
+                            // If the path is empty, tell the XG that.
+                            // It still could be circular.
+                            
+#ifdef debug
+                            cerr << "Yield empty path " << path_name << endl;
+#endif
+                            
+                            lambda(path_name, 0, false, "", is_empty, is_circular);
+                        }
+                    }
+                });
+            }
+        });
+    };
+    
+    // Now build the xg graph, looping over all our graphs in our set whenever we want anything.
+    index.from_enumerators(for_each_sequence, for_each_edge, for_each_path_element, false);
 }
 
 void VGset::for_each_kmer_parallel(size_t kmer_size, const function<void(const kmer_t&)>& lambda) {
-    for_each([&lambda, kmer_size, this](VG* g) {
-        g->show_progress = show_progress & progress_bars;
-        g->preload_progress("processing kmers of " + g->name);
+    for_each([&lambda, kmer_size, this](HandleGraph* g) {
+            // legacy
+            VG* vg_g = dynamic_cast<VG*>(g);
+            if (vg_g != nullptr) {
+                vg_g->show_progress = show_progress & progress_bars;
+                vg_g->preload_progress("processing kmers of " + vg_g->name);
+            }
         //g->for_each_kmer_parallel(kmer_size, path_only, edge_max, lambda, stride, allow_dups, allow_negatives);
         for_each_kmer(*g, kmer_size, lambda);
     });
 }
 
 void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
-                                   id_t head_id, id_t tail_id) {
+                                   nid_t head_id, nid_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
         // Detect head and tail IDs in advance if we have multiple graphs
-        id_t max_id = max_node_id(); // expensive, as we'll stream through all the files
+        nid_t max_id = max_node_id(); // expensive, as we'll stream through all the files
         head_id = max_id + 1;
         tail_id = max_id + 2;
     }
@@ -208,7 +241,7 @@ void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
         cout << kp << endl;
     };
 
-    for_each([&](VG* g) {
+    for_each([&](HandleGraph* g) {
         // Make an overlay for each graph, without modifying it. Break into tip-less cycle components.
         // Make sure to use a consistent head and tail ID across all graphs in the set.
         SourceSinkOverlay overlay(g, kmer_size, head_id, tail_id);
@@ -224,16 +257,16 @@ void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
 
 // writes to a specific output stream
 void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_limit,
-                                    id_t head_id, id_t tail_id) {
+                                    nid_t head_id, nid_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
         // Detect head and tail IDs in advance if we have multiple graphs
-        id_t max_id = max_node_id(); // expensive, as we'll stream through all the files
+        nid_t max_id = max_node_id(); // expensive, as we'll stream through all the files
         head_id = max_id + 1;
         tail_id = max_id + 2;
     }
 
     size_t total_size = 0;
-    for_each([&](VG* g) {
+    for_each([&](HandleGraph* g) {
         // Make an overlay for each graph, without modifying it. Break into tip-less cycle components.
         // Make sure to use a consistent head and tail ID across all graphs in the set.
         SourceSinkOverlay overlay(g, kmer_size, head_id, tail_id);
@@ -251,17 +284,17 @@ void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_li
 
 // writes to a set of temp files and returns their names
 vector<string> VGset::write_gcsa_kmers_binary(int kmer_size, size_t& size_limit,
-                                              id_t head_id, id_t tail_id) {
+                                              nid_t head_id, nid_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
         // Detect head and tail IDs in advance if we have multiple graphs
-        id_t max_id = max_node_id(); // expensive, as we'll stream through all the files
+        nid_t max_id = max_node_id(); // expensive, as we'll stream through all the files
         head_id = max_id + 1;
         tail_id = max_id + 2;
     }
 
     vector<string> tmpnames;
     size_t total_size = 0;
-    for_each([&](VG* g) {
+    for_each([&](HandleGraph* g) {
         // Make an overlay for each graph, without modifying it. Break into tip-less cycle components.
         // Make sure to use a consistent head and tail ID across all graphs in the set.
         SourceSinkOverlay overlay(g, kmer_size, head_id, tail_id);

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 20
+plan tests 19
 
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 505 "view produces the expected number of lines of dot output"
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l) 503 "view produces the expected number of lines of GFA output"
@@ -17,15 +17,19 @@ is $(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view 
 is "$(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -aj - | jq -c --sort-keys . | sort | md5sum)" "$(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -aj - | vg view -JGa - | vg view -aj - | jq -c --sort-keys . | sort | md5sum)" "view can round-trip JSON and GAM"
 
 # We need to run through GFA because vg construct doesn't necessarily chunk the
-# graph the way vg view wants to.
-vg construct -r small/x.fa -v small/x.vcf.gz | vg view -g - | vg view -Fv - >x.vg
-vg view -j x.vg | jq . | vg view -Jv - | diff x.vg -
+# graph the way vg view wants to. We also need to treat as vg::VG to preserve ordering.
+vg construct -r small/x.fa -v small/x.vcf.gz | vg view -Vg - | vg view -Fv - >x.vg
+vg view -Vj x.vg | jq . | vg view -Jv - | diff x.vg -
 is $? 0 "view can reconstruct a VG graph from JSON"
 
-vg view -v x.vg | cmp -s - x.vg
-is $? 0 "view can pass through VG"
+vg view -vV x.vg | cmp -s - x.vg
+is $? 0 "view can pass through VG when loading as vg::VG"
 
-rm -f x.vg
+vg view x.vg | sort > x.gfa.sorted
+vg view -v x.vg | vg view - | sort | cmp -s - x.gfa.sorted
+is $? 0 "view can pass through semantically identical VG normally"
+
+rm -f x.vg x.gfa.sorted
 
 is $(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -a - | jq .sample_name | grep -v '^"1"$' | wc -l ) 0 "view parses sample names"
 
@@ -41,22 +45,18 @@ is $(vg view -d ./cyclic/all.vg | wc -l) 23 "view produces the expected number o
 vg construct -r small/x.fa -v small/x.vcf.gz | vg view -v - >x.vg
 is $(cat x.vg x.vg x.vg x.vg | vg view -c - | wc -l) 4 "streaming JSON output produces the expected number of chunks"
 
-is "$(cat x.vg x.vg | vg view -vD - 2>&1 > /dev/null | wc -l)" 0 "duplicate warnings can be suppressed"
+is "$(cat x.vg x.vg | vg view -vVD - 2>&1 > /dev/null | wc -l)" 0 "duplicate warnings can be suppressed when loading as vg::VG"
 
 rm x.vg
 
-is "$(vg view -Fv overlaps/two_snvs_assembly1.gfa | vg stats -l - | cut -f2)" "315" "gfa graphs are imported pre-bluntified"
-
-is "$(vg view -Fv overlaps/two_snvs_assembly1.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "315" "bluntifying has no effect"
-
-is "$(vg view -Fv overlaps/two_snvs_assembly4.gfa | vg stats -l - | cut -f2)" "335" "a more complex GFA can be imported"
+vg view -Fv overlaps/two_snvs_assembly1.gfa >/dev/null 2>errors.txt
+is "${?}" "1" "gfa graphs with overlaps are rejected"
+is "$(cat errors.txt | wc -l)" "2" "GFA import produces a concise error message when overlaps are present"
 
 vg view -Fv overlaps/incorrect_overlap.gfa >/dev/null 2>errors.txt
 is "$?" "1" "GFA import rejects a GFA file with an overlap that goes beyond its sequences"
-is "$(cat errors.txt | wc -l)" "1" "GFA import produces a concise error message in that case"
+is "$(cat errors.txt | wc -l)" "2" "GFA import produces a concise error message in that case"
 
 rm -f errors.txt
 
-vg view -Fv overlaps/corrected_overlap.gfa >/dev/null
-is "$?" "0" "GFA import accepts that file when the offending overlap length is fixed"
 

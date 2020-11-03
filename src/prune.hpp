@@ -1,10 +1,9 @@
 #ifndef VG_PRUNE_HPP_INCLUDED
 #define VG_PRUNE_HPP_INCLUDED
 
-#include "vg.pb.h"
-#include <iostream>
-#include "json2pb.h"
+#include <vg/vg.pb.h>
 #include "handle.hpp"
+#include "hash_map.hpp"
 #include "position.hpp"
 
 /** \file 
@@ -32,7 +31,7 @@ struct walk_t {
 };
 
 /// Iterate over all the walks up to length k, adding edges which 
-vector<edge_t> find_edges_to_prune(const HandleGraph& graph, size_t k, size_t edge_max);
+pair_hash_set<edge_t> find_edges_to_prune(const HandleGraph& graph, size_t k, size_t edge_max);
 
 }
 

@@ -25,7 +25,7 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     cerr << "[extract_connecting_graph] max len: " << max_len << ", pos 1: " << pos_1 << ", pos 2: " << pos_2 << endl;
 #endif
     
-    if (into->node_size()) {
+    if (into->get_node_count()) {
         cerr << "error:[extract_connecting_graph] must extract into an empty graph" << endl;
         exit(1);
     }
@@ -657,13 +657,10 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
         // some nodes in the current graph may not be on paths, so we do a forward-backward
         // reachability search to check
         
-        auto identify_reachable = [&](const vector<handle_t>& starts, bool search_leftward) {
+        auto identify_reachable = [&](handle_t start, bool search_leftward) {
             
-            unordered_set<handle_t> reachable;
-            for (handle_t handle : starts){
-                reachable.insert(handle);
-            }
-            auto stack = starts;
+            vector<handle_t> stack(1, start);
+            unordered_set<handle_t> reachable{start};
             
 #ifdef debug_vg_algorithms
             cerr << "REACHABILILTY PRUNE: beginning reachability test " << (search_leftward ? "backward" : "forward") << " from ";
@@ -692,22 +689,8 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
             return reachable;
         };
         
-        vector<handle_t> forward_starts, reverse_starts;
-        
-        // identify the search origins
-        forward_starts.emplace_back(cut_handle_1);
-        reverse_starts.emplace_back(cut_handle_2);
-        
-        // if we duplicated the start nodes, add those too
-        if (duplicate_node_1) {
-            forward_starts.emplace_back(into->get_handle(duplicate_node_1, into->get_is_reverse(cut_handle_1)));
-        }
-        if (duplicate_node_2) {
-            reverse_starts.emplace_back(into->get_handle(duplicate_node_2, into->get_is_reverse(cut_handle_2)));
-        }
-        
-        unordered_set<handle_t> forward_reachable = identify_reachable(forward_starts, false);
-        unordered_set<handle_t> reverse_reachable = identify_reachable(reverse_starts, true);
+        unordered_set<handle_t> forward_reachable = identify_reachable(cut_handle_1, false);
+        unordered_set<handle_t> reverse_reachable = identify_reachable(cut_handle_2, true);
         
         // now we know which nodes are reachable from both ends, to be on a path between the end positions,
         // a node or edge must be reachable from both directions
@@ -715,8 +698,8 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
         // is node reachable from both positions?
         auto should_remove_node = [&](const handle_t& handle) {
             handle_t flipped = into->flip(handle);
-            return !bool((forward_reachable.count(handle) && reverse_reachable.count(handle))
-                         || (forward_reachable.count(flipped) && reverse_reachable.count(flipped)));
+            return !((forward_reachable.count(handle) && reverse_reachable.count(handle))
+                     || (forward_reachable.count(flipped) && reverse_reachable.count(flipped)));
         };
         
         // is edge reachable from both positions?
@@ -724,8 +707,8 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
             handle_t flipped_prev = into->flip(next);
             handle_t flipped_next = into->flip(prev);
             
-            return !bool((forward_reachable.count(prev) && reverse_reachable.count(next))
-                         || (forward_reachable.count(flipped_prev) && reverse_reachable.count(flipped_next)));
+            return !((forward_reachable.count(prev) && reverse_reachable.count(next))
+                     || (forward_reachable.count(flipped_prev) && reverse_reachable.count(flipped_next)));
         };
         
         // apply the tests to each node/edge and collect the results

@@ -1,9 +1,9 @@
 #ifndef VG_KMER_HPP_INCLUDED
 #define VG_KMER_HPP_INCLUDED
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include <iostream>
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include "handle.hpp"
 #include "position.hpp"
 #include "gcsa/gcsa.h"

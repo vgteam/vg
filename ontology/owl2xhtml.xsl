@@ -198,7 +198,8 @@ by Masahide Kanzaki, and from the OWL2HTML stylesheet (2), by Li Ding. We are ve
                                       <li><a href="http://www.nih.gov/">NIH under R24OD011883</a> </li>
                                       <li><a href="http://www.ddbj.nig.ac.jp">DNA Databank of Japan (DDBJ)</a></li>
                                       <li><a href="http://www.sanger.ac.jp">Sanger centre</a></li>
-				      <li><a href="https://genomics.soe.ucsc.edu/haussler">University of California, Santa Cruz, David Haussler lab</a></li>
+                                      <li><a href="https://www.u-tokyo.ac.jp/en/index.html">The University of Tokyo</a></li>
+                                      <li><a href="https://genomics.soe.ucsc.edu/haussler">University of California, Santa Cruz, David Haussler lab</a></li>
                                     </ul>
 				</div>
 			</body>
@@ -610,7 +611,7 @@ by Masahide Kanzaki, and from the OWL2HTML stylesheet (2), by Li Ding. We are ve
                  
 		<xsl:for-each select="@rdf:datatype">
                    <sup>
-                       <a href=".">
+                       <a href="{concat(namespace-uri(),.)}">
                         <xsl:call-template name="prettyUrl">
                           <xsl:with-param name="name" select="."/>
                         </xsl:call-template>

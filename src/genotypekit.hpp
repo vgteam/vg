@@ -15,15 +15,15 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <list>
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "translator.hpp"
 #include "hash_map.hpp"
-#include "utility.hpp"
 #include "types.hpp"
-#include "distributions.hpp"
+#include "statistics.hpp"
 #include "snarls.hpp"
 #include "path_index.hpp"
+#include "packer.hpp"
 
 namespace vg {
 
@@ -201,13 +201,13 @@ struct AugmentedGraph {
      * Get the Support for a given Node, or 0 if it has no recorded support.
      * (only forward strand)
      */
-    virtual Support get_support(Node* node);
+    virtual Support get_support(id_t node);
     
     /**
      * Get the Support for a given Edge, or 0 if it has no recorded support.
      * (only forward strand)
      */
-    virtual Support get_support(Edge* edge);    
+    virtual Support get_support(edge_t edge);    
 
     virtual bool has_supports() const;
     
@@ -268,9 +268,9 @@ struct SupportAugmentedGraph : public AugmentedGraph {
     // This holds support info for nodes. Note that we discard the "os" other
     // support field from StrandSupport.
     // Supports for nodes are minimum distinct reads that use the node.
-    map<Node*, Support> node_supports;
+    map<id_t, Support> node_supports;
     // And for edges
-    map<Edge*, Support> edge_supports;
+    unordered_map<edge_t, Support> edge_supports;
     
     /**
      * Return true if we have support information, and false otherwise.
@@ -280,12 +280,12 @@ struct SupportAugmentedGraph : public AugmentedGraph {
     /**
      * Get the Support for a given Node, or 0 if it has no recorded support.
      */
-    virtual Support get_support(Node* node);
+    virtual Support get_support(id_t node);
     
     /**
      * Get the Support for a given Edge, or 0 if it has no recorded support.
      */
-    virtual Support get_support(Edge* edge);    
+    virtual Support get_support(edge_t edge);    
     
     /**
      * Clear the contents.
@@ -296,6 +296,13 @@ struct SupportAugmentedGraph : public AugmentedGraph {
     * Read the supports from protobuf.
     */
     void load_supports(istream& in_file);
+
+    /**
+     * Read the suppors from output of vg pack
+     * Everything put in forward support, average used for nodes
+     * Graph must implement VectorizableHandleGraph
+     */
+    void load_pack_as_supports(const string& pack_file_name, const HandleGraph* vectorizable_graph);
 
     /**
      * Write the supports to protobuf

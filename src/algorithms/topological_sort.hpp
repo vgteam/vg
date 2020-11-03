@@ -7,11 +7,11 @@
  * Defines a topological sort algorithm for handle graphs.
  */
 
-#include <unordered_map>
+#include <sparsepp/spp.h>
+
+#include <vg/vg.pb.h>
 
 #include "../position.hpp"
-#include "../cached_position.hpp"
-#include "../vg.pb.h"
 #include "../hash_map.hpp"
 #include "../handle.hpp"
 #include "apply_bulk_modifications.hpp"
@@ -21,12 +21,6 @@ namespace vg {
 namespace algorithms {
 
 using namespace std;
-
-/// Find all of the nodes with no edges on their left sides.
-vector<handle_t> head_nodes(const HandleGraph* g);
-
-/// Find all of the nodes with no edges on their right sides.
-vector<handle_t> tail_nodes(const HandleGraph* g);
 
 /**
  * Order and orient the nodes in the graph using a topological sort. The sort is
@@ -75,34 +69,7 @@ vector<handle_t> lazy_topological_order(const HandleGraph* g);
  * and algorithms::is_single_stranded().
  */
 vector<handle_t> lazier_topological_order(const HandleGraph* g);
-    
-/**
- * Topologically sort the given handle graph, and then apply that sort to re-
- * order the nodes of the graph. The sort is guaranteed to be stable. This sort is well-defined
- * on graphs that are not DAGs, but instead of finding a topological sort ti does a heuristic
- * sort to minimize a feedback arc set.
- */
-void topological_sort(MutableHandleGraph* g);
-    
-/**
- * Topologically sort the given handle graph, and then apply that sort to re-
- * order the nodes of the graph. The sort is NOT guaranteed to be stable or
- * machine-independent, but it is faster than sort(). This algorithm is invalid 
- * in a graph that has any cycles. For safety, consider checking this property with
- * algorithms::is_acyclic().
- */
-void lazy_topological_sort(MutableHandleGraph* g);
 
-/**
- * Topologically sort the given handle graph, and then apply that sort to re-
- * order the nodes of the graph. The sort is NOT guaranteed to be stable or
- * machine-independent, but it is faster than sort() and somewhat faster than
- * lazy_sort(). This algorithm is invalid in a graph that has any cycles or reversing
- * edges. For safety, consider checking these properties with algorithms::is_single_stranded()
- * and algorithms::is_acyclic().
- */
-void lazier_topological_sort(MutableHandleGraph* g);
-    
 /**
  * Topologically sort the given handle graph, and then apply that sort to orient
  * all the nodes in the global forward direction. May invalidate any paths

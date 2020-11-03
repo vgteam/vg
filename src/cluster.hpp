@@ -8,9 +8,13 @@
 #include "aligner.hpp"
 #include "utility.hpp"
 #include "mem.hpp"
-#include "xg.hpp"
 #include "handle.hpp"
-#include "distance.hpp"
+#include "min_distance.hpp"
+#include "seed_clusterer.hpp"
+#include "path_component_index.hpp"
+#include "bdsg/hash_graph.hpp"
+#include "algorithms/subgraph.hpp"
+#include "algorithms/extract_containing_graph.hpp"
 
 #include <functional>
 #include <string>
@@ -76,7 +80,10 @@ public:
         
         // Default copy constructor and assignment operator.
         iterator(const iterator& other) = default;
-        iterator& operator=(const iterator& other) = default;
+        
+        // TODO: This gets implicitly deleted and generates warning because of the const reference
+        // member variable
+        //iterator& operator=(const iterator& other) = default;
         
     private:
         // What is the ordinal value of this element in the permutation?
@@ -132,13 +139,13 @@ public:
 class MEMChainModel {
 public:
     vector<MEMChainModelVertex> model;
-    map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > > positions;
+    unordered_map<path_handle_t, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > > positions;
     set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     MEMChainModel(
         const vector<size_t>& aln_lengths,
         const vector<vector<MaximalExactMatch> >& matches,
         const function<int64_t(pos_t)>& approx_position,
-        const function<map<string, vector<pair<size_t, bool> > >(pos_t)>& path_position,
+        const function<unordered_map<path_handle_t, vector<pair<size_t, bool> > >(pos_t)>& path_position,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10,
         int position_depth = 1,
@@ -147,24 +154,29 @@ public:
     MEMChainModelVertex* max_vertex(void);
     vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool paired, bool debug);
     void display(ostream& out);
+    void display_dot(ostream& out, vector<MEMChainModelVertex*> vertex_trace);
     void clear_scores(void);
 };
 
 /*
- * A base class to hold some shared methods and data types between the TVS and
- * oriented distance clusterers.
+ * A base class to hold some shared methods and data types between the TVS,
+ * oriented distance, and minimum distance clusterers.
  */
 class MEMClusterer {
 public:
     MEMClusterer() = default;
-    ~MEMClusterer() = default;
+    virtual ~MEMClusterer() = default;
     
     /// Each hit contains a pointer to the original MEM and the position of that
     /// particular hit in the graph.
     using hit_t = pair<const MaximalExactMatch*, pos_t>;
     
-    /// Each cluster is a vector of hits.
-    using cluster_t = vector<hit_t>;
+    /// Each cluster is a vector of hits and a paired multiplicity
+    using cluster_t = pair<vector<hit_t>, double>;
+    
+    /// Represents the mismatches that were allowed in "MEMs" from the fanout
+    /// match algorithm
+    using match_fanouts_t = unordered_map<const MaximalExactMatch*, deque<pair<string::const_iterator, char>>>;
     
     /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
     /// contains a pointer to the original MEM and the position of that particular hit in the graph.
@@ -175,10 +187,12 @@ public:
                                int32_t max_qual_score = 60,
                                int32_t log_likelihood_approx_factor = 0,
                                size_t min_median_mem_coverage_for_split = 0,
-                               double suboptimal_edge_pruning_factor = .75);
+                               double suboptimal_edge_pruning_factor = .75,
+                               double cluster_multiplicity_diff = 10.0,
+                               const match_fanouts_t* fanouts = nullptr);
     
     /**
-     * Given two vectors of clusters, an xg index, and bounds on the distance between clusters,
+     * Given two vectors of clusters and bounds on the distance between clusters,
      * returns a vector of pairs of cluster numbers (one in each vector) matched with the estimated
      * distance.
      *
@@ -196,7 +210,11 @@ public:
                                                                       int64_t optimal_separation,
                                                                       int64_t max_deviation) = 0;
     
+    /// The largest discrepency we will allow between the read-implied distances and the estimated  gap distance
+    int64_t max_gap = numeric_limits<int64_t>::max();
+    
 protected:
+    
     class HitNode;
     class HitEdge;
     class HitGraph;
@@ -205,7 +223,8 @@ protected:
     /// Initializes a hit graph and adds edges to it, this must be implemented by any inheriting
     /// class
     virtual HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                    const GSSWAligner* aligner, size_t min_mem_length) = 0;
+                                    const GSSWAligner* aligner, size_t min_mem_length,
+                                    const match_fanouts_t* fanouts) = 0;
     
     /// Once the distance between two hits has been estimated, estimate the score of the hit graph edge
     /// connecting them
@@ -222,7 +241,7 @@ public:
     
     /// Initializes nodes in the hit graph, but does not add edges
     HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, const GSSWAligner* aligner,
-             size_t min_mem_length = 1);
+             size_t min_mem_length = 1, bool track_components = false, const match_fanouts_t* fanouts = nullptr);
     
     /// Add an edge
     void add_edge(size_t from, size_t to, int32_t weight, int64_t distance);
@@ -233,7 +252,8 @@ public:
                                int32_t max_qual_score,
                                int32_t log_likelihood_approx_factor,
                                size_t min_median_mem_coverage_for_split,
-                               double suboptimal_edge_pruning_factor);
+                               double suboptimal_edge_pruning_factor,
+                               double cluster_multiplicity_diff);
     
     vector<HitNode> nodes;
     
@@ -262,12 +282,16 @@ private:
     /// redundant sub-MEMs
     size_t median_mem_coverage(const vector<size_t>& component, const Alignment& aln) const;
     
+    /// Should we actively keep track of connected components?
+    bool track_components;
     
+    /// Keeps track of the connected components
+    UnionFind components;
 };
     
 class MEMClusterer::HitNode {
 public:
-    HitNode(const MaximalExactMatch& mem, pos_t start_pos, int32_t score) : mem(&mem), start_pos(start_pos), score(score) {}
+    HitNode(const MaximalExactMatch& mem, pos_t start_pos, int32_t score) : mem(&mem), start_pos(start_pos), score(score) { }
     HitNode() = default;
     ~HitNode() = default;
     
@@ -316,6 +340,32 @@ public:
         return nodes[i].dp_score < nodes[j].dp_score;
     }
 };
+        
+/*
+ * A clustering implementation that actually doesn't do any clustering
+ */
+class NullClusterer : public MEMClusterer {
+public:
+    NullClusterer() = default;
+    virtual ~NullClusterer() = default;
+
+    /// Concrete implementation of virtual method from MEMClusterer
+    vector<pair<pair<size_t, size_t>, int64_t>> pair_clusters(const Alignment& alignment_1,
+                                                              const Alignment& alignment_2,
+                                                              const vector<cluster_t*>& left_clusters,
+                                                              const vector<cluster_t*>& right_clusters,
+                                                              const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                              const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
+                                                              int64_t optimal_separation,
+                                                              int64_t max_deviation);
+
+protected:
+
+    /// Concrete implementation of virtual method from MEMClusterer
+    /// Note: ignores the min_mem_length parameter
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
+                            size_t min_mem_length, const match_fanouts_t* fanouts);
+};
     
     
 /*
@@ -341,16 +391,17 @@ public:
 };
 
 /*
- * A distance function that uses an XG's embedded paths to measure distances, either in a stranded
+ * A distance function that uses an a graph's embedded paths to measure distances, either in a stranded
  * or unstranded manner.
  */
 class PathOrientedDistanceMeasurer : public OrientedDistanceMeasurer {
 
 public:
     
-    /// Construct a distance service to measures distance along paths in this XG. Optionally
+    /// Construct a distance service to measures distance along paths in this graph. Optionally
     /// measures all distances on the forward strand of the paths.
-    PathOrientedDistanceMeasurer(xg::XG* xgindex, bool unstranded = false);
+    PathOrientedDistanceMeasurer(const PathPositionHandleGraph* graph,
+                                 const PathComponentIndex* path_component_index = nullptr);
     
     /// Default desctructor
     ~PathOrientedDistanceMeasurer() = default;
@@ -374,16 +425,9 @@ public:
     
 private:
     
-    xg::XG* xgindex = nullptr;
-    
-    /// A memo for the results of XG::paths_of_node
-    unordered_map<id_t, vector<size_t>> paths_of_node_memo;
-    /// A memo for the results of XG::oriented_occurrences_on_path
-    unordered_map<pair<id_t, size_t>, vector<pair<size_t, bool>>> oriented_occurences_memo;
-    /// A memo for the results of XG::get_handle
-    unordered_map<pair<int64_t, bool>, handle_t> handle_memo;
-    
-    const bool unstranded;
+    const PathPositionHandleGraph* graph = nullptr;
+    const PathComponentIndex* path_component_index = nullptr;
+
 };
     
 /*
@@ -394,7 +438,7 @@ class SnarlOrientedDistanceMeasurer : public OrientedDistanceMeasurer {
 
 public:
     // Construct a distance service to measures distance as the minimum distance in the graph
-    SnarlOrientedDistanceMeasurer(DistanceIndex* distance_index);
+    SnarlOrientedDistanceMeasurer(MinimumDistanceIndex* distance_index);
     
     /// Default desctructor
     ~SnarlOrientedDistanceMeasurer() = default;
@@ -415,7 +459,7 @@ public:
     
 private:
     
-    DistanceIndex* distance_index = nullptr;
+    MinimumDistanceIndex* distance_index = nullptr;
 };
     
 class OrientedDistanceClusterer : public MEMClusterer {
@@ -423,7 +467,6 @@ public:
     
     /// Constructor
     OrientedDistanceClusterer(OrientedDistanceMeasurer& distance_measurer,
-                              bool unstranded,
                               size_t max_expected_dist_approx_error = 8);
     
     /// Concrete implementation of virtual method from MEMClusterer
@@ -445,7 +488,7 @@ public:
     //static size_t SUCCESSFUL_SPLIT_ATTEMPT_COUNTER;
     //static size_t POST_SPLIT_CLUSTER_COUNTER;
     
-private:
+protected:
 
     /**
      * Given a certain number of items, and a callback to get each item's
@@ -454,8 +497,7 @@ private:
      * verify are on the same strand of the same molecule.
      *
      * We use the distance approximation to cluster the MEM hits according to
-     * the strand they fall on using the oriented distance estimation function
-     * in xg.
+     * the strand they fall on using the oriented distance estimation function.
      *
      * Returns a map from item pair (lower number first) to distance (which may
      * be negative) from the first to the second along the items' forward
@@ -522,7 +564,7 @@ private:
     
     /// Concrete implementation of virtual method from MEMClusterer
     HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
-                            size_t min_mem_length);
+                            size_t min_mem_length, const match_fanouts_t* fanouts);
     
     OrientedDistanceMeasurer& distance_measurer;
     size_t max_expected_dist_approx_error;
@@ -547,13 +589,13 @@ public:
  */
 class SnarlMinDistance : public DistanceHeuristic {
 public:
-    SnarlMinDistance() = default;
-    SnarlMinDistance(DistanceIndex& distance_index);
+    SnarlMinDistance() = delete;
+    SnarlMinDistance(MinimumDistanceIndex& distance_index);
     ~SnarlMinDistance() = default;
     
     int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
 private:
-    DistanceIndex& distance_index;
+    MinimumDistanceIndex& distance_index;
 };
 
 /*
@@ -563,13 +605,13 @@ private:
  */
 class TipAnchoredMaxDistance : public DistanceHeuristic {
 public:
-    TipAnchoredMaxDistance() = default;
-    TipAnchoredMaxDistance(DistanceIndex& distance_index);
+    TipAnchoredMaxDistance() = delete;
+    TipAnchoredMaxDistance(MinimumDistanceIndex& distance_index);
     ~TipAnchoredMaxDistance() = default;
     
     int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
 private:
-    DistanceIndex& distance_index;
+    MinimumDistanceIndex& distance_index;
 };
 
 /*
@@ -578,7 +620,7 @@ private:
  */
 class TargetValueSearch {
 public:
-    TargetValueSearch() = default;
+    TargetValueSearch() = delete;
     TargetValueSearch(const HandleGraph& handle_graph,
                       DistanceHeuristic* upper_bound_heuristic,
                       DistanceHeuristic* lower_bound_heuristic);
@@ -595,9 +637,17 @@ public:
     /// path within the tolerance of the target value, returns an empty vector.
     vector<handle_t> tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance);
     
-private:
+protected:
     
-    vector<handle_t> tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance, hash_map<pair<id_t, bool>,int64_t> node_to_target_shorter, hash_map<pair<id_t, bool>, int64_t> node_to_target_longer, pair<int64_t, pair<pair<id_t, bool>,int64_t>> best_lng, pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best, hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>> node_to_path);
+    vector<handle_t> tv_phase2(const pos_t& pos_1,
+                               const pos_t& pos_2,
+                               int64_t target_value,
+                               int64_t tolerance,
+                               hash_map<pair<id_t, bool>,int64_t>& node_to_target_shorter,
+                               hash_map<pair<id_t, bool>, int64_t>& node_to_target_longer,
+                               pair<int64_t, pair<pair<id_t, bool>,int64_t>>& best_lng,
+                               pair<int64_t, pair<pair<id_t, bool>, int64_t>>& next_best,
+                               hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>>& node_to_path);
     
     const HandleGraph& handle_graph;
     unique_ptr<DistanceHeuristic> upper_bound_heuristic;
@@ -609,7 +659,7 @@ private:
  */
 class TVSClusterer : public MEMClusterer {
 public:
-    TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* distance_index);
+    TVSClusterer(const HandleGraph* handle_graph, MinimumDistanceIndex* distance_index);
     ~TVSClusterer() = default;
     
     /// Concrete implementation of virtual method from MEMClusterer
@@ -622,19 +672,22 @@ public:
                                                               int64_t optimal_separation,
                                                               int64_t max_deviation);
     
-private:
+protected:
     
     /// Concrete implementation of virtual method from MEMClusterer
     HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
-                            size_t min_mem_length);
+                            size_t min_mem_length, const match_fanouts_t* fanouts);
     
     TargetValueSearch tvs;
 };
-    
+
+/*
+ * A MEM clusterer based on finding the minimum distance between all pairs of seeds or clusters
+ */
 class MinDistanceClusterer : public MEMClusterer {
 public:
-    MinDistanceClusterer(DistanceIndex* distance_index);
-    ~MinDistanceClusterer() = default;
+    MinDistanceClusterer(MinimumDistanceIndex* distance_index);
+    virtual ~MinDistanceClusterer() = default;
     
     /// Concrete implementation of virtual method from MEMClusterer
     vector<pair<pair<size_t, size_t>, int64_t>> pair_clusters(const Alignment& alignment_1,
@@ -646,23 +699,77 @@ public:
                                                               int64_t optimal_separation,
                                                               int64_t max_deviation);
     
-private:
+protected:
     
     /// Concrete implementation of virtual method from MEMClusterer
-    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
-                            size_t min_mem_length);
+    virtual HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
+                                    size_t min_mem_length, const match_fanouts_t* fanouts);
     
     const HandleGraph* handle_graph;
-    DistanceIndex* distance_index;
+    MinimumDistanceIndex* distance_index;
 };
+
+/*
+ * A version of the MinDistanceClusterer that greedily agglomerates seeds into connected components
+ * based on minimum distance, iterating over pairs in a sensible order
+ */
+class GreedyMinDistanceClusterer : public MinDistanceClusterer {
+public:
+    GreedyMinDistanceClusterer(MinimumDistanceIndex* distance_index);
+    ~GreedyMinDistanceClusterer() = default;
     
+protected:
+    
+    /// Concrete implementation of virtual method from MEMClusterer, overides the inherited one from MinDistanceClusterer
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
+                            size_t min_mem_length, const match_fanouts_t* fanouts);
+    
+    
+    /// How far apart do we expect the seeds to be on the read?
+    const int64_t expected_separation = 20;
+    
+    /// How more bases would we search forward to find the next seed before we think
+    /// it's worth searching 1 base backward?
+    const int64_t forward_multiplier = 3;
+    
+    /// Minimum distance between two seeds on the read
+    const int64_t min_separation = -10;
+    
+    /// Maximum distance between two seeds on the read
+    const int64_t max_separation = 250;
+    
+};
+
+/*
+ * A version of the MinDistanceClusterer that uses the SeedClusterer to partition reads
+ * into nearby clusters and only measures distances within clusters
+ */
+class ComponentMinDistanceClusterer : public MinDistanceClusterer {
+public:
+    ComponentMinDistanceClusterer(MinimumDistanceIndex* distance_index);
+    ~ComponentMinDistanceClusterer() = default;
+    
+protected:
+    
+    /// Concrete implementation of virtual method from MEMClusterer, overides the inherited one from MinDistanceClusterer
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
+                            size_t min_mem_length, const match_fanouts_t* fanouts);
+    
+    
+    /// Minimum distance between two seeds on the read
+    const int64_t min_read_separation = 0;
+    
+    /// The number of connections from one hit in a component to another that we will consider (0 for no maximum)
+    const int64_t early_stop_number = 2;
+};
 
 /// get the handles that a mem covers
-vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem);
+vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const HandleGraph& graph, const vg::MaximalExactMatch& mem);
+/// return a containing subgraph connecting the mems
+bdsg::HashGraph cluster_subgraph_containing(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& cluster, const GSSWAligner* aligner);
+/// return a subgraph for a cluster of MEMs from the given alignment
 /// use walking to get the hits
-Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
-/// return a subgraph form an xg for a cluster of MEMs from the given alignment
-Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion);
+bdsg::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
 
 }
 

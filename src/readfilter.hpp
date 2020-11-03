@@ -7,8 +7,8 @@
 #include <string>
 #include <regex>
 #include "vg.hpp"
-#include "xg.hpp"
-#include "vg.pb.h"
+#include "handle.hpp"
+#include <vg/vg.pb.h>
 
 /** \file
  * Provides a way to filter and transform reads, implementing the bulk of the
@@ -35,17 +35,17 @@ public:
     /// If a read has one of the features in this set as annotations, the read
     /// is filtered out.
     unordered_set<string> excluded_features;
-    double min_secondary = 0.;
-    double min_primary = 0.;
+    double min_secondary = numeric_limits<double>::lowest();
+    double min_primary = numeric_limits<double>::lowest();
     /// Should we rescore each alignment with default parameters and no e.g.
     /// haplotype info?
     bool rescore = false;
     bool frac_score = false;
     bool sub_score = false;
-    int max_overhang = 99999;
-    int min_end_matches = 0;
+    int max_overhang = numeric_limits<int>::max() / 2;
+    int min_end_matches = numeric_limits<int>::min() / 2;
     bool verbose = false;
-    double min_mapq = 0.;
+    double min_mapq = numeric_limits<double>::lowest();
     int repeat_size = 0;
     /// Should we drop split reads that follow edges not in the graph?
     bool drop_split = false;
@@ -69,8 +69,8 @@ public:
     /// Sometimes we only want a report, and not a filtered gam.  toggling off output
     /// speeds things up considerably.
     bool write_output = true;
-    /// An XG index is required for some filters (Note: ReadFilter doesn't own/free this)
-    xg::XG* xindex = nullptr;
+    /// A HandleGraph is required for some filters (Note: ReadFilter doesn't own/free this)
+    const HandleGraph* graph = nullptr;
     /// Interleaved input
     bool interleaved = false;
     /// When outputting paired reads, fail the pair only if both (all) reads
@@ -78,9 +78,9 @@ public:
     bool filter_on_all = false;
     
     // minimum base quality as PHRED score
-    int min_base_quality = 0;
+    int min_base_quality = numeric_limits<int>::min() / 2;
     // minimum fraction of bases in reads that must have quality at least <min_base_quality>
-    double min_base_quality_fraction = 0.0;
+    double min_base_quality_fraction = numeric_limits<double>::lowest();
                      
     // Keep some basic counts for when verbose mode is enabled
     struct Counts {
@@ -153,7 +153,7 @@ public:
      *
      * MUST NOT be called with a null index.
      */
-    bool trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k);
+    bool trim_ambiguous_ends(Alignment& alignment, int k);
     
 private:
 
@@ -169,15 +169,15 @@ private:
      * Trim only the end of the given alignment, leaving the start alone. Two
      * calls of this implement trim_ambiguous_ends above.
      */
-    bool trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k);
+    bool trim_ambiguous_end(Alignment& alignment, int k);
     
     /**
-     * Return false if the read only follows edges in the xg index, and true if
+     * Return false if the read only follows edges in the graph, and true if
      * the read is split (or just incorrect) and takes edges not in the index.
      *
-     * Throws an error if no XG index is specified.
+     * Throws an error if no graph is specified.
      */
-    bool is_split(xg::XG* index, Alignment& alignment);
+    bool is_split(Alignment& alignment);
     
     /**
      * Based on the read name and paired-ness, compute the SAM-style QNAME and
@@ -186,8 +186,7 @@ private:
      * kept. Returns true if the read should stay, and false if it should be
      * removed. Always accepts or rejects paired reads together.
      */
-    bool sample_read(const Alignment& read); 
-    
+    bool sample_read(const Alignment& read);
 };
 ostream& operator<<(ostream& os, const ReadFilter::Counts& counts);
 }

@@ -18,7 +18,7 @@ SourceSinkOverlay::SourceSinkOverlay(const HandleGraph* backing, size_t length, 
    
     if (this->source_id == 0 || this->sink_id == 0) {
         // We need to autodetect our source and sink IDs
-        id_t backing_max_id = backing->node_size() > 0 ? backing->max_node_id() : 0;
+        id_t backing_max_id = backing->get_node_count() > 0 ? backing->max_node_id() : 0;
         
         this->source_id = backing_max_id + 1;
         this->sink_id = this->source_id + 1;
@@ -241,8 +241,8 @@ bool SourceSinkOverlay::for_each_handle_impl(const function<bool(const handle_t&
     }, parallel);
 }
 
-size_t SourceSinkOverlay::node_size() const {
-    return backing->node_size() + 2;
+size_t SourceSinkOverlay::get_node_count() const {
+    return backing->get_node_count() + 2;
 }
 
 id_t SourceSinkOverlay::min_node_id() const {

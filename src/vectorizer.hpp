@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include "vg.hpp"
 #include "xg.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 /**
 * This class provides a way to transform
@@ -22,7 +22,7 @@ using namespace sdsl;
 using namespace vg;
 class Vectorizer{
   public:
-    Vectorizer(xg::XG* x);
+    Vectorizer(const PathPositionHandleGraph* x);
     ~Vectorizer();
     void add_bv(bit_vector v);
     void add_name(string n);
@@ -58,7 +58,8 @@ class Vectorizer{
         return sout.str();
     }
   private:
-    xg::XG* my_xg;
+    const PathPositionHandleGraph* my_xg;
+    unordered_map<vg::id_t, size_t> id_to_rank;
     //We use vectors for both names and bit vectors because we want to allow the use of duplicate
     // names. This allows things like generating simulated data with true cluster as the name.
     vector<bit_vector> my_vectors;

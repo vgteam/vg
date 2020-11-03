@@ -15,8 +15,8 @@
 #include "vg.hpp"
 
 extern "C" {
-#include "sonLib.h"
-#include "stCactusGraphs.h"
+#include <sonLib/sonLib.h>
+#include <sonLib/stCactusGraphs.h>
 }
 
 using namespace std;
@@ -31,10 +31,13 @@ struct CactusSide {
 
 // Convert VG to Cactus Graph. Takes a list of path names to use to find
 // telomeres if present in a connected component.
+// If we know the graph is a single weakly connected component, single_component can
+// be set to ture to avoid recomputing components.
 // Notes:
 //  - returned cactus graph needs to be freed by stCactusGraph_destruct
 //  - returns a Cactus graph, and a list of stCactusEdgeEnd* telomeres, in pairs of adjacent items.
-pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, const unordered_set<string>& hint_paths);
+pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& graph, const unordered_set<string>& hint_paths,
+                                                     bool single_component = false);
 
 // Convert back from Cactus to VG
 // (to, for example, display using vg view)

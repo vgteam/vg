@@ -16,10 +16,13 @@
 #include "../seed_clusterer.hpp"
 #include "../mapper.hpp"
 #include "../annotation.hpp"
-#include "../minimizer.hpp"
-#include "../stream/vpkg.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/protobuf_emitter.hpp"
+#include "../xg.hpp"
+#include <vg/io/vpkg.hpp>
+#include <vg/io/stream.hpp>
+#include <vg/io/protobuf_emitter.hpp>
+
+#include <gbwtgraph/minimizer.h>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 //#define USE_CALLGRIND
 
@@ -37,10 +40,9 @@ void help_cluster(char** argv) {
     << "Find and cluster mapping seeds." << endl
     << endl
     << "basic options:" << endl
-    << "  -x, --xg-name FILE            use this xg index (required)" << endl
+    << "  -x, --xg-name FILE            use this xg index or graph (required)" << endl
     << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (both FILE and FILE.lcp)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
-    << "  -s, --snarls FILE             cluster using these snarls (required)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
     << "  -c, --hit-cap INT             ignore minimizers with more than this many locations [10]" << endl
     << "computational parameters:" << endl
@@ -58,7 +60,6 @@ int main_cluster(int argc, char** argv) {
     string xg_name;
     string gcsa_name;
     string minimizer_name;
-    string snarls_name;
     string distance_name;
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
@@ -73,7 +74,6 @@ int main_cluster(int argc, char** argv) {
             {"xg-name", required_argument, 0, 'x'},
             {"gcsa-name", required_argument, 0, 'g'},
             {"minimizer-name", required_argument, 0, 'm'},
-            {"snarls", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'd'},
             {"hit-cap", required_argument, 0, 'c'},
             {"threads", required_argument, 0, 't'},
@@ -81,7 +81,7 @@ int main_cluster(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:m:s:d:c:t:",
+        c = getopt_long (argc, argv, "hx:g:m:d:c:t:",
                          long_options, &option_index);
 
 
@@ -111,14 +111,6 @@ int main_cluster(int argc, char** argv) {
                 minimizer_name = optarg;
                 if (minimizer_name.empty()) {
                     cerr << "error:[vg cluster] Must provide minimizer file with -m." << endl;
-                    exit(1);
-                }
-                break;
-                
-            case 's':
-                snarls_name = optarg;
-                if (snarls_name.empty()) {
-                    cerr << "error:[vg cluster] Must provide snarl file with -s." << endl;
                     exit(1);
                 }
                 break;
@@ -166,10 +158,6 @@ int main_cluster(int argc, char** argv) {
         exit(1);
     }
     
-    if (snarls_name.empty()) {
-        cerr << "error:[vg cluster] Finding clusters requires snarls, must provide snarls file (-s)" << endl;
-        exit(1);
-    }
     
     if (distance_name.empty()) {
         cerr << "error:[vg cluster] Finding clusters requires a distance index, must provide distance index file (-d)" << endl;
@@ -177,32 +165,29 @@ int main_cluster(int argc, char** argv) {
     }
     
     // create in-memory objects
-    unique_ptr<xg::XG> xg_index = stream::VPKG::load_one<xg::XG>(xg_name);
+    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    PathPositionHandleGraph* xg_index = overlay_helper.apply(path_handle_graph.get());
     unique_ptr<gcsa::GCSA> gcsa_index;
     unique_ptr<gcsa::LCPArray> lcp_index;
     if (!gcsa_name.empty()) {
-        gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
-        lcp_index = stream::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
+        gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
+        lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
     }
-    unique_ptr<MinimizerIndex> minimizer_index;
+    unique_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index;
     if (!minimizer_name.empty()) {
-        minimizer_index = stream::VPKG::load_one<MinimizerIndex>(minimizer_name);
+        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name);
     }
-    unique_ptr<SnarlManager> snarl_manager = stream::VPKG::load_one<SnarlManager>(snarls_name);
-    unique_ptr<DistanceIndex> distance_index = stream::VPKG::load_one<DistanceIndex>(distance_name);
-    
-    // Connect the DistanceIndex to the other things it needs to work.
-    distance_index->setGraph(xg_index.get());
-    distance_index->setSnarlManager(snarl_manager.get());
+    unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
     // Make the clusterer
-    SnarlSeedClusterer clusterer;
+    SnarlSeedClusterer clusterer(*distance_index);
     
     // Make a Mapper to look up MEM seeds
     unique_ptr<Mapper> mapper;
     if (gcsa_index) {
         // We will find MEMs using a Mapper
-        mapper = make_unique<Mapper>(xg_index.get(), gcsa_index.get(), lcp_index.get());
+        mapper = make_unique<Mapper>(xg_index, gcsa_index.get(), lcp_index.get());
     }
     // Otherwise we will find minimizers using the minimizer_index
     
@@ -210,14 +195,14 @@ int main_cluster(int argc, char** argv) {
         // Open up the input GAM
         
         // Make the output emitter
-        stream::ProtobufEmitter<Alignment> emitter(cout);
+        vg::io::ProtobufEmitter<Alignment> emitter(cout);
         
 #ifdef USE_CALLGRIND
         // We want to profile the clustering and the code around it.
         CALLGRIND_START_INSTRUMENTATION;
 #endif
         
-        stream::for_each_parallel<Alignment>(in, [&](Alignment& aln) {
+        vg::io::for_each_parallel<Alignment>(in, [&](Alignment& aln) {
             // For each input alignment
             
             // We will find all the seed hits
@@ -226,7 +211,7 @@ int main_cluster(int argc, char** argv) {
             // If working with MEMs, this will hold all the MEMs
             vector<MaximalExactMatch> mems;
             // If working with minimizers, this will hold all the minimizers in the query
-            vector<MinimizerIndex::minimizer_type> minimizers;
+            vector<gbwtgraph::DefaultMinimizerIndex::minimizer_type> minimizers;
             // And either way this will map from seed to MEM or minimizer that generated it
             vector<size_t> seed_to_source;
             
@@ -254,24 +239,31 @@ int main_cluster(int argc, char** argv) {
                 
                 for (size_t i = 0; i < minimizers.size(); i++) {
                     // For each minimizer
-                    if (hit_cap != 0 && minimizer_index->count(minimizers[i].first) <= hit_cap) {
+                    if (hit_cap != 0 && minimizer_index->count(minimizers[i]) <= hit_cap) {
                         // The minimizer is infrequent enough to be informative, so feed it into clustering
                         
-                        // Locate it in the graph
-                        for (auto& hit : minimizer_index->find(minimizers[i].first)) {
+                        // Locate it in the graph. We do not have to reverse the hits for a
+                        // reverse minimizers, as the clusterer only cares about node ids.
+                        for (auto& hit : minimizer_index->find(minimizers[i])) {
                             // For each position, remember it and what minimizer it came from
-                            seeds.push_back(hit);
+                            seeds.push_back(hit.first);
                             seed_to_source.push_back(i);
                         }
                     }
                 }
                 
             }
+            vector<SnarlSeedClusterer::Seed> seed_clusters;
+            for (pos_t pos : seeds) {
+                seed_clusters.emplace_back();
+                seed_clusters.back().pos = pos;
+            }
+
             
             // Cluster the seeds. Get sets of input seed indexes that go together.
             // Make sure to time it.
             std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-            vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seed_clusters, distance_limit);
             std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
             
@@ -283,7 +275,7 @@ int main_cluster(int argc, char** argv) {
                 // We use this to convert iterators to indexes
                 auto start = aln.sequence().begin();
                 
-                for (auto& hit_index : cluster) {
+                for (auto hit_index : cluster.seeds) {
                     // For each hit in the cluster, work out what anchor sequence it is from.
                     size_t source_index = seed_to_source.at(hit_index);
                     
@@ -295,7 +287,12 @@ int main_cluster(int argc, char** argv) {
                         }
                     } else {
                         // Using minimizers
-                        for (size_t i = minimizers[source_index].second; i < minimizers[source_index].second + minimizer_index->k(); i++) {
+                        // The offset of a reverse minimizer is the endpoint of the kmer
+                        size_t start_offset = minimizers[source_index].offset;
+                        if (minimizers[source_index].is_reverse) {
+                            start_offset = start_offset + 1 - minimizer_index->k();
+                        }
+                        for (size_t i = start_offset; i < start_offset + minimizer_index->k(); i++) {
                             // Set all the bits in read space for that minimizer.
                             // Each minimizr is a length-k exact match starting at a position
                             covered[i] = true;
@@ -334,7 +331,7 @@ int main_cluster(int argc, char** argv) {
                     read_coverage_by_cluster.at(cluster_indexes_in_order[i]) >= best_coverage; i++) {
                     
                     // For each cluster covering that much or more of the read
-                    for (auto& seed_index : clusters.at(cluster_indexes_in_order[i])) {
+                    for (auto seed_index : clusters.at(cluster_indexes_in_order[i]).seeds) {
                         // For each seed in those clusters
                         
                         // Mark that seed as being part of the best cluster(s)
@@ -372,7 +369,7 @@ int main_cluster(int argc, char** argv) {
             vector<double> cluster_sizes;
             cluster_sizes.reserve(clusters.size());
             for (auto& cluster : clusters) {
-                cluster_sizes.push_back((double)cluster.size());
+                cluster_sizes.push_back((double)cluster.seeds.size());
             }
             
             // Tag the alignment with cluster accuracy

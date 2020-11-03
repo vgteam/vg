@@ -5,6 +5,7 @@
 #include "catch.hpp"
 #include "chunker.hpp"
 #include "readfilter.hpp"
+#include "path.hpp"
 
 namespace vg {
 namespace unittest {
@@ -86,7 +87,8 @@ TEST_CASE("basic graph chunking", "[chunk]") {
     json2pb(chunk, graph_json.c_str(), graph_json.size());
     
     // Pass it over to XG
-    xg::XG index(chunk);
+    xg::XG index;
+    index.from_path_handle_graph(VG(chunk));
 
     PathChunker chunker(&index);
 
@@ -190,6 +192,17 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         
     }
 
+    SECTION("Subpath naming") {
+
+        REQUIRE(Paths::make_subpath_name("path", 23) == "path[23]");
+        REQUIRE(get<0>(Paths::parse_subpath_name("path[23]")) == true);
+        REQUIRE(get<1>(Paths::parse_subpath_name("pa]th[23]")) == "pa]th");
+        REQUIRE(get<2>(Paths::parse_subpath_name("p[ath[23]")) == 23);
+        REQUIRE(get<0>(Paths::parse_subpath_name("path[23")) == false);
+        REQUIRE(get<0>(Paths::parse_subpath_name("path[]")) == false);
+        REQUIRE(get<0>(Paths::parse_subpath_name("path[")) == false);
+        REQUIRE(get<0>(Paths::parse_subpath_name("path23]")) == false);
+    }
 }
 
 

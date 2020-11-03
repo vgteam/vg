@@ -2,10 +2,10 @@
  * \file
  * constructor.cpp: contains implementations for vg construction functions.
  */
-
-
+ 
 #include "vg.hpp"
 #include "constructor.hpp"
+#include "io/load_proto_to_graph.hpp"
 
 #include <cstdlib>
 #include <set>
@@ -215,15 +215,45 @@ namespace vg {
             #pragma omp critical (cerr)
             {
                 // Note that the pragma also protects this mutable map that we update
-                if (!warned_sequences.count(reference_path_name)) {
+                if (!lowercase_warned_sequences.count(reference_path_name)) {
                     // We haven't warned about this sequence yet
                     cerr << "warning:[vg::Constructor] Lowercase characters found in "
                         << reference_path_name << "; coercing to uppercase." << endl;
-                    warned_sequences.insert(reference_path_name);
+                    lowercase_warned_sequences.insert(reference_path_name);
                 }    
             }
         }
-        swap(reference_sequence, uppercase_sequence);
+        reference_sequence = std::move(uppercase_sequence);
+        
+        // Make sure all IUPAC codes are Ns
+        string n_sequence = allAmbiguousToN(reference_sequence);
+        
+        if (n_sequence != reference_sequence && warn_on_ambiguous) {
+            #pragma omp critical (cerr)
+            {
+                // Note that the pragma also protects this mutable map that we update
+                if (!ambiguous_warned_sequences.count(reference_path_name)) {
+                    // We haven't warned about this sequence yet
+                    cerr << "warning:[vg::Constructor] Unsupported IUPAC ambiguity codes found in "
+                        << reference_path_name << "; coercing to N." << endl;
+                    ambiguous_warned_sequences.insert(reference_path_name);
+                }    
+            }
+        }
+        reference_sequence = std::move(n_sequence);
+
+        // TODO: this is like the forth scan of the whole string we do; can we
+        // condense this all into one pass?
+        if (!allATGCN(reference_sequence)) {
+            // We don't know what to do with gaps, and we want to catch
+            // complete garbage.
+            #pragma omp critical (cerr)
+            {
+                cerr << "error:[vg::Constructor] unacceptable characters found in " 
+                    << reference_path_name << "." << endl;
+                exit(1);
+            }
+        }
 
         // Construct a chunk for this sequence with these variants.
         ConstructedChunk to_return;
@@ -294,7 +324,8 @@ namespace vg {
         // Automatically fills in rank, starting from 1.
         auto add_match = [&](Path* path, Node* node, bool is_reverse = false) {
             #ifdef debug
-            cerr << "Add node " << node->id() << " orientation " << is_reverse << " to path " << path->name() << endl;
+            cerr << "Add node " << node->id() << " orientation " << is_reverse
+                << " length " << node->sequence().size() << " to path " << path->name() << endl;
             #endif
         
             // Make a mapping for it
@@ -446,7 +477,6 @@ namespace vg {
                 // TODO: make sure long SVs don't fall outside chunk
                 clump_end = max(clump_end, next_variant->zeroBasedPosition() + next_variant->ref.size() - chunk_offset);
 
-
                 // Try the variant after that
                 next_variant++;
             } else {
@@ -454,7 +484,7 @@ namespace vg {
                 // Handle the clump.
                 
                 #ifdef debug
-                cerr << "Handling clump of " << clump.size() << " variants" << endl;
+                cerr << "Handling clump of " << clump.size() << " variants up to " << (clump_end + chunk_offset) << endl;
                 #endif
 
                 // Parse all the variants into VariantAllele edits
@@ -486,7 +516,12 @@ namespace vg {
                 // vector.
                 set<vcflib::Variant*> duplicates;
                 
-                for (vcflib::Variant* variant : clump) {
+                for (size_t var_num = 0; var_num < clump.size(); var_num++) {
+                    // For each variant in the clump
+                    vcflib::Variant* variant = clump[var_num];
+#ifdef debug
+                    cerr << "Handling clump variant " << var_num << "/" << clump.size() << " @ " << variant->zeroBasedPosition() << endl;
+#endif
                 
                     // No variants should still be symbolic at this point.
                     // Either we canonicalized them into base-level sequence, or we rejected them whn making the clump.
@@ -498,16 +533,26 @@ namespace vg {
                     for (auto& alt : variant->alt) {
                         string upper_case_alt = toUppercase(alt);
                         if (alt != upper_case_alt) {
-                            if (!warned_alt && warn_on_lowercase) {
+                            if (!lowercase_warned_alt && warn_on_lowercase) {
                                 #pragma omp critical (cerr)
                                 {
                                     cerr << "warning:[vg::Constructor] Lowercase characters found in "
                                          << "variant, coercing to uppercase:\n" << *variant << endl;
-                                    warned_alt = true;
+                                    lowercase_warned_alt = true;
                                 }
                             }
                             swap(alt, upper_case_alt);
                             reindex = true;
+                        }
+                        if (!allATGCN(alt)) {
+                            // We don't know what to do with gaps or IUPAC ambiguity codes, and
+                            // we want to catch complete garbage.
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << "error:[vg::Constructor] non-ATGCN characters found in " 
+                                    << "variant:\n" << *variant << endl;
+                                exit(1);
+                            }
                         }
                     }
                     for (auto& allele : variant->alleles) {
@@ -526,7 +571,7 @@ namespace vg {
                     auto expected_ref = reference_sequence.substr(variant->zeroBasedPosition() - chunk_offset, variant->ref.size());
                     if(variant->ref != expected_ref) {
                     // TODO: report error to caller somehow
-                    #pragma omp critical (cerr)
+                        #pragma omp critical (cerr)
                         cerr << "error:[vg::Constructor] Variant/reference sequence mismatch: " << variant->ref
                             << " vs pos: " << variant->position << ": " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl
                             << "Variant: " << *variant << endl;
@@ -536,7 +581,7 @@ namespace vg {
 
                     // Name the variant and place it in the order that we'll
                     // actually construct nodes in (see utility.hpp)
-                    string variant_name = alt_names_from_vcf_id ? variant->id : make_variant_id(*variant);
+                    string variant_name = make_variant_id(*variant);
                     if (variants_by_name.count(variant_name)) {
                         // Some VCFs may include multiple variants at the same
                         // position with the same ref and alt. We will only take the
@@ -581,7 +626,8 @@ namespace vg {
                     // Note: we still want bounds for SVs, we just have to get them differently
                     std::pair<int64_t, int64_t> bounds;
                     
-                    if (!variant->hasSVTags()){
+                    if (!variant->canonical){
+                        // The variant did not have to be canonicalized.
                         // We will process the variant as a normal variant, based on its ref and alt sequences.
                         
                         for (auto &kv : alternates) {
@@ -708,14 +754,15 @@ namespace vg {
                     auto* variant = kv.second;
                     
                     #ifdef debug
-                    cerr << "Process variant " << variant_name << " with " << parsed_clump[variant].size() << " alts" << endl;
+                    cerr << "Process variant " << variant_name << " @ " << variant->zeroBasedPosition()
+                        << " with " << parsed_clump[variant].size() << " alts" << endl;
                     #endif
 
                     if (alt_paths) {
                         // Declare its ref path straight away.
                         // We fill in the ref paths after we make all the nodes for the edits.
                         variant_ref_paths[variant] = to_return.graph.add_path();
-                        variant_ref_paths[variant]->set_name(alt_path_prefix + variant_name + "_0");
+                        variant_ref_paths[variant]->set_name("_alt_" + variant_name + "_0");
                     }
 
                     for (size_t alt_index = 0; alt_index < parsed_clump[variant].size(); alt_index++) {                
@@ -723,7 +770,7 @@ namespace vg {
 
                         // Name the alt after the number that this allele has.
                         // We have to bump the allele index because the first alt is 0.
-                        string alt_name = alt_path_prefix + variant_name + "_" + to_string(alt_index + 1);
+                        string alt_name = "_alt_" + variant_name + "_" + to_string(alt_index + 1);
 
                         // There should be a path named after it.
                         Path* alt_path = nullptr;
@@ -965,7 +1012,7 @@ namespace vg {
                     size_t to_return = last_edit_end;
                     
                     #ifdef debug
-                    cerr << "Next breakpoint must be at or before " << last_edit_end << endl;
+                    cerr << "Next breakpoint after " << position << " must be at or before " << last_edit_end << endl;
                     #endif
 
                     // See if any nodes are registered as starting after our
@@ -997,10 +1044,8 @@ namespace vg {
                         #endif
                     }
 
-                    // See if any deletions are registered as ending after here.
-                    // Deletions break the reference before their past-the-end base,
-                    // so we don't care about deletions ending here exactly.
-                    auto deletion_end_iter = deletions_ending_at.upper_bound(position);
+                    // See if any deletions are registered as ending at or after here.
+                    auto deletion_end_iter = deletions_ending_at.lower_bound(position);
 
                     if(deletion_end_iter != deletions_ending_at.end()) {
                         // If we found something, walk back where the breakpoint
@@ -1146,12 +1191,6 @@ namespace vg {
                 }
 
                 // Now we have gotten through all the places where nodes start, before the end of the clump.
-                
-                #ifdef debug
-                for (auto& kv : ref_runs_by_end) {
-                    cerr << "Ref run ends at " << kv.first << endl;
-                }
-                #endif
                 
                 for (auto& to_trace : inversion_trace_queue) {
                     // Now that all the ref nodes exist, create the path entries for inversion alt paths.
@@ -1447,7 +1486,7 @@ namespace vg {
     }
 
     void Constructor::construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
-        const vector<FastaReference*>& insertions, function<void(Graph&)> callback) {
+        const vector<FastaReference*>& insertions, const function<void(Graph&)>& callback) {
 
         // Our caller will set up indexing. We just work with the buffered source that we pull variants from.
 
@@ -1484,13 +1523,13 @@ namespace vg {
         while(variant_source.get() && (variant_source.get()->sequenceName != vcf_contig ||
                     variant_source.get()->zeroBasedPosition() < leading_offset ||
                     variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() > reference_end)) {
-            // This variant comes before our region
+            // This variant comes before or ends after our region
 
-            // Discard variants that come out that are before our region
+            // Discard variants that come out that are outside our region
             variant_source.handle_buffer();
             variant_source.fill_buffer();
         }
-
+        
         // Now we're on the variants we actually want.
 
         // This is where the next chunk will start in the reference sequence.
@@ -1548,7 +1587,7 @@ namespace vg {
         // Modifies the chunk in place.
         auto wire_and_emit = [&](ConstructedChunk& chunk) {
             // When each chunk comes back:
-
+            
             if (chunk.left_ends.size() == 1 && last_node_buffer.id() != 0) {
                 // We have a last node from the last chunk that we want to glom onto
                 // this chunk.
@@ -1644,8 +1683,7 @@ namespace vg {
 
                 // We know it's the last node in the graph
                 last_node_buffer = chunk.graph.node(chunk.graph.node_size() - 1);
-
-
+                
                 assert(chunk.right_ends.count(last_node_buffer.id()));
 
                 // Remove it
@@ -1661,6 +1699,10 @@ namespace vg {
 
                 // Update its ID separately, since it's no longer in the graph.
                 last_node_buffer.set_id(last_node_buffer.id() + max_id);
+                
+                #ifdef debug
+                cerr << "Buffered final node becomes: " << last_node_buffer.id() << endl;
+                #endif
             }
 
             // Up all the IDs in the graph
@@ -1738,7 +1780,8 @@ namespace vg {
             // if we have more than one insertion fasta file, we can pull
             // sequences from the vcf:fasta pair (i.e. the same index in the vectors).
             do_external_insertions = true;
-            cerr << "Passing multiple insertion files not implemented yet." << endl                                                                                    << "Please try combining all of your insertions fastas into one file." << endl;
+            cerr << "Passing multiple insertion files not implemented yet." << endl
+            << "Please try combining all of your insertions fastas into one file." << endl;
             exit(1);
         }   
         else{
@@ -1746,14 +1789,27 @@ namespace vg {
             // those with seqs in the vcf.
 
         }
+        
+        #ifdef debug 
+        cerr << "Handling run of variants starting in region..." << endl;
+        #endif
 
         while (variant_source.get() && variant_source.get()->sequenceName == vcf_contig &&
-                variant_source.get()->zeroBasedPosition() >= leading_offset &&
-                variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() <= reference_end) {
+               variant_source.get()->zeroBasedPosition() >= leading_offset &&
+               variant_source.get()->zeroBasedPosition() <= reference_end) {
+               
+            // For each variant that begins inside our region
 
+            // Skip variants that don't fit in our range
+            // (maybe there's one that does fit after, so we continue checking)
+            if (variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() > reference_end) {
+                variant_source.handle_buffer();
+                variant_source.fill_buffer();
+                continue;
+            }
+                
             // While we have variants we want to include
             auto vvar = variant_source.get();
-
 
             // We need to decide if we want to use this variant. By default we will use all variants.
             bool variant_acceptable = true;
@@ -1788,7 +1844,7 @@ namespace vg {
                         
                         // Canonicalize the variant and see if that disqualifies it.
                         // This also takes care of setting the variant's alt sequences.
-                        variant_acceptable = vvar->canonicalize(reference, insertions, true);
+                        variant_acceptable = vvar->canonicalizable() && vvar->canonicalize(reference, insertions, true);
          
                         if (variant_acceptable) {
                             // Worth checking for multiple alts.
@@ -1911,6 +1967,10 @@ namespace vg {
             }
         }
 
+        #ifdef debug
+        cerr << "Variants in region depleted, which we know because we found a starting-after-region variant." << endl;
+        #endif
+
         // We ran out of variants, so finish this chunk and all the others after it
         // without looking for variants.
         // TODO: unify with above loop?
@@ -1955,7 +2015,7 @@ namespace vg {
 
     void Constructor::construct_graph(const vector<FastaReference*>& references,
         const vector<vcflib::VariantCallFile*>& variant_files, const vector<FastaReference*>& insertions,
-        function<void(Graph&)> callback) {
+        const function<void(Graph&)>& callback) {
 
         // Make a map from contig name to fasta reference containing it.
         map<string, FastaReference*> reference_for;
@@ -2135,7 +2195,96 @@ namespace vg {
         }
 
     }
-
+    
+    void Constructor::construct_graph(const vector<string>& reference_filenames, const vector<string>& variant_filenames,
+        const vector<string>& insertion_filenames, const function<void(Graph&)>& callback) {
+        
+        vector<unique_ptr<FastaReference>> references;
+        for (auto& fasta_filename : reference_filenames) {
+            // Open each FASTA file
+            FastaReference* reference = new FastaReference();
+            references.emplace_back(reference);
+            reference->open(fasta_filename);
+        }
+        
+        vector<unique_ptr<vcflib::VariantCallFile>> variant_files;
+        for (auto& vcf_filename : variant_filenames) {
+            // Make sure each VCF file exists. Otherwise Tabix++ may exit with a non-
+            // helpful message.
+            
+            // We can't invoke stat woithout a place for it to write. But all we
+            // really want is its return value.
+            struct stat temp;
+            if(stat(vcf_filename.c_str(), &temp)) {
+                cerr << "error:[Constructor::construct_graph] file \"" << vcf_filename << "\" not found" << endl;
+                exit(1);
+            }
+            vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
+            variant_file->parseSamples = false; // Major speedup if there are many samples.
+            variant_files.emplace_back(variant_file);
+            // TODO: vcflib needs a non-const string for the filename for some reason. Fix that.
+            string mutable_filename = vcf_filename;
+            variant_file->open(mutable_filename);
+            if (!variant_file->is_open()) {
+                cerr << "error:[Constructor::construct_graph] could not open" << vcf_filename << endl;
+                exit(1);
+            }
+        }
+        
+        vector<unique_ptr<FastaReference>> insertions;
+        for (auto& insertion_filename : insertion_filenames){
+            // Open up those insertion files
+            FastaReference* insertion = new FastaReference();
+            insertions.emplace_back(insertion);
+            insertion->open(insertion_filename);
+        }
+        
+        // Make vectors of just bare pointers
+        vector<vcflib::VariantCallFile*> vcf_pointers;
+        for(auto& vcf : variant_files) {
+            vcf_pointers.push_back(vcf.get());
+        }
+        vector<FastaReference*> fasta_pointers;
+        for(auto& fasta : references) {
+            fasta_pointers.push_back(fasta.get());
+        }
+        vector<FastaReference*> ins_pointers;
+        for (auto& ins : insertions){
+            ins_pointers.push_back(ins.get());
+        }
+        
+        // Construct the graph.
+        construct_graph(fasta_pointers, vcf_pointers, ins_pointers, callback);
+    }
+    
+    void Constructor::construct_graph(const vector<FastaReference*>& references,
+        const vector<vcflib::VariantCallFile*>& variant_files, const vector<FastaReference*>& insertions,
+        MutablePathMutableHandleGraph* destination) {
+        
+        vg::io::load_proto_to_graph(destination, [&](const function<void(Graph&)>& callback) {
+            // Start a load of a stream of Protobuf Graphs, and when we get the
+            // callback to handle them, construct into it.
+            construct_graph(references, variant_files, insertions, callback);
+        });
+        
+        // Now we did the construction and all the Graph chunks have been saved.
+        // TODO: Refactor everything to not go through Graph chunks?
+    }
+    
+    void Constructor::construct_graph(const vector<string>& reference_filenames, const vector<string>& variant_filenames,
+        const vector<string>& insertion_filenames, MutablePathMutableHandleGraph* destination) {
+        
+        vg::io::load_proto_to_graph(destination, [&](const function<void(Graph&)>& callback) {
+            // Start a load of a stream of Protobuf Graphs, and when we get the
+            // callback to handle them, construct into it.
+            construct_graph(reference_filenames, variant_filenames, insertion_filenames, callback);
+        });
+        
+        // Now we did the construction and all the Graph chunks have been saved.
+        // TODO: Refactor everything to not go through Graph chunks?
+        
+        // TODO: Deduplicate with the version that takes already-opened files somehow...
+    }
 }
 
 

@@ -5,38 +5,51 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 12
+plan tests 14
 
 
 # Indexing a single graph
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
+vg snarls -T x.vg > x.snarls
+vg index -s x.snarls -j x.dist -x x.xg
 
 # Default construction
-vg minimizer -i x.mi x.xg
+vg minimizer -i x.mi -g x.gbwt x.xg
 is $? 0 "default parameters"
 
-# Single-threaded
-vg minimizer -t 1 -i x.mi x.xg
+# Single-threaded for deterministic results
+vg minimizer -t 1 -i x.mi -g x.gbwt x.xg
 is $? 0 "single-threaded construction"
-is $(md5sum x.mi | cut -f 1 -d\ ) 8be00b5eb136da460d706f6305fb1259 "construction is deterministic"
+vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 58b2bd98902df9acbe416bcfde649571 "construction is deterministic"
+
+# Indexing syncmers
+vg minimizer -t 1 -i x.mi -b -g x.gbwt x.xg
+is $? 0 "syncmer index"
+vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 111bb0658db34d88a3a075f269513a36 "construction is deterministic"
 
 # Minimizer parameters
-vg minimizer -t 1 -k 7 -w 3 -i x.mi x.xg
+vg minimizer -t 1 -k 7 -w 3 -i x.mi -g x.gbwt x.xg
 is $? 0 "minimizer parameters"
-is $(md5sum x.mi | cut -f 1 -d\ ) 77882cd5fc80c43baab3358761928093 "setting -k -w works correctly"
+vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) c69f4f2dfab192fc66055dcf2fa8a7da "setting -k -w works correctly"
 
-# Max occs (-k 7 -w 3 -m 2)
-vg minimizer -t 1 -k 7 -w 3 -m 2 -i x.mi x.xg
-is $? 0 "max occurrences"
-is $(md5sum x.mi | cut -f 1 -d\ ) 9372114da245f7df4e14f2e0de5460fa "frequent minimizers can be excluded"
+# Construction from GBWTGraph
+vg gbwt -x x.xg -g x.gg x.gbwt
+vg minimizer -t 1 -g x.gbwt -G -i x.mi x.gg
+is $? 0 "construction from GBWTGraph"
+vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 58b2bd98902df9acbe416bcfde649571 "construction is deterministic"
 
-# Haplotype-consistent minimizers
-vg minimizer -t 1 -g x.gbwt -i x.mi x.xg
-is $? 0 "haplotype-consistent minimizers"
-is $(md5sum x.mi | cut -f 1 -d\ ) 7d70396e0a43443120026a1a1e36f244 "construction is deterministic"
+# Store payload in the index
+vg minimizer -t 1 -i x.mi -g x.gbwt -d x.dist -G x.gg
+is $? 0 "construction with payload"
+vg view --extract-tag MinimizerIndex x.mi > x.extracted.mi
+is $(md5sum x.extracted.mi | cut -f 1 -d\ ) 58a6780c18921e4f6701b57fdb9c2e44 "construction is deterministic"
 
-rm -f x.vg x.xg x.gbwt x.mi
+rm -f x.vg x.xg x.gbwt x.snarls x.dist x.mi x.extracted.mi x.gg
 
 
 # Indexing two graphs
@@ -47,12 +60,14 @@ vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
 vg index -x y.xg -G y.gbwt -v small/xy2.vcf.gz y.vg
 
 # Appending to the index
-vg minimizer -t 1 -i x.mi x.xg
+vg minimizer -t 1 -i x.mi -g x.gbwt x.xg
 is $? 0 "multiple graphs: first"
-vg minimizer -t 1 -l x.mi -i xy.mi y.xg
+vg minimizer -t 1 -l x.mi -i xy.mi -g y.gbwt y.xg
 is $? 0 "multiple graphs: second"
-is $(md5sum xy.mi | cut -f 1 -d\ ) fb9247484869be722a416c7df6b847dc "construction is deterministic"
+vg view --extract-tag MinimizerIndex xy.mi > xy.extracted.mi
+is $(md5sum xy.extracted.mi | cut -f 1 -d\ ) 7500d106741f2dd8aa34aa178c917832 "construction is deterministic"
 
 rm -f x.vg y.vg
 rm -f x.xg y.xg
-rm -f x.mi xy.mi
+rm -f x.gbwt y.gbwt
+rm -f x.mi xy.mi xy.extracted.mi

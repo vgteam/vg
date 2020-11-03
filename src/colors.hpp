@@ -1,6 +1,12 @@
 #ifndef VG_COLORS_HPP_INCLUDED
 #define VG_COLORS_HPP_INCLUDED
 
+/**
+ * \file colors.hpp
+ * Includes facilities for generating random GraphViz colors seeded by strings.
+ * Used for colorizing paths in visualizations.
+ */
+
 #include <vector>
 #include <random>
 
@@ -8,6 +14,10 @@ namespace vg {
 
 using namespace std;
 
+/**
+ * Generates random GraphViz colors seeded by strings.
+ * Used for colorizing paths in visualizations.
+ */
 class Colors {
     mt19937 rng;
 public:

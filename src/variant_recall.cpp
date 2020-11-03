@@ -1,7 +1,12 @@
 #include <cstdint>
 #include "variant_recall.hpp"
 #include "algorithms/topological_sort.hpp"
+#include "cactus_snarl_finder.hpp"
 #include "traversal_finder.hpp"
+#include "augment.hpp"
+#include "xg.hpp"
+
+using namespace xg;
 
 namespace vg {
 
@@ -63,13 +68,17 @@ void genotype_svs(VG* graph,
         }
 
     };
-    stream::for_each_interleaved_pair_parallel(gamstream, readfunc);
+    vg::io::for_each_interleaved_pair_parallel(gamstream, readfunc);
     vector<Translation> transls;
     if (refpath != ""){
-        transls = graph->edit(direct_ins); // TODO could maybe use edit_fast??
-               
+        augment(graph, direct_ins, "GAM", &transls);
+
+        XG xg_index;
+        xg_index.from_path_handle_graph(*graph); // Index the graph so deconstruct can get path positions
         Deconstructor decon;
-        decon.deconstruct(refpath, graph);
+        CactusSnarlFinder finder(xg_index);
+        SnarlManager snarl_manager = finder.find_snarls();
+        decon.deconstruct({refpath}, &xg_index, &snarl_manager, false, 1, false);
     }
     direct_ins.clear();
 
@@ -342,7 +351,7 @@ void variant_recall(VG* graph,
     if (!isIndex){
         ifstream gamstream(gamfile);
         if (gamstream.good()){
-            stream::for_each(gamstream, incr);
+            vg::io::for_each(gamstream, incr);
         }
         else{
             cerr << "GAM stream is bad " << gamfile << endl;
@@ -353,14 +362,14 @@ void variant_recall(VG* graph,
     else if (use_snarls && !isIndex){
         ifstream gamstream(gamfile);
         if (gamstream.good()){
-            stream::for_each(gamstream, count_traversal_supports);
+            vg::io::for_each(gamstream, count_traversal_supports);
         }
         gamstream.close();
     }
     else{
         Index gamindex;
         gamindex.open_read_only(gamfile);
-        vector<int64_t> vn(variant_nodes.begin(), variant_nodes.end());
+        vector<nid_t> vn(variant_nodes.begin(), variant_nodes.end());
         gamindex.for_alignment_to_nodes(vn, index_incr);
     }
 

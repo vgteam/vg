@@ -8,27 +8,21 @@ RareVariantSimplifier::RareVariantSimplifier(MutablePathDeletableHandleGraph& gr
     // Nothing to do!
 }
 
-/// Return true if the given path name is a variant ref or alt allele alt path
-bool is_alt_path(const string& name) {
-    // See <https://stackoverflow.com/a/40441240>; we have no startswith, but we have rfind at pos <= 0.
-    return name.rfind("_alt_", 0) == 0;
-}
-
 void RareVariantSimplifier::simplify() {
     // This holds the IDs of all the nodes we want to keep around
     unordered_set<id_t> to_keep;
 
     graph.for_each_path_handle([&](const path_handle_t& path) {
         // For each path
-
-        if (!is_alt_path(graph.get_path_name(path))) {
+        
+        if (!Paths::is_alt(graph.get_path_name(path))) {
             // If it isn't an alt path, we want to trace it
 
-            graph.for_each_occurrence_in_path(path, [&](const occurrence_handle_t& occurrence) {
-                // For each occurrence from start to end
-                // Put the ID of the node we are visiting in the to-keep set
-                to_keep.insert(graph.get_id(graph.get_occurrence(occurrence)));
-            });
+            // For each occurrence from start to end
+            // Put the ID of the node we are visiting in the to-keep set
+            for (handle_t handle : graph.scan_path(path)) {
+                to_keep.insert(graph.get_id(handle));
+            }
         }
     });
 
@@ -147,14 +141,12 @@ void RareVariantSimplifier::simplify() {
                     // Skip those that do not exist
                     continue;
                 }
-                
-                path_handle_t path = graph.get_path_handle(path_name);
 
-                graph.for_each_occurrence_in_path(path, [&](const occurrence_handle_t& occurrence) {
-                    // For each occurrence from start to end
-                    // Put the ID of the node we are visiting in the to-keep set
-                    to_keep.insert(graph.get_id(graph.get_occurrence(occurrence)));
-                });
+                // For each occurrence from start to end
+                // Put the ID of the node we are visiting in the to-keep set
+                for (handle_t handle : graph.scan_path(graph.get_path_handle(path_name))) {
+                    to_keep.insert(graph.get_id(handle));
+                }
             }
         } else {
             // Otherwise delete all its alt paths and also its ref path

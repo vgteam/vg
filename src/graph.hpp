@@ -1,8 +1,9 @@
 #ifndef VG_GRAPH_HPP_INCLUDED
 #define VG_GRAPH_HPP_INCLUDED
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "types.hpp"
+#include "handle.hpp"
 #include <set>
 #include <algorithm>
 
@@ -43,6 +44,12 @@ bool has_inversion(const Graph& graph);
 /// clean up doubly-reversed edges
 void flip_doubly_reversed_edges(Graph& graph);
 
+// transfer data from a HandleGraph into an empty Graph
+void from_handle_graph(const HandleGraph& from, Graph& to);
+
+// transfer data from a PathHandleGraph into an empty Graph
+void from_path_handle_graph(const PathHandleGraph& from, Graph& to);
+    
 }
 
 #endif

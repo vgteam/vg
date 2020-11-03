@@ -6,15 +6,16 @@
 #include <functional>
 #include <stdlib.h>
 #include <gcsa/gcsa.h>
-#include "vg.hpp"
+#include "handle.hpp"
 #include "index.hpp"
 #include "xg.hpp"
+#include "vg.hpp"
 #include "kmer.hpp"
 
 
 namespace vg {
 
-// for dealing with collections of VGs on disk
+// for dealing with collections of HandleGraphs on disk
 class VGset {
 public:
 
@@ -26,9 +27,8 @@ public:
         : filenames(files)
         { };
 
-    void transform(std::function<void(VG*)> lambda);
-    void for_each(std::function<void(VG*)> lambda);
-    void for_each_graph_chunk(std::function<void(Graph&)> lamda);
+    void transform(std::function<void(MutableHandleGraph*)> lambda);
+    void for_each(std::function<void(HandleGraph*)> lambda);
 
     /// Stream through the files and determine the max node id
     id_t max_node_id(void);
@@ -38,14 +38,12 @@ public:
     int64_t merge_id_space(void);
 
     /// Transforms to a succinct, queryable representation
-    void to_xg(xg::XG& index, bool store_threads = false);
+    void to_xg(xg::XG& index);
+
     /// As above, except paths with names matching the given predicate are removed.
     /// They are returned separately by inserting them into the provided map if not null.
-    void to_xg(xg::XG& index, bool store_threads, const function<bool(const string&)>& paths_to_take,
-        map<string, Path>* removed_paths = nullptr);
-    /// As above, except paths with names matching the given regex are removed.
-    /// They are returned separately by inserting them into the provided map if not null.
-    void to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take, map<string, Path>* removed_paths = nullptr);
+    void to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_take,
+               map<string, Path>* removed_paths = nullptr);
 
     // stores the nodes in the VGs identified by the filenames into the index
     void store_in_index(Index& index);
@@ -60,11 +58,11 @@ public:
      * function returns, size_limit is the total size of the kmer files in bytes.
      */
     void write_gcsa_kmers_ascii(ostream& out, int kmer_size,
-                                int64_t head_id=0, int64_t tail_id=0);
+                                nid_t head_id=0, nid_t tail_id=0);
     void write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_limit,
-                                 int64_t head_id=0, int64_t tail_id=0);
+                                 nid_t head_id=0, nid_t tail_id=0);
     vector<string> write_gcsa_kmers_binary(int kmer_size, size_t& size_limit,
-                                           int64_t head_id=0, int64_t tail_id=0);
+                                           nid_t head_id=0, nid_t tail_id=0);
 
     // Should we show our progress running through each graph?             
     bool show_progress = false;

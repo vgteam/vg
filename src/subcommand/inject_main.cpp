@@ -12,8 +12,10 @@
 
 #include "../alignment.hpp"
 #include "../vg.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include "../xg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -23,7 +25,7 @@ void help_inject(char** argv) {
     cerr << "usage: " << argv[0] << " inject [options] input.[bam|sam|cram] >output.gam" << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE       use the graph in this xg index (required)" << endl
+         << "    -x, --xg-name FILE       use this graph or xg index (required)" << endl
          << "    -t, --threads N          number of threads to use" << endl;
 }
 
@@ -84,9 +86,11 @@ int main_inject(int argc, char** argv) {
         cerr << "error[vg inject]: XG index (-x) is required" << endl;
         exit(1);
     }
-    auto xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
+    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    PathPositionHandleGraph* xgidx = overlay_helper.apply(path_handle_graph.get());    
 
-    stream::ProtobufEmitter<Alignment> buf(cout);
+    vg::io::ProtobufEmitter<Alignment> buf(cout);
     function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
 #pragma omp critical (buf)
         {
@@ -94,9 +98,9 @@ int main_inject(int argc, char** argv) {
         }
     };
     if (threads > 1) {
-        hts_for_each_parallel(file_name, lambda, xgidx.get());
+        hts_for_each_parallel(file_name, lambda, xgidx);
     } else {
-        hts_for_each(file_name, lambda, xgidx.get());
+        hts_for_each(file_name, lambda, xgidx);
     }
     return 0;
 }

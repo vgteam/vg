@@ -8,12 +8,14 @@
 
 #include "../utility.hpp"
 #include "../path.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 
 #include <vector>
 #include <sstream>
 #include <iostream>
 #include <unordered_map>
+
+#include <bdsg/hash_graph.hpp>
 
 namespace vg {
 namespace unittest {
@@ -285,6 +287,60 @@ Graph construct_test_graph(string fasta_data, string vcf_data, size_t max_node_s
     
     // Return the aggregated result
     return built;
+}
+
+/**
+ * Testing wrapper to build a whole graph from a VCF string into a HandleGraph
+ */
+unique_ptr<PathHandleGraph> construct_test_handle_graph(string fasta_data, string vcf_data, 
+    size_t max_node_size, bool do_svs, bool use_flat_alts = false) {
+  
+    // Make an empty graph
+    auto build_to = new bdsg::HashGraph();
+    // Make a unique_ptr own our graph
+    unique_ptr<PathHandleGraph> graph(build_to);
+    
+    // Make a stream out of the VCF data
+    std::stringstream vcf_stream(vcf_data);
+    
+    // Load it up in vcflib
+    vcflib::VariantCallFile vcf;
+    vcf.open(vcf_stream);
+    
+    // Put it in a vector
+    vector<vcflib::VariantCallFile*> vcf_pointers {&vcf};
+    
+    // We have to write the FASTA to a file
+    string fasta_filename = temp_file::create();
+    ofstream fasta_stream(fasta_filename);
+    fasta_stream << fasta_data;
+    fasta_stream.close(); 
+    
+    // Make a FastaReference out of it
+    FastaReference reference;
+    reference.open(fasta_filename);
+    
+    // Put it in a vector
+    vector<FastaReference*> fasta_pointers {&reference};
+    
+    // Make an empty vector of insertion files
+    vector<FastaReference*> ins_pointers;
+    
+    Constructor constructor;
+    constructor.alt_paths = true;
+    constructor.do_svs = do_svs;
+    constructor.flat = use_flat_alts;
+    // Make sure we can test the node splitting behavior at reasonable sizes
+    constructor.max_node_size = max_node_size;
+
+    // Construct the graph    
+    constructor.construct_graph(fasta_pointers, vcf_pointers, ins_pointers, build_to);
+    
+    // Delete our temporary file
+    temp_file::remove(fasta_filename);
+    
+    // Return the result
+    return std::move(graph);
 }
 
 TEST_CASE( "A SNP can be constructed", "[constructor]" ) {
@@ -1221,6 +1277,38 @@ ref	11	.	TAG	T	29	PASS	.	GT
     //       T-+----/
 
 }
+
+TEST_CASE( "A graph can be constructed to a HandleGraph", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	5	.	A	T	29	PASS	.	GT
+)";
+
+    auto fasta_data = R"(>ref
+GATTACACATTAG
+)";
+
+    // Build the graph
+    unique_ptr<PathHandleGraph> result = construct_test_handle_graph(fasta_data, vcf_data, 50, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("graph is the correct size") {
+        REQUIRE(result->get_node_count() == 4);
+    }
+
+}
+
 
 TEST_CASE( "A VCF and FASTA on two contigs make a graph with a consistent ID space", "[constructor]" ) {
 
@@ -2262,6 +2350,75 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
         edges_wanted.emplace(5, false, 6, false);
         edges_wanted.emplace(1, false, 3, true);
         edges_wanted.emplace(2, true, 4, false);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_tuple(edge.from(), edge.from_start(), edge.to(), edge.to_end())));
+        }
+    }
+
+}
+
+TEST_CASE( "SVs that are fully base specified are constructed correctly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	11	sv1	T	TTTCTTTCTTTCTTTCTTTCTTTCTTTCTTTCTTTC	11	PASS	END=10;SVLEN=35;SVTYPE=INS	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+	SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGGC"});
+		expected.insert({2, "T"});
+        expected.insert({3, "TTCTTTCTTT"});
+        expected.insert({4, "CTTTCTTTCT"});
+        expected.insert({5, "TTCTTTCTTT"});
+        expected.insert({6, "CTTTC"});
+        expected.insert({7, "TGGAAATTTT"});
+        expected.insert({8, "CTGGAGTTCT"});
+        expected.insert({9, "ATTATATTCC"});
+        expected.insert({10, "AACTCTCTG"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted;
+        edges_wanted.emplace(1, false, 2, false);
+        edges_wanted.emplace(2, false, 3, false);
+        edges_wanted.emplace(3, false, 4, false);
+        edges_wanted.emplace(4, false, 5, false);
+        edges_wanted.emplace(5, false, 6, false);
+        edges_wanted.emplace(6, false, 7, false);
+        edges_wanted.emplace(7, false, 8, false);
+        edges_wanted.emplace(8, false, 9, false);
+        edges_wanted.emplace(9, false, 10, false);
+        edges_wanted.emplace(2, false, 7, false);
         
         // We should have the right number of edges
         REQUIRE(result.edge_size() == edges_wanted.size());

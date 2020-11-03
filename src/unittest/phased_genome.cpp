@@ -7,15 +7,16 @@
 #include <stdio.h>
 #include <iostream>
 #include <list>
-#include "json2pb.h"
-#include "vg.pb.h"
+#include "vg/io/json2pb.h"
+#include <vg/vg.pb.h>
 #include "catch.hpp"
-#include "utility.hpp"
-#include "phased_genome.hpp"
-#include "multipath_alignment.hpp"
-#include "nodetraversal.hpp"
-#include "vg.hpp"
-#include "genotypekit.hpp"
+#include "../utility.hpp"
+#include "../phased_genome.hpp"
+#include "../multipath_alignment.hpp"
+#include "../nodetraversal.hpp"
+#include "../vg.hpp"
+#include "../genotypekit.hpp"
+#include "../cactus_snarl_finder.hpp"
 
 namespace vg {
     namespace unittest {
@@ -40,7 +41,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
             }
             
@@ -70,7 +71,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -120,7 +121,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -204,7 +205,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -256,7 +257,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -307,7 +308,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -397,7 +398,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -475,7 +476,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // construct haplotypes
                 
@@ -589,7 +590,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // add haplotypes
                 
@@ -680,7 +681,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 list<NodeTraversal> haplotype_1;
                 list<NodeTraversal> haplotype_2;
@@ -763,7 +764,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // add haplotypes
                 
@@ -848,7 +849,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 REQUIRE(snarl_manager.top_level_snarls().size() > 0);
                 const Snarl* site = snarl_manager.top_level_snarls()[0];
@@ -873,14 +874,18 @@ namespace vg {
                 
                 // construct a multipath alignment
                 
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence("CACTGTATTGCGGATA");
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -889,47 +894,47 @@ namespace vg {
                 subpath2->add_next(3);
                 
                 // designate mappings and scores
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
                 mapping0->mutable_position()->set_offset(1);
-                Edit* edit00 = mapping0->add_edit();
+                edit_t* edit00 = mapping0->add_edit();
                 edit00->set_from_length(2);
                 edit00->set_to_length(2);
                 
-                Mapping* mapping1 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath0->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
-                Edit* edit10 = mapping1->add_edit();
+                edit_t* edit10 = mapping1->add_edit();
                 edit10->set_from_length(4);
                 edit10->set_to_length(4);
                 
                 subpath0->set_score(6);
                 
-                Mapping* mapping2 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath1->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit20 = mapping2->add_edit();
+                edit_t* edit20 = mapping2->add_edit();
                 edit20->set_from_length(1);
                 edit20->set_to_length(1);
                 edit20->set_sequence("A");
                 
                 subpath1->set_score(-4);
                 
-                Mapping* mapping3 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath2->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(4);
-                Edit* edit30 = mapping3->add_edit();
+                edit_t* edit30 = mapping3->add_edit();
                 edit30->set_from_length(1);
                 edit30->set_to_length(1);
                 
                 subpath2->set_score(1);
                 
-                Mapping* mapping4 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping4 = subpath3->mutable_path()->add_mapping();
                 mapping4->mutable_position()->set_node_id(5);
-                Edit* edit40 = mapping4->add_edit();
+                edit_t* edit40 = mapping4->add_edit();
                 edit40->set_from_length(3);
                 edit40->set_to_length(3);
                 
-                Mapping* mapping5 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping5 = subpath3->mutable_path()->add_mapping();
                 mapping5->mutable_position()->set_node_id(6);
-                Edit* edit50 = mapping5->add_edit();
+                edit_t* edit50 = mapping5->add_edit();
                 edit50->set_from_length(6);
                 edit50->set_to_length(6);
                 
@@ -975,7 +980,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 REQUIRE(snarl_manager.top_level_snarls().size() > 0);
                 const Snarl* site = snarl_manager.top_level_snarls()[0];
@@ -1006,14 +1011,18 @@ namespace vg {
                 
                 // construct a multipath alignment
                 
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence("CACTGTATTGCGGATA");
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -1022,47 +1031,47 @@ namespace vg {
                 subpath2->add_next(3);
                 
                 // designate mappings and scores
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(1);
                 mapping0->mutable_position()->set_offset(1);
-                Edit* edit00 = mapping0->add_edit();
+                edit_t* edit00 = mapping0->add_edit();
                 edit00->set_from_length(2);
                 edit00->set_to_length(2);
                 
-                Mapping* mapping1 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath0->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
-                Edit* edit10 = mapping1->add_edit();
+                edit_t* edit10 = mapping1->add_edit();
                 edit10->set_from_length(4);
                 edit10->set_to_length(4);
                 
                 subpath0->set_score(6);
                 
-                Mapping* mapping2 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath1->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit20 = mapping2->add_edit();
+                edit_t* edit20 = mapping2->add_edit();
                 edit20->set_from_length(1);
                 edit20->set_to_length(1);
                 edit20->set_sequence("A");
                 
                 subpath1->set_score(-4);
                 
-                Mapping* mapping3 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath2->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(4);
-                Edit* edit30 = mapping3->add_edit();
+                edit_t* edit30 = mapping3->add_edit();
                 edit30->set_from_length(1);
                 edit30->set_to_length(1);
                 
                 subpath2->set_score(1);
                 
-                Mapping* mapping4 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping4 = subpath3->mutable_path()->add_mapping();
                 mapping4->mutable_position()->set_node_id(5);
-                Edit* edit40 = mapping4->add_edit();
+                edit_t* edit40 = mapping4->add_edit();
                 edit40->set_from_length(3);
                 edit40->set_to_length(3);
                 
-                Mapping* mapping5 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping5 = subpath3->mutable_path()->add_mapping();
                 mapping5->mutable_position()->set_node_id(6);
-                Edit* edit50 = mapping5->add_edit();
+                edit_t* edit50 = mapping5->add_edit();
                 edit50->set_from_length(6);
                 edit50->set_to_length(6);
                 
@@ -1098,7 +1107,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
-                PhasedGenome genome = PhasedGenome(snarl_manager);
+                PhasedGenome genome(snarl_manager);
                 
                 // constuct haplotypes
                 
@@ -1118,14 +1127,18 @@ namespace vg {
                 
                 // construct a multipath alignment
                 
-                MultipathAlignment multipath_aln;
+                multipath_alignment_t multipath_aln;
                 multipath_aln.set_sequence("CCGCTGTATTGTGC");
                 
                 // add subpaths
-                Subpath* subpath0 = multipath_aln.add_subpath();
-                Subpath* subpath1 = multipath_aln.add_subpath();
-                Subpath* subpath2 = multipath_aln.add_subpath();
-                Subpath* subpath3 = multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
                 
                 // set edges between subpaths
                 subpath0->add_next(1);
@@ -1134,49 +1147,49 @@ namespace vg {
                 subpath2->add_next(3);
                 
                 // designate mappings and scores
-                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
                 mapping0->mutable_position()->set_node_id(6);
                 mapping0->mutable_position()->set_offset(3);
                 mapping0->mutable_position()->set_is_reverse(true);
-                Edit* edit00 = mapping0->add_edit();
+                edit_t* edit00 = mapping0->add_edit();
                 edit00->set_from_length(3);
                 edit00->set_to_length(3);
                 
-                Mapping* mapping1 = subpath0->mutable_path()->add_mapping();
+                path_mapping_t* mapping1 = subpath0->mutable_path()->add_mapping();
                 mapping1->mutable_position()->set_node_id(2);
-                Edit* edit10 = mapping1->add_edit();
+                edit_t* edit10 = mapping1->add_edit();
                 edit10->set_from_length(4);
                 edit10->set_to_length(4);
                 
                 subpath0->set_score(7);
                 
-                Mapping* mapping2 = subpath1->mutable_path()->add_mapping();
+                path_mapping_t* mapping2 = subpath1->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(3);
-                Edit* edit20 = mapping2->add_edit();
+                edit_t* edit20 = mapping2->add_edit();
                 edit20->set_from_length(1);
                 edit20->set_to_length(1);
                 edit20->set_sequence("A");
                 
                 subpath1->set_score(-4);
                 
-                Mapping* mapping3 = subpath2->mutable_path()->add_mapping();
+                path_mapping_t* mapping3 = subpath2->mutable_path()->add_mapping();
                 mapping3->mutable_position()->set_node_id(4);
-                Edit* edit30 = mapping3->add_edit();
+                edit_t* edit30 = mapping3->add_edit();
                 edit30->set_from_length(1);
                 edit30->set_to_length(1);
                 
                 subpath2->set_score(1);
                 
-                Mapping* mapping4 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping4 = subpath3->mutable_path()->add_mapping();
                 mapping4->mutable_position()->set_node_id(5);
-                Edit* edit40 = mapping4->add_edit();
+                edit_t* edit40 = mapping4->add_edit();
                 edit40->set_from_length(3);
                 edit40->set_to_length(3);
                 
-                Mapping* mapping5 = subpath3->mutable_path()->add_mapping();
+                path_mapping_t* mapping5 = subpath3->mutable_path()->add_mapping();
                 mapping5->mutable_position()->set_node_id(1);
                 mapping5->mutable_position()->set_is_reverse(true);
-                Edit* edit50 = mapping5->add_edit();
+                edit_t* edit50 = mapping5->add_edit();
                 edit50->set_from_length(3);
                 edit50->set_to_length(3);
                 
@@ -1185,6 +1198,521 @@ namespace vg {
                 identify_start_subpaths(multipath_aln);
                 
                 REQUIRE( genome.optimal_score_on_genome(multipath_aln, graph) == 7 - 4 + 6 );
+                
+            }
+        }
+    
+    
+        TEST_CASE("PhasedGenome can compute alignment likelihoods",
+                  "[phasing][mcmc]" ) {
+            
+            VG graph;
+            
+            Node* n0 = graph.create_node("CCT");
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("A");
+            Node* n3 = graph.create_node("T");
+            Node* n4 = graph.create_node("GAA");
+            Node* n5 = graph.create_node("TAT");
+            
+            graph.create_edge(n0, n1);
+            graph.create_edge(n1, n2);
+            graph.create_edge(n1, n3);
+            graph.create_edge(n2, n4);
+            graph.create_edge(n3, n4);
+            graph.create_edge(n4, n5);
+            
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            
+            PhasedGenome genome(snarl_manager);
+            
+            SECTION("The likelihood is correct for a simple alignment") {
+                
+                
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n2));
+                haplotype_1.push_back(NodeTraversal(n4));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                multipath_alignment_t multipath_aln;
+                multipath_aln.set_sequence("GCA");
+                multipath_aln.set_mapping_quality(60);
+                
+                subpath_t* subpath = multipath_aln.add_subpath();
+                path_t* path = subpath->mutable_path();
+                path_mapping_t* mapping = path->add_mapping();
+                position_t* position = mapping->mutable_position();
+                position->set_node_id(n1->id());
+                position->set_is_reverse(false);
+                edit_t* edit = mapping->add_edit();
+                edit->set_from_length(3);
+                edit->set_to_length(3);
+                subpath->set_score(3);
+                
+                identify_start_subpaths(multipath_aln);
+                
+                //
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - 3.0) < .001);
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 2.0) - 6.0) < .001);
+            }
+            
+            SECTION("The likelihood doubles if it is present on two haplotypes") {
+                
+                
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n2));
+                haplotype_1.push_back(NodeTraversal(n4));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                list<NodeTraversal> haplotype_2;
+                
+                haplotype_2.push_back(NodeTraversal(n1));
+                haplotype_2.push_back(NodeTraversal(n3));
+                haplotype_2.push_back(NodeTraversal(n4));
+                
+                genome.add_haplotype(haplotype_2.begin(), haplotype_2.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                multipath_alignment_t multipath_aln;
+                multipath_aln.set_sequence("GCA");
+                multipath_aln.set_mapping_quality(60);
+                
+                subpath_t* subpath = multipath_aln.add_subpath();
+                path_t* path = subpath->mutable_path();
+                path_mapping_t* mapping = path->add_mapping();
+                position_t* position = mapping->mutable_position();
+                position->set_node_id(n1->id());
+                position->set_is_reverse(false);
+                edit_t* edit = mapping->add_edit();
+                edit->set_from_length(3);
+                edit->set_to_length(3);
+                subpath->set_score(3);
+                
+                identify_start_subpaths(multipath_aln);
+                
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - (3.0 + log(2.0))) < .001);
+            }
+            
+            SECTION("Likelihood can be calculated with a branching multipath alignment") {
+                
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n2));
+                haplotype_1.push_back(NodeTraversal(n4));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                multipath_alignment_t multipath_aln;
+                multipath_aln.set_sequence("GCAAGAA");
+                multipath_aln.set_mapping_quality(60);
+                
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+                
+                path_t* path0 = subpath0->mutable_path();
+                path_mapping_t* mapping0 = path0->add_mapping();
+                position_t* position0 = mapping0->mutable_position();
+                position0->set_node_id(n1->id());
+                position0->set_is_reverse(false);
+                edit_t* edit0 = mapping0->add_edit();
+                edit0->set_from_length(3);
+                edit0->set_to_length(3);
+                subpath0->set_score(3);
+                
+                path_t* path1 = subpath1->mutable_path();
+                path_mapping_t* mapping1 = path1->add_mapping();
+                position_t* position1 = mapping1->mutable_position();
+                position1->set_node_id(n2->id());
+                position1->set_is_reverse(false);
+                edit_t* edit1 = mapping1->add_edit();
+                edit1->set_from_length(1);
+                edit1->set_to_length(1);
+                subpath1->set_score(1);
+                
+                path_t* path2 = subpath2->mutable_path();
+                path_mapping_t* mapping2 = path2->add_mapping();
+                position_t* position2 = mapping2->mutable_position();
+                position2->set_node_id(n3->id());
+                position2->set_is_reverse(false);
+                edit_t* edit2 = mapping2->add_edit();
+                edit2->set_from_length(1);
+                edit2->set_to_length(1);
+                subpath2->set_score(-2);
+                
+                path_t* path3 = subpath3->mutable_path();
+                path_mapping_t* mapping3 = path3->add_mapping();
+                position_t* position3 = mapping3->mutable_position();
+                position3->set_node_id(n4->id());
+                position3->set_is_reverse(false);
+                edit_t* edit3 = mapping3->add_edit();
+                edit3->set_from_length(3);
+                edit3->set_to_length(3);
+                subpath3->set_score(3);
+                
+                subpath0->add_next(1);
+                subpath0->add_next(2);
+                subpath1->add_next(3);
+                subpath2->add_next(3);
+                
+                identify_start_subpaths(multipath_aln);
+                
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - 7.0) < .001);
+            }
+            
+            SECTION("Log likeihood can be calculated for a read on the reverse strand") {
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n3));
+                haplotype_1.push_back(NodeTraversal(n4));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                multipath_alignment_t multipath_aln;
+                multipath_aln.set_sequence("TTCTTGC");
+                multipath_aln.set_mapping_quality(60);
+                
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+                
+                path_t* path0 = subpath0->mutable_path();
+                path_mapping_t* mapping0 = path0->add_mapping();
+                position_t* position0 = mapping0->mutable_position();
+                position0->set_node_id(n4->id());
+                position0->set_is_reverse(true);
+                edit_t* edit0 = mapping0->add_edit();
+                edit0->set_from_length(3);
+                edit0->set_to_length(3);
+                subpath0->set_score(3);
+                
+                path_t* path1 = subpath1->mutable_path();
+                path_mapping_t* mapping1 = path1->add_mapping();
+                position_t* position1 = mapping1->mutable_position();
+                position1->set_node_id(n2->id());
+                position1->set_is_reverse(true);
+                edit_t* edit1 = mapping1->add_edit();
+                edit1->set_from_length(1);
+                edit1->set_to_length(1);
+                subpath1->set_score(1);
+                
+                path_t* path2 = subpath2->mutable_path();
+                path_mapping_t* mapping2 = path2->add_mapping();
+                position_t* position2 = mapping2->mutable_position();
+                position2->set_node_id(n3->id());
+                position2->set_is_reverse(true);
+                edit_t* edit2 = mapping2->add_edit();
+                edit2->set_from_length(1);
+                edit2->set_to_length(1);
+                subpath2->set_score(-2);
+                
+                path_t* path3 = subpath3->mutable_path();
+                path_mapping_t* mapping3 = path3->add_mapping();
+                position_t* position3 = mapping3->mutable_position();
+                position3->set_node_id(n1->id());
+                position3->set_is_reverse(true);
+                edit_t* edit3 = mapping3->add_edit();
+                edit3->set_from_length(3);
+                edit3->set_to_length(3);
+                subpath3->set_score(3);
+                
+                subpath0->add_next(1);
+                subpath0->add_next(2);
+                subpath1->add_next(3);
+                subpath2->add_next(3);
+                
+                identify_start_subpaths(multipath_aln);
+                
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - 4.0) < .001);
+            }
+            
+            SECTION("Log likeihood can be calculated for a read with mid-node subpath adjacencies") {
+                
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n3));
+                haplotype_1.push_back(NodeTraversal(n4));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                multipath_alignment_t multipath_aln;
+                multipath_aln.set_sequence("TTC");
+                multipath_aln.set_mapping_quality(60);
+                
+                
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                
+                path_t* path0 = subpath0->mutable_path();
+                path_mapping_t* mapping0 = path0->add_mapping();
+                position_t* position0 = mapping0->mutable_position();
+                position0->set_node_id(n4->id());
+                position0->set_is_reverse(true);
+                edit_t* edit0 = mapping0->add_edit();
+                edit0->set_from_length(2);
+                edit0->set_to_length(2);
+                subpath0->set_score(2);
+                
+                path_t* path1 = subpath1->mutable_path();
+                path_mapping_t* mapping1 = path1->add_mapping();
+                position_t* position1 = mapping1->mutable_position();
+                position1->set_node_id(n4->id());
+                position1->set_is_reverse(true);
+                position1->set_offset(2);
+                edit_t* edit1 = mapping1->add_edit();
+                edit1->set_from_length(1);
+                edit1->set_to_length(1);
+                subpath1->set_score(1);
+                
+                subpath0->add_next(1);
+                                
+                identify_start_subpaths(multipath_aln);
+                
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - 3.0) < .001);
+            }
+            
+            SECTION("Log likeihood can be calculated for a read multiple with mappings per subpath") {
+                
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n0));
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n2));
+                haplotype_1.push_back(NodeTraversal(n4));
+                haplotype_1.push_back(NodeTraversal(n5));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                multipath_alignment_t multipath_aln;
+                multipath_aln.set_sequence("CCTGCAAGAATAT");
+                multipath_aln.set_mapping_quality(60);
+                
+                
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+                
+                path_t* path0 = subpath0->mutable_path();
+                path0->add_mapping();
+                path0->add_mapping();
+                path_mapping_t* mapping0 = path0->mutable_mapping(0);
+                path_mapping_t* mapping4 = path0->mutable_mapping(1);
+                
+                position_t* position0 = mapping0->mutable_position();
+                position0->set_node_id(n0->id());
+                position0->set_is_reverse(false);
+                edit_t* edit0 = mapping0->add_edit();
+                edit0->set_from_length(3);
+                edit0->set_to_length(3);
+                position_t* position4 = mapping4->mutable_position();
+                position4->set_node_id(n1->id());
+                position4->set_is_reverse(false);
+                edit_t* edit4 = mapping4->add_edit();
+                edit4->set_from_length(3);
+                edit4->set_to_length(3);
+                subpath0->set_score(6);
+                
+                path_t* path1 = subpath1->mutable_path();
+                path_mapping_t* mapping1 = path1->add_mapping();
+                position_t* position1 = mapping1->mutable_position();
+                position1->set_node_id(n2->id());
+                position1->set_is_reverse(false);
+                edit_t* edit1 = mapping1->add_edit();
+                edit1->set_from_length(1);
+                edit1->set_to_length(1);
+                subpath1->set_score(1);
+                
+                path_t* path2 = subpath2->mutable_path();
+                path_mapping_t* mapping2 = path2->add_mapping();
+                position_t* position2 = mapping2->mutable_position();
+                position2->set_node_id(n3->id());
+                position2->set_is_reverse(false);
+                edit_t* edit2 = mapping2->add_edit();
+                edit2->set_from_length(1);
+                edit2->set_to_length(1);
+                subpath2->set_score(-2);
+                
+                
+                path_t* path3 = subpath3->mutable_path();
+                path3->add_mapping();
+                path3->add_mapping();
+                path_mapping_t* mapping3 = path3->mutable_mapping(0);
+                path_mapping_t* mapping5 = path3->mutable_mapping(1);
+                
+                position_t* position3 = mapping3->mutable_position();
+                position3->set_node_id(n4->id());
+                position3->set_is_reverse(false);
+                edit_t* edit3 = mapping3->add_edit();
+                edit3->set_from_length(3);
+                edit3->set_to_length(3);
+                position_t* position5 = mapping5->mutable_position();
+                position5->set_node_id(n5->id());
+                position5->set_is_reverse(false);
+                edit_t* edit5 = mapping5->add_edit();
+                edit5->set_from_length(3);
+                edit5->set_to_length(3);
+                subpath3->set_score(6);
+                
+                subpath0->add_next(1);
+                subpath0->add_next(2);
+                subpath1->add_next(3);
+                subpath2->add_next(3);
+                
+                identify_start_subpaths(multipath_aln);
+                
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - 13.0) < .001);
+                
+            }
+            
+            
+            SECTION("Log likeihood is split up between partial alignments") {
+                
+                // constuct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                
+                haplotype_1.push_back(NodeTraversal(n0));
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n2));
+                haplotype_1.push_back(NodeTraversal(n4));
+                haplotype_1.push_back(NodeTraversal(n5));
+                
+                genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                multipath_alignment_t multipath_aln;
+                multipath_aln.set_sequence("CCTGCAAGAATAT");
+                multipath_aln.set_mapping_quality(60);
+                
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                multipath_aln.add_subpath();
+                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+                subpath_t* subpath2 = multipath_aln.mutable_subpath(1);
+                subpath_t* subpath3 = multipath_aln.mutable_subpath(2);
+                
+                path_t* path0 = subpath0->mutable_path();
+                path0->add_mapping();
+                path0->add_mapping();
+                path_mapping_t* mapping0 = path0->mutable_mapping(0);
+                path_mapping_t* mapping4 = path0->mutable_mapping(1);
+                
+                position_t* position0 = mapping0->mutable_position();
+                position0->set_node_id(n0->id());
+                position0->set_is_reverse(false);
+                edit_t* edit0 = mapping0->add_edit();
+                edit0->set_from_length(3);
+                edit0->set_to_length(3);
+                position_t* position4 = mapping4->mutable_position();
+                position4->set_node_id(n1->id());
+                position4->set_is_reverse(false);
+                edit_t* edit4 = mapping4->add_edit();
+                edit4->set_from_length(3);
+                edit4->set_to_length(3);
+                subpath0->set_score(6);
+                
+                path_t* path2 = subpath2->mutable_path();
+                path_mapping_t* mapping2 = path2->add_mapping();
+                position_t* position2 = mapping2->mutable_position();
+                position2->set_node_id(n3->id());
+                position2->set_is_reverse(false);
+                edit_t* edit2 = mapping2->add_edit();
+                edit2->set_from_length(1);
+                edit2->set_to_length(1);
+                subpath2->set_score(-2);
+                
+                path_t* path3 = subpath3->mutable_path();
+                path3->add_mapping();
+                path3->add_mapping();
+                path_mapping_t* mapping3 = path3->mutable_mapping(0);
+                path_mapping_t* mapping5 = path3->mutable_mapping(1);
+                
+                position_t* position3 = mapping3->mutable_position();
+                position3->set_node_id(n4->id());
+                position3->set_is_reverse(false);
+                edit_t* edit3 = mapping3->add_edit();
+                edit3->set_from_length(3);
+                edit3->set_to_length(3);
+                position_t* position5 = mapping5->mutable_position();
+                position5->set_node_id(n5->id());
+                position5->set_is_reverse(false);
+                edit_t* edit5 = mapping5->add_edit();
+                edit5->set_from_length(3);
+                edit5->set_to_length(3);
+                subpath3->set_score(6);
+                
+                subpath0->add_next(1);
+                subpath2->add_next(2);
+                
+                identify_start_subpaths(multipath_aln);
+                
+                //cerr << genome.read_log_likelihood(multipath_aln, 1.0) << endl;
+                REQUIRE(abs(genome.read_log_likelihood(multipath_aln, 1.0) - (6.0 + log(2.0))) < .001);
                 
             }
         }

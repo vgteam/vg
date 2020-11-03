@@ -7,7 +7,7 @@
 
 #include "subcommand.hpp"
 
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "../constructor.hpp"
 #include "../msa_converter.hpp"
 #include "../region.hpp"
@@ -22,10 +22,9 @@ void help_construct(char** argv) {
          << "construct from a reference and variant calls:" << endl
          << "    -r, --reference FILE   input FASTA reference (may repeat)" << endl
          << "    -v, --vcf FILE         input VCF (may repeat)" << endl
-         << "    -n, --rename V=F       rename contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
+         << "    -n, --rename V=F       match contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths        save paths for alts of variants by variant ID" << endl
-         << "    -N, --alt-named-paths  use VCF IDs instead of _alt_+hashes for alt paths. results *not* indexed as GBWT threads" << endl
-         << "    -R, --region REGION    specify a particular chromosome or 1-based inclusive region" << endl
+         << "    -R, --region REGION    specify a VCF contig name or 1-based inclusive region" << endl
          << "    -C, --region-is-chrom  don't attempt to parse the region (use when the reference" << endl
          << "                           sequence name could be inadvertently parsed as a region)" << endl
          << "    -z, --region-size N    variants per region to parallelize (default: 1024)" << endl
@@ -83,7 +82,6 @@ int main_construct(int argc, char** argv) {
                 {"drop-msa-paths", no_argument, 0, 'd'},
                 {"rename", required_argument, 0, 'n'},
                 {"alt-paths", no_argument, 0, 'a'},
-                {"alt-named-paths", no_argument, 0, 'N'},
                 {"handle-sv", no_argument, 0, 'S'},
                 {"insertions", required_argument, 0, 'I'},
                 {"progress",  no_argument, 0, 'p'},
@@ -98,7 +96,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:aNs:CfSI:M:dF:i",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:CfSI:M:dF:i",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -161,12 +159,6 @@ int main_construct(int argc, char** argv) {
             constructor.alt_paths = true;
             break;
 
-        case 'N':
-            constructor.alt_paths = true;
-            constructor.alt_names_from_vcf_id = true;
-            constructor.alt_path_prefix = "";
-            break;
-            
         case 'p':
             show_progress = true;
             break;
@@ -225,7 +217,8 @@ int main_construct(int argc, char** argv) {
 
         // Make an emitter that serializes the actual Graph objects, with buffering.
         // But just serialize one graph at a time in each group.
-        stream::ProtobufEmitter<Graph> emitter(cout, 1);
+        // Make sure to compress the output.
+        vg::io::ProtobufEmitter<Graph> emitter(cout, true, 1);
 
         // We need a callback to handle pieces of graph as they are produced.
         auto callback = [&](Graph& big_chunk) {
@@ -236,16 +229,15 @@ int main_construct(int argc, char** argv) {
                 return a.id() < b.id();
             });
         
-            // Wrap the chunk in a vg object that can properly divide it into
-            // reasonably sized serialized chunks.
-            VG* g = new VG(big_chunk, false, true);
+            // We don't validate the chunk because its end node may be held
+            // back for the next chunk, while edges and path mappings for it
+            // still live in this chunk. Also, we no longer create a VG to
+            // re-chunk the chunk (because we can now handle chunks up to about
+            // 1 GB serialized), and the VG class has the validator.
             
-            // Check our work. Never output an invalid graph.
-            // But allow for edges where one node isn't there, because we need those to connect segments.
-            assert(g->is_valid(true, false, true, true));
             // One thread at a time can write to the emitter and the output stream
 #pragma omp critical (emitter)
-            g->serialize_to_emitter(emitter);
+            emitter.write_copy(big_chunk); 
         };
         
         // Copy shared parameters into the constructor
@@ -289,71 +281,19 @@ int main_construct(int argc, char** argv) {
             }
         }
         
-        // This will own all the VCF files
-        vector<unique_ptr<vcflib::VariantCallFile>> variant_files;
-        for (auto& vcf_filename : vcf_filenames) {
-            // Make sure each VCF file exists. Otherwise Tabix++ may exit with a non-
-            // helpful message.
-            
-            // We can't invoke stat woithout a place for it to write. But all we
-            // really want is its return value.
-            struct stat temp;
-            if(stat(vcf_filename.c_str(), &temp)) {
-                cerr << "error:[vg construct] file \"" << vcf_filename << "\" not found" << endl;
-                return 1;
-            }
-            vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
-            variant_file->parseSamples = false; // Major speedup if there are many samples.
-            variant_files.emplace_back(variant_file);
-            variant_file->open(vcf_filename);
-            if (!variant_file->is_open()) {
-                cerr << "error:[vg construct] could not open" << vcf_filename << endl;
-                return 1;
-            }
-        }
         
         if (fasta_filenames.empty()) {
             cerr << "error:[vg construct] a reference is required for graph construction" << endl;
             return 1;
         }
-        vector<unique_ptr<FastaReference>> references;
-        for (auto& fasta_filename : fasta_filenames) {
-            // Open each FASTA file
-            FastaReference* reference = new FastaReference();
-            references.emplace_back(reference);
-            reference->open(fasta_filename);
-        }
-        
-        vector<unique_ptr<FastaReference> > insertions;
-        for (auto& insertion_filename : insertion_filenames){
-            // Open up those insertion files
-            FastaReference* insertion = new FastaReference();
-            insertions.emplace_back(insertion);
-            insertion->open(insertion_filename);
-        }
-        
-        // Make vectors of just bare pointers
-        vector<vcflib::VariantCallFile*> vcf_pointers;
-        for(auto& vcf : variant_files) {
-            vcf_pointers.push_back(vcf.get());
-        }
-        vector<FastaReference*> fasta_pointers;
-        for(auto& fasta : references) {
-            fasta_pointers.push_back(fasta.get());
-        }
-        vector<FastaReference*> ins_pointers;
-        for (auto& ins : insertions){
-            ins_pointers.push_back(ins.get());
-        }
-        
-        if (ins_pointers.size() > 1){
+        if (insertion_filenames.size() > 1){
             cerr << "Error: only one insertion file may be provided." << endl;
             exit(1);
         }
         
+        
         // Construct the graph.
-        constructor.construct_graph(fasta_pointers, vcf_pointers,
-                                    ins_pointers, callback);
+        constructor.construct_graph(fasta_filenames, vcf_filenames, insertion_filenames, callback);
                                     
         // The output will be flushed when the ProtobufEmitter we use in the callback goes away.
         // Don't add an extra EOF marker or anything.

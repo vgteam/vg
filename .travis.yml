@@ -3,7 +3,7 @@
 language: cpp
 compiler: gcc
 sudo: required
-dist: trusty
+dist: bionic
 # We have some shenanigans to let us cache submodules, and update changed files
 # without messing up mtimes and triggering rebuilds unnecessarily. Travis checks
 # out our submodules and then restores the cache over them. We move the cached
@@ -18,26 +18,28 @@ before_install:
   - rm -Rf deps
   # Keep the cached deps if the right compiler version was used.
   # Otherwise start fresh
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "0" && -e deps_cached/clang ]]; then mv deps_cached deps; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && -e "deps_cached/gcc$(gcc -dumpversion)" ]]; then mv deps_cached deps; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && -e deps_cached/clang ]]; then mv deps_cached deps; fi
   - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
   - git submodule update --init --recursive
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc6; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch "deps/gcc$(gcc -dumpversion)"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
+  # Travis can't always actually use Homebrew to install our dependencies
+  # And Homebrew can't always bundle unless it is the exact latest version:
+  # See <https://github.com/Homebrew/homebrew-bundle/issues/646>
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update --verbose; fi
+  # Allow the bundle command to fail because if anything it tries to install (like Python) 
+  # provides a binary that can replace something that already exists, it will treat the
+  # inability to link it as an error and fail the command. You can --force a link step, but
+  # I don't see a way to tell it to not replace things that exist and also not fail.
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew bundle --verbose || true; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link --overwrite python@3.9 || brew link --overwrite python@3.8 || true; fi
   # Try installing gcc6 twice in case of errors like this:
   # Error: HOMEBREW_LOGS was not exported!
   # Please don't worry, you likely hit a bug auto-updating from an old version.
   # Rerun your command, everything is up-to-date and fine now.
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew install gcc6 || brew install gcc6 || true; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew link --overwrite gcc@6; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then mkdir -p ./bin; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then ln -sf `which g++-6` ./bin/g++; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then ln -sf `which gcc-6` ./bin/gcc; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then mkdir -p deps; touch deps/gcc6; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "0" ]]; then mkdir -p deps; touch deps/clang; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir -p deps; touch deps/clang; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/bison/bin:$PATH"; fi # Homebrew no longer links Bison even if we try to force it
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="$(pwd)/bin:/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
@@ -45,16 +47,18 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LIBRARY_PATH=$LD_LIBRARY_PATH; fi
   - which gcc && gcc --version && which g++ && g++ --version
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which cc && cc --version && which c++ && c++ --version; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then find /usr/local/include || true ; fi
   - python ./configure.py
   - source ./source_me.sh
 install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps; fi
 script:
-  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "linux" ]]; then make -j4 && echo Testing && make test && make static -j4; fi
-  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then timeout 1800 make deps -j4 && make -j4 && echo Testing && make test; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "linux" ]]; then make -j4 && echo Testing && bin/vg test "Target to alignment extraction" && echo Full Testing && make test && make static -j4; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then timeout 1800 make deps -j4 && make -j4 && echo Testing && bin/vg test "Target to alignment extraction" && echo Full Testing && make test; fi
   - if [[ ! -z "$BUILD_DOCS_ONLY" ]]; then doc/publish-docs.sh; fi
 # Cache all our dependency directories, and our lib and include
 cache:
+  ccache: true
   directories:
     - deps
     - lib
@@ -69,12 +73,8 @@ addons:
   homebrew:
     brewfile: true 
   apt:
-    sources:
-      - ubuntu-toolchain-r-test
     update: true
     packages: # Get all the current dependency packages in advance. We will still do make get-deps but it will do less work.
-      - gcc-6
-      - g++-6
       - bc 
       - rs 
       - jq
@@ -82,6 +82,7 @@ addons:
       - cmake
       - protobuf-compiler
       - libprotoc-dev
+      - libprotobuf-dev
       - libjansson-dev
       - libbz2-dev
       - libncurses5-dev
@@ -117,17 +118,9 @@ env:
   global:
     - DOCS_KEY_ENCRYPTION_LABEL=125272388526
     - VG_FULL_TRACEBACK=1
-  matrix:
-    - INSTALL_GCC=1
-    - INSTALL_GCC=0
   
 matrix:
-  exclude:
-    - os: linux
-      env: INSTALL_GCC=1
   include:
     # We have a special entry to do the docs build
     - os: linux
       env: BUILD_DOCS_ONLY=1
-        
-

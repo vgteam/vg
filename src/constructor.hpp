@@ -15,16 +15,18 @@
 
 #include "types.hpp"
 #include "progressive.hpp"
-
-#include "vg.pb.h"
-
-// We need vcflib
-#include "Variant.h"
-// And fastahack
-#include "Fasta.h"
-
 #include "vcf_buffer.hpp"
 #include "name_mapper.hpp"
+#include "handle.hpp"
+
+#include <vg/vg.pb.h>
+
+// We need vcflib
+#include <Variant.h>
+// And fastahack
+#include <Fasta.h>
+
+
 
 namespace vg {
 
@@ -69,19 +71,11 @@ public:
     // Should alts be interpreted as flat (false) or aligned back to the
     // reference by vcflib (true)?
     bool flat = false;
-
-    // Prefix alt paths with this string. Paths beginning with _alt_ are required
-    // for making the GBWT
-    string alt_path_prefix = "_alt_";
     
     // Should we add paths for the different alts of variants, like
     // _alt_6079b4a76d0ddd6b4b44aeb14d738509e266961c_0 and
     // _alt_6079b4a76d0ddd6b4b44aeb14d738509e266961c_1?
     bool alt_paths = false;
-
-    // When writing alt paths, just take the name from the VCF ID field (but add _0, _1 etc.)
-    // like above.  
-    bool alt_names_from_vcf_id = false;
 
     // Should we handle structural variants in the VCF file,
     // or at least the ones we know how to?
@@ -113,6 +107,10 @@ public:
     
     // Should we warn if lowercase characters are encountered in each input sequence?
     bool warn_on_lowercase = true;
+    
+    // Should we warn if IUPAC ambiguity codes (other than N) are encountered
+    // in each input sequence?
+    bool warn_on_ambiguous = true;
     
     // What's the maximum node size we should allow?
     size_t max_node_size = 1000;
@@ -170,9 +168,15 @@ public:
      * Doesn't handle any of the setup for VCF indexing. Just scans all the
      * variants that can come out of the buffer, so make sure indexing is set on
      * the file first before passing it in.
+     *
+     * insertion contains FASTAs containing serquences for resolving symbolic
+     * insert alleles in the VCF.
+     *
+     * Calls the given callback with constructed graph chunks, in a single
+     * thread. Chunks may contain dangling edges into the next chunk.
      */
     void construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
-         const vector<FastaReference*>& insertion, function<void(Graph&)> callback);
+         const vector<FastaReference*>& insertion, const function<void(Graph&)>& callback);
     
     /**
      * Construct a graph using the given FASTA references and VCFlib VCF files.
@@ -180,9 +184,65 @@ public:
      * position within the contig, such that each contig is present in only one
      * file. If multiple FASTAs are used, each contig must be present in only
      * one FASTA file. Reference and VCF vectors may not contain nulls.
+     *
+     * insertions contains FASTAs containing serquences for resolving symbolic
+     * insert alleles in the VCFs.
+     *
+     * Calls the given callback with constructed graph chunks, eventually
+     * (hopefully) in multiple threads. Chunks may contain dangling edges into
+     * the next chunk.
      */
     void construct_graph(const vector<FastaReference*>& references, const vector<vcflib::VariantCallFile*>& variant_files,
-        const vector<FastaReference*>& insertions, function<void(Graph&)> callback);
+        const vector<FastaReference*>& insertions, const function<void(Graph&)>& callback);
+        
+    /**
+     * Construct a graph using the given FASTA references and VCF files on disk.
+     * The VCF files are assumed to be grouped by contig and then sorted by
+     * position within the contig, such that each contig is present in only one
+     * file. If multiple FASTAs are used, each contig must be present in only
+     * one FASTA file.
+     *
+     * insertions contains FASTA filenames containing serquences for resolving
+     * symbolic insert alleles in the VCFs.
+     *
+     * Calls the given callback with constructed graph chunks, eventually
+     * (hopefully) in multiple threads. Chunks may contain dangling edges into
+     * the next chunk.
+     */
+    void construct_graph(const vector<string>& reference_filenames, const vector<string>& variant_filenames,
+        const vector<string>& insertion_filenames, const function<void(Graph&)>& callback);
+        
+    /**
+     * Construct a graph using the given FASTA references and VCFlib VCF files.
+     * The VCF files are assumed to be grouped by contig and then sorted by
+     * position within the contig, such that each contig is present in only one
+     * file. If multiple FASTAs are used, each contig must be present in only
+     * one FASTA file. Reference and VCF vectors may not contain nulls.
+     *
+     * insertions contains FASTAs containing serquences for resolving symbolic
+     * insert alleles in the VCFs.
+     *
+     * Builds the graph into the given mutable graph object, which may not be
+     * thread safe.
+     */
+    void construct_graph(const vector<FastaReference*>& references, const vector<vcflib::VariantCallFile*>& variant_files,
+        const vector<FastaReference*>& insertions, MutablePathMutableHandleGraph* destination);
+        
+    /**
+     * Construct a graph using the given FASTA references and VCF files on disk.
+     * The VCF files are assumed to be grouped by contig and then sorted by
+     * position within the contig, such that each contig is present in only one
+     * file. If multiple FASTAs are used, each contig must be present in only
+     * one FASTA file.
+     *
+     * insertions contains FASTA filenames containing serquences for resolving
+     * symbolic insert alleles in the VCFs.
+     *
+     * Builds the graph into the given mutable graph object, which may not be
+     * thread safe.
+     */
+    void construct_graph(const vector<string>& reference_filenames, const vector<string>& variant_filenames,
+        const vector<string>& insertion_filenames, MutablePathMutableHandleGraph* destination);
     
 protected:
     
@@ -236,9 +296,12 @@ private:
      */
     static pair<int64_t, int64_t> get_symbolic_bounds(vcflib::Variant var);
     /// What sequences have we warned about containing lowercase characters?
-    mutable unordered_set<string> warned_sequences;
+    mutable unordered_set<string> lowercase_warned_sequences;
     /// Have we given a warning yet about lowercase alt alleles?
-    mutable bool warned_alt = false;
+    mutable bool lowercase_warned_alt = false;
+    
+    /// What sequences have we warned about containing unsupported ambiguity codes?
+    mutable unordered_set<string> ambiguous_warned_sequences;
     
 
 };

@@ -7,7 +7,7 @@
 #include "index.hpp"
 #include "path_index.hpp"
 #include "IntervalTree.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "fml.h"
 #include "vg.hpp"
 #include <gcsa/gcsa.h>

@@ -53,16 +53,24 @@ public:
     /// not, an index will be generated and saved.
     IndexedVG(string graph_filename);
     
+    // TODO: This gets implicitly deleted and generates warning because of the
+    // StreamIndex member variable
     // We are moveable
-    IndexedVG(IndexedVG&& other) = default;
-    IndexedVG& operator=(IndexedVG&& other) = default;
+    //IndexedVG(IndexedVG&& other) = default;
+    
+    // TODO: This gets implicitly deleted and generates warning because StreamIndex
+    // member variable is not movable
+    //IndexedVG& operator=(IndexedVG&& other) = default;
     
     void print_report() const;
 
 private:
     // We are not copyable because we keep a pool of open files
     IndexedVG(const IndexedVG& other) = delete;
-    IndexedVG& operator=(const IndexedVG& other) = delete;
+    
+    // TODO: This gets implicitly deleted and generates warning because of the
+    // StreamIndex member variable
+    //IndexedVG& operator=(const IndexedVG& other) = delete;
     
 public:
 
@@ -105,7 +113,7 @@ public:
     virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     /// Return the number of nodes in the graph
-    virtual size_t node_size() const;
+    virtual size_t get_node_count() const;
     
     /// Return the smallest ID in the graph, or some smaller number if the
     /// smallest ID is unavailable. Return value is unspecified if the graph is empty.

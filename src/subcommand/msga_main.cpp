@@ -2,11 +2,15 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../kmer.hpp"
 #include "../build_index.hpp"
 #include "../algorithms/topological_sort.hpp"
+#include "../algorithms/normalize.hpp"
+#include "../algorithms/copy_graph.hpp"
 #include "../chunker.hpp"
+#include "xg.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -38,16 +42,16 @@ void help_msga(char** argv) {
          << "    -Y, --max-mem INT       ignore mems longer than this length (unset if 0) [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-W} * FLOAT [1.5]" << endl
          << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [1]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [128]" << endl
+         << "    -u, --try-up-to INT     attempt to trace back up to this number of chains of bands (assuming we will band) [4]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.45]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
-         << "    -w, --band-width INT    band width for long read alignment [256]" << endl
-         << "    -O, --band-overlap INT  band overlap for long read alignment [{-w}/8]" << endl
+         << "    -w, --band-width INT    band/chunk width for long read alignment [128]" << endl
+         << "    -O, --band-overlap INT  band overlap for long read alignment [{-w}*3/4]" << endl
          << "    -J, --band-jump INT     the maximum number of bands of insertion we consider in the alignment chain model [128]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [16]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment (overrides -u for bands) [16]" << endl
          << "    -M, --max-multimaps INT consider this many alternate alignments for the entire sequence [1]" << endl
          << "    --no-patch-aln          do not patch banded alignments by locally aligning unaligned regions" << endl
          << "local alignment parameters:" << endl
@@ -55,7 +59,7 @@ void help_msga(char** argv) {
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
-         << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
+         << "    -L, --full-l-bonus INT  the full-length alignment bonus [32]" << endl
          << "    --xdrop-alignment       use X-drop heuristic (much faster for long-read alignment)" << endl
          << "    --max-gap-length        maximum gap length allowed in each contiguous alignment (for X-drop alignment) [40]" << endl
          << "index generation:" << endl
@@ -100,7 +104,7 @@ int main_msga(int argc, char** argv) {
     // optimal alignment through a series of bands based on a proximity metric
     int max_multimaps = 1;
     float min_identity = 0.0;
-    int band_width = 256;
+    int band_width = 128;
     int band_overlap = -1;
     int max_band_jump = 128;
     int band_multimaps = 16;
@@ -120,13 +124,13 @@ int main_msga(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
-    int full_length_bonus = 5;
+    int full_length_bonus = 32;
     bool circularize = false;
     float chance_match = 5e-4;
     int mem_reseed_length = -1;
     int min_cluster_length = 0;
     float mem_reseed_factor = 1.5;
-    int extra_multimaps = 128;
+    int extra_multimaps = 4;
     int min_multimaps = 1;
     float drop_chain = 0.45;
     int max_mapping_quality = 60;
@@ -409,16 +413,26 @@ int main_msga(int argc, char** argv) {
     }
 
     if (band_overlap == -1) {
-        band_overlap = band_width/8;
+        band_overlap = 3*band_width/4;
     }
 
     // build the graph or read it in from input
     VG* graph;
     if (graph_files.size() == 1) {
         string file_name = graph_files.front();
-        get_input_file(file_name, [&](istream& in) {
-            graph = new VG(in);
-        });
+        
+        // Load the graph from the file
+        unique_ptr<PathHandleGraph> loaded = vg::io::VPKG::load_one<PathHandleGraph>(file_name);
+        
+        // Make it be in VG format
+        graph = dynamic_cast<vg::VG*>(loaded.get());
+        if (graph == nullptr) {
+            // Copy instead.
+            graph = new vg::VG();
+            algorithms::copy_path_handle_graph(loaded.get(), graph);
+            // Make sure the paths are all synced up
+            graph->paths.to_graph(graph->graph);
+        }
     } else {
         graph = new VG;
     }
@@ -499,7 +513,7 @@ int main_msga(int argc, char** argv) {
         auto build_graph = [&graph,&node_max](const string& seq, const string& name) {
             graph->create_node(seq);
             graph->dice_nodes(node_max);
-            algorithms::topological_sort(graph);
+            graph->sort();
             graph->compact_ids();
             // the graph will have a single embedded path in it
             Path& path = *graph->graph.add_path();
@@ -550,7 +564,7 @@ int main_msga(int argc, char** argv) {
         lcpidx = nullptr;
     
         //stringstream s; s << iter++ << ".vg";
-        algorithms::topological_sort(graph);
+        graph->sort();
         graph->sync_paths();
         graph->graph.clear_path();
         graph->paths.to_graph(graph->graph);
@@ -562,7 +576,8 @@ int main_msga(int argc, char** argv) {
         }
 
         if (debug) cerr << "building xg index" << endl;
-        xgidx = new xg::XG(graph->graph);
+        xgidx = new xg::XG();
+        xgidx->from_path_handle_graph(*graph);
 
         if (debug) cerr << "building GCSA2 index" << endl;
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
@@ -664,6 +679,7 @@ int main_msga(int argc, char** argv) {
             mapper->mapping_quality_method = mapping_quality_method;
             mapper->max_mapping_quality = max_mapping_quality;
             mapper->patch_alignments = patch_alignments;
+            mapper->max_xdrop_gap_length = default_xdrop_max_gap_length;
         }
     };
 
@@ -708,8 +724,8 @@ int main_msga(int argc, char** argv) {
                     cerr << "expected " << seq << endl;
                     cerr << "got      " << aln_seq << endl;
                     ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
-                    stream::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
-                    stream::finish(f);
+                    vg::io::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
+                    vg::io::finish(f);
                     f.close();
                     graph->serialize_to_file(name + "-corrupted-alignment.vg");
                     exit(1);
@@ -725,8 +741,8 @@ int main_msga(int argc, char** argv) {
 
             /*
                ofstream f(name + "-pre-edit-" + convert(j) + ".gam");
-               stream::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
-               stream::finish(f);
+               vg::io::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
+               vg::io::finish(f);
                f.close();
                */
 
@@ -736,15 +752,15 @@ int main_msga(int argc, char** argv) {
             if (debug) cerr << name << ": editing graph" << endl;
             //graph->serialize_to_file(name + "-pre-edit.vg");
             // Modify graph and embed paths
-            graph->edit(paths, true);
+            graph->edit(paths, nullptr, true);
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
-            if (normalize) graph->normalize(10, debug);
+            if (normalize) algorithms::normalize(graph, 10, debug);
             graph->dice_nodes(node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
-            algorithms::topological_sort(graph);
+            graph->sort();
             //if (!graph->is_valid()) cerr << "invalid after sort" << endl;
             graph->compact_ids(); // xg can't work unless IDs are compacted.
             //if (!graph->is_valid()) cerr << "invalid after compact" << endl;
@@ -778,8 +794,8 @@ int main_msga(int argc, char** argv) {
                     << pb2json(graph->paths.path(name)) << endl;
                 graph->serialize_to_file(name + "-post-edit.vg");
                 ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
-                stream::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
-                stream::finish(f);
+                vg::io::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
+                vg::io::finish(f);
                 f.close();
             }
         }
@@ -826,9 +842,9 @@ int main_msga(int argc, char** argv) {
             // only try if graph was made entirely of msga'd sequences.
             graph->remove_non_path();
         }
-        graph->normalize();
+        algorithms::normalize(graph);
         graph->dice_nodes(node_max);
-        algorithms::topological_sort(graph);
+        graph->sort();
         graph->compact_ids();
         if (!graph->is_valid()) {
             cerr << "[vg msga] warning! graph is not valid after normalization" << endl;

@@ -6,7 +6,7 @@
 #include "translator.hpp"
 #include "filter.hpp"
 #include "mapper.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "types.hpp"
 
 
@@ -23,8 +23,8 @@ namespace vg{
              * are remapped, and the process is repeated until the
              * graph becomes stable.
              */
-            void homogenize(vg::VG* graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths p, int kmer_size);
-            void homogenize(vg::VG* graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, vg::Index reads_index);
+            void homogenize(vg::VG* graph, PathPositionHandleGraph* path_graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths p, int kmer_size);
+            void homogenize(vg::VG* graph, PathPositionHandleGraph* path_graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, vg::Index reads_index);
         private:
 
             Translator translator;

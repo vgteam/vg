@@ -1,7 +1,8 @@
 #include "readfilter.hpp"
 #include "IntervalTree.h"
 #include "annotation.hpp"
-#include "stream/stream.hpp"
+#include "vg/io/alignment_emitter.hpp"
+#include <vg/io/stream.hpp>
 
 #include <fstream>
 #include <sstream>
@@ -11,13 +12,14 @@
 namespace vg {
 
 using namespace std;
+using namespace vg::io;
 
-bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k) {
-    assert(index != nullptr);
+bool ReadFilter::trim_ambiguous_ends(Alignment& alignment, int k) {
+    assert(graph != nullptr);
 
     // Define a way to get node length, for flipping alignments
-    function<int64_t(id_t)> get_node_length = [&index](id_t node) {
-        return index->node_length(node);
+    function<int64_t(id_t)> get_node_length = [&](id_t node) {
+        return graph->get_length(graph->get_handle(node));
     };
 
     // Because we need to flip the alignment, make sure it is new-style and
@@ -25,7 +27,7 @@ bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k)
     for(size_t i = 0; i < alignment.path().mapping_size(); i++) {
         if(alignment.path().mapping(i).edit_size() == 0) {
             // Complain!
-            throw runtime_error("Found mapping wit no edits in " + pb2json(alignment));
+            throw runtime_error("Found mapping with no edits in " + pb2json(alignment));
         }
     }
 
@@ -34,12 +36,12 @@ bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k)
     // trimming functions, so we can just trim once without flipping.
 
     // Trim the end
-    bool end_changed = trim_ambiguous_end(index, alignment, k);
+    bool end_changed = trim_ambiguous_end(alignment, k);
     // Flip and trim the start
     
     Alignment flipped = reverse_complement_alignment(alignment, get_node_length);
     
-    if(trim_ambiguous_end(index, flipped, k)) {
+    if(trim_ambiguous_end(flipped, k)) {
         // The start needed trimming
         
         // Flip the trimmed flipped alignment back
@@ -53,7 +55,7 @@ bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k)
     
 }
 
-bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) {
+bool ReadFilter::trim_ambiguous_end(Alignment& alignment, int k) {
     // What mapping in the alignment is the leftmost one starting in the last k
     // bases? (Except when that would be the first mapping, we use the second.)
     // Start out with it set to the past-the-end value.
@@ -128,11 +130,9 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     for(size_t i = root_mapping; i < alignment.path().mapping_size(); i++) {
         // Collect the appropriately oriented from sequence from each mapping
         auto& mapping = alignment.path().mapping(i);
-        string sequence = index->node_sequence(mapping.position().node_id());
-        if(mapping.position().is_reverse()) {
-            // Have it in the right orientation
-            sequence = reverse_complement(sequence);
-        }
+        handle_t handle = graph->get_handle(mapping.position().node_id(),
+                                            mapping.position().is_reverse());
+        string sequence = graph->get_sequence(handle);
         
         if(i == root_mapping) {
             // Use the full length of the node and ignore any offset
@@ -172,21 +172,17 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // We keep a maximum number of visited nodes here, just to prevent recursion
     // from going on forever in worst-case-type graphs
     size_t dfs_visit_count = 0;
-    function<pair<size_t, size_t>(id_t, bool, size_t)> do_dfs = 
-        [&](id_t node_id, bool is_reverse, size_t matched) -> pair<size_t, size_t> {
+    function<pair<size_t, size_t>(const handle_t&, size_t)> do_dfs =
+        [&](const handle_t& handle, size_t matched) -> pair<size_t, size_t> {
 
         ++dfs_visit_count;
       
         // Grab the node sequence and match more of the target sequence.
-        string node_sequence = index->node_sequence(node_id);
-        if(is_reverse) {
-            node_sequence = reverse_complement(node_sequence);
-        }
-        
+        string node_sequence = graph->get_sequence(handle);
         
 #ifdef debug
         #pragma omp critical(cerr)
-        cerr << "Node " << node_id <<  " " << (is_reverse ? "rev" : "fwd") << ": "
+        cerr << "Node " << graph->get_id(handle) <<  " " << (graph->get_is_reverse(handle) ? "rev" : "fwd") << ": "
             << node_sequence << " at offset " << matched << " in " << target_sequence << endl;
 #endif
         
@@ -236,16 +232,7 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
         
 #ifdef debug
         #pragma omp critical(cerr)
-        cerr << "Node " << node_id << " has " << new_matches << " internal new matches" << endl;
-#endif
-    
-        // Get all the edges we can take off of the right side of this oriented
-        // node.
-        auto edges = is_reverse ? index->edges_on_start(node_id) : index->edges_on_end(node_id);
-        
-#ifdef debug
-        #pragma omp critical(cerr)
-        cerr << "Recurse into " << edges.size() << " children" << endl;
+        cerr << "Node " << graph->get_id(handle) << " has " << new_matches << " internal new matches" << endl;
 #endif
         
         // We're going to call all the children and collect the results, and
@@ -253,31 +240,19 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
         // calling, but that might be less clear.
         vector<pair<size_t, size_t>> child_results;
         
-        for(auto& edge : edges) {
-            // check the user-supplied visit count before recursing any more
+        graph->follow_edges(handle, false, [&](const handle_t& next) {
             if (dfs_visit_count < defray_count) {
-                if(edge.from() == node_id && edge.from_start() == is_reverse) {
-                    // The end we are leaving matches this edge's from, so we can
-                    // just go to its to end and recurse on it.
-                    child_results.push_back(do_dfs(edge.to(), edge.to_end(), matched + node_sequence.size()));
-                } else if(edge.to() == node_id && edge.to_end() == !is_reverse) {
-                    // The end we are leaving matches this edge's to, so we can just
-                    // recurse on its from end.
-                    child_results.push_back(do_dfs(edge.from(), !edge.from_start(), matched + node_sequence.size()));
-                } else {
-                    // XG is feeding us nonsense up with which we should not put.
-                    throw runtime_error("Edge " + pb2json(edge) + " does not attach to " +
-                                        to_string(node_id) + (is_reverse ? " start" : " end"));
-                }
+                child_results.push_back(do_dfs(next, matched + node_sequence.size()));
+                return true;
             }
-#ifdef debug
             else {
-                #pragma omp critical(cerr)
-                cerr << "Aborting read filter DFS at node " << node_id << " after " << dfs_visit_count << " visited" << endl;
-            }
+#ifdef debug
+#pragma omp critical(cerr)
+                cerr << "Aborting read filter DFS at node " << graph->get_id(next) << " after " << dfs_visit_count << " visited" << endl;
 #endif
-            
-        }
+                return false;
+            }
+        });
         
         // Sum up the total leaf matches, which will be our leaf match count.
         size_t total_leaf_matches = 0;
@@ -305,8 +280,8 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     
     // Search from the root mapping's node looking right in its orientation in
     // the mapping
-    auto result = do_dfs(alignment.path().mapping(root_mapping).position().node_id(),
-        alignment.path().mapping(root_mapping).position().is_reverse(), 0);
+    const auto& root_pos = alignment.path().mapping(root_mapping).position();
+    auto result = do_dfs(graph->get_handle(root_pos.node_id(), root_pos.is_reverse()), 0);
     
 #ifdef debug
     #pragma omp critical(cerr)
@@ -325,7 +300,7 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // get that much sequence; we know it is either full length or at a mapping
     // boundary. We handle the root special because it's always full length and
     // we have to cut after its end.
-    size_t kept_sequence_accounted_for = index->node_length(alignment.path().mapping(root_mapping).position().node_id());
+    size_t kept_sequence_accounted_for = graph->get_length(graph->get_handle(alignment.path().mapping(root_mapping).position().node_id()));
     size_t first_mapping_to_drop;
     for(first_mapping_to_drop = root_mapping + 1;
         first_mapping_to_drop < alignment.path().mapping_size();
@@ -341,7 +316,7 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
             // We know it's not the root mapping, and it can't be the non-full-
             // length end mapping (because we would have kept the full length
             // target sequence and not had to cut). So assume full node is used.
-            kept_sequence_accounted_for += index->node_length(mapping.position().node_id());
+            kept_sequence_accounted_for += graph->get_length(graph->get_handle(mapping.position().node_id()));
         }
     }
     
@@ -413,46 +388,34 @@ bool ReadFilter::has_repeat(Alignment& aln, int k) {
     return false;
 }
 
-bool ReadFilter::is_split(xg::XG* index, Alignment& alignment) {
-    if(index == nullptr) {
+bool ReadFilter::is_split(Alignment& alignment) {
+    if(graph == nullptr) {
         // Can't tell if the read is split.
-        throw runtime_error("XG index required to check for split reads");
+        throw runtime_error("HandleGraph (e.g. XG) required to check for split reads");
     }
     
-    
+    handle_t prev;
     for(size_t i = 0; i + 1 < alignment.path().mapping_size(); i++) {
-        // For each mapping and the one after it
-        auto& pos1 = alignment.path().mapping(i).position();
-        auto& pos2 = alignment.path().mapping(i + 1).position();
-        
-        id_t from_id = pos1.node_id();
-        bool from_start = pos1.is_reverse();
-        id_t to_id = pos2.node_id();
-        bool to_end = pos2.is_reverse();
+        if (i == 0) {
+            const auto& pos = alignment.path().mapping(i).position();
+            prev = graph->get_handle(pos.node_id(), pos.is_reverse());
+        }
+        const auto& pos = alignment.path().mapping(i + 1).position();
+        handle_t here = graph->get_handle(pos.node_id(), pos.is_reverse());
         
         // Can we find the same articulation of the edge as the alignment uses
-        bool found = index->has_edge(from_id, from_start, to_id, to_end);   
         
-        if(!found) {
-            // Check the other articulation of the edge
-            std::swap(from_id, to_id);
-            std::swap(from_start, to_end);
-            from_start = !from_start;
-            to_end = !to_end;
-            
-            
-            found = index->has_edge(from_id, from_start, to_id, to_end);
-        }
-        
-        if(!found) {
+        if(!graph->has_edge(prev, here)) {
             // We found a skip!
             if(verbose) {
                 cerr << "Warning: read " << alignment.name() << " has an unknown edge "
-                    << from_id << " " << from_start << " " << to_id << " " << to_end
+                << graph->get_id(prev) << (graph->get_is_reverse(prev) ? "-" : "+") << " -> " << graph->get_id(here) << (graph->get_is_reverse(here) ? "-" : "+")
                     << ". Removing!" << endl;
             }
             return true;
-        } 
+        }
+        
+        prev = here;
     }
     
     // No wandering jumps between nodes found
@@ -510,7 +473,7 @@ ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
         GSSWAligner* aligner = (GSSWAligner*)&unadjusted;
             
         // Rescore and assign the score
-        aln.set_score(aligner->score_ungapped_alignment(aln));
+        aln.set_score(aligner->score_contiguous_alignment(aln));
         // Also use the score
         score = aln.score();
     }
@@ -575,18 +538,17 @@ ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
                     found = true;
                     break;
                 }
-                    
-                if (center_match < name_prefixes[center].size() && center_match < aln.name().size()) {
-                    // There's a character that differs
-                    if (name_prefixes[center][center_match] < aln.name()[center_match]) {
-                        // The match, if it exists, must be after us.
-                        left_bound = center;
-                        left_match = center_match;
-                    } else {
-                        // The match, if it exists, must be before us
-                        right_bound = center;
-                        right_match = center_match;
-                    }
+                
+                if (center_match == aln.name().size() ||
+                    name_prefixes[center][center_match] > aln.name()[center_match]) {
+                    // The match, if it exists, must be before us
+                    right_bound = center;
+                    right_match = center_match;
+                }
+                else {
+                    // The match, if it exists, must be after us.
+                    left_bound = center;
+                    left_match = center_match;
                 }
             }
         }
@@ -714,7 +676,7 @@ ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
             keep = false;
         }
     }
-    if ((keep || verbose) && drop_split && is_split(xindex, aln)) {
+    if ((keep || verbose) && drop_split && is_split(aln)) {
         ++counts.counts[Counts::FilterName::split];
         keep = false;
     }
@@ -722,7 +684,7 @@ ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
         ++counts.counts[Counts::FilterName::repeat];
         keep = false;
     }
-    if ((keep || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
+    if ((keep || verbose) && defray_length && trim_ambiguous_ends(aln, defray_length)) {
         ++counts.counts[Counts::FilterName::defray];
         // We keep these, because the alignments get modified.
         // Unless the *entire* read gets trimmed
@@ -744,30 +706,21 @@ ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
 
 int ReadFilter::filter(istream* alignment_stream) {
 
-    if(defray_length > 0 && xindex == nullptr) {
-        cerr << "xg index required for end de-fraying" << endl;
+    if(defray_length > 0 && graph == nullptr) {
+        cerr << "HandleGraph (e.g. XG) required for end de-fraying" << endl;
         return 1;
     }
 
-    // output buffers
-    vector<vector<Alignment> > output_buffer(threads);
+    // Keep an AlignmentEmitter to multiplex output from multiple threads.
+    unique_ptr<AlignmentEmitter> emitter;
     
+    if (write_output) {
+        emitter = get_non_hts_alignment_emitter("-", "GAM",  map<string, int64_t>(), get_thread_count());
+    }
+
     // keep counts of what's filtered to report (in verbose mode)
     vector<Counts> counts_vec(threads);
 
-    auto output_alignment = [&](Alignment& aln) {
-        auto& output_buf = output_buffer[omp_get_thread_num()];
-        output_buf.emplace_back(move(aln));
-        stream::write_buffered(cout, output_buf, buffer_size);
-    };
-
-    auto flush_buffer = [&output_buffer]() {
-        for (auto& output_buf : output_buffer) {
-            stream::write_buffered(cout, output_buf, 0);
-        }
-        cout.flush();
-    };
-    
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
 #ifdef debug
         cerr << "Encountered read named \"" << aln.name() << "\" with " << aln.sequence().size()
@@ -776,7 +729,7 @@ int ReadFilter::filter(istream* alignment_stream) {
         Counts aln_counts = filter_alignment(aln);
         counts_vec[omp_get_thread_num()] += aln_counts;
         if ((aln_counts.keep() != complement_filter) && write_output) {
-            output_alignment(aln);
+            emitter->emit_single(std::move(aln));
         }
     };
 
@@ -793,19 +746,15 @@ int ReadFilter::filter(istream* alignment_stream) {
         }
         counts_vec[omp_get_thread_num()] += aln_counts;
         if ((aln_counts.keep() != complement_filter) && write_output) {
-            output_alignment(aln1);
-            output_alignment(aln2);
+            emitter->emit_pair(std::move(aln1), std::move(aln2));
         }
         
     };
     
     if (interleaved) {
-        stream::for_each_interleaved_pair_parallel(*alignment_stream, pair_lambda);
+        vg::io::for_each_interleaved_pair_parallel(*alignment_stream, pair_lambda);
     } else {
-        stream::for_each_parallel(*alignment_stream, lambda);
-    }
-    if (write_output) {
-        flush_buffer();
+        vg::io::for_each_parallel(*alignment_stream, lambda);
     }
 
     if (verbose) {

@@ -5,8 +5,8 @@
 
 #include <iostream>
 #include <string>
-#include "../json2pb.h"
-#include "../vg.pb.h"
+#include "vg/io/json2pb.h"
+#include <vg/vg.pb.h>
 #include "../annotation.hpp"
 #include "catch.hpp"
 
@@ -75,6 +75,16 @@ TEST_CASE("Multi-value annotations can be set and gotten and cleared", "[alignme
     recovered = get_annotation<vector<string>>(&aln, "words");
     REQUIRE(recovered.size() == 0);
     
+}
+
+TEST_CASE("Annotations convert to JSON sensibly", "[alignment][annotation]") {
+    
+    Alignment aln;
+    set_annotation(&aln, "snake_case_number", 1.5);
+    
+    string json = pb2json(aln);
+    
+    REQUIRE(json == R"({"annotation": {"snake_case_number": 1.5}})");
 }
    
 }

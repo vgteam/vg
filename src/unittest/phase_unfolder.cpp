@@ -12,7 +12,8 @@
 #include <gbwt/dynamic_gbwt.h>
 
 #include "../phase_unfolder.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
+#include "xg.hpp"
 
 #include "catch.hpp"
 
@@ -25,7 +26,7 @@ void check_unfolded_nodes(VG& vg_graph,
                           const std::set<vg::id_t>& expected_nodes,
                           const std::multiset<vg::id_t>& corresponding_nodes) {
 
-    REQUIRE(vg_graph.node_size() == expected_nodes.size());
+    REQUIRE(vg_graph.get_node_count() == expected_nodes.size());
 
     SECTION("the set of nodes should be the expected one") {
         std::set<vg::id_t> found_nodes;
@@ -46,7 +47,7 @@ void check_unfolded_nodes(VG& vg_graph,
     SECTION("the duplicated nodes should have the original sequences") {
         bool ok = true;
         vg_graph.for_each_node([&](Node* node) {
-            ok &= (node->sequence() == xg_index.node_sequence(unfolder.get_mapping(node->id())));
+            ok &= (node->sequence() == xg_index.get_sequence(xg_index.get_handle(unfolder.get_mapping(node->id()))));
         });
         REQUIRE(ok);
     }
@@ -63,7 +64,12 @@ void check_unfolded_edges(VG& vg_graph,
     SECTION("the duplicated edges must correspond to the right original edges") {
         std::multiset<std::pair<vg::id_t, vg::id_t>> found_edges;
         vg_graph.for_each_edge([&](Edge* edge) {
-            found_edges.insert(std::make_pair(unfolder.get_mapping(edge->from()), unfolder.get_mapping(edge->to())));
+            vg::id_t from_id = unfolder.get_mapping(edge->from());
+            vg::id_t to_id = unfolder.get_mapping(edge->to());
+            if (edge->from_start() && edge->to_end()) {
+                std::swap(from_id, to_id);
+            }
+            found_edges.emplace(from_id, to_id);
         });
         REQUIRE(found_edges == corresponding_edges);
     }
@@ -73,10 +79,15 @@ void check_unfolded_edges(VG& vg_graph,
             std::vector<Edge*> edges = vg_graph.edges_of(vg_graph.get_node(node));
             std::set<vg::id_t> predecessors, successors;
             for (Edge* edge : edges) {
-                if (edge->to() == node) {
-                    predecessors.insert(edge->from());
+                vg::id_t from_id = edge->from();
+                vg::id_t to_id = edge->to();
+                if (edge->from_start() && edge->to_end()) {
+                    std::swap(from_id, to_id);
+                }
+                if (to_id == node) {
+                    predecessors.insert(from_id);
                 } else {
-                    successors.insert(edge->to());
+                    successors.insert(to_id);
                 }
             }
             for (vg::id_t pred : predecessors) {
@@ -201,7 +212,8 @@ TEST_CASE("PhaseUnfolder can unfold XG paths", "[phaseunfolder][indexing]") {
     // Build an XG index with a path.
     Graph graph_with_path;
     json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
-    xg::XG xg_index(graph_with_path);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(graph_with_path));
 
     // Build an empty GBWT index.
     gbwt::GBWT gbwt_index;
@@ -245,7 +257,8 @@ TEST_CASE("PhaseUnfolder can restore XG paths", "[phaseunfolder][indexing]") {
     // Build an XG index with a path.
     Graph graph_with_path;
     json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
-    xg::XG xg_index(graph_with_path);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(graph_with_path));
 
     // Build an empty GBWT index.
     gbwt::GBWT gbwt_index;
@@ -288,7 +301,8 @@ TEST_CASE("PhaseUnfolder can unfold GBWT threads", "[phaseunfolder][indexing]") 
     // Build an XG index without a path.
     Graph graph_without_path;
     json2pb(graph_without_path, unfolder_graph.c_str(), unfolder_graph.size());
-    xg::XG xg_index(graph_without_path);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(graph_without_path));
 
     // Build a GBWT with three threads including a duplicate. We want to have
     // only one instance of short_path unfolded, but we want separate copies
@@ -354,7 +368,8 @@ TEST_CASE("PhaseUnfolder can unfold both XG paths and GBWT threads", "[phaseunfo
     // Build an XG index with a path.
     Graph graph_with_path;
     json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
-    xg::XG xg_index(graph_with_path);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(graph_with_path));
 
     // Build a GBWT with three threads including a duplicate. We want to have
     // only one instance of short_path unfolded, but we want separate copies
@@ -488,7 +503,8 @@ TEST_CASE("PhaseUnfolder can merge shared prefixes and suffixes", "[phaseunfolde
     // Build an XG index.
     Graph simple_graph;
     json2pb(simple_graph, unfolder_graph_simple.c_str(), unfolder_graph_simple.size());
-    xg::XG xg_index(simple_graph);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(simple_graph));
 
     // Build a GBWT with both possible threads.
     gbwt::vector_type upper_path {
@@ -552,7 +568,8 @@ TEST_CASE("PhaseUnfolder can extend short threads", "[phaseunfolder][indexing]")
     // Build an XG index.
     Graph simple_graph_with_path;
     json2pb(simple_graph_with_path, unfolder_graph_simple_path.c_str(), unfolder_graph_simple_path.size());
-    xg::XG xg_index(simple_graph_with_path);
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(simple_graph_with_path));
 
     // Build a GBWT for the fragment that is different from the reference.
     gbwt::vector_type short_fragment {

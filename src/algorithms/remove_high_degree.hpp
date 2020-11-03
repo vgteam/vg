@@ -7,7 +7,8 @@
  * Defines a process that removes high-degree nodes from a graph
  */
 
-#include "../vg.pb.h"
+#include <vg/vg.pb.h>
+
 #include "../handle.hpp"
 #include <vector>
 
@@ -16,6 +17,8 @@ namespace algorithms {
 
 using namespace std;
 
+/// Remove nodes with >= max_degree total edges on each side. Note that
+/// end-to-start self loops count twice.
 void remove_high_degree_nodes(DeletableHandleGraph& g, int max_degree);
 
 }

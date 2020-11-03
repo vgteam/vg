@@ -1,12 +1,12 @@
-//
-//  snarls.hpp
-//
-//  Contains object to own Snarls and keep track of their tree relationships as well as utility
-//  functions that interact with snarls.
-//
+///
+///  \file snarls.hpp
+///
+///  Contains object to own Snarls and keep track of their tree relationships as well as utility
+///  functions that interact with snarls.
+///
 
-#ifndef snarls_hpp
-#define snarls_hpp
+#ifndef VG_SNARLS_HPP_INCLUDED
+#define VG_SNARLS_HPP_INCLUDED
 
 #include <cstdint>
 #include <stdio.h>
@@ -14,11 +14,11 @@
 #include <unordered_set>
 #include <fstream>
 #include <deque>
-#include "stream/protobuf_emitter.hpp"
-#include "stream/protobuf_iterator.hpp"
+#include <vg/io/protobuf_emitter.hpp>
+#include <vg/io/protobuf_iterator.hpp>
 #include "vg.hpp"
 #include "handle.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "hash_map.hpp"
 #include "cactus.hpp"
 
@@ -35,59 +35,76 @@ class SnarlManager;
 class SnarlFinder {
 public:
     virtual ~SnarlFinder() = default;
-    
+
     /**
-     * Run a function on all root-level NestedSites in parallel. Site trees are
-     * passed by value so they have a clear place to live during parallel
-     * operations.
+     * Find all the snarls, and put them into a SnarlManager.
      */
     virtual SnarlManager find_snarls() = 0;
+
+    /**
+     * Find all the snarls of weakly connected components, optionally in
+     * parallel. If not implemented, defaults to the single-threaded
+     * implementation.
+     */
+    virtual SnarlManager find_snarls_parallel();
 };
 
 /**
- * Class for finding all snarls using the base-level Cactus snarl decomposition
- * interface.
+ * Wrapper base class that can convert a bottom-up traversal of snarl
+ * boundaries into a full snarl finder. Mostly worries about snarl
+ * classification and connectivity information.
  */
-class CactusSnarlFinder : public SnarlFinder {
+class HandleGraphSnarlFinder : public SnarlFinder {
+protected:
+    /**
+     * The graph we are finding snarls on. It must outlive us.
+     */
+    const HandleGraph* graph;
     
-    /// Holds the vg graph we are looking for sites in.
-    VG& graph;
-    
-    /// Holds the names of reference path hints
-    unordered_set<string> hint_paths;
-    
-    /// Create a snarl in the given SnarlManager with the given start and end,
-    /// containing the given child snarls in the list of chains of children and
-    /// the given list of unary children. Recursively creates snarls in the
-    /// SnarlManager for the children. Returns a pointer to the finished snarl
-    /// in the SnarlManager. Start and end may be empty visits, in which case no
-    /// snarl is created, all the child chains are added as root chains, and
-    /// null is returned. If parent_start and parent_end are empty Visits, no
-    /// parent() is added to the produced snarl.
-    const Snarl* recursively_emit_snarls(const Visit& start, const Visit& end,
-        const Visit& parent_start, const Visit& parent_end,
-        stList* chains_list, stList* unary_snarls_list, SnarlManager& destination);
+    /**
+     * Find all the snarls, and put them into a SnarlManager, but don't finish it.
+     * More snarls can be added later before it is finished.
+     */
+    virtual SnarlManager find_snarls_unindexed();
     
 public:
+
     /**
-     * Make a new CactusSnarlFinder to find snarls in the given graph.
-     * We can't filter trivial bubbles because that would break our chains.
-     *
-     * Optionally takes a hint path name.
+     * Create a HandleGraphSnarlFinder to find snarls in the given graph.
      */
-    CactusSnarlFinder(VG& graph);
-    
+    HandleGraphSnarlFinder(const HandleGraph* graph);
+
+    virtual ~HandleGraphSnarlFinder() = default;
+
     /**
-     * Make a new CactusSnarlFinder with a single hinted path to base the
-     * decomposition on.
-     */
-    CactusSnarlFinder(VG& graph, const string& hint_path);
-    
-    /**
-     * Find all the snarls with Cactus, and put them into a SnarlManager.
+     * Find all the snarls, and put them into a SnarlManager.
      */
     virtual SnarlManager find_snarls();
     
+    /**
+     * Visit all snarls and chains, including trivial snarls and single-node
+     * empty chains.
+     *
+     * Calls begin_chain and end_chain when entrering and exiting chains in the
+     * traversal. Within each chain, calls begin_snarl and end_snarl when
+     * entering and exiting each snarl, in order. The caller is intended to
+     * maintain its own stack to match up begin and end events.
+     *
+     * Each begin/end call receives the handle reading into/out of the snarl or
+     * chain. 
+     *
+     * Both empty and cyclic chains have the in and out handles the same.
+     * They are distinguished by context; empty chains have no shild snarls,
+     * while cyclic chains do.
+     *
+     * Roots the decomposition at a global snarl with no bounding nodes, for
+     * which begin_snarl is not called. So the first call will be begin_chain.
+     *
+     * Start handles are inward facing and end handles are outward facing.
+     * Snarls must be oriented forward in their chains.
+     */
+    virtual void traverse_decomposition(const function<void(handle_t)>& begin_chain, const function<void(handle_t)>& end_chain,
+        const function<void(handle_t)>& begin_snarl, const function<void(handle_t)>& end_snarl) const = 0;
 };
 
 /**
@@ -229,7 +246,7 @@ public:
         
     /// Make a new NetGraph for the given snarl in the given backing graph,
     /// using the given chains as child chains. Unary snarls are stored as
-    /// single-snarl chains just like other trivial chains.
+    /// trivial chains just like other trivial chains.
     template<typename ChainContainer>
     NetGraph(const Visit& start, const Visit& end,
              const ChainContainer& child_chains_mixed,
@@ -243,7 +260,7 @@ public:
                 // This is a unary snarl wrapped in a chain
                 add_unary_child(chain.front().first);
             } else {
-                // This is a real (but possibly trivial) chain
+                // This is a real (but possibly singlr-snarl) chain
                 add_chain_child(chain);
             }
         }
@@ -307,7 +324,7 @@ public:
     virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
         
     /// Return the number of nodes in the graph
-    virtual size_t node_size() const;
+    virtual size_t get_node_count() const;
     
     /// Return the smallest ID used. 
     virtual id_t min_node_id() const;
@@ -411,10 +428,13 @@ public:
     /// Cannot be copied because of all the internal pointer indexes
     SnarlManager(const SnarlManager& other) = delete;
     SnarlManager& operator=(const SnarlManager& other) = delete;
-        
+        // copy the SnarlManager
     /// Can be moved
     SnarlManager(SnarlManager&& other) = default;
     SnarlManager& operator=(SnarlManager&& other) = default;
+
+    // Can be serialized
+    void serialize(ostream& out) const;
     
     ///////////////////////////////////////////////////////////////////////////
     // Write API
@@ -505,34 +525,34 @@ public:
     /// Returns true if snarl has no parent and false otherwise
     bool is_root(const Snarl* snarl) const;
 
-    /// Returns true if the sanrl is trivial (an ultrabubble with just the
+    /// Returns true if the snarl is trivial (an ultrabubble with just the
     /// start and end nodes) and false otherwise.
     /// TODO: Implement without needing the vg graph, by adding a flag to trivial snarls.
-    bool is_trivial(const Snarl* snarl, VG& graph) const;
+    bool is_trivial(const Snarl* snarl, const HandleGraph& graph) const;
     
     /// Returns true if the snarl lacks any nontrivial children.
-    bool all_children_trivial(const Snarl* snarl, VG& graph) const;
+    bool all_children_trivial(const Snarl* snarl, const HandleGraph& graph) const;
 
     /// Returns a reference to a vector with the roots of the Snarl trees
     const vector<const Snarl*>& top_level_snarls() const;
         
     /// Returns the Nodes and Edges contained in this Snarl but not in any child Snarls (always includes the
     /// Nodes that form the boundaries of child Snarls, optionally includes this Snarl's own boundary Nodes)
-    pair<unordered_set<Node*>, unordered_set<Edge*> > shallow_contents(const Snarl* snarl, VG& graph,
+    pair<unordered_set<id_t>, unordered_set<edge_t> > shallow_contents(const Snarl* snarl, const HandleGraph& graph,
                                                                        bool include_boundary_nodes) const;
         
     /// Returns the Nodes and Edges contained in this Snarl, including those in child Snarls (optionally
     /// includes Snarl's own boundary Nodes)
-    pair<unordered_set<Node*>, unordered_set<Edge*> > deep_contents(const Snarl* snarl, VG& graph,
+    pair<unordered_set<id_t>, unordered_set<edge_t> > deep_contents(const Snarl* snarl, const HandleGraph& graph,
                                                                     bool include_boundary_nodes) const;
         
     /// Look left from the given visit in the given graph and gets all the
     /// attached Visits to nodes or snarls.
-    vector<Visit> visits_left(const Visit& visit, VG& graph, const Snarl* in_snarl) const;
+    vector<Visit> visits_left(const Visit& visit, const HandleGraph& graph, const Snarl* in_snarl) const;
         
     /// Look left from the given visit in the given graph and gets all the
     /// attached Visits to nodes or snarls.
-    vector<Visit> visits_right(const Visit& visit, VG& graph, const Snarl* in_snarl) const;
+    vector<Visit> visits_right(const Visit& visit, const HandleGraph& graph, const Snarl* in_snarl) const;
         
     /// Returns a map from all Snarl boundaries to the Snarl they point into. Note that this means that
     /// end boundaries will be reversed.
@@ -556,16 +576,33 @@ public:
         
     /// Execute a function on all sites in parallel
     void for_each_snarl_parallel(const function<void(const Snarl*)>& lambda) const;
-    
+
+    /// Execute a function on all top level chains
+    void for_each_top_level_chain(const function<void(const Chain*)>& lambda) const;
+
+    /// Execute a function on all top level chains in parallel
+    void for_each_top_level_chain_parallel(const function<void(const Chain*)>& lambda) const;
+
     /// Ececute a function on all chains
     void for_each_chain(const function<void(const Chain*)>& lambda) const;
     
     /// Ececute a function on all chains in parallel
     void for_each_chain_parallel(const function<void(const Chain*)>& lambda) const;
+
+    /// Iterate over snarls as they are stored in deque<SnarlRecords>
+    void for_each_snarl_unindexed(const function<void(const Snarl*)>& lambda) const;
         
     /// Given a Snarl that we don't own (like from a Visit), find the
     /// pointer to the managed copy of that Snarl.
     const Snarl* manage(const Snarl& not_owned) const;
+
+    /// Sample snarls discrete uniformly 
+    /// Returns a nullptr if no snarls are found 
+    const Snarl* discrete_uniform_sample(minstd_rand0& random_engine)const;
+
+    /// Count snarls in deque<SnarlRecords>, a master list of snarls in graph
+    int num_snarls()const;
+
         
 private:
     
@@ -573,9 +610,11 @@ private:
     /// followed by indexing metadata, one after the other in memory. We can
     /// just cast a Snarl* to a pointer to one of these to get access to all
     /// the metadata.
-    struct SnarlRecord : public Snarl {
-        // Instead of relying on the first member being at offset 0, we inherit
-        // from the Protobuf type.
+    struct alignas(alignof(Snarl)) SnarlRecord {
+        /// With recent Protobuf, we can't inherit from Protobuf generated
+        /// classes, so we rely on the first member here being at offset 0.
+        /// This is achieved by making sure SnarlRecord is aligned like Snarl. 
+        Snarl snarl;
         
         /// This is a vector of pointers into the master snarl container at
         /// children. We know the pointers are to valid SnarlRecords. A
@@ -593,6 +632,7 @@ private:
         Chain* parent_chain = nullptr;
         /// And this is what index we are at in the chain;
         size_t parent_chain_index = 0;
+
         
         /// Allow assignment from a Snarl object, fluffing it up into a full SnarlRecord
         SnarlRecord& operator=(const Snarl& other) {
@@ -625,11 +665,6 @@ private:
     /// Master list of the snarls in the graph.
     /// Use a deque so pointers never get invalidated but we still have some locality.
     deque<SnarlRecord> snarls;
-    
-    /// Have we finished adding snarls? This ought to be true for any
-    /// non-trivial read operations. Otherwise the parent/child/chain indexes
-    /// haven't been computed.
-    bool finished = false;
         
     /// Roots of snarl trees
     vector<const Snarl*> roots;
@@ -735,11 +770,17 @@ inline Mapping to_mapping(const Visit& visit, std::function<size_t(id_t)> node_l
     
 /// Converts a Visit to a Mapping. Throws an exception if the Visit is of a Snarl instead
 /// of a Node. Uses a graph to get node length.
-inline Mapping to_mapping(const Visit& visit, VG& vg);
-    
+inline Mapping to_mapping(const Visit& visit, const HandleGraph& vg);
+
+/// Convert a snarl traversal into an alignment
+inline Alignment to_alignment(const SnarlTraversal& trav, const HandleGraph& graph);
+
 /// Copies the boundary Visits from one Snarl into another
 inline void transfer_boundary_info(const Snarl& from, Snarl& to);
-    
+
+/// Make an edge_t from a pair of visits
+edge_t to_edge(const handlegraph::HandleGraph& graph, const Visit& v1, const Visit& v2);
+
 // We need some Visit operators
     
 /**
@@ -937,17 +978,26 @@ inline Mapping to_mapping(const Visit& visit, std::function<size_t(id_t)> node_l
     return mapping;
 }
     
-inline Mapping to_mapping(const Visit& visit, VG& graph) {
+inline Mapping to_mapping(const Visit& visit, const HandleGraph& graph) {
     return to_mapping(visit, [&](id_t id) {
-            return graph.get_node(id)->sequence().size();
+            return graph.get_length(graph.get_handle(id));
         });
+}
+
+inline Alignment to_alignment(const SnarlTraversal& trav, const HandleGraph& graph) {
+    Alignment aln;
+    Path* path = aln.mutable_path();
+    for (int i = 0; i < trav.visit_size(); ++i) {
+        *path->add_mapping() = to_mapping(trav.visit(i), graph);
+    }
+    return aln;
 }
     
 inline void transfer_boundary_info(const Snarl& from, Snarl& to) {
     *to.mutable_start() = from.start();
     *to.mutable_end() = from.end();
 }
-    
+
 }
 
 // note: this hash funtion is not used internally because we want the internal indices to ignore any

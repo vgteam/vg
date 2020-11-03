@@ -14,6 +14,7 @@
 #include "utility.hpp"
 #include "crash.hpp"
 #include "preflight.hpp"
+#include "io/register_libvg_io.hpp"
 
 // New subcommand system provides all the subcommands that used to live here
 #include "subcommand/subcommand.hpp"
@@ -40,11 +41,13 @@ void vg_help(char** argv) {
      });
      
      cerr << endl << "For more commands, type `vg help`." << endl;
+     cerr << "For technical support, please visit: https://www.biostars.org/t/vg/" << endl << endl;
  }
 
 // We make sure to compile main for the lowest common denominator architecture.
-// This works on GCC and Clang. But we have to decalre main and then define it.
-int main(int argc, char *argv[]) __attribute__((__target__("arch=x86-64")));
+// This macro is defined in the preflight header on supported compiler setups.
+// But to use it we have to declare and then define main.
+int main(int argc, char *argv[]) VG_PREFLIGHT_EVERYWHERE;
 
 int main(int argc, char *argv[]) {
 
@@ -53,10 +56,17 @@ int main(int argc, char *argv[]) {
 
     // Set up stack trace support from crash.hpp
     enable_crash_handling();
-    
-    // set a higher value for tcmalloc warnings
-    setenv("TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD", "1000000000000000", 1);
 
+    // Determine a sensible default number of threads and apply it.
+    choose_good_thread_count();
+    
+    // Tell the IO library about libvg types.
+    // TODO: Make a more generic libvg startup function?
+    if (!vg::io::register_libvg_io()) {
+        cerr << "error[vg]: Could not register libvg types with libvgio" << endl;
+        return 1;
+    }
+    
     if (argc == 1) {
         vg_help(argv);
         return 1;

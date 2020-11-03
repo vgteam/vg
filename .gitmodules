@@ -1,12 +1,12 @@
 [submodule "vcflib"]
 	path = deps/vcflib
-	url = https://github.com/vgteam/vcflib.git
+	url = https://github.com/vcflib/vcflib.git
 [submodule "fastahack"]
 	path = deps/fastahack
 	url = https://github.com/vgteam/fastahack.git
 [submodule "gssw"]
 	path = deps/gssw
-	url = https://github.com/ekg/gssw.git
+	url = https://github.com/vgteam/gssw.git
 [submodule "bash-tap"]
 	path = deps/bash-tap
 	url = https://github.com/illusori/bash-tap.git
@@ -16,15 +16,9 @@
 [submodule "lru_cache"]
 	path = deps/lru_cache
 	url = https://github.com/ekg/lru_cache.git
-[submodule "htslib"]
-	path = deps/htslib
-	url = https://github.com/vgteam/htslib.git
 [submodule "sha1"]
 	path = deps/sha1
 	url = https://github.com/vog/sha1.git
-[submodule "protobuf"]
-	path = deps/protobuf
-	url = https://github.com/google/protobuf.git
 [submodule "gcsa2"]
 	path = deps/gcsa2
 	url = https://github.com/jltsiren/gcsa2.git
@@ -39,7 +33,7 @@
 	url = https://github.com/sparsehash/sparsehash.git
 [submodule "gfakluge"]
     path = deps/gfakluge
-    url = https://github.com/edawson/gfakluge.git
+    url = https://github.com/vgteam/gfakluge.git
 [submodule "deps/DYNAMIC"]
 	path = deps/DYNAMIC
 	url = https://github.com/vgteam/DYNAMIC
@@ -64,9 +58,6 @@
 [submodule "deps/rocksdb"]
     path = deps/rocksdb
     url = https://github.com/facebook/rocksdb.git
-[submodule "deps/gperftools"]
-	path = deps/gperftools
-	url = https://github.com/gperftools/gperftools.git
 [submodule "deps/gbwt"]
 	path = deps/gbwt
 	url = https://github.com/jltsiren/gbwt.git
@@ -100,3 +91,34 @@
 [submodule "deps/libhandlegraph"]
 	path = deps/libhandlegraph
 	url = https://github.com/vgteam/libhandlegraph.git
+[submodule "deps/libvgio"]
+	path = deps/libvgio
+	url = https://github.com/vgteam/libvgio.git
+[submodule "deps/jemalloc"]
+	path = deps/jemalloc
+	url = https://github.com/jemalloc/jemalloc.git
+[submodule "deps/sglib"]
+	path = deps/sglib
+	url = https://github.com/vgteam/sglib.git
+	branch = master
+[submodule "deps/FlameGraph"]
+	path = deps/FlameGraph
+	url = https://github.com/brendangregg/FlameGraph
+[submodule "deps/libbdsg"]
+	path = deps/libbdsg
+	url = https://github.com/vgteam/libbdsg.git
+[submodule "deps/xg"]
+	path = deps/xg
+	url = https://github.com/vgteam/xg.git
+[submodule "deps/gbwtgraph"]
+	path = deps/gbwtgraph
+	url = https://github.com/jltsiren/gbwtgraph.git
+[submodule "deps/ips4o"]
+	path = deps/ips4o
+	url = https://github.com/vgteam/ips4o.git
+[submodule "deps/mmmultimap"]
+	path = deps/mmmultimap
+	url = https://github.com/ekg/mmmultimap.git
+[submodule "vgteam_bbhash"]
+	path = deps/BBHash
+	url = https://github.com/vgteam/BBHash.git

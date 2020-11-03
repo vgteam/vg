@@ -3,12 +3,14 @@
 using namespace std;
 using namespace vg;
 using namespace sdsl;
-Vectorizer::Vectorizer(xg::XG* x) : my_xg(x){
-
+Vectorizer::Vectorizer(const PathPositionHandleGraph* x) : my_xg(x){
+    size_t rank = 1;
+    my_xg->for_each_handle([&](handle_t handle) {
+            id_to_rank[my_xg->get_id(handle)] = rank++;
+        });
 }
 
 Vectorizer::~Vectorizer(){
-    delete my_xg;
 }
 
 string Vectorizer::output_wabbit_map(){
@@ -68,7 +70,7 @@ void Vectorizer::add_name(string n){
 }
 
 vector<int> Vectorizer::alignment_to_a_hot(Alignment a){
-    int64_t entity_size = my_xg->node_count;
+    int64_t entity_size = my_xg->get_node_count();
     vector<int> ret(entity_size, 0);
     Path path = a.path();
     for (int i = 0; i < path.mapping_size(); i++){
@@ -79,9 +81,12 @@ vector<int> Vectorizer::alignment_to_a_hot(Alignment a){
         Position pos = mapping.position();
         int64_t node_id = pos.node_id();
         if (!node_id) continue;
-        int64_t key = my_xg->id_to_rank(node_id);
-        vector<size_t> node_paths = my_xg->paths_of_node(node_id);
-        if (node_paths.size() > 0){
+        int64_t key = id_to_rank[node_id];
+        vector<step_handle_t> node_steps;
+        my_xg->for_each_step_on_handle(my_xg->get_handle(node_id), [&](step_handle_t step) {
+                node_steps.push_back(step);
+            });
+        if (node_steps.size() > 0){
             ret[key - 1] = 2;
         }
         else{
@@ -92,7 +97,7 @@ vector<int> Vectorizer::alignment_to_a_hot(Alignment a){
 }
 
 vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
-    int64_t entity_size = my_xg->node_count;
+    int64_t entity_size = my_xg->get_node_count();
     vector<double> ret(entity_size, 0.0);
     Path path = a.path();
     for (int i = 0; i < path.mapping_size(); i ++){
@@ -103,7 +108,7 @@ vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
         Position pos = mapping.position();
         int64_t node_id = pos.node_id();
         if (!node_id) continue;
-        int64_t key = my_xg->id_to_rank(node_id);
+        int64_t key = id_to_rank[node_id];
 
         //Calculate % identity by walking the edits and counting matches.
         double pct_id = 0.0;
@@ -132,7 +137,7 @@ vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
 }
 
 bit_vector Vectorizer::alignment_to_onehot(Alignment a){
-    int64_t entity_size = my_xg->node_count;
+    int64_t entity_size = my_xg->get_node_count();
     bit_vector ret(entity_size, 0);
     Path path = a.path();
     for (int i = 0; i < path.mapping_size(); i++){
@@ -143,7 +148,7 @@ bit_vector Vectorizer::alignment_to_onehot(Alignment a){
         Position pos = mapping.position();
         int64_t node_id = pos.node_id();
         if (!node_id) continue;
-        int64_t key = my_xg->id_to_rank(node_id);
+        int64_t key = id_to_rank[node_id];
         //Find entity rank of edge
         ret[key - 1] = 1;
     }

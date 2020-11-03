@@ -12,10 +12,15 @@ before_script:
   # Make sure we have some curl stuff for pycurl which we need for some Python stuff
   # We also need Node >4 for junit merging (so we need to be on Ubuntu 18.04+)
   # And the CI report upload needs uuidgen from uuid-runtime
-  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libcurl4-gnutls-dev python-dev npm nodejs node-gyp nodejs-dev libssl1.0-dev uuid-runtime
+  - sudo apt-get -q -y install --no-upgrade docker.io python-pip python-virtualenv libcurl4-gnutls-dev python-dev npm nodejs node-gyp nodejs-dev libssl1.0-dev uuid-runtime libgnutls28-dev
   - which junit-merge || sudo npm install -g junit-merge
   - cat /etc/hosts
+  - startdocker || true
   - docker info
+  - mkdir -p ~/.aws && cp "$GITLAB_SECRET_FILE_AWS_CREDENTIALS" ~/.aws/credentials
+
+after_script:
+  - stopdocker || true
   
 # We have two pipeline stages: build to make a Docker, and test to run tests.
 # TODO: make test stage parallel
@@ -42,7 +47,7 @@ test-job:
   # Run in parallel, setting CI_NODE_INDEX and CI_NODE_TOTAL
   # We will find our share of tests from vgci/test-list.txt and run them
   # We ought to run one job per test, but we can wrap around.
-  parallel: 19 
+  parallel: 6 
   script:
     - docker pull "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
     - docker tag "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" vgci-docker-vg-local

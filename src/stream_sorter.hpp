@@ -1,15 +1,15 @@
 #ifndef VG_STREAM_SORTER_HPP_INCLUDED
 #define VG_STREAM_SORTER_HPP_INCLUDED
 
-#include "vg.pb.h"
-#include "stream/protobuf_emitter.hpp"
-#include "stream/protobuf_iterator.hpp"
-#include "stream/stream.hpp"
+#include <vg/vg.pb.h>
+#include <vg/io/protobuf_emitter.hpp>
+#include <vg/io/protobuf_iterator.hpp>
+#include <vg/io/stream.hpp>
 #include "types.hpp"
 #include "progressive.hpp"
 #include "stream_index.hpp"
 #include "utility.hpp"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
 #include <string>
 #include <queue>
 #include <sstream>
@@ -26,7 +26,7 @@
 
 /**
  * \file stream_sorter.hpp
- * stream/stream.hpp-format file sorting tools.
+ * VPKG-format file sorting tools.
  */
 using namespace std;
 namespace vg {
@@ -56,12 +56,12 @@ public:
     /// show_progress is true.
     StreamSorter(bool show_progress = false);
     
-    /// Sort a stream of stream/stream.hpp-format data, using temporary files,
+    /// Sort a stream of VPKG-format Protobuf data, using temporary files,
     /// limiting the number of simultaneously open input files and the size of
     /// in-memory data. Optionally index the sorted file into the given index.
     void stream_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to = nullptr);
     
-    /// Sort a stream of stream/stream.hpp-format data, loading it all into memory and
+    /// Sort a stream of VPKG-format Protobuf data, loading it all into memory and
     /// doing a single giant sort operation. Optionally index the sorted file
     /// into the given index.
     void easy_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to = nullptr);
@@ -98,8 +98,8 @@ public:
     /// This will be computed based on the max file descriptor limit from the OS.
     size_t max_fan_in;
     
-    using cursor_t = stream::ProtobufIterator<Message>;
-    using emitter_t = stream::ProtobufEmitter<Message>;
+    using cursor_t = vg::io::ProtobufIterator<Message>;
+    using emitter_t = vg::io::ProtobufEmitter<Message>;
     
     /// Open all the given input files, keeping the streams and cursors in the given lists.
     /// We use lists because none of these should be allowed to move after creation.
@@ -182,7 +182,7 @@ template<typename Message>
 void StreamSorter<Message>::easy_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to) {
     std::vector<Message> sort_buffer;
 
-    stream::for_each<Message>(stream_in, [&](Message &msg) {
+    vg::io::for_each<Message>(stream_in, [&](Message &msg) {
         sort_buffer.push_back(msg);
     });
 
@@ -193,7 +193,7 @@ void StreamSorter<Message>::easy_sort(istream& stream_in, ostream& stream_out, S
     
     {
         // Make an output emitter
-        stream::ProtobufEmitter<Message> emitter(stream_out);
+        vg::io::ProtobufEmitter<Message> emitter(stream_out);
         
         if (index_to != nullptr) {
             emitter.on_message([&](const Message& m) {
@@ -268,10 +268,11 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
             {
                 // Each thread fights for the file and the winner takes some data
                 size_t buffered_message_bytes = 0;
-                while (input_cursor.has_next() && buffered_message_bytes < max_buf_size) {
+                while (input_cursor.has_current() && buffered_message_bytes < max_buf_size) {
                     // Until we run out of input messages or space, buffer each, recording its size.
                     thread_buffer.emplace_back(std::move(input_cursor.take()));
-                    buffered_message_bytes += thread_buffer.back().ByteSizeLong();
+                    // Note that the message has to be small enough for its size to fit in a signed int
+                    buffered_message_bytes += thread_buffer.back().ByteSize();
                 }
             
                 // Update the progress bar
@@ -291,7 +292,7 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
             ofstream temp_stream(temp_name);
             // OK to save as one massive group here.
             // TODO: This write could also be in a thread.
-            stream::write_buffered(temp_stream, thread_buffer, 0);
+            vg::io::write_buffered(temp_stream, thread_buffer, 0);
             
             #pragma omp critical (outstanding_temp_files)
             {
@@ -386,8 +387,8 @@ void StreamSorter<Message>::streaming_merge(list<cursor_t>& cursors, emitter_t& 
     // We work with pointers to cursors because we don't want to be copying the actual cursors around the heap.
     // We also *reverse* the order, because priority queues put the "greatest" element first
     auto cursor_order = [&](cursor_t*& a, cursor_t*& b) {
-        if (b->has_next()) {
-            if(!a->has_next()) {
+        if (b->has_current()) {
+            if(!a->has_current()) {
                 // Cursors that aren't empty come first
                 return true;
             }
@@ -402,7 +403,7 @@ void StreamSorter<Message>::streaming_merge(list<cursor_t>& cursors, emitter_t& 
         cursor_queue.push(&cursor);
     }
     
-    while(!cursor_queue.empty() && cursor_queue.top()->has_next()) {
+    while(!cursor_queue.empty() && cursor_queue.top()->has_current()) {
         // Until we have run out of data in all the temp files
         
         // Pop off the winning cursor
@@ -413,7 +414,7 @@ void StreamSorter<Message>::streaming_merge(list<cursor_t>& cursors, emitter_t& 
         emitter.write(std::move(winner->take()));
         
         // Put it back in the heap if it is not depleted
-        if (winner->has_next()) {
+        if (winner->has_current()) {
             cursor_queue.push(winner);
         }
         // TODO: Maybe keep it off the heap for the next loop somehow if it still wins

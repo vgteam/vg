@@ -25,7 +25,7 @@ MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
     const vector<vector<MaximalExactMatch> >& matches,
     const function<int64_t(pos_t)>& approx_position,
-    const function<map<string, vector<pair<size_t, bool> > >(pos_t)>& path_position,
+    const function<unordered_map<path_handle_t, vector<pair<size_t, bool> > >(pos_t)>& path_position,
     const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
     int band_width,
     int position_depth,
@@ -47,7 +47,7 @@ MEMChainModel::MEMChainModel(
                 m.prev = nullptr;
                 m.score = 0;
                 m.mem.positions = path_position(pos);
-                m.mem.positions[""].push_back(make_pair(approx_position(pos), is_rev(pos)));
+                m.mem.positions[handlegraph::as_path_handle(0)].push_back(make_pair(approx_position(pos), is_rev(pos)));
                 m.mem.nodes.clear();
                 m.mem.nodes.push_back(node);
                 m.mem.fragment = frag_n;
@@ -76,56 +76,10 @@ MEMChainModel::MEMChainModel(
             pos.resize(min(pos.size(), (size_t)position_depth));
         }
     }
-    // for each vertex merge if we go equivalently forward in the positional space and forward in the read to the next position
-    // scan forward
-    for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
-        for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = c->second.begin(); p != c->second.end(); ++p) {
-            for (auto& v1 : p->second) {
-                if (redundant_vertexes.count(v1)) continue;
-                auto q = p;
-                while (++q != c->second.end() && abs(p->first - q->first) < band_width) {
-                    for (auto& v2 : q->second) {
-                        if (redundant_vertexes.count(v2)) continue;
-                        if (mems_overlap(v1->mem, v2->mem)
-                            && abs(v2->mem.begin - v1->mem.begin) == abs(q->first - p->first)) {
-                            if (v2->mem.length() < v1->mem.length()) {
-                                redundant_vertexes.insert(v2);
-                                if (v2->mem.end > v1->mem.end) {
-                                    v1->weight += v2->mem.end - v1->mem.end;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    // scan reverse
-    for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
-        for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::reverse_iterator p = c->second.rbegin(); p != c->second.rend(); ++p) {
-            for (auto& v1 : p->second) {
-                if (redundant_vertexes.count(v1)) continue;
-                auto q = p;
-                while (++q != c->second.rend() && abs(p->first - q->first) < band_width) {
-                    for (auto& v2 : q->second) {
-                        if (redundant_vertexes.count(v2)) continue;
-                        if (mems_overlap(v1->mem, v2->mem)
-                            && abs(v2->mem.begin - v1->mem.begin) == abs(p->first - q->first)) {
-                            if (v2->mem.length() < v1->mem.length()) {
-                                redundant_vertexes.insert(v2);
-                                if (v2->mem.end > v1->mem.end) {
-                                    v1->weight += v2->mem.end - v1->mem.end;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
     // now build up the model using the positional bandwidth
     set<pair<vector<MEMChainModelVertex>::iterator, vector<MEMChainModelVertex>::iterator> > seen;
-    for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
+    for (unordered_map<path_handle_t, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++
+c) {
         for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = c->second.begin(); p != c->second.end(); ++p) {
             for (auto& v1 : p->second) {
                 // For each vertex...
@@ -274,6 +228,7 @@ vector<vector<MaximalExactMatch> > MEMChainModel::traceback(int alt_alns, bool p
             }
             mem_trace.push_back(vertex.mem);
         }
+        //display_dot(cerr, vertex_trace); // for debugging
     }
     return traces;
 }
@@ -317,7 +272,53 @@ void MEMChainModel::display(ostream& out) {
         out << endl;
     }
 }
-    
+
+void MEMChainModel::display_dot(ostream& out, vector<MEMChainModelVertex*> vertex_trace) {
+    map<MEMChainModelVertex*, int> vertex_ids;
+    int i = 0;
+    for (auto& vertex : model) {
+        vertex_ids[&vertex] = ++i;
+    }
+    map<MEMChainModelVertex*,int> in_trace;
+    i = 0;
+    for (auto& v : vertex_trace) {
+        in_trace[v] = ++i;
+    }
+    out << "digraph memchain {" << endl;
+    for (auto& vertex : model) {
+        out << vertex_ids[&vertex]
+            << " [label=\"id:" << vertex_ids[&vertex]
+            << " seq:" << vertex.mem.sequence()
+            << " score:" << vertex.score
+            << " pos:[";
+        for (auto& p : vertex.mem.positions) {
+            for (auto& o : p.second) {
+                out << handlegraph::as_integer(p.first) << ":" << o.first << ":" << (o.second?"-":"+") << ",";
+            }
+        }
+        out << "]\"";
+        if (in_trace.find(&vertex) != in_trace.end()) {
+            out << ",color=red";
+        }
+        out << ",shape=box];" << endl;
+        /*
+        for (auto& p : vertex.prev_cost) {
+            out << vertex_ids[p.first] << " -> " << vertex_ids[&vertex] << " [label=\"" << p.second << "\"];" << endl;
+        }
+        */
+        for (auto& p : vertex.next_cost) {
+            //out << in_trace[&vertex] << " " << in_trace[p.first] << endl;
+            out << vertex_ids[&vertex] << " -> " << vertex_ids[p.first] << " [label=\"" << p.second << "\"";
+            if (in_trace.find(&vertex) != in_trace.end() && in_trace.find(p.first) != in_trace.end() &&
+                in_trace[&vertex] - 1 == in_trace[p.first]) {
+                out << ",color=red";
+            }
+            out << "];" << endl;
+        }
+    }
+    out << "}" << endl;
+}
+
 ShuffledPairs::ShuffledPairs(size_t num_items) : num_items(num_items), num_pairs(num_items * num_items), larger_prime(1), primitive_root(1) {
     
     // Find a prime that is at least as large as but at most a constant factor
@@ -469,8 +470,11 @@ void MEMClusterer::deduplicate_cluster_pairs(vector<pair<pair<size_t, size_t>, i
 #endif
 }
     
-MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, const GSSWAligner* aligner,
-                                 size_t min_mem_length) {
+MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment,
+                                 const GSSWAligner* aligner, size_t min_mem_length, bool track_components,
+                                 const match_fanouts_t* fanouts) :
+    track_components(track_components), components(0, false)
+{
     // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
     nodes.reserve(mems.size());
     
@@ -491,10 +495,26 @@ MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Al
         
         int32_t mem_score = aligner->score_exact_match(mem.begin, mem.end,
                                                        alignment.quality().begin() + (mem.begin - alignment.sequence().begin()));
-
+        
+        // adjust the score downward for fan-out mismatches
+        if (fanouts && fanouts->count(&mem)) {
+            for (const auto& fanout : fanouts->at(&mem)) {
+                mem_score += (aligner->score_mismatch(fanout.first, fanout.first + 1,
+                                                      alignment.quality().begin() + (fanout.first - alignment.sequence().begin()))
+                              - aligner->score_exact_match(fanout.first, fanout.first + 1,
+                                                           alignment.quality().begin() + (fanout.first - alignment.sequence().begin())));
+            }
+        }
         
 #ifdef debug_mem_clusterer
-        cerr << "adding nodes for MEM " << mem << endl;
+        cerr << "adding nodes for MEM " << mem << " with score " << mem_score << endl;
+        if (fanouts && fanouts->count(&mem)) {
+            cerr << "fanouts:" << endl;
+            for (auto fanout : fanouts->at(&mem)) {
+                cerr << "\t" << (fanout.first - mem.begin) << ": " << *fanout.first << " -> " << fanout.second << endl;
+            }
+        }
+        cerr << "locations:" << endl;
 #endif
         for (gcsa::node_type mem_hit : mem.nodes) {
             nodes.emplace_back(mem, make_pos_t(mem_hit), mem_score);
@@ -503,11 +523,20 @@ MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Al
 #endif
         }
     }
+    
+    // init the component tracker
+    if (track_components) {
+        components = UnionFind(nodes.size(), false);
+    }
 }
 
 void MEMClusterer::HitGraph::add_edge(size_t from, size_t to, int32_t weight, int64_t distance) {
     nodes[from].edges_from.emplace_back(to, weight, distance);
     nodes[to].edges_to.emplace_back(from, weight, distance);
+    
+    if (track_components) {
+        components.union_groups(from, to);
+    }
 }
     
 void MEMClusterer::HitGraph::connected_components(vector<vector<size_t>>& components_out) const {
@@ -1019,7 +1048,8 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
                                                                  int32_t max_qual_score,
                                                                  int32_t log_likelihood_approx_factor,
                                                                  size_t min_median_mem_coverage_for_split,
-                                                                 double suboptimal_edge_pruning_factor) {
+                                                                 double suboptimal_edge_pruning_factor,
+                                                                 double cluster_multiplicity_diff) {
     
     vector<cluster_t> to_return;
     if (nodes.size() == 0) {
@@ -1121,15 +1151,11 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
     // TODO: this approximation could break down sometimes, need to look into it
     int32_t top_score = component_traceback_ends.front().first;
     int32_t suboptimal_score_cutoff = top_score - log_likelihood_approx_factor * aligner->mapping_quality_score_diff(max_qual_score);
-    
+    // keep track of the scores of the clusters we take off the heap
+    vector<int32_t> returned_cluster_scores;
     while (!component_traceback_ends.empty()) {
         // get the next highest scoring traceback end(s)
         auto traceback_end = component_traceback_ends.front();
-        std::pop_heap(component_traceback_ends.begin(), component_traceback_ends.end());
-        component_traceback_ends.pop_back();
-        
-        // get the index of the node
-        vector<size_t>& trace_stack = traceback_end.second;
         
 #ifdef debug_mem_clusterer
         cerr << "checking traceback of component starting at " << traceback_end.second.front() << endl;
@@ -1145,6 +1171,13 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
             //            PRUNE_COUNTER += component_traceback_ends.size() + 1;
             break;
         }
+        
+        // we're going to add this cluster to the return vector, take it off the heap
+        std::pop_heap(component_traceback_ends.begin(), component_traceback_ends.end());
+        component_traceback_ends.pop_back();
+        
+        // get the index of the node
+        vector<size_t>& trace_stack = traceback_end.second;
         
         // traceback all optimal paths in this connected component
         
@@ -1178,17 +1211,49 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
         auto& cluster = to_return.back();
         for (size_t traced_idx : stacked) {
             HitNode& node = nodes[traced_idx];
-            cluster.emplace_back(node.mem, node.start_pos);
+            cluster.first.emplace_back(node.mem, node.start_pos);
         }
+        // it starts with multiplicity 1 be default
+        cluster.second = 1.0;
+        // keep track of its score for further multiplicity calculations
+        returned_cluster_scores.push_back(traceback_end.first);
         
         // put the cluster in order by read position
-        sort(cluster.begin(), cluster.end(), [](const hit_t& hit_1, const hit_t& hit_2) {
+        sort(cluster.first.begin(), cluster.first.end(), [](const hit_t& hit_1, const hit_t& hit_2) {
             return hit_1.first->begin < hit_2.first->begin ||
             (hit_1.first->begin == hit_2.first->begin && hit_1.first->end < hit_2.first->end);
         });
     }
     
-    return std::move(to_return);
+    // find out how many of the remaining clusters had similar score to the final
+    // ones we're returning
+    int32_t tail_equiv_diff = round(aligner->mapping_quality_score_diff(cluster_multiplicity_diff));
+    int32_t min_tail_score = returned_cluster_scores.back() - tail_equiv_diff;
+    int64_t num_tail_cutoff = 0;
+    while (!component_traceback_ends.empty() &&
+           component_traceback_ends.front().first >= min_tail_score) {
+        // count it and remove it
+        ++num_tail_cutoff;
+        std::pop_heap(component_traceback_ends.begin(), component_traceback_ends.end());
+        component_traceback_ends.pop_back();
+    }
+    if (num_tail_cutoff > 0) {
+        // find out how many of the clusters we're returning also have similar score
+        int32_t max_tail_score = returned_cluster_scores.back() + tail_equiv_diff;
+        int64_t max_tail_idx = to_return.size() - 1;
+        while (max_tail_idx > 0 && returned_cluster_scores[max_tail_idx - 1] <= max_tail_score) {
+            --max_tail_idx;
+        }
+        
+        // assign the corresponding multiplicity to all of clusters we're returning with similar scores
+        double cluster_multiplicity = (double(to_return.size() - max_tail_idx + num_tail_cutoff)
+                                       / double(to_return.size() - max_tail_idx));
+        for (int64_t i = max_tail_idx; i < to_return.size(); ++i) {
+            to_return[i].second = cluster_multiplicity;
+        }
+    }
+    
+    return to_return;
 }
     
 vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignment,
@@ -1198,30 +1263,222 @@ vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignmen
                                                        int32_t max_qual_score,
                                                        int32_t log_likelihood_approx_factor,
                                                        size_t min_median_mem_coverage_for_split,
-                                                       double suboptimal_edge_pruning_factor) {
+                                                       double suboptimal_edge_pruning_factor,
+                                                       double cluster_multiplicity_diff,
+                                                       const match_fanouts_t* fanouts) {
     
-    HitGraph hit_graph = make_hit_graph(alignment, mems, aligner, min_mem_length);
+    HitGraph hit_graph = make_hit_graph(alignment, mems, aligner, min_mem_length, fanouts);
     return hit_graph.clusters(alignment, aligner, max_qual_score, log_likelihood_approx_factor,
-                              min_median_mem_coverage_for_split, suboptimal_edge_pruning_factor);
+                              min_median_mem_coverage_for_split, suboptimal_edge_pruning_factor,
+                              cluster_multiplicity_diff);
     
 }
+
+MEMClusterer::HitGraph NullClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
+                                                     const GSSWAligner* aligner, size_t min_mem_length,
+                                                     const match_fanouts_t* fanouts) {
+    // intialize the hit nodes, but do not add any edges, and ignore the min mem length
+    return HitGraph(mems, alignment, aligner, 1, fanouts);
+}
+
+vector<pair<pair<size_t, size_t>, int64_t>>  NullClusterer::pair_clusters(const Alignment& alignment_1,
+                                                                          const Alignment& alignment_2,
+                                                                          const vector<cluster_t*>& left_clusters,
+                                                                          const vector<cluster_t*>& right_clusters,
+                                                                          const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                                          const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
+                                                                          int64_t optimal_separation,
+                                                                          int64_t max_deviation) {
+    // do not cluster pairs.
+    return vector<pair<pair<size_t, size_t>, int64_t>>();
+}
     
-PathOrientedDistanceMeasurer::PathOrientedDistanceMeasurer(xg::XG* xgindex, bool unstranded) :
-    xgindex(xgindex), unstranded(unstranded) {
+PathOrientedDistanceMeasurer::PathOrientedDistanceMeasurer(const PathPositionHandleGraph* graph,
+                                                           const PathComponentIndex* path_component_index) :
+    graph(graph), path_component_index(path_component_index) {
     
 }
     
 int64_t PathOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, const pos_t& pos_2) {
-    if (unstranded) {
-        return xgindex->closest_shared_path_unstranded_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                id(pos_2), offset(pos_2), is_rev(pos_2), max_walk,
-                                                                &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+    
+    /*
+     * STEP 1: TRAVERSE OUTWARD FROM BOTH POSITIONS TO FIND A SHARED PATH STRAND
+     */
+    
+    // maps of oriented paths to (handle, oriented distance) tuples
+    unordered_map<pair<path_handle_t, bool>, vector<pair<step_handle_t, int64_t>>> path_strand_dists_1;
+    unordered_map<pair<path_handle_t, bool>, vector<pair<step_handle_t, int64_t>>> path_strand_dists_2;
+    
+    unordered_set<pair<path_handle_t, bool>> shared_path_strands;
+    
+    // ensure that the paths of the start nodes are added, even if their ends are too far away
+    // from the positions for the search to explore
+    // TODO: this leaves the ambiguity that a node might occur multiple times on the same path, in which case
+    // the tie for closest traversal to the path is broken arbitrarily
+    handle_t handle_1 = graph->get_handle(id(pos_1), is_rev(pos_1));
+    handle_t handle_2 = graph->get_handle(id(pos_2), is_rev(pos_2));
+    
+    for (const step_handle_t& step : graph->steps_of_handle(handle_1)) {
+        pair<path_handle_t, bool> path_occurrence(graph->get_path_handle_of_step(step),
+                                                  graph->get_handle_of_step(step) != handle_1);
+        path_strand_dists_1[path_occurrence].emplace_back(step, -((int64_t) offset(pos_1)));
+        
+#ifdef debug_algorithms
+        cerr << "[PathDistance] first position " << id(pos_1) << "[" << offset(pos_1) << "]" << (is_rev(pos_1) ? "-" : "+") << " has an initial path occurrence on " << as_integer(graph->get_path_handle_of_step(step)) << (graph->get_handle_of_step(step) != handle_1 ? "-" : "+") << endl;
+#endif
     }
-    else {
-        return xgindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                              id(pos_2), offset(pos_2), is_rev(pos_2), false, max_walk,
-                                                              &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+    
+    for (const step_handle_t& step : graph->steps_of_handle(handle_2)) {
+        pair<path_handle_t, bool> path_occurrence(graph->get_path_handle_of_step(step),
+                                                  graph->get_handle_of_step(step) != handle_2);
+        path_strand_dists_2[path_occurrence].emplace_back(step, -((int64_t) offset(pos_2)));
+        
+#ifdef debug_algorithms
+        cerr << "[PathDistance] second position " << id(pos_2) << "[" << offset(pos_2) << "]" << (is_rev(pos_2) ? "-" : "+") << " has an initial path occurrence on " << as_integer(graph->get_path_handle_of_step(step)) << (graph->get_handle_of_step(step) != handle_2 ? "-" : "+") << endl;
+#endif
+        
+        if (path_strand_dists_1.count(path_occurrence)) {
+#ifdef debug_algorithms
+            cerr << "[PathDistance] this occurrence is on a shared path" << endl;
+#endif
+            shared_path_strands.insert(path_occurrence);
+        }
+        
     }
+    
+    
+    // if we already found shared paths on the start nodes, don't search anymore
+    if (shared_path_strands.empty() && max_walk > 0) {
+#ifdef debug_algorithms
+        cerr << "[PathDistance] no shared paths detected, beginning traversals" << endl;
+#endif
+        
+        // priority queues over traversals
+        // distance is measure at the end of the node, so it's actually the distance
+        // to the next nodes we will traverse to
+        // there is a separate queue for each of the positions
+        RankPairingHeap<pair<handle_t, bool>, int64_t, greater<int64_t>> queue_1, queue_2;
+        
+        queue_1.push_or_reprioritize(make_pair(handle_1, true), offset(pos_1) - graph->get_length(handle_1));
+        queue_1.push_or_reprioritize(make_pair(handle_1, false), -offset(pos_1));
+        queue_2.push_or_reprioritize(make_pair(handle_2, true), offset(pos_2) - graph->get_length(handle_2));
+        queue_2.push_or_reprioritize(make_pair(handle_2, false), -offset(pos_2));
+        
+        while (!(queue_1.empty() && queue_2.empty()) && shared_path_strands.empty()) {
+            
+#ifdef debug_algorithms
+            cerr << "[PathDistance] choosing queue for next traversal" << endl;
+#endif
+            // we'll use whichever queue has the shortest traversal so far
+            auto curr_queue = &queue_1;
+            auto curr_path_strand_dists = &path_strand_dists_1;
+            auto other_path_strand_dists = &path_strand_dists_2;
+            if (queue_1.empty() ? true : (queue_2.empty() ? false : queue_1.top().second > queue_2.top().second)) {
+                curr_queue = &queue_2;
+                std::swap(curr_path_strand_dists, other_path_strand_dists);
+            }
+            
+            auto trav = curr_queue->top();
+            curr_queue->pop();
+            
+#ifdef debug_algorithms
+            cerr << "[PathDistance] traversing " << graph->get_id(trav.first.first) << (graph->get_is_reverse(trav.first.first) ? "-" : "+") << " in " << (trav.first.second ? "leftward" : "rightward") << " direction at distance " << trav.second << endl;
+#endif
+            
+            // don't look any further if the next closest traversal is beyond the maximum distance
+            if (trav.second > (int64_t) max_walk) {
+                break;
+            }
+            
+            int64_t dist = trav.second + graph->get_length(trav.first.first);
+            
+            if (!(curr_queue == &queue_1 && trav.first.first == handle_1)
+                && !(curr_queue == &queue_2 && trav.first.first == handle_2)) {
+                // this is not one of the start positions, so it might have new paths on it
+                for (const step_handle_t& step : graph->steps_of_handle(trav.first.first)) {
+        
+                    pair<path_handle_t, bool> path_occurrence(graph->get_path_handle_of_step(step),
+                                                              graph->get_handle_of_step(step) != trav.first.first);
+                    
+#ifdef debug_algorithms
+                    cerr << "\ttrav is on path " << as_integer(path_occurrence.first) << " in " << (path_occurrence.second ? "reverse" : "forward") << " orientation" << endl;
+#endif
+                    
+                    if (!curr_path_strand_dists->count(path_occurrence)) {
+                        // record the oriented distance to the forward beginning of the node, relative to the start traversal
+                        (*curr_path_strand_dists)[path_occurrence].emplace_back(step, trav.first.second ? -dist : trav.second);
+                        // have we found nodes that share a path yet?
+                        if (other_path_strand_dists->count(path_occurrence)) {
+                            shared_path_strands.insert(path_occurrence);
+                        }
+                    }
+                }
+            }
+            
+            graph->follow_edges(trav.first.first, trav.first.second, [&](const handle_t& next) {
+#ifdef debug_algorithms
+                cerr << "\tfollowing edge to " << graph->get_id(next) << (graph->get_is_reverse(next) ? "-" : "+") << " at dist " << dist << endl;
+#endif
+                curr_queue->push_or_reprioritize(make_pair(next, trav.first.second), dist);
+            });
+        }
+    }
+    
+#ifdef debug_algorithms
+    cerr << "[PathDistance] found a shared path or exhausted search distance" << endl;
+#endif
+    
+    /*
+     * STEP 2: COMPUTE THE MINIMUM DISTANCE ALONG ANY SHARED PATH STRANDS DISCOVERED
+     */
+    
+    // we will look for minimum absolute distance, so set it to the max to begin
+    int64_t approx_dist = std::numeric_limits<int64_t>::max();
+    for (const pair<path_handle_t, bool>& oriented_path : shared_path_strands) {
+        
+#ifdef debug_algorithms
+        cerr << "[PathDistance] estimating distance with shared path " << as_integer(oriented_path.first) << (oriented_path.second ? "-" : "+") << endl;
+#endif
+        
+        for (const pair<step_handle_t, int64_t>& node_trav_1 : path_strand_dists_1[oriented_path]) {
+            for (const pair<step_handle_t, int64_t>& node_trav_2 : path_strand_dists_2[oriented_path]) {
+                
+                // the net distance searched between the two points to get to nodes on the path
+                int64_t relative_offset = node_trav_1.second - node_trav_2.second;
+                
+#ifdef debug_algorithms
+                cerr << "[PathDistance] search offset adds up to " << relative_offset << endl;
+#endif
+                
+                // add in the interval along the path
+                if (oriented_path.second) {
+                    // the interval is on the reverse strand, so we need measure from the end of the node,
+                    // which is also the start of the next node
+                    relative_offset += (graph->get_position_of_step(graph->get_next_step(node_trav_1.first))
+                                        - graph->get_position_of_step(graph->get_next_step(node_trav_2.first)));
+                }
+                else {
+                    relative_offset += (graph->get_position_of_step(node_trav_2.first)
+                                        - graph->get_position_of_step(node_trav_1.first));
+                }
+                                        
+#ifdef debug_algorithms
+                cerr << "[PathDistance] estimating distance on path " << as_integer(oriented_path.first) << (oriented_path.second ? "-" : "+") << " at " << relative_offset << endl;
+#endif
+                
+                // find the minimum absolute distance, but retain signing
+                if (abs(relative_offset) < abs(approx_dist)) {
+                    approx_dist = relative_offset;
+                }
+            }
+        }
+    }
+    
+#ifdef debug_algorithms
+    cerr << "[PathDistance] minimum distance is estimated at " << approx_dist << endl;
+#endif
+    
+    return approx_dist;
 }
     
 vector<vector<size_t>> PathOrientedDistanceMeasurer::get_buckets(const function<pos_t(size_t)>& get_position, size_t num_items) {
@@ -1232,163 +1489,83 @@ vector<vector<size_t>> PathOrientedDistanceMeasurer::get_buckets(const function<
     // the return value
     vector<vector<size_t>> buckets;
     
-    // fill the buckets either by path or by strand
-    // TODO: code is pretty duplicative
-    if (unstranded) {
-        // enter which paths occur on the nodes of each hit into the memo
-        for (size_t i = 0; i < num_items; i++) {
-            pos_t pos = get_position(i);
-            if (!paths_of_node_memo.count(id(pos))) {
-                paths_of_node_memo[id(pos)] = xgindex->paths_of_node(id(pos));
-            }
-        }
+    // we will associate each path strand with the index of a bucket
+    unordered_map<pair<path_handle_t, bool>, size_t> bucket_of_path_strand;
+    
+    // we will also keep track of any hits that were not on any path
+    vector<size_t> non_path_hits;
+    
+    for (size_t i = 0; i < num_items; i++) {
+        pos_t pos = get_position(i);
+#ifdef debug_mem_clusterer
+        cerr << "adding position " << pos << " to memo" << endl;
+#endif
         
-        // reverse the memo so that it tells us which hits occur on a strand of a path and identify hits with no paths
-        unordered_map<size_t, size_t> bucket_of_path;
-        // record which hits aren't on a path and associate them with their nearest neighbor's node ID
-        unordered_map<size_t, id_t> non_path_hits;
-        for (size_t i = 0; i < num_items; i++) {
-            pos_t pos = get_position(i);
-            vector<size_t>& paths = paths_of_node_memo.at(id(pos));
-            if (paths.empty()) {
-                // just add a sentinel for now
-                non_path_hits[i] = 0;
+        // iterate over the path steps that this node is on
+        bool on_path = false;
+        for (const step_handle_t& step : graph->steps_of_handle(graph->get_handle(id(pos)))) {
+            on_path = true;
+            
+            // key indicating a path and a strand
+            pair<path_handle_t, bool> key(graph->get_path_handle_of_step(step),
+                                          graph->get_is_reverse(graph->get_handle_of_step(step)) != is_rev(pos));
+            
+            size_t bucket;
+            if (!bucket_of_path_strand.count(key)) {
+                // add a new bucket
+                bucket_of_path_strand[key] = buckets.size();
+                bucket = buckets.size();
+                buckets.emplace_back();
             }
             else {
-                for (size_t path : paths) {
-                    if (!bucket_of_path.count(path)) {
-                        bucket_of_path[path] = buckets.size();
-                        buckets.emplace_back();
-                    }
-                    buckets[bucket_of_path[path]].push_back(i);
-                }
+                // access the old bucket
+                bucket = bucket_of_path_strand[key];
             }
+            buckets[bucket].push_back(i);
         }
         
-        // check the nearest nodes to each singleton to see if we can use it to bucket the item
-        for (pair<const size_t, id_t>& non_path_hit : non_path_hits) {
-            pos_t pos = get_position(non_path_hit.first);
-            handle_t handle = xgindex->memoized_get_handle(id(pos), is_rev(pos), &handle_memo);
-            size_t right_dist = xgindex->get_length(handle) - offset(pos);
-            size_t trav_dist = min(offset(pos), right_dist);
-            if (trav_dist <= max_walk) {
-                bool go_left = offset(pos) < right_dist;
-                function<bool(const handle_t&)> bucket_using_neighbors = [&](const handle_t& handle) {
-                    id_t neighbor_id = xgindex->get_id(handle);
-                    bool neighbor_rev = xgindex->get_is_reverse(handle);
-                    if (!paths_of_node_memo.count(neighbor_id)) {
-                        paths_of_node_memo[neighbor_id] = xgindex->paths_of_node(neighbor_id);
-                    }
-                    auto& neighbor_paths = paths_of_node_memo.at(neighbor_id);
-                    for (size_t path : neighbor_paths) {
-                        if (!bucket_of_path.count(path)) {
-                            bucket_of_path[path] = buckets.size();
-                            buckets.emplace_back();
-                        }
-                        buckets[bucket_of_path[path]].push_back(non_path_hit.first);
-                    }
-                    // replace the sentinel value with the actual neighbor's ID (but only if we find a path on it)
-                    if (!neighbor_paths.empty()) {
-                        non_path_hit.second = neighbor_id;
-                    }
-                    return neighbor_paths.empty();
-                };
-                xgindex->follow_edges(handle, go_left, bucket_using_neighbors);
-            }
+        if (!on_path) {
+            // record that this hit was not on any paths
+            non_path_hits.push_back(i);
         }
     }
-    else {
-        // enter which paths occur on the nodes of each hit into the memo
-        for (size_t i = 0; i < num_items; i++) {
-            pos_t pos = get_position(i);
-#ifdef debug_mem_clusterer
-            cerr << "adding position " << pos << " to memo" << endl;
-#endif
-            if (!paths_of_node_memo.count(id(pos))) {
-                paths_of_node_memo[id(pos)] = xgindex->paths_of_node(id(pos));
-            }
+    
+    // check the nearest nodes to each non-path hit to see if we can use them to bucket the item
+    for (size_t non_path_hit : non_path_hits) {
+        
+        pos_t pos = get_position(non_path_hit);
+        
+        handle_t handle = graph->get_handle(id(pos), is_rev(pos));
+        size_t right_dist = graph->get_length(handle) - offset(pos);
+        size_t trav_dist = min(offset(pos), right_dist);
+        if (trav_dist <= max_walk) {
+            // we want to consider neighbors out this far according to our walk parameter
             
-            for (size_t path : paths_of_node_memo[id(pos)]) {
-                if (!oriented_occurences_memo.count(make_pair(id(pos), path))) {
-                    oriented_occurences_memo[make_pair(id(pos), path)] = xgindex->oriented_occurrences_on_path(id(pos), path);
-#ifdef debug_mem_clusterer
-                    cerr << "node " << id(pos) << " has occurrences on path " << path << ":" << endl;
-                    for (auto occurrence : oriented_occurences_memo[make_pair(id(pos), path)]) {
-                        cerr << "\t" << occurrence.first << " " << (occurrence.second ? "rev" : "fwd") << endl;
+            graph->follow_edges(handle, offset(pos) < right_dist, [&](const handle_t& neighbor) {
+                // check whether this neighbor is on any paths
+                for (const step_handle_t& step : graph->steps_of_handle(neighbor)) {
+                    
+                    // key indicating a path and a strand
+                    pair<path_handle_t, bool> key(graph->get_path_handle_of_step(step),
+                                                  graph->get_is_reverse(graph->get_handle_of_step(step)) != is_rev(pos));
+                    
+                    size_t bucket;
+                    if (!bucket_of_path_strand.count(key)) {
+                        // add a new bucket
+                        bucket_of_path_strand[key] = buckets.size();
+                        bucket = buckets.size();
+                        buckets.emplace_back();
                     }
-#endif
+                    else {
+                        // access the old bucket
+                        bucket = bucket_of_path_strand[key];
+                    }
+                    buckets[bucket].push_back(non_path_hit);
+                    // we can stop after this bucketing
+                    return false;
                 }
-            }
-        }
-        
-#ifdef debug_mem_clusterer
-        cerr << "reversing node to strand memo" << endl;
-#endif
-        
-        // reverse the memo so that it tells us which hits occur on a strand of a path and identify hits with no paths
-        unordered_map<pair<size_t, bool>, size_t> bucket_of_path_strand;
-        // record which hits aren't on a path and associate them with their nearest neighbor's node ID
-        unordered_map<size_t, id_t> non_path_hits;
-        for (size_t i = 0; i < num_items; i++) {
-            pos_t pos = get_position(i);
-            vector<size_t>& paths = paths_of_node_memo.at(id(pos));
-            if (paths.empty()) {
-                // just add a sentinel for now
-                non_path_hits[i] = 0;
-            }
-            else {
-                for (size_t path : paths) {
-                    for (pair<size_t, bool> oriented_occurrence : oriented_occurences_memo[make_pair(id(pos), path)]) {
-#ifdef debug_mem_clusterer
-                        cerr << "position " << pos << " is on strand " << path << (oriented_occurrence.second != is_rev(pos) ? "-" : "+") << endl;
-#endif
-                        auto key = make_pair(path, oriented_occurrence.second != is_rev(pos));
-                        if (!bucket_of_path_strand.count(key)) {
-                            bucket_of_path_strand[key] = buckets.size();
-                            buckets.emplace_back();
-                        }
-                        buckets[bucket_of_path_strand[key]].push_back(i);
-                    }
-                }
-            }
-        }
-        
-        // check the nearest nodes to each singleton to see if we can use it to bucket the item
-        for (pair<const size_t, id_t>& non_path_hit : non_path_hits) {
-            pos_t pos = get_position(non_path_hit.first);
-            handle_t handle = xgindex->memoized_get_handle(id(pos), is_rev(pos), &handle_memo);
-            size_t right_dist = xgindex->get_length(handle) - offset(pos);
-            size_t trav_dist = min(offset(pos), right_dist);
-            if (trav_dist <= max_walk) {
-                bool go_left = offset(pos) < right_dist;
-                function<bool(const handle_t&)> bucket_using_neighbors = [&](const handle_t& handle) {
-                    id_t neighbor_id = xgindex->get_id(handle);
-                    bool neighbor_rev = xgindex->get_is_reverse(handle);
-                    if (!paths_of_node_memo.count(neighbor_id)) {
-                        paths_of_node_memo[neighbor_id] = xgindex->paths_of_node(neighbor_id);
-                    }
-                    auto& neighbor_paths = paths_of_node_memo.at(neighbor_id);
-                    for (size_t path : neighbor_paths) {
-                        for (pair<size_t, bool>& node_occurence : xgindex->memoized_oriented_occurrences_on_path(neighbor_id, path, &oriented_occurences_memo)) {
-#ifdef debug_mem_clusterer
-                            cerr << "position " << pos << " has neighbor " << neighbor_id << " on strand " << path  << (node_occurence.second != neighbor_rev ? "-" : "+") << endl;
-#endif
-                            auto key = make_pair(path, node_occurence.second != neighbor_rev);
-                            if (!bucket_of_path_strand.count(key)) {
-                                bucket_of_path_strand[key] = buckets.size();
-                                buckets.emplace_back();
-                            }
-                            buckets[bucket_of_path_strand[key]].push_back(non_path_hit.first);
-                        }
-                    }
-                    // replace the sentinel value with the actual neighbor's ID (but only if we find a path on it)
-                    if (!neighbor_paths.empty()) {
-                        non_path_hit.second = neighbor_id;
-                    }
-                    return neighbor_paths.empty();
-                };
-                xgindex->follow_edges(handle, go_left, bucket_using_neighbors);
-            }
+                return true;
+            });
         }
     }
     
@@ -1398,6 +1575,16 @@ vector<vector<size_t>> PathOrientedDistanceMeasurer::get_buckets(const function<
 vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector<vector<size_t>>& current_groups,
                                                                           const function<pos_t(size_t)>& get_position){
     
+    
+    // the pairs that we are going to exclude
+    vector<pair<size_t, size_t>> excludes;
+    
+    if (!path_component_index) {
+#ifdef debug_mem_clusterer
+        cerr << "no path component index, skipping process of excluding merges" << endl;
+#endif
+        return excludes;
+    }
     
 #ifdef debug_mem_clusterer
     cerr << "using path component index to exclude strand merges" << endl;
@@ -1418,71 +1605,56 @@ vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector
     }
 #endif
     
-    function<size_t(const vector<size_t>&)> find_path_of_group = [&](const vector<size_t>& group) {
+    // returns the path and a bool indicating whether the search was successful
+    function<pair<path_handle_t, bool>(const vector<size_t>&)> find_path_of_group = [&](const vector<size_t>& group) {
         // try to find a member of the group that is on a path
         for (size_t i : group) {
-            auto iter = paths_of_node_memo.find(id(get_position(i)));
-            if (iter == paths_of_node_memo.end()) {
-                paths_of_node_memo[id(get_position(i))] = xgindex->paths_of_node(id(get_position(i)));
-                iter = paths_of_node_memo.find(id(get_position(i)));
+            handle_t handle = graph->get_handle(id(get_position(i)));
+            for (const step_handle_t& step : graph->steps_of_handle(handle)) {
+                return make_pair(graph->get_path_handle_of_step(step), true);
             }
-            if (!iter->second.empty()) {
-                return iter->second.front();
-            }
+            
         }
-        
-        // try to find a member of the group with a nearest neighbor that is on a path
+        // try to find a member whose neighbor is on a path
         for (size_t i : group) {
             pos_t pos = get_position(i);
-            handle_t handle = xgindex->memoized_get_handle(id(pos), is_rev(pos), &handle_memo);
-            size_t right_dist = xgindex->get_length(handle) - offset(pos);
+            handle_t handle = graph->get_handle(id(pos));
+            size_t right_dist = graph->get_length(handle) - offset(pos);
             size_t trav_dist = min(offset(pos), right_dist);
             if (trav_dist <= max_walk) {
-                
-                size_t neighbor_path = 0;
-                
-                function<bool(const handle_t&)> find_neighbor_on_path = [&](const handle_t& handle) {
-                    id_t neighbor_id = xgindex->get_id(handle);
-                    bool neighbor_rev = xgindex->get_is_reverse(handle);
-                    if (!paths_of_node_memo.count(neighbor_id)) {
-                        paths_of_node_memo[neighbor_id] = xgindex->paths_of_node(neighbor_id);
-                    }
-                    if (!paths_of_node_memo[neighbor_id].empty()) {
-                        neighbor_path = paths_of_node_memo[neighbor_id].front();
+                path_handle_t result;
+                bool not_found = graph->follow_edges(handle, offset(pos) < right_dist, [&](const handle_t& neighbor) {
+                    for (const step_handle_t& step : graph->steps_of_handle(neighbor)) {
+                        result = graph->get_path_handle_of_step(step);
                         return false;
                     }
                     return true;
-                };
-                
-                bool go_left = offset(pos) < right_dist;
-                xgindex->follow_edges(handle, go_left, find_neighbor_on_path);
-                
-                if (neighbor_path) {
-                    return neighbor_path;
+                });
+                if (!not_found) {
+                    return make_pair(result, true);
                 }
             }
         }
-        return size_t(0);
+        
+        // we ran through every hit and did not find a path
+        return make_pair(handlegraph::as_path_handle(0), false);
     };
     
-    // the pairs that we are going to exclude
-    vector<pair<size_t, size_t>> excludes;
-    
     for (size_t i = 1; i < current_groups.size(); i++) {
-        size_t i_path = find_path_of_group(current_groups[i]);
+        pair<path_handle_t, bool> i_path = find_path_of_group(current_groups[i]);
         
-        if (!i_path) {
+        if (!i_path.second) {
             continue;
         }
         
         for (size_t j = 0; j < i; j++) {
-            size_t j_path = find_path_of_group(current_groups[j]);
-            if (!j_path) {
+            pair<path_handle_t, bool> j_path = find_path_of_group(current_groups[j]);
+            if (!j_path.second) {
                 continue;
             }
             
             // we can exclude any hits that are on separate connected components
-            if (!xgindex->paths_on_same_component(i_path, j_path)) {
+            if (!path_component_index->paths_on_same_component(i_path.first, j_path.first)) {
                 excludes.emplace_back(i, j);
             }
         }
@@ -1491,7 +1663,7 @@ vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector
     return excludes;
 }
     
-SnarlOrientedDistanceMeasurer::SnarlOrientedDistanceMeasurer(DistanceIndex* distance_index) : distance_index(distance_index) {
+SnarlOrientedDistanceMeasurer::SnarlOrientedDistanceMeasurer(MinimumDistanceIndex* distance_index) : distance_index(distance_index) {
     
     // nothing to do
 }
@@ -1502,8 +1674,8 @@ int64_t SnarlOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, con
     cerr << "measuring distance between " << pos_1 << " and " << pos_2 << endl;
 #endif
     
-    int64_t forward_dist = distance_index->minDistance(pos_1, pos_2);
-    int64_t backward_dist = distance_index->minDistance(pos_2, pos_1);
+    int64_t forward_dist = distance_index->min_distance(pos_1, pos_2);
+    int64_t backward_dist = distance_index->min_distance(pos_2, pos_1);
     
     // -1 is the sentinel returned by the distance index if the distance is not measurable
     if (forward_dist == -1 && backward_dist == -1) {
@@ -1537,9 +1709,10 @@ vector<pair<size_t, size_t>> SnarlOrientedDistanceMeasurer::exclude_merges(vecto
     
     
 MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                                 const GSSWAligner* aligner, size_t min_mem_length) {
+                                                                 const GSSWAligner* aligner, size_t min_mem_length,
+                                                                 const match_fanouts_t* fanouts) {
     
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, false, fanouts);
     
     // Get all the distances between nodes, in a forrest of unrooted trees of
     // nodes that we know are on a consistent strand.
@@ -1572,12 +1745,10 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
     // now we use the strand clusters and the estimated distances to make the DAG for the
     // approximate MEM alignment
     
-    int64_t match_score = aligner->match;
     int64_t gap_open_score = aligner->gap_open;
     int64_t gap_extension_score = aligner->gap_extension;
-    int64_t max_gap = aligner->longest_detectable_gap(alignment);
     
-    int64_t forward_gap_length = max_gap + max_expected_dist_approx_error;
+    int64_t forward_gap_length = min<int64_t>(aligner->longest_detectable_gap(alignment), max_gap) + max_expected_dist_approx_error;
     for (const unordered_map<size_t, int64_t>& relative_pos : strand_relative_position) {
         
         // sort the nodes by relative position
@@ -1601,15 +1772,8 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
             int64_t suffix_length = alignment.sequence().end() - pivot.mem->begin;
             
             // the limits of how far away we might detect edges to add to the clustering graph
-            int64_t target_hi_pos, target_low_pos;
-            if (unstranded) {
-                target_low_pos = strand_pos - suffix_length - forward_gap_length;
-                target_hi_pos = strand_pos + suffix_length + forward_gap_length;
-            }
-            else {
-                target_low_pos = strand_pos - max_expected_dist_approx_error;
-                target_hi_pos = strand_pos + suffix_length + forward_gap_length;
-            }
+            int64_t target_low_pos = strand_pos - max_expected_dist_approx_error;
+            int64_t target_hi_pos = strand_pos + suffix_length + forward_gap_length;
             
             // move the lower boundary of the search interval to the lowest value inside the
             // the target interval
@@ -1651,14 +1815,7 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
                 HitNode& next = hit_graph.nodes[next_idx];
                 
                 // the estimated distance between the end of the pivot and the start of the next MEM in the graph
-                int64_t graph_dist;
-                if (unstranded) {
-                    // here we make the charitable assumption that it is on the correct strand
-                    graph_dist = abs(sorted_pos[j].first - strand_pos) - pivot_length;
-                }
-                else {
-                    graph_dist = sorted_pos[j].first - strand_pos - pivot_length;
-                }
+                int64_t graph_dist = sorted_pos[j].first - strand_pos - pivot_length;
                 
                 if (next.mem->begin >= pivot.mem->begin && next.mem->end <= pivot.mem->end
                     && abs((sorted_pos[j].first - strand_pos) - (next.mem->begin - pivot.mem->begin)) <= 1) {
@@ -1696,9 +1853,8 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
 }
 
 OrientedDistanceClusterer::OrientedDistanceClusterer(OrientedDistanceMeasurer& distance_measurer,
-                                                     bool unstranded,
                                                      size_t max_expected_dist_approx_error)
-    : distance_measurer(distance_measurer), unstranded(unstranded), max_expected_dist_approx_error(max_expected_dist_approx_error) {
+    : distance_measurer(distance_measurer), max_expected_dist_approx_error(max_expected_dist_approx_error) {
         
 }
 
@@ -2324,39 +2480,39 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
              // Assumes the clusters are nonempty.
              if (cluster_num < left_clusters.size()) {
                  // Grab the pos_t for the first hit in the cluster, which is sorted to be the largest one.
-                 return left_clusters[cluster_num]->front().second;
+                 return left_clusters[cluster_num]->first.front().second;
              }
              else if (cluster_num < total_clusters) {
                  // Grab the pos_t for the largest hit from the other cluster
-                 return right_clusters[cluster_num - left_clusters.size()]->front().second;
+                 return right_clusters[cluster_num - left_clusters.size()]->first.front().second;
              }
              else if (cluster_num < total_clusters + left_alt_cluster_anchors.size()) {
                  // Grab a lower pos_t in the list of hits according to the alt anchor
                  const pair<size_t, size_t>& alt_anchor = left_alt_cluster_anchors[cluster_num - total_clusters];
-                 return left_clusters[alt_anchor.first]->at(alt_anchor.second).second;
+                 return left_clusters[alt_anchor.first]->first.at(alt_anchor.second).second;
              }
              else {
                  // Grab an alternate pos_t for a right cluster
                  const pair<size_t, size_t>& alt_anchor = right_alt_cluster_anchors[cluster_num - total_clusters - left_alt_cluster_anchors.size()];
-                 return right_clusters[alt_anchor.first]->at(alt_anchor.second).second;
+                 return right_clusters[alt_anchor.first]->first.at(alt_anchor.second).second;
              }
              
          },
          [&](size_t cluster_num) {
              // Give the offset of the position we chose to either the start or end of the read
              if (cluster_num < left_clusters.size()) {
-                 return alignment_1.sequence().begin() - left_clusters[cluster_num]->front().first->begin;
+                 return alignment_1.sequence().begin() - left_clusters[cluster_num]->first.front().first->begin;
              }
              else if (cluster_num < total_clusters) {
-                 return alignment_2.sequence().end() - right_clusters[cluster_num - left_clusters.size()]->front().first->begin;
+                 return alignment_2.sequence().end() - right_clusters[cluster_num - left_clusters.size()]->first.front().first->begin;
              }
              else if (cluster_num < total_clusters + left_alt_cluster_anchors.size()) {
                  const pair<size_t, size_t>& alt_anchor = left_alt_cluster_anchors[cluster_num - total_clusters];
-                 return alignment_1.sequence().begin() - left_clusters[alt_anchor.first]->at(alt_anchor.second).first->begin;
+                 return alignment_1.sequence().begin() - left_clusters[alt_anchor.first]->first.at(alt_anchor.second).first->begin;
              }
              else {
                  const pair<size_t, size_t>& alt_anchor = right_alt_cluster_anchors[cluster_num - total_clusters - left_alt_cluster_anchors.size()];
-                 return alignment_2.sequence().end() - right_clusters[alt_anchor.first]->at(alt_anchor.second).first->begin;
+                 return alignment_2.sequence().end() - right_clusters[alt_anchor.first]->first.at(alt_anchor.second).first->begin;
              }
          });
     
@@ -2368,34 +2524,27 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
         cerr << "strand reconstruction: "  << endl;
         for (const auto& record : strand) {
             if (record.first < left_clusters.size()) {
-                cerr << "\t" << record.first << " left: " << record.second << "\t" << left_clusters[record.first]->front().second << endl;
+                cerr << "\t" << record.first << " left: " << record.second << "\t" << left_clusters[record.first]->first.front().second << endl;
             }
             else if (record.first < total_clusters) {
-                cerr << "\t" << record.first - left_clusters.size() << " right: " << record.second << "\t" << right_clusters[record.first - left_clusters.size()]->front().second << endl;
+                cerr << "\t" << record.first - left_clusters.size() << " right: " << record.second << "\t" << right_clusters[record.first - left_clusters.size()]->first.front().second << endl;
             }
             else if (record.first < total_clusters + left_alt_cluster_anchors.size()) {
                 const pair<size_t, size_t>& alt_anchor = left_alt_cluster_anchors[record.first - total_clusters];
-                cerr << "\t" << alt_anchor.first << "(alt " << alt_anchor.second << ") left: " << record.second << "\t" << left_clusters[alt_anchor.first]->front().second << endl;
+                cerr << "\t" << alt_anchor.first << "(alt " << alt_anchor.second << ") left: " << record.second << "\t" << left_clusters[alt_anchor.first]->first.front().second << endl;
             }
             else {
                 const pair<size_t, size_t>& alt_anchor = right_alt_cluster_anchors[record.first - total_clusters - left_alt_cluster_anchors.size()];
-                cerr << "\t" << alt_anchor.first << "(alt " << alt_anchor.second << ") right: " << record.second << "\t" << right_clusters[alt_anchor.first]->front().second << endl;
+                cerr << "\t" << alt_anchor.first << "(alt " << alt_anchor.second << ") right: " << record.second << "\t" << right_clusters[alt_anchor.first]->first.front().second << endl;
             }
 
         }
     }
 #endif
     
-    // choose bounds based on whether we're measuring stranded or unstranded distances
-    int64_t max_inter_cluster_distance, min_inter_cluster_distance;
-    if (unstranded) {
-        max_inter_cluster_distance = abs(optimal_separation) + max_deviation;
-        min_inter_cluster_distance = -max_inter_cluster_distance;
-    }
-    else {
-        max_inter_cluster_distance = optimal_separation + max_deviation;
-        min_inter_cluster_distance = optimal_separation - max_deviation;
-    }
+    // choose bounds based on whether we're measuring stranded distances
+    int64_t max_inter_cluster_distance = optimal_separation + max_deviation;
+    int64_t min_inter_cluster_distance = optimal_separation - max_deviation;
     
     for (const unordered_map<size_t, int64_t>& linear_space : linear_spaces) {
         // For each linear space
@@ -2438,11 +2587,11 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
             
 #ifdef debug_mem_clusterer
             if (sorted_pos[i].second < total_clusters) {
-                cerr << "looking for clusters consistent with cluster that starts with " << left_clusters[sorted_pos[i].second]->front().second << " at relative position " << sorted_pos[i].first << " in coordinate window " << coord_interval_start << ":" << coord_interval_end << endl;
+                cerr << "looking for clusters consistent with cluster that starts with " << left_clusters[sorted_pos[i].second]->first.front().second << " at relative position " << sorted_pos[i].first << " in coordinate window " << coord_interval_start << ":" << coord_interval_end << endl;
             }
             else {
                 const pair<size_t, size_t>& alt_anchor = left_alt_cluster_anchors[sorted_pos[i].second - total_clusters];
-                cerr << "looking for clusters consistent with (alt) cluster that starts with " << left_clusters[alt_anchor.first]->front().second << " at relative position " << sorted_pos[i].first << " in coordinate window " << coord_interval_start << ":" << coord_interval_end << endl;
+                cerr << "looking for clusters consistent with (alt) cluster that starts with " << left_clusters[alt_anchor.first]->first.front().second << " at relative position " << sorted_pos[i].first << " in coordinate window " << coord_interval_start << ":" << coord_interval_end << endl;
             }
 #endif
             
@@ -2485,7 +2634,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
                 }
                 
 #ifdef debug_mem_clusterer
-                cerr << "adding pair (" << left_idx << ", " << right_idx << ") with cluster relative position " << sorted_pos[j].first << " starting with " << right_clusters[right_idx]->front().second << endl;
+                cerr << "adding pair (" << left_idx << ", " << right_idx << ") with cluster relative position " << sorted_pos[j].first << " starting with " << right_clusters[right_idx]->first.front().second << endl;
 #endif
                 
                 to_return.emplace_back(make_pair(left_idx, right_idx),
@@ -2502,20 +2651,20 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     return to_return;
 }
 
-SnarlMinDistance::SnarlMinDistance(DistanceIndex& distance_index) : distance_index(distance_index) {
+SnarlMinDistance::SnarlMinDistance(MinimumDistanceIndex& distance_index) : distance_index(distance_index) {
     // nothing else to do
 }
 
 int64_t SnarlMinDistance::operator()(const pos_t& pos_1, const pos_t& pos_2) {
-    return distance_index.minDistance(pos_1, pos_2);
+    return distance_index.min_distance(pos_1, pos_2);
 }
 
-TipAnchoredMaxDistance::TipAnchoredMaxDistance(DistanceIndex& distance_index) : distance_index(distance_index) {
+TipAnchoredMaxDistance::TipAnchoredMaxDistance(MinimumDistanceIndex& distance_index) : distance_index(distance_index) {
     // nothing else to do
 }
 
 int64_t TipAnchoredMaxDistance::operator()(const pos_t& pos_1, const pos_t& pos_2) {
-    return distance_index.maxDistance(pos_1, pos_2);
+    return distance_index.max_distance(pos_1, pos_2);
 }
 
 TargetValueSearch::TargetValueSearch(const HandleGraph& handle_graph,
@@ -2551,6 +2700,8 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
 
     //Best that is too long - use when min heuristic finds actual minimum 
     //difference between target and best dist, node, and target from that node
+    //difference between actual best path and target, the node itself, and the 
+    // target from that node
     pair<int64_t, pair<pair<id_t, bool>, int64_t>> best_long 
                                (-1, make_pair(make_pair(0, false), -1));
 
@@ -2640,7 +2791,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
 
     //////////// Phase 1 of tsv search: get target for each reachable node
     while (next_nodes.size() != 0) {
-        //A*-like traversal
+        //Traverse graph in DFS order, find the target at each node
 
         pair<pair<id_t, bool>, int64_t> next = next_nodes.back();
         next_nodes.pop_back();
@@ -2674,7 +2825,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
             }
         }
 
-        //If this is any other node
+        //If this is any other node or the target was not hit
  
         handle_t curr_handle = handle_graph.get_handle(curr_node.first, curr_node.second);           
         int64_t new_target = curr_target - handle_graph.get_length(curr_handle);
@@ -2691,7 +2842,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
 
             int64_t min_dist = min_distance(new_pos, pos_2); 
             int64_t max_dist = max_distance(new_pos, pos_2); 
-            int64_t lower_target = new_target - tolerance;
+            int64_t lower_target = std::max((int64_t)0, (new_target - tolerance));
             int64_t upper_target = new_target + tolerance;  
  
             if (exact_min && min_dist != -1 && min_dist == new_target) {
@@ -2716,7 +2867,8 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
                 } 
 
             } else if (min_dist != -1 && 
-                       (min_dist <= upper_target || max_dist >= lower_target)){
+                       ((lower_target <= min_dist && min_dist <= upper_target) ||
+                        (lower_target <= max_dist && max_dist <= upper_target))){
 
                 //If no path will hit the target but there are paths 
                 //within tolerance, then save for later
@@ -2773,7 +2925,12 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     return tv_phase2(pos_1, pos_2, target_value, tolerance, node_to_target_shorter, node_to_target_longer, best_long, next_best, node_to_path);
 }
  
-vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance,  hash_map<pair<id_t, bool>, int64_t> node_to_target_shorter, hash_map<pair<id_t, bool>, int64_t>node_to_target_longer,  pair<int64_t, pair<pair<id_t, bool>, int64_t>> best_long,  pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best, hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>> node_to_path) {
+vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance,
+                                              hash_map<pair<id_t, bool>, int64_t>& node_to_target_shorter,
+                                              hash_map<pair<id_t, bool>, int64_t>& node_to_target_longer,
+                                              pair<int64_t, pair<pair<id_t, bool>, int64_t>>& best_long,
+                                              pair<int64_t, pair<pair<id_t, bool>, int64_t>>& next_best,
+                                              hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>>& node_to_path) {
 //TODO: Any path that has been found is probably still pretty good, could return it here 
 
     DistanceHeuristic& min_distance = *lower_bound_heuristic;
@@ -2845,6 +3002,7 @@ vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& p
                   vector<pair<pair<pair<id_t, bool>, int64_t>, int64_t>>,
                   decltype(cmp)> reachable(cmp);
 
+    //Put all nodes into 
     for (auto it : node_to_target_shorter) {
        pair<id_t, bool> node = it.first;
        int64_t target = it.second;
@@ -3001,18 +3159,19 @@ int64_t TargetValueSearch::tv_path_length(const pos_t& pos_1, const pos_t& pos_2
     }
 }
     
-TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* distance_index) :
+TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, MinimumDistanceIndex* distance_index) :
       tvs(*handle_graph, new TipAnchoredMaxDistance(*distance_index), new SnarlMinDistance(*distance_index))   {
     
     // nothing else to do
 }
     
 MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                    const GSSWAligner* aligner, size_t min_mem_length) {
+                                                    const GSSWAligner* aligner, size_t min_mem_length,
+                                                    const match_fanouts_t* fanouts) {
     
     
     // intialize with nodes
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, false, fanouts);
     
     // assumes that MEMs are given in lexicographic order by read interval
     for (size_t i = 0; i < hit_graph.nodes.size(); i++) {
@@ -3036,8 +3195,9 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
             int64_t read_separation = hit_node_2.mem->begin - hit_node_1.mem->begin;
             
             // how long of an insert/deletion could we detect based on the scoring parameters?
-            size_t longest_gap = min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
-                                     aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin));
+            size_t longest_gap = min<int64_t>(min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
+                                                  aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin)),
+                                              max_gap);
             
 #ifdef debug_mem_clusterer
             cerr << "estimating distance between " << i << " (pos " << hit_node_1.start_pos << ") and " << j << " (pos " << hit_node_2.start_pos << ") with target " << read_separation << " and tolerance " << longest_gap << endl;
@@ -3051,7 +3211,7 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
 #endif
             
             if (tv_len == read_separation
-                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->begin < hit_node_1.mem->begin)
+                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->end < hit_node_1.mem->end)
                     || (hit_node_2.mem->begin > hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end))) {
                 // this has the appearance of being a redundant hit of a sub-MEM, which we don't want to form
                 // a separate cluster
@@ -3101,12 +3261,12 @@ vector<pair<pair<size_t, size_t>, int64_t>> TVSClusterer::pair_clusters(const Al
         hit_t left_clust_hit;
         if (i < left_clusters.size()) {
             left_clust_idx = i;
-            left_clust_hit = left_clusters[i]->front();
+            left_clust_hit = left_clusters[i]->first.front();
         }
         else {
             auto& alt_anchor = left_alt_cluster_anchors[i - left_clusters.size()];
             left_clust_idx = alt_anchor.first;
-            left_clust_hit = left_clusters[left_clust_idx]->at(alt_anchor.second);
+            left_clust_hit = left_clusters[left_clust_idx]->first.at(alt_anchor.second);
         }
         
         for (size_t j = 0, j_end  = right_clusters.size() + right_alt_cluster_anchors.size(); j < j_end; j++) {
@@ -3116,12 +3276,12 @@ vector<pair<pair<size_t, size_t>, int64_t>> TVSClusterer::pair_clusters(const Al
             hit_t right_clust_hit;
             if (j < right_clusters.size()) {
                 right_clust_idx = j;
-                right_clust_hit = right_clusters[j]->front();
+                right_clust_hit = right_clusters[j]->first.front();
             }
             else {
                 auto& alt_anchor = right_alt_cluster_anchors[j - right_clusters.size()];
                 right_clust_idx = alt_anchor.first;
-                right_clust_hit = right_clusters[right_clust_idx]->at(alt_anchor.second);
+                right_clust_hit = right_clusters[right_clust_idx]->first.at(alt_anchor.second);
             }
             
             // adjust the target value by how far away we are from the ends of the fragment
@@ -3158,7 +3318,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> TVSClusterer::pair_clusters(const Al
     return to_return;
 }
 
-MinDistanceClusterer::MinDistanceClusterer(DistanceIndex* distance_index) : distance_index(distance_index) {
+MinDistanceClusterer::MinDistanceClusterer(MinimumDistanceIndex* distance_index) : distance_index(distance_index) {
     // nothing to do
 }
     
@@ -3183,12 +3343,12 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
         hit_t left_clust_hit;
         if (i < left_clusters.size()) {
             left_clust_idx = i;
-            left_clust_hit = left_clusters[i]->front();
+            left_clust_hit = left_clusters[i]->first.front();
         }
         else {
             auto& alt_anchor = left_alt_cluster_anchors[i - left_clusters.size()];
             left_clust_idx = alt_anchor.first;
-            left_clust_hit = left_clusters[left_clust_idx]->at(alt_anchor.second);
+            left_clust_hit = left_clusters[left_clust_idx]->first.at(alt_anchor.second);
         }
         
         for (size_t j = 0, j_end  = right_clusters.size() + right_alt_cluster_anchors.size(); j < j_end; j++) {
@@ -3198,12 +3358,12 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
             hit_t right_clust_hit;
             if (j < right_clusters.size()) {
                 right_clust_idx = j;
-                right_clust_hit = right_clusters[j]->front();
+                right_clust_hit = right_clusters[j]->first.front();
             }
             else {
                 auto& alt_anchor = right_alt_cluster_anchors[j - right_clusters.size()];
                 right_clust_idx = alt_anchor.first;
-                right_clust_hit = right_clusters[right_clust_idx]->at(alt_anchor.second);
+                right_clust_hit = right_clusters[right_clust_idx]->first.at(alt_anchor.second);
             }
             
 #ifdef debug_mem_clusterer
@@ -3211,9 +3371,9 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
 #endif
             
             // what is the minimum distance between these hits?
-            int64_t min_dist = distance_index->minDistance(left_clust_hit.second, right_clust_hit.second);
+            int64_t min_dist = distance_index->min_distance(left_clust_hit.second, right_clust_hit.second);
             if (min_dist == -1) {
-                int64_t rev_min_dist = distance_index->minDistance(left_clust_hit.second, right_clust_hit.second);
+                int64_t rev_min_dist = distance_index->min_distance(left_clust_hit.second, right_clust_hit.second);
                 if (rev_min_dist == -1) {
                     // these are not reachable, don't make a pair
                     continue;
@@ -3250,64 +3410,61 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
     
     return to_return;
 }
-    
-    MEMClusterer::HitGraph MinDistanceClusterer::make_hit_graph(const Alignment& alignment,
-                                                           const vector<MaximalExactMatch>& mems,
-                                                           const GSSWAligner* aligner,
-                                                           size_t min_mem_length) {
+
+MEMClusterer::HitGraph MinDistanceClusterer::make_hit_graph(const Alignment& alignment,
+                                                            const vector<MaximalExactMatch>& mems,
+                                                            const GSSWAligner* aligner,
+                                                            size_t min_mem_length,
+                                                            const match_fanouts_t* fanouts) {
     
     // intialize with nodes
-    HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, false, fanouts);
     
     // assumes that MEMs are given in lexicographic order by read interval
-    for (size_t i = 0; i < hit_graph.nodes.size(); i++) {
+    for (size_t i = 0, j_begin = 1; i < hit_graph.nodes.size(); ++i) {
+        
         HitNode& hit_node_1 = hit_graph.nodes[i];
         
-        for (size_t j = i + 1; j < hit_graph.nodes.size(); j++){
+        // start either at the first un-equal position or at the next position
+        j_begin = max(j_begin, i + 1);
+        
+        // skip measuring to any additional hits of the same read interval
+        while (j_begin < hit_graph.nodes.size() &&
+               hit_graph.nodes[j_begin].mem->begin == hit_node_1.mem->begin &&
+               hit_graph.nodes[j_begin].mem->end == hit_node_1.mem->end) {
+            
+            // this node is at the same place in the read, so they can't be colinear
+#ifdef debug_mem_clusterer
+            cerr << "nodes " << i << " (" << hit_node_1.start_pos << ") and " << j_begin << " (" << hit_graph.nodes[j_begin].start_pos << ") are not read colinear" << endl;
+#endif
+            ++j_begin;
+        }
+        
+        for (size_t j = j_begin; j < hit_graph.nodes.size(); ++j){
             
             HitNode& hit_node_2 = hit_graph.nodes[j];
             
-            if (hit_node_2.mem->begin <= hit_node_1.mem->begin
-                && hit_node_2.mem->end <= hit_node_1.mem->end) {
-                // this node is at the same place or earlier in the read, so they can't be colinear
-                
-#ifdef debug_mem_clusterer
-                cerr << "nodes " << i << " (" << hit_node_1.start_pos << ") and " << j << " (" << hit_node_2.start_pos << ") are not read colinear" << endl;
-#endif
-                continue;
-            }
-            
-
-            
             // what is the minimum distance between these hits?
-            int64_t min_dist = distance_index->minDistance(hit_node_1.start_pos, hit_node_2.start_pos);
+            int64_t min_dist = distance_index->min_distance(hit_node_1.start_pos, hit_node_2.start_pos);
             if (min_dist == -1) {
-                int64_t rev_min_dist = distance_index->minDistance(hit_node_2.start_pos, hit_node_1.start_pos);
-                if (rev_min_dist == -1) {
-                    // these are not reachable, don't make an edge
-                    continue;
-                }
-                else {
-                    // this is reachable by traversing backwards, give it negative distance
-                    min_dist = -rev_min_dist;
-                }
+                // these are not reachable, don't make an edge
+                continue;
             }
             
             // how far apart do we expect them to be based on the read?
             int64_t read_separation = hit_node_2.mem->begin - hit_node_1.mem->begin;
             
             // how long of an insert/deletion could we detect based on the scoring parameters?
-            size_t longest_gap = min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
-                                     aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin));
+            size_t longest_gap = min<int64_t>(min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
+                                                  aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin)),
+                                              max_gap);
             
             // is it possible that an alignment containing both could be detected with local alignment?
             if (abs(read_separation - min_dist) > longest_gap) {
                 continue;
             }
             
-            if (min_dist == read_separation
-                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->begin < hit_node_1.mem->begin)
-                    || (hit_node_2.mem->begin > hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end))) {
+            if (min_dist == read_separation && hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end) {
                 // this has the appearance of being a redundant hit of a sub-MEM, which we don't want to form
                 // a separate cluster
                 
@@ -3332,9 +3489,281 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
     
     return hit_graph;
 }
+
+GreedyMinDistanceClusterer::GreedyMinDistanceClusterer(MinimumDistanceIndex* distance_index) : MinDistanceClusterer(distance_index) {
+    // nothing else to do
+}
+
+MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
+                                                                  const GSSWAligner* aligner, size_t min_mem_length,
+                                                                  const match_fanouts_t* fanouts) {
+    
+    // init the hit graph's nodes
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, false, fanouts);
+    
+    // we will initialize this with the next backward and forward comparisons for each hit node
+    vector<pair<int64_t, int64_t>> next_comparisons;
+    next_comparisons.reserve(2 * hit_graph.nodes.size());
+    
+    // assumes that MEMs are given in lexicographic order by read interval
+    for (size_t i = 0, j = 1; i < hit_graph.nodes.size(); ++i) {
+        
+        // where we expect to find the next match on the read
+        auto target = hit_graph.nodes[i].mem->end + expected_separation;
+        
+        // start either at the previous target or one past i
+        j = max(j, i + 1);
+        
+        // move forward until we are past the target
+        while (j < hit_graph.nodes.size() && hit_graph.nodes[j].mem->begin < target) {
+            ++j;
+        }
+        
+        // move backward until the next index is past the target
+        while (j > i + 1 && hit_graph.nodes[j - 1].mem->begin >= target) {
+            --j;
+        }
+        
+        // the next backwards comparison
+        if (j > i + 1 && target - hit_graph.nodes[j - 1].mem->begin >= min_separation) {
+            next_comparisons.emplace_back(i, j - 1);
+        }
+        // the backwards comparison
+        if (j < hit_graph.nodes.size() && target - hit_graph.nodes[j].mem->begin <= max_separation) {
+            next_comparisons.emplace_back(i, j);
+        }
+    }
+    
+    // the iteration order is starting from distances near the expected distance first, but also
+    // favoring forward distances by some pre-determined multiplier
+    auto priority_cmp = [&](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
+        int64_t a_dist = (hit_graph.nodes[a.second].mem->begin - hit_graph.nodes[a.first].mem->end) - expected_separation;
+        int64_t b_dist = (hit_graph.nodes[b.second].mem->begin - hit_graph.nodes[b.first].mem->end) - expected_separation;
+        return (a_dist < 0 ? -a_dist * forward_multiplier : a_dist) > (b_dist < 0 ? -b_dist * forward_multiplier : b_dist);
+    };
+    
+    // establish the initial heap ordering
+    make_heap(next_comparisons.begin(), next_comparisons.end(), priority_cmp);
+    
+    // we will block off seeds as they become incorporated into clusters
+    // pairs indicate whether a node is blocked for edges (into, out of) it
+    vector<pair<bool, bool>> blocked(hit_graph.nodes.size(), pair<bool, bool>(false, false));
+    
+    // iterate through the comparisons
+    while (!next_comparisons.empty())  {
+        
+        pop_heap(next_comparisons.begin(), next_comparisons.end(), priority_cmp);
+        auto comparison = next_comparisons.back();
+        next_comparisons.pop_back();
+        
+#ifdef debug_mem_clusterer
+        cerr << "greedy cluster comparing:" << endl;
+        cerr << "\t" << comparison.first << ": " << hit_graph.nodes[comparison.first].start_pos << " " << hit_graph.nodes[comparison.first].mem->sequence() << endl;
+        cerr << "\t" << comparison.second << ": " << hit_graph.nodes[comparison.second].start_pos << " " << hit_graph.nodes[comparison.second].mem->sequence() << endl;
+#endif
+        
+        if (blocked[comparison.first].second) {
+            // we've already greedily accumulated out of this match, so we don't
+            // need to look for more connections from it
+            
+            // TODO: this is actually not correct, we should try to add the next one here...
+            continue;
+        }
+        
+        auto& hit_node_1 = hit_graph.nodes[comparison.first];
+        auto& hit_node_2 = hit_graph.nodes[comparison.second];
+        
+        int64_t read_dist = hit_node_2.mem->begin - hit_node_1.mem->end;
+        
+        if (!blocked[comparison.second].first) {
+            
+            // what is the minimum distance between these hits?
+            int64_t min_dist = distance_index->min_distance(hit_node_1.start_pos, hit_node_2.start_pos);
+            
+#ifdef debug_mem_clusterer
+            cerr << "read dist: " << read_dist << ", min dist: " << min_dist << ", graph dist: " << min_dist - (hit_node_1.mem->end - hit_node_1.mem->begin) << endl;
+#endif
+            
+            // TODO: i'm ignoring sub-matches here because it's intended to be used with the stripped
+            // algorithm. that might come back to haunt me later
+            
+            if (min_dist >= 0) {
+                // we were able to measure a distance
+                
+                // how long of an insert/deletion could we detect based on the scoring parameters?
+                int64_t longest_gap = min<int64_t>(min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
+                                                       aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin)),
+                                                   max_gap);
+                
+                // the distance from the end of the first hit to the beginning of the next
+                int64_t graph_dist = min_dist - (hit_node_1.mem->end - hit_node_1.mem->begin);
+                
+                // is it possible that an alignment containing both could be detected with local alignment?
+                if (abs(read_dist - graph_dist) < longest_gap) {
+                    // there's a path within in the limit
+                    
+#ifdef debug_mem_clusterer
+                    cerr << "found hit edge" << endl;
+#endif
+                    
+                    // add the corresponding edge
+                    hit_graph.add_edge(comparison.first, comparison.second,
+                                       estimate_edge_score(hit_node_1.mem, hit_node_2.mem, graph_dist, aligner),
+                                       graph_dist);
+                    
+                    // we won't look for any more connections involving this end of these two
+                    blocked[comparison.first].second = true;
+                    blocked[comparison.second].first = true;
+                }
+            }
+        }
+        
+        if (!blocked[comparison.first].second) {
+            
+            // TODO: this is actually not correct, we should try to continue until finding an unblocked
+            // node
+            
+            // we didn't just block off connections out of this match,
+            // so we can queue up the next one
+            if (read_dist >= 0 && comparison.second + 1 < hit_graph.nodes.size() &&
+                hit_graph.nodes[comparison.second + 1].mem->begin - hit_node_1.mem->end <= max_separation) {
+                // the next in the forward direction
+                next_comparisons.emplace_back(comparison.first, comparison.second + 1);
+                push_heap(next_comparisons.begin(), next_comparisons.end(), priority_cmp);
+            }
+            else if (read_dist < 0 && hit_graph.nodes[comparison.second - 1].mem->begin > hit_node_1.mem->begin &&
+                     hit_graph.nodes[comparison.second - 1].mem->begin - hit_node_1.mem->end >= min_separation) {
+                // the next in the backward direction, requiring read colinearity
+                next_comparisons.emplace_back(comparison.first, comparison.second - 1);
+                push_heap(next_comparisons.begin(), next_comparisons.end(), priority_cmp);
+            }
+        }
+    }
+    
+    return hit_graph;
+}
+
+ComponentMinDistanceClusterer::ComponentMinDistanceClusterer(MinimumDistanceIndex* distance_index) : MinDistanceClusterer(distance_index) {
+    // nothing else to do
+}
+
+MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
+                                                                     const GSSWAligner* aligner, size_t min_mem_length,
+                                                                     const match_fanouts_t* fanouts) {
+    
+    // init the hit graph's nodes
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length, false, fanouts);
+    
+    // shim the hit graph nodes into the seed clusterer algorithm interface
+    vector<SnarlSeedClusterer::Seed> positions(hit_graph.nodes.size());
+    for (size_t i = 0; i < hit_graph.nodes.size(); ++i)  {
+        positions[i].pos = hit_graph.nodes[i].start_pos;
+    }
+ 
+    typedef SnarlSeedClusterer::Cluster Cluster;
+    SnarlSeedClusterer seed_clusterer(*distance_index);
+    // TODO: magic number, want enough space for the max gap and the inter-seed distance but how to do this in
+    // a principled way?
+    std::vector<Cluster> distance_components = seed_clusterer.cluster_seeds(positions, 2 * max_gap);
+    
+    // these components are returned by the structures::UnionFind::all_groups() method, which
+    // always returns them in sorted order, so we can assume that they are still lexicographically
+    // ordered internally
+    for (Cluster& cluster : distance_components) {
+        std::vector<size_t>& component = cluster.seeds;
+#ifdef debug_mem_clusterer
+        cerr << "looking edges in distance component containing:" << endl;
+        for (size_t i : component) {
+            cerr << "\t" << i << " " << hit_graph.nodes[i].start_pos << " " << hit_graph.nodes[i].mem->sequence() << endl;
+        }
+#endif
+        
+        for (size_t i = 0, j_begin = 1; i < component.size(); ++i) {
+            
+            HitNode& hit_node_1 = hit_graph.nodes[component[i]];
+            auto from = hit_node_1.mem->begin;
+            
+            // start either at the previous target or one past i
+            j_begin = max(j_begin, i + 1);
+            
+            // move forward until we are within the window
+            while (j_begin < component.size() &&
+                   hit_graph.nodes[component[j_begin]].mem->begin - from < min_read_separation) {
+                ++j_begin;
+            }
+            
+            // move backward until we are just within the window
+            while (j_begin > i + 1 &&
+                   hit_graph.nodes[component[j_begin - 1]].mem->begin - from >= min_read_separation) {
+                --j_begin;
+            }
+            
+            int64_t connections_made = 0;
+            
+            for (size_t j = j_begin;
+                 j < component.size() && hit_graph.nodes[component[j]].mem->begin - from <= max_gap; ++j) {
+                
+                HitNode& hit_node_2 = hit_graph.nodes[component[j]];
+                
+                // TODO: this code is getting repetitive, i should probably factor it into a MinDistanceClusterer method
+                
+                int64_t min_dist = distance_index->min_distance(hit_node_1.start_pos, hit_node_2.start_pos);
+                if (min_dist >= 0) {
+                    // how long of an insert/deletion could we detect based on the scoring parameters?
+                    int64_t longest_gap = min<int64_t>(min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
+                                                           aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin)),
+                                                       max_gap);
+                    
+                    // the distance from the end of the first hit to the beginning of the next
+                    int64_t graph_dist = min_dist - (hit_node_1.mem->end - hit_node_1.mem->begin);
+                    
+                    // the distance between the seeds on the read
+                    int64_t read_dist = hit_node_2.mem->begin - hit_node_1.mem->end;
+                    
+                    if (min_dist == hit_node_2.mem->begin - hit_node_1.mem->begin &&
+                        ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end)
+                         || (hit_node_1.mem->begin >= hit_node_2.mem->begin && hit_node_1.mem->end <= hit_node_2.mem->end))) {
+                        // this has the appearance of being a redundant hit of a sub-MEM, which we don't want to form
+                        // a separate cluster
+                        
+#ifdef debug_mem_clusterer
+                        cerr << "adding dummy hit edge edge " << component[i] << " -> " << component[j] << " to join componenents" << endl;
+#endif
+                        
+                        // we add a dummy edge, but only to connect the nodes' components and join the clusters,
+                        // not to actually use in dynamic programming (given arbitrary low weight that should not
+                        // cause overflow)
+                        hit_graph.add_edge(component[i], component[j], numeric_limits<int32_t>::lowest() / 2, graph_dist);
+                    }
+                    else if (abs(read_dist - graph_dist) < longest_gap) {
+                        // there's a path within in the limit
+                        
+#ifdef debug_mem_clusterer
+                        cerr << "adding hit edge " << component[i] << " -> " << component[j] << ", read dist " << read_dist << ", graph dist " << graph_dist << endl;
+#endif
+                        
+                        // add the corresponding edge
+                        hit_graph.add_edge(component[i], component[j],
+                                           estimate_edge_score(hit_node_1.mem, hit_node_2.mem, graph_dist, aligner),
+                                           graph_dist);
+                        
+                        // check if we've made enough connnections to stop early (usually the very next
+                        // match along the read is the true "next" match in the cluster)
+                        ++connections_made;
+                        if (early_stop_number && connections_made >= early_stop_number) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    return hit_graph;
+}
     
 // collect node starts to build out graph
-vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem) {
+vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const HandleGraph& graph, const vg::MaximalExactMatch& mem) {
     // walk the match, getting all the nodes that it touches
     string mem_seq = mem.sequence();
     vector<pair<gcsa::node_type, size_t> > positions;
@@ -3349,8 +3778,8 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg
             auto& pos = h.first;
             size_t query_offset = h.second;
             // check if we match each node in next
-            auto handle = xg.get_handle(gcsa::Node::id(pos), gcsa::Node::rc(pos));
-            string h_seq = xg.get_sequence(handle);
+            auto handle = graph.get_handle(gcsa::Node::id(pos), gcsa::Node::rc(pos));
+            string h_seq = graph.get_sequence(handle);
             size_t mem_todo = mem_seq.size() - query_offset;
             size_t overlap = min((size_t)mem_todo, (size_t)(h_seq.size()-gcsa::Node::offset(pos)));
             /*
@@ -3369,8 +3798,8 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg
                 // if we continue past this node, insert our next nodes into nexts
                 if (mem_todo - overlap > 0) {
                     size_t new_off = query_offset + overlap;
-                    xg.follow_edges(handle, false, [&](const handle_t& next) {
-                            todo.insert(make_pair(gcsa::Node::encode(xg.get_id(next), 0, xg.get_is_reverse(next)), new_off));
+                    graph.follow_edges(handle, false, [&](const handle_t& next) {
+                            todo.insert(make_pair(gcsa::Node::encode(graph.get_id(next), 0, graph.get_is_reverse(next)), new_off));
                             return true;
                         });
                 }
@@ -3395,75 +3824,74 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg
     return positions;
 }
 
-Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
+bdsg::HashGraph cluster_subgraph_containing(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& cluster, const GSSWAligner* aligner) {
+    vector<pos_t> positions;
+    vector<size_t> forward_max_dist;
+    vector<size_t> backward_max_dist;
+    positions.reserve(cluster.size());
+    forward_max_dist.reserve(cluster.size());
+    backward_max_dist.reserve(cluster.size());
+    for (auto& mem : cluster) {
+        // get the start position of the MEM
+        positions.push_back(make_pos_t(mem.nodes.front()));
+        // search far enough away to get any hit detectable without soft clipping
+        forward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.end)
+                                   + (aln.sequence().end() - mem.begin));
+        backward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.begin)
+                                    + (mem.begin - aln.sequence().begin()));
+    }
+    auto cluster_graph = bdsg::HashGraph();
+    algorithms::extract_containing_graph(&base, &cluster_graph, positions, forward_max_dist, backward_max_dist);
+    return cluster_graph;
+}
+
+bdsg::HashGraph cluster_subgraph_walk(const HandleGraph& base, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
     assert(mems.size());
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());
-    auto rev_start_pos = reverse(start_pos, xg.node_length(id(start_pos)));
+    auto rev_start_pos = reverse(start_pos, base.get_length(base.get_handle(id(start_pos))));
     // Even if the MEM is right up against the start of the read, it may not be
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
-    Graph graph;
+    bdsg::HashGraph graph;
     int inside_padding = max(1, (int)aln.sequence().size()/16);
     int end_padding = max(8, (int)aln.sequence().size()/8);
     int get_before = end_padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     if (get_before) {
-        graph.MergeFrom(xg.graph_context_id(rev_start_pos, get_before));
+        //algorithms::extract_context(base, graph, base.get_handle(id(rev_start_pos), is_rev(rev_start_pos)), offset(rev_start_pos), get_before, false, true);
     }
     //cerr << "======================================================" << endl;
     for (int i = 0; i < mems.size(); ++i) {
         auto& mem = mems[i];
         //cerr << mem << endl;
-        vector<pair<gcsa::node_type, size_t> > match_positions = mem_node_start_positions(xg, mem);
+        vector<pair<gcsa::node_type, size_t> > match_positions = mem_node_start_positions(base, mem);
         if (!match_positions.size()) {
             // TODO XXX is MEM merging causing this to occur?
             match_positions.push_back(make_pair(mem.nodes.front(), mem.length()));
         }
         for (auto& p : match_positions) {
-            graph.MergeFrom(xg.node_subgraph_id(gcsa::Node::id(p.first)));
+            handle_t h = base.get_handle(gcsa::Node::id(p.first), gcsa::Node::rc(p.first));
+            algorithms::extract_context(base, graph, h, gcsa::Node::offset(p.first), 0);
         }
         // extend after the last match node with the expansion
         auto& p = match_positions.back();
         auto& pos = p.first;
         int mem_remainder = p.second;
         //cerr << p.first << " " << p.second << endl;
-        int get_after = xg.node_length(gcsa::Node::id(pos))
-            + (i+1 == mems.size() ?
+        handle_t h = base.get_handle(gcsa::Node::id(pos));
+        int get_after = //base.get_length(h);
+            (i+1 == mems.size() ?
                end_padding +
                expansion * ((int)(aln.sequence().end() - mem.end) + mem_remainder)
                :
                inside_padding +
                expansion * ((int)(mems[i+1].begin - mem.end) + mem_remainder));
-        if (get_after > 0) graph.MergeFrom(xg.graph_context_id(make_pos_t(pos), get_after));
+        if (get_after > 0) {
+            algorithms::extract_context(base, graph, h, gcsa::Node::offset(pos), get_after, true, false);
+        }
     }
-    xg.expand_context(graph, 0, false); // get connected edges
-    sort_by_id_dedup_and_clean(graph);
-    return graph;
-}
-
-Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
-    assert(mems.size());
-    auto& start_mem = mems.front();
-    auto start_pos = make_pos_t(start_mem.nodes.front());
-    auto rev_start_pos = reverse(start_pos, xg.node_length(id(start_pos)));
-    // Even if the MEM is right up against the start of the read, it may not be
-    // part of the best alignment. Make sure to have some padding.
-    // TODO: how much padding?
-    Graph graph;
-    int padding = 1;
-    int get_before = padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
-    if (get_before) {
-        graph.MergeFrom(xg.graph_context_id(rev_start_pos, get_before));
-    }
-    for (int i = 0; i < mems.size(); ++i) {
-        auto& mem = mems[i];
-        auto pos = make_pos_t(mem.nodes.front());
-        int get_after = padding + (i+1 == mems.size() ?
-                                   expansion * (int)(aln.sequence().end() - mem.begin)
-                                   : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
-        graph.MergeFrom(xg.graph_context_id(pos, get_after));
-    }
-    sort_by_id_dedup_and_clean(graph);
+    //algorithms::expand_subgraph_by_steps(base, graph, 0);
+    algorithms::expand_subgraph_to_length(base, graph, aln.sequence().size() * expansion, false);
     return graph;
 }
 

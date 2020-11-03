@@ -1,59 +1,17 @@
 #include "topological_sort.hpp"
 
+#include "find_tips.hpp"
+
 namespace vg {
 namespace algorithms {
 
 using namespace std;
 
-vector<handle_t> head_nodes(const HandleGraph* g) {
-    vector<handle_t> to_return;
-    g->for_each_handle([&](const handle_t& found) {
-        // For each (locally forward) node
-        
-        bool no_left_edges = true;
-        g->follow_edges(found, true, [&](const handle_t& ignored) {
-            // We found a left edge!
-            no_left_edges = false;
-            // We only need one
-            return false;
-        });
-        
-        if (no_left_edges) {
-            to_return.push_back(found);
-        }
-    });
-    
-    return to_return;
-    
-}
-
-vector<handle_t> tail_nodes(const HandleGraph* g) {
-    vector<handle_t> to_return;
-    g->for_each_handle([&](const handle_t& found) {
-        // For each (locally forward) node
-        
-        bool no_right_edges = true;
-        g->follow_edges(found, false, [&](const handle_t& ignored) {
-            // We found a right edge!
-            no_right_edges = false;
-            // We only need one
-            return false;
-        });
-        
-        if (no_right_edges) {
-            to_return.push_back(found);
-        }
-    });
-    
-    return to_return;
-    
-}
-
 vector<handle_t> topological_order(const HandleGraph* g) {
     
     // Make a vector to hold the ordered and oriented nodes.
     vector<handle_t> sorted;
-    sorted.reserve(g->node_size());
+    sorted.reserve(g->get_node_count());
     
     // Instead of actually removing edges, we add them to this set of masked edges.
     unordered_set<pair<handle_t, handle_t>> masked_edges;
@@ -261,8 +219,8 @@ vector<handle_t> topological_order(const HandleGraph* g) {
 vector<handle_t> lazy_topological_order_internal(const HandleGraph* g, bool lazier) {
     
     // map that will contain the orientation and the in degree for each node
-    unordered_map<handle_t, int64_t> inward_degree;
-    inward_degree.reserve(g->node_size());
+    spp::sparse_hash_map<handle_t, int64_t> inward_degree;
+    inward_degree.reserve(g->get_node_count());
     
     // stack for the traversal
     vector<handle_t> stack;
@@ -270,10 +228,7 @@ vector<handle_t> lazy_topological_order_internal(const HandleGraph* g, bool lazi
     if (lazier) {
         // take the locally forward orientation as a single stranded orientation
         g->for_each_handle([&](const handle_t& handle) {
-            int64_t& degree = inward_degree[handle];
-            g->follow_edges(handle, true, [&](const handle_t& ignored) {
-                degree++;
-            });
+            int64_t& degree = inward_degree[handle] = g->get_degree(handle, true);
             // initialize the stack with head nodes
             if (degree == 0) {
                 stack.emplace_back(handle);
@@ -284,17 +239,14 @@ vector<handle_t> lazy_topological_order_internal(const HandleGraph* g, bool lazi
         // get an orientation over which we can consider the graph single stranded
         vector<handle_t> orientation = single_stranded_orientation(g);
         
-        if (orientation.size() != g->node_size()) {
+        if (orientation.size() != g->get_node_count()) {
             cerr << "error:[algorithms] attempting to use lazy topological sort on unorientable graph" << endl;
             assert(false);
         }
         
         // compute the degrees by following the edges backward
         for (auto& handle : orientation) {
-            int64_t& degree = inward_degree[handle];
-            g->follow_edges(handle, true, [&](const handle_t& ignored) {
-                degree++;
-            });
+            int64_t& degree = inward_degree[handle] = g->get_degree(handle, true);
             // initialize the stack with head nodes
             if (degree == 0) {
                 stack.emplace_back(handle);
@@ -304,7 +256,7 @@ vector<handle_t> lazy_topological_order_internal(const HandleGraph* g, bool lazi
     
     // the return value
     vector<handle_t> order;
-    order.reserve(g->node_size());
+    order.reserve(g->get_node_count());
     
     while (!stack.empty()) {
         // get a head node off the queue
@@ -329,7 +281,7 @@ vector<handle_t> lazy_topological_order_internal(const HandleGraph* g, bool lazi
         });
     }
     
-    if (order.size() != g->node_size()) {
+    if (order.size() != g->get_node_count()) {
         cerr << "error:[algorithms] lazy topological sort is invalid on non-DAG graph, cannot complete algorithm" << endl;
         assert(false);
     }
@@ -344,25 +296,6 @@ vector<handle_t> lazy_topological_order(const HandleGraph* g) {
     
 vector<handle_t> lazier_topological_order(const HandleGraph* g) {
     return lazy_topological_order_internal(g, true);
-}
-void topological_sort(MutableHandleGraph* g) {
-    if (g->node_size() <= 1) {
-        // A graph with <2 nodes has only one sort.
-        return;
-    }
-    
-    // No need to modify the graph; topological_sort is guaranteed to be stable.
-    
-    // Topologically sort, which orders and orients all the nodes, and apply the order to the backing graph
-    apply_ordering(g, topological_order(g));
-}
-    
-void lazy_topological_sort(MutableHandleGraph* g) {
-    apply_ordering(g, lazy_topological_order(g));
-}
-
-void lazier_topological_sort(MutableHandleGraph* g) {
-    apply_ordering(g, lazier_topological_order(g));
 }
     
 unordered_set<id_t> orient_nodes_forward(MutableHandleGraph* g) {

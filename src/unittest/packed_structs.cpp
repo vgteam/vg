@@ -6,10 +6,13 @@
 #include <iostream>
 #include <random>
 #include <unordered_set>
+#include <sstream>
 
-#include "../json2pb.h"
-#include "../packed_structs.hpp"
+#include "vg/io/json2pb.h"
 #include "catch.hpp"
+#include "randomness.hpp"
+
+#include <bdsg/internal/packed_structs.hpp>
 
 namespace vg {
 namespace unittest {
@@ -17,11 +20,10 @@ using namespace std;
 
     TEST_CASE("PackedVector acts the same as STL vector", "[packed]") {
         
-        enum vec_op_t {SET = 0, GET = 1, APPEND = 2, POP = 3};
+        enum vec_op_t {SET = 0, GET = 1, APPEND = 2, POP = 3, SERIALIZE = 4};
         
-        random_device rd;
-        default_random_engine prng(rd());
-        uniform_int_distribution<int> op_distr(0, 3);
+        default_random_engine prng(test_seed_source());
+        uniform_int_distribution<int> op_distr(0, 4);
         
         int num_runs = 1000;
         int num_ops = 200;
@@ -35,7 +37,7 @@ using namespace std;
             uint64_t next_val = 0;
             
             vector<uint64_t> std_vec;
-            PackedVector dyn_vec;
+            bdsg::PackedVector dyn_vec;
             
             for (size_t j = 0; j < num_ops; j++) {
                 
@@ -83,6 +85,21 @@ using namespace std;
                         
                         break;
                         
+                    case SERIALIZE:
+                    {
+                        stringstream strm;
+                        
+                        dyn_vec.serialize(strm);
+                        strm.seekg(0);
+                        bdsg::PackedVector copy_vec(strm);
+                        
+                        REQUIRE(copy_vec.size() == dyn_vec.size());
+                        for (size_t i = 0; i < copy_vec.size(); i++) {
+                            REQUIRE(copy_vec.get(i) == dyn_vec.get(i));
+                        }
+                        break;
+                    }
+                        
                     default:
                         break;
                 }
@@ -95,10 +112,9 @@ using namespace std;
     
     TEST_CASE("PagedVector acts the same as STL vector", "[packed]") {
         
-        enum vec_op_t {SET = 0, GET = 1, APPEND = 2, POP = 3};
-        std::random_device rd;
-        std::default_random_engine prng(rd());
-        std::uniform_int_distribution<int> op_distr(0, 3);
+        enum vec_op_t {SET = 0, GET = 1, APPEND = 2, POP = 3, SERIALIZE = 4};
+        std::default_random_engine prng(test_seed_source());
+        std::uniform_int_distribution<int> op_distr(0, 4);
         std::uniform_int_distribution<int> page_distr(1, 5);
         std::uniform_int_distribution<int> val_distr(0, 100);
         
@@ -114,7 +130,7 @@ using namespace std;
             uint64_t next_val = val_distr(prng);
             
             std::vector<uint64_t> std_vec;
-            PagedVector dyn_vec(page_distr(prng));
+            bdsg::PagedVector dyn_vec(page_distr(prng));
             
             for (size_t j = 0; j < num_ops; j++) {
                 
@@ -162,6 +178,21 @@ using namespace std;
                         
                         break;
                         
+                    case SERIALIZE:
+                    {
+                        stringstream strm;
+                        
+                        dyn_vec.serialize(strm);
+                        strm.seekg(0);
+                        bdsg::PagedVector copy_vec(strm);
+                        
+                        REQUIRE(copy_vec.size() == dyn_vec.size());
+                        for (size_t i = 0; i < copy_vec.size(); i++) {
+                            REQUIRE(copy_vec.get(i) == dyn_vec.get(i));
+                        }
+                        break;
+                    }
+                        
                     default:
                         break;
                 }
@@ -174,10 +205,9 @@ using namespace std;
     
     TEST_CASE("PackedDeque acts the same as STL deque", "[packed]") {
         
-        enum deque_op_t {SET = 0, GET = 1, APPEND_LEFT = 2, POP_LEFT = 3, APPEND_RIGHT = 4, POP_RIGHT = 5};
-        std::random_device rd;
-        std::default_random_engine prng(rd());
-        std::uniform_int_distribution<int> op_distr(0, 5);
+        enum deque_op_t {SET = 0, GET = 1, APPEND_LEFT = 2, POP_LEFT = 3, APPEND_RIGHT = 4, POP_RIGHT = 5, SERIALIZE = 6};
+        std::default_random_engine prng(test_seed_source());
+        std::uniform_int_distribution<int> op_distr(0, 6);
         
         int num_runs = 1000;
         int num_ops = 200;
@@ -191,7 +221,7 @@ using namespace std;
             uint64_t next_val = 0;
             
             std::deque<uint64_t> std_deq;
-            PackedDeque suc_deq;
+            bdsg::PackedDeque suc_deq;
             
             for (size_t j = 0; j < num_ops; j++) {
                 
@@ -254,133 +284,27 @@ using namespace std;
                         
                         break;
                         
+                    case SERIALIZE:
+                    {
+                        stringstream strm;
+                        
+                        suc_deq.serialize(strm);
+                        strm.seekg(0);
+                        bdsg::PackedDeque copy_deq(strm);
+                        
+                        REQUIRE(copy_deq.size() == suc_deq.size());
+                        for (size_t i = 0; i < copy_deq.size(); i++) {
+                            REQUIRE(copy_deq.get(i) == suc_deq.get(i));
+                        }
+                        break;
+                    }
+                        
                     default:
                         break;
                 }
                 
                 REQUIRE(std_deq.empty() == suc_deq.empty());
                 REQUIRE(std_deq.size() == suc_deq.size());
-            }
-        }
-    }
-    
-    TEST_CASE("PackedSplayTree acts the same as STL map", "[packed]") {
-        
-        enum tree_op_t {INSERT = 0, ERASE = 1, ACCESS = 2};
-        std::random_device rd;
-        std::default_random_engine prng(rd());
-        std::uniform_int_distribution<int> op_distr(0, 2);
-        
-        int num_runs = 1000;
-        int num_ops = 100;
-        
-        int inserts_per_op = 3;
-        int erases_per_op = 1;
-        int accesses_per_op = 5;
-        
-        size_t value_bank_size = num_ops * inserts_per_op + 1;
-        size_t max_value = 10 * value_bank_size;
-        
-        for (size_t i = 0; i < num_runs; i++) {
-            
-            std::vector<size_t> bank(max_value);
-            for (size_t j = 0; j < bank.size(); j++) {
-                // only even so we can use lower bound on odds
-                bank[j] = j * 2;
-            }
-            std::shuffle(bank.begin(), bank.end(), prng);
-            bank.resize(value_bank_size);
-            size_t bank_idx = 0;
-            size_t erase_idx = 0;
-            
-            std::map<size_t, size_t> std_map;
-            PackedSplayTree suc_map;
-            
-            std::unordered_set<size_t> erased;
-            
-            for (size_t j = 0; j < num_ops; j++) {
-                
-                tree_op_t op = (tree_op_t) op_distr(prng);
-                switch (op) {
-                    case INSERT:
-                        for (size_t k = 0; k < inserts_per_op; k++) {
-                            std_map[bank[bank_idx]] = bank_idx;
-                            suc_map.insert(bank[bank_idx], bank_idx);
-                            bank_idx++;
-                        }
-                        
-                        break;
-                        
-                    case ERASE:
-                        if (!std_map.empty()) {
-                            for (size_t k = 0; k < erases_per_op; k++) {
-                                std_map.erase(bank[erase_idx]);
-                                suc_map.erase(bank[erase_idx]);
-                                erased.insert(bank[erase_idx]);
-                                erase_idx++;
-                            }
-                        }
-                        
-                        break;
-                        
-                    case ACCESS:
-                        if (!std_map.empty()) {
-                            for (size_t k = 0; k < accesses_per_op; k++) {
-                                size_t access_val = bank[prng() % bank_idx];
-                                size_t x = suc_map.find(access_val);
-                                auto xi = std_map.find(access_val);
-                                
-                                
-                                
-                                if (erased.count(access_val)) {
-                                    REQUIRE(x == 0);
-                                }
-                                else {
-                                    REQUIRE(suc_map.get_key(x) == xi->first);
-                                    REQUIRE(suc_map.get_value(x) == xi->second);
-                                }
-                                
-                                
-                                size_t y = suc_map.first_lower(access_val);
-                                auto yi = std_map.lower_bound(access_val);
-                                
-                                if (!erased.count(access_val)) {
-                                    REQUIRE(suc_map.get_key(y) == yi->first);
-                                    REQUIRE(suc_map.get_value(y) == yi->second);
-                                }
-                                
-                                size_t z = suc_map.first_lower(access_val + 1);
-                                auto zi = std_map.lower_bound(access_val + 1);
-                                
-                                if (!erased.count(access_val)) {
-                                    zi--;
-                                    REQUIRE(suc_map.get_key(z) == zi->first);
-                                    REQUIRE(suc_map.get_value(z) == zi->second);
-                                }
-                                
-                                if (x != 0) {
-                                    size_t w = suc_map.next(x);
-                                    auto wi = xi;
-                                    wi++;
-                                    if (wi == std_map.end()) {
-                                        REQUIRE(w == 0);
-                                    }
-                                    else {
-                                        REQUIRE(suc_map.get_key(w) == wi->first);
-                                        REQUIRE(suc_map.get_value(w) == wi->second);
-                                    }
-                                }
-                            }
-                        }
-                        
-                        break;
-                        
-                    default:
-                        break;
-                }
-                
-                REQUIRE(std_map.empty() == suc_map.empty());
-                REQUIRE(std_map.size() == suc_map.size());
             }
         }
     }

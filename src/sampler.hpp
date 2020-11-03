@@ -2,6 +2,7 @@
 #define VG_SIMULATOR_HPP_INCLUDED
 
 #include <iostream>
+#include <iomanip>
 #include <map>
 #include <unordered_map>
 #include <vector>
@@ -10,15 +11,15 @@
 #include <chrono>
 #include <ctime>
 #include "vg.hpp"
-#include "xg.hpp"
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
-#include "cached_position.hpp"
-#include "xg_position.hpp"
-#include "distributions.hpp"
+#include "statistics.hpp"
 #include "lru_cache.h"
-#include "json2pb.h"
+#include "vg/io/json2pb.h"
+#include "algorithms/subgraph.hpp"
+#include "algorithms/alignment_path_offsets.hpp"
+#include "algorithms/next_pos_chars.hpp"
 
 namespace vg {
 
@@ -28,17 +29,17 @@ using namespace std;
 /// orientations, into pos_ts. Remember that pos_t counts offset from the start
 /// of the reoriented node, while here we count offset from the beginning of the
 /// forward version of the path.
-pos_t position_at(xg::XG* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse);
+pos_t position_at(PathPositionHandleGraph* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse);
 
 /**
  * Generate Alignments (with or without mutations, and in pairs or alone) from
- * an XG index.
+ * an PathPositionHandleGraph index.
  */
 class Sampler {
 
 public:
 
-    xg::XG* xgidx;
+    PathPositionHandleGraph* xgidx;
     // We need this so we don't re-load the node for every character we visit in
     // it.
     LRUCache<id_t, Node> node_cache;
@@ -53,12 +54,20 @@ public:
     // A vector which, if nonempty, gives the names of the paths to restrict simulated reads to.
     vector<string> source_paths;
     vg::discrete_distribution<> path_sampler; // draw an index in source_paths
-    inline Sampler(xg::XG* x,
+    size_t total_seq_length = 0;
+    
+    /// Make a Sampler to sample from the given graph.
+    /// If sampling from particular paths, source_paths should contain their
+    /// names, and source_path_ploidies should either be empty or contain a
+    /// ploidy value for each source path.
+    inline Sampler(PathPositionHandleGraph* x,
             int seed = 0,
             bool forward_only = false,
             bool allow_Ns = false,
             const vector<string>& source_paths = {},
-            const vector<pair<string, double>>& transcript_expressions = {})
+            const vector<double>& source_path_ploidies = {},
+            const vector<pair<string, double>>& transcript_expressions = {},
+            const vector<tuple<string, string, size_t>>& haplotype_transcripts = {})
         : xgidx(x),
           node_cache(100),
           edge_cache(100),
@@ -66,17 +75,27 @@ public:
           no_Ns(!allow_Ns),
           nonce(0),
           source_paths(source_paths) {
+        // sum seq lengths
+        xgidx->for_each_handle([&](const handle_t& handle) {
+            total_seq_length += xgidx->get_length(handle);
+        });
         if (!seed) {
             seed = time(NULL);
         }
         rng.seed(seed);
-        set_source_paths(source_paths, transcript_expressions);
+        set_source_paths(source_paths, source_path_ploidies, transcript_expressions, haplotype_transcripts);
     }
 
-    /// Make a path sampling distribution based on relative lengths or on transcript expressions
-    /// (at most one should be non-empty)
+    /// Make a path sampling distribution based on relative lengths (weighted
+    /// by ploidy) or on transcript expressions. (At most one of source_paths and
+    /// expressions should be non-empty.) If providing a transcript expression
+    /// profile, can optionally provide a non-empty vector of haplotype
+    /// transcripts to translate between the embedded path names and the
+    /// transcript names in the expression profile.
     void set_source_paths(const vector<string>& source_paths,
-                          const vector<pair<string, double>>& transcript_expressions);
+                          const vector<double>& source_path_ploidies,
+                          const vector<pair<string, double>>& transcript_expressions,
+                          const vector<tuple<string, string, size_t>>& haplotype_transcripts);
 
     pos_t position(void);
     string sequence(size_t length);
@@ -122,7 +141,7 @@ public:
 
     string alignment_seq(const Alignment& aln);
     
-    /// Return true if the alignment is semantically valid against the XG index
+    /// Return true if the alignment is semantically valid against the PathPositionHandleGraph index
     /// we wrap, and false otherwise. Checks from_lengths on mappings to make
     /// sure all node bases are accounted for. Won't accept alignments with
     /// internal jumps between graph locations or regions; all skipped bases
@@ -143,18 +162,22 @@ public:
     /// distribution. The simulation can also be restricted to named paths in the graph.
     /// Alternatively, it can match an expression profile. However, it cannot be simulateously
     /// restricted to paths and to an expression profile.
-    NGSSimulator(xg::XG& xg_index,
+    NGSSimulator(PathPositionHandleGraph& graph,
                  const string& ngs_fastq_file,
+                 const string& ngs_paired_fastq_file = "",
                  bool interleaved_fastq = false,
                  const vector<string>& source_paths = {},
+                 const vector<double>& source_path_ploidies = {},
                  const vector<pair<string, double>>& transcript_expressions = {},
+                 const vector<tuple<string, string, size_t>>& haplotype_transcripts = {},
                  double substition_polymorphism_rate = 0.001,
                  double indel_polymorphism_rate = 0.0002,
                  double indel_error_proportion = 0.01,
-                 double insert_length_mean = 1000.0,
-                 double insert_length_stdev = 75.0,
+                 double fragment_length_mean = 300.0,
+                 double fragment_length_stdev = 50.0,
                  double error_multiplier = 1.0,
                  bool retry_on_Ns = true,
+                 bool sample_unsheared_paths = false,
                  size_t seed = 0);
     
     /// Sample an individual read and alignment
@@ -162,6 +185,9 @@ public:
     
     /// Sample a pair of reads an alignments
     pair<Alignment, Alignment> sample_read_pair();
+    
+    /// Open up a stream to output read positions to
+    void connect_to_position_file(const string& filename);
     
 private:
     template<class From, class To>
@@ -186,13 +212,15 @@ private:
         unordered_map<From, vector<size_t>> cond_distrs;
         
     };
-    
+        
     NGSSimulator(void) = delete;
     
     /// DNA alphabet
     static const string alphabet;
     /// Remainder of the alphabet after removing a given character
     unordered_map<char, string> mutation_alphabets;
+    /// The total sequence length in our graph
+    size_t total_seq_length = 0;
     
     /// Add a quality string to the training data
     void record_read_quality(const Alignment& aln, bool read_2 = false);
@@ -213,16 +241,27 @@ private:
     /// the iteration and update of curr_pos) in path node. Otherwise, in whole
     /// graph mode, they are ignored and curr_pos is used to traverse the graph
     /// directly.
-    void sample_read_internal(Alignment& aln, size_t& offset, bool& is_reverse, pos_t& curr_pos,
+    void sample_read_internal(Alignment& aln, int64_t& offset, bool& is_reverse, pos_t& curr_pos,
                               const string& source_path);
     
+    /// Return the index of a path if using source_paths or else numeric_limits<size_t>::max()
+    size_t sample_path();
+    
+    /// Ouput a sampled position to the path position file
+    void register_sampled_position(const Alignment& aln, const string& path_name,
+                                   size_t offset, bool is_reverse);
+    
     /// Sample an appropriate starting position according to the mode. Updates the arguments.
-    void sample_start_pos(size_t& offset, bool& is_reverse, pos_t& pos, string& source_path);
+    /// Providing a negative number for fragment length indicates no fragment length restrictions.
+    void sample_start_pos(const size_t& source_path_idx, const int64_t& fragment_length,
+                          int64_t& offset, bool& is_reverse, pos_t& pos);
     
     /// Get a random position in the graph
     pos_t sample_start_graph_pos();
-    /// Get a random position along the source path
-    tuple<size_t, bool, pos_t, string> sample_start_path_pos();
+    /// Get a random position along the source path. Enforce fragment length restrictions if argument
+    /// is positive.
+    tuple<int64_t, bool, pos_t> sample_start_path_pos(const size_t& source_path_idx,
+                                                      const int64_t& fragment_length);
     
     /// Get an unclashing read name
     string get_read_name();
@@ -230,20 +269,20 @@ private:
     /// Move forward one position in either the source path or the graph,
     /// depending on mode. Update the arguments. Return true if we can't because
     /// we hit a tip or false otherwise
-    bool advance(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char, const string& source_path);
+    bool advance(int64_t& offset, bool& is_reverse, pos_t& pos, char& graph_char, const string& source_path);
     /// Move forward a certain distance in either the source path or the graph,
     /// depending on mode. Update the arguments. Return true if we can't because
     /// we hit a tip or false otherwise
-    bool advance_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance,
+    bool advance_by_distance(int64_t& offset, bool& is_reverse, pos_t& pos, int64_t distance,
                              const string& source_path);
     
     /// Move forward one position in the source path, return true if we can't
     /// because we hit a tip or false otherwise
-    bool advance_on_path(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char,
+    bool advance_on_path(int64_t& offset, bool& is_reverse, pos_t& pos, char& graph_char,
                          const string& source_path);
     /// Move forward a certain distance in the source path, return true if we
     /// can't because we hit a tip or false otherwise
-    bool advance_on_path_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance,
+    bool advance_on_path_by_distance(int64_t& offset, bool& is_reverse, pos_t& pos, int64_t distance,
         const string& source_path);
     
     /// Move forward one position in the graph along a random path, return true if we can't
@@ -251,13 +290,13 @@ private:
     bool advance_on_graph(pos_t& pos, char& graph_char);
     /// Move forward a certain distance in the graph along a random path, return true if we
     /// can't because we hit a tip or false otherwise
-    bool advance_on_graph_by_distance(pos_t& pos, size_t distance);
+    bool advance_on_graph_by_distance(pos_t& pos, int64_t distance);
     
     /// Mask out bases with 'N's if the mask is true
     void apply_N_mask(string& sequence, const vector<bool>& n_mask);
     
     /// Returns the position a given distance from the end of the path, walking backwards
-    pos_t walk_backwards(const Path& path, size_t distance);
+    pos_t walk_backwards(const Path& path, int64_t distance);
     /// Add a deletion to the alignment
     void apply_deletion(Alignment& aln, const pos_t& pos);
     /// Add an insertion to the alignment
@@ -265,7 +304,7 @@ private:
     /// Add a match/mismatch to the alignment
     void apply_aligned_base(Alignment& aln, const pos_t& pos, char graph_char, char read_char);
     
-    /// Memo for Phred -> probability conversion
+    /// Memo for pre-multiplied Phred -> probability conversion
     vector<double> phred_prob;
     
     /// A Markov distribution for each read position indicating quality and whether the base is an 'N'
@@ -275,10 +314,7 @@ private:
     /// A distribution for the joint initial qualities of a read pair
     MarkovDistribution<pair<uint8_t, bool>, pair<pair<uint8_t, bool>, pair<uint8_t, bool>>> joint_initial_distr;
     
-    xg::XG& xg_index;
-    
-    LRUCache<id_t, Node> node_cache;
-    LRUCache<id_t, vector<Edge> > edge_cache;
+    PathPositionHandleGraph& graph;
     
     default_random_engine prng;
     vg::discrete_distribution<> path_sampler;
@@ -287,21 +323,24 @@ private:
     vg::uniform_int_distribution<size_t> background_sampler;
     vg::uniform_int_distribution<size_t> mut_sampler;
     vg::uniform_real_distribution<double> prob_sampler;
-    vg::normal_distribution<double> insert_sampler;
+    vg::normal_distribution<double> fragment_sampler;
     
     const double sub_poly_rate;
     const double indel_poly_rate;
     const double indel_error_prop;
-    const double insert_mean;
-    const double insert_sd;
+    const double fragment_mean;
+    const double fragment_sd;
     
     size_t sample_counter = 0;
     size_t seed;
     
     const bool retry_on_Ns;
+    const bool sample_unsheared_paths;
     
     /// Restrict reads to just these paths (path-only mode) if nonempty.
     vector<string> source_paths;
+    
+    ofstream position_file;
 };
     
 /**

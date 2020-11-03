@@ -13,8 +13,11 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
 #include "../alignment.hpp"
-#include "../stream/vpkg.hpp"
+#include "../algorithms/copy_graph.hpp"
+#include <vg/io/vpkg.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -122,11 +125,13 @@ int main_validate(int argc, char** argv) {
             return 1;
         }
         ifstream in(xg_path.c_str());
-        unique_ptr<xg::XG> xindex = stream::VPKG::load_one<xg::XG>(in);
+        unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
+        bdsg::PathPositionOverlayHelper overlay_helper;
+        PathPositionHandleGraph* xindex = overlay_helper.apply(path_handle_graph.get());    
         in.close();
         get_input_file(gam_path, [&](istream& in) {
-                stream::for_each<Alignment>(in, [&](Alignment& aln) {
-                        if (!alignment_is_valid(aln, xindex.get())) {
+                vg::io::for_each<Alignment>(in, [&](Alignment& aln) {
+                        if (!alignment_is_valid(aln, xindex)) {
                             exit(1);
                         }
                     });
@@ -136,8 +141,19 @@ int main_validate(int argc, char** argv) {
 
         VG* graph;
         get_input_file(optind, argc, argv, [&](istream& in) {
-                graph = new VG(in);
-            });
+            unique_ptr<PathHandleGraph> loaded = vg::io::VPKG::load_one<PathHandleGraph>(in);
+            
+            // Make it be in VG format
+            graph = dynamic_cast<vg::VG*>(loaded.get());
+            if (graph == nullptr) {
+                // Copy instead.
+                graph = new vg::VG();
+                // TODO: this conversion may make a valid graph out of an invalid one
+                algorithms::copy_path_handle_graph(loaded.get(), graph);
+                // Make sure the paths are all synced up
+                graph->paths.to_graph(graph->graph);
+            }
+        });
 
         // if we chose a specific subset, do just them
         if (check_nodes || check_edges || check_orphans || check_paths) {
