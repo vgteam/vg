@@ -350,7 +350,7 @@ namespace vg {
 
     pair<tuple<int64_t, int64_t, int64_t, int64_t>, tuple<int64_t, int64_t, int64_t>>
     trace_path(const multipath_alignment_t& multipath_aln, const Path& path,
-               int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx);
+               int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx, bool search_left);
 
     /// Returns true if the multipath alignment contains a match of a given length starting at the graph and
     /// read position
