@@ -1451,115 +1451,101 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
     if (!unpaired_alignments.empty()) {
         //If we found some clusters that had no pair in a fragment cluster
-        if (!found_pair && max_rescue_attempts == 0 ) {
-            //If we didn't find any pairs and we aren't attempting rescue, just return the best for each end
+        if (!found_pair) {
+            //If we didn't find any pairs find the best alignment for each end
 
 #ifdef debug
             cerr << "Found no pairs and we aren't doing rescue: return best alignment for each read" << endl;
 #endif
-            Alignment& best_aln1 = aln1;
-            Alignment& best_aln2 = aln2;
-
-            best_aln1.clear_refpos();
-            best_aln1.clear_path();
-            best_aln1.set_score(0);
-            best_aln1.set_identity(0);
-            best_aln1.set_mapping_quality(0);
-
-            best_aln2.clear_refpos();
-            best_aln2.clear_path();
-            best_aln2.set_score(0);
-            best_aln2.set_identity(0);
-            best_aln2.set_mapping_quality(0);
+            tuple<size_t, size_t, size_t> best_index_1 (std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+            tuple<size_t, size_t, size_t> best_index_2(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+            int64_t best_score_1 = 0;
+            int64_t best_score_2 = 0;
 
             for (tuple<size_t, size_t, bool> index : unpaired_alignments ) {
-                Alignment& alignment = std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index)]
+                Alignment& alignment = std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index) ]
                                                           : alignments[std::get<0>(index)].second[std::get<1>(index)];
                 if (std::get<2>(index)) {
-                    if (alignment.score() > best_aln1.score()) {
-                        best_aln1 = alignment;
+                    if (alignment.score() > best_score_1) {
+                        best_index_1 = index;
+                        best_score_1 = alignment.score();
                     }
                 } else {
-                    if (alignment.score() > best_aln2.score()) {
-                        best_aln2 = alignment;
+                    if (alignment.score() > best_score_2) {
+                        best_index_2 = index;
+                        best_score_2 = alignment.score();
                     }
                 }
             }
-            set_annotation(best_aln1, "unpaired", true);
-            set_annotation(best_aln2, "unpaired", true);
+            if (max_rescue_attempts == 0 ) { 
+                //If we aren't attempting rescue, just return the best alignment from each end
+                Alignment& best_aln1 = aln1;
+                Alignment& best_aln2 = aln2;
+    
+                if (std::get<0>(best_index_1) != std::numeric_limits<size_t>::max()) {
+                    //If there was a best alignment for 1, use it
+                    best_aln1 = alignments[std::get<0>(best_index_1)].first[std::get<1>(best_index_1)]; 
+                } else {
+                    //Otherwise return an empty alignment
+                    best_aln1.clear_refpos();
+                    best_aln1.clear_path();
+                    best_aln1.set_score(0);
+                    best_aln1.set_identity(0);
+                    best_aln1.set_mapping_quality(0);
+                }
 
-            pair<vector<Alignment>, vector<Alignment>> paired_mappings;
-            paired_mappings.first.emplace_back(std::move(best_aln1));
-            paired_mappings.second.emplace_back(std::move(best_aln2));
-            // Flip aln2 back to input orientation
-            reverse_complement_alignment_in_place(&paired_mappings.second.back(), [&](vg::id_t node_id) {
-                return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
-            });
+                if (std::get<0>(best_index_2) != std::numeric_limits<size_t>::max()) {
+                    //If there was a best alignment for 2, use it
+                    best_aln2 = alignments[std::get<0>(best_index_2)].second[std::get<2>(best_index_2)]; 
+                } else {
+                    //Otherwise return an empty alignment
+                    best_aln2.clear_refpos();
+                    best_aln2.clear_path();
+                    best_aln2.set_score(0);
+                    best_aln2.set_identity(0);
+                    best_aln2.set_mapping_quality(0);
+                }
+                set_annotation(best_aln1, "unpaired", true);
+                set_annotation(best_aln2, "unpaired", true);
 
-            paired_mappings.first.back().set_mapping_quality(1);
-            paired_mappings.second.back().set_mapping_quality(1);
+                pair<vector<Alignment>, vector<Alignment>> paired_mappings;
+                paired_mappings.first.emplace_back(std::move(best_aln1));
+                paired_mappings.second.emplace_back(std::move(best_aln2));
+                // Flip aln2 back to input orientation
+                reverse_complement_alignment_in_place(&paired_mappings.second.back(), [&](vg::id_t node_id) {
+                    return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
+                });
 
-            // Stop this alignment
-            funnels[0].stop();
-            funnels[1].stop();
-            
-            if (track_provenance) {
-                funnels[0].annotate_mapped_alignment(paired_mappings.first[0], track_correctness);
-                funnels[0].annotate_mapped_alignment(paired_mappings.second[0], track_correctness);
-           }
-#ifdef print_minimizers
-        cerr << aln1.sequence() << "\t";
-        for (char c : aln1.quality()) {
-            cerr << (char)(c+33);
-        }
-        cerr << "\t" << max_fragment_num+1 << "\t" << 0 << "\t" << 0 << "\t?";
-        for (size_t i = 0 ; i < minimizers_by_read[0].size() ; i++) {
-            auto& minimizer = minimizers_by_read[0][i];
-            cerr << "\t"
-                 << minimizer.value.key.decode(minimizer.length) << "\t"
-                 << minimizer.forward_offset() << "\t"
-                 << minimizer.agglomeration_start << "\t"
-                 << minimizer.agglomeration_length << "\t"
-                 << minimizer.hits << "\t"
-                 << minimizer_aligned_count_by_read[0][i];
-             if (minimizer_aligned_count_by_read[0][i] > 0) {
-                 assert(minimizer.hits<=hard_hit_cap) ;
-             }
-        }
-        cerr << "\t" << 1 << "\t" << 1 << "\t" << 1 << "\t" << 1;  
-        if (track_correctness) {
-            cerr << "\t" << funnels[0].last_correct_stage() << endl;
-        } else {
-            cerr << "\t?" << endl;
+                paired_mappings.first.back().set_mapping_quality(1);
+                paired_mappings.second.back().set_mapping_quality(1);
+
+                // Stop this alignment
+                funnels[0].stop();
+                funnels[1].stop();
+                
+                if (track_provenance) {
+                    funnels[0].annotate_mapped_alignment(paired_mappings.first[0], track_correctness);
+                    funnels[0].annotate_mapped_alignment(paired_mappings.second[0], track_correctness);
+                }
+                return paired_mappings;
+            } else {
+                //We are attempting rescue, but we still want to keep the best alignments as a potential (unpaired) pair 
+                pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair =  make_pair(make_pair(std::get<0>(best_index_1), std::get<1>(best_index_1)), 
+                                                                                         make_pair(std::get<0>(best_index_2), std::get<1>(best_index_2)));
+
+                Alignment& aln1 = alignments[std::get<0>(best_index_1)].first[std::get<1>(best_index_1)];
+                Alignment& aln2 = alignments[std::get<0>(best_index_2)].first[std::get<1>(best_index_2)];
+                set_annotation(aln1, "unpaired", true);
+                set_annotation(aln2, "unpaired", true);
+                //TODO: Kind of making up these numbers
+                paired_alignments.push_back(index_pair);
+                paired_scores.emplace_back(aln1.score() + aln2.score()); //TODO: Should we penalize the score?
+                fragment_distances.emplace_back(std::numeric_limits<int64_t>::max());
+                better_cluster_count_by_pairs.emplace_back(0);
+            }
         }
 
-        cerr << aln2.sequence() << "\t";
-        for (char c : aln2.quality()) {
-            cerr << (char)(c+33);
-        }
-        cerr << "\t" << max_fragment_num+1 << "\t" << 0 << "\t" << 0 << "\t?";
-        for (size_t i = 0 ; i < minimizers_by_read[1].size() ; i++) {
-            auto& minimizer = minimizers_by_read[1][i];
-            cerr << "\t"
-                 << minimizer.value.key.decode(minimizer.length) << "\t"
-                 << minimizer.forward_offset() << "\t"
-                 << minimizer.agglomeration_start << "\t"
-                 << minimizer.agglomeration_length << "\t"
-                 << minimizer.hits << "\t"
-                 << minimizer_aligned_count_by_read[1][i];
-             if (minimizer_aligned_count_by_read[1][i] > 0) {
-                 assert(minimizer.hits<=hard_hit_cap) ;
-             }
-        }
-        cerr << "\t" << 1 << "\t" << 1 << "\t" << 1 << "\t" << 1;  
-        if (track_correctness) {
-            cerr << "\t" << funnels[1].last_correct_stage() << endl;
-        } else {
-            cerr << "\t?" << endl;
-        }
-#endif   
-            return paired_mappings;
-        } else {
+        if (max_rescue_attempts != 0) {
             //Attempt rescue on unpaired alignments if either we didn't find any pairs or if the unpaired alignments are very good
 
             process_until_threshold_a(unpaired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double{
