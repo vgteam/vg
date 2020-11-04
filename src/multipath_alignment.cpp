@@ -2397,6 +2397,14 @@ namespace vg {
         }
     }
 
+    bool contains_connection(const multipath_alignment_t& multipath_aln) {
+        bool no_connection = true;
+        for (size_t i = 0; i < multipath_aln.subpath_size() && no_connection; ++i) {
+            no_connection = multipath_aln.subpath(i).connection().empty();
+        }
+        return !no_connection;
+    }
+
     vector<tuple<int64_t, int64_t, int64_t, int64_t>>
     search_multipath_alignment(const multipath_alignment_t& multipath_aln,
                                const pos_t& graph_pos, int64_t seq_pos) {

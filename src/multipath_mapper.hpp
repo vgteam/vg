@@ -408,12 +408,16 @@ namespace vg {
                          vector<size_t>& agglomerated_group, unordered_set<pos_t>& agg_start_positions,
                          unordered_set<pos_t>& agg_end_positions) const;
         
-        void find_spliced_alignments(const Alignment& alignment, vector<multipath_alignment_t>& multipath_alns_out,
+        /// Look for spliced alignments among the results of various stages in the mapping algorithm
+        /// Returns true if any spliced alignments were made
+        bool find_spliced_alignments(const Alignment& alignment, vector<multipath_alignment_t>& multipath_alns_out,
                                      vector<double>& multiplicities, vector<size_t>& cluster_idxs,
                                      const vector<MaximalExactMatch>& mems, vector<clustergraph_t>& cluster_graphs,
                                      const match_fanouts_t* fanouts = nullptr);
         
-        void find_spliced_alignments(const Alignment& alignment1, const Alignment& alignment2,
+        /// Look for spliced alignments among the results of various stages in the mapping algorithm for pairs
+        /// Returns true if any spliced alignments were made
+        bool find_spliced_alignments(const Alignment& alignment1, const Alignment& alignment2,
                                      vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                      vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                      vector<double>& pair_multiplicities,
@@ -421,6 +425,8 @@ namespace vg {
                                      vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
                                      const match_fanouts_t* fanouts = nullptr);
         
+        /// Find candidates for spliced alignment sections for a given multipath alignment among the
+        /// aligned clusters
         void identify_aligned_splice_candidates(const Alignment& alignment, bool search_left,
                                                 const pair<int64_t, int64_t>& primary_interval,
                                                 const vector<multipath_alignment_t>& multipath_alns,
@@ -429,6 +435,8 @@ namespace vg {
                                                 unordered_set<size_t>& clusters_used_out,
                                                 vector<size_t>& mp_aln_candidates_out) const;
 
+        /// Find candidates for spliced alignment sections for a given multipath alignment among the
+        /// aligned cluster pairs
         void identify_aligned_splice_candidates(const Alignment& alignment, bool read_1, bool search_left,
                                                 const pair<int64_t, int64_t>& primary_interval,
                                                 const vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
@@ -436,7 +444,9 @@ namespace vg {
                                                 const vector<int64_t>& current_index, int64_t anchor,
                                                 unordered_set<size_t>& clusters_used_out,
                                                 vector<size_t>& mp_aln_candidates_out) const;
-
+        
+        /// Find candidates for spliced alignment sections for a given multipath alignment among the
+        /// unaligned clusters and MEMs
         void identify_unaligned_splice_candidates(const Alignment& alignment, bool search_left,
                                                   const pair<int64_t, int64_t>& primary_interval,
                                                   const vector<MaximalExactMatch>& mems,
@@ -445,6 +455,7 @@ namespace vg {
                                                   vector<size_t>& cluster_candidates_out,
                                                   vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates_out) const;
         
+        /// Make alignments for the splice alignment cancidates from MEMs and unaligned clusters
         void align_to_splice_candidates(const Alignment& alignment,
                                         vector<clustergraph_t>& cluster_graphs,
                                         const vector<MaximalExactMatch>& mems,
@@ -456,11 +467,26 @@ namespace vg {
                                         vector<double>& multiplicities_out,
                                         const match_fanouts_t* mem_fanouts = nullptr) const;
         
+        /// Check whether splice segment candidates can form a statistically significant spliced
+        /// alignment. Returns true if a spliced alignment is made
         bool test_splice_candidates(const Alignment& alignment, bool searching_left,
                                     multipath_alignment_t& anchor_mp_aln, double& anchor_multiplicity,
                                     SpliceStrand& strand, int64_t num_candidates,
                                     const function<const multipath_alignment_t&(int64_t)>& get_candidate,
                                     const function<multipath_alignment_t&&(int64_t)>& consume_candidate);
+        
+        /// Check if any of the unpaired spliced alignments can make pairs now
+        /// If any pairs are identified, can invalidate the input alignments
+        bool retry_pairing_spliced_alignments(const Alignment& alignment1, const Alignment& alignment2,
+                                              vector<multipath_alignment_t>& multipath_alns_1,
+                                              vector<multipath_alignment_t>& multipath_alns_2,
+                                              const vector<size_t>& cluster_idxs_1,
+                                              const vector<size_t>& cluster_idxs_2,
+                                              const vector<double>& multiplicities_1,
+                                              const vector<double>& multiplicities_2,
+                                              vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs_out,
+                                              vector<double>& pair_multiplicities_out) const;
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
@@ -548,6 +574,9 @@ namespace vg {
         /// Reorganizes the fan-out breaks into the format that MultipathAlignmentGraph wants it in
         match_fanouts_t record_fanouts(const vector<MaximalExactMatch>& mems,
                                        vector<deque<pair<string::const_iterator, char>>>& fanouts) const;
+        
+        /// Get a distance measurer based on the configuartion of the mapper
+        unique_ptr<OrientedDistanceMeasurer>&& get_distance_measurer(MemoizingGraph& memoizing_graph) const;
         
         /// Compute the approximate distance between two multipath alignments
         /// If either is unmapped, or the distance cannot be obtained, returns numeric_limits<int64_t>::max()
