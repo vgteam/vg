@@ -47,6 +47,7 @@
 #include "algorithms/extend.hpp"
 #include "algorithms/jump_along_path.hpp"
 #include "algorithms/copy_graph.hpp"
+#include "algorithms/ref_path_distance.hpp"
 
 #include "bdsg/hash_graph.hpp"
 
@@ -207,6 +208,8 @@ namespace vg {
         int64_t max_splice_overhang = 3;
         // about 250k
         int64_t max_intron_length = 1 << 18;
+        int64_t min_splice_ref_search_length = 6;
+        int64_t max_splice_ref_search_length = 32;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;

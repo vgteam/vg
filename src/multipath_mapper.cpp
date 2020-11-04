@@ -2276,11 +2276,28 @@ namespace vg {
 #ifdef debug_multipath_mapper
                             cerr << "\tchecking shared motif " << j << " with has positions " << l_pos << ", and " << r_pos << endl;
 #endif
+                            int64_t dist;
+                            if (distance_index) {
+                                // use the distance index to judge reachability
+                                dist = distance_index->min_distance(l_pos, r_pos);
+                                if (dist >= 0) {
+                                    // see if we can get a better estimate of long-range genomic distance from
+                                    // a reference path (to avoid splicing junctions)
+                                    int64_t ref_dist = algorithms::ref_path_distance(xindex, l_pos, r_pos,
+                                                                                     min_splice_ref_search_length,
+                                                                                     max_splice_ref_search_length);
+                                    if (ref_dist != numeric_limits<int64_t>::max()) {
+                                        dist = ref_dist;
+                                    }
+                                }
+                            }
+                            else {
+                                dist = algorithms::ref_path_distance(xindex, l_pos, r_pos,
+                                                                     min_splice_ref_search_length,
+                                                                     max_splice_ref_search_length);
+                            }
                             
-                            int64_t dist = distance(l_pos, r_pos);
-                            
-                            // TODO: max path distance
-                            // TODO: also enforce pairing constraints
+                            // TODO: enforce pairing constraints?
                             
                             if (dist >= 0 && dist != numeric_limits<int64_t>::max() && dist < max_intron_length) {
 #ifdef debug_multipath_mapper
