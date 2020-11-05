@@ -37,13 +37,16 @@ size_t SpliceMotifs::size() const {
     return data.size();
 }
 
-
 const string& SpliceMotifs::oriented_motif(size_t motif_num, bool left_side) const {
     return left_side ? get<1>(data[motif_num]) : get<0>(data[motif_num]);
 }
 
+bool SpliceMotifs::motif_is_reverse(size_t motif_num) const {
+    return motif_num % 2;
+}
+
 string SpliceMotifs::unoriented_motif(size_t motif_num, bool left_side) const {
-    return left_side ? get<1>(unaltered_data[motif_num]) : get<0>(unaltered_data[motif_num]);
+    return left_side ? get<1>(unaltered_data[motif_num / 2]) : get<0>(unaltered_data[motif_num / 2]);
 }
 
 int32_t SpliceMotifs::score(size_t motif_num) const {
@@ -83,17 +86,26 @@ void SpliceMotifs::init(const vector<tuple<string, string, double>>& motifs,
     
     data.reserve(motifs.size());
     for (const auto& record : motifs) {
+        int32_t score = round(log(get<2>(record)) / scorer.log_base);
         data.emplace_back();
         get<0>(data.back()) = get<0>(record);
         // reverse the second string because it's encountered in reverse when going into
         // an intron
         get<1>(data.back()) = string(get<1>(record).rbegin(), get<1>(record).rend());
         // convert frequency to a log likelihood
-        get<2>(data.back()) = int32_t(round(log(get<2>(record)) / scorer.log_base));
-#ifdef debug_splice_region
-        cerr << "\t" << get<0>(data.back()) << "\t" << get<1>(data.back()) << "\t" << get<2>(data.back()) << endl;
-#endif
+        get<2>(data.back()) = score;
+        
+        // now do the reverse complement
+        data.emplace_back();
+        get<0>(data.back()) = reverse_complement(get<1>(record));
+        get<1>(data.back()) = reverse_complement(string(get<0>(record).rbegin(), get<0>(record).rend()));
+        get<2>(data.back()) = score;
     }
+#ifdef debug_splice_region
+    for (const auto& record : data) {
+        cerr << "\t" << get<0>(record) << "\t" << get<1>(record) << "\t" << get<2>(record) << endl;
+    }
+#endif
 }
 
 SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t search_dist,
@@ -632,8 +644,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 cerr << "after mapping " << i << ", remaining length " << len << endl;
 #endif
                 
-                Mapping* dummy_mapping = dummy_path.add_mapping();
-                *dummy_mapping->mutable_edit() = path.mapping(i).edit();
+                *dummy_path.add_mapping() = path.mapping(i);
                 --i;
             }
             if (i < 0) {
@@ -689,6 +700,9 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 get_id(get<0>(return_val)) = position.node_id();
                 get_is_rev(get<0>(return_val)) = position.is_reverse();
                 get_offset(get<0>(return_val)) = position.offset() + mapping_from_length(mapping) - from_length;
+                if (dummy_mapping) {
+                    *dummy_mapping->mutable_position() = make_position(get<0>(return_val));
+                }
             }
         }
         else {
@@ -708,8 +722,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 cerr << "after mapping " << i << ", remaining length " << len << endl;
 #endif
                 
-                Mapping* dummy_mapping = dummy_path.add_mapping();
-                *dummy_mapping->mutable_edit() = path.mapping(i).edit();
+                *dummy_path.add_mapping() = path.mapping(i);
                 ++i;
             }
             if (i == path.mapping_size()) {
@@ -739,6 +752,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                     
                     if (!dummy_mapping) {
                         dummy_mapping = dummy_path.add_mapping();
+                        *dummy_mapping->mutable_position() = mapping.position();
                     }
                     *dummy_mapping->add_edit() = mapping.edit(j);
                     ++j;
@@ -754,6 +768,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                     
                     if (!dummy_mapping) {
                         dummy_mapping = dummy_path.add_mapping();
+                        *dummy_mapping->mutable_position() = mapping.position();
                     }
                     Edit* dummy_edit = dummy_mapping->add_edit();
                     dummy_edit->set_from_length(last_from_length);
@@ -1021,43 +1036,21 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     auto left_locations = search_multipath_alignment(left_mp_aln, pos_left, left_bridge_point);
     auto right_locations = search_multipath_alignment(right_mp_aln, pos_right, right_bridge_point);
     
-    // check if it would help us to reposition any left locations
-    auto it = find_if(left_locations.begin(), left_locations.end(),
+    // check for any before-the-beginning positions on the left side
+    auto it1 = find_if(left_locations.begin(), left_locations.end(),
                       [](const tuple<int64_t, int64_t, int64_t, int64_t>& loc) {
-        return get<0>(loc) != 0 && get<1>(loc) == 0 && get<2>(loc) == 0 && get<3>(loc) == 0;
+        return get<1>(loc) == 0 && get<2>(loc) == 0 && get<3>(loc) == 0;
     });
-    bool check_unique = false;
-    if (it != left_locations.end()) {
-        // it's easier to handle before-the-first locations on the left side as
-        // past-the-last locations on their predecessors
-        vector<vector<int64_t>> prevs(left_mp_aln.subpath_size());
-        for (int64_t i = 0; i < prevs.size(); ++i) {
-            for (auto n : left_mp_aln.subpath(i).next()) {
-                prevs[n].push_back(i);
-            }
-        }
-        for (int64_t i = it - left_locations.begin(), end = left_locations.size(); i < end; ++i) {
-            auto& loc = left_locations[i];
-            if (!prevs[get<0>(loc)].empty() && get<1>(loc) == 0 && get<2>(loc) == 0 && get<3>(loc) == 0) {
-                // move this location onto all of the predecessors
-                for (auto j : prevs[get<0>(loc)]) {
-                    left_locations.emplace_back(j, left_mp_aln.subpath(j).path().mapping_size(), 0, 0);
-                }
-                left_locations[i] = left_locations.back();
-                left_locations.pop_back();
-                check_unique = true;
-            }
-        }
-    }
+    auto it2 = find_if(right_locations.begin(), right_locations.end(),
+                       [&](const tuple<int64_t, int64_t, int64_t, int64_t>& loc) {
+        return get<1>(loc) == right_mp_aln.subpath(get<0>(loc)).path().mapping_size();
+    });
+    // these tend to create empty subpaths, so keep track of whether we'll need to look for any
+    bool check_for_empty_subpaths_at_end = it1 != left_locations.end() || it2 != right_locations.end();
     
+    // make sure these are sorted by index
     sort(left_locations.begin(), left_locations.end());
     sort(right_locations.begin(), right_locations.end());
-    
-    if (check_unique) {
-        // it's possible that we created duplicate locations when repositioning the locations
-        // around subpath boundaries
-        left_locations.resize(unique(left_locations.begin(), left_locations.end()) - left_locations.begin());
-    }
     
 #ifdef debug_fusing
     cerr << "left splice locations:" << endl;
@@ -1203,7 +1196,9 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     if (splice_segment_halves.first.first.mapping_size() != 0) {
         for (const auto& left_loc : left_locations) {
             auto i = get<0>(left_loc) - left_removed_so_far[get<0>(left_loc)];
-            left_mp_aln.mutable_subpath(i)->add_next(left_mp_aln.subpath_size());
+            if (i < left_mp_aln.subpath_size()) {
+                left_mp_aln.mutable_subpath(i)->add_next(left_mp_aln.subpath_size());
+            }
         }
         
         auto subpath = left_mp_aln.add_subpath();
@@ -1304,7 +1299,6 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     vector<int64_t> right_removed_so_far(right_mp_aln.subpath_size() + 1, 0);
     int64_t right_loc_idx = 0;
     for (int64_t i = 0; i < right_mp_aln.subpath_size(); ++i) {
-        
         if (!to_keep_right[i]) {
             right_removed_so_far[i + 1] = right_removed_so_far[i] + 1;
             continue;
@@ -1337,9 +1331,11 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
                 // both of the splice segments were empty, connect directly to the left splice point
                 for (const auto& left_loc : left_locations) {
                     auto i = get<0>(left_loc) - left_removed_so_far[get<0>(left_loc)];
-                    auto connection = left_mp_aln.mutable_subpath(i)->add_connection();
-                    connection->set_next(left_mp_aln.subpath_size());
-                    connection->set_score(splice_score);
+                    if (i < left_subpaths_end) {
+                        auto connection = left_mp_aln.mutable_subpath(i)->add_connection();
+                        connection->set_next(left_mp_aln.subpath_size());
+                        connection->set_score(splice_score);
+                    }
                 }
             }
             else if (splice_segment_halves.second.first.mapping_size() == 0) {
@@ -1359,6 +1355,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     }
     // fix up the edges on the transferred subpaths from the right alignment
     for (size_t i = right_subpaths_begin; i < left_mp_aln.subpath_size(); ++i)  {
+        
         auto subpath = left_mp_aln.mutable_subpath(i);
         size_t nexts_removed_so_far = 0;
         for (size_t j = 0; j < subpath->next_size(); ++j) {
@@ -1377,7 +1374,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         for (size_t j = 0; j < subpath->connection_size(); ++j) {
             auto connection = subpath->mutable_connection(j);
             if (to_keep_right[connection->next()]) {
-                connection->set_next(connection->next() - right_removed_so_far[connection->next()]);
+                connection->set_next(connection->next() - right_removed_so_far[connection->next()] + right_subpaths_begin);
                 if (connections_removed_so_far) {
                     *subpath->mutable_connection(j - connections_removed_so_far) = *connection;
                 }
@@ -1394,6 +1391,12 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     // starts can change pretty drastically, so just clear and reidentify
     identify_start_subpaths(left_mp_aln);
     
+    if (check_for_empty_subpaths_at_end) {
+#ifdef debug_fusing
+        cerr << "removing any empty subpaths" << endl;
+#endif
+        remove_empty_subpaths(left_mp_aln);
+    }
     
 #ifdef debug_fusing
     cerr << "final product:" << endl;

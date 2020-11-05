@@ -127,6 +127,7 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
             //Make a new connected component for this one node
             size_t component_num = component_to_chain_index.size()+1;
             component_to_chain_index.resize(curr_component);
+            component_to_chain_length.resize(curr_component);
             //Assign it to a chain that doesn't exist?
             component_to_chain_index[curr_component-1] = chain_indexes.size();
             component_to_chain_length[curr_component-1] = node_len;

@@ -46,6 +46,7 @@
 #include "algorithms/reverse_complement.hpp"
 #include "algorithms/extend.hpp"
 #include "algorithms/jump_along_path.hpp"
+#include "algorithms/copy_graph.hpp"
 
 #include "bdsg/hash_graph.hpp"
 
@@ -115,6 +116,9 @@ namespace vg {
         /// Set the algner scoring parameters and create the stored aligner instances. The
         /// score matrix should by a 4 x 4 array in the order (ACGT)
         void set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+        
+        /// How big of a softclip should lead us to attempt spliced alignment?
+        void set_min_softclip_length_for_splice(size_t length);
         
         // parameters
         
@@ -199,7 +203,6 @@ namespace vg {
         size_t max_alignment_gap = 5000;
         bool suppress_mismapping_detection = false;
         bool do_spliced_alignment = false;
-        int64_t min_softclip_length_for_splice = 16;
         int64_t max_softclip_overlap = 8;
         int64_t max_splice_overhang = 3;
         // about 250k
@@ -332,25 +335,25 @@ namespace vg {
         /// caller must delete the VG objects produced!
         vector<clustergraph_t> query_cluster_graphs(const Alignment& alignment,
                                                     const vector<MaximalExactMatch>& mems,
-                                                    const vector<memcluster_t>& clusters);
+                                                    const vector<memcluster_t>& clusters) const;
         
         /// Return a graph (on the heap) that contains a cluster. The paired bool
         /// indicates whether the graph is known to be connected (but it is possible
         /// for the graph to be connected and have it return false)
-        pair<bdsg::HashGraph*, bool> extract_cluster_graph(const Alignment& alignment, const memcluster_t& mem_cluster);
+        pair<bdsg::HashGraph*, bool> extract_cluster_graph(const Alignment& alignment, const memcluster_t& mem_cluster) const;
         
         /// Extract a graph that is guaranteed to contain all local alignments that include
         /// the MEMs of the cluster.  The paired bool indicates whether the graph is
         /// known to be connected (but it is possible for the graph to be connected and have
         /// it return false)
-        pair<bdsg::HashGraph*, bool> extract_maximal_graph(const Alignment& alignment, const memcluster_t& mem_cluster);
+        pair<bdsg::HashGraph*, bool> extract_maximal_graph(const Alignment& alignment, const memcluster_t& mem_cluster) const;
         
         /// Extract a graph with an algorithm that tries to extract not much more than what
         /// is required to contain the cluster in a single connected component (can be slower
         /// than the maximal algorithm for alignments that require large indels),  The paired bool
         /// indicates whether the graph is known to be connected (but it is possible
         /// for the graph to be connected and have it return false)
-        pair<bdsg::HashGraph*, bool> extract_restrained_graph(const Alignment& alignment, const memcluster_t& mem_cluster);
+        pair<bdsg::HashGraph*, bool> extract_restrained_graph(const Alignment& alignment, const memcluster_t& mem_cluster) const;
         
         /// Returns the union of the intervals on the read that a cluster cover in sorted order
         vector<pair<int64_t, int64_t>> covered_intervals(const Alignment& alignment,
@@ -361,6 +364,8 @@ namespace vg {
         /// Properly handles multipath_alignment_ts that are unmapped.
         /// Does not depend on or guarantee topological order in the multipath_alignment_ts.
         void split_multicomponent_alignments(vector<multipath_alignment_t>& multipath_alns_out,
+                                             const Alignment* alignment = nullptr,
+                                             vector<clustergraph_t>* cluster_graphs = nullptr,
                                              vector<size_t>* cluster_idxs = nullptr,
                                              vector<double>* multiplicities = nullptr) const;
         
@@ -369,9 +374,20 @@ namespace vg {
         /// a record to the cluster pairs vector.
         /// Properly handles multipath_alignment_ts that are unmapped.
         /// Does not depend on or guarantee topological order in the multipath_alignment_ts.
-        void split_multicomponent_alignments(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+        void split_multicomponent_alignments(const Alignment& alignment1, const Alignment& alignment2,
+                                             vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                             vector<clustergraph_t>& cluster_graphs1,
+                                             vector<clustergraph_t>& cluster_graphs2,
                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                              vector<double>& multiplicities) const;
+        
+        /// Helper function to be called by split_multicomponent_alignments to reassign hits to the
+        /// split clusters
+        void reassign_split_clusters(const Alignment& alignment,
+                                     vector<clustergraph_t>& cluster_graphs,
+                                     const vector<const multipath_alignment_t*>& split_mp_alns,
+                                     const vector<size_t*>& cluster_assignments,
+                                     const vector<size_t*>& all_cluster_assignments) const;
         
         /// Combine all of the significant alignments into one. Requires alignments to be sorted by
         /// significance already
@@ -406,6 +422,7 @@ namespace vg {
                                                 const pair<int64_t, int64_t>& primary_interval,
                                                 const vector<multipath_alignment_t>& multipath_alns,
                                                 const vector<size_t>& cluster_idxs,
+                                                const vector<int64_t>& current_index, int64_t anchor,
                                                 unordered_set<size_t>& clusters_used_out,
                                                 vector<size_t>& mp_aln_candidates_out) const;
 
@@ -413,6 +430,7 @@ namespace vg {
                                                 const pair<int64_t, int64_t>& primary_interval,
                                                 const vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs,
                                                 const vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                const vector<int64_t>& current_index, int64_t anchor,
                                                 unordered_set<size_t>& clusters_used_out,
                                                 vector<size_t>& mp_aln_candidates_out) const;
 
@@ -426,6 +444,7 @@ namespace vg {
         
         void align_to_splice_candidates(const Alignment& alignment,
                                         vector<clustergraph_t>& cluster_graphs,
+                                        const vector<MaximalExactMatch>& mems,
                                         const vector<size_t>& cluster_candidates,
                                         const vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates,
                                         const pair<int64_t, int64_t>& primary_interval,
@@ -525,10 +544,10 @@ namespace vg {
         bool likely_misrescue(const multipath_alignment_t& multipath_aln);
         
         /// A scaling of a score so that it approximately follows the distribution of the longest match in p-value test
-        size_t pseudo_length(const multipath_alignment_t& multipath_aln) const;
+        int64_t pseudo_length(const multipath_alignment_t& multipath_aln) const;
         
         /// The approximate p-value for a match length of the given size against the current graph
-        double random_match_p_value(size_t match_length, size_t read_length);
+        double random_match_p_value(int64_t match_length, size_t read_length);
         
         /// Reorganizes the fan-out breaks into the format that MultipathAlignmentGraph wants it in
         match_fanouts_t record_fanouts(const vector<MaximalExactMatch>& mems,
@@ -546,9 +565,6 @@ namespace vg {
         
         /// Is this a consistent inter-pair distance based on the learned fragment length distribution?
         bool is_consistent(int64_t distance) const;
-        
-        /// Computes the Z-score of the number of matches against an equal length random DNA string.
-        double read_coverage_z_score(int64_t coverage, const Alignment& alignment) const;
         
         /// Return true if any of the initial positions of the source Subpaths are shared between the two
         /// multipath alignments
@@ -571,17 +587,23 @@ namespace vg {
         vector<MaximalExactMatch> find_mems(const Alignment& alignment,
                                             vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks = nullptr);
         
+        
+        int64_t min_softclip_length_for_splice = 20;
+        int64_t min_softclipped_score_for_splice = 25;
+        
         DinucleotideMachine dinuc_machine;
         SpliceMotifs splice_motifs;
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
         PathComponentIndex* path_component_index = nullptr;
         
+        static const size_t RESCUED;
+        
         /// Memos used by population model
         static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;
         
         // a memo for the transcendental p-value function (thread local to maintain threadsafety)
-        static thread_local unordered_map<pair<size_t, size_t>, double> p_value_memo;
+        static thread_local unordered_map<pair<int64_t, size_t>, double> p_value_memo;
         
         // a memo for the transcendental restrained extraction function (thread local to maintain threadsafety)
         static thread_local unordered_map<double, vector<int64_t>> pessimistic_gap_memo;
