@@ -953,13 +953,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 better_cluster_count[fragment_num] = rank+1;
                 prev_score_sum = curr_score_sum;
             }
-#ifdef debug
-            assert(prev_score_sum == 
-                cluster_coverage_by_fragment.first[prev_fragment_num] +
-                cluster_coverage_by_fragment.second[prev_fragment_num] +
-                cluster_score_by_fragment.first[prev_fragment_num] +
-                cluster_score_by_fragment.second[prev_fragment_num]);
-#endif
         }
     }
 #ifdef debug
@@ -1447,7 +1440,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     size_t rescued_count_2 = 0;
     //for each alignment pair that we rescue, true if we rescued from the first read
     //this will only have as many entries as rescued pairs
-    vector<bool> rescued_from; 
+    //First entry may be 2, indicating that this was not rescued but an unpaired pair
+    vector<size_t> rescued_from; 
 
     if (!unpaired_alignments.empty()) {
         //If we found some clusters that had no pair in a fragment cluster
@@ -1528,20 +1522,18 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     funnels[0].annotate_mapped_alignment(paired_mappings.second[0], track_correctness);
                 }
                 return paired_mappings;
-            } else {
+            } else if (best_score_1 != 0 and best_score_2 != 0) {
                 //We are attempting rescue, but we still want to keep the best alignments as a potential (unpaired) pair 
                 pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair =  make_pair(make_pair(std::get<0>(best_index_1), std::get<1>(best_index_1)), 
                                                                                          make_pair(std::get<0>(best_index_2), std::get<1>(best_index_2)));
 
                 Alignment& aln1 = alignments[std::get<0>(best_index_1)].first[std::get<1>(best_index_1)];
-                Alignment& aln2 = alignments[std::get<0>(best_index_2)].first[std::get<1>(best_index_2)];
-                set_annotation(aln1, "unpaired", true);
-                set_annotation(aln2, "unpaired", true);
+                Alignment& aln2 = alignments[std::get<0>(best_index_2)].second[std::get<1>(best_index_2)];
                 //TODO: Kind of making up these numbers
                 paired_alignments.push_back(index_pair);
                 paired_scores.emplace_back(aln1.score() + aln2.score()); //TODO: Should we penalize the score?
                 fragment_distances.emplace_back(std::numeric_limits<int64_t>::max());
-                better_cluster_count_by_pairs.emplace_back(0);
+                better_cluster_count_by_pairs.emplace_back(2);
             }
         }
 
@@ -1604,7 +1596,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     paired_alignments.push_back(index_pair);
                     paired_scores.emplace_back(score);
                     fragment_distances.emplace_back(fragment_dist);
-                    rescued_from.push_back(found_first); 
+                    rescued_from.push_back(found_first ? 1 : 0); 
                     better_cluster_count_by_pairs.emplace_back(better_cluster_count[mapped_index.first]);
 
 #ifdef print_minimizers
@@ -1658,8 +1650,13 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     double estimated_multiplicity_from_1 = unpaired_count_1 > 0 ? (double) unpaired_count_1 / min(rescued_count_1, max_rescue_attempts) : 1.0;
     double estimated_multiplicity_from_2 = unpaired_count_2 > 0 ? (double) unpaired_count_2 / min(rescued_count_2, max_rescue_attempts) : 1.0;
     vector<double> paired_multiplicities;
-    for (bool rescued_from_first : rescued_from) {
-        paired_multiplicities.push_back(rescued_from_first ? estimated_multiplicity_from_1 : estimated_multiplicity_from_2);
+    for (size_t rescued_from_first : rescued_from) {
+        if (rescued_from_first == 2) {
+            paired_multiplicities.push_back(1.0);
+        } else {
+
+            paired_multiplicities.push_back(rescued_from_first == 1 ? estimated_multiplicity_from_1 : estimated_multiplicity_from_2);
+        }
     }
 
     // Fill this in with the alignments we will output
