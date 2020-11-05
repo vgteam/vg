@@ -25,8 +25,6 @@
 #include "../algorithms/normalize.hpp"
 #include "../io/save_handle_graph.hpp"
 
-#include "../algorithms/0_demo_final_0.hpp"
-
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -79,9 +77,7 @@ void help_mod(char** argv) {
          << "    -a, --cactus            convert to cactus graph representation" << endl
          << "    -v, --sample-vcf FILE   for a graph with allele paths, compute the sample graph from the given VCF" << endl
          << "    -G, --sample-graph FILE subset an augmented graph to a sample graph using a Locus file" << endl
-         << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl
-         << "    -F, --demo_0 FILE       Given a .snarls file (from command vg snarls) and the corresponding graph," << endl
-         << "                            simplifies redundancy in graph's snarls." << endl;
+         << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
 int main_mod(int argc, char** argv) {
@@ -124,7 +120,6 @@ int main_mod(int argc, char** argv) {
     string vcf_filename;
     string loci_filename;
     int max_degree = 0;
-    string demo_0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -360,10 +355,6 @@ int main_mod(int argc, char** argv) {
 
         case 'M':
             max_degree = parse<int>(optarg);
-            break;
-
-        case 'F':
-            demo_0 = optarg;
             break;
 
         case 'h':
@@ -786,24 +777,7 @@ int main_mod(int argc, char** argv) {
         vg_graph->paths = Paths();
     }
 
-    if ( !demo_0.empty() ) {
-
-        ///Testing gbwt_helper.hpp's for_each_kmer function. This issue is that I don't know how to construct a gbwt::GBWT haplotypes object. Nor do I know how to determine what size k I should use.
-        test_gbwt(*graph);
-
-        //     std::ifstream snarl_stream;
-        //     snarl_stream.open(demo_0);
-            
-        //     if (!snarl_stream) {
-        //         cerr << "error:[vg mod] Cannot open Snarls file " << demo_0 << endl;
-        //         exit(1);
-        //     }
-
-        //     clean_all_snarls(*graph, snarl_stream);
-        }
-        // graph->serialize_to_ostream(std::cout);
-        // delete graph;
-
+    graph->serialize_to_ostream(std::cout);
 
     // Save the modified graph
     vg::io::save_handle_graph(graph.get(), std::cout);
