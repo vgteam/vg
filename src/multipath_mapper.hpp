@@ -221,7 +221,7 @@ namespace vg {
         /// actual extracted graph, a list of assigned MEMs, and the number of
         /// bases of read coverage that that MEM cluster provides (which serves
         /// as a priority).
-        using clustergraph_t = tuple<bdsg::HashGraph*, memcluster_t, size_t>;
+        using clustergraph_t = tuple<unique_ptr<bdsg::HashGraph>, memcluster_t, size_t>;
         
         /// Represents the mismatches that were allowed in "MEMs" from the fanout
         /// match algorithm
@@ -340,20 +340,23 @@ namespace vg {
         /// Return a graph (on the heap) that contains a cluster. The paired bool
         /// indicates whether the graph is known to be connected (but it is possible
         /// for the graph to be connected and have it return false)
-        pair<bdsg::HashGraph*, bool> extract_cluster_graph(const Alignment& alignment, const memcluster_t& mem_cluster) const;
+        pair<unique_ptr<bdsg::HashGraph>, bool> extract_cluster_graph(const Alignment& alignment,
+                                                                      const memcluster_t& mem_cluster) const;
         
         /// Extract a graph that is guaranteed to contain all local alignments that include
         /// the MEMs of the cluster.  The paired bool indicates whether the graph is
         /// known to be connected (but it is possible for the graph to be connected and have
         /// it return false)
-        pair<bdsg::HashGraph*, bool> extract_maximal_graph(const Alignment& alignment, const memcluster_t& mem_cluster) const;
+        pair<unique_ptr<bdsg::HashGraph>, bool> extract_maximal_graph(const Alignment& alignment,
+                                                                      const memcluster_t& mem_cluster) const;
         
         /// Extract a graph with an algorithm that tries to extract not much more than what
         /// is required to contain the cluster in a single connected component (can be slower
         /// than the maximal algorithm for alignments that require large indels),  The paired bool
         /// indicates whether the graph is known to be connected (but it is possible
         /// for the graph to be connected and have it return false)
-        pair<bdsg::HashGraph*, bool> extract_restrained_graph(const Alignment& alignment, const memcluster_t& mem_cluster) const;
+        pair<unique_ptr<bdsg::HashGraph>, bool> extract_restrained_graph(const Alignment& alignment,
+                                                                         const memcluster_t& mem_cluster) const;
         
         /// Returns the union of the intervals on the read that a cluster cover in sorted order
         vector<pair<int64_t, int64_t>> covered_intervals(const Alignment& alignment,
@@ -595,7 +598,7 @@ namespace vg {
         SpliceMotifs splice_motifs;
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
-        PathComponentIndex* path_component_index = nullptr;
+        unique_ptr<PathComponentIndex> path_component_index;
         
         static const size_t RESCUED;
         

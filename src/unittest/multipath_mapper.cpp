@@ -167,11 +167,6 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         auto results = mapper.query_cluster_graphs(aln, mems, clusters);
         
         REQUIRE(results.size() == 0);
-        
-        for (auto cluster_graph : results) {
-            // Clean up all those vg graphs
-            delete get<0>(cluster_graph);
-        }
     
     }
     
@@ -204,11 +199,6 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(where == make_pos_t(1, false, 0));
         // It covers 3 bases from that MEM
         REQUIRE(get<2>(results[0]) == 3);
-        
-        for (auto cluster_graph : results) {
-            // Clean up all those vg graphs
-            delete get<0>(cluster_graph);
-        }
     
     }
     
@@ -240,12 +230,6 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(found == wanted);
         // It covers all 7 bases, like the MEMs do together
         REQUIRE(get<2>(results[0]) == 7);
-        
-        for (auto cluster_graph : results) {
-            // Clean up all those vg graphs
-            delete get<0>(cluster_graph);
-        }
-    
     }
     
     
@@ -277,11 +261,6 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(found == wanted);
         // It covers all 7 bases, like the MEMs do together
         REQUIRE(get<2>(results[0]) == 7);
-        
-        for (auto cluster_graph : results) {
-            // Clean up all those vg graphs
-            delete get<0>(cluster_graph);
-        }
     
     }
 }
