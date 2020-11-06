@@ -1370,12 +1370,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
                     //Get the likelihood of the fragment distance
                     int64_t fragment_distance = distance_between(alignment1, alignment2); 
-                    double dev = fragment_distance - fragment_length_distr.mean();
-                    double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev());
-                    if (fragment_distance != std::numeric_limits<int64_t>::max() ) {
+                    if (true) {//TODO: Always keep pairs, even if there is no path between them fragment_distance != std::numeric_limits<int64_t>::max() ) {
                         //If this is a plausible pair of alignments, keep it
 
-                        double score = alignment1.score() + alignment2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
+                        double score = score_alignment_pair(alignment1, alignment2, fragment_distance)
                         alignment_groups[fragment_num].first[aln_index1].emplace_back(paired_alignments.size());
                         alignment_groups[fragment_num].second[aln_index2].emplace_back(paired_alignments.size());
                         paired_alignments.emplace_back(make_pair(fragment_num, aln_index1), make_pair(fragment_num, aln_index2));
@@ -1445,18 +1443,16 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
     if (!unpaired_alignments.empty()) {
         //If we found some clusters that had no pair in a fragment cluster
-
-        //Keep track of the best from each end, and return this if we didn't rescue anything
-        tuple<size_t, size_t, bool> best_index_1 (std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
-        tuple<size_t, size_t, bool> best_index_2(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
-        int64_t best_score_1 = 0;
-        int64_t best_score_2 = 0;
         if (!found_pair) {
             //If we didn't find any pairs find the best alignment for each end
 
 #ifdef debug
             cerr << "Found no pairs and we aren't doing rescue: return best alignment for each read" << endl;
 #endif
+            tuple<size_t, size_t, size_t> best_index_1 (std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+            tuple<size_t, size_t, size_t> best_index_2(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+            int64_t best_score_1 = 0;
+            int64_t best_score_2 = 0;
 
             for (tuple<size_t, size_t, bool> index : unpaired_alignments ) {
                 Alignment& alignment = std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index) ]
@@ -1524,7 +1520,20 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     funnels[0].annotate_mapped_alignment(paired_mappings.second[0], track_correctness);
                 }
                 return paired_mappings;
-            }  
+            } else if (best_score_1 != 0 and best_score_2 != 0) {
+                //We are attempting rescue, but we still want to keep the best alignments as a potential (unpaired) pair 
+                pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair =  make_pair(make_pair(std::get<0>(best_index_1), std::get<1>(best_index_1)), 
+                                                                                         make_pair(std::get<0>(best_index_2), std::get<1>(best_index_2)));
+
+                Alignment& aln1 = alignments[std::get<0>(best_index_1)].first[std::get<1>(best_index_1)];
+                Alignment& aln2 = alignments[std::get<0>(best_index_2)].second[std::get<1>(best_index_2)];
+                //TODO: Kind of making up these numbers
+                paired_alignments.push_back(index_pair);
+                double pair_score = score_alignment_pair(aln1, aln2, std::numeric_limits<int64_t>::max());
+                paired_scores.emplace_back(pair_score); //TODO: Should we penalize the score?
+                fragment_distances.emplace_back(std::numeric_limits<int64_t>::max());
+                better_cluster_count_by_pairs.emplace_back(2);
+            }
         }
 
         if (max_rescue_attempts != 0) {
@@ -1557,12 +1566,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
                 int64_t fragment_dist = found_first ? distance_between(mapped_aln, rescued_aln) 
                                                       : distance_between(rescued_aln, mapped_aln);
-                if (fragment_dist != std::numeric_limits<int64_t>::max()) {
+                if (true) { //TODO fragment_dist != std::numeric_limits<int64_t>::max()) {
                     bool duplicated = false;
-
-                    double dev = fragment_dist - fragment_length_distr.mean();
-                    double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev());
-                    double score = mapped_aln.score() + rescued_aln.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
+                    double score = score_alignment_pair(mapped_aln, rescued_aln, fragment_dist);
 
                     set_annotation(mapped_aln, "rescuer", true);
                     set_annotation(rescued_aln, "rescued", true);
@@ -1624,19 +1630,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 }
                 return;
             });
-        }
-        if ( paired_alignments.size() == 0 && best_score_1 != 0 && best_score_2 != 0) {
-            //We are attempting rescue, but we still want to keep the best alignments as a potential (unpaired) pair 
-            pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair =  make_pair(make_pair(std::get<0>(best_index_1), std::get<1>(best_index_1)), 
-                                                                                     make_pair(std::get<0>(best_index_2), std::get<1>(best_index_2)));
-
-            Alignment& aln1 = alignments[std::get<0>(best_index_1)].first[std::get<1>(best_index_1)];
-            Alignment& aln2 = alignments[std::get<0>(best_index_2)].second[std::get<1>(best_index_2)];
-            //TODO: Kind of making up these numbers
-            paired_alignments.push_back(index_pair);
-            paired_scores.emplace_back(aln1.score() + aln2.score()); //TODO: Should we penalize the score?
-            fragment_distances.emplace_back(std::numeric_limits<int64_t>::max());
-            better_cluster_count_by_pairs.emplace_back(2);
         }
     }
 
@@ -1984,16 +1977,13 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
 
         int64_t dist = distances[i];
         assert(dist == distance_between(aln_1, aln_2)); 
-        double dev = dist - fragment_length_distr.mean();
-        double fragment_length_log_likelihood = (-dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev()) ) / get_aligner()->log_base;
 
-        assert(scores[i] == aln_1.score() + aln_2.score() + fragment_length_log_likelihood);
+        assert(scores[i] == score_alignment_pair(aln_1, aln_2, dist);
 
         double multiplicity = paired_multiplicities.size() == scores.size() ? paired_multiplicities[i] : 1.0;
 
         cerr << aln_1.score() << "," 
              << aln_2.score() << "," 
-             << fragment_length_log_likelihood << "," 
              << multiplicity << "," 
              << scores[i] << ";";
     }
@@ -2034,16 +2024,13 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
 
         int64_t dist = distances[i];
         assert(dist == distance_between(aln_1, aln_2)); 
-        double dev = dist - fragment_length_distr.mean();
-        double fragment_length_log_likelihood = (-dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev()) ) / get_aligner()->log_base;
 
-        assert(scores[i] == aln_1.score() + aln_2.score() + fragment_length_log_likelihood);
+        assert(scores[i] == score_alignment_pair(aln_1, aln_2, dist);
 
         double multiplicity = paired_multiplicities.size() == scores.size() ? paired_multiplicities[i] : 1.0;
 
         cerr << aln_1.score() << "," 
              << aln_2.score() << "," 
-             << fragment_length_log_likelihood << "," 
              << multiplicity << "," 
              << scores[i] << ";";
     }
@@ -3671,6 +3658,18 @@ void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from
 
 }
 
+double MinimizerMapper::score_alignment_pair(Alignment& aln1, Alignment& aln2, int64_t fragment_distance) {
+    //Score a pair of alignments
+
+    double dev = fragment_distance - fragment_length_distr.mean();
+    double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev());
+    double score = alignment1.score() + alignment2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
+
+    //Don't let the fragment length log likelihood bring score down below the score of the best alignment
+    double best_score = std::max(alignment1.score(), alignment2.score());
+
+    return std::max(score, best_score);;
+}
 
 }
 
