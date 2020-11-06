@@ -499,10 +499,6 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(const HandleGraph& grap
         
         // cap stop index if last diagonal is below bottom of matrix
         int64_t iter_stop = bottom_diag >= (int64_t) read.length() ? band_height + (int64_t) read.length() - bottom_diag - 1 : band_height;
-        
-//        cerr << "stop opt 1 " << band_height + (int64_t) read.length() - bottom_diag - 1 << ", opt 2 " << band_height << endl;
-//        cerr << "iter range " << iter_start << " " << iter_stop << ", diags " << top_diag << " " << bottom_diag << endl;
-        
         // match of first nucleotides
         if (qual_adjusted) {
             match[idx] = max<IntType>(score_mat[25 * base_quality[0] + 5 * nt_table[node_seq[0]] + nt_table[read[0]]], match[idx]);
@@ -537,8 +533,6 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(const HandleGraph& grap
                                            insert_col[up_idx] - gap_open);
             // must take two gaps to get into first column
             insert_col[idx] = max<IntType>(-2 * gap_open - (top_diag + i) * gap_extend, insert_col[idx]);
-//            cerr << "idx " << idx << ", match " << (int) match[idx] << endl;
-//            cerr << "read idx " << i + top_diag << " read len " << read.size() << endl;
 #ifdef debug_banded_aligner_fill_matrix
             cerr << "[BAMatrix::fill_matrix]: on left edge of matrix at rectangle coords (" << i << ", " << 0 << "), match score of node char " << 0 << " (" << node_seq[0] << ") and read char " << i + top_diag << " (" << read[i + top_diag] << ") is " << (int) match_score << ", leading gap length is " << top_diag + i << " for total match matrix score of " << (int) match[idx] << endl;
 #endif
@@ -2005,8 +1999,6 @@ void BandedGlobalAligner<IntType>::find_banded_paths(bool permissive_banding, in
             band_ends[init_node_idx].second = max(band_padding,
                                                   int64_t(alignment.sequence().size())
                                                   - (init_node_seq_len + shortest_path_to_sink[init_node_idx]) + band_padding);
-//            cerr << "top band options: " << -band_padding << ", " << (int64_t(alignment.sequence().size()) - (init_node_seq_len + longest_path_to_sink[init_node_idx]) - band_padding) << endl;
-//            cerr << "bottom band options: " << band_padding << ", " << (int64_t(alignment.sequence().size()) - (init_node_seq_len + shortest_path_to_sink[init_node_idx]) + band_padding) << endl;
 #ifdef debug_banded_aligner_graph_processing
             cerr << "[BandedGlobalAligner::find_banded_paths]: initializing band path end at node " << graph.get_id(init_node) << " at index " << init_node_idx << " to top " << band_ends[init_node_idx].first << ", and bottom " << band_ends[init_node_idx].second << " from shortest and longest paths of length " << shortest_path_to_sink[init_node_idx] << " and " << longest_path_to_sink[init_node_idx] << " compared to read length " << alignment.sequence().size() << " with padding " << band_padding << endl;
 #endif
