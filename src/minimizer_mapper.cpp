@@ -1445,16 +1445,18 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
     if (!unpaired_alignments.empty()) {
         //If we found some clusters that had no pair in a fragment cluster
+
+        //Keep track of the best from each end, and return this if we didn't rescue anything
+        tuple<size_t, size_t, bool> best_index_1 (std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+        tuple<size_t, size_t, bool> best_index_2(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+        int64_t best_score_1 = 0;
+        int64_t best_score_2 = 0;
         if (!found_pair) {
             //If we didn't find any pairs find the best alignment for each end
 
 #ifdef debug
             cerr << "Found no pairs and we aren't doing rescue: return best alignment for each read" << endl;
 #endif
-            tuple<size_t, size_t, size_t> best_index_1 (std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
-            tuple<size_t, size_t, size_t> best_index_2(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
-            int64_t best_score_1 = 0;
-            int64_t best_score_2 = 0;
 
             for (tuple<size_t, size_t, bool> index : unpaired_alignments ) {
                 Alignment& alignment = std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index) ]
@@ -1522,19 +1524,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     funnels[0].annotate_mapped_alignment(paired_mappings.second[0], track_correctness);
                 }
                 return paired_mappings;
-            } else if (best_score_1 != 0 and best_score_2 != 0) {
-                //We are attempting rescue, but we still want to keep the best alignments as a potential (unpaired) pair 
-                pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair =  make_pair(make_pair(std::get<0>(best_index_1), std::get<1>(best_index_1)), 
-                                                                                         make_pair(std::get<0>(best_index_2), std::get<1>(best_index_2)));
-
-                Alignment& aln1 = alignments[std::get<0>(best_index_1)].first[std::get<1>(best_index_1)];
-                Alignment& aln2 = alignments[std::get<0>(best_index_2)].second[std::get<1>(best_index_2)];
-                //TODO: Kind of making up these numbers
-                paired_alignments.push_back(index_pair);
-                paired_scores.emplace_back(aln1.score() + aln2.score()); //TODO: Should we penalize the score?
-                fragment_distances.emplace_back(std::numeric_limits<int64_t>::max());
-                better_cluster_count_by_pairs.emplace_back(2);
-            }
+            }  
         }
 
         if (max_rescue_attempts != 0) {
@@ -1634,6 +1624,19 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 }
                 return;
             });
+        }
+        if ( paired_alignments.size() == 0 && best_score_1 != 0 && best_score_2 != 0) {
+            //We are attempting rescue, but we still want to keep the best alignments as a potential (unpaired) pair 
+            pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair =  make_pair(make_pair(std::get<0>(best_index_1), std::get<1>(best_index_1)), 
+                                                                                     make_pair(std::get<0>(best_index_2), std::get<1>(best_index_2)));
+
+            Alignment& aln1 = alignments[std::get<0>(best_index_1)].first[std::get<1>(best_index_1)];
+            Alignment& aln2 = alignments[std::get<0>(best_index_2)].second[std::get<1>(best_index_2)];
+            //TODO: Kind of making up these numbers
+            paired_alignments.push_back(index_pair);
+            paired_scores.emplace_back(aln1.score() + aln2.score()); //TODO: Should we penalize the score?
+            fragment_distances.emplace_back(std::numeric_limits<int64_t>::max());
+            better_cluster_count_by_pairs.emplace_back(2);
         }
     }
 
