@@ -1373,7 +1373,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     if (true) {//TODO: Always keep pairs, even if there is no path between them fragment_distance != std::numeric_limits<int64_t>::max() ) {
                         //If this is a plausible pair of alignments, keep it
 
-                        double score = score_alignment_pair(alignment1, alignment2, fragment_distance)
+                        double score = score_alignment_pair(alignment1, alignment2, fragment_distance);
                         alignment_groups[fragment_num].first[aln_index1].emplace_back(paired_alignments.size());
                         alignment_groups[fragment_num].second[aln_index2].emplace_back(paired_alignments.size());
                         paired_alignments.emplace_back(make_pair(fragment_num, aln_index1), make_pair(fragment_num, aln_index2));
@@ -3663,12 +3663,12 @@ double MinimizerMapper::score_alignment_pair(Alignment& aln1, Alignment& aln2, i
 
     double dev = fragment_distance - fragment_length_distr.mean();
     double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev());
-    double score = alignment1.score() + alignment2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
+    double score = aln1.score() + aln2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
 
     //Don't let the fragment length log likelihood bring score down below the score of the best alignment
-    double best_score = std::max(alignment1.score(), alignment2.score());
+    double worse_score = std::min(aln1.score(), aln2.score());
 
-    return std::max(score, best_score);;
+    return std::max(score, worse_score);;
 }
 
 }
