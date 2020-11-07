@@ -462,18 +462,11 @@ namespace vg {
                                     const function<const multipath_alignment_t&(int64_t)>& get_candidate,
                                     const function<multipath_alignment_t&&(int64_t)>& consume_candidate);
         
-//        void test_splice_candidates(const Alignment& alignment, bool searching_left,
-//                                    vector<multipath_alignment_t>& multipath_alns,
-//                                    vector<double>& multiplicities,
-//                                    const vector<size_t>& mp_aln_candidates,
-//                                    vector<multipath_alignment_t>& unaligned_candidates,
-//                                    const vector<double>& unaligned_multiplicities);
-        
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
         /// Does NOT necessarily produce a multipath_alignment_t in topological order.
-        void multipath_align(const Alignment& alignment, const bdsg::HashGraph* graph,
-                             memcluster_t& graph_mems,
+        void multipath_align(const Alignment& alignment,
+                             clustergraph_t& cluster_graph,
                              multipath_alignment_t& multipath_aln_out,
                              const match_fanouts_t* fanouts) const;
         
@@ -538,7 +531,7 @@ namespace vg {
         double fragment_length_log_likelihood(int64_t length) const;
         
         /// Computes the number of read bases a cluster of MEM hits covers.
-        static int64_t read_coverage(const memcluster_t& mem_hits);
+        static void set_read_coverage(clustergraph_t& cluster_graph);
         
         /// Would an alignment this good be expected against a graph this big by chance alone
         bool likely_mismapping(const multipath_alignment_t& multipath_aln);
