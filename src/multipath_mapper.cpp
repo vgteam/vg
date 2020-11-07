@@ -469,13 +469,13 @@ namespace vg {
             }
             
 #ifdef debug_multipath_mapper_alignment
-            cerr << "performing alignment to subgraph" << endl;
+            cerr << "performing alignment to subgraph with coverage " << get<2>(cluster_graph) << " and multiplicity " << get<1>(cluster_graph).second << endl;
 #endif
-            
+            double multiplicity = cluster_multiplicity(get<1>(cluster_graph));
+            size_t cluster_size = get<1>(cluster_graph).first.size();
             multipath_alns_out.emplace_back();
-            multipath_align(alignment, get<0>(cluster_graph).get(), get<1>(cluster_graph), multipath_alns_out.back(),
-                            fanouts);
-            multiplicities_out.emplace_back(cluster_multiplicity(get<1>(cluster_graph)));
+            multipath_align(alignment, cluster_graph, multipath_alns_out.back(), fanouts);
+            multiplicities_out.emplace_back(multiplicity);
             num_mappings++;
         }
         
@@ -1530,8 +1530,7 @@ namespace vg {
                 // make the alignment
                 vector<multipath_alignment_t> cluster_multipath_alns;
                 cluster_multipath_alns.emplace_back();
-                multipath_align(anchor_aln, get<0>(cluster_graphs[i]).get(), get<1>(cluster_graphs[i]),
-                                cluster_multipath_alns.back(), anchor_fanouts);
+                multipath_align(anchor_aln, cluster_graphs[i], cluster_multipath_alns.back(), anchor_fanouts);
                 
                 if (!suppress_multicomponent_splitting) {
                     // split it up if it turns out to be multiple components
@@ -1778,14 +1777,14 @@ namespace vg {
         cerr << "obtained independent clusters:" << endl;
         cerr << "read 1" << endl;
         for (int i = 0; i < cluster_graphs1.size(); i++) {
-            cerr << "\tcluster " << i << endl;
+            cerr << "\tcluster " << i << " (multiplicity " << get<1>(cluster_graphs1[i]).second << ")" << endl;
             for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[i]).first) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
         }
         cerr << "read 2" << endl;
         for (int i = 0; i < cluster_graphs2.size(); i++) {
-            cerr << "\tcluster " << i << endl;
+            cerr << "\tcluster " << i << " (multiplicity " << get<1>(cluster_graphs2[i]).second << ")" << endl;
             for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[i]).first) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
@@ -2433,10 +2432,9 @@ namespace vg {
                                                      const match_fanouts_t* mem_fanouts) const {
         
         auto align_to_candidate = [&](clustergraph_t& cluster_graph) {
-        
+            
             candidates_out.emplace_back();
-            multipath_align(alignment, get<0>(cluster_graph).get(), get<1>(cluster_graph), candidates_out.back(),
-                            mem_fanouts);
+            multipath_align(alignment, cluster_graph, candidates_out.back(), mem_fanouts);
             topologically_order_subpaths(candidates_out.back());
             multiplicities_out.emplace_back(cluster_multiplicity(get<1>(cluster_graph)));
             
@@ -3380,7 +3378,6 @@ namespace vg {
                 all_cluster_assignments[i] = &(*cluster_idxs)[i];
             }
             
-            // TODO: the mp alns aren't ordered yet
             reassign_split_clusters(*alignment, *cluster_graphs, split_mp_alns, cluster_assignments,
                                     all_cluster_assignments);
         }
@@ -3413,7 +3410,7 @@ namespace vg {
         for (const auto& record : original_cluster) {
             
 #ifdef debug_multipath_mapper
-            cerr << "reassigning clusters originally from " << record.first << ":" << endl;
+            cerr << "reassigning clusters for mp alns originally from cluster " << record.first << ":" << endl;
             for (auto i : record.second) {
                 cerr << "\t" << i << endl;
             }
@@ -3430,7 +3427,7 @@ namespace vg {
                 auto& hit = get<1>(cluster_graphs[record.first]).first[i];
                 for (size_t j = 0; j < record.second.size(); ++j) {
 #ifdef debug_multipath_mapper
-                    cerr << "checking for hit " << i << " in " << j << "-th mp aln" << endl;
+                    cerr << "checking for " << i << "-th hit in this cluster the in " << j << "-th mp aln" << endl;
 #endif
                     
                     // check if the i-th MEM is contained in the j-th split up component
@@ -3465,7 +3462,9 @@ namespace vg {
                 if (hits_found_in_aln[j].size() == get<1>(cluster_graphs[record.first]).first.size()) {
                     // this alignment still contains the whole cluster, so we don't need
                     // to point it at anything else
-                    
+#ifdef debug_multipath_mapper
+                    cerr << "still in original cluster " << record.first << endl;
+#endif
                     continue;
                 }
                 
@@ -3494,32 +3493,20 @@ namespace vg {
                     }
                     get<1>(cluster_graph).second = get<1>(cluster_graphs[record.first]).second;
                     
-                    // sort lexicographically to compute read coverage
-                    sort(get<1>(cluster_graph).first.begin(), get<1>(cluster_graph).first.end(),
-                         [](const pair<const MaximalExactMatch*, pos_t>& hit_1,
-                            const pair<const MaximalExactMatch*, pos_t>& hit_2) {
-                        return (hit_1.first->begin < hit_2.first->begin ||
-                                (hit_1.first->begin == hit_2.first->begin && hit_1.first->end < hit_2.first->end));
-                    });
+#ifdef debug_multipath_mapper
+                    cerr << "\tmultiplicity " << get<1>(cluster_graph).second << endl;
+#endif
                     
-                    get<2>(cluster_graph) = read_coverage(get<1>(cluster_graph));
-                    
-                    // and then sort back into length first order
-                    sort(get<1>(cluster_graph).first.begin(), get<1>(cluster_graph).first.end(),
-                         [](const pair<const MaximalExactMatch*, pos_t>& hit_1,
-                            const pair<const MaximalExactMatch*, pos_t>& hit_2) {
-                        return (hit_1.first->length() > hit_2.first->length() ||
-                                (hit_1.first->length() == hit_2.first->length() &&
-                                 (hit_1.first->begin < hit_2.first->begin ||
-                                  (hit_1.first->begin == hit_2.first->begin && hit_1.first->end < hit_2.first->end))));
-                    });
+                    set_read_coverage(cluster_graph);
                     
 #ifdef debug_multipath_mapper
                     cerr << "assign total coverage " << get<2>(cluster_graphs.back()) << endl;
 #endif
                     any_new_clusters = true;
                 }
-                
+#ifdef debug_multipath_mapper
+                cerr << "assigned to cluster " << it->second << endl;
+#endif
                 // reassign the cluster idx to the newer cluster
                 *cluster_assignments[record.second[j]] = it->second;
             }
@@ -3587,7 +3574,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
             cerr << "new cluster ordering" << endl;
             for (int i = 0; i < cluster_graphs.size(); i++) {
-                cerr << "cluster " << i << ", coverage " << get<2>(cluster_graphs[i]) << endl;
+                cerr << "cluster " << i << ", coverage " << get<2>(cluster_graphs[i]) << ", multiplicity " << get<1>(cluster_graphs[i]).second << endl;
                 for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs[i]).first) {
                     cerr << "\t" << hit.second << " " <<  hit.first->sequence() << endl;
                 }
@@ -3719,6 +3706,9 @@ namespace vg {
     }
 
     double MultipathMapper::cluster_multiplicity(const memcluster_t& cluster) const {
+        if (cluster.first.empty()) {
+            return cluster.second;
+        }
         double max_fraction_sampled = 0.0;
         for (const pair<const MaximalExactMatch*, pos_t>& hit : cluster.first) {
             const MaximalExactMatch& mem = *hit.first;
@@ -3935,13 +3925,13 @@ namespace vg {
         // sort the pairs descending by approximate likelihood
         stable_sort(cluster_pairs.begin(), cluster_pairs.end(),
                     [&](const pair<pair<size_t, size_t>, int64_t>& a, const pair<pair<size_t, size_t>, int64_t>& b) {
-                        // compute approximate likelihood in similar way to how the mapping quality routine will
-                        double likelihood_1 = get_pair_approx_likelihood(a);
-                        double likelihood_2 = get_pair_approx_likelihood(b);
-                        size_t hash_1 = wang_hash<pair<pair<size_t, size_t>, int64_t>>()(a);
-                        size_t hash_2 = wang_hash<pair<pair<size_t, size_t>, int64_t>>()(b);
-                        return (likelihood_1 > likelihood_2 || (likelihood_1 == likelihood_2 && hash_1 < hash_2));
-                    });
+            // compute approximate likelihood in similar way to how the mapping quality routine will
+            double likelihood_1 = get_pair_approx_likelihood(a);
+            double likelihood_2 = get_pair_approx_likelihood(b);
+            size_t hash_1 = wang_hash<pair<pair<size_t, size_t>, int64_t>>()(a);
+            size_t hash_2 = wang_hash<pair<pair<size_t, size_t>, int64_t>>()(b);
+            return (likelihood_1 > likelihood_2 || (likelihood_1 == likelihood_2 && hash_1 < hash_2));
+        });
         
 #ifdef debug_multipath_mapper
         cerr << "sorting cluster pairs by approximate likelihood:" << endl;
@@ -3986,6 +3976,7 @@ namespace vg {
                 
                 break;
             }
+            
 #ifdef debug_multipath_mapper
             cerr << "doing pair " << cluster_pair.first.first << " " << cluster_pair.first.second << endl;
 #endif
@@ -3997,14 +3988,13 @@ namespace vg {
             auto prev_1 = previous_multipath_alns_1.find(cluster_pair.first.first);
             if (prev_1 == previous_multipath_alns_1.end()) {
                 // we haven't done this alignment yet, so we have to complete it for the first time
-                bdsg::HashGraph* graph1 = get<0>(cluster_graphs1[cluster_pair.first.first]).get();
-                memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first.first]);
                 
 #ifdef debug_multipath_mapper
                 cerr << "performing alignment of read 1 to subgraph" << endl;
 #endif
                 
-                multipath_align(alignment1, graph1, graph_mems1, multipath_aln_pairs_out.back().first,
+                multipath_align(alignment1, cluster_graphs1[cluster_pair.first.first],
+                                multipath_aln_pairs_out.back().first,
                                 fanouts1);
                 
                 // keep track of the fact that we have completed this multipath alignment
@@ -4023,15 +4013,13 @@ namespace vg {
             auto prev_2 = previous_multipath_alns_2.find(cluster_pair.first.second);
             if (prev_2 == previous_multipath_alns_2.end()) {
                 // we haven't done this alignment yet, so we have to complete it for the first time
-                auto graph2 = get<0>(cluster_graphs2[cluster_pair.first.second]).get();
-                memcluster_t& graph_mems2 = get<1>(cluster_graphs2[cluster_pair.first.second]);
                 
 #ifdef debug_multipath_mapper
                 cerr << "performing alignment of read 2 to subgraph" << endl;
 #endif
                 
-                multipath_align(alignment2, graph2, graph_mems2, multipath_aln_pairs_out.back().second,
-                                fanouts2);
+                multipath_align(alignment2, cluster_graphs2[cluster_pair.first.second],
+                                multipath_aln_pairs_out.back().second, fanouts2);
                 
                 // keep track of the fact that we have completed this multipath alignment
                 previous_multipath_alns_2[cluster_pair.first.second] = i;
@@ -4518,13 +4506,13 @@ namespace vg {
         cluster_graphs_out.reserve(cluster_graphs.size());
         unordered_map<size_t, size_t> cluster_to_idx;
         for (pair<const size_t, tuple<unique_ptr<bdsg::HashGraph>, bool, double>>& cluster_graph : cluster_graphs) {
-#ifdef debug_multipath_mapper
-            cerr << "adding cluster graph " << cluster_graph.first << " to return vector at index " << cluster_graphs_out.size() << endl;
-#endif
             cluster_to_idx[cluster_graph.first] = cluster_graphs_out.size();
             cluster_graphs_out.emplace_back();
             get<0>(cluster_graphs_out.back()) = move(get<0>(cluster_graph.second));
             get<1>(cluster_graphs_out.back()).second = get<2>(cluster_graph.second);
+#ifdef debug_multipath_mapper
+            cerr << "adding cluster graph " << cluster_graph.first << " to return vector at index " << cluster_graphs_out.size() << " with multiplicity " << get<1>(cluster_graphs_out.back()).second << endl;
+#endif
         }
 
         
@@ -4596,19 +4584,10 @@ namespace vg {
         // compute the read coverage of each cluster graph and sort the assigned MEMs by length
         // and then lexicographically by read index
         for (size_t i = 0; i < cluster_graphs_out.size(); i++) {
-            auto& cluster_graph = cluster_graphs_out[i];
-            get<2>(cluster_graph) = read_coverage(get<1>(cluster_graph));
+            set_read_coverage(cluster_graphs_out[i]);
 #ifdef debug_multipath_mapper
-            cerr << "compute read coverage of cluster at index " << i << " to be " << get<2>(cluster_graph) << endl;
+            cerr << "compute read coverage of cluster at index " << i << " to be " << get<2>(cluster_graphs_out[i]) << endl;
 #endif
-            sort(get<1>(cluster_graph).first.begin(), get<1>(cluster_graph).first.end(),
-                 [](const pair<const MaximalExactMatch*, pos_t>& hit_1,
-                    const pair<const MaximalExactMatch*, pos_t>& hit_2) {
-                return hit_1.first->length() > hit_2.first->length() ||
-                       (hit_1.first->length() == hit_2.first->length() &&
-                        (hit_1.first->begin < hit_2.first->begin ||
-                         (hit_1.first->begin == hit_2.first->begin && hit_1.first->end < hit_2.first->end)));
-            });
         }
             
         // find the node ID range for the cluster graphs to help set up a stable, system-independent ordering
@@ -4621,27 +4600,33 @@ namespace vg {
         }
         
         // sort the cluster graphs descending by unique sequence coverage, breaking ties by scrambling according to a hash
-        stable_sort(cluster_graphs_out.begin(), cluster_graphs_out.end(),
-                    [&](const clustergraph_t& cluster_graph_1,
-                        const clustergraph_t& cluster_graph_2) {
-                        return (get<2>(cluster_graph_1) > get<2>(cluster_graph_2) ||
-                                (get<2>(cluster_graph_1) == get<2>(cluster_graph_2) &&
-                                 graph_hash[get<0>(cluster_graph_1).get()] < graph_hash[get<0>(cluster_graph_2).get()]));
-                    });
+        sort(cluster_graphs_out.begin(), cluster_graphs_out.end(), [&](const clustergraph_t& cluster_graph_1,
+                                                                       const clustergraph_t& cluster_graph_2) {
+            return (get<2>(cluster_graph_1) > get<2>(cluster_graph_2) ||
+                    (get<2>(cluster_graph_1) == get<2>(cluster_graph_2) &&
+                     graph_hash[get<0>(cluster_graph_1).get()] < graph_hash[get<0>(cluster_graph_2).get()]));
+        });
         
         return cluster_graphs_out;
-        
-        
     }
     
-    void MultipathMapper::multipath_align(const Alignment& alignment, const bdsg::HashGraph* graph,
-                                          memcluster_t& graph_mems,
+    void MultipathMapper::multipath_align(const Alignment& alignment, clustergraph_t& cluster_graph,
                                           multipath_alignment_t& multipath_aln_out,
                                           const match_fanouts_t* fanouts) const {
 
 #ifdef debug_multipath_mapper_alignment
         cerr << "constructing alignment graph" << endl;
 #endif
+        auto graph = get<0>(cluster_graph).get();
+        auto& graph_mems = get<1>(cluster_graph);
+        
+        if (graph_mems.first.empty()) {
+#ifdef debug_multipath_mapper_alignment
+            cerr << "cluster is empty, aborting" << endl;
+#endif
+            transfer_read_metadata(alignment, multipath_aln_out);
+            return;
+        }
         
         // the longest path we could possibly align to (full gap and a full sequence)
         auto aligner = get_aligner(!alignment.quality().empty());
@@ -4750,9 +4735,15 @@ namespace vg {
             multi_aln_graph.remove_transitive_edges(topological_order);
             
             // prune this graph down the paths that have reasonably high likelihood
+            size_t cluster_size_before_prune = graph_mems.first.size();
             multi_aln_graph.prune_to_high_scoring_paths(alignment, aligner,
                                                         max_suboptimal_path_score_ratio, topological_order,
                                                         graph_mems.first, translator);
+            
+            if (graph_mems.first.size() < cluster_size_before_prune) {
+                // we may need to recompute the coverage of the cluster because some MEMs were pruned out of it
+                set_read_coverage(cluster_graph);
+            }
         }
         
         if (snarl_manager || distance_index) {
@@ -4865,9 +4856,33 @@ namespace vg {
 #endif
     }
     
-    int64_t MultipathMapper::read_coverage(const memcluster_t& mem_hits) {
+    void MultipathMapper::set_read_coverage(clustergraph_t& cluster_graph) {
+        
+        auto& mem_hits = get<1>(cluster_graph);
         if (mem_hits.first.empty()) {
-            return 0;
+            get<2>(cluster_graph) = 0;
+            return;
+        }
+        
+        // lexicographic comparison for the sort this algorithm needs
+        auto lex_cmp = [](const pair<const MaximalExactMatch*, pos_t>& hit_1,
+                         const pair<const MaximalExactMatch*, pos_t>& hit_2) {
+            return (hit_1.first->begin < hit_2.first->begin ||
+                    (hit_1.first->begin == hit_2.first->begin && hit_1.first->end < hit_2.first->end));
+        };
+        
+        // length first comparison for later steps
+        auto length_first_cmp = [](const pair<const MaximalExactMatch*, pos_t>& hit_1,
+                                   const pair<const MaximalExactMatch*, pos_t>& hit_2) {
+            return (hit_1.first->length() > hit_2.first->length() ||
+                    (hit_1.first->length() == hit_2.first->length() &&
+                     (hit_1.first->begin < hit_2.first->begin ||
+                      (hit_1.first->begin == hit_2.first->begin && hit_1.first->end < hit_2.first->end))));
+        };
+        
+        
+        if (!is_sorted(get<1>(cluster_graph).first.begin(), get<1>(cluster_graph).first.end(), lex_cmp)) {
+            stable_sort(get<1>(cluster_graph).first.begin(), get<1>(cluster_graph).first.end(), lex_cmp);
         }
         
         vector<pair<string::const_iterator, string::const_iterator>> mem_read_segments;
@@ -4890,7 +4905,9 @@ namespace vg {
                 curr_end = mem_read_segments[i].second;
             }
         }
-        return total + (curr_end - curr_begin);
+        get<2>(cluster_graph) = total + (curr_end - curr_begin);
+        
+        stable_sort(get<1>(cluster_graph).first.begin(), get<1>(cluster_graph).first.end(), length_first_cmp);
     }
     
     void MultipathMapper::strip_full_length_bonuses(multipath_alignment_t& multipath_aln) const {
