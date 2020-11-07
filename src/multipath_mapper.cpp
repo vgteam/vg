@@ -38,7 +38,7 @@ namespace vg {
     }
 
     MultipathMapper::~MultipathMapper() {
-        delete path_component_index;
+        
     }
     
     void MultipathMapper::multipath_map(const Alignment& alignment,
@@ -90,7 +90,7 @@ namespace vg {
             cerr << "using a path-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
             distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
-                                                                                                      path_component_index));
+                                                                                                      path_component_index.get()));
         }
         
         vector<memcluster_t> clusters = get_clusters(alignment, mems, &(*distance_measurer), fanouts.get());
@@ -170,10 +170,6 @@ namespace vg {
             }
         }
         
-        // clean up the cluster graphs
-        for (auto cluster_graph : cluster_graphs) {
-            delete get<0>(cluster_graph);
-        }
 #ifdef debug_pretty_print_alignments
         cerr << "final alignments being returned:" << endl;
         for (const multipath_alignment_t& multipath_aln : multipath_alns_out) {
@@ -477,7 +473,7 @@ namespace vg {
 #endif
             
             multipath_alns_out.emplace_back();
-            multipath_align(alignment, get<0>(cluster_graph), get<1>(cluster_graph), multipath_alns_out.back(),
+            multipath_align(alignment, get<0>(cluster_graph).get(), get<1>(cluster_graph), multipath_alns_out.back(),
                             fanouts);
             multiplicities_out.emplace_back(cluster_multiplicity(get<1>(cluster_graph)));
             num_mappings++;
@@ -697,7 +693,7 @@ namespace vg {
         
         // if necessary, convert from cyclic to acylic (this is expensive, so only do it if we need to)
         IdentityOverlay undagified(&align_digraph);
-        DagifiedGraph* dagified = nullptr;
+        unique_ptr<DagifiedGraph> dagified;
         
         ExpandingOverlayGraph* align_dag = nullptr;
         if (algorithms::is_directed_acyclic(&align_digraph)) {
@@ -707,8 +703,8 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
             cerr << "graph contains directed cycles, performing dagification" << endl;
 #endif
-            dagified = new DagifiedGraph(&align_digraph, target_length);
-            align_dag = dagified;
+            dagified = unique_ptr<DagifiedGraph>(new DagifiedGraph(&align_digraph, target_length));
+            align_dag = dagified.get();
         }
         
         // put local alignment here
@@ -769,9 +765,6 @@ namespace vg {
 #endif
             return false;
         }
-        
-        // clean up (safe on nullptr)
-        delete dagified;
         
         return true;
     }
@@ -1537,7 +1530,7 @@ namespace vg {
                 // make the alignment
                 vector<multipath_alignment_t> cluster_multipath_alns;
                 cluster_multipath_alns.emplace_back();
-                multipath_align(anchor_aln, get<0>(cluster_graphs[i]), get<1>(cluster_graphs[i]),
+                multipath_align(anchor_aln, get<0>(cluster_graphs[i]).get(), get<1>(cluster_graphs[i]),
                                 cluster_multipath_alns.back(), anchor_fanouts);
                 
                 if (!suppress_multicomponent_splitting) {
@@ -1762,7 +1755,7 @@ namespace vg {
             cerr << "using a path-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
             distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
-                                                                                                      path_component_index));
+                                                                                                      path_component_index.get()));
         }
         
 #ifdef debug_multipath_mapper
@@ -1964,14 +1957,6 @@ namespace vg {
             // Annotate with paired end distribution
             multipath_aln_pair.first.set_annotation("fragment_length_distribution", distribution);
             multipath_aln_pair.second.set_annotation("fragment_length_distribution", distribution);
-        }
-        
-        // clean up the graph objects on the heap
-        for (auto cluster_graph : cluster_graphs1) {
-            delete get<0>(cluster_graph);
-        }
-        for (auto cluster_graph : cluster_graphs2) {
-            delete get<0>(cluster_graph);
         }
         
 #ifdef debug_pretty_print_alignments
@@ -2450,7 +2435,7 @@ namespace vg {
         auto align_to_candidate = [&](clustergraph_t& cluster_graph) {
         
             candidates_out.emplace_back();
-            multipath_align(alignment, get<0>(cluster_graph), get<1>(cluster_graph), candidates_out.back(),
+            multipath_align(alignment, get<0>(cluster_graph).get(), get<1>(cluster_graph), candidates_out.back(),
                             mem_fanouts);
             topologically_order_subpaths(candidates_out.back());
             multiplicities_out.emplace_back(cluster_multiplicity(get<1>(cluster_graph)));
@@ -3500,8 +3485,9 @@ namespace vg {
                     // and now make the cluster graph itself
                     cluster_graphs.emplace_back();
                     auto& cluster_graph = cluster_graphs.back();
-                    get<0>(cluster_graph) = new bdsg::HashGraph();
-                    algorithms::copy_handle_graph(get<0>(cluster_graphs[record.first]), get<0>(cluster_graph));
+                    get<0>(cluster_graph) = unique_ptr<bdsg::HashGraph>(new bdsg::HashGraph());
+                    algorithms::copy_handle_graph(get<0>(cluster_graphs[record.first]).get(),
+                                                  get<0>(cluster_graph).get());
                     
                     for (auto i : it->first) {
                         get<1>(cluster_graph).first.emplace_back(get<1>(cluster_graphs[record.first]).first[i]);
@@ -4011,7 +3997,7 @@ namespace vg {
             auto prev_1 = previous_multipath_alns_1.find(cluster_pair.first.first);
             if (prev_1 == previous_multipath_alns_1.end()) {
                 // we haven't done this alignment yet, so we have to complete it for the first time
-                bdsg::HashGraph* graph1 = get<0>(cluster_graphs1[cluster_pair.first.first]);
+                bdsg::HashGraph* graph1 = get<0>(cluster_graphs1[cluster_pair.first.first]).get();
                 memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first.first]);
                 
 #ifdef debug_multipath_mapper
@@ -4037,7 +4023,7 @@ namespace vg {
             auto prev_2 = previous_multipath_alns_2.find(cluster_pair.first.second);
             if (prev_2 == previous_multipath_alns_2.end()) {
                 // we haven't done this alignment yet, so we have to complete it for the first time
-                auto graph2 = get<0>(cluster_graphs2[cluster_pair.first.second]);
+                auto graph2 = get<0>(cluster_graphs2[cluster_pair.first.second]).get();
                 memcluster_t& graph_mems2 = get<1>(cluster_graphs2[cluster_pair.first.second]);
                 
 #ifdef debug_multipath_mapper
@@ -4129,7 +4115,8 @@ namespace vg {
         
     }
 
-    pair<bdsg::HashGraph*, bool> MultipathMapper::extract_maximal_graph(const Alignment& alignment, const memcluster_t& mem_cluster) const {
+    pair<unique_ptr<bdsg::HashGraph>, bool> MultipathMapper::extract_maximal_graph(const Alignment& alignment,
+                                                                                   const memcluster_t& mem_cluster) const {
         
         // Figure out the aligner to use
         auto aligner = get_aligner(!alignment.quality().empty());
@@ -4159,11 +4146,12 @@ namespace vg {
         
         // extract the subgraph within the search distance
         
-        auto cluster_graph = new bdsg::HashGraph();
-        algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_max_dist, backward_max_dist,
+        unique_ptr<bdsg::HashGraph> cluster_graph(new bdsg::HashGraph());
+        
+        algorithms::extract_containing_graph(xindex, cluster_graph.get(), positions, forward_max_dist, backward_max_dist,
                                              num_alt_alns > 1 ? reversing_walk_length : 0);
         
-        return make_pair(cluster_graph, cluster.size() == 1);
+        return move(make_pair(move(cluster_graph), cluster.size() == 1));
     }
 
     // TODO: entirely duplicative with MultipathAlignmentGraph...
@@ -4184,7 +4172,8 @@ namespace vg {
         return gap_length;
     }
 
-    pair<bdsg::HashGraph*, bool> MultipathMapper::extract_restrained_graph(const Alignment& alignment, const memcluster_t& mem_cluster) const {
+    pair<unique_ptr<bdsg::HashGraph>, bool> MultipathMapper::extract_restrained_graph(const Alignment& alignment,
+                                                                                      const memcluster_t& mem_cluster) const {
         
         // Figure out the aligner to use
         auto aligner = get_aligner(!alignment.quality().empty());
@@ -4251,22 +4240,21 @@ namespace vg {
         // expand the restrained search distances until we extract a connected graph or
         // expand the distances up to the maximum detectable length
         
-        bdsg::HashGraph* cluster_graph = nullptr;
+        unique_ptr<bdsg::HashGraph> cluster_graph;
         bool do_extract = true;
         bool connected = false;
         while (do_extract) {
             
             // get rid of the old graph (if there is one)
-            delete cluster_graph;
+            cluster_graph = unique_ptr<bdsg::HashGraph>(new bdsg::HashGraph());
             
             // extract according to the current search distances
-            cluster_graph = new bdsg::HashGraph();
-            algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_dist, backward_dist,
+            algorithms::extract_containing_graph(xindex, cluster_graph.get(), positions, forward_dist, backward_dist,
                                                  num_alt_alns > 1 ? reversing_walk_length : 0);
             
             // we can avoid a costly algorithm when the cluster was extracted from one position (and therefore
             // must be connected)
-            if (cluster.size() == 1 || algorithms::is_weakly_connected(cluster_graph)) {
+            if (cluster.size() == 1 || algorithms::is_weakly_connected(cluster_graph.get())) {
                 // we consider enough of the graph extracted once it is connected
                 // stop doing further exttraction
                 do_extract = false;
@@ -4293,10 +4281,11 @@ namespace vg {
                 do_extract = any_dists_changed;
             }
         }
-        return make_pair(cluster_graph, connected);
+        return move(make_pair(move(cluster_graph), connected));
     }
 
-    pair<bdsg::HashGraph*, bool> MultipathMapper::extract_cluster_graph(const Alignment& alignment, const memcluster_t& mem_cluster) const {
+    pair<unique_ptr<bdsg::HashGraph>, bool> MultipathMapper::extract_cluster_graph(const Alignment& alignment,
+                                                                                   const memcluster_t& mem_cluster) const {
         if (restrained_graph_extraction) {
             return extract_restrained_graph(alignment, mem_cluster);
         }
@@ -4324,7 +4313,7 @@ namespace vg {
         // to hold the clusters as they are (possibly) merged, bools indicate
         // whether we've verified that the graph is connected
         // doubles are the cluster graph's multiplicity
-        unordered_map<size_t, tuple<bdsg::HashGraph*, bool, double>> cluster_graphs;
+        unordered_map<size_t, tuple<unique_ptr<bdsg::HashGraph>, bool, double>> cluster_graphs;
         
         // to keep track of which clusters have been merged
         UnionFind union_find(clusters.size(), false);
@@ -4342,7 +4331,7 @@ namespace vg {
             // gather the parameters for subgraph extraction from the MEM hits
             auto& cluster = clusters[i];
             auto extracted = extract_cluster_graph(alignment, cluster);
-            tuple<bdsg::HashGraph*, bool, double> cluster_graph(extracted.first, extracted.second, cluster.second);
+            tuple<unique_ptr<bdsg::HashGraph>, bool, double> cluster_graph(move(extracted.first), extracted.second, cluster.second);
             
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
@@ -4373,7 +4362,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
                 cerr << "cluster graph does not overlap with any other cluster graphs, adding as cluster " << i << endl;
 #endif
-                cluster_graphs[i] = cluster_graph;
+                cluster_graphs[i] = move(cluster_graph);
             }
             else {
                 // this graph overlaps at least one other graph, so we merge them into one
@@ -4400,30 +4389,28 @@ namespace vg {
                 double multiplicity;
                 if (remaining_idx == i) {
                     // the new graph was chosen to remain, so add it to the record
-                    cluster_graphs[i] = cluster_graph;
-                    merging_graph = get<0>(cluster_graph);
+                    cluster_graphs[i] = move(cluster_graph);
+                    merging_graph = get<0>(cluster_graph).get();
                     all_connected = get<1>(cluster_graph);
                     multiplicity = get<2>(cluster_graph);
                 }
                 else {
                     // the new graph will be merged into an existing graph
-                    merging_graph = get<0>(cluster_graphs[remaining_idx]);
+                    merging_graph = get<0>(cluster_graphs[remaining_idx]).get();
                     
                     // add in the new graph
-                    algorithms::extend(get<0>(cluster_graph), merging_graph);
+                    algorithms::extend(get<0>(cluster_graph).get(), merging_graph);
                     all_connected = get<1>(cluster_graphs[remaining_idx]) && get<1>(cluster_graph);
                     multiplicity = min(get<2>(cluster_graphs[remaining_idx]), get<2>(cluster_graph));
-                    delete get<0>(cluster_graph);
                 }
                 
                 // merge any other chained graphs into the remaining graph
                 for (size_t j : overlapping_graphs) {
                     if (j != remaining_idx) {
-                        auto removing_graph = cluster_graphs[j];
-                        algorithms::extend(get<0>(removing_graph), merging_graph);
+                        auto removing_graph = move(cluster_graphs[j]);
+                        algorithms::extend(get<0>(removing_graph).get(), merging_graph);
                         all_connected = all_connected && get<1>(removing_graph);
                         multiplicity = min(multiplicity, get<2>(removing_graph));
-                        delete get<0>(removing_graph);
                         cluster_graphs.erase(j);
                     }
                 }
@@ -4448,7 +4435,7 @@ namespace vg {
         size_t max_graph_idx = 0;
         for (const auto& cluster_graph : cluster_graphs) {
             if (!get<1>(cluster_graph.second)) {
-                vector<unordered_set<id_t>> connected_components = algorithms::weakly_connected_components(get<0>(cluster_graph.second));
+                vector<unordered_set<id_t>> connected_components = algorithms::weakly_connected_components(get<0>(cluster_graph.second).get());
                 if (connected_components.size() > 1) {
                     multicomponent_graphs.emplace_back(cluster_graph.first, std::move(connected_components));
                 }
@@ -4472,12 +4459,12 @@ namespace vg {
 #endif
             
             for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
-                cluster_graphs[max_graph_idx + i] = make_tuple(new bdsg::HashGraph(), true,
+                cluster_graphs[max_graph_idx + i] = make_tuple(unique_ptr<bdsg::HashGraph>(new bdsg::HashGraph()), true,
                                                                get<2>(cluster_graphs[multicomponent_graph.first]));
             }
             
             // divvy up the nodes
-            auto joined_graph = get<0>(cluster_graphs[multicomponent_graph.first]);
+            auto joined_graph = get<0>(cluster_graphs[multicomponent_graph.first]).get();
             joined_graph->for_each_handle([&](const handle_t& handle) {
                 for (size_t j = 0; j < multicomponent_graph.second.size(); j++) {
                     if (multicomponent_graph.second[j].count(joined_graph->get_id(handle))) {
@@ -4497,7 +4484,7 @@ namespace vg {
             joined_graph->for_each_edge([&](const edge_t& edge) {
                 for (size_t j = 0; j < multicomponent_graph.second.size(); j++) {
                     if (multicomponent_graph.second[j].count(joined_graph->get_id(edge.first))) {
-                        auto comp_graph = get<0>(cluster_graphs[max_graph_idx + j]);
+                        auto comp_graph = get<0>(cluster_graphs[max_graph_idx + j]).get();
                         comp_graph->create_edge(comp_graph->get_handle(joined_graph->get_id(edge.first),
                                                                        joined_graph->get_is_reverse(edge.first)),
                                                 comp_graph->get_handle(joined_graph->get_id(edge.second),
@@ -4509,7 +4496,6 @@ namespace vg {
             });
             
             // remove the old graph
-            delete get<0>(cluster_graphs[multicomponent_graph.first]);
             cluster_graphs.erase(multicomponent_graph.first);
             
             if (do_merge_suppression) {
@@ -4531,12 +4517,13 @@ namespace vg {
         // vector each MEM cluster ended up in
         cluster_graphs_out.reserve(cluster_graphs.size());
         unordered_map<size_t, size_t> cluster_to_idx;
-        for (const auto& cluster_graph : cluster_graphs) {
+        for (pair<const size_t, tuple<unique_ptr<bdsg::HashGraph>, bool, double>>& cluster_graph : cluster_graphs) {
 #ifdef debug_multipath_mapper
             cerr << "adding cluster graph " << cluster_graph.first << " to return vector at index " << cluster_graphs_out.size() << endl;
 #endif
             cluster_to_idx[cluster_graph.first] = cluster_graphs_out.size();
-            cluster_graphs_out.emplace_back(get<0>(cluster_graph.second), memcluster_t(), 0);
+            cluster_graphs_out.emplace_back();
+            get<0>(cluster_graphs_out.back()) = move(get<0>(cluster_graph.second));
             get<1>(cluster_graphs_out.back()).second = get<2>(cluster_graph.second);
         }
 
@@ -4572,7 +4559,7 @@ namespace vg {
             // identify all of the clusters that contain each node
             unordered_map<id_t, vector<size_t>> node_id_to_cluster_idxs;
             for (size_t i = 0; i < cluster_graphs_out.size(); i++) {
-                auto cluster_graph = get<0>(cluster_graphs_out[i]);
+                auto cluster_graph = get<0>(cluster_graphs_out[i]).get();
                 cluster_graph->for_each_handle([&](const handle_t& handle){
                     node_id_to_cluster_idxs[cluster_graph->get_id(handle)].push_back(i);
                     return true;
@@ -4626,11 +4613,11 @@ namespace vg {
             
         // find the node ID range for the cluster graphs to help set up a stable, system-independent ordering
         // note: technically this is not quite a total ordering, but it should be close to one
-        unordered_map<bdsg::HashGraph*, pair<id_t, id_t>> node_range;
-        node_range.reserve(cluster_graphs_out.size());
+        unordered_map<bdsg::HashGraph*, uint64_t> graph_hash;
+        graph_hash.reserve(cluster_graphs_out.size());
         for (const auto& cluster_graph : cluster_graphs_out) {
-            node_range[get<0>(cluster_graph)] = make_pair(get<0>(cluster_graph)->min_node_id(),
-                                                          get<0>(cluster_graph)->max_node_id());
+            graph_hash[get<0>(cluster_graph).get()] = wang_hash<pair<nid_t, nid_t>>()(make_pair(get<0>(cluster_graph)->min_node_id(),
+                                                                                                get<0>(cluster_graph)->max_node_id()));
         }
         
         // sort the cluster graphs descending by unique sequence coverage, breaking ties by scrambling according to a hash
@@ -4639,7 +4626,7 @@ namespace vg {
                         const clustergraph_t& cluster_graph_2) {
                         return (get<2>(cluster_graph_1) > get<2>(cluster_graph_2) ||
                                 (get<2>(cluster_graph_1) == get<2>(cluster_graph_2) &&
-                                 wang_hash<pair<id_t, id_t>>()(node_range[get<0>(cluster_graph_1)]) < wang_hash<pair<id_t, id_t>>()(node_range[get<0>(cluster_graph_2)])));
+                                 graph_hash[get<0>(cluster_graph_1).get()] < graph_hash[get<0>(cluster_graph_2).get()]));
                     });
         
         return cluster_graphs_out;
@@ -4712,7 +4699,7 @@ namespace vg {
         // if we need to)
         
         IdentityOverlay undagified(align_digraph);
-        DagifiedGraph* dagified = nullptr;
+        unique_ptr<DagifiedGraph> dagified;
         
         ExpandingOverlayGraph* align_dag = nullptr;
         if (algorithms::is_directed_acyclic(align_digraph)) {
@@ -4722,8 +4709,8 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
             cerr << "graph contains directed cycles, performing dagification" << endl;
 #endif
-            dagified = new DagifiedGraph(align_digraph, target_length);
-            align_dag = dagified;
+            dagified = unique_ptr<DagifiedGraph>(new DagifiedGraph(align_digraph, target_length));
+            align_dag = dagified.get();
         }
         
         // a function to translate from the transformed graphs ID space to the original graph's
@@ -4834,9 +4821,6 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
         cerr << "completed multipath alignment: " << debug_string(multipath_aln_out) << endl;
 #endif
-        
-        // clean up (safe on nullptr if we didn't choose it)
-        delete dagified;
     }
             
     void MultipathMapper::make_nontrivial_multipath_alignment(const Alignment& alignment, const HandleGraph& subgraph,
