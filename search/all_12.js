@@ -31,7 +31,6 @@ var searchData=
   ['read_5fbest_5fright',['read_best_right',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#adfa95e9e1e1b9fb34637bb1bbe14320b',1,'vg::SnarlSeedClusterer::NodeClusters']]],
   ['read_5fcluster_5fdists',['read_cluster_dists',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a58d64780008fa25f438ed29dd9d88a1c',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['read_5fcluster_5fheads',['read_cluster_heads',['../structvg_1_1SnarlSeedClusterer_1_1NodeClusters.html#a24c42ecd469999ea8abfa5021385cfdf',1,'vg::SnarlSeedClusterer::NodeClusters']]],
-  ['read_5fcoverage',['read_coverage',['../classvg_1_1MultipathMapper.html#aad3de01816bc0be9ac9f6474c15087af',1,'vg::MultipathMapper']]],
   ['read_5fdistance_5flimit',['read_distance_limit',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#af59339f1c91bfbb88324acddcff222c1',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['read_5fgroup',['read_group',['../classvg_1_1MinimizerMapper.html#aee3e4b7c4e777da6c09f70218481e3d6',1,'vg::MinimizerMapper::read_group()'],['../classvg_1_1MultipathAlignmentEmitter.html#a931f4785a73cfd9069d7447ba63b71ef',1,'vg::MultipathAlignmentEmitter::read_group()'],['../structvg_1_1Alignment.html#a95102c70d75046f86a2f0a829ba1efe0',1,'vg::Alignment::read_group()'],['../structvg_1_1MultipathAlignment.html#abdc748afaea04b662f170156d8c88343',1,'vg::MultipathAlignment::read_group()']]],
   ['read_5findex_5foffsets',['read_index_offsets',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a54a2f65f7f6b2484b65f006de0f916d0',1,'vg::SnarlSeedClusterer::TreeState']]],

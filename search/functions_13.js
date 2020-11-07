@@ -112,6 +112,7 @@ var searchData=
   ['set_5fpath_5fposition',['set_path_position',['../classvg_1_1Surjector.html#aad8f2ef886816ffbc83f5292cb9887ac',1,'vg::Surjector']]],
   ['set_5fprev_5fidx',['set_prev_idx',['../structhaplo_1_1haplo__DP__rectangle.html#ad1c78747473f9b8816c459949b8b8e8e',1,'haplo::haplo_DP_rectangle']]],
   ['set_5fquality',['set_quality',['../classvg_1_1multipath__alignment__t.html#a2ff40ca9f44290aeb5406764ccbb5ebf',1,'vg::multipath_alignment_t']]],
+  ['set_5fread_5fcoverage',['set_read_coverage',['../classvg_1_1MultipathMapper.html#a2ce30f7fe70325b6101356f5eb67df3d',1,'vg::MultipathMapper']]],
   ['set_5fread_5fgroup',['set_read_group',['../classvg_1_1MultipathAlignmentEmitter.html#ad772e7a7315be2a57899c234116de800',1,'vg::MultipathAlignmentEmitter']]],
   ['set_5fregion',['set_region',['../classvg_1_1VcfBuffer.html#a0a636a74fef67c3cfd59730db3ed427c',1,'vg::VcfBuffer::set_region()'],['../classvg_1_1WindowedVcfBuffer.html#ab6c81f821d5ddcace1e67e7081793142',1,'vg::WindowedVcfBuffer::set_region()']]],
   ['set_5fremove_5ffailing_5fedits',['set_remove_failing_edits',['../classvg_1_1Filter.html#ab91fdad4a96917a43f1fed85e11a9645',1,'vg::Filter']]],

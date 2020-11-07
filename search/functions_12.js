@@ -16,7 +16,6 @@ var searchData=
   ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html#a08cf82d7c40db195176b9bf177a50e32',1,'vg::RareVariantSimplifier']]],
   ['ratiosupportsnarlcaller',['RatioSupportSnarlCaller',['../classvg_1_1RatioSupportSnarlCaller.html#ad6905b3e30632f2a0a3e304cdfd15faa',1,'vg::RatioSupportSnarlCaller']]],
   ['re_5fgenotype',['re_genotype',['../classvg_1_1LegacyCaller.html#a6c23ee5b732d26d4f55bd3b5b4830fca',1,'vg::LegacyCaller']]],
-  ['read_5fcoverage',['read_coverage',['../classvg_1_1MultipathMapper.html#aad3de01816bc0be9ac9f6474c15087af',1,'vg::MultipathMapper']]],
   ['read_5flog_5flikelihood',['read_log_likelihood',['../classvg_1_1PhasedGenome.html#af754f8a4e9793ebd5f4aa3b673b7e442',1,'vg::PhasedGenome']]],
   ['read_5fmapping',['read_mapping',['../classvg_1_1PhaseUnfolder.html#adbf93e421183b64f73276639c3c23dfb',1,'vg::PhaseUnfolder']]],
   ['readrestrictedtraversalfinder',['ReadRestrictedTraversalFinder',['../classvg_1_1ReadRestrictedTraversalFinder.html#a8cf6a940b0fce108e8af39d8a50a380f',1,'vg::ReadRestrictedTraversalFinder']]],
