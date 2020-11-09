@@ -4755,7 +4755,7 @@ namespace vg {
                 for (size_t i = 0; i < graph_mems.first.size(); ++i) {
                     if (!found[i]) {
 #ifdef debug_multipath_alignment
-                        cerr << "completely pruned hit from cluster: " << hit.second << " " << hit.first->sequence() << endl;
+                        cerr << "completely pruned hit from cluster: " << graph_mems.first[i].second << " " << graph_mems.first[i].first->sequence() << endl;
 #endif
                         ++removed;
                     }

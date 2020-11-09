@@ -112,7 +112,7 @@ namespace vg {
         cerr << "nodes after adding, trimming, and collapsing:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& path_node = path_nodes.at(i);
-            cerr << i << " " << debug_string(path_node.path) << " ";
+            cerr << i << " (hit " << path_node_provenance[i] << ") " << debug_string(path_node.path) << " ";
             for (auto iter = path_node.begin; iter != path_node.end; iter++) {
                 cerr << *iter;
             }
@@ -3274,11 +3274,11 @@ namespace vg {
         cerr << "final graph after adding reachability edges:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& path_node = path_nodes.at(i);
-            cerr << i << " " << debug_string(path_node.path) << " ";
-            for (auto iter = path_node.begin; iter != path_node.end; iter++) {
-                cerr << *iter;
+            cerr << i;
+            if (path_node_provenance) {
+                cerr << " (hit " << path_node_provenance->at(i) << ")";
             }
-            cerr << endl;
+            cerr << " " << debug_string(path_node.path) << " " << string(path_node.begin, path_node.end) << endl;
             cerr << "\t";
             for (auto edge : path_node.edges) {
                 cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (path_nodes.at(edge.first).begin - path_node.end) << ") ";

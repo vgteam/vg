@@ -949,6 +949,41 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
     return cigar;
 }
 
+void consolidate_ID_runs(vector<pair<int, char>>& cigar) {
+    
+    size_t removed = 0;
+    for (size_t i = 0, j = 0; i < cigar.size(); ++j) {
+        if (j == cigar.size() || (cigar[j].second != 'I' && cigar[j].second != 'D')) {
+            // this is the end boundary of a runs of I/D operations
+            if (j - i >= 3) {
+                // we have at least 3 adjacent I/D operations, which means they should
+                // be re-consolidated
+                int d_total = 0, i_total = 0;
+                for (size_t k = i - removed, end = j - removed; k < end; ++k) {
+                    if (cigar[k].second == 'D') {
+                        d_total += cigar[k].first;
+                    }
+                    else {
+                        i_total += cigar[k].first;
+                    }
+                }
+                
+                cigar[i - removed] = make_pair(d_total, 'D');
+                cigar[i - removed + 1] = make_pair(i_total, 'I');
+                
+                // mark that we've
+                removed += j - i - 2;
+            }
+            // move the start of the next I/D run beyond the current operation
+            i = j + 1;
+        }
+        if (j < cigar.size()) {
+            cigar[j - removed] = cigar[j];
+        }
+    }
+    cigar.resize(cigar.size() - removed);
+}
+
 pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vector<pair<int, char>>& cigar1,
     const int64_t& pos2, const vector<pair<int, char>>& cigar2) {
 

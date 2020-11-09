@@ -240,5 +240,27 @@ TEST_CASE("Target to alignment extraction", "[target-to-aln]") {
     
 }
 
+TEST_CASE("consolidate_ID_runs merges runs of adjacent I's and D's in cigars", "[alignment][surject]") {
+    
+    vector<pair<int, char>> cigar{
+        make_pair(2, 'D'),
+        make_pair(1, 'I'),
+        make_pair(4, 'D'),
+        make_pair(1, 'M'),
+        make_pair(3, 'I'),
+        make_pair(5, 'D'),
+        make_pair(1, 'I')
+    };
+
+    consolidate_ID_runs(cigar);
+    REQUIRE(cigar.size() == 5);
+    bool consolidated_1 = ((cigar[0] == make_pair(6, 'D') && cigar[1] == make_pair(1, 'I'))
+                           || (cigar[0] == make_pair(1, 'I') && cigar[1] == make_pair(6, 'D')));
+    bool consolidated_2 = ((cigar[3] == make_pair(5, 'D') && cigar[4] == make_pair(4, 'I'))
+                           || (cigar[3] == make_pair(4, 'I') && cigar[4] == make_pair(5, 'D')));
+    
+    REQUIRE(consolidated_1);
+    REQUIRE(consolidated_2);
+}
 }
 }

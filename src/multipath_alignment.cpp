@@ -3335,6 +3335,17 @@ namespace vg {
         }
         
 #ifdef debug_cigar
+        cerr << "got cigar: ";
+        for (auto& cigar_record : cigar) {
+            cerr << cigar_record.first << cigar_record.second;
+        }
+        cerr << endl;
+        cerr << "coalescing runs of I/D..." << endl;
+#endif
+
+        consolidate_ID_runs(cigar);
+        
+#ifdef debug_cigar
         cerr << "final cigar: ";
         for (auto& cigar_record : cigar) {
             cerr << cigar_record.first << cigar_record.second;
