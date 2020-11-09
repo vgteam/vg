@@ -4724,7 +4724,9 @@ namespace vg {
         cerr << "making multipath alignment MEM graph" << endl;
 #endif
         
-        MultipathAlignmentGraph multi_aln_graph(*align_dag, graph_mems, translator, max_branch_trim_length, gcsa, fanouts);
+        vector<size_t> hit_provenance;
+        MultipathAlignmentGraph multi_aln_graph(*align_dag, graph_mems, translator, hit_provenance,
+                                                max_branch_trim_length, gcsa, fanouts);
         
         {
             // Compute a topological order over the graph
@@ -4735,12 +4737,34 @@ namespace vg {
             multi_aln_graph.remove_transitive_edges(topological_order);
             
             // prune this graph down the paths that have reasonably high likelihood
-            size_t cluster_size_before_prune = graph_mems.first.size();
-            multi_aln_graph.prune_to_high_scoring_paths(alignment, aligner,
-                                                        max_suboptimal_path_score_ratio, topological_order,
-                                                        graph_mems.first, translator);
+            size_t size_before_prune = multi_aln_graph.size();
+            multi_aln_graph.prune_to_high_scoring_paths(alignment, aligner, max_suboptimal_path_score_ratio,
+                                                        topological_order, translator, hit_provenance);
             
-            if (graph_mems.first.size() < cluster_size_before_prune) {
+            if (multi_aln_graph.size() < size_before_prune && do_spliced_alignment) {
+                // we pruned away some path nodes, so let's check if we pruned away any entire hits
+                // and, if so, un-claim them from this cluster
+                
+                vector<bool> found(graph_mems.first.size(), false);
+                for (auto i : hit_provenance) {
+                    found[i] = true;
+                }
+                
+                // if necessary remove the ones we didn't keep
+                size_t removed = 0;
+                for (size_t i = 0; i < graph_mems.first.size(); ++i) {
+                    if (!found[i]) {
+#ifdef debug_multipath_alignment
+                        cerr << "completely pruned hit from cluster: " << hit.second << " " << hit.first->sequence() << endl;
+#endif
+                        ++removed;
+                    }
+                    else if (removed) {
+                        graph_mems.first[i - removed] = graph_mems.first[i];
+                    }
+                }
+                graph_mems.first.resize(graph_mems.first.size() - removed);
+                
                 // we may need to recompute the coverage of the cluster because some MEMs were pruned out of it
                 set_read_coverage(cluster_graph);
             }
