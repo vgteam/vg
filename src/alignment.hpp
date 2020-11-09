@@ -74,6 +74,38 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, cons
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
 
 /**
+ * Add a CIGAR operation to a vector representing the parsed CIGAR string.
+ *
+ * Coalesces adjacent operations of the same type. Coalesces runs of inserts
+ * and deletes into a signle delete followed by a single insert.
+ */
+inline void append_cigar_operation(const int length, const char operation, vector<pair<int, char>>& cigar) {
+    if (cigar.empty()) {
+        // Always append to an empty CIGAR
+        cigar.emplace_back(length, operation);
+    } else if (operation != cigar.back().second) {
+        // We have changed operations
+        if (operation == 'D' && cigar.back().second == 'I') {
+            // This deletion needs to come before the adjacent insertion
+            if (cigar.size() > 1 && cigar[cigar.size() - 2].second == 'D') {
+                // Add to the deletion that laready exists before the insertion
+                cigar[cigar.size() - 2].first += length;
+            } else {
+                // Create a new deletion
+                cigar.emplace_back(length, operation);
+                // Put it under the insertion
+                std::swap(cigar[cigar.size() - 2], cigar.back());
+            }
+        } else {
+            // This is an ordinary change of operations.
+            cigar.emplace_back(length, operation);
+        }
+    } else {
+        cigar.back().first += length;
+    }
+}
+
+/**
  * Convert a paired Alignment to a BAM record. If the alignment is unmapped,
  * refpos must be -1. Otherwise, refpos must be the position on the reference
  * sequence to which the alignment is aligned. Similarly, refseq must be the
