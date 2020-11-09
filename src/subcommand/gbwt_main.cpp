@@ -7,8 +7,7 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#include <list>
-#include <fstream>
+#include <set>
 
 #include "subcommand.hpp"
 #include "../gbwt_helper.hpp"
@@ -117,7 +116,7 @@ void help_gbwt(char** argv) {
     std::cerr << "    -f, --fast              fast merging algorithm (node ids must not overlap)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 3: Remove samples (requires -o and one input GBWT):" << std::endl;
-    std::cerr << "    -R, --remove-sample X   remove the sample with name X from the index" << std::endl;
+    std::cerr << "    -R, --remove-sample X   remove the sample with name X from the index (may repeat)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 4: Path cover GBWT construction (requires -o, -x, and one of { -a, -l, -P }):" << std::endl;
     std::cerr << "    -a, --augment-gbwt      add a path cover of missing components (one input GBWT)" << std::endl;
@@ -198,7 +197,7 @@ int main_gbwt(int argc, char** argv)
     std::string gbwt_output, thread_output;
     std::string graph_output, xg_name;
     std::string r_index_name;
-    std::string to_remove;
+    std::set<std::string> to_remove;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -415,7 +414,7 @@ int main_gbwt(int argc, char** argv)
 
         // Remove sample
         case 'R':
-            to_remove = optarg;
+            to_remove.insert(optarg);
             break;
 
         // Path cover
@@ -542,7 +541,8 @@ int main_gbwt(int argc, char** argv)
         }
     }
     if (!to_remove.empty()) {
-        if (input_filenames.size() != 1 || gbwt_output.empty()) {
+        // Ugly hack: We cannot use produces_one_gbwt, because the GBWT may be produced in the next step.
+        if (!(input_filenames.size() == 1 || merge != merge_none) || gbwt_output.empty()) {
             std::cerr << "error: [vg gbwt]: removing a sample requires one input GBWT and output GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
@@ -729,30 +729,42 @@ int main_gbwt(int argc, char** argv)
     }
 
 
-    // Remove a sample from the GBWT.
+    // Remove samples from the GBWT.
     if (!to_remove.empty()) {
         double start = gbwt::readTimer();
         if (show_progress) {
-            std::cerr << "Removing sample " << to_remove << " from the index" << std::endl;
+            std::cerr << "Removing " << to_remove.size() << " sample(s) from the index" << std::endl;
         }
         get_dynamic(compressed_index, dynamic_index, in_use, gbwt_name, show_progress);
         if (!(dynamic_index.hasMetadata() && dynamic_index.metadata.hasPathNames() && dynamic_index.metadata.hasSampleNames())) {
             std::cerr << "error: [vg gbwt] the index does not contain metadata with thread and sample names" << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        gbwt::size_type sample_id = dynamic_index.metadata.sample(to_remove);
-        std::vector<gbwt::size_type> path_ids = dynamic_index.metadata.removeSample(sample_id);
+        std::set<gbwt::size_type> sample_ids;
+        for (const std::string& sample_name : to_remove) {
+            gbwt::size_type sample_id = dynamic_index.metadata.sample(sample_name);
+            if (sample_id >= dynamic_index.metadata.samples()) {
+                std::cerr << "warning: [vg gbwt] the index does not contain sample " << sample_name << std::endl;
+            } else {
+                sample_ids.insert(sample_id);
+            }
+        }
+        std::vector<gbwt::size_type> path_ids;
+        for (gbwt::size_type sample_id : sample_ids) {
+            std::vector<gbwt::size_type> current_paths = dynamic_index.metadata.removeSample(sample_id);
+            path_ids.insert(path_ids.end(), current_paths.begin(), current_paths.end());
+        }
         if (path_ids.empty()) {
-            std::cerr << "error: [vg gbwt] the index does not contain sample " << to_remove << std::endl;
-            std::exit(EXIT_FAILURE);
+            std::cerr << "warning: [vg gbwt] no threads associated with the removed samples" << std::endl;
+        } else {
+            if (show_progress) {
+                std::cerr << "Removing " << path_ids.size() << " threads" << std::endl;
+            }
+            size_t foo = dynamic_index.remove(path_ids);
         }
-        if (show_progress) {
-            std::cerr << "Removing " << path_ids.size() << " threads" << std::endl;
-        }
-        size_t foo = dynamic_index.remove(path_ids);
         if (show_progress) {
             double seconds = gbwt::readTimer() - start;
-            std::cerr << "Sample removed in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+            std::cerr << "Samples removed in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
             std::cerr << std::endl;
         }
     }

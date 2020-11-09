@@ -1007,7 +1007,7 @@ pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vecto
                 // Bases are matched. Count them in the bounds and execute the operation
                 low = min(low, here);
                 here += item.first;
-                high = max(high, here - 1);
+                high = max(high, here);
             } else if (item.second == 'D') {
                 // Only other way to advance in the reference
                 here += item.first;

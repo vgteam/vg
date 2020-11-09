@@ -262,5 +262,14 @@ TEST_CASE("consolidate_ID_runs merges runs of adjacent I's and D's in cigars", "
     REQUIRE(consolidated_1);
     REQUIRE(consolidated_2);
 }
+
+TEST_CASE("Inter-alignment distance computation for HTS output formats matches BWA", "[alignment]") {
+    // See https://github.com/vgteam/vg/issues/3078. We want to match BWA on
+    // these straightforward, fully-matching reads.
+    auto lengths = compute_template_lengths(10206220, {{151, 'M'}}, 10206662, {{151, 'M'}});
+    REQUIRE(lengths.first == 593);
+    REQUIRE(lengths.second == -593);
+}
+
 }
 }
