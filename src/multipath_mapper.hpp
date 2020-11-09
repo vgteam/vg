@@ -221,7 +221,7 @@ namespace vg {
         /// actual extracted graph, a list of assigned MEMs, and the number of
         /// bases of read coverage that that MEM cluster provides (which serves
         /// as a priority).
-        using clustergraph_t = tuple<bdsg::HashGraph*, memcluster_t, size_t>;
+        using clustergraph_t = tuple<unique_ptr<bdsg::HashGraph>, memcluster_t, size_t>;
         
         /// Represents the mismatches that were allowed in "MEMs" from the fanout
         /// match algorithm
@@ -340,20 +340,23 @@ namespace vg {
         /// Return a graph (on the heap) that contains a cluster. The paired bool
         /// indicates whether the graph is known to be connected (but it is possible
         /// for the graph to be connected and have it return false)
-        pair<bdsg::HashGraph*, bool> extract_cluster_graph(const Alignment& alignment, const memcluster_t& mem_cluster) const;
+        pair<unique_ptr<bdsg::HashGraph>, bool> extract_cluster_graph(const Alignment& alignment,
+                                                                      const memcluster_t& mem_cluster) const;
         
         /// Extract a graph that is guaranteed to contain all local alignments that include
         /// the MEMs of the cluster.  The paired bool indicates whether the graph is
         /// known to be connected (but it is possible for the graph to be connected and have
         /// it return false)
-        pair<bdsg::HashGraph*, bool> extract_maximal_graph(const Alignment& alignment, const memcluster_t& mem_cluster) const;
+        pair<unique_ptr<bdsg::HashGraph>, bool> extract_maximal_graph(const Alignment& alignment,
+                                                                      const memcluster_t& mem_cluster) const;
         
         /// Extract a graph with an algorithm that tries to extract not much more than what
         /// is required to contain the cluster in a single connected component (can be slower
         /// than the maximal algorithm for alignments that require large indels),  The paired bool
         /// indicates whether the graph is known to be connected (but it is possible
         /// for the graph to be connected and have it return false)
-        pair<bdsg::HashGraph*, bool> extract_restrained_graph(const Alignment& alignment, const memcluster_t& mem_cluster) const;
+        pair<unique_ptr<bdsg::HashGraph>, bool> extract_restrained_graph(const Alignment& alignment,
+                                                                         const memcluster_t& mem_cluster) const;
         
         /// Returns the union of the intervals on the read that a cluster cover in sorted order
         vector<pair<int64_t, int64_t>> covered_intervals(const Alignment& alignment,
@@ -459,18 +462,11 @@ namespace vg {
                                     const function<const multipath_alignment_t&(int64_t)>& get_candidate,
                                     const function<multipath_alignment_t&&(int64_t)>& consume_candidate);
         
-//        void test_splice_candidates(const Alignment& alignment, bool searching_left,
-//                                    vector<multipath_alignment_t>& multipath_alns,
-//                                    vector<double>& multiplicities,
-//                                    const vector<size_t>& mp_aln_candidates,
-//                                    vector<multipath_alignment_t>& unaligned_candidates,
-//                                    const vector<double>& unaligned_multiplicities);
-        
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
         /// Does NOT necessarily produce a multipath_alignment_t in topological order.
-        void multipath_align(const Alignment& alignment, const bdsg::HashGraph* graph,
-                             memcluster_t& graph_mems,
+        void multipath_align(const Alignment& alignment,
+                             clustergraph_t& cluster_graph,
                              multipath_alignment_t& multipath_aln_out,
                              const match_fanouts_t* fanouts) const;
         
@@ -535,7 +531,7 @@ namespace vg {
         double fragment_length_log_likelihood(int64_t length) const;
         
         /// Computes the number of read bases a cluster of MEM hits covers.
-        static int64_t read_coverage(const memcluster_t& mem_hits);
+        static void set_read_coverage(clustergraph_t& cluster_graph);
         
         /// Would an alignment this good be expected against a graph this big by chance alone
         bool likely_mismapping(const multipath_alignment_t& multipath_aln);
@@ -595,7 +591,7 @@ namespace vg {
         SpliceMotifs splice_motifs;
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
-        PathComponentIndex* path_component_index = nullptr;
+        unique_ptr<PathComponentIndex> path_component_index;
         
         static const size_t RESCUED;
         
