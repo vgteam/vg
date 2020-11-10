@@ -8,6 +8,7 @@
 //#define debug_spliced_surject
 //#define debug_anchored_surject
 //#define debug_multipath_surject
+//#define debug_constrictions
 //#define debug_filter_paths
 //#define debug_validate_anchored_multipath_alignment
 
@@ -467,10 +468,26 @@ using namespace std;
         return fwd_adj;
     }
 
-    vector<pair<size_t, bool>> Surjector::find_constriction_stars(const vector<vector<size_t>>& adj) const {
+    vector<pair<vector<size_t>, vector<size_t>>> Surjector::find_constriction_bicliques(const vector<vector<size_t>>& adj,
+                                                                                        const string& src_sequence,
+                                                                                        const vector<path_chunk_t>& path_chunks,
+                                                                                        const vector<tuple<size_t, size_t, int32_t>>& connections) const {
         
-        // TODO: i'm looking for constrictions at stars, but this could be made more general
-        // with a biclique
+        auto connected_by_edge = [&](size_t i, size_t j) {
+            const auto& final_mapping = *path_chunks[i].second.mapping().rbegin();
+            const auto& final_position = final_mapping.position();
+            const auto& initial_position = path_chunks[j].second.mapping().begin()->position();
+            handle_t handle = graph->get_handle(final_position.node_id(),
+                                                final_position.is_reverse());
+            if (initial_position.offset() == 0
+                && final_position.offset() + mapping_from_length(final_mapping) == graph->get_length(handle)
+                && graph->has_edge(handle, graph->get_handle(initial_position.node_id(), initial_position.is_reverse()))) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        };
         
         auto rev_adj = reverse_adjacencies(adj);
         
@@ -509,33 +526,204 @@ using namespace std;
             }
         }
         
-        // identify the center of constriction stars
-        vector<pair<size_t, bool>> constrictions;
-        for (size_t i = 0; i < adj.size(); ++i) {
-            if (!adj[i].empty()) {
-                size_t bwd_total = 0;
-                for (size_t j : adj[i]) {
-                    bwd_total += bwd[j];
-                }
-                if (fwd[i] * bwd_total == total_comp_paths[comps[i]]) {
-                    constrictions.emplace_back(i, false);
+#ifdef debug_constrictions
+        cerr << "forward counts" << endl;
+        for (size_t i = 0; i < fwd.size(); ++i) {
+            cerr << "\t" << i << ": " << fwd[i] << endl;
+        }
+        cerr << "backward counts" << endl;
+        for (size_t i = 0; i < bwd.size(); ++i) {
+            cerr << "\t" << i << ": " << bwd[i] << endl;
+        }
+#endif
+        
+        // divide up chunks by their component and their begin/end position on the read
+        unordered_map<pair<size_t, int64_t>, vector<size_t>> chunks_by_begin, chunks_by_end;
+        for (size_t i = 0; i < path_chunks.size(); ++i) {
+            pair<size_t, int64_t> key_begin(comps[i], path_chunks[i].first.first - src_sequence.begin());
+            pair<size_t, int64_t> key_end(comps[i], path_chunks[i].first.second - src_sequence.begin());
+            chunks_by_begin[key_begin].push_back(i);
+            chunks_by_end[key_end].push_back(i);
+        }
+        
+        // reorganize the connections into an adjacency list
+        unordered_map<size_t, unordered_set<size_t>> connection_adj;
+        for (const auto& connection : connections) {
+            connection_adj[get<0>(connection)].emplace(get<1>(connection));
+        }
+        
+        vector<pair<vector<size_t>, vector<size_t>>> return_val;
+        
+        for (const auto& end_record : chunks_by_end) {
+            
+            if (!chunks_by_begin.count(end_record.first)) {
+                // there are no chunks starting at the same read position
+                continue;
+            }
+            
+#ifdef debug_constrictions
+            cerr << "looking for a constriction at position " <<  end_record.first.second << " among lefts:" << endl;
+            for (auto i : end_record.second) {
+                cerr << "\t" << i << endl;
+            }
+            cerr << "and rights:" << endl;
+            for (auto i : chunks_by_begin[end_record.first]) {
+                cerr << "\t" << i << endl;
+            }
+#endif
+            
+            // collect all of the path chunks that have no aligned read sequence
+            vector<size_t> deletion_chunks;
+            for (auto i : end_record.second) {
+                if (path_chunks[i].first.first == path_chunks[i].first.second) {
+                    deletion_chunks.push_back(i);
                 }
             }
             
-            // we want to only find trivial constriction edges in one direction,
-            // so only look at non-trivial stars in the reverse direction
-            if (rev_adj[i].size() > 1) {
-                size_t fwd_total = 0;
-                for (size_t j : rev_adj[i]) {
-                    fwd_total += fwd[j];
+            // deletion chunks can go on either end, so we try all combinations
+            // TODO: magic number to prevent explosion
+            for (size_t iter = 0, end = (1 << min<size_t>(deletion_chunks.size(), 16)); iter < end; ++iter) {
+                
+                
+#ifdef debug_constrictions
+                cerr << "deletion combination iteration " << iter << " out of " << end << endl;
+#endif
+                
+                // we will fill out the left and right side of this potential splice biclique
+                unordered_set<size_t> left_side, right_side;
+                
+                // fill left side, handling pure deletions according to the iteration
+                size_t deletion_chunk_idx = 0;
+                for (auto i : end_record.second) {
+                    if (deletion_chunk_idx < deletion_chunks.size() && i == deletion_chunks[deletion_chunk_idx]) {
+                        if (iter & (1 << deletion_chunk_idx)) {
+                            left_side.insert(i);
+                        }
+                        else {
+                            right_side.insert(i);
+                        }
+                    }
+                    else {
+                        left_side.insert(i);
+                    }
                 }
-                if (bwd[i] * fwd_total == total_comp_paths[comps[i]]) {
-                    constrictions.emplace_back(i, true);
+                // fill right side
+                for (auto i : chunks_by_begin[end_record.first]) {
+                    if (!left_side.count(i)) {
+                        right_side.insert(i);
+                    }
+                }
+                
+#ifdef debug_constrictions
+                cerr << "iter left:" << endl;
+                for (auto i : left_side) {
+                    cerr << "\t" << i << endl;
+                }
+                cerr << "iter rights:" << endl;
+                for (auto i : right_side) {
+                    cerr << "\t" << i << endl;
+                }
+#endif
+                
+                // record which pairs have a conneection
+                bool incompatible = false;
+                unordered_set<size_t> left_connected, right_connected;
+                for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
+                    auto adj_it = connection_adj.find(*left_it);
+                    if (adj_it != connection_adj.end()) {
+                        for (auto right_it = adj_it->second.begin(); right_it != adj_it->second.end() && !incompatible; ++right_it) {
+                            
+#ifdef debug_constrictions
+                            cerr << "looking at connection between " << *left_it << " and " << *right_it << endl;
+#endif
+                            if (right_side.count(*right_it)) {
+                                left_connected.insert(*left_it);
+                                right_connected.insert(*right_it);
+                            }
+                            else {
+                                // the direction of this connection are not consistent with the left and right
+                                // side of this iteration
+#ifdef debug_constrictions
+                                cerr << "connection is incompatible" << endl;
+#endif
+                                incompatible = true;
+                            }
+                        }
+                    }
+                }
+                
+                if (incompatible) {
+                    // the division of deletions to the left and right side is not compatible with the
+                    // connections
+                    continue;
+                }
+                
+                // do the non-connected edges form a biclique?
+                for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
+                    if (left_connected.count(*left_it)) {
+                        continue;
+                    }
+                    size_t num_clique_edges = 0;
+                    for (auto i : adj[*left_it]) {
+                        if (right_connected.count(i)) {
+                            // we don't worry about it if the node has a connection, because it will lose
+                            // all of its edges anyway
+                            continue;
+                        }
+                        if (right_side.count(i) && connected_by_edge(*left_it, i)) {
+                            // this looks like it could be a splice junction
+                            ++num_clique_edges;
+                        }
+                        else {
+#ifdef debug_constrictions
+                            cerr << "adjacency " << *left_it << " -> " << i << " is " << (right_side.count(i) ? "not connected by a graph edge" : "missing") << endl;
+#endif
+                            incompatible = true;
+                        }
+                    }
+                    incompatible = incompatible && (num_clique_edges == right_side.size() - right_connected.size());
+                }
+                
+                if (incompatible) {
+                    // we have edges going to outside the biclique, or we have edges missing
+                    // from the biclique
+#ifdef debug_constrictions
+                    cerr << "this left-right combination is incompatible" << endl;
+#endif
+                    continue;
+                }
+                
+                // count up the walks through this biclique
+                size_t walk_total = 0;
+                for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
+                    for (auto j : adj[*left_it]) {
+                        walk_total += fwd[*left_it] * bwd[j];
+                    }
+                }
+                
+#ifdef debug_constrictions
+                cerr << "biclique has a walk total of " << walk_total << " compared to component total " << total_comp_paths[end_record.first.first] << endl;
+#endif
+                
+                if (walk_total == total_comp_paths[end_record.first.first]) {
+                    // all of the walks in this component go through this biclique, we've found a splice
+                    
+#ifdef debug_constrictions
+                    cerr << "recording a constriction biclique" << endl;
+#endif
+                    
+                    return_val.emplace_back(vector<size_t>(left_side.begin(), left_side.end()),
+                                            vector<size_t>(right_side.begin(), right_side.end()));
+                    
+                    auto& biclique = return_val.back();
+                    sort(biclique.first.begin(), biclique.first.end());
+                    sort(biclique.second.begin(), biclique.second.end());
+                    // stop iterating through combinations of side assignments for the deletion thunks
+                    break;
                 }
             }
         }
-        
-        return constrictions;
+        return return_val;
     }
 
     multipath_alignment_t Surjector::spliced_surject(const PathPositionHandleGraph* path_position_graph,
@@ -575,21 +763,7 @@ using namespace std;
         };
         
         // checks whether the end of i is connected to the beginning of j by an edge
-        auto connected_by_edge = [&](size_t i, size_t j) {
-            const auto& final_mapping = *path_chunks[i].second.mapping().rbegin();
-            const auto& final_position = final_mapping.position();
-            const auto& initial_position = path_chunks[j].second.mapping().begin()->position();
-            handle_t handle = graph->get_handle(final_position.node_id(),
-                                                final_position.is_reverse());
-            if (initial_position.offset() == 0
-                && final_position.offset() + mapping_from_length(final_mapping) == graph->get_length(handle)
-                && graph->has_edge(handle, graph->get_handle(initial_position.node_id(), initial_position.is_reverse()))) {
-                return true;
-            }
-            else {
-                return false;
-            }
-        };
+        
         
 #ifdef debug_spliced_surject
         cerr << "making colinearity graph for " << path_chunks.size() << " path chunks" << endl;
@@ -667,8 +841,6 @@ using namespace std;
         for (const auto& connection : connections) {
             cerr << get<0>(connection) << " -> " << get<1>(connection) << ", " << get<2>(connection) << endl;
         }
-        
-        cerr << "finding constriction edges" << endl;
 #endif
         
         // if any constrictions correspond to pure deletions, remove them from the colineary
@@ -676,115 +848,37 @@ using namespace std;
         
         // records of (to idx, score, is a connection)
         vector<vector<tuple<size_t, int32_t, bool>>> splice_edges(path_chunks.size());
+        vector<pair<vector<size_t>, vector<size_t>>> constrictions;
         if (deletions_as_splices) {
             
-            auto resolve_constrictions = [&](size_t i, vector<vector<size_t>>& adj, bool rev) {
-                
-                // are all of the edges pure deletions moving in the same direction down the path along edges?
-                bool includes_splice = false;
-                vector<int64_t> distances;
-                for (auto j : adj[i]) {
-                    size_t left = rev ? j : i;
-                    size_t right = rev ? i : j;
-                    if (path_chunks[left].first.second == path_chunks[right].first.first
-                        && connected_by_edge(left, right)) {
-                        int64_t dist = path_distance(left, right);
-                        includes_splice = includes_splice || dist >= min_splice_length;
-                        if (dist >= 0) {
-                            distances.push_back(dist);
-                        }
-                        else {
-                            break;
-                        }
-                    }
-                    else {
-                        break;
-                    }
-                }
-                if (distances.size() == adj[i].size() && includes_splice) {
-                    // all of the edges in this star were colinear deletions
-                    for (size_t j = 0; j < distances.size(); ++j) {
-                        // score either as a deletion or a splice depending on length
-                        int64_t score;
-                        if (distances[j] >= min_splice_length) {
-                            score = 0;
-                        }
-                        else {
-                            score = get_aligner(!src_quality.empty())->score_gap(distances[j]);
-                        }
-                        size_t left = rev ? adj[i][j] : i;
-                        size_t right = rev ? i : adj[i][j];
-                        
 #ifdef debug_spliced_surject
-                        cerr << "deletion of length " << distances[j] << " from " << left << " to " << right << " is recorded as part of a splice star, and given score " << score << endl;
+            cerr << "finding constrictions" << endl;
 #endif
-                        
-                        splice_edges[left].emplace_back(right, score, false);
-                    }
-                    
-                    // remove the corresponding adjacencies
-                    adj[i].clear();
-                }
-            };
             
-            // find stars that constrict the colinearity graph
-            vector<pair<size_t, bool>> constrictions = find_constriction_stars(colinear_adj_red);
+            // find bicliques that constrict the colinearity graph
+            constrictions = find_constriction_bicliques(colinear_adj_red, src_sequence,
+                                                        path_chunks, connections);
             
-            // handle the forward constrictions
-            size_t fwd_removed = 0;
-            for (size_t i = 0; i < constrictions.size(); ++i) {
-                auto constriction = constrictions[i];
-                if (constriction.second) {
-                    constrictions[i - fwd_removed] = constriction;
-                }
-                else {
-                    resolve_constrictions(constriction.first, colinear_adj_red, false);
-                    ++fwd_removed;
-                }
-            }
-            
-            if (fwd_removed < constrictions.size()) {
-                // there are backward constrictions
-                
-                // remove all but the backward constrictions
-                constrictions.resize(constrictions.size() - fwd_removed);
-                
-                // make a reverse adjacency list
-                auto colinear_rev_adj_red = reverse_adjacencies(colinear_adj_red);
-                
-                for (auto& constriction : constrictions) {
-                    resolve_constrictions(constriction.first, colinear_rev_adj_red, true);
-                }
-                
-                // translate the reverse graph back into the forward graph
-                colinear_adj_red = reverse_adjacencies(colinear_rev_adj_red);
-            }
-        }
-        
-        
 #ifdef debug_spliced_surject
-        cerr << "after removing long constriction deletions:" << endl;
-        for (size_t i = 0; i < colinear_adj_red.size(); ++i) {
-            cerr << i << ":";
-            for (auto j : colinear_adj_red[i]) {
-                cerr << " " << j;
+            cerr << "found " << constrictions.size() << " constriction bicliques:" << endl;
+            for (auto& constriction : constrictions) {
+                cerr << "left:" << endl;
+                for (auto i : constriction.first) {
+                    cerr << "\t" << i << endl;
+                }
+                cerr << "right:" << endl;
+                for (auto i : constriction.second) {
+                    cerr << "\t" << i << endl;
+                }
             }
-            cerr << endl;
-        }
-        cerr << "splice graph:" << endl;
-        for (size_t i = 0; i < splice_edges.size(); ++i) {
-            cerr << i << ":";
-            for (auto edge : splice_edges[i]) {
-                cerr << " (" << get<0>(edge) << ", " << get<1>(edge) << ", " << get<2>(edge) << ")";
-            }
-            cerr << endl;
-        }
-        
-        cerr << "finding connection edges" << endl;
 #endif
-                
-        if (!connections.empty()) {
+        }
+                        
+        if (!connections.empty() || !constrictions.empty()) {
             
+#ifdef debug_spliced_surject
+            cerr << "handling any connections" << endl;
+#endif
             // clear outward edges for chunks that send connections, and record
             // the scored edge
             vector<bool> has_inward_connection(path_chunks.size(), false);
@@ -803,7 +897,7 @@ using namespace std;
                     if (!connection_set.count(make_pair(get<0>(connection), target))
                         && path_chunks[get<0>(connection)].first.second == path_chunks[target].first.first
                         && path_distance(get<0>(connection), target) == 0) {
-                        
+                        // TODO: why do we find directly abutting connections in the first place?
                         splice_edges[get<0>(connection)].emplace_back(target, 0, false);
                     }
                 }
@@ -812,6 +906,7 @@ using namespace std;
             
             
             // move inward exactly abutting edges for path chunks that receive connections into the splice edges
+            // and clear the rest
             for (auto& adj : colinear_adj_red) {
                 for (size_t i = 0; i < adj.size();) {
                     if (has_inward_connection[adj[i]]) {
@@ -828,26 +923,92 @@ using namespace std;
                     }
                 }
             }
+            
+#ifdef debug_spliced_surject
+            cerr << "after removing connections:" << endl;
+            for (size_t i = 0; i < colinear_adj_red.size(); ++i) {
+                cerr << i << ":";
+                for (auto j : colinear_adj_red[i]) {
+                    cerr << " " << j;
+                }
+                cerr << endl;
+            }
+            cerr << "splice graph:" << endl;
+            for (size_t i = 0; i < splice_edges.size(); ++i) {
+                cerr << i << ":";
+                for (auto edge : splice_edges[i]) {
+                    cerr << " (" << get<0>(edge) << ", " << get<1>(edge) << ", " << get<2>(edge) << ")";
+                }
+                cerr << endl;
+            }
+            
+            cerr << "handling any constrictions" << endl;
+#endif
+            for (const auto& constriction : constrictions) {
+                
+                vector<tuple<size_t, size_t, int64_t>> new_edges;
+                bool includes_splice = false;
+                for (auto i : constriction.first) {
+                    if (colinear_adj_red[i].empty()) {
+                        // the edges have been cleared when incorporating a connection
+                        continue;
+                    }
+                    for (auto j : constriction.second) {
+                        if (has_inward_connection[j]) {
+                            // backward edgs have been removed
+                            continue;
+                        }
+                        int64_t dist = path_distance(i, j);
+                        int64_t score;
+                        if (dist >= min_splice_length) {
+                            score = 0;
+                        }
+                        else {
+                            includes_splice = true;
+                            score = get_aligner(!src_quality.empty())->score_gap(dist);
+                        }
+                        
+#ifdef debug_spliced_surject
+                        cerr << "deletion of length " << dist << " from " << left << " to " << right << " is recorded as part of a splice biclique, and given score " << score << endl;
+#endif
+                        
+                        new_edges.emplace_back(i, j, score);
+                    }
+                }
+                if (includes_splice) {
+                    // remove the colinearity edges
+                    for (auto i : constriction.first) {
+                        colinear_adj_red[i].clear();
+                    }
+                    // transfer them to splice edges
+                    for (const auto& edge : new_edges) {
+                        splice_edges[get<0>(edge)].emplace_back(get<1>(edge), get<2>(edge), false);
+                    }
+                }
+            }
+            
+            
+#ifdef debug_spliced_surject
+            cerr << "after removing long constriction deletions:" << endl;
+            for (size_t i = 0; i < colinear_adj_red.size(); ++i) {
+                cerr << i << ":";
+                for (auto j : colinear_adj_red[i]) {
+                    cerr << " " << j;
+                }
+                cerr << endl;
+            }
+            cerr << "splice graph:" << endl;
+            for (size_t i = 0; i < splice_edges.size(); ++i) {
+                cerr << i << ":";
+                for (auto edge : splice_edges[i]) {
+                    cerr << " (" << get<0>(edge) << ", " << get<1>(edge) << ", " << get<2>(edge) << ")";
+                }
+                cerr << endl;
+            }
+#endif
         }
         
 #ifdef debug_spliced_surject
-        cerr << "after removing connections:" << endl;
-        for (size_t i = 0; i < colinear_adj_red.size(); ++i) {
-            cerr << i << ":";
-            for (auto j : colinear_adj_red[i]) {
-                cerr << " " << j;
-            }
-            cerr << endl;
-        }
-        cerr << "splice graph:" << endl;
-        for (size_t i = 0; i < splice_edges.size(); ++i) {
-            cerr << i << ":";
-            for (auto edge : splice_edges[i]) {
-                cerr << " (" << get<0>(edge) << ", " << get<1>(edge) << ", " << get<2>(edge) << ")";
-            }
-            cerr << endl;
-        }
-        
         cerr << "computing constriction components" << endl;
 #endif
       
@@ -860,6 +1021,16 @@ using namespace std;
         for (size_t i = 0; i < constriction_comps.size(); ++i) {
             comp_groups[constriction_comps[i]].push_back(i);
         }
+        
+#ifdef debug_spliced_surject
+        for (size_t i = 0; i < comp_groups.size(); ++i) {
+            cerr << "group " << i << ":";
+            for (auto j : comp_groups[i]) {
+                cerr << " " << j;
+            }
+            cerr << endl;
+        }
+#endif
         
         // make sure the boundaries of component groups expose the ends necessary for connections
         if (!connections.empty()) {
@@ -915,9 +1086,11 @@ using namespace std;
         vector<vector<tuple<size_t, int32_t, bool>>> comp_group_edges(comp_groups.size());
         for (size_t i = 0; i < splice_edges.size(); ++i) {
             for (auto& edge : splice_edges[i]) {
-                comp_group_edges[constriction_comps[i]].emplace_back(constriction_comps[get<0>(edge)],
-                                                                     get<1>(edge), get<2>(edge));
-                comp_is_source[constriction_comps[get<0>(edge)]] = false;
+                if (constriction_comps[i] < constriction_comps[get<0>(edge)]) {
+                    comp_group_edges[constriction_comps[i]].emplace_back(constriction_comps[get<0>(edge)],
+                                                                         get<1>(edge), get<2>(edge));
+                    comp_is_source[constriction_comps[get<0>(edge)]] = false;
+                }
             }
         }
         
