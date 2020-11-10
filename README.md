@@ -114,32 +114,9 @@ Homebrew provides another package management solution for OSX, and may be prefer
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH;
     export LIBRARY_PATH=$LD_LIBRARY_PATH;
 
-#### (Optional) Install GNU GCC
-
-While Apple's `clang` can build VG, the C++ standard library it uses doesn't support some parallel extensions, so a Clang-built VG will be slower. Better results can be achieved by building with GNU GCC >= 4.9 and its `libstdc++` standard library.
-
-With **MacPorts**, you can install GNU GCC like this:
-
-    sudo port install gcc9 clang-8.0
-
-To make GCC 9 the default compiler, run (use `none` instead of `mp-gcc7` to revert back):
-
-    sudo port select gcc mp-gcc9
-
-Some OSX users also need to have the MacPorts Clang assembler for building VG's dependencies (use `none` instead of `mp-clang-8.0` to revert back):
-
-    sudo port select clang mp-clang-8.0
-
-With **Homebrew**, you can install GNU GCC for VG like this:
-
-    brew install gcc6
-    # Manually create symlinks to make Homebrew GCC 6 the default gcc and g++
-    ln -s gcc-6 /usr/local/bin/gcc
-    ln -s g++-6 /usr/local/bin/g++
-    
 #### Build
 
-With dependencies and compilers installed, VG can now be built:
+With dependencies installed, VG can now be built:
 
     . ./source_me.sh && make
     
