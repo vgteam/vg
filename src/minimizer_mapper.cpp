@@ -1337,6 +1337,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     paired_scores.reserve(alignments.size());
     vector<int64_t> fragment_distances;
     fragment_distances.reserve(alignments.size());
+
+    //for each alignment pair, what type of pair is it
+    enum PairType {paired, unpaired, rescued_from_first, rescued_from_second};
+    vector<PairType> pair_types; 
     
     //For each pair of alignments in paired_alignments, how many equivalent or better fragment clusters
     //did we find 
@@ -1370,18 +1374,17 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
                     //Get the likelihood of the fragment distance
                     int64_t fragment_distance = distance_between(alignment1, alignment2); 
-                    if (true) {//TODO: Always keep pairs, even if there is no path between them fragment_distance != std::numeric_limits<int64_t>::max() ) {
-                        //If this is a plausible pair of alignments, keep it
 
-                        double score = score_alignment_pair(alignment1, alignment2, fragment_distance);
-                        alignment_groups[fragment_num].first[aln_index1].emplace_back(paired_alignments.size());
-                        alignment_groups[fragment_num].second[aln_index2].emplace_back(paired_alignments.size());
-                        paired_alignments.emplace_back(make_pair(fragment_num, aln_index1), make_pair(fragment_num, aln_index2));
-                        paired_scores.emplace_back(score);
-                        fragment_distances.emplace_back(fragment_distance);
-                        better_cluster_count_by_pairs.emplace_back(better_cluster_count[fragment_num]);
+                    double score = score_alignment_pair(alignment1, alignment2, fragment_distance);
+                    alignment_groups[fragment_num].first[aln_index1].emplace_back(paired_alignments.size());
+                    alignment_groups[fragment_num].second[aln_index2].emplace_back(paired_alignments.size());
+                    paired_alignments.emplace_back(make_pair(fragment_num, aln_index1), make_pair(fragment_num, aln_index2));
+                    paired_scores.emplace_back(score);
+                    fragment_distances.emplace_back(fragment_distance);
+                    better_cluster_count_by_pairs.emplace_back(better_cluster_count[fragment_num]);
+                    pair_types.emplace_back(paired);
 #ifdef print_minimizers
-                        alignment_was_rescued.emplace_back(false, false);
+                    alignment_was_rescued.emplace_back(false, false);
 #endif
 
 #ifdef debug
@@ -1390,7 +1393,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
              << " gets pair score " << score << endl;
         cerr << "Alignment 1: " << pb2json(alignment1) << endl << "Alignment 2: " << pb2json(alignment2) << endl;
 #endif
-                    }
 
                     if (track_provenance) {
                         funnels[0].processing_input(funnel_index1);
@@ -1436,10 +1438,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }
     size_t rescued_count_1 = 0;
     size_t rescued_count_2 = 0;
-    //for each alignment pair that we rescue, true if we rescued from the first read
-    //this will only have as many entries as rescued pairs
-    //First entry may be 2, indicating that this was not rescued but an unpaired pair
-    vector<size_t> rescued_from; 
+    vector<vector<double>> unpaired_scores(2) ;
+    unpaired_scores[0].reserve(unpaired_alignments.size());
+    unpaired_scores[1].reserve(unpaired_alignments.size());
+
 
     if (!unpaired_alignments.empty()) {
         //If we found some clusters that had no pair in a fragment cluster
@@ -1458,11 +1460,13 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 Alignment& alignment = std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index) ]
                                                           : alignments[std::get<0>(index)].second[std::get<1>(index)];
                 if (std::get<2>(index)) {
+                    unpaired_scores[0].emplace_back(alignment.score());
                     if (alignment.score() > best_score_1) {
                         best_index_1 = index;
                         best_score_1 = alignment.score();
                     }
                 } else {
+                    unpaired_scores[1].emplace_back(alignment.score());
                     if (alignment.score() > best_score_2) {
                         best_index_2 = index;
                         best_score_2 = alignment.score();
@@ -1527,12 +1531,13 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
                 Alignment& aln1 = alignments[std::get<0>(best_index_1)].first[std::get<1>(best_index_1)];
                 Alignment& aln2 = alignments[std::get<0>(best_index_2)].second[std::get<1>(best_index_2)];
-                //TODO: Kind of making up these numbers
                 paired_alignments.push_back(index_pair);
+                //Assume the distance between them is infinite
                 double pair_score = score_alignment_pair(aln1, aln2, std::numeric_limits<int64_t>::max());
-                paired_scores.emplace_back(pair_score); //TODO: Should we penalize the score?
+                paired_scores.emplace_back(pair_score);
                 fragment_distances.emplace_back(std::numeric_limits<int64_t>::max());
-                better_cluster_count_by_pairs.emplace_back(2);
+                better_cluster_count_by_pairs.emplace_back(0);
+                pair_types.emplace_back(unpaired);
             }
         }
 
@@ -1562,48 +1567,47 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     return true;
                 }
 
+                //Rescue the alignment
                 attempt_rescue(mapped_aln, rescued_aln, minimizers_by_read[(found_first ? 1 : 0)], found_first);
 
                 int64_t fragment_dist = found_first ? distance_between(mapped_aln, rescued_aln) 
                                                       : distance_between(rescued_aln, mapped_aln);
-                if (true) { //TODO fragment_dist != std::numeric_limits<int64_t>::max()) {
-                    bool duplicated = false;
-                    double score = score_alignment_pair(mapped_aln, rescued_aln, fragment_dist);
 
-                    set_annotation(mapped_aln, "rescuer", true);
-                    set_annotation(rescued_aln, "rescued", true);
-                    set_annotation(mapped_aln,  "fragment_length", (double)fragment_dist);
-                    set_annotation(rescued_aln, "fragment_length", (double)fragment_dist);
+                double score = score_alignment_pair(mapped_aln, rescued_aln, fragment_dist);
 
-                    //Since we're still accumulating a list of indexes of pairs of alignments,
-                    //add the new alignment to the list of alignments 
-                    //(in a separate "fragment cluster" vector for rescued alignments) and keep track of its index
-                    //
-                    pair<size_t, size_t> mapped_index (std::get<0>(index), std::get<1>(index)); 
-                    pair<size_t, size_t> rescued_index (alignments.size() - 1, 
-                                found_first ? alignments.back().second.size() : alignments.back().first.size());
-                    found_first ? alignments.back().second.emplace_back(std::move(rescued_aln)) 
-                                : alignments.back().first.emplace_back(std::move(rescued_aln));
-                    found_first ? rescued_count_1++ : rescued_count_2++;
+                set_annotation(mapped_aln, "rescuer", true);
+                set_annotation(rescued_aln, "rescued", true);
+                set_annotation(mapped_aln,  "fragment_length", (double)fragment_dist);
+                set_annotation(rescued_aln, "fragment_length", (double)fragment_dist);
 
-                    found_first ? alignment_groups.back().second.emplace_back() : alignment_groups.back().first.emplace_back();
-                    pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = found_first ? 
-                                make_pair(mapped_index, rescued_index) : make_pair(rescued_index, mapped_index);
-                    paired_alignments.push_back(index_pair);
-                    paired_scores.emplace_back(score);
-                    fragment_distances.emplace_back(fragment_dist);
-                    rescued_from.push_back(found_first ? 1 : 0); 
-                    better_cluster_count_by_pairs.emplace_back(better_cluster_count[mapped_index.first]);
+                //Since we're still accumulating a list of indexes of pairs of alignments,
+                //add the new alignment to the list of alignments 
+                //(in a separate "fragment cluster" vector for rescued alignments) and keep track of its index
+                //
+                pair<size_t, size_t> mapped_index (std::get<0>(index), std::get<1>(index)); 
+                pair<size_t, size_t> rescued_index (alignments.size() - 1, 
+                            found_first ? alignments.back().second.size() : alignments.back().first.size());
+                found_first ? alignments.back().second.emplace_back(std::move(rescued_aln)) 
+                            : alignments.back().first.emplace_back(std::move(rescued_aln));
+                found_first ? rescued_count_1++ : rescued_count_2++;
+
+                found_first ? alignment_groups.back().second.emplace_back() : alignment_groups.back().first.emplace_back();
+                pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = found_first ? 
+                            make_pair(mapped_index, rescued_index) : make_pair(rescued_index, mapped_index);
+                paired_alignments.push_back(index_pair);
+                paired_scores.emplace_back(score);
+                fragment_distances.emplace_back(fragment_dist);
+                pair_types.push_back(found_first ? rescued_from_first : rescued_from_second); 
+                better_cluster_count_by_pairs.emplace_back(better_cluster_count[mapped_index.first]);
 
 #ifdef print_minimizers
-                    alignment_was_rescued.emplace_back(!found_first, found_first);
+                alignment_was_rescued.emplace_back(!found_first, found_first);
 #endif
-                    if (track_provenance) {
-                        funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
-                        funnels[found_first ? 0 : 1].project(j);
-                        funnels[found_first ? 1 : 0].introduce();
-                    }
-                } 
+                if (track_provenance) {
+                    funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
+                    funnels[found_first ? 0 : 1].project(j);
+                    funnels[found_first ? 1 : 0].introduce();
+                }
                 if (track_provenance) {
                     funnels[found_first ? 0 : 1].processed_input();
                     funnels[found_first ? 0 : 1].substage_stop();
@@ -1641,20 +1645,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         funnels[1].stage("winner");
     }
 
-    //Get the multiplicities for mapq calculation
-    //We're only using multiplicities if the alignments were rescued
-    double estimated_multiplicity_from_1 = unpaired_count_1 > 0 ? (double) unpaired_count_1 / min(rescued_count_1, max_rescue_attempts) : 1.0;
-    double estimated_multiplicity_from_2 = unpaired_count_2 > 0 ? (double) unpaired_count_2 / min(rescued_count_2, max_rescue_attempts) : 1.0;
-    vector<double> paired_multiplicities;
-    for (size_t rescued_from_first : rescued_from) {
-        if (rescued_from_first == 2) {
-            paired_multiplicities.push_back(1.0);
-        } else {
-
-            paired_multiplicities.push_back(rescued_from_first == 1 ? estimated_multiplicity_from_1 : estimated_multiplicity_from_2);
-        }
-    }
-
     // Fill this in with the alignments we will output
     pair<vector<Alignment>, vector<Alignment>> mappings;
     // Grab all the scores in order for MAPQ computation.
@@ -1662,10 +1652,12 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     vector<double> scores_group_1;
     vector<double> scores_group_2;
     vector<int64_t> distances;
+    vector<PairType> types; 
     mappings.first.reserve(paired_alignments.size());
     mappings.second.reserve(paired_alignments.size());
     scores.reserve(paired_scores.size());
     distances.reserve(fragment_distances.size());
+    types.reserve(pair_types.size());
 
     //For each pair of alignments in mappings, how many equivalent or better fragment clusters were there
     vector<size_t> better_cluster_count_by_mappings;
@@ -1687,6 +1679,7 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         // Remember the score at its rank
         scores.emplace_back(paired_scores[alignment_num]);
         distances.emplace_back(fragment_distances[alignment_num]);
+        types.emplace_back(pair_types[alignment_num]);
         better_cluster_count_by_mappings.emplace_back(better_cluster_count_by_pairs[alignment_num]);
         // Remember the output alignment
         mappings.first.emplace_back( alignments[index_pair.first.first].first[index_pair.first.second]);
@@ -1750,6 +1743,7 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         // Remember the score at its rank anyway
         scores.emplace_back(paired_scores[alignment_num]);
         distances.emplace_back(fragment_distances[alignment_num]);
+        types.emplace_back(pair_types[alignment_num]);
         better_cluster_count_by_mappings.emplace_back(better_cluster_count_by_pairs[alignment_num]);
 
  
@@ -1771,6 +1765,7 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         funnels[0].substage("mapq");
         funnels[1].substage("mapq");
     }
+
     
     // Compute raw explored caps (with 2.0 scaling, like for single-end) and raw group caps.
     // Non-capping caps stay at infinity.
@@ -1816,6 +1811,23 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         for (auto& score : scores) cerr << score << " ";
 #endif
 
+        //Get the multiplicities for mapq calculation
+        //We're only using multiplicities if the alignments were rescued
+        double estimated_multiplicity_from_1 = unpaired_count_1 > 0 ? (double) unpaired_count_1 / min(rescued_count_1, max_rescue_attempts) : 1.0;
+        double estimated_multiplicity_from_2 = unpaired_count_2 > 0 ? (double) unpaired_count_2 / min(rescued_count_2, max_rescue_attempts) : 1.0;
+        vector<double> paired_multiplicities;
+        for (PairType type : types) {
+            switch (type){
+                case paired:
+                    paired_multiplicities.push_back(1.0);
+                case unpaired:
+                    paired_multiplicities.push_back(1.0);
+                case rescued_from_first:
+                    paired_multiplicities.push_back(estimated_multiplicity_from_1);
+                case rescued_from_second:
+                    paired_multiplicities.push_back(estimated_multiplicity_from_2);
+            }
+        }
         const vector<double>* multiplicities = paired_multiplicities.size() == scores.size() ? &paired_multiplicities : nullptr; 
         // Compute base MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
         // If all of the alignment pairs were found with rescue, use the multiplicities to determine mapq
@@ -1869,6 +1881,12 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
             // Compute the overall cap for just this read, now that the individual cap components are filled in for both reads.
             double escape_bonus = uncapped_mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
             double mapq_cap = std::min(fragment_cluster_cap, ((mapq_explored_caps[0] + mapq_explored_caps[1])*escape_bonus) );
+
+            //TODO: How to cap mapq when the reads were unpaired
+            if (types.front() == unpaired) {
+                //If this pair came from two different fragment cluster
+                mapq_cap = std::min(mapq_cap, (double)get_regular_aligner()->compute_mapping_quality(unpaired_scores[read_num], false));
+            }
             
             // Find the MAPQ to cap
             double read_mapq = uncapped_mapq;
@@ -3662,8 +3680,9 @@ double MinimizerMapper::score_alignment_pair(Alignment& aln1, Alignment& aln2, i
     //Score a pair of alignments
 
     double dev = fragment_distance - fragment_length_distr.mean();
-    double fragment_length_log_likelihood = -dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev());
-    double score = aln1.score() + aln2.score() + (fragment_length_log_likelihood / get_aligner()->log_base);
+    double fragment_length_log_likelihood = (-dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev()))/ get_aligner()->log_base;
+    fragment_length_log_likelihood = std::max(fragment_length_log_likelihood, (-5.0/ get_aligner() ->log_base));
+    double score = aln1.score() + aln2.score() +fragment_length_log_likelihood ;
 
     //Don't let the fragment length log likelihood bring score down below the score of the best alignment
     double worse_score = std::min(aln1.score(), aln2.score());
