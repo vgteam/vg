@@ -5,13 +5,13 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 6
+plan tests 5
 
 # Make a big graph that is probably not in sorted order
 # Chopping it accomplishes that and makes it have several chunks
 vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz -m 64 | vg mod -X 1 - >giab.vg
 
-vg view -c giab.vg | jq -cr '.node[].id' > ids.txt
+vg view -j giab.vg | jq -cr '.node[].id' > ids.txt
 sort -n ids.txt > ids.sorted.txt
 
 diff ids.txt ids.sorted.txt >/dev/null
@@ -21,11 +21,6 @@ is "${?}" "1" "ids in our test graph are not initially in sorted order"
 vg sort -a id -I giab.sorted.vg.vgi giab.vg > giab.sorted.vg
 
 is "${?}" "0" "a vg graph can be sorted and indexed by ID without crashing"
-
-observed_hash="$(vg view -c giab.sorted.vg | jq -cr '.node[].id' | md5sum |  cut -f 1 -d\ )"
-correct_hash="$(vg view -c giab.vg | jq -cr '.node[].id' | sort -n | md5sum |  cut -f 1 -d\ )"
-
-is "${observed_hash}" "${correct_hash}" "sort by ID actually puts nodes in ID order"
 
 vg sort -a topo giab.vg >/dev/null
 is "${?}" "0" "a vg graph can be sorted topologically"

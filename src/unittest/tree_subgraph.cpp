@@ -5,7 +5,7 @@
 
 #include <iostream>
 #include <string>
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "../tree_subgraph.hpp"
 #include "../algorithms/dijkstra.hpp"
 #include "catch.hpp"

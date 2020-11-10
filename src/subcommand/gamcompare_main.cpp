@@ -23,8 +23,9 @@ void help_gamcompare(char** argv) {
          << endl
          << "options:" << endl
          << "    -r, --range N            distance within which to consider reads correct" << endl
-         << "    -T, --tsv                output TSV (correct, mq, aligner, read) comaptible with plot-qq.R instead of GAM" << endl
+         << "    -T, --tsv                output TSV (correct, mq, aligner, read) compatible with plot-qq.R instead of GAM" << endl
          << "    -a, --aligner            aligner name for TSV output [\"vg\"]" << endl
+         << "    -s, --score-alignment    get a correctness score of the alignment (higher is better)" << endl
          << "    -t, --threads N          number of threads to use" << endl;
 }
 
@@ -39,6 +40,7 @@ int main_gamcompare(int argc, char** argv) {
     int64_t range = -1;
     bool output_tsv = false;
     string aligner_name = "vg";
+    bool score_alignment = false;
 
     int c;
     optind = 2;
@@ -49,12 +51,13 @@ int main_gamcompare(int argc, char** argv) {
             {"range", required_argument, 0, 'r'},
             {"tsv", no_argument, 0, 'T'},
             {"aligner", required_argument, 0, 'a'},
+            {"score-alignment", no_argument, 0, 's'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hr:Ta:t:",
+        c = getopt_long (argc, argv, "hr:Ta:st:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -73,6 +76,10 @@ int main_gamcompare(int argc, char** argv) {
             
         case 'a':
             aligner_name = optarg;
+            break;
+
+        case 's':
+            score_alignment = true;
             break;
 
         case 't':
@@ -123,6 +130,10 @@ int main_gamcompare(int argc, char** argv) {
         }
         vg::io::for_each_parallel(truth_file_in, record_truth);
     }
+    if (score_alignment && range == -1) {
+        cerr << "error[vg gamcompare]: Score-alignment requires range" << endl;
+        exit(1);
+    }
 
     // We have a buffered emitter for annotated alignments, if we're not outputting text
     std::unique_ptr<vg::io::ProtobufEmitter<Alignment>> emitter;
@@ -156,6 +167,15 @@ int main_gamcompare(int argc, char** argv) {
    
     // We want to count correct reads
     vector<size_t> correct_counts(get_thread_count(), 0);
+
+    //Get stats for calculating the score
+    vector<size_t> read_count_by_thread (get_thread_count(), 0);
+    vector<vector<size_t>> mapq_count_by_thread (get_thread_count());
+    vector<vector<size_t>> correct_count_by_mapq_by_thread(get_thread_count());
+    for (size_t i = 0 ; i < get_thread_count() ; i++) {
+        mapq_count_by_thread[i].resize(61, 0);
+        correct_count_by_mapq_by_thread[i].resize(61,0);
+    }
    
     // This function annotates every read with distance and correctness, and batch-outputs them.
     function<void(Alignment&)> annotate_test = [&](Alignment& aln) {
@@ -174,6 +194,19 @@ int main_gamcompare(int argc, char** argv) {
                 
                 if (correctly_mapped) {
                     correct_counts.at(omp_get_thread_num()) += 1;
+                }
+                auto mapq = aln.mapping_quality();
+                if (mapq) {
+                    if (mapq >= mapq_count_by_thread.at(omp_get_thread_num()).size()) {
+                        mapq_count_by_thread.at(omp_get_thread_num()).resize(mapq+1, 0);
+                        correct_count_by_mapq_by_thread.at(omp_get_thread_num()).resize(mapq+1, 0);
+                    }
+
+                    read_count_by_thread.at(omp_get_thread_num()) += 1;
+                    mapq_count_by_thread.at(omp_get_thread_num()).at(mapq) += 1;
+                    if (correctly_mapped) {
+                        correct_count_by_mapq_by_thread.at(omp_get_thread_num()).at(mapq) += 1;
+                    }
                 }
             }
             
@@ -210,6 +243,7 @@ int main_gamcompare(int argc, char** argv) {
         // Save whatever's in the buffer at the end.
         flush_text_buffer();
     }
+
     
     if (range != -1) {
         // We are flagging reads correct/incorrect. So report the total correct.
@@ -219,6 +253,38 @@ int main_gamcompare(int argc, char** argv) {
         }
         
         cerr << total_correct << " reads correct" << endl;
+    }
+
+    if (score_alignment) {
+        //Get a goodness score of the alignment that takes into account correctness and mapq calibration
+        size_t total_reads = 0;
+        vector<size_t> mapq_count (61, 0);
+        vector<size_t> correct_count_by_mapq (61, 0);
+        for (size_t i = 0 ; i < get_thread_count() ; i++) {
+            total_reads += read_count_by_thread.at(i);
+            for (size_t mq = 0 ; mq < mapq_count_by_thread.at(i).size() ; mq++) {
+                if (mq >= mapq_count.size()) {
+                    mapq_count.resize(mq+1, 0);
+                    correct_count_by_mapq.resize(mq+1, 0);
+                }
+
+                mapq_count.at(mq) += mapq_count_by_thread.at(i).at(mq);
+                correct_count_by_mapq.at(mq) += correct_count_by_mapq_by_thread.at(i).at(mq);
+            }
+        }
+        size_t accumulated_count = 0;
+        size_t accumulated_correct_count = 0;
+        float mapping_goodness_score = 0.0;
+        for (int i = mapq_count.size()-1 ; i >= 0 ; i--) {
+            accumulated_count += mapq_count[i];
+            accumulated_correct_count += correct_count_by_mapq[i];
+            double fraction_incorrect = accumulated_count == 0 ? 0.0 :
+                (float) (accumulated_count - accumulated_correct_count) / (float) accumulated_count;
+            fraction_incorrect = fraction_incorrect == 0.0 ? 1.0/ (float) total_reads : fraction_incorrect;
+            mapping_goodness_score -= log10(fraction_incorrect) * mapq_count[i];
+        }
+        cerr << "mapping goodness score: " << mapping_goodness_score / total_reads << endl;
+
     }
     
     return 0;

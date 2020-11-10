@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 55
+plan tests 54
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -17,8 +17,6 @@ is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa --xdrop-alignment -j
 is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa --xdrop-alignment -j - | jq -r '.path.mapping[0].position.offset')" "5" "xdrop alignment obtains the expected result for the reverse complement"
 
 is  "$(vg map --score-matrix default.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "3" "score-matrix defaults match 1 mismatch -4 should produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
-
-isnt  "$(vg map --score-matrix negative.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "3" "negative of score-matrix defaults should not produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
 
 is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "5" "offset counts unused bases from the start of the node on the reverse strand"
 
@@ -90,7 +88,7 @@ rm -f giab.vg giab.xg giab.gcsa giab.gcsa.lcp sorting.tmp*
 # I was having a problem when updating an edge due to a flipped end node made it
 # identical to an already existing edge that hadn't yet been updated. This makes
 # sure that that isn't happening.
-vg mod -D cyclic/orient_must_swap_edges.vg >e.vg
+vg paths -d -v cyclic/orient_must_swap_edges.vg > e.vg
 vg index -x e.xg -g e.gcsa -k 10 e.vg
 vg map -s "ACACCTCCCTCCCGGACGGGGCGGCTGGCC" -d e >/dev/null
 is $? 0 "mapping to graphs that can't be oriented without swapping edges works correctly"

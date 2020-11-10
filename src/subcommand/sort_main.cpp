@@ -14,11 +14,12 @@
 
 #include "../vg.hpp"
 #include "../stream_index.hpp"
-#include "../gfa.hpp"
 #include "../flow_sort.hpp"
-#include "../algorithms/topological_sort.hpp"
+#include "../algorithms/gfa_to_handle.hpp"
 #include "../algorithms/id_sort.hpp"
-
+#include "../algorithms/topological_sort.hpp"
+#include "../algorithms/copy_graph.hpp"
+#include <vg/io/vpkg.hpp>
 
 using namespace std;
 using namespace vg;
@@ -128,86 +129,105 @@ int main_sort(int argc, char *argv[]) {
         exit(1);
     }
     
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        // With the input graph file
-        
-        // We will load it into this graph
-        std::unique_ptr<VG> graph;
-        
-        if (gfa_input) {
-            // Read as GFA
-            graph.reset(new VG());
-            if (!gfa_to_graph(in, graph.get())) {
-                // GFA loading has failed because the file is invalid
-                exit(1);
-            }
+    // With the input graph file
+    string filename = get_input_file_name(optind, argc, argv);
+    
+    // We will load it into this graph
+    std::unique_ptr<VG> graph;
+    
+    if (gfa_input) {
+        // Read as GFA
+        graph.reset(new VG());
+        try {
+            algorithms::gfa_to_path_handle_graph(filename, graph.get());
+        } catch(algorithms::GFAFormatError& e) {
+            // GFA loading has failed because the file is invalid
+            cerr << e.what() << endl;
+            exit(1);
+        } catch(ios_base::failure& e) {
+            // GFA loading has failed because the file couldn't be read
+            cerr << e.what() << endl;
+            exit(1);
+        }
+    } else {
+        // Read as Handle Graph and copy into VG           
+        unique_ptr<handlegraph::MutablePathMutableHandleGraph> handle_graph =
+            vg::io::VPKG::load_one<handlegraph::MutablePathMutableHandleGraph>(filename);
+        VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
+        if (vg_graph != nullptr) {
+            graph.reset(vg_graph);
+            handle_graph.release();
         } else {
-            // Read as VG
-            graph.reset(new VG(in));
+            // Copy instead.
+            vg_graph = new vg::VG();
+            algorithms::copy_path_handle_graph(handle_graph.get(), vg_graph);
+            // Give the unique_ptr ownership and delete the graph we loaded.
+            graph.reset(vg_graph);
+            // Make sure the paths are all synced up
+            vg_graph->paths.to_graph(vg_graph->graph);
         }
-        
-        // Now sort the graph
-        
-        if (algorithm == "max-flow" || algorithm == "eades") {
-            // Do max flow sort or Eades algorithm sort
-            FlowSort flow_sort(*graph.get());
-            if (algorithm == "eades") {
-                // Use Eades algorithm
-                flow_sort.fast_linear_sort(reference_name, !without_grooming);
-            } else {
-                // Use max flow
-                flow_sort.max_flow_sort(reference_name);
-            }
-        } else if (algorithm == "id") {
-            // Sort by ID
-            graph.get()->id_sort();
-        } else if (algorithm == "topo") {
-            // Sort topologically
-            graph.get()->sort();
+    }
+    
+    // Now sort the graph
+    
+    if (algorithm == "max-flow" || algorithm == "eades") {
+        // Do max flow sort or Eades algorithm sort
+        FlowSort flow_sort(*graph.get());
+        if (algorithm == "eades") {
+            // Use Eades algorithm
+            flow_sort.fast_linear_sort(reference_name, !without_grooming);
         } else {
-            throw runtime_error("Unimplemented sort algorithm: " + algorithm);
+            // Use max flow
+            flow_sort.max_flow_sort(reference_name);
         }
-        
-        // We have an optional index, which will outlive our emitter
-        unique_ptr<StreamIndex<Graph>> index;
-        if (!sorted_index_filename.empty()) {
-            // Make an index we can use later for graph random access
-            index = unique_ptr<StreamIndex<Graph>>(new StreamIndex<Graph>());
-        }
-        
-        // Maintain our own group buffer at a higher scope than the emitter.
-        vector<Graph> group_buffer;
-        
-        {
-            // Make our own emitter for serialization
-            vg::io::ProtobufEmitter<Graph> emitter(std::cout);
-            
-            if (index) {
-                emitter.on_message([&](const Graph& g) {
-                    // Copy every graph that is emitted.
-                    // TODO: Just compute indexing stats instead.
-                    group_buffer.push_back(g);
-                });
-            
-                emitter.on_group([&](int64_t start_vo, int64_t past_end_vo) {
-                    // On every group, tell the index to record the group stats, and clear the buffer.
-                    index->add_group(group_buffer, start_vo, past_end_vo);
-                    group_buffer.clear();
-                });
-            }
-            
-            // Save the sorted graph to the emitter
-            graph->serialize_to_emitter(emitter);
-        }
+    } else if (algorithm == "id") {
+        // Sort by ID
+        graph.get()->id_sort();
+    } else if (algorithm == "topo") {
+        // Sort topologically
+        graph.get()->sort();
+    } else {
+        throw runtime_error("Unimplemented sort algorithm: " + algorithm);
+    }
+    
+    // We have an optional index, which will outlive our emitter
+    unique_ptr<StreamIndex<Graph>> index;
+    if (!sorted_index_filename.empty()) {
+        // Make an index we can use later for graph random access
+        index = unique_ptr<StreamIndex<Graph>>(new StreamIndex<Graph>());
+    }
+    
+    // Maintain our own group buffer at a higher scope than the emitter.
+    vector<Graph> group_buffer;
+    
+    {
+        // Make our own emitter for serialization
+        vg::io::ProtobufEmitter<Graph> emitter(std::cout);
         
         if (index) {
-            // Now save out the index
-            ofstream index_out(sorted_index_filename);
-            index->save(index_out);
+            emitter.on_message([&](const Graph& g) {
+                // Copy every graph that is emitted.
+                // TODO: Just compute indexing stats instead.
+                group_buffer.push_back(g);
+            });
+        
+            emitter.on_group([&](int64_t start_vo, int64_t past_end_vo) {
+                // On every group, tell the index to record the group stats, and clear the buffer.
+                index->add_group(group_buffer, start_vo, past_end_vo);
+                group_buffer.clear();
+            });
         }
         
-    });
+        // Save the sorted graph to the emitter
+        graph->serialize_to_emitter(emitter);
+    }
     
+    if (index) {
+        // Now save out the index
+        ofstream index_out(sorted_index_filename);
+        index->save(index_out);
+    }
+        
     return 0;
 }
 

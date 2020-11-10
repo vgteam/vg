@@ -79,12 +79,12 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public MutablePathDeletableHandleGraph, public SerializableHandleGraph {
+class VG : public Progressive, public MutablePathDeletableHandleGraph {
 
 public:
     
     ////////////////////////////////////////////////////////////////////////////
-    // HandleGraph serialization
+    // Custom, concatenateable serialization
     ////////////////////////////////////////////////////////////////////////////
     
     /// Write the contents of this graph to an ostream.
@@ -101,10 +101,10 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     
     /// Look up the handle for the node with the given ID in the given orientation
-    virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
+    virtual handle_t get_handle(const nid_t& node_id, bool is_reverse = false) const;
     
     /// Get the ID from a handle
-    virtual id_t get_id(const handle_t& handle) const;
+    virtual nid_t get_id(const handle_t& handle) const;
     
     /// Get the orientation of a handle
     virtual bool get_is_reverse(const handle_t& handle) const;
@@ -131,10 +131,15 @@ public:
     /// Return the number of nodes in the graph
     virtual size_t get_node_count() const;
     
+    /// Return the total number of edges in the graph.
+    virtual size_t get_edge_count() const;
+    
+    // We use the default, linear get_total_length 
+    
     /// Get the minimum node ID used in the graph, if any are used
-    virtual id_t min_node_id() const;
+    virtual nid_t min_node_id() const;
     /// Get the maximum node ID used in the graph, if any are used
-    virtual id_t max_node_id() const;
+    virtual nid_t max_node_id() const;
     
     /// Efficiently get the number of edges attached to one side of a handle.
     /// Uses the VG graph's internal degree index.
@@ -235,12 +240,22 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     
     /// Create a new node with the given sequence and return the handle.
+    /// The sequence may not be empty.
     virtual handle_t create_handle(const string& sequence);
 
     /// Create a new node with the given id and sequence, then return the handle.
-    virtual handle_t create_handle(const string& sequence, const id_t& id);
+    /// The sequence may not be empty.
+    /// The ID must be strictly greater than 0.
+    virtual handle_t create_handle(const string& sequence, const nid_t& id);
     
     /// Remove the node belonging to the given handle and all of its edges.
+    /// Destroys any paths in which the node participates.
+    /// Invalidates the destroyed handle.
+    /// May be called during serial for_each_handle iteration **ONLY** on the node being iterated.
+    /// May **NOT** be called during parallel for_each_handle iteration.
+    /// May **NOT** be called on the node from which edges are being followed during follow_edges.
+    /// May **NOT** be called during iteration over paths, if it would destroy a path.
+    /// May **NOT** be called during iteration along a path, if it would destroy that path.
     virtual void destroy_handle(const handle_t& handle);
     
     /// Create an edge connecting the given handles in the given order and orientations.
@@ -288,6 +303,12 @@ public:
     
     /// No-op function (required by MutableHandleGraph interface)
     virtual void set_id_increment(const nid_t& min_id);
+    
+    /// Add the given value to all node IDs. Preserves the paths.
+    virtual void increment_node_ids(nid_t increment);
+    
+    /// Reassign all node IDs as specified by the old->new mapping function.
+    virtual void reassign_node_ids(const std::function<nid_t(const nid_t&)>& get_new_id);
 
     ////////////////////////////////////////////////////////////////////////////
     // Mutable path handle interface
@@ -337,13 +358,13 @@ public:
     string name;
 
     /// Current id for Node to be added next.
-    id_t current_id;
+    nid_t current_id;
     // todo
-    //id_t min_id;
-    //id_t max_id;
+    //nid_t min_id;
+    //nid_t max_id;
 
     /// `Node`s by id.
-    hash_map<id_t, Node*> node_by_id;
+    hash_map<nid_t, Node*> node_by_id;
 
     /// `Edge`s by sides of `Node`s they connect.
     /// Since duplicate edges are not permitted, two edges cannot connect the same pair of node sides.
@@ -361,9 +382,9 @@ public:
     // edges indexed by nodes they connect.
     
     /// Stores the destinations and backward flags for edges attached to the starts of nodes (whether that node is "from" or "to").
-    hash_map<id_t, vector<pair<id_t, bool>>> edges_on_start;
+    hash_map<nid_t, vector<pair<nid_t, bool>>> edges_on_start;
     /// Stores the destinations and backward flags for edges attached to the ends of nodes (whether that node is "from" or "to").
-    hash_map<id_t, vector<pair<id_t, bool>>> edges_on_end;
+    hash_map<nid_t, vector<pair<nid_t, bool>>> edges_on_end;
 
     /// Set the edge indexes through this function. Picks up the sides being
     /// connected by the edge automatically, and silently drops the edge if they
@@ -374,15 +395,16 @@ public:
     // access the edge indexes through these functions
     
     /// Get nodes and backward flags following edges that attach to this node's start.
-    vector<pair<id_t, bool>>& edges_start(Node* node);
+    vector<pair<nid_t, bool>>& edges_start(Node* node);
     /// Get nodes and backward flags following edges that attach to this node's start.
-    vector<pair<id_t, bool>>& edges_start(id_t id);
+    vector<pair<nid_t, bool>>& edges_start(nid_t id);
     /// Get nodes and backward flags following edges that attach to this node's end.
-    vector<pair<id_t, bool>>& edges_end(Node* node);
+    vector<pair<nid_t, bool>>& edges_end(Node* node);
     /// Get nodes and backward flags following edges that attach to this node's end.
-    vector<pair<id_t, bool>>& edges_end(id_t id);
+    vector<pair<nid_t, bool>>& edges_end(nid_t id);
     
     // properties of the graph
+    // TODO: redundant with handle graph methods!
     size_t size(void); ///< Number of nodes
     size_t length(void); ///< Total sequence length
 
@@ -432,7 +454,7 @@ public:
     /// It would be nice if this also supported edges (e.g.
     /// for inversions/transversions/breakpoints?).
     // TODO: map<edge_id, variant> or map<pair<NodeID, NodeID>, variant>
-    map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
+    map<nid_t, vcflib::Variant> get_node_nid_to_variant(vcflib::VariantCallFile vfile);
 
     // This index stores the same info as alt_paths, but allows us to annotate nodes
     // that flank the variant nodes and variant paths containing no nodes (e.g. deletion edges).
@@ -442,18 +464,10 @@ public:
                        
     /// Chop up the nodes.
     void dice_nodes(int max_node_size);
-    /// Does the reverse --- combines nodes by removing edges where doing so has no effect on the graph labels.
-    void unchop(void);
-    /// Get the set of components that could be merged into single nodes without
-    /// changing the path space of the graph. Emits oriented traversals of
-    /// nodes, in the order and orientation in which they are to be merged.
-    set<list<NodeTraversal>> simple_components(int min_size = 1);
-    /// Get the simple components of multiple nodes.
-    set<list<NodeTraversal>> simple_multinode_components(void);
     /// Get the strongly connected components of the graph.
-    set<set<id_t> > strongly_connected_components(void);
+    set<set<nid_t> > strongly_connected_components(void);
     /// Get only multi-node strongly connected components.
-    set<set<id_t> > multinode_strongly_connected_components(void);
+    set<set<nid_t> > multinode_strongly_connected_components(void);
     /// Returns true if the graph does not contain cycles.
     bool is_acyclic(void);
     /// Remove all elements which are not in a strongly connected component.
@@ -462,15 +476,9 @@ public:
     bool is_self_looping(Node* node);
     /// Get simple cycles following Johnson's elementary cycles algorithm.
     set<list<NodeTraversal> > elementary_cycles(void);
-    /// Concatenates the nodes into a new node with the same external linkage as
-    /// the provided component. After calling this, paths will be invalid until
-    /// Paths::compact_ranks() is called.
-    Node* concat_nodes(const list<NodeTraversal>& nodes);
     /// Merge the nodes into a single node, preserving external linkages.
     /// Use the orientation of the first node as the basis.
     Node* merge_nodes(const list<Node*>& nodes);
-    /// Use unchop and sibling merging to simplify the graph into a normalized form.
-    void normalize(int max_iter = 1, bool debug = false);
     /// Remove redundant overlaps.
     void bluntify(void);
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
@@ -478,26 +486,26 @@ public:
     /// Assumes that all nodes in the graph are articulated on one consistent strand.
     /// Tolerates doubly-reversing edges in the input graph.
     VG dagify(uint32_t expand_scc_steps,
-              unordered_map<id_t, pair<id_t, bool> >& node_translation,
+              unordered_map<nid_t, pair<nid_t, bool> >& node_translation,
               size_t target_min_walk_length = 0,
               size_t component_length_max = 0);
     /// Generate a new graph that unrolls the current one using backtracking. Caution: exponential in branching.
     VG backtracking_unroll(uint32_t max_length, uint32_t max_depth,
-                           unordered_map<id_t, pair<id_t, bool> >& node_translation);
+                           unordered_map<nid_t, pair<nid_t, bool> >& node_translation);
     /// Ensure that all traversals up to max_length are represented as a path on one strand or the other
     /// without taking an inverting edge. All inverting edges are converted to non-inverting edges to
     /// reverse complement nodes. If no inverting edges are present, the strandedness of all nodes is
     /// the same as the input graph. If inverting edges are present, node strandedness is arbitrary.
     VG unfold(uint32_t max_length,
-              unordered_map<id_t, pair<id_t, bool> >& node_translation);
+              unordered_map<nid_t, pair<nid_t, bool> >& node_translation);
     /// Create the reverse complemented graph with topology preserved. Record translation in provided map.
-    VG reverse_complement_graph(unordered_map<id_t, pair<id_t, bool>>& node_translation);
+    VG reverse_complement_graph(unordered_map<nid_t, pair<nid_t, bool>>& node_translation);
     /// Record the translation of this graph into itself in the provided map.
-    void identity_translation(unordered_map<id_t, pair<id_t, bool>>& node_translation);
+    void identity_translation(unordered_map<nid_t, pair<nid_t, bool>>& node_translation);
     
     /// Assume two node translations, the over is based on the under; merge them.
-    unordered_map<id_t, pair<id_t, bool> > overlay_node_translations(const unordered_map<id_t, pair<id_t, bool> >& over,
-                                                                     const unordered_map<id_t, pair<id_t, bool> >& under);
+    unordered_map<nid_t, pair<nid_t, bool> > overlay_node_translations(const unordered_map<nid_t, pair<nid_t, bool> >& over,
+                                                                     const unordered_map<nid_t, pair<nid_t, bool> >& under);
     /// Use our topological sort to quickly break cycles in the graph, return the edges which are removed.
     /// Very non-optimal, but fast.
     vector<Edge> break_cycles(void);
@@ -575,18 +583,18 @@ public:
     /// Graph will be serialized in internal storage order.
     /// This is NOT const because it synchronizes path ranks before saving!
     /// We allow the emitted Graph to move.
-    void serialize_to_function(const function<void(Graph&)>& emit, id_t chunk_size = 1000);
+    void serialize_to_function(const function<void(Graph&)>& emit, nid_t chunk_size = 1000);
     /// Write chunked graphs to a ProtobufEmitter that will write them to a stream.
     /// Use when combining multiple VG objects in a stream.
     /// Graph will be serialized in internal storage order.
-    void serialize_to_emitter(vg::io::ProtobufEmitter<Graph>& emitter, id_t chunk_size = 1000);
+    void serialize_to_emitter(vg::io::ProtobufEmitter<Graph>& emitter, nid_t chunk_size = 1000);
     /// Write to a stream in chunked graphs. Adds an EOF marker.
     /// Use when this VG will be the only thing in the stream.
     /// Graph will be serialized in internal storage order.
-    void serialize_to_ostream(ostream& out, id_t chunk_size = 1000);
+    void serialize_to_ostream(ostream& out, nid_t chunk_size = 1000);
     /// Write the graph to a file, with an EOF marker.
     /// Graph will be serialized in internal storage order.
-    void serialize_to_file(const string& file_name, id_t chunk_size = 1000);
+    void serialize_to_file(const string& file_name, nid_t chunk_size = 1000);
 
     // can we handle this with merge?
     //void concatenate(VG& g);
@@ -595,20 +603,17 @@ public:
     void compact_ids(void);
     /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
     /// Record translation in provided map.
-    void compact_ids(hash_map<id_t, id_t> & new_id);
-    
-    /// Add the given value to all node IDs. Preserves the paths.
-    void increment_node_ids(id_t increment);
+    void compact_ids(hash_map<nid_t, nid_t> & new_id);
     /// Subtract the given value from all the node IDs. Must not create a node with 0 or negative IDs. Invalidates the paths.
-    void decrement_node_ids(id_t decrement);
+    void decrement_node_ids(nid_t decrement);
     /// Change the ID of the node with the first id to the second, new ID not
     /// used by any node. Invalidates any paths containing the node, since they
     /// are not updated.
-    void swap_node_id(id_t node_id, id_t new_id);
+    void swap_node_id(nid_t node_id, nid_t new_id);
     /// Change the ID of the given node to the second, new ID not used by any
     /// node. Invalidates the paths. Invalidates any paths containing the node,
     /// since they are not updated.
-    void swap_node_id(Node* node, id_t new_id);
+    void swap_node_id(Node* node, nid_t new_id);
     
     /// Topologically sort the graph, and then apply that sort to re- order the nodes in the backing
     /// data structure. The sort is guaranteed to be stable. This sort is well-defined  on graphs that
@@ -667,14 +672,15 @@ public:
               bool break_at_ends = false);
 
     /// Streaming version of above.  Instead of reading a list of paths into memory
-    /// all at once, a stream is used to go one-by-one.  Instead of an option to
-    /// updtate the in-memory list, an optional output stream is used
+    /// all at once, a file stream is opened from the given path and used to go one-by-one.
+     /// Instead of an option to
+    /// updtate the in-memory list, an optional output path for the paths is used
     ///
     /// todo: duplicate less code between the two versions. 
-    void edit(istream& paths_to_add,
+    void edit(const string& paths_to_add_path,
               vector<Translation>* out_translations = nullptr,
               bool save_paths = false,
-              ostream* out_path_stream = nullptr,
+              const string& out_gam_path = "",
               bool break_at_ends = false,
               bool remove_softclips = false);
     
@@ -713,13 +719,10 @@ public:
     size_t node_count(void) const;
     /// Count the number of edges in the graph.
     size_t edge_count(void) const;
-    /// Get the total sequence length of nodes in the graph.
-    /// TODO: redundant with length().
-    id_t total_length_of_nodes(void);
     /// Get the rank of the node in the protobuf array that backs the graph.
     int node_rank(Node* node);
     /// Get the rank of the node in the protobuf array that backs the graph.
-    int node_rank(id_t id);
+    int node_rank(nid_t id);
     /// Get the number of edges attached to the start of a node.
     int start_degree(Node* node);
     /// Get the number of edges attached to the end of a node.
@@ -746,58 +749,38 @@ public:
     set<NodeSide> sides_from(NodeSide side);
     /// Get the sides from both sides of the node.
     // TODO: what does this even mean?
-    set<NodeSide> sides_from(id_t id);
+    set<NodeSide> sides_from(nid_t id);
     /// Get the sides to both sides of the node.
-    set<NodeSide> sides_to(id_t id);
+    set<NodeSide> sides_to(nid_t id);
     /// Union of sides_to and sides_from.
     set<NodeSide> sides_of(NodeSide side);
     /// Get all sides connecting to this node.
-    set<pair<NodeSide, bool>> sides_context(id_t node_id);
+    set<pair<NodeSide, bool>> sides_context(nid_t node_id);
     /// Use sides_from an sides_to to determine if both nodes have the same context.
-    bool same_context(id_t id1, id_t id2);
+    bool same_context(nid_t id1, nid_t id2);
     /// Determine if the node is a prev ancestor of this one.
-    bool is_ancestor_prev(id_t node_id, id_t candidate_id);
+    bool is_ancestor_prev(nid_t node_id, nid_t candidate_id);
     /// Determine if the node is a prev ancestor of this one by trying to find it in a given number of steps.
-    bool is_ancestor_prev(id_t node_id, id_t candidate_id, set<id_t>& seen, size_t steps = 64);
+    bool is_ancestor_prev(nid_t node_id, nid_t candidate_id, set<nid_t>& seen, size_t steps = 64);
     /// Determine if the node is a next ancestor of this one.
-    bool is_ancestor_next(id_t node_id, id_t candidate_id);
+    bool is_ancestor_next(nid_t node_id, nid_t candidate_id);
     /// Determine if the node is a next ancestor of this one by trying to find it in a given number of steps.
-    bool is_ancestor_next(id_t node_id, id_t candidate_id, set<id_t>& seen, size_t steps = 64);
+    bool is_ancestor_next(nid_t node_id, nid_t candidate_id, set<nid_t>& seen, size_t steps = 64);
     /// Try to find a common ancestor by walking back up to steps from the first node.
-    id_t common_ancestor_prev(id_t id1, id_t id2, size_t steps = 64);
+    nid_t common_ancestor_prev(nid_t id1, nid_t id2, size_t steps = 64);
     /// Try to find a common ancestor by walking forward up to steps from the first node
-    id_t common_ancestor_next(id_t id1, id_t id2, size_t steps = 64);
-    /// To-siblings are nodes which also have edges to them from the same nodes as this one.
-    set<NodeTraversal> siblings_to(const NodeTraversal& traversal);
-    /// From-siblings are nodes which also have edges to them from the same nodes as this one.
-    set<NodeTraversal> siblings_from(const NodeTraversal& traversal);
-    /// Full to-siblings are nodes traversals which share exactly the same upstream `NodeSide`s.
-    set<NodeTraversal> full_siblings_to(const NodeTraversal& trav);
-    /// Full from-siblings are nodes traversals which share exactly the same downstream `NodeSide`s.
-    set<NodeTraversal> full_siblings_from(const NodeTraversal& trav);
-    /// Get general siblings of a node.
-    set<Node*> siblings_of(Node* node);
-    /// Remove easily-resolvable redundancy in the graph.
-    /// TODO: Cannot yet handle reversing edges! They will prevent the identification of siblings.
-    void simplify_siblings(void);
-    /// Remove easily-resolvable redundancy in the graph for all provided to-sibling sets.
-    void simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs);
-    /// Remove easily-resolvable redundancy in the graph for all provided from-sibling sets.
-    void simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs);
-    /// Remove intransitive sibling sets, such as where (A, B, C) = S1 but C ∊ S2.
-    set<set<NodeTraversal>> transitive_sibling_sets(const set<set<NodeTraversal>>& sibs);
-    /// Remove sibling sets which don't have identical orientation.
-    set<set<NodeTraversal>> identically_oriented_sibling_sets(const set<set<NodeTraversal>>& sibs);
+    nid_t common_ancestor_next(nid_t id1, nid_t id2, size_t steps = 64);
+    
     /// Determine if pos1 occurs directly before pos2.
     bool adjacent(const Position& pos1, const Position& pos2);
 
     /// Create a node. Use the VG class to generate ids.
     Node* create_node(const string& seq);
     /// Create a node. Use a specified, nonzero node ID.
-    Node* create_node(const string& seq, id_t id);
+    Node* create_node(const string& seq, nid_t id);
     /// Find a particular node.
-    Node* get_node(id_t id);
-    const Node* get_node(id_t id) const;
+    Node* get_node(nid_t id);
+    const Node* get_node(nid_t id) const;
     /// Get the subgraph of a node and all the edges it is responsible for
     /// (where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
@@ -816,9 +799,9 @@ public:
     /// Destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
     /// Destroy the node with the given ID.
-    void destroy_node(id_t id);
+    void destroy_node(nid_t id);
     /// Determine if the graph has a node with the given ID.
-    bool has_node(id_t id) const;
+    bool has_node(nid_t id) const;
     /// Determine if the graph contains the given node.
     bool has_node(const Node* node) const;
     /// Determine if the graph contains the given node.
@@ -921,7 +904,7 @@ public:
 
     /// Takes in a pathname and the nucleotide position (like from a vcf) and
     /// returns the node id which contains that position.
-    id_t get_node_at_nucleotide(string pathname, int nuc);
+    nid_t get_node_at_nucleotide(string pathname, int nuc);
 
     // edges
     /// Create an edge.
@@ -931,7 +914,7 @@ public:
     /// Create an edge.
     /// If the given edge cannot be created, returns null.
     /// If the given edge already exists, returns the existing edge.
-    Edge* create_edge(id_t from, id_t to, bool from_start = false, bool to_end = false);
+    Edge* create_edge(nid_t from, nid_t to, bool from_start = false, bool to_end = false);
     /// Make a left-to-right edge from the left NodeTraversal to the right one, respecting orientations.
     /// If the given edge cannot be created, returns null.
     /// If the given edge already exists, returns the existing edge.
@@ -988,7 +971,7 @@ public:
 
 
     /// Circularize a subgraph / path using the head / tail nodes.
-    void circularize(id_t head, id_t tail);
+    void circularize(nid_t head, nid_t tail);
     void circularize(vector<string> pathnames);
     /// Connect node -> nodes.
     /// Connects from the right side of the first to the left side of the second.
@@ -1013,7 +996,7 @@ public:
     /// Divide a node at a given internal position. This version works on a collection of internal positions, in linear time.
     void divide_node(Node* node, vector<int>& positions, vector<Node*>& parts);
     /// Divide a path at a position. Also invalidates stored rank information.
-    void divide_path(map<long, id_t>& path, long pos, Node*& left, Node*& right);
+    void divide_path(map<long, nid_t>& path, long pos, Node*& left, Node*& right);
     //void node_replace_prev(Node* node, Node* before, Node* after);
     //void node_replace_next(Node* node, Node* before, Node* after);
 
@@ -1026,6 +1009,7 @@ public:
                 bool annotate_paths = false,
                 bool show_mappings = false,
                 bool simple_mode = false,
+                bool noseq_mode = false,
                 bool invert_edge_ports = false,
                 bool color_variants = false,
                 bool ultrabubble_labeling = false,
@@ -1059,8 +1043,8 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
-                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse, see constructor for the X-drop threshold
-                    bool print_score_matrices = false);
+                    int xdrop_alignment = 0);                // 1 for forward, >1 for reverse, see constructor for the X-drop threshold
+    
     /// Align without base quality adjusted scores.
     /// Align to the graph.
     /// May modify the graph by re-ordering the nodes.
@@ -1077,8 +1061,7 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
-                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
-                    bool print_score_matrices = false);
+                    int xdrop_alignment = 0);
     Alignment align(const Alignment& alignment,
                     const Aligner* aligner,
                     bool traceback = true,
@@ -1090,8 +1073,7 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
-                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
-                    bool print_score_matrices = false);
+                    int xdrop_alignment = 0);
     
     /// Align with default Aligner.
     /// Align to the graph.
@@ -1107,8 +1089,7 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
-                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
-                    bool print_score_matrices = false);
+                    int xdrop_alignment = 0);                // 1 for forward, >1 for reverse
     /// Align with default Aligner.
     /// Align to the graph.
     /// May modify the graph by re-ordering the nodes.
@@ -1123,8 +1104,7 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
-                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
-                    bool print_score_matrices = false);
+                    int xdrop_alignment = 0);                // 1 for forward, >1 for reverse
     
     /// Align with base quality adjusted scores.
     /// Align to the graph.
@@ -1142,8 +1122,7 @@ public:
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
-                                  int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
-                                  bool print_score_matrices = false);
+                                  int xdrop_alignment = 0);              // 1 for forward, >1 for reverse
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   const QualAdjAligner* qual_adj_aligner,
                                   bool traceback = true,
@@ -1155,8 +1134,7 @@ public:
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
-                                  int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
-                                  bool print_score_matrices = false);
+                                  int xdrop_alignment = 0);              // 1 for forward, >1 for reverse
     /// Align with base quality adjusted scores.
     /// Align to the graph.
     /// May modify the graph by re-ordering the nodes.
@@ -1172,12 +1150,11 @@ public:
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
-                                  int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
-                                  bool print_score_matrices = false);
+                                  int xdrop_alignment = 0);              // 1 for forward, >1 for reverse
     
     
     void paths_between(Node* from, Node* to, vector<Path>& paths);
-    void paths_between(id_t from, id_t to, vector<Path>& paths);
+    void paths_between(nid_t from, nid_t to, vector<Path>& paths);
     void likelihoods(vector<Alignment>& alignments, vector<Path>& paths, vector<long double>& likelihoods);
 
     // traversal
@@ -1219,21 +1196,10 @@ public:
     /// Caller is responsible for dealing with orientations.
     void node_starts_in_path(const list<NodeTraversal>& path,
                              map<Node*, int>& node_start);
-    /// Return true if nodes share all paths and the mappings they share in these paths
-    /// are adjacent, in the specified relative order and orientation.
-    bool nodes_are_perfect_path_neighbors(NodeTraversal left, NodeTraversal right);
     /// Return true if the mapping completely covers the node it maps to and is a perfect match.
     bool mapping_is_total_match(const Mapping& m);
     /// Concatenate the mappings for a pair of nodes; handles multiple mappings per path.
-    map<string, vector<mapping_t>> concat_mappings_for_node_pair(id_t id1, id_t id2);
-    /// Concatenate mappings for a list of nodes that we want to concatenate.
-    /// Returns, for each path name, a vector of merged mappings, once per path
-    /// traversal of the run of nodes. Those merged mappings are in the
-    /// orientation of the merged node (so mappings to nodes that are traversed
-    /// in reverse will have their flags toggled). We assume that all mappings on
-    /// the given nodes are full-length perfect matches, and that all the nodes
-    /// are perfect path neighbors.
-    map<string, vector<mapping_t>> concat_mappings_for_nodes(const list<NodeTraversal>& nodes);
+    map<string, vector<mapping_t>> concat_mappings_for_node_pair(nid_t id1, nid_t id2);
 
     /// Expand a path. TODO: what does that mean?
     /// These versions handle paths in which nodes can be traversed multiple
@@ -1292,8 +1258,7 @@ private:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
-                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
-                    bool print_score_matrices = false);
+                    int xdrop_alignment = 0);                // 1 for forward, >1 for reverse
 
 
 public:
@@ -1301,7 +1266,7 @@ public:
     /// Generate random reads.
     /// Note that even if either_strand is false, having backward nodes in the
     /// graph will result in some reads from the global reverse strand.
-    Alignment random_read(size_t read_len, mt19937& rng, id_t min_id, id_t max_id, bool either_strand);
+    Alignment random_read(size_t read_len, mt19937& rng, nid_t min_id, nid_t max_id, bool either_strand);
 
     /// Find subgraphs.
     void disjoint_subgraphs(list<VG>& subgraphs);
@@ -1310,7 +1275,7 @@ public:
     /// Get the head nodes (nodes with edges only to their right sides). These are required to be oriented forward.
     vector<Node*> head_nodes(void);
     /// Determine if a node is a head node.
-    bool is_head_node(id_t id);
+    bool is_head_node(nid_t id);
     /// Determine if a node is a head node.
     bool is_head_node(Node* node);
     /// Get the tail nodes (nodes with edges only to their left sides). These are required to be oriented forward.
@@ -1318,7 +1283,7 @@ public:
     /// Get the tail nodes (nodes with edges only to their left sides). These are required to be oriented forward.
     void tail_nodes(vector<Node*>& nodes);
     /// Determine if a node is a tail node.
-    bool is_tail_node(id_t id);
+    bool is_tail_node(nid_t id);
     /// Determine if a node is a tail node.
     bool is_tail_node(Node* node);
     /// Collect the subgraph of a Node. TODO: what does that mean?
@@ -1345,7 +1310,7 @@ public:
     void add_start_end_markers(int length,
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,
-                               id_t& start_id, id_t& end_id);
+                               nid_t& start_id, nid_t& end_id);
 
     /// Structure for managing parallel construction of a graph.
     // TODO: delete this since we don't use it anymore.
@@ -1382,9 +1347,9 @@ private:
 
     void init(void); ///< setup, ensures that gssw == NULL on startup
     /// Placeholder for functions that sometimes need to be passed an empty vector
-    vector<id_t> empty_ids;
+    vector<nid_t> empty_ids;
     /// Placeholder for functions that sometimes need to be passed an empty vector
-    vector<pair<id_t, bool>> empty_edge_ends;
+    vector<pair<nid_t, bool>> empty_edge_ends;
 
     bool warned_about_rewrites = false;
 };

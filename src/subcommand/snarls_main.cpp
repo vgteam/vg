@@ -13,6 +13,8 @@
 #include "../vg.hpp"
 #include <vg/vg.pb.h>
 #include "../traversal_finder.hpp"
+#include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
@@ -26,17 +28,20 @@ void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
+         << "    -A, --algorithm NAME   compute snarls using 'cactus' or 'integrated' algorithms (default: integrated)" << endl
          << "    -p, --pathnames        output variant paths as SnarlTraversals to STDOUT" << endl
          << "    -r, --traversals FILE  output SnarlTraversals for ultrabubbles." << endl
+         << "    -e, --path-traversals  only consider traversals that correspond to paths in the graph. (-m ignored)" << endl
          << "    -l, --leaf-only        restrict traversals to leaf ultrabubbles." << endl
          << "    -o, --top-level        restrict traversals to top level ultrabubbles" << endl
          << "    -a, --any-snarl-type   compute traversals for any snarl type (not limiting to ultrabubbles)" << endl
          << "    -m, --max-nodes N      only compute traversals for snarls with <= N nodes (with degree > 1) [10]" << endl
-         << "    -t, --include-trivial  report snarls that consist of a single edge" << endl
+         << "    -T, --include-trivial  report snarls that consist of a single edge" << endl
          << "    -s, --sort-snarls      return snarls in sorted order by node ID (for topologically ordered graphs)" << endl
          << "    -v, --vcf FILE         use vcf-based instead of exhaustive traversal finder with -r" << endl
          << "    -f  --fasta FILE       reference in FASTA format (required for SVs by -v)" << endl
-         << "    -i  --ins-fasta FILE   insertion sequences in FASTA format (required for SVs by -v)" << endl;
+         << "    -i  --ins-fasta FILE   insertion sequences in FASTA format (required for SVs by -v)" << endl
+         << "    -t, --threads N        number of threads to use [all available]" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
@@ -48,6 +53,7 @@ int main_snarl(int argc, char** argv) {
 
     static const int buffer_size = 100;
     
+    string algorithm = "integrated";
     string traversal_file;
     bool leaf_only = false;
     bool top_level_only = false;
@@ -59,29 +65,33 @@ int main_snarl(int argc, char** argv) {
     string vcf_filename;
     string ref_fasta_filename;
     string ins_fasta_filename;
-
+    bool path_traversals = false;
+        
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
             {
+                {"algorithm", required_argument, 0, 'A'},
                 {"traversals", required_argument, 0, 'r'},
                 {"pathnames", no_argument, 0, 'p'},
                 {"leaf-only", no_argument, 0, 'l'},
                 {"top-level", no_argument, 0, 'o'},
                 {"any-snarl-type", no_argument, 0, 'a'},
                 {"max-nodes", required_argument, 0, 'm'},
-                {"include-trivial", no_argument, 0, 't'},
+                {"include-trivial", no_argument, 0, 'T'},
                 {"sort-snarls", no_argument, 0, 's'},
                 {"vcf", required_argument, 0, 'v'},
                 {"fasta", required_argument, 0, 'f'},
                 {"ins-fasta", required_argument, 0, 'i'},
+                {"path-traversals", no_argument, 0, 'e'},                
+                {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "sr:latopm:v:f:i:h?",
+        c = getopt_long (argc, argv, "A:sr:laTopm:v:f:i:eh?t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -90,7 +100,11 @@ int main_snarl(int argc, char** argv) {
 
         switch (c)
         {
-            
+        
+        case 'A':
+            algorithm = optarg;
+            break;
+        
         case 'r':
             traversal_file = optarg;
             break;
@@ -111,7 +125,7 @@ int main_snarl(int argc, char** argv) {
             max_nodes = parse<int>(optarg);
             break;
             
-        case 't':
+        case 'T':
             filter_trivial_snarls = false;
             break;
             
@@ -130,7 +144,20 @@ int main_snarl(int argc, char** argv) {
         case 'i':
             ins_fasta_filename = optarg;
             break;
-            
+        case 'e':
+            path_traversals = true;
+            break;
+
+        case 't':
+        {
+            int num_threads = parse<int>(optarg);
+            if (num_threads <= 0) {
+                cerr << "error:[vg snarls] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                exit(1);
+            }
+            omp_set_num_threads(num_threads);
+            break;
+        }
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -156,23 +183,39 @@ int main_snarl(int argc, char** argv) {
     }
 
     // Read the graph
-    VG* vg_graph = nullptr;
     unique_ptr<PathHandleGraph> graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
-            graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-        });
-
-    // this is hopefully temporary, pending traversal finder support
-    vg_graph = dynamic_cast<VG*>(graph.get());
+        graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
+    });
     
     // The only implemented snarl finder:
-    SnarlFinder* snarl_finder = new CactusSnarlFinder(*graph);
+    unique_ptr<SnarlFinder> snarl_finder;
+    
+    if (algorithm == "cactus") {
+        snarl_finder.reset(new CactusSnarlFinder(*graph));
+    } else if (algorithm == "integrated") {
+        snarl_finder.reset(new IntegratedSnarlFinder(*graph));
+    } else {
+        cerr << "error:[vg snarls]: Algorithm must be 'cactus' or 'integrated', not '" << algorithm << "'" << endl;
+        return 1;
+    }
+    if (!vcf_filename.empty() && path_traversals) {
+        cerr << "error:[vg snarls]: -v cannot be used with -e" << endl;
+        return 1;
+    }
+    if (path_traversals && traversal_file.empty()) {
+        cerr << "error:[vg snarls]: -e requires -r" << endl;
+        return 1;
+    }
+    if (!vcf_filename.empty() && traversal_file.empty()) {
+        cerr << "error:[vg snarls]: -v requires -r" << endl;
+        return 1;
+    }
 
-    TraversalFinder* trav_finder = nullptr;
+    unique_ptr<TraversalFinder> trav_finder;
     vcflib::VariantCallFile variant_file;
     unique_ptr<FastaReference> ref_fasta;
     unique_ptr<FastaReference> ins_fasta;
-
     
     if (!vcf_filename.empty()) {
         variant_file.parseSamples = false;
@@ -194,14 +237,11 @@ int main_snarl(int argc, char** argv) {
     }
     
     // Load up all the snarls
-    SnarlManager snarl_manager = snarl_finder->find_snarls();
+    SnarlManager snarl_manager = snarl_finder->find_snarls_parallel();
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
     if (fill_path_names){
-        if (vg_graph == nullptr) {
-            cerr << "error: [vg snarls] -p requires .vg graph input" << endl;
-            return 1;
-        }
-        trav_finder = new PathBasedTraversalFinder(*vg_graph, snarl_manager);
+        // This finder needs a vg::VG
+        trav_finder.reset(new PathBasedTraversalFinder(*graph, snarl_manager));
         for (const Snarl* snarl : snarl_roots ){
             if (filter_trivial_snarls) {
                 auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
@@ -214,28 +254,31 @@ int main_snarl(int argc, char** argv) {
             vg::io::write_buffered(cout, travs, 0);
         }
 
-        delete trav_finder;
-        delete snarl_finder;
-
         exit(0);
     }
 
-    if (vcf_filename.empty()) {
-        trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
+    if (path_traversals) {
+        // Limit traversals to embedded paths
+        trav_finder.reset(new PathTraversalFinder(*graph, snarl_manager));
+    } else if (vcf_filename.empty()) {
+        // This finder works with any backing graph
+        trav_finder.reset(new ExhaustiveTraversalFinder(*graph, snarl_manager));
     } else {
-        // This shuold effectively be the same as above, and is included in this tool
+        // This should effectively be the same as above, and is included in this tool
         // for testing purposes.  The VCFTraversalFinder differs from Exhaustive in that
         // it's easier to limit traversals using read support, and it takes care of
         // mapping back to the VCF via the alt paths.
-      vector<string> ref_paths;
-      vg_graph->for_each_path_handle([&](path_handle_t path_handle) {
-              const string& name = vg_graph->get_path_name(path_handle);
-              if (!Paths::is_alt(name)) {
-                  ref_paths.push_back(name);
-              }
-          });
-      trav_finder = new VCFTraversalFinder(*vg_graph, snarl_manager, variant_file, ref_paths,
-                                             ref_fasta.get(), ins_fasta.get());
+        vector<string> ref_paths;
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
+            const string& name = graph->get_path_name(path_handle);
+            if (!Paths::is_alt(name)) {
+              ref_paths.push_back(name);
+            }
+        });
+        
+        // This finder works with any backing graph
+        trav_finder.reset(new VCFTraversalFinder(*graph, snarl_manager, variant_file, ref_paths,
+                                                 ref_fasta.get(), ins_fasta.get()));
     }
     
     // Sort the top level Snarls
@@ -262,6 +305,9 @@ int main_snarl(int argc, char** argv) {
         });
     }
   
+
+    // Now we have to output stuff.
+    // TODO: remove extra features and just use SnarlManager::serialize()
 
     // Protobuf output buffers
     vector<Snarl> snarl_buffer;
@@ -308,7 +354,7 @@ int main_snarl(int argc, char** argv) {
                 (!ultrabubble_only || snarl->type() == ULTRABUBBLE) &&
                 (!leaf_only || snarl_manager.is_leaf(snarl)) &&
                 (!top_level_only || snarl_manager.is_root(snarl)) &&
-                (check_max_nodes(snarl_manager.deep_contents(snarl, *graph, true).first))) { 
+                (path_traversals || check_max_nodes(snarl_manager.deep_contents(snarl, *graph, true).first))) { 
                 
 #ifdef debug
                 cerr << "Look for traversals of " << pb2json(*snarl) << endl;
@@ -347,9 +393,6 @@ int main_snarl(int argc, char** argv) {
         vg::io::write_buffered(trav_stream, traversal_buffer, 0);
     }
     
-    delete snarl_finder;
-    delete trav_finder;
-
     return 0;
 }
 

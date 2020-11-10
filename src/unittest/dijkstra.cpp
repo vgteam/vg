@@ -7,8 +7,8 @@
 #include <string>
 #include "../algorithms/dijkstra.hpp"
 #include "../handle.hpp"
-#include "../json2pb.h"
-#include "../proto_handle_graph.hpp"
+#include "vg/io/json2pb.h"
+#include "../vg.hpp"
 #include "catch.hpp"
 
 #include <vg/vg.pb.h>
@@ -101,7 +101,7 @@ TEST_CASE("Dijkstra search works on a particular problem graph", "[dijkstra][alg
     json2pb(g, graph_json);
     
     // Wrap the graph in a HandleGraph
-    ProtoHandleGraph graph(&g);
+    VG graph(g);
     
     // Decide where to start
     handle_t start = graph.get_handle(2454536, true);
@@ -112,7 +112,6 @@ TEST_CASE("Dijkstra search works on a particular problem graph", "[dijkstra][alg
     
     algorithms::dijkstra(&graph, start, [&](const handle_t& reached, size_t distance) {
         seen[reached] = distance;
-        cerr << "Saw " << graph.get_id(reached) << " " << graph.get_is_reverse(reached) << " at distance " << distance << endl;
         return true;
     });
     

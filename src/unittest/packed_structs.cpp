@@ -8,10 +8,11 @@
 #include <unordered_set>
 #include <sstream>
 
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 #include "catch.hpp"
+#include "randomness.hpp"
 
-#include "bdsg/packed_structs.hpp"
+#include <bdsg/internal/packed_structs.hpp>
 
 namespace vg {
 namespace unittest {
@@ -21,8 +22,7 @@ using namespace std;
         
         enum vec_op_t {SET = 0, GET = 1, APPEND = 2, POP = 3, SERIALIZE = 4};
         
-        random_device rd;
-        default_random_engine prng(rd());
+        default_random_engine prng(test_seed_source());
         uniform_int_distribution<int> op_distr(0, 4);
         
         int num_runs = 1000;
@@ -113,8 +113,7 @@ using namespace std;
     TEST_CASE("PagedVector acts the same as STL vector", "[packed]") {
         
         enum vec_op_t {SET = 0, GET = 1, APPEND = 2, POP = 3, SERIALIZE = 4};
-        std::random_device rd;
-        std::default_random_engine prng(rd());
+        std::default_random_engine prng(test_seed_source());
         std::uniform_int_distribution<int> op_distr(0, 4);
         std::uniform_int_distribution<int> page_distr(1, 5);
         std::uniform_int_distribution<int> val_distr(0, 100);
@@ -207,8 +206,7 @@ using namespace std;
     TEST_CASE("PackedDeque acts the same as STL deque", "[packed]") {
         
         enum deque_op_t {SET = 0, GET = 1, APPEND_LEFT = 2, POP_LEFT = 3, APPEND_RIGHT = 4, POP_RIGHT = 5, SERIALIZE = 6};
-        std::random_device rd;
-        std::default_random_engine prng(rd());
+        std::default_random_engine prng(test_seed_source());
         std::uniform_int_distribution<int> op_distr(0, 6);
         
         int num_runs = 1000;

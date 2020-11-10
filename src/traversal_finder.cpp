@@ -2,6 +2,7 @@
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/is_acyclic.hpp"
+#include "algorithms/k_widest_paths.hpp"
 #include "cactus.hpp"
 
 //#define debug
@@ -10,7 +11,7 @@ namespace vg {
 
 using namespace std;
 
-PathBasedTraversalFinder::PathBasedTraversalFinder(vg::VG& g, SnarlManager& sm) : graph(g), snarlmanager(sm){
+PathBasedTraversalFinder::PathBasedTraversalFinder(const PathHandleGraph& g, SnarlManager& sm) : graph(g), snarlmanager(sm){
 }
 
 vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
@@ -35,20 +36,23 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     regex front ("(_alt_)(.*)");
     regex alt_str ("(_alt_)");
     regex back ("(_[0-9]*)");
-    auto& gpaths = graph.paths._paths;
     set<string> gpath_names;
-    for (auto x : gpaths){
-        gpath_names.insert(x.first);
-    }
+    graph.for_each_path_handle([&](const path_handle_t& path_handle) {
+        gpath_names.insert(graph.get_path_name(path_handle));
+    });
+    
     map<string, set<string> > basename_to_pathnames;
     map<string, bool> path_processed;
 
 
     // Collect our paths which cross our snarl's nodes.
     for (id_t node_id : contents.first){
-        Node* node = graph.get_node(node_id);
+        handle_t node = graph.get_handle(node_id);
         //cerr << "Processing node " << id << endl;
-        set<string> p_of_n = graph.paths.of_node(node->id());
+        set<string> p_of_n;
+        graph.for_each_step_on_handle(node, [&](const step_handle_t& step) {
+            p_of_n.insert(graph.get_path_name(graph.get_path_handle_of_step(step)));
+        });
 
         for (auto pn : p_of_n){
             if (!std::regex_match(pn, front)){
@@ -99,10 +103,9 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
                 // Add the start node to the traversal
                 *fresh_trav.add_visit() = site.start();
                 // Fill in our traversal
-                auto& ms = gpaths[a];
-                for (auto m : ms){
-                    int64_t n_id = m.node_id();
-                    bool backward = m.is_reverse();
+                for (auto h : graph.scan_path(graph.get_path_handle(a))) {
+                    int64_t n_id = graph.get_id(h);
+                    bool backward = graph.get_is_reverse(h);
                     Visit* v = fresh_trav.add_visit();
                     v->set_node_id(n_id);
                     v->set_backward(backward);
@@ -2546,7 +2549,7 @@ VCFTraversalFinder::VCFTraversalFinder(const PathHandleGraph& graph, SnarlManage
                                        const vector<string>& ref_path_names,
                                        FastaReference* ref_fasta,
                                        FastaReference* ins_fasta,
-                                       function<bool(const SnarlTraversal&)> skip_alt,
+                                       function<bool(const SnarlTraversal&, int)> skip_alt,
                                        size_t max_traversal_cutoff) :
     graph(graph),
     snarl_manager(snarl_manager),
@@ -3248,7 +3251,7 @@ vector<vector<int>> VCFTraversalFinder::get_pruned_alt_alleles(
     }
 
     // only invoke pruning if we exceed our cutoff.  fairly rare on most graphs
-    if (!check_max_trav_cutoff(alt_alleles)) {
+    for (int prune_it = 0; prune_it < max_prune_iterations && !check_max_trav_cutoff(alt_alleles); ++prune_it) {
         for (auto& alleles : alt_alleles) {
             alleles.clear();
         }
@@ -3256,7 +3259,7 @@ vector<vector<int>> VCFTraversalFinder::get_pruned_alt_alleles(
         for (int var_i = 0; var_i < site_variants.size(); ++var_i) {
             for (int allele = 0; allele < site_variants[var_i]->alleles.size(); ++allele) {
                 if (skip_alt == nullptr ||
-                    skip_alt(get_alt_path(site_variants[var_i], allele, ref_path).first) == false) {
+                    skip_alt(get_alt_path(site_variants[var_i], allele, ref_path).first, prune_it) == false) {
                     alt_alleles[var_i].push_back(allele);
                 }
 #ifdef debug
@@ -3304,4 +3307,188 @@ pair<step_handle_t, bool> VCFTraversalFinder::step_in_path(handle_t handle, path
 }
 
 
+FlowTraversalFinder::FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
+                                         size_t K,
+                                         function<double(handle_t)> node_weight_callback,
+                                         function<double(edge_t)> edge_weight_callback) :
+    graph(graph),
+    snarl_manager(snarl_manager),
+    K(K),
+    node_weight_callback(node_weight_callback),
+    edge_weight_callback(edge_weight_callback)  {
+    
 }
+
+void FlowTraversalFinder::setK(size_t k) {
+    K = k;
+}
+
+vector<SnarlTraversal> FlowTraversalFinder::find_traversals(const Snarl& site) {
+    return find_weighted_traversals(site).first;
+}
+
+pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_traversals(const Snarl& site, bool greedy_avg) {
+
+    handle_t start_handle = graph.get_handle(site.start().node_id(), site.start().backward());
+    handle_t end_handle = graph.get_handle(site.end().node_id(), site.end().backward());
+
+    vector<pair<double, vector<handle_t>>> widest_paths = algorithms::yens_k_widest_paths(&graph, start_handle, end_handle, K,
+                                                                                          node_weight_callback,
+                                                                                          edge_weight_callback,
+                                                                                          greedy_avg);
+
+    vector<SnarlTraversal> travs;
+    travs.reserve(widest_paths.size());
+    vector<double> weights;
+    weights.reserve(widest_paths.size());
+
+    for (const auto& wp : widest_paths) {
+        weights.push_back(wp.first);
+        travs.emplace_back();
+        for (const auto& h : wp.second) {
+            Visit* visit = travs.back().add_visit();
+            visit->set_node_id(graph.get_id(h));
+            visit->set_backward(graph.get_is_reverse(h));
+        }
+    }
+
+    return make_pair(travs, weights);
+}        
+
+GBWTTraversalFinder::GBWTTraversalFinder(const HandleGraph& graph, const gbwt::GBWT& gbwt) : 
+    graph(graph),
+    gbwt(gbwt) {
+
+}
+    
+GBWTTraversalFinder::~GBWTTraversalFinder() {
+
+}
+
+vector<SnarlTraversal> GBWTTraversalFinder::find_traversals(const Snarl& site) {
+
+    // follow all gbwt threads from start to end
+    vector<vector<gbwt::node_type>> forward_traversals = get_spanning_haplotypes(
+        graph.get_handle(site.start().node_id(), site.start().backward()),
+        graph.get_handle(site.end().node_id(), site.end().backward()));
+
+    // follow all gbwt threads from end to start
+    vector<vector<gbwt::node_type>> backward_traversals = get_spanning_haplotypes(
+        graph.get_handle(site.end().node_id(), !site.end().backward()),
+        graph.get_handle(site.start().node_id(), !site.start().backward()));
+
+    // store them all as snarltraversals
+    vector<SnarlTraversal> traversals;
+    traversals.reserve(forward_traversals.size() + backward_traversals.size());
+
+    // copy the forward traversals from gbwt vectors to snarl traversals
+    for (int i = 0; i < forward_traversals.size(); ++i) {
+        traversals.emplace_back();
+        for (auto j = forward_traversals[i].begin(); j != forward_traversals[i].end(); ++j) {
+            Visit* visit = traversals.back().add_visit();
+            *visit = to_visit(gbwt::Node::id(*j), gbwt::Node::is_reverse(*j));
+        }
+    }
+
+    if (!backward_traversals.empty()) {
+
+        // want to check we don't have the same element twice
+        std::sort(forward_traversals.begin(), forward_traversals.end());
+        
+        // copy and reverse the backward traversals into the snarl traversals
+        for (int i = 0; i < backward_traversals.size(); ++i) {
+
+            // orient along the snarl
+            std::reverse(backward_traversals[i].begin(), backward_traversals[i].end());
+            for (auto& gnode : backward_traversals[i]) {
+                gnode = gbwt::Node::encode(gbwt::Node::id(gnode), !gbwt::Node::is_reverse(gnode));
+            }
+            // insert if not duplicate of existing forward traversal
+            if (!std::binary_search(forward_traversals.begin(), forward_traversals.end(), backward_traversals[i])) {
+                traversals.emplace_back();
+                for (auto j = backward_traversals[i].begin(); j != backward_traversals[i].end(); ++j) {
+                    Visit* visit = traversals.back().add_visit();
+                    *visit = to_visit(gbwt::Node::id(*j), gbwt::Node::is_reverse(*j));
+                }
+            }
+        }
+    }
+    return traversals;
+}
+
+
+vector<vector<gbwt::node_type>> GBWTTraversalFinder::get_spanning_haplotypes(handle_t start, handle_t end) {
+
+    // Note: this code is derived from list_haplotypes() in haplotype_extractor.cpp
+    
+    // Keep track of all the different paths we're extending
+    vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > search_intermediates;
+    vector<vector<gbwt::node_type>> search_results;
+
+    // Look up the start node in GBWT and start a thread
+    gbwt::node_type start_node = handle_to_gbwt(graph, start);    
+    vector<gbwt::node_type> first_thread = {start_node};
+    gbwt::SearchState first_state = gbwt.find(start_node);
+    
+#ifdef debug
+    cerr << "Start with state " << first_state << " for node " << gbwt::Node::id(start_node)  << ":"
+         << gbwt::Node::is_reverse(start_node) << endl;
+#endif
+
+    if (!first_state.empty()) {
+        search_intermediates.push_back(make_pair(first_thread, first_state));
+    }
+
+    while(!search_intermediates.empty()) {
+
+        // pick up a thread to continue from the queue
+        auto last = std::move(search_intermediates.back());
+        search_intermediates.pop_back();
+
+        graph.follow_edges(gbwt_to_handle(graph, last.first.back()), false, [&](const handle_t& next) {
+
+                // cut off loop-backs
+                if (graph.get_id(next) == graph.get_id(start)) {
+                    assert(graph.get_is_reverse(next) != graph.get_is_reverse(start));
+                    return;
+                }
+                
+                // extend the last node of the thread using gbwt
+                auto extend_node = handle_to_gbwt(graph, next);
+                auto new_state = gbwt.extend(last.second, extend_node);
+#ifdef debug
+                cerr << "Extend state " << last.second << " to " << new_state << " with " << gbwt::Node::id(extend_node) << endl;
+#endif
+                if(!new_state.empty()) {
+
+                    // todo: possible to save a copy here by carefully moving (would change extending a big
+                    // reference haplotype from O(n^2) to O(n)
+                    vector<gbwt::node_type> new_thread = last.first;
+                    new_thread.push_back(extend_node);
+
+                    if (next == end) {
+#ifdef debug
+                        cerr << "\tGot " << new_state.size() << " results at limit; emitting" << endl;
+#endif
+                        search_results.push_back(std::move(new_thread));
+                    }
+                    else {
+#ifdef debug
+                        cerr << "\tGot " << new_state.size() << " results; extending more" << endl;
+#endif
+                        search_intermediates.push_back(make_pair(std::move(new_thread), new_state));
+                    }
+                }
+            });
+    }
+    
+    return search_results;
+}
+
+
+    
+
+}
+
+
+

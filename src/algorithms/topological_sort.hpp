@@ -7,7 +7,7 @@
  * Defines a topological sort algorithm for handle graphs.
  */
 
-#include <unordered_map>
+#include <sparsepp/spp.h>
 
 #include <vg/vg.pb.h>
 
@@ -21,12 +21,6 @@ namespace vg {
 namespace algorithms {
 
 using namespace std;
-
-/// Find all of the nodes with no edges on their left sides.
-vector<handle_t> head_nodes(const HandleGraph* g);
-
-/// Find all of the nodes with no edges on their right sides.
-vector<handle_t> tail_nodes(const HandleGraph* g);
 
 /**
  * Order and orient the nodes in the graph using a topological sort. The sort is

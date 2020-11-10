@@ -21,6 +21,7 @@
  */
 
 #include "../phase_unfolder.hpp"
+#include "../algorithms/copy_graph.hpp"
 #include <vg/io/vpkg.hpp>
 #include "subcommand.hpp"
 #include "xg.hpp"
@@ -248,7 +249,15 @@ int main_prune(int argc, char** argv) {
             std::abort();
         }
     }
-    vg_name = (optind >= argc ? "(stdin)" : argv[optind]);
+    
+    if (optind < argc) {
+        // There's an input file specified.
+        vg_name = get_input_file_name(optind, argc, argv);
+    } else {
+        // Assume they want stdin
+        vg_name = "-";
+    }
+    
     if (!kmer_length_set) {
         kmer_length = PruningParameters::kmer_length[mode];
     }
@@ -309,7 +318,7 @@ int main_prune(int argc, char** argv) {
         }
         std::cerr << std::endl;
         if (!vg_name.empty()) {
-            std::cerr << "VG:             " << vg_name << std::endl;
+            std::cerr << "VG:             " << (vg_name == "-" ? "(stdin)" : vg_name) << std::endl;
         }        
         if (!gbwt_name.empty()) {
             std::cerr << "GBWT:           " << gbwt_name << std::endl;
@@ -321,57 +330,73 @@ int main_prune(int argc, char** argv) {
     }
 
     // Handle the input.
-    VG* graph;
-    xg::XG xg_index;
-    unique_ptr<gbwt::GBWT> gbwt_index;
-    get_input_file(optind, argc, argv, [&](std::istream& in) {
-        graph = new VG(in);
+    std::unique_ptr<MutablePathMutableHandleGraph> graph;
+    get_input_file(vg_name, [&](std::istream& in) {
+        graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
     });
-    vg::id_t max_node_id = graph->max_node_id();
+    xg::XG xg_index;
+    std::unique_ptr<gbwt::GBWT> gbwt_index;
+    
+    // TODO: convert to work via handle API
+    // For now we make sure we actually have a vg::VG and convert if not.
+    vg::VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
+    
+    if (vg_graph == nullptr) {
+        // Copy instead.
+        vg_graph = new vg::VG();
+        algorithms::copy_path_handle_graph(graph.get(), vg_graph);
+        // Give the unique_ptr ownership and delete the graph we loaded.
+        graph.reset(vg_graph);
+        // Make sure the paths are all synced up
+        vg_graph->paths.to_graph(vg_graph->graph);
+    }
+    
+    
+    vg::id_t max_node_id = vg_graph->max_node_id();
     if (show_progress) {
-        std::cerr << "Original graph " << vg_name << ": " << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
+        std::cerr << "Original graph " << vg_name << ": " << vg_graph->node_count() << " nodes, " << vg_graph->edge_count() << " edges" << std::endl;
     }
 
     // Remove the paths and build an XG index if needed.
     if (mode == mode_restore || mode == mode_unfold) {
         set<string> alt_path_names;
-        graph->for_each_path_handle([&](path_handle_t path_handle) {
-                string path_name = graph->get_path_name(path_handle);
+        vg_graph->for_each_path_handle([&](path_handle_t path_handle) {
+                string path_name = vg_graph->get_path_name(path_handle);
                 if (Paths::is_alt(path_name)) {
                     alt_path_names.insert(path_name);
                 }
             });
-        graph->paths.remove_paths(alt_path_names);
-        xg_index.from_path_handle_graph(*graph);
+        vg_graph->paths.remove_paths(alt_path_names);
+        xg_index.from_path_handle_graph(*vg_graph);
         if (show_progress) {
             std::cerr << "Built a temporary XG index" << std::endl;
         }
     }
-    graph->graph.clear_path();
-    graph->paths.clear();
+    vg_graph->graph.clear_path();
+    vg_graph->paths.clear();
     if (show_progress) {
         std::cerr << "Removed all paths" << std::endl;
     }
 
     // Remove high-degree nodes.
     if (max_degree > 0) {
-        algorithms::remove_high_degree_nodes(*graph, max_degree);
+        algorithms::remove_high_degree_nodes(*vg_graph, max_degree);
         if (show_progress) {
             std::cerr << "Removed high-degree nodes: "
-                      << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
+                      << vg_graph->node_count() << " nodes, " << vg_graph->edge_count() << " edges" << std::endl;
         }
     }
 
     // Prune the graph.
-    graph->prune_complex_with_head_tail(kmer_length, edge_max);
+    vg_graph->prune_complex_with_head_tail(kmer_length, edge_max);
     if (show_progress) {
         std::cerr << "Pruned complex regions: "
-                  << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
+                  << vg_graph->node_count() << " nodes, " << vg_graph->edge_count() << " edges" << std::endl;
     }
-    graph->prune_short_subgraphs(subgraph_min);
+    vg_graph->prune_short_subgraphs(subgraph_min);
     if (show_progress) {
         std::cerr << "Removed small subgraphs: "
-                  << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
+                  << vg_graph->node_count() << " nodes, " << vg_graph->edge_count() << " edges" << std::endl;
     }
 
     // Restore the non-alt paths.
@@ -379,9 +404,9 @@ int main_prune(int argc, char** argv) {
         // Make an empty GBWT index to pass along
         gbwt::GBWT empty_gbwt;
         PhaseUnfolder unfolder(xg_index, empty_gbwt, max_node_id + 1);
-        unfolder.restore_paths(*graph, show_progress);
+        unfolder.restore_paths(*vg_graph, show_progress);
         if (verify_paths) {
-            size_t failures = unfolder.verify_paths(*graph, show_progress);
+            size_t failures = unfolder.verify_paths(*vg_graph, show_progress);
             if (failures > 0) {
                 std::cerr << "warning: [vg prune] verification failed for " << failures << " paths" << std::endl;
             }
@@ -407,12 +432,12 @@ int main_prune(int argc, char** argv) {
         if (append_mapping) {
             unfolder.read_mapping(mapping_name);
         }
-        unfolder.unfold(*graph, show_progress);
+        unfolder.unfold(*vg_graph, show_progress);
         if (!mapping_name.empty()) {
             unfolder.write_mapping(mapping_name);
         }
         if (verify_paths) {
-            size_t failures = unfolder.verify_paths(*graph, show_progress);
+            size_t failures = unfolder.verify_paths(*vg_graph, show_progress);
             if (failures > 0) {
                 std::cerr << "warning: [vg prune] verification failed for " << failures << " paths" << std::endl;
             }
@@ -420,13 +445,12 @@ int main_prune(int argc, char** argv) {
     }
 
     // Serialize.
-    graph->serialize_to_ostream(std::cout);
+    vg_graph->serialize_to_ostream(std::cout);
     if (show_progress) {
         std::cerr << "Serialized the graph: "
-                  << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
+                  << vg_graph->node_count() << " nodes, " << vg_graph->edge_count() << " edges" << std::endl;
     }
 
-    delete graph; graph = nullptr;
     return 0;
 }
 

@@ -31,8 +31,11 @@
 #include <getopt.h>
 #include <omp.h>
 
+#include "../index_manager.hpp"
+
 #include <gbwtgraph/index.h>
 
+#include "../min_distance.hpp"
 #include "../handle.hpp"
 #include "../utility.hpp"
 
@@ -46,6 +49,18 @@ int get_default_threads() {
     return std::min(omp_get_max_threads(), DEFAULT_MAX_THREADS);
 }
 
+size_t get_default_k() {
+    return IndexManager::minimizer_k;
+}
+
+size_t get_default_w() {
+    return IndexManager::minimizer_w;
+}
+
+size_t get_default_s() {
+    return IndexManager::minimizer_s;
+}
+
 void help_minimizer(char** argv) {
     std::cerr << "usage: " << argv[0] << " minimizer -g gbwt_name -i index_name [options] graph" << std::endl;
     std::cerr << std::endl;
@@ -54,34 +69,39 @@ void help_minimizer(char** argv) {
     std::cerr << "transformation can be avoided by providing a prebuilt GBWTGraph and using option -G." << std::endl;
     std::cerr << std::endl;
     std::cerr << "Required options:" << std::endl;
-    std::cerr << "    -g, --gbwt-name X      use the GBWT index in file X" << std::endl;
-    std::cerr << "    -i, --index-name X     store the index to file X" << std::endl;
+    std::cerr << "    -g, --gbwt-name X       use the GBWT index in file X" << std::endl;
+    std::cerr << "    -i, --index-name X      store the index to file X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Minimizer options:" << std::endl;
-    std::cerr << "    -k, --kmer-length N    length of the kmers in the index (default " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_LENGTH << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
-    std::cerr << "    -w, --window-length N  choose the minimizer from a window of N kmers (default " << gbwtgraph::DefaultMinimizerIndex::key_type::WINDOW_LENGTH << ")" << std::endl;
+    std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << get_default_k() << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
+    std::cerr << "    -w, --window-length N   choose the minimizer from a window of N kmers (default " << get_default_w() << ")" << std::endl;
+    std::cerr << "    -s, --smer-length N     use smers of length N in bounded syncmers (default " << get_default_s() << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
-    std::cerr << "    -l, --load-index X     load the index from file X and insert the new kmers into it" << std::endl;
-    std::cerr << "                           (overrides --kmer-length and --window-length)" << std::endl;
-    std::cerr << "    -G, --gbwt-graph       the input graph is a GBWTGraph" << std::endl;
-    std::cerr << "    -p, --progress         show progress information" << std::endl;
-    std::cerr << "    -t, --threads N        use N threads for index construction (default " << get_default_threads() << ")" << std::endl;
-    std::cerr << "                           (using more than " << DEFAULT_MAX_THREADS << " threads rarely helps)" << std::endl;
+    std::cerr << "    -b, --bounded-syncmers  index bounded syncmers instead of minimizers" << std::endl;
+    std::cerr << "    -d, --distance-index X  annotate the hits with positions in this distance index" << std::endl;
+    std::cerr << "    -l, --load-index X      load the index from file X and insert the new kmers into it" << std::endl;
+    std::cerr << "                            (overrides -k, -w, -s, and -b)" << std::endl;
+    std::cerr << "    -G, --gbwt-graph        the input graph is a GBWTGraph" << std::endl;
+    std::cerr << "    -p, --progress          show progress information" << std::endl;
+    std::cerr << "    -t, --threads N         use N threads for index construction (default " << get_default_threads() << ")" << std::endl;
+    std::cerr << "                            (using more than " << DEFAULT_MAX_THREADS << " threads rarely helps)" << std::endl;
     std::cerr << std::endl;
 }
 
 int main_minimizer(int argc, char** argv) {
 
-    if (argc <= 2) {
+    if (argc <= 6) {
         help_minimizer(argv);
         return 1;
     }
 
     // Command-line options.
-    size_t kmer_length = gbwtgraph::DefaultMinimizerIndex::key_type::KMER_LENGTH;
-    size_t window_length = gbwtgraph::DefaultMinimizerIndex::key_type::WINDOW_LENGTH;
-    std::string index_name, load_index, gbwt_name, graph_name;
+    size_t kmer_length = get_default_k();
+    size_t window_length = get_default_w();
+    size_t smer_length = get_default_s();
+    std::string index_name, distance_name, load_index, gbwt_name, graph_name;
+    bool use_syncmers = false;
     bool is_gbwt_graph = false;
     bool progress = false;
     int threads = get_default_threads();
@@ -95,6 +115,9 @@ int main_minimizer(int argc, char** argv) {
             { "index-name", required_argument, 0, 'i' },
             { "kmer-length", required_argument, 0, 'k' },
             { "window-length", required_argument, 0, 'w' },
+            { "smer-length", required_argument, 0, 's' },
+            { "bounded-syncmers", no_argument, 0, 'b' },
+            { "distance-index", required_argument, 0, 'd' },
             { "load-index", required_argument, 0, 'l' },
             { "gbwt-graph", no_argument, 0, 'G' },
             { "progress", no_argument, 0, 'p' },
@@ -103,7 +126,7 @@ int main_minimizer(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "g:i:k:w:l:Gpt:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:i:k:w:s:bd:l:Gpt:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -119,6 +142,15 @@ int main_minimizer(int argc, char** argv) {
             break;
         case 'w':
             window_length = parse<size_t>(optarg);
+            break;
+        case 's':
+            smer_length = parse<size_t>(optarg);
+            break;
+        case 'b':
+            use_syncmers = true;
+            break;
+        case 'd':
+            distance_name = optarg;
             break;
         case 'l':
             load_index = optarg;
@@ -182,7 +214,7 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Minimizer index.
-    std::unique_ptr<gbwtgraph::DefaultMinimizerIndex> index(new gbwtgraph::DefaultMinimizerIndex(kmer_length, window_length));
+    std::unique_ptr<gbwtgraph::DefaultMinimizerIndex> index(new gbwtgraph::DefaultMinimizerIndex(kmer_length, (use_syncmers ? smer_length : window_length), use_syncmers));
     if (!load_index.empty()) {
         if (progress) {
             std::cerr << "Loading MinimizerIndex " << load_index << std::endl;
@@ -190,11 +222,34 @@ int main_minimizer(int argc, char** argv) {
         index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(load_index);
     }
 
+    // Distance index.
+    std::unique_ptr<MinimumDistanceIndex> distance_index;
+    if (!distance_name.empty()) {
+        if (progress) {
+            std::cerr << "Loading MinimumDistanceIndex " << distance_name << std::endl;
+        }
+        distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
+    }
+
     // Build the index.
     if (progress) {
-        std::cerr << "Building MinimizerIndex" << std::endl;
+        std::cerr << "Building MinimizerIndex with k = " << index->k();
+        if (index->uses_syncmers()) {
+            std::cerr << ", s = " << index->s();
+        } else {
+            std::cerr << ", w = " << index->w();
+        }
+        std::cerr << std::endl;
     }
-    gbwtgraph::index_haplotypes(*gbwt_graph, *index);
+    if (distance_name.empty()) {
+        gbwtgraph::index_haplotypes(*gbwt_graph, *index, [](const pos_t&) -> gbwtgraph::payload_type {
+            return MIPayload::NO_CODE;
+        });
+    } else {
+        gbwtgraph::index_haplotypes(*gbwt_graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+            return MIPayload::encode(distance_index->get_minimizer_distances(pos));
+        });
+    }
     gbwt_graph.reset(nullptr);
     gbwt_index.reset(nullptr);
 

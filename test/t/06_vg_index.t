@@ -5,9 +5,9 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
+export LC_ALL="en_US.utf8" # force ekg's favorite sort order
 
-plan tests 62
+plan tests 64
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -24,7 +24,7 @@ is $? 0 "building both indexes at once"
 cmp x.xg x2.xg && cmp x.gcsa x2.gcsa && cmp x.gcsa.lcp x2.gcsa.lcp
 is $? 0 "the indexes are identical when built one at a time and together"
 
-vg index -x x.xg -g x3.gcsa
+vg index -g x3.gcsa x.xg
 is $? 0 "building GCSA from XG"
 
 cmp x.gcsa x3.gcsa && cmp x.gcsa.lcp x3.gcsa.lcp
@@ -86,12 +86,22 @@ vg index -G empty.gbwt -v small/x.vcf.gz --exclude 1 x.vg
 is $? 0 "samples can be excluded from haplotype indexing"
 is $(vg gbwt -c empty.gbwt) 0 "excluded samples were not included in the GBWT index"
 
+# Make GBWT from GAM
+vg paths -v x.vg -X -Q _alt > x-alts.gam
+vg index x.vg -M x-alts.gam -G x-gam.gbwt
+# Make GBWT from GAF
+vg convert x.vg -G x-alts.gam > x-alts.gaf
+vg index x.vg -F x-alts.gaf -G x-gaf.gbwt
+cmp x-gaf.gbwt x-gam.gbwt
+is $? 0 "GBWT from GAF same as from GAM"
+
 rm -f x.vg
 rm -f x.xg x-ap.xg x.gbwtx.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
 rm -f x2-ap.xg x2-ap.gbwt x2-ap.gcsa x2-ap.gcsa.lcp
 rm -f parse_x parse_x_0_1 parse_x.gbwt x.bare.gbwt
 rm -f empty.gbwt
+rm -f x-alts.gam x-alts.gaf x-gam.gbwt x-gaf.gbwt
 
 
 # Subregion graph with haplotypes
@@ -141,8 +151,14 @@ is $? 0 "building an XG index of multiple graphs with haplotypes"
 vg index -g xy.gcsa -k 2 x.vg y.vg
 is $? 0 "building a GCSA index of multiple graphs with haplotypes"
 
-vg index -x xy2.xg -g xy2.gcsa -k 2 -G xy2.gbwt -v small/xy2.vcf.gz x.vg y.vg
-is $? 0 "building all three indexes at once"
+vg index -x xy2.xg -g xy2.gcsa -k 2 x.vg y.vg
+is $? 0 "building XG and GCSA indexes at once"
+
+vg index -x xy-alt.xg -L x.vg y.vg
+is $? 0 "building an XG index with alt paths"
+
+vg index -G xy2.gbwt -v small/xy2.vcf.gz xy-alt.xg
+is $? 0 "building a GBWT index from an XG index"
 
 cmp xy.xg xy2.xg && cmp xy.gcsa xy2.gcsa && cmp xy.gcsa.lcp xy2.gcsa.lcp && cmp xy.gbwt xy2.gbwt
 is $? 0 "the indexes are identical"
@@ -163,6 +179,7 @@ rm -f x.vg y.vg
 rm -f x.gbwt y.gbwt
 rm -f xy.xg xy.gbwt xy.gcsa xy.gcsa.lcp
 rm -f xy2.xg xy2.gbwt xy2.gcsa xy2.gcsa.lcp
+rm -f xy-alt.xg
 rm -f parse_x parse_x_0_1 parse_y parse_y_0_1 parse_xy.gbwt xy.bare.gbwt
 
 
@@ -172,10 +189,7 @@ vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg index -G x_ref.gbwt -T x.vg
 is $? 0 "GBWT can be built for paths"
 
-vg index -G x_both.gbwt -T -v small/xy2.vcf.gz x.vg
-is $? 0 "GBWT can be built for both paths and haplotypes"
-
-rm -f x_ref.gbwt x_both.gbwt
+rm -f x_ref.gbwt
 
 # We do not test GBWT construction parameters (-B, -u, -n) because they matter only for large inputs.
 # We do not test chromosome-length path generation (-P, -o) for the same reason.
@@ -183,8 +197,8 @@ rm -f x_ref.gbwt x_both.gbwt
 
 # Other tests
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
-vg index -x x.xg x.vg bogus123.vg
-is $? 134 "fail with nonexistent file"
+vg index -x x.xg x.vg bogus123.vg 2>/dev/null
+is $? 1 "fail with nonexistent file"
 rm -rf x.idx
 
 vg kmers -k 16 -gB x.vg >x.graph
@@ -223,12 +237,6 @@ is "$(md5sum <x1337.sorted.gam.gai)" "$(md5sum <x1337.sorted.gam.gai2)" "vg inde
 
 rm -rf x.idx x.vg.map x.vg.aln x1337.gam x1337.sorted.gam.gai2 x1337.sorted.gam.gai x1337.sorted.gam
 
-
-vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
-vg index -x x.xg -v small/x.vcf.gz -H haps.bin x.vg
-is $(du -b haps.bin | cut -f 1) 329 "threads may be exported to binary for use in GBWT construction"
-
-rm -f x.vg x.xg part.vg x.gcsa haps.bin x.gbwt
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >y.vg
@@ -284,13 +292,16 @@ is $(vg index -g big.gcsa big.vg -k 16 2>&1 | head -n10 | grep 'Found kmer with 
 rm -f big.vg
 
 rm -f t.gcsa
-rm -f x.vg
+rm -f x.vg x.xg
 
 rm -f r.gcsa.lcp c.gcsa.lcp t.gcsa.lcp
 
-# Test distance index 
+
+# Test distance index
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
-vg snarls -t x.vg > snarls.pb
+
+vg snarls -T x.vg > snarls.pb
+is $? 0 "snarl finding with trivial snarls"
 
 vg index -s snarls.pb -j distIndex -w 100 x.vg
 is $? 0 "building a distance index of a graph"

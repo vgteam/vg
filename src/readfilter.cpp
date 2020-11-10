@@ -1,7 +1,7 @@
 #include "readfilter.hpp"
 #include "IntervalTree.h"
 #include "annotation.hpp"
-#include "alignment_emitter.hpp"
+#include "vg/io/alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 
 #include <fstream>
@@ -12,6 +12,7 @@
 namespace vg {
 
 using namespace std;
+using namespace vg::io;
 
 bool ReadFilter::trim_ambiguous_ends(Alignment& alignment, int k) {
     assert(graph != nullptr);
@@ -472,7 +473,7 @@ ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
         GSSWAligner* aligner = (GSSWAligner*)&unadjusted;
             
         // Rescore and assign the score
-        aln.set_score(aligner->score_ungapped_alignment(aln));
+        aln.set_score(aligner->score_contiguous_alignment(aln));
         // Also use the score
         score = aln.score();
     }
@@ -537,18 +538,17 @@ ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
                     found = true;
                     break;
                 }
-                    
-                if (center_match < name_prefixes[center].size() && center_match < aln.name().size()) {
-                    // There's a character that differs
-                    if (name_prefixes[center][center_match] < aln.name()[center_match]) {
-                        // The match, if it exists, must be after us.
-                        left_bound = center;
-                        left_match = center_match;
-                    } else {
-                        // The match, if it exists, must be before us
-                        right_bound = center;
-                        right_match = center_match;
-                    }
+                
+                if (center_match == aln.name().size() ||
+                    name_prefixes[center][center_match] > aln.name()[center_match]) {
+                    // The match, if it exists, must be before us
+                    right_bound = center;
+                    right_match = center_match;
+                }
+                else {
+                    // The match, if it exists, must be after us.
+                    left_bound = center;
+                    left_match = center_match;
                 }
             }
         }
@@ -715,7 +715,7 @@ int ReadFilter::filter(istream* alignment_stream) {
     unique_ptr<AlignmentEmitter> emitter;
     
     if (write_output) {
-        emitter = get_alignment_emitter("-", "GAM",  map<string, int64_t>(), get_thread_count());
+        emitter = get_non_hts_alignment_emitter("-", "GAM",  map<string, int64_t>(), get_thread_count());
     }
 
     // keep counts of what's filtered to report (in verbose mode)

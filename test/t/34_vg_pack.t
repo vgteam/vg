@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 17
+plan tests 18
 
 vg construct -m 1000 -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
@@ -70,17 +70,6 @@ is $x $y "pack stores the correct edge pileup to disk"
 
 rm -f tiny.vg tiny.xg tiny.gam tiny.vgpu tiny.pack
 
-vg construct -m 20 -r tiny/tiny.fa >flat.vg
-printf '@forward\nCAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG\n+\n<B<BBB!BBBB<BBBBBBBBBBBBBBBBBBB<BBBBBBBBBBBBB<B7BB\n' > reads.fq
-printf '@reverses\nCAGAGAGTTGGAATATAATAGAACTCCAGAAAATTTCCAAGCCTTATTTG\n+\nBB7B<BBBBBBBBBBBBB<BBBBBBBBBBBBBBBBBBB<BBBB!BBB<B<\n' >> reads.fq
-vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
-vg map -g flat.gcsa -x flat.xg -f reads.fq -k 8 > reads.gam
-vg pack -x flat.xg -o reads.gam.cx -g reads.gam -q
-is $(vg pack -x flat.xg -di reads.gam.cx | tail -n+2 | cut -f 4 | grep ^0$ | wc -l) 1 "qual-adjust packing detects 1 base with 0 quality"
-is $(vg pack -x flat.xg -Di reads.gam.cx | tail | cut -f 5 | grep ^59$ | wc -l) 1 "qual-adjust packing gets correct edge support"
-
-rm -f flat.vg flat.xg flat.gcsa reads.fq reads.gam reads.gam.cx
-
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 vg index -x x.xg x.vg
 vg sim -s 1 -n 1000 -l 150 -x x.xg -a > sim.gam
@@ -104,4 +93,26 @@ vg pack -x x.vg -g sim.gam -D -t 2 | sort > edge-table.vg.t3.tsv
 diff edge-table.vg.tsv edge-table.vg.t3.tsv
 is "$?" 0 "edge packs same on vg when using 2 threads as when using 1"
 
-rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx node-table.vg.tsv node-table.xg.tsv edge-table.vg.tsv edge-table.xg.tsv edge-table.vg.t3.tsv node-table.vg.t3.tsv
+vg convert x.vg -G sim.gam | bgzip | vg pack -x x.vg -a - -o x.vg.gaf.cx
+vg pack -x x.vg -i x.vg.gaf.cx -d | awk '!($1="")' | sort > node-table.vg.gaf.tsv
+diff node-table.vg.gaf.tsv node-table.vg.tsv
+is "$?" 0 "node packs on gaf same as gam"
+
+vg pack -x x.vg -i x.vg.gaf.cx -D | sort > edge-table.vg.gaf.tsv
+diff edge-table.vg.gaf.tsv edge-table.vg.tsv
+is "$?" 0 "edge packs on gaf same as gam"
+
+rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx node-table.vg.tsv node-table.xg.tsv edge-table.vg.tsv edge-table.xg.tsv edge-table.vg.t3.tsv node-table.vg.t3.tsv x.vg.gaf.cx node-table.vg.gaf.tsv edge-table.vg.gaf.tsv
+
+vg construct -m 5 -r tiny/tiny.fa >flat.vg
+vg index flat.vg -g flat.gcsa
+# add a 20 mapq to nodes 1 and 2
+vg map -x flat.vg -g flat.gcsa -s CAAATAAGG | vg view -a - | sed -e 's/60/20/g' | vg view -JaG - > flat.gam
+# add a 10 mapq to nodes 2 and 3 and 4
+vg map -x flat.vg -g flat.gcsa -s GGCTTGGAA | vg view -a - | sed -e 's/60/10/g' | vg view -JaG - >> flat.gam
+# add a 60 mapq to node 9 and 10
+vg map -x flat.vg -g flat.gcsa -s AACTCTCTG | vg view -a - | vg view -JaG - >> flat.gam
+vg pack -x flat.vg -o flat.cx -g flat.gam
+is $(vg pack -x flat.vg -i flat.cx -u | awk ' NR>1 {print $2 "\t" $3}' | sort -g | awk '{print $2}' | tr '\n' '-') 20-15-10-10-0-0-0-0-60-60- "average node qualities are correct"
+
+rm -f flat.vg flat.gcsa flat.gam flat.cx

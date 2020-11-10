@@ -11,7 +11,7 @@
 #include "../algorithms/weakly_connected_components.hpp"
 #include "../kmer.hpp"
 #include "../vg.hpp"
-#include "../json2pb.h"
+#include "vg/io/json2pb.h"
 
 #include <iostream>
 #include <vector>

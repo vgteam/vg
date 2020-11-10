@@ -346,5 +346,176 @@ TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
 
 }
 
+
+TEST_CASE("Vectorization of xg works correctly", "[xg]") {
+    string graph_json = R"(
+    {"edge": [
+        {"from": "5", "to": "6"},
+        {"from": "7", "to": "9"},
+        {"from": "12", "to": "13"},
+        {"from": "12", "to": "14"},
+        {"from": "8", "to": "9"},
+        {"from": "1", "to": "2"},
+        {"from": "1", "to": "3"},
+        {"from": "4", "to": "6"},
+        {"from": "6", "to": "7"},
+        {"from": "6", "to": "8"},
+        {"from": "2", "to": "4"},
+        {"from": "2", "to": "5"},
+        {"from": "10", "to": "12"},
+        {"from": "9", "to": "10"},
+        {"from": "9", "to": "11"},
+        {"from": "11", "to": "12"},
+        {"from": "13", "to": "15"},
+        {"from": "14", "to": "15"},
+        {"from": "3", "to": "4"},
+        {"from": "3", "to": "5"}
+    ], "node": [
+        {"id": "5", "sequence": "C"},
+        {"id": "7", "sequence": "A"},
+        {"id": "12", "sequence": "ATAT"},
+        {"id": "8", "sequence": "G"},
+        {"id": "1", "sequence": "CAAATAAG"},
+        {"id": "4", "sequence": "T"},
+        {"id": "6", "sequence": "TTG"},
+        {"id": "15", "sequence": "CCAACTCTCTG"},
+        {"id": "2", "sequence": "A"},
+        {"id": "10", "sequence": "A"},
+        {"id": "9", "sequence": "AAATTTTCTGGAGTTCTAT"},
+        {"id": "11", "sequence": "T"},
+        {"id": "13", "sequence": "A"},
+        {"id": "14", "sequence": "T"},
+        {"id": "3", "sequence": "G"}
+    ], "path": [
+        {"mapping": [
+            {"edit": [{"from_length": 8, "to_length": 8}], "position": {"node_id": "1"}, "rank": "1"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "3"}, "rank": "2"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "5"}, "rank": "3"},
+            {"edit": [{"from_length": 3, "to_length": 3}], "position": {"node_id": "6"}, "rank": "4"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "8"}, "rank": "5"},
+            {"edit": [{"from_length": 19, "to_length": 19}], "position": {"node_id": "9"}, "rank": "6"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "11"}, "rank": "7"},
+            {"edit": [{"from_length": 4, "to_length": 4}], "position": {"node_id": "12"}, "rank": "8"},
+            {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "14"}, "rank": "9"},
+            {"edit": [{"from_length": 11, "to_length": 11}], "position": {"node_id": "15"}, "rank": "10"}
+        ], "name": "x"}]}
+    )";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+
+    // Build the xg index (without any sorting)
+    xg::XG xg_index;
+    xg_index.from_path_handle_graph(VG(proto_graph));
+
+    REQUIRE(xg_index.get_node_count() == 15);
+    
+    SECTION("edge ranks are unique") {
+        // Collect all the unique edge ranks we observe for all the edges in the XG.
+        unordered_set<size_t> unique_edge_ranks;
+        xg_index.for_each_edge([&](const edge_t& edge) {
+            size_t edge_index = xg_index.edge_index(edge);
+#ifdef debug
+            cerr << "Edge " << xg_index.get_id(edge.first) << (xg_index.get_is_reverse(edge.first) ? '-' : '+') << " -> "
+                << xg_index.get_id(edge.second) << (xg_index.get_is_reverse(edge.second) ? '-' : '+')
+                << " has index " << edge_index << endl;
+#endif
+            unique_edge_ranks.insert(edge_index);
+        });
+        
+        REQUIRE(unique_edge_ranks.size() == xg_index.get_edge_count());
+    }
+    
+    SECTION("edge ranks are defined for all ways of articulating edges that exist") {
+        vector<handle_t> forwards;
+        vector<handle_t> reverse;
+        xg_index.for_each_handle([&](const handle_t& h) {
+            forwards.push_back(h);
+            reverse.push_back(xg_index.flip(h));
+        });
+        
+        for (size_t i = 0; i < forwards.size(); i++) {
+            for (size_t j = 0; j < forwards.size(); j++) {
+                for (bool flip1 : {false, true}) {
+                    for (bool flip2 : {false, true}) {
+                        // For all possible combinations of handles and orientations
+                        handle_t from = (flip1 ? reverse : forwards)[i];
+                        handle_t to = (flip2 ? reverse : forwards)[j];
+                        if (xg_index.has_edge(from, to)) {
+                            // If the edge exists
+                            
+                            // Make sure it exists the other way
+                            REQUIRE(xg_index.has_edge(xg_index.flip(to), xg_index.flip(from)));
+                            
+                            // Make sure that both directions have the same index, even if someone didn't use edge_handle.
+                            REQUIRE(xg_index.edge_index(std::make_pair(from, to)) ==
+                                xg_index.edge_index(std::make_pair(xg_index.flip(to), xg_index.flip(from))));
+                        }
+                    }
+                }
+            }
+        }
+        
+    }
+    
+    
+    SECTION("node offsets are unique and map back to the right nodes") {
+        // Do the same for the node vector offsets, except mapping offset to node ID. 
+        map<size_t, nid_t> id_at_offset;
+        xg_index.for_each_handle([&](const handle_t& h) {
+            nid_t node = xg_index.get_id(h);
+            // TODO: We're assuming this is 0-based. See https://github.com/vgteam/libhandlegraph/issues/41.
+            size_t offset = xg_index.node_vector_offset(node);
+            
+#ifdef debug
+            if (id_at_offset.count(offset)) {
+                cerr << "Found offset " << offset << " for node " << node << " occupied by " << id_at_offset.at(offset) << endl;
+            } else {
+                cerr << "Found free offset " << offset << " for node " << node << endl;
+            }
+            // TODO: We're providing 1-based indexes here. See https://github.com/vgteam/libhandlegraph/issues/41.
+            cerr << "Mapping back offset " << offset << " gives node " << xg_index.node_at_vector_offset(offset + 1) << endl;
+#endif
+            
+            id_at_offset[offset] = node;
+        });
+        
+        // Make sure all the nodes have unique offsets.
+        REQUIRE(id_at_offset.size() == xg_index.get_node_count());
+        
+        for (auto& kv : id_at_offset) {
+            // Make sure each offset maps back to the right node.
+            // TODO: We're providing 1-based indexes here. See https://github.com/vgteam/libhandlegraph/issues/41.
+            REQUIRE(xg_index.node_at_vector_offset(kv.first + 1) == kv.second);
+        }
+        
+        // Now make sure all intermediate offsets map properly.
+        auto it = id_at_offset.begin();
+        auto prev = it;
+        ++it;
+        while (it != id_at_offset.end()) {
+            // Go through adjacent node starts in sequence order
+            for (size_t i = prev->first; i < it->first; i++) {
+                // Every base before the first base of the next node should belong to the previous node.
+                // TODO: We're providing 1-based indexes here. See https://github.com/vgteam/libhandlegraph/issues/41.
+                nid_t node_at_i = xg_index.node_at_vector_offset(i + 1);
+                
+#ifdef debug
+                cerr << "Base at index " << i << " maps to node " << node_at_i << endl;
+#endif
+                
+                REQUIRE(node_at_i == prev->second);
+            }
+            prev = it;
+            ++it;
+        }
+        
+    }
+}
+
+
+
+
 }
 }

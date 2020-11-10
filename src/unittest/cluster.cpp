@@ -3,14 +3,15 @@
 #include <iostream>
 #include <fstream>
 #include <set>
-#include "json2pb.h"
-#include "vg.hpp"
-#include "xg.hpp"
+#include "vg/io/json2pb.h"
+#include "../vg.hpp"
+#include "../xg.hpp"
 #include "catch.hpp"
-#include "snarls.hpp"
-#include "cluster.hpp"
-#include "min_distance.hpp"
-#include "genotypekit.hpp"
+#include "../snarls.hpp"
+#include "../cactus_snarl_finder.hpp"
+#include "../cluster.hpp"
+#include "../min_distance.hpp"
+#include "../genotypekit.hpp"
 #include "random_graph.hpp"
 #include <fstream>
 #include <random>
@@ -269,8 +270,8 @@ namespace unittest {
                 pos_t pos2 = make_pos_t(nodeID2, 
                   uniform_int_distribution<int>(0,1)(generator) == 0, offset2 );
  
-                int64_t minDist = di.minDistance(pos1, pos2);
-                int64_t maxDist = di.maxDistance(pos1, pos2);
+                int64_t minDist = di.min_distance(pos1, pos2);
+                int64_t maxDist = di.max_distance(pos1, pos2);
                 if (minDist != -1 && maxDist != 20 && minDist <= maxDist) {
 
                     REQUIRE(tvs.tv_path(pos1, pos2, minDist-10, 11).size() !=0);

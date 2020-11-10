@@ -15,8 +15,9 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include "../alignment.hpp"
+#include "../algorithms/copy_graph.hpp"
 #include <vg/io/vpkg.hpp>
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -140,8 +141,19 @@ int main_validate(int argc, char** argv) {
 
         VG* graph;
         get_input_file(optind, argc, argv, [&](istream& in) {
-                graph = new VG(in);
-            });
+            unique_ptr<PathHandleGraph> loaded = vg::io::VPKG::load_one<PathHandleGraph>(in);
+            
+            // Make it be in VG format
+            graph = dynamic_cast<vg::VG*>(loaded.get());
+            if (graph == nullptr) {
+                // Copy instead.
+                graph = new vg::VG();
+                // TODO: this conversion may make a valid graph out of an invalid one
+                algorithms::copy_path_handle_graph(loaded.get(), graph);
+                // Make sure the paths are all synced up
+                graph->paths.to_graph(graph->graph);
+            }
+        });
 
         // if we chose a specific subset, do just them
         if (check_nodes || check_edges || check_orphans || check_paths) {

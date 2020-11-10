@@ -1,53 +1,11 @@
 #include "topological_sort.hpp"
 
+#include "find_tips.hpp"
+
 namespace vg {
 namespace algorithms {
 
 using namespace std;
-
-vector<handle_t> head_nodes(const HandleGraph* g) {
-    vector<handle_t> to_return;
-    g->for_each_handle([&](const handle_t& found) {
-        // For each (locally forward) node
-        
-        bool no_left_edges = true;
-        g->follow_edges(found, true, [&](const handle_t& ignored) {
-            // We found a left edge!
-            no_left_edges = false;
-            // We only need one
-            return false;
-        });
-        
-        if (no_left_edges) {
-            to_return.push_back(found);
-        }
-    });
-    
-    return to_return;
-    
-}
-
-vector<handle_t> tail_nodes(const HandleGraph* g) {
-    vector<handle_t> to_return;
-    g->for_each_handle([&](const handle_t& found) {
-        // For each (locally forward) node
-        
-        bool no_right_edges = true;
-        g->follow_edges(found, false, [&](const handle_t& ignored) {
-            // We found a right edge!
-            no_right_edges = false;
-            // We only need one
-            return false;
-        });
-        
-        if (no_right_edges) {
-            to_return.push_back(found);
-        }
-    });
-    
-    return to_return;
-    
-}
 
 vector<handle_t> topological_order(const HandleGraph* g) {
     
@@ -261,7 +219,7 @@ vector<handle_t> topological_order(const HandleGraph* g) {
 vector<handle_t> lazy_topological_order_internal(const HandleGraph* g, bool lazier) {
     
     // map that will contain the orientation and the in degree for each node
-    unordered_map<handle_t, int64_t> inward_degree;
+    spp::sparse_hash_map<handle_t, int64_t> inward_degree;
     inward_degree.reserve(g->get_node_count());
     
     // stack for the traversal
@@ -270,10 +228,7 @@ vector<handle_t> lazy_topological_order_internal(const HandleGraph* g, bool lazi
     if (lazier) {
         // take the locally forward orientation as a single stranded orientation
         g->for_each_handle([&](const handle_t& handle) {
-            int64_t& degree = inward_degree[handle];
-            g->follow_edges(handle, true, [&](const handle_t& ignored) {
-                degree++;
-            });
+            int64_t& degree = inward_degree[handle] = g->get_degree(handle, true);
             // initialize the stack with head nodes
             if (degree == 0) {
                 stack.emplace_back(handle);
@@ -291,10 +246,7 @@ vector<handle_t> lazy_topological_order_internal(const HandleGraph* g, bool lazi
         
         // compute the degrees by following the edges backward
         for (auto& handle : orientation) {
-            int64_t& degree = inward_degree[handle];
-            g->follow_edges(handle, true, [&](const handle_t& ignored) {
-                degree++;
-            });
+            int64_t& degree = inward_degree[handle] = g->get_degree(handle, true);
             // initialize the stack with head nodes
             if (degree == 0) {
                 stack.emplace_back(handle);

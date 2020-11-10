@@ -1,7 +1,9 @@
 #include "alignment.hpp"
+#include "vg/io/gafkluge.hpp"
 
 #include <sstream>
-#include <regex>
+
+using namespace vg::io;
 
 namespace vg {
 
@@ -91,11 +93,22 @@ bam_hdr_t* hts_file_header(string& filename, string& header) {
 }
 
 bam_hdr_t* hts_string_header(string& header,
-                             map<string, int64_t>& path_length,
-                             map<string, string>& rg_sample) {
+                             const map<string, int64_t>& path_length,
+                             const map<string, string>& rg_sample) {
+    
+    // Copy the map into a vecotr in its own order
+    vector<pair<string, int64_t>> path_order_and_length(path_length.begin(), path_length.end());
+    
+    // Make header in that order.
+    return hts_string_header(header, path_order_and_length, rg_sample);
+}
+
+bam_hdr_t* hts_string_header(string& header,
+                             const vector<pair<string, int64_t>>& path_order_and_length,
+                             const map<string, string>& rg_sample) {
     stringstream hdr;
     hdr << "@HD\tVN:1.5\tSO:unknown\n";
-    for (auto& p : path_length) {
+    for (auto& p : path_order_and_length) {
         hdr << "@SQ\tSN:" << p.first << "\t" << "LN:" << p.second << "\n";
     }
     for (auto& s : rg_sample) {
@@ -125,7 +138,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
         } else {
             throw runtime_error("Found unexpected delimiter " + name.substr(0,1) + " in fastq/fasta input");
         }
-        name = name.substr(1, name.find(' ')); // trim off leading @ and things after the first whitespace
+        name = name.substr(1, name.find(' ') - 1); // trim off leading @ and things after the first whitespace
         // keep trailing /1 /2
         alignment.set_name(name);
     } else { return false; }
@@ -163,186 +176,6 @@ bool get_next_interleaved_alignment_pair_from_fastq(gzFile fp, char* buffer, siz
 
 bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, size_t len, Alignment& mate1, Alignment& mate2) {
     return get_next_alignment_from_fastq(fp1, buffer, len, mate1) && get_next_alignment_from_fastq(fp2, buffer, len, mate2);
-}
-
-size_t unpaired_for_each_parallel(function<bool(Alignment&)> get_read_if_available, function<void(Alignment&)> lambda) {
-
-    size_t nLines = 0;
-    vector<Alignment> *batch = nullptr;
-    // number of batches currently being processed
-    uint64_t batches_outstanding = 0;
-#pragma omp parallel default(none) shared(batches_outstanding, batch, nLines, get_read_if_available, lambda)
-#pragma omp single
-    {
-        
-        // number of reads in each batch
-        const uint64_t batch_size = 1 << 9; // 512
-        // max # of such batches to be holding in memory
-        uint64_t max_batches_outstanding = 1 << 9; // 512
-        // max # we will ever increase the batch buffer to
-        const uint64_t max_max_batches_outstanding = 1 << 13; // 8192
-        
-        // alignments to hold the incoming data
-        Alignment aln;
-        // did we find the end of the file yet?
-        bool more_data = true;
-        
-        while (more_data) {
-            // init a new batch
-            batch = new std::vector<Alignment>();
-            batch->reserve(batch_size);
-            
-            // load up to the batch-size number of reads
-            for (int i = 0; i < batch_size; i++) {
-                
-                more_data = get_read_if_available(aln);
-                
-                if (more_data) {
-                    batch->emplace_back(std::move(aln));
-                    nLines++;
-                }
-                else {
-                    break;
-                }
-            }
-            
-            // did we get a batch?
-            if (batch->size()) {
-                
-                // how many batch tasks are outstanding currently, including this one?
-                uint64_t current_batches_outstanding;
-#pragma omp atomic capture
-                current_batches_outstanding = ++batches_outstanding;
-                
-                if (current_batches_outstanding >= max_batches_outstanding) {
-                    // do this batch in the current thread because we've spawned the maximum number of
-                    // concurrent batch tasks
-                    for (auto& aln : *batch) {
-                        lambda(aln);
-                    }
-                    delete batch;
-#pragma omp atomic capture
-                    current_batches_outstanding = --batches_outstanding;
-                    
-                    if (4 * current_batches_outstanding / 3 < max_batches_outstanding
-                        && max_batches_outstanding < max_max_batches_outstanding) {
-                        // we went through at least 1/4 of the batch buffer while we were doing this thread's batch
-                        // this looks risky, since we want the batch buffer to stay populated the entire time we're
-                        // occupying this thread on compute, so let's increase the batch buffer size
-                        
-                        max_batches_outstanding *= 2;
-                    }
-                }
-                else {
-                    // spawn a new task to take care of this batch
-#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda)
-                    {
-                        for (auto& aln : *batch) {
-                            lambda(aln);
-                        }
-                        delete batch;
-#pragma omp atomic update
-                        batches_outstanding--;
-                    }
-                }
-            }
-        }
-    }
-    return nLines;
-}
-
-size_t paired_for_each_parallel_after_wait(function<bool(Alignment&, Alignment&)> get_pair_if_available,
-                                           function<void(Alignment&, Alignment&)> lambda,
-                                           function<bool(void)> single_threaded_until_true) {
-    
-    
-    size_t nLines = 0;
-    vector<pair<Alignment, Alignment> > *batch = nullptr;
-    // number of batches currently being processed
-    uint64_t batches_outstanding = 0;
-    
-#pragma omp parallel default(none) shared(batches_outstanding, batch, nLines, get_pair_if_available, single_threaded_until_true, lambda)
-#pragma omp single
-    {
-        
-        // number of pairs in each batch
-        const uint64_t batch_size = 1 << 9; // 512
-        // max # of such batches to be holding in memory
-        uint64_t max_batches_outstanding = 1 << 9; // 512
-        // max # we will ever increase the batch buffer to
-        const uint64_t max_max_batches_outstanding = 1 << 13; // 8192
-        
-        // alignments to hold the incoming data
-        Alignment mate1, mate2;
-        // did we find the end of the file yet?
-        bool more_data = true;
-        
-        while (more_data) {
-            // init a new batch
-            batch = new std::vector<pair<Alignment, Alignment>>();
-            batch->reserve(batch_size);
-            
-            // load up to the batch-size number of pairs
-            for (int i = 0; i < batch_size; i++) {
-                
-                more_data = get_pair_if_available(mate1, mate2);
-                
-                if (more_data) {
-                    batch->emplace_back(std::move(mate1), std::move(mate2));
-                    nLines++;
-                }
-                else {
-                    break;
-                }
-            }
-            
-            // did we get a batch?
-            if (batch->size()) {
-                // how many batch tasks are outstanding currently, including this one?
-                uint64_t current_batches_outstanding;
-#pragma omp atomic capture
-                current_batches_outstanding = ++batches_outstanding;
-                
-                bool do_single_threaded = !single_threaded_until_true();
-                if (current_batches_outstanding >= max_batches_outstanding || do_single_threaded) {
-                    // do this batch in the current thread because we've spawned the maximum number of
-                    // concurrent batch tasks or because we are directed to work in a single thread
-                    for (auto& p : *batch) {
-                        lambda(p.first, p.second);
-                    }
-                    delete batch;
-#pragma omp atomic capture
-                    current_batches_outstanding = --batches_outstanding;
-                    
-                    if (4 * current_batches_outstanding / 3 < max_batches_outstanding
-                        && max_batches_outstanding < max_max_batches_outstanding
-                        && !do_single_threaded) {
-                        // we went through at least 1/4 of the batch buffer while we were doing this thread's batch
-                        // this looks risky, since we want the batch buffer to stay populated the entire time we're
-                        // occupying this thread on compute, so let's increase the batch buffer size
-                        // (skip this adjustment if you're in single-threaded mode and thus expect the buffer to be
-                        // empty)
-                        
-                        max_batches_outstanding *= 2;
-                    }
-                }
-                else {
-                    // spawn a new task to take care of this batch
-#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda)
-                    {
-                        for (auto& p : *batch) {
-                            lambda(p.first, p.second);
-                        }
-                        delete batch;
-#pragma omp atomic update
-                        batches_outstanding--;
-                    }
-                }
-            }
-        }
-    }
-    
-    return nLines;
 }
 
 size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Alignment&)> lambda) {
@@ -463,6 +296,7 @@ size_t fastq_paired_interleaved_for_each(const string& filename, function<void(A
     return nLines;
 }
 
+
 size_t fastq_paired_two_files_for_each(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda) {
     gzFile fp1 = (file1 != "-") ? gzopen(file1.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp1) {
@@ -546,38 +380,6 @@ void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
     }
 }
 
-short quality_char_to_short(char c) {
-    return static_cast<short>(c) - 33;
-}
-
-char quality_short_to_char(short i) {
-    return static_cast<char>(i + 33);
-}
-
-void alignment_quality_short_to_char(Alignment& alignment) {
-    alignment.set_quality(string_quality_short_to_char(alignment.quality()));
-}
-
-string string_quality_short_to_char(const string& quality) {
-    string buffer; buffer.resize(quality.size());
-    for (int i = 0; i < quality.size(); ++i) {
-        buffer[i] = quality_short_to_char(quality[i]);
-    }
-    return buffer;
-}
-
-void alignment_quality_char_to_short(Alignment& alignment) {
-    alignment.set_quality(string_quality_char_to_short(alignment.quality()));
-}
-
-string string_quality_char_to_short(const string& quality) {
-    string buffer; buffer.resize(quality.size());
-    for (int i = 0; i < quality.size(); ++i) {
-        buffer[i] = quality_char_to_short(quality[i]);
-    }
-    return buffer;
-}
-
 // Internal conversion function for both paired and unpaired codepaths
 string alignment_to_sam_internal(const Alignment& alignment,
                                  const string& refseq,
@@ -592,26 +394,7 @@ string alignment_to_sam_internal(const Alignment& alignment,
                                  const int32_t tlen_max) {
 
     // Determine flags, using orientation, next/prev fragments, and pairing status.
-    int32_t flags = sam_flag(alignment, refrev, paired);
-   
-    // Have One True Flag for whether the read is mapped (and should have its
-    // mapping stuff set) or unmapped (and should have things *'d out).
-    bool mapped = !(flags & BAM_FUNMAP);
-    
-    if (mapped) {
-        // Make sure we have everything
-        assert(!refseq.empty());
-        assert(refpos != -1);
-        assert(!cigar.empty());
-        assert(alignment.has_path());
-        assert(alignment.path().mapping_size() > 0);
-    }
-    
-    // We've observed some reads with the unmapped flag set and also a CIGAR string set, which shouldn't happen.
-    // We will check for this. The CIGAR string will only be set in the output if the alignment has a path.
-    assert((bool)(flags & BAM_FUNMAP) != (alignment.has_path() && alignment.path().mapping_size()));
-    
-    stringstream sam;
+    int32_t flags = determine_flag(alignment, refseq, refpos, refrev, mateseq, matepos, materev, tlen, paired, tlen_max);
     
     string alignment_name;
     if (paired) {
@@ -621,40 +404,25 @@ string alignment_to_sam_internal(const Alignment& alignment,
         // Keep the alignment name as is because even if the name looks paired, the reads are semantically unpaired.
         alignment_name = alignment.name();
     }
-
-    if (mapped && paired && !refseq.empty() && refseq == mateseq) {
-        // Properly paired if both mates mapped to same sequence, in inward-facing orientations.
-        // We know they're on the same sequence, so check orientation.
+    
+    // Have One True Flag for whether the read is mapped (and should have its
+    // mapping stuff set) or unmapped (and should have things *'d out).
+    bool mapped = !(flags & BAM_FUNMAP);
         
-        // If we are first, mate needs to be reverse, and if mate is first, we need to be reverse.
-        // If we are at the same position either way is fine.
-        bool facing = ((refpos <= matepos) && !refrev && materev) || ((matepos <= refpos) && refrev && !materev);
-        
-        // We are close enough if there is not tlen limit, or if there is one and we do not exceed it
-        bool close_enough = (tlen_max == 0) || abs(tlen) <= tlen_max;
-        
-        if (facing && close_enough) {
-            // We can't find anything wrong with this pair; it's properly paired.
-            flags |= BAM_FPROPER_PAIR;
-        }
-        
-        // TODO: Support sequencing technologies where "proper" pairing may
-        // have a different meaning or expected combination of orientations.
-    }
-
-    if (paired && mateseq.empty()) {
-        // Set the flag for the mate being unmapped
-        flags |= BAM_FMUNMAP;
-    }
-
-    if (paired && materev) {
-        // Set the flag for the mate being reversed
-        flags |= BAM_FMREVERSE;
+    if (mapped) {
+        // Make sure we have everything
+        assert(!refseq.empty());
+        assert(refpos != -1);
+        assert(!cigar.empty());
+        assert(alignment.has_path());
+        assert(alignment.path().mapping_size() > 0);
     }
 
     // We apply the convention of unmapped reads getting their mate's coordinates
     // See section 2.4.1 https://samtools.github.io/hts-specs/SAMv1.pdf
     bool use_mate_loc = !mapped && paired && !mateseq.empty();
+    
+    stringstream sam;
     
     sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
@@ -685,6 +453,57 @@ string alignment_to_sam_internal(const Alignment& alignment,
     return sam.str();
 }
 
+int32_t determine_flag(const Alignment& alignment,
+                       const string& refseq,
+                       const int32_t refpos,
+                       const bool refrev,
+                       const string& mateseq,
+                       const int32_t matepos,
+                       bool materev,
+                       const int32_t tlen,
+                       bool paired,
+                       const int32_t tlen_max) {
+    
+    // Determine flags, using orientation, next/prev fragments, and pairing status.
+    int32_t flags = sam_flag(alignment, refrev, paired);
+    
+    // We've observed some reads with the unmapped flag set and also a CIGAR string set, which shouldn't happen.
+    // We will check for this. The CIGAR string will only be set in the output if the alignment has a path.
+    assert((bool)(flags & BAM_FUNMAP) != (alignment.has_path() && alignment.path().mapping_size()));
+    
+    if (!((bool)(flags & BAM_FUNMAP)) && paired && !refseq.empty() && refseq == mateseq) {
+        // Properly paired if both mates mapped to same sequence, in inward-facing orientations.
+        // We know they're on the same sequence, so check orientation.
+        
+        // If we are first, mate needs to be reverse, and if mate is first, we need to be reverse.
+        // If we are at the same position either way is fine.
+        bool facing = ((refpos <= matepos) && !refrev && materev) || ((matepos <= refpos) && refrev && !materev);
+        
+        // We are close enough if there is not tlen limit, or if there is one and we do not exceed it
+        bool close_enough = (tlen_max == 0) || abs(tlen) <= tlen_max;
+        
+        if (facing && close_enough) {
+            // We can't find anything wrong with this pair; it's properly paired.
+            flags |= BAM_FPROPER_PAIR;
+        }
+        
+        // TODO: Support sequencing technologies where "proper" pairing may
+        // have a different meaning or expected combination of orientations.
+    }
+    
+    if (paired && mateseq.empty()) {
+        // Set the flag for the mate being unmapped
+        flags |= BAM_FMUNMAP;
+    }
+    
+    if (paired && materev) {
+        // Set the flag for the mate being reversed
+        flags |= BAM_FMREVERSE;
+    }
+    
+    return flags;
+}
+
 string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
@@ -711,7 +530,7 @@ string alignment_to_sam(const Alignment& alignment,
 }
 
 // Internal conversion function for both paired and unpaired codepaths
-bam1_t* alignment_to_bam_internal(const string& sam_header,
+bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
                                   const Alignment& alignment,
                                   const string& refseq,
                                   const int32_t refpos,
@@ -723,51 +542,222 @@ bam1_t* alignment_to_bam_internal(const string& sam_header,
                                   const int32_t tlen,
                                   bool paired,
                                   const int32_t tlen_max) {
-
-    assert(!sam_header.empty());
     
-    // Make a tiny SAM file. Remember to URL-encode it, since it may contain '%'
-    string sam_file = "data:," + percent_url_encode(sam_header +
-       alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, paired, tlen_max));
-    const char* sam = sam_file.c_str();
-    samFile *in = sam_open(sam, "r");
-    bam_hdr_t *header = sam_hdr_read(in);
-    bam1_t *aln = bam_init1();
-    if (sam_read1(in, header, aln) >= 0) {
-        bam_hdr_destroy(header);
-        sam_close(in); // clean up
-        return aln;
-    } else {
-        cerr << "[vg::alignment] Failure to parse SAM record" << endl
-             << sam << endl;
-        exit(1);
+    // this table doesn't seem to be reproduced in htslib publicly, so I'm copying
+    // it from the CRAM conversion code
+    static const char nt_encoding[256] = {
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15, 0,15,15,
+        15, 1,14, 2,13,15,15, 4,11,15,15,12,15, 3,15,15,
+        15,15, 5, 6, 8,15, 7, 9,15,10,15,15,15,15,15,15,
+        15, 1,14, 2,13,15,15, 4,11,15,15,12,15, 3,15,15,
+        15,15, 5, 6, 8,15, 7, 9,15,10,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+        15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15
+    };
+    
+    // init an empty BAM record
+    bam1_t* bam = bam_init1();
+    
+    // strip the pair order identifiers
+    string alignment_name = alignment.name();
+    if (paired && alignment_name.size() >= 2) {
+        // We need to strip the /1 and /2 or _1 and _2 from paired reads so the two ends have the same name.
+        char c1 = alignment_name[alignment_name.size() - 2];
+        char c2 = alignment_name[alignment_name.size() - 1];
+        if ((c1 == '_' || c1 == '/') && (c2 == '1' || c2 == '2')) {
+            alignment_name = alignment_name.substr(0, alignment_name.size() - 2);
+        }
     }
-}
-
-bam1_t* alignment_to_bam(const string& sam_header,
-                        const Alignment& alignment,
-                        const string& refseq,
-                        const int32_t refpos,
-                        const bool refrev,
-                        const vector<pair<int, char>>& cigar,
-                        const string& mateseq,
-                        const int32_t matepos,
-                        bool materev,
-                        const int32_t tlen,
-                        const int32_t tlen_max) {
-
-    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true, tlen_max);
-
-}
-
-bam1_t* alignment_to_bam(const string& sam_header,
-                        const Alignment& alignment,
-                        const string& refseq,
-                        const int32_t refpos,
-                        const bool refrev,
-                        const vector<pair<int, char>>& cigar) {
     
-    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false, 0);
+    // calculate the size in bytes of the variable length fields (which are all concatenated in memory)
+    int qname_nulls = 4 - alignment_name.size() % 4;
+    int qname_data_size = alignment_name.size() + qname_nulls;
+    int cigar_data_size = 4 * cigar.size();
+    int seq_data_size = (alignment.sequence().size() + 1) / 2; // round up
+    int qual_data_size = alignment.sequence().size(); // we will allocate this even if quality doesn't exist
+    
+    // allocate the joint variable length fields
+    int var_field_data_size = qname_data_size + cigar_data_size + seq_data_size + qual_data_size;
+    bam->data = (uint8_t*) calloc(var_field_data_size, sizeof(uint8_t));
+    
+    // TODO: what ID is this? CRAM seems to ignore it, so maybe we can too...
+    //bam->id = 0;
+    bam->l_data = var_field_data_size; // current length of data
+    bam->m_data = var_field_data_size; // max length of data
+    
+    bam1_core_t& core = bam->core;
+    // mapping position
+    core.pos = refpos;
+    // ID of sequence mapped to
+    core.tid = sam_hdr_name2tid(header, refseq.c_str());
+    // MAPQ
+    core.qual = alignment.mapping_quality();
+    // number of nulls (above 1) used to pad read name string
+    core.l_extranul = qname_nulls - 1;
+    // bit flag
+    core.flag = determine_flag(alignment, refseq, refpos, refrev, mateseq, matepos, materev, tlen, paired, tlen_max);
+    // length of read name, including nulls
+    core.l_qname = qname_data_size;
+    // number of cigar operations
+    core.n_cigar = cigar.size();
+    // length of read
+    core.l_qseq = alignment.sequence().size();
+    // ID of sequence mate is mapped to
+    core.mtid = sam_hdr_name2tid(header, mateseq.c_str()); // TODO: what if there is no mate
+    // mapping position of mate
+    core.mpos = matepos;
+    // insert length of fragment
+    core.isize = tlen;
+    
+    // all variable-length data, concatenated; structure: qname-cigar-seq-qual-aux
+    
+    // write query name, padded by nulls
+    uint8_t* name_data = bam->data;
+    for (size_t i = 0; i < alignment_name.size(); ++i) {
+        name_data[i] = (uint8_t) alignment_name[i];
+    }
+    for (size_t i = 0; i < qname_nulls; ++i) {
+        name_data[i + alignment_name.size()] = '\0';
+    }
+    
+    // encode cigar and copy into data
+
+    uint32_t* cigar_data = (uint32_t*) (name_data + qname_data_size);
+    
+    auto refend = core.pos;
+    for (size_t i = 0; i < cigar.size(); ++i) {
+        uint32_t op;
+        switch (cigar[i].second) {
+            case 'M':
+            case 'm':
+                op = BAM_CMATCH;
+                refend += cigar[i].first;
+                break;
+            case 'I':
+            case 'i':
+                op = BAM_CINS;
+                break;
+            case 'D':
+            case 'd':
+                op = BAM_CDEL;
+                refend += cigar[i].first;
+                break;
+            case 'N':
+            case 'n':
+                op = BAM_CREF_SKIP;
+                refend += cigar[i].first;
+                break;
+            case 'S':
+            case 's':
+                op = BAM_CSOFT_CLIP;
+                break;
+            case 'H':
+            case 'h':
+                op = BAM_CHARD_CLIP;
+                break;
+            case 'P':
+            case 'p':
+                op = BAM_CPAD;
+                break;
+            case '=':
+                op = BAM_CEQUAL;
+                refend += cigar[i].first;
+                break;
+            case 'X':
+            case 'x':
+                op = BAM_CDIFF;
+                refend += cigar[i].first;
+                break;
+            default:
+                throw runtime_error("Invalid CIGAR operation " + string(1, cigar[i].second));
+                break;
+        }
+        cigar_data[i] = bam_cigar_gen(cigar[i].first, op);
+    }
+    
+    
+    // now we know where it ends, we can compute the bin
+    // copied from cram/cram_samtools.h
+    core.bin = hts_reg2bin(refpos, refend - 1, 14, 5); // TODO: not sure if end is past-the-last
+    
+    // convert sequence to 4-bit (nibble) encoding
+    uint8_t* seq_data = (uint8_t*) (cigar_data + cigar.size());
+    const string* seq = &alignment.sequence();
+    string rev_seq;
+    const string* qual = &alignment.quality();
+    string rev_qual;
+    if (refrev) {
+        // Sequence and quality both need to be flipped to target forward orientation
+        rev_seq = reverse_complement(*seq);
+        seq = &rev_seq;
+        reverse_copy(qual->begin(), qual->end(), back_inserter(rev_qual));
+        qual = &rev_qual;
+    }
+    for (size_t i = 0; i < alignment.sequence().size(); i += 2) {
+        if (i + 1 < alignment.sequence().size()) {
+            seq_data[i / 2] = (nt_encoding[seq->at(i)] << 4) | nt_encoding[seq->at(i + 1)];
+        }
+        else {
+            seq_data[i / 2] = nt_encoding[seq->at(i)] << 4;
+        }
+    }
+    
+    // write the quality directly (it should already have the +33 offset removed)
+    uint8_t* qual_data = seq_data + seq_data_size;
+    for (size_t i = 0; i < alignment.sequence().size(); ++i) {
+        if (alignment.quality().empty()) {
+            // hacky, but this seems to be what they do in CRAM anyway
+            qual_data[i] = '\xff';
+        }
+        else {
+            qual_data[i] = qual->at(i);
+        }
+    }
+    
+    if (!alignment.read_group().empty()) {
+        bam_aux_append(bam, "RG", 'Z', alignment.read_group().size() + 1, (uint8_t*) alignment.read_group().c_str());
+    }
+    // TODO: this does not seem to be a standardized field (https://samtools.github.io/hts-specs/SAMtags.pdf)
+//    if (!alignment.sample_name()) {
+//
+//    }
+        
+    return bam;
+}
+
+bam1_t* alignment_to_bam(bam_hdr_t* bam_header,
+                         const Alignment& alignment,
+                         const string& refseq,
+                         const int32_t refpos,
+                         const bool refrev,
+                         const vector<pair<int, char>>& cigar,
+                         const string& mateseq,
+                         const int32_t matepos,
+                         bool materev,
+                         const int32_t tlen,
+                         const int32_t tlen_max) {
+
+    return alignment_to_bam_internal(bam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true, tlen_max);
+
+}
+
+bam1_t* alignment_to_bam(bam_hdr_t* bam_header,
+                         const Alignment& alignment,
+                         const string& refseq,
+                         const int32_t refpos,
+                         const bool refrev,
+                         const vector<pair<int, char>>& cigar) {
+    
+    return alignment_to_bam_internal(bam_header, alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false, 0);
 
 }
 
@@ -830,27 +820,27 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar) {
         if (edit.from_length() && edit.from_length() == edit.to_length()) {
 // *matches* from_length == to_length, or from_length > 0 and offset unset
             // match state
-            cigar.push_back(make_pair(edit.from_length(), 'M'));
+            append_cigar_operation(edit.from_length(), 'M', cigar);
             //cerr << "match " << edit.from_length() << endl;
         } else {
             // mismatch/sub state
 // *snps* from_length == to_length; sequence = alt
             if (edit.from_length() == edit.to_length()) {
-                cigar.push_back(make_pair(edit.from_length(), 'M'));
+                append_cigar_operation(edit.from_length(), 'M', cigar);
                 //cerr << "match " << edit.from_length() << endl;
             } else if (edit.from_length() > edit.to_length()) {
 // *deletions* from_length > to_length; sequence may be unset or empty
                 int32_t del = edit.from_length() - edit.to_length();
                 int32_t eq = edit.to_length();
-                if (eq) cigar.push_back(make_pair(eq, 'M'));
-                cigar.push_back(make_pair(del, 'D'));
+                if (eq) append_cigar_operation(eq, 'M', cigar);
+                append_cigar_operation(del, 'D', cigar);
                 //cerr << "del " << edit.from_length() - edit.to_length() << endl;
             } else if (edit.from_length() < edit.to_length()) {
 // *insertions* from_length < to_length; sequence contains relative insertion
                 int32_t ins = edit.to_length() - edit.from_length();
                 int32_t eq = edit.from_length();
-                if (eq) cigar.push_back(make_pair(eq, 'M'));
-                cigar.push_back(make_pair(ins, 'I'));
+                if (eq) append_cigar_operation(eq, 'M', cigar);
+                append_cigar_operation(ins, 'I', cigar);
                 //cerr << "ins " << edit.to_length() - edit.from_length() << endl;
             }
         }
@@ -910,7 +900,8 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, cons
 
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress) {
     vector<pair<int, char> > cigar;
-    if (!alignment.has_path() || alignment.path().mapping_size() == 0) return {};
+    
+    if (!alignment.has_path() || alignment.path().mapping_size() == 0) return cigar;
     const Path& path = alignment.path();
     int l = 0;
 
@@ -925,6 +916,12 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
 
     // handle soft clips, which are just insertions at the start or end
     // back
+    if (cigar.size() > 1 && cigar.back().second == 'D' && cigar[cigar.size() - 2].second == 'I') {
+        // Swap insert to the outside so it can be a softclip.
+        // When making the CIGAR we should put D before I but when flipping the
+        // strand they may switch.
+        std::swap(cigar.back(), cigar[cigar.size() - 2]);
+    }
     if (cigar.back().second == 'I') {
         // make sure we stay in the reference sequence when suppressing the softclips
         if (cigar.back().first <= softclip_suppress
@@ -935,6 +932,10 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
         }
     }
     // front
+    if (cigar.size() > 1 && cigar.front().second == 'D' && cigar[1].second == 'I') {
+        // Swap insert to the outside so it can be a softclip
+        std::swap(cigar.front(), cigar[1]);
+    }
     if (cigar.front().second == 'I') {
         // make sure we stay in the reference sequence when suppressing the softclips
         if (cigar.front().first <= softclip_suppress
@@ -972,7 +973,7 @@ pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vecto
                 // Bases are matched. Count them in the bounds and execute the operation
                 low = min(low, here);
                 here += item.first;
-                high = max(high, here - 1);
+                high = max(high, here);
             } else if (item.second == 'D') {
                 // Only other way to advance in the reference
                 here += item.first;
@@ -1036,8 +1037,6 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     if (alignment.is_secondary()) {
         flag |= BAM_FSECONDARY;
     }
-    
-    
     
     return flag;
 }
@@ -1640,6 +1639,56 @@ void normalize_alignment(Alignment& alignment) {
     }
 }
 
+bool uses_Us(const Alignment& alignment) {
+    
+    for (char nt : alignment.sequence()) {
+        switch (nt) {
+            case 'U':
+                return true;
+                break;
+                
+            case 'T':
+                return false;
+                break;
+                
+            default:
+                break;
+        }
+    }
+    return false;
+}
+
+void convert_alignment_char(Alignment& alignment, char from, char to) {
+    auto& seq = *alignment.mutable_sequence();
+    for (size_t i = 0; i < seq.size(); ++i) {
+        if (seq[i] == from) {
+            seq[i] = to;
+        }
+    }
+    if (alignment.has_path()) {
+        for (Mapping& mapping : *alignment.mutable_path()->mutable_mapping()) {
+            for (Edit& edit : *mapping.mutable_edit()) {
+                if (!edit.sequence().empty()) {
+                    auto& eseq = *edit.mutable_sequence();
+                    for (size_t i = 0; i < eseq.size(); ++i) {
+                        if (eseq[i] == from) {
+                            eseq[i] = to;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void convert_Us_to_Ts(Alignment& alignment) {
+    convert_alignment_char(alignment, 'U', 'T');
+}
+
+void convert_Ts_to_Us(Alignment& alignment) {
+    convert_alignment_char(alignment, 'T', 'U');
+}
+
 map<id_t, int> alignment_quality_per_node(const Alignment& aln) {
     map<id_t, int> quals;
     int to_pos = 0; // offset in quals
@@ -1725,7 +1774,7 @@ void parse_bed_regions(istream& bedstream,
 
         if (ss.fail()) {
             // Skip lines that can't be parsed
-            cerr << "Error parsing bed line " << line << ": " << row << endl;
+            cerr << "warning: Error parsing bed line " << line << ", skipping: " << row << endl;
             continue;
         } 
         
@@ -1734,6 +1783,20 @@ void parse_bed_regions(istream& bedstream,
             // That's not the case, so complain and skip the region.
             cerr << "warning: path \"" << seq << "\" is not circular, skipping end-spanning region on line "
                 << line << ": " << row << endl;
+            continue;
+        }
+        
+        if (ebuf > graph->get_path_length(path_handle)) {
+            // Skip ends that are too late
+            cerr << "warning: out of range path end " << ebuf << " > " << graph->get_path_length(path_handle)
+                << " in bed line " << line << ", skipping: " << row << endl;
+            continue;
+        }
+        
+        if (sbuf >= graph->get_path_length(path_handle)) {
+            // Skip starts that are too late
+            cerr << "warning: out of range path start " << sbuf << " >= " << graph->get_path_length(path_handle)
+                << " in bed line " << line << ", skipping: " << row << endl;
             continue;
         }
         
@@ -1785,8 +1848,10 @@ void parse_gff_regions(istream& gffstream,
         getline(ss, source, '\t');
         getline(ss, type, '\t');
         getline(ss, buf, '\t');
-        sbuf = atoi(buf.c_str());
+        // Convert to 0-based 
+        sbuf = atoi(buf.c_str()) - 1;
         getline(ss, buf, '\t');
+        // 1-based inclusive == 0-based exclusive
         ebuf = atoi(buf.c_str());
 
         if (ss.fail() || !(sbuf < ebuf)) {
@@ -1797,10 +1862,20 @@ void parse_gff_regions(istream& gffstream,
             getline(ss, num, '\t');
             getline(ss, annotations, '\t');
             vector<string> vals = split(annotations, ";");
+
+            string name = "";
+
             for (auto& s : vals) {
                 if (s.find("Name=") == 0) {
                     name = s.substr(5);
                 }
+            }
+
+            // Skips annotations where the name can not be parsed. Empty names can 
+            // results in undefinable behavior downstream. 
+            if (name.empty()) {
+                cerr << "warning: could not parse annotation name (Name=), skipping line " << line << endl;  
+                continue;              
             }
 
             bool is_reverse = false;

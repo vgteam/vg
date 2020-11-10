@@ -22,7 +22,7 @@
 #include <vg/io/protobuf_emitter.hpp>
 
 #include <gbwtgraph/minimizer.h>
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 //#define USE_CALLGRIND
 
@@ -246,19 +246,24 @@ int main_cluster(int argc, char** argv) {
                         // reverse minimizers, as the clusterer only cares about node ids.
                         for (auto& hit : minimizer_index->find(minimizers[i])) {
                             // For each position, remember it and what minimizer it came from
-                            seeds.push_back(hit);
+                            seeds.push_back(hit.first);
                             seed_to_source.push_back(i);
                         }
                     }
                 }
                 
             }
+            vector<SnarlSeedClusterer::Seed> seed_clusters;
+            for (pos_t pos : seeds) {
+                seed_clusters.emplace_back();
+                seed_clusters.back().pos = pos;
+            }
+
             
             // Cluster the seeds. Get sets of input seed indexes that go together.
             // Make sure to time it.
             std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-            tuple<vector<vector<size_t>>,vector<vector<size_t>>> paired_clusters = clusterer.cluster_seeds(seeds, distance_limit);
-            vector<vector<size_t>> clusters = std::move(std::get<0>(paired_clusters));
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seed_clusters, distance_limit);
             std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
             
@@ -270,7 +275,7 @@ int main_cluster(int argc, char** argv) {
                 // We use this to convert iterators to indexes
                 auto start = aln.sequence().begin();
                 
-                for (auto& hit_index : cluster) {
+                for (auto hit_index : cluster.seeds) {
                     // For each hit in the cluster, work out what anchor sequence it is from.
                     size_t source_index = seed_to_source.at(hit_index);
                     
@@ -326,7 +331,7 @@ int main_cluster(int argc, char** argv) {
                     read_coverage_by_cluster.at(cluster_indexes_in_order[i]) >= best_coverage; i++) {
                     
                     // For each cluster covering that much or more of the read
-                    for (auto& seed_index : clusters.at(cluster_indexes_in_order[i])) {
+                    for (auto seed_index : clusters.at(cluster_indexes_in_order[i]).seeds) {
                         // For each seed in those clusters
                         
                         // Mark that seed as being part of the best cluster(s)
@@ -364,7 +369,7 @@ int main_cluster(int argc, char** argv) {
             vector<double> cluster_sizes;
             cluster_sizes.reserve(clusters.size());
             for (auto& cluster : clusters) {
-                cluster_sizes.push_back((double)cluster.size());
+                cluster_sizes.push_back((double)cluster.seeds.size());
             }
             
             // Tag the alignment with cluster accuracy

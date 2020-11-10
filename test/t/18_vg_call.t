@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 7
+plan tests 12
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -23,27 +23,9 @@ is $(grep -v '#' tiny_aug.vcf | wc -l) 0 "calling empty gam gives empty VCF"
 
 rm -f tiny.vg tiny_aug.vg tiny_aug.xg empty_aug.gam tiny_aug.pack tiny_aug.vcf empty.gam
 
-echo '{"node": [{"id": 1, "sequence": "CGTAGCGTGGTCGCATAAGTACAGTAGATCCTCCCCGCGCATCCTATTTATTAAGTTAAT"}]}' | vg view -Jv - > test.vg
-vg index -x test.xg -g test.gcsa -k 16 test.vg
-true >reads.txt
-for REP in seq 1 5; do
-    echo 'CGTAGCGTGGTCGCATAAGTACAGTANATCCTCCCCGCGCATCCTATTTATTAAGTTAAT' >>reads.txt
-done
-vg map -x test.xg -g test.gcsa --reads reads.txt > test.gam
-vg augment test.vg test.gam -A test_aug.gam > test_aug.vg
-vg index test_aug.vg -x test_aug.xg
-vg pack -x test_aug.xg -g test_aug.gam -o test_aug.pack
-vg call test_aug.xg -k test_aug.pack > /dev/null
-
-N_COUNT=$(vg view -j test.aug.vg | grep "N" | wc -l)
-
-is "${N_COUNT}" "0" "N bases are not augmented into the graph"
-
-rm -rf reads.txt test.vg test.gam test_aug.gam test_aug.vg test_aug.xg test_aug.pack test.xg test.gcsa test.gcsa.lcp
-
 vg construct -r inverting/miniFasta.fa -v inverting/miniFasta_VCFinversion.vcf.gz -S > miniFastaGraph.vg
 vg index -x miniFastaGraph.xg -g miniFastaGraph.gcsa miniFastaGraph.vg
-vg sim -x miniFastaGraph.xg -n 1000 -l 30 -a > miniFasta.gam
+vg sim -x miniFastaGraph.xg -n 1000 -l 30 -a -s 1 > miniFasta.gam
 vg map -G miniFasta.gam -g miniFastaGraph.gcsa -x miniFastaGraph.xg > miniFastaGraph.gam
 vg augment  miniFastaGraph.vg miniFastaGraph.gam -A mappedminitest_aug.gam > mappedminitest_aug.vg
 vg index mappedminitest_aug.vg -x mappedminitest_aug.xg
@@ -52,8 +34,24 @@ vg call  mappedminitest_aug.xg -k mappedminitest_aug.pack > calledminitest.vcf
 
 L_COUNT=$(cat calledminitest.vcf | grep "#" -v | wc -l)
 is "${L_COUNT}" "1" "Called microinversion"
- 
-rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam mappedminitest.aug.vg calledminitest.vcf mappedminitest.trans mappedminitest.support mappedminitest.pileup miniFastaGraph.xg miniFastaGraph.gcsa mappedminitest_aug.vg mappedminitest_aug.gam mappedminitest_aug.xg mappedminitest_aug.pack miniFastaGraph.gcsa.lcp
+
+rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam calledminitest.vcf  miniFastaGraph.xg miniFastaGraph.gcsa mappedminitest_aug.vg mappedminitest_aug.gam mappedminitest_aug.xg mappedminitest_aug.pack miniFastaGraph.gcsa.lcp
+
+vg construct -r inverting/miniFasta.fa -v inverting/miniFasta_VCFinversion.vcf.gz -S > miniFastaGraph.vg
+vg index -x miniFastaGraph.xg -g miniFastaGraph.gcsa miniFastaGraph.vg
+vg sim -x miniFastaGraph.xg -n 1000 -l 30 -a -s 1 > miniFasta.gam
+vg construct -r inverting/miniFasta.fa > miniFastaFlat.vg
+vg sim -x  miniFastaFlat.vg -n 500 -l 30 -a -s 1 >> miniFasta.gam
+vg map -G miniFasta.gam -g miniFastaGraph.gcsa -x miniFastaGraph.xg > miniFastaGraph.gam
+vg augment  miniFastaGraph.vg miniFastaGraph.gam -A mappedminitest_aug.gam > mappedminitest_aug.vg
+vg index mappedminitest_aug.vg -x mappedminitest_aug.xg
+vg pack -x mappedminitest_aug.xg -g mappedminitest_aug.gam -o mappedminitest_aug.pack
+vg call  mappedminitest_aug.xg -k mappedminitest_aug.pack -d 1 > calledminitest.vcf
+
+L_COUNT=$(cat calledminitest.vcf | grep "#" -v | wc -l)
+is "${L_COUNT}" "0" "Called no microinversion with haploid setting"
+
+rm -f miniFastaGraph.vg miniFastaFlat.vg miniFasta.gam miniFastaGraph.gam calledminitest.vcf calledminitest1.vcf miniFastaGraph.xg miniFastaGraph.gcsa mappedminitest_aug.vg mappedminitest_aug.gam mappedminitest_aug.xg mappedminitest_aug.pack miniFastaGraph.gcsa.lcp
 
 ## SV Genotyping test
 # augment the graph with the alt paths
@@ -68,11 +66,47 @@ vg call HGSVC_alts.xg -k HGSVC_alts.pack -v call/HGSVC_chr22_17200000_17800000.v
 gzip -dc call/HGSVC_chr22_17200000_17800000.vcf.gz | grep -v '#' | awk '{print $10}' | awk -F ':' '{print $1}' > baseline_gts.txt
 # extract the called genotypes
 grep -v '#' HGSVC.vcf | sort -k1,1d -k2,2n | awk '{print $10}' | awk -F ':' '{print $1}' | sed 's/\//\|/g' > gts.txt
-DIFF_COUNT=$(diff -U 0 baseline_gts.txt gts.txt | grep ^@ | wc -l)
-LESS_SIX=$(if (( $DIFF_COUNT < 8 )); then echo 1; else echo 0; fi)
-is "${LESS_SIX}" "1" "Fewer than 6 differences between called and true SV genotypes" 
+DIFF_COUNT=$(diff -y --suppress-common-lines baseline_gts.txt gts.txt | grep '^' | wc -l)
+LESS_EIGHT=$(if (( $DIFF_COUNT < 8 )); then echo 1; else echo 0; fi)
+is "${LESS_EIGHT}" "1" "Fewer than 8 differences between called and true SV genotypes"
 
-rm -f HGSVC_alts.vg HGSVC_alts.xg HGSVC_alts.pack HGSVC.vcf baseline_gts.txt gts.txt
+# genotype the VCF in haploid mode
+vg call HGSVC_alts.xg -k HGSVC_alts.pack -v call/HGSVC_chr22_17200000_17800000.vcf.gz -s HG00514 -d 1 > HGSVC1.vcf
+# extract the "true" calls
+gzip -dc call/HGSVC_chr22_17200000_17800000.vcf.gz | grep -v '#' | awk '{print $10}' | awk -F ':' '{print $1}' | awk -F '|' '{print $1}'  > baseline_gts1.txt
+# extract the called genotypes
+grep -v '#' HGSVC1.vcf | sort -k1,1d -k2,2n | awk '{print $10}' | awk -F ':' '{print $1}' | sed 's/\//\|/g' > gts1.txt
+DIFF_COUNT=$(diff -y --suppress-common-lines baseline_gts1.txt gts1.txt | grep '^' | wc -l)
+LESS_EIGHT=$(if (( $DIFF_COUNT <= 8 )); then echo 1; else echo 0; fi)
+is "${LESS_EIGHT}" "1" "Fewer than 8 differences between called haploid and truncated true SV genotypes"
+
+# call all the snarls with -a
+vg call HGSVC_alts.xg -k HGSVC_alts.pack -s HG00514 -a > HGSVC2.vcf
+REF_COUNT_V=$(grep "0/0" HGSVC.vcf | wc -l)
+REF_COUNT_A=$(grep "0/0" HGSVC2.vcf | wc -l)
+# this probably doesn't need to be exact (coincidence?), but it works now
+is "${REF_COUNT_V}" "${REF_COUNT_A}" "Same number of reference calls with -a as with -v"
+
+# Output snarl traversals into a GBWT then genotype that
+vg call HGSVC_alts.xg -k HGSVC_alts.pack -s HG00514 -T | gzip > HGSVC_travs.gaf.gz
+vg index HGSVC_alts.xg -F HGSVC_travs.gaf.gz -G HGSVC_travs.gbwt
+vg call HGSVC_alts.xg -k HGSVC_alts.pack  -g HGSVC_travs.gbwt -s HG00514 > HGSVC_travs.vcf
+vg call HGSVC_alts.xg -k HGSVC_alts.pack -s HG00514 > HGSVC_direct.vcf
+# extract the called genotypes
+grep -v '#' HGSVC_travs.vcf | sort -k1,1d -k2,2n | awk '{print $10}' | awk -F ':' '{print $1}' | sed 's/1\/0/0\/1/g' | sed 's/\//\|/g' > gts-travs.txt
+grep -v '#' HGSVC_direct.vcf | sort -k1,1d -k2,2n | awk '{print $10}' | awk -F ':' '{print $1}' | sed 's/1\/0/0\/1/g' | sed 's/\//\|/g' > gts-direct.txt
+diff gts-travs.txt gts-direct.txt
+is "$?" "0" "Calling from extracted traversals by way of GBWT produces same genotypes as calling directly"
+
+grep -v '#' HGSVC_travs.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > calls-travs.txt
+grep -v '#' HGSVC_direct.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > calls-direct.txt
+DIFF_COUNT=$(diff -y --suppress-common-lines calls-travs.txt calls-direct.txt | grep '^' | wc -l)
+LESS_THREE=$(if (( $DIFF_COUNT < 3 )); then echo 1; else echo 0; fi)
+# because call makes an attempt to call multiple snarls at once when outputting traversals (to make bigger traversals)
+# there is some wobble here
+is "${LESS_THREE}" "1" "Fewer than 3 differences between allales called via traversals or directly"
+
+rm -f HGSVC_alts.vg HGSVC_alts.xg HGSVC_alts.pack HGSVC.vcf baseline_gts.txt gts.txt HGSVC1.vcf HGSVC2.vcf HGSVC_travs.gaf.gz HGSVC_travs.gbwt HGSVC_travs.vcf HGSVC_direct.vcf baseline_gts1.txt gts1.txt gts-travs.txt gts-direct.txt calls-travs.txt calls-direct.txt
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz > x.vg
 vg index -x x.xg x.vg -L
@@ -95,6 +129,10 @@ rm -f x.vg x.xg sim.gam x.xg.cx x.vg.cx x.xg.vcf x.vg.vcf x.xg.gt.vcf x.vg.gt.vc
 
 vg msga -f msgas/cycle.fa -b s1 -w 64 -t 1 >c.vg
 vg index -x c.xg -g c.gcsa c.vg
+# True alignment has 3 variants:
+# TCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTC
+# TCCCTCCTCAAAGGCTTCTCACTACTCCA-ATCAAAGCTACCCAGGCCATTTTAAGTTTC
+#            *       *
 cat msgas/cycle.fa | sed s/TCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTC/TCCCTCCTCAAAGGCTTCTCACTACTCCAATCAAAGCTACCCAGGCCATTTTAAGTTTC/ >m.fa
 vg construct -r m.fa >m.vg
 vg index -x m.xg m.vg
@@ -104,6 +142,21 @@ vg augment c.vg m.gam -A m.aug.gam >c.aug.vg
 vg index -x c.aug.xg c.aug.vg
 vg pack -x c.aug.xg -g m.aug.gam -o m.aug.pack
 vg call c.aug.xg -k m.aug.pack >m.vcf
-is $(cat m.vcf | grep -v "^#" | wc -l) 3 "vg call finds true homozygous variants in a cyclic graph"
+is $(cat m.vcf | grep -v "^#" | grep -v "0/0" | wc -l) 3 "vg call finds true homozygous variants in a cyclic graph"
 rm -f c.vg c.xg c.gcsa c.gcsa.lcp m.fa m.vg m.xg m.sim m.gam m.aug.gam c.aug.vg c.aug.xg m.aug.pack m.vcf
 
+# simple gbwt
+vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
+vg index -G x.gbwt -v small/x.vcf.gz x.vg
+# simulate 500 reads from each thread path
+vg paths  -g x.gbwt -V -Q _thread_1_x_0_0 0 -x x.vg >> x.vg
+vg paths  -g x.gbwt -V -Q _thread_1_x_1_0 0 -x x.vg >> x.vg
+vg sim -x x.vg -P  _thread_1_x_0_0 -n 500 -a -s 23 > sim.gam
+vg sim -x x.vg -P  _thread_1_x_1_0 -n 500 -a -s 23 >> sim.gam
+# call some hets
+vg pack -x x.vg -o x.pack -g sim.gam
+vg call x.vg -k x.pack > call.vcf
+vg call x.vg -k x.pack -g x.gbwt > callg.vcf
+is "$(grep -v 0/0 callg.vcf | wc -l)" "$(grep -v 0/0 call.vcf | wc -l)" "vg call finds same variants when using gbwt to enumerate traversals"
+
+rm -f x.vg x.gbwt sim.gam x.pack call.vcf callg.vcf

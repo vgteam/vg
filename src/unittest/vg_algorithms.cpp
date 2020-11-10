@@ -10,31 +10,34 @@
 #include <set>
 #include <random>
 #include "catch.hpp"
-#include "algorithms/extract_connecting_graph.hpp"
-#include "algorithms/extract_containing_graph.hpp"
-#include "algorithms/extract_extending_graph.hpp"
-#include "algorithms/topological_sort.hpp"
-#include "algorithms/weakly_connected_components.hpp"
-#include "algorithms/is_acyclic.hpp"
-#include "algorithms/split_strands.hpp"
-#include "algorithms/is_single_stranded.hpp"
-#include "algorithms/distance_to_head.hpp"
-#include "algorithms/distance_to_tail.hpp"
-#include "algorithms/apply_bulk_modifications.hpp"
-#include "algorithms/count_walks.hpp"
-#include "algorithms/strongly_connected_components.hpp"
-#include "algorithms/a_star.hpp"
-#include "algorithms/eades_algorithm.hpp"
-#include "algorithms/shortest_cycle.hpp"
-#include "algorithms/reverse_complement.hpp"
-#include "algorithms/jump_along_path.hpp"
-#include "algorithms/expand_context.hpp"
-#include "algorithms/are_equivalent.hpp"
-#include "unittest/random_graph.hpp"
-#include "vg.hpp"
-#include "xg.hpp"
-#include "bdsg/hash_graph.hpp"
-#include "json2pb.h"
+#include "../algorithms/extract_connecting_graph.hpp"
+#include "../algorithms/extract_containing_graph.hpp"
+#include "../algorithms/extract_extending_graph.hpp"
+#include "../algorithms/topological_sort.hpp"
+#include "../algorithms/weakly_connected_components.hpp"
+#include "../algorithms/is_acyclic.hpp"
+#include "../algorithms/split_strands.hpp"
+#include "../algorithms/is_single_stranded.hpp"
+#include "../algorithms/distance_to_head.hpp"
+#include "../algorithms/distance_to_tail.hpp"
+#include "../algorithms/apply_bulk_modifications.hpp"
+#include "../algorithms/count_walks.hpp"
+#include "../algorithms/strongly_connected_components.hpp"
+#include "../algorithms/a_star.hpp"
+#include "../algorithms/eades_algorithm.hpp"
+#include "../algorithms/shortest_cycle.hpp"
+#include "../algorithms/reverse_complement.hpp"
+#include "../algorithms/jump_along_path.hpp"
+#include "../algorithms/expand_context.hpp"
+#include "../algorithms/are_equivalent.hpp"
+#include "../algorithms/simplify_siblings.hpp"
+#include "../algorithms/unchop.hpp"
+#include "random_graph.hpp"
+#include "randomness.hpp"
+#include "../vg.hpp"
+#include "../xg.hpp"
+#include <bdsg/hash_graph.hpp>
+#include "vg/io/json2pb.h"
 
 
 using namespace google::protobuf;
@@ -4253,8 +4256,7 @@ TEST_CASE("apply_orientations works as expected", "[algorithms]") {
     Node* n4 = vg.create_node("A");
     Node* n5 = vg.create_node("A");
             
-    random_device rd;
-    default_random_engine prng(rd());
+    default_random_engine prng(test_seed_source());
             
     SECTION("apply_orientations works with random orientations") {
                 
@@ -5037,8 +5039,7 @@ TEST_CASE("A* search works on random graphs","[a-star][algorithms]") {
                     all_handles.push_back(handle);
                     total_seq_len += graph.get_length(handle) * 2;
                 });
-            random_device rd;
-            default_random_engine gen(rd());
+            default_random_engine gen(test_seed_source());
                     
             function<pos_t(void)> random_pos = [&](void) {
                 handle_t h = all_handles[uniform_int_distribution<int>(0, all_handles.size() - 1)(gen)];
@@ -5128,8 +5129,7 @@ TEST_CASE("A* search works on random graphs","[a-star][algorithms]") {
                     all_handles.push_back(handle);
                     total_seq_len += graph.get_length(handle) * 2;
                 });
-            random_device rd;
-            default_random_engine gen(rd());
+            default_random_engine gen(test_seed_source());
                     
             function<pos_t(void)> random_pos = [&](void) {
                 handle_t h = all_handles[uniform_int_distribution<int>(0, all_handles.size() - 1)(gen)];
@@ -5886,4 +5886,81 @@ TEST_CASE("expand_context behaves as expected","[algorithms][subgraph][expand_co
         REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
     }
 }
+
+TEST_CASE("simplify_siblings() works on a Z without breaking paths", "[algorithms][simplify_siblings]") {
+    VG graph;
+    
+    // Create handle 1: C
+    handle_t h1 = graph.create_handle("C", 1);
+    // Create handle 2: CA
+    handle_t h2 = graph.create_handle("CA", 2);
+    // Create handle 3: CG
+    handle_t h3 = graph.create_handle("CG", 3);
+    // Create handle 4: C
+    handle_t h4 = graph.create_handle("C", 4);
+    // Create edge 1+->2+
+    graph.create_edge(h1, h2);
+    // Create edge 1+->3+
+    graph.create_edge(h1, h3);
+    // Create edge 2-->4-
+    // This doubly reversing edge is the tricky part.
+    graph.create_edge(graph.flip(h2), graph.flip(h4));
+    // Create path x
+    path_handle_t p = graph.create_path_handle("x");
+    // Create step of x on 4+
+    graph.append_step(p, h4);
+    // Create step of x on 2+
+    graph.append_step(p, h2);
+    // Set circularity of x to 0
+    graph.set_circularity(p, false);
+    
+    // Make sure it can run without breaking this graph.
+    algorithms::simplify_siblings(&graph);
+    REQUIRE(graph.is_valid(true, true, true, true));
+}
+
+TEST_CASE("simplify_siblings() can actually merge some siblings", "[algorithms][simplify_siblings]") {
+    VG graph;
+    
+    handle_t h1 = graph.create_handle("GAT");
+    handle_t h2 = graph.create_handle("TAC");
+    handle_t h3 = graph.create_handle("TGC");
+    handle_t h4 = graph.create_handle("A");
+    
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h4);
+    graph.create_edge(h1, h3);
+    graph.create_edge(h3, h4);
+    
+    // Make sure it can simplify siblings OK.
+    bool worked = algorithms::simplify_siblings(&graph);
+    REQUIRE(graph.is_valid(true, true, true, true));
+    REQUIRE(worked);
+    
+    // Make sure it can do the other side, whichever side it did first
+    worked = algorithms::simplify_siblings(&graph);
+    REQUIRE(graph.is_valid(true, true, true, true));
+    REQUIRE(worked);
+    
+    // Make sure it doesn't have more to do
+    worked = algorithms::simplify_siblings(&graph);
+    REQUIRE(graph.is_valid(true, true, true, true));
+    REQUIRE(!worked);
+    
+    // Unchop to normalize
+    algorithms::unchop(&graph);
+    
+    // Make sure we have the right shape (just a SNP left).
+    REQUIRE(graph.get_node_count() == 4);
+    unordered_set<string> seqs;
+    graph.for_each_handle([&](const handle_t& h) {
+        seqs.insert(graph.get_sequence(h));
+    });
+    REQUIRE(seqs.count("GATT"));
+    REQUIRE(seqs.count("A"));
+    REQUIRE(seqs.count("G"));
+    REQUIRE(seqs.count("CA"));
+    REQUIRE(seqs.size() == 4);
+}
+
 }

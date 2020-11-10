@@ -27,6 +27,7 @@
 #include "snarls.hpp"
 #include "path_index.hpp"
 #include "genotypekit.hpp"
+#include "gbwt_helper.hpp"
 
 namespace vg {
 
@@ -179,10 +180,10 @@ public:
 };
 
 class PathBasedTraversalFinder : public TraversalFinder{
-    vg::VG& graph;
+    const PathHandleGraph& graph;
     SnarlManager& snarlmanager;
     public:
-    PathBasedTraversalFinder(vg::VG& graph, SnarlManager& sm);
+    PathBasedTraversalFinder(const PathHandleGraph& graph, SnarlManager& sm);
     virtual ~PathBasedTraversalFinder() = default;
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
@@ -416,13 +417,19 @@ protected:
 
     /// Use this method to prune the search space by selecting alt-alleles
     /// to skip by considering their paths (in SnarlTraversal) format
-    function<bool(const SnarlTraversal& alt_path)> skip_alt;
+    /// It will try again and again until enough traversals are pruned,
+    /// with iteration keeping track of how many tries (so it should become stricter
+    /// as iteration increases)
+    function<bool(const SnarlTraversal& alt_path, int iteration)> skip_alt;
 
     /// If a snarl has more than this many traversals, return nothing and print
     /// a warning.  Dense and large deletions will make this happen from time
     /// to time.  In practice, skip_alt (above) can be used to prune down
     /// the search space by selecting alleles to ignore.
     size_t max_traversal_cutoff;
+
+    /// Maximum number of pruning iterations
+    size_t max_prune_iterations = 2;
     
     /// Include snarl endpoints in traversals
     bool include_endpoints = true;
@@ -446,8 +453,8 @@ public:
                        const vector<string>& ref_path_names = {},
                        FastaReference* fasta_ref = nullptr,
                        FastaReference* ins_ref = nullptr,
-                       function<bool(const SnarlTraversal&)> skip_alt = nullptr,
-                       size_t max_traversal_cutoff = 500000);
+                       function<bool(const SnarlTraversal&, int)> skip_alt = nullptr,
+                       size_t max_traversal_cutoff = 50000);
         
     virtual ~VCFTraversalFinder();
     
@@ -550,6 +557,85 @@ protected:
      */
     pair<step_handle_t, bool> step_in_path(handle_t handle, path_handle_t path_handle) const;
                                 
+};
+
+/** Finds traversals with the most flow.  Node and edge weights are specified 
+ * using the callbacks and can be used, ex, to yield read supports.  
+ * If one traversal is requested, then the path with the highest flow (whose
+ * node or edge with the minimum weight is maximum) is returned.  If K
+ * traversals are specified, then the K highest flow traversals are returned.
+ * This is designed to be a replacement for RepresentativeTraversalFinder.
+ * It should do a better job of enumerating off-reference traversals, and will
+ * of course guarantee to return all the optimal traversals (in the context of max flow).
+ * Unlike RepresentativeTraversalFinder, it does not currently support nested
+ * snarls, so all traversals returned are explicit.  
+ * It is possible that it will blow up on massive snarls, espeically for large Ks. 
+ */ 
+class FlowTraversalFinder : public TraversalFinder {
+    
+protected:
+    const HandleGraph& graph;
+    
+    SnarlManager& snarl_manager;
+
+    /// The K-best traversals are returned
+    size_t K;
+
+    /// Callbacks to get supports
+    function<double(handle_t)> node_weight_callback;
+    function<double(edge_t)> edge_weight_callback;
+    
+public:
+    
+    // if path_names not empty, only those paths will be considered
+    FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
+                        size_t K,
+                        function<double(handle_t)> node_weight_callback,
+                        function<double(edge_t)> edge_weight_callback);
+
+    /**
+     * Return the K widest (most flow) traversals through the site
+     * The reference traversal will be returned first (regardless of its flow).
+     * After, the traversals are listed in decreasing order
+     */
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
+    /**
+     * Return the K widest traversals, along with their flows
+     */
+    virtual pair<vector<SnarlTraversal>, vector<double>> find_weighted_traversals(const Snarl& site,
+                                                                                  bool greedy_avg = false);
+
+    /// Set K
+    void setK(size_t k);
+
+};    
+
+/** Rerturn all traversals of a snarl that correspond to haplotypes stored in a GBWT
+ */
+class GBWTTraversalFinder : public TraversalFinder {
+
+protected:
+    
+    const HandleGraph& graph;
+    const gbwt::GBWT& gbwt;
+    
+public:
+    
+    GBWTTraversalFinder(const HandleGraph& graph, const gbwt::GBWT& gbwt);
+    
+    virtual ~GBWTTraversalFinder();
+
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
+protected:
+
+    /**
+     * Breadth first search from the start to the end, only branching if there's a haplotype 
+     * in the GBWT, and returning all unique haplotypes found. 
+     */
+    vector<vector<gbwt::node_type>> get_spanning_haplotypes(handle_t start, handle_t end);
+    
 };
 
 }

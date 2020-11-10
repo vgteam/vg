@@ -196,6 +196,16 @@ void Funnel::tag_correct(size_t item) {
     stages.back().has_correct = true;
 }
 
+bool Funnel::is_correct(size_t item) const {
+    return stages.back().items[item].correct;
+}
+
+bool Funnel::was_correct(size_t prev_stage_item) const {
+    assert(stages.size() > 1);
+    auto& prev_stage = stages[stages.size() - 2];
+    return prev_stage.items[prev_stage_item].correct;
+}
+
 string Funnel::last_correct_stage() const {
     // Just do a linear scan backward through stages
     for (auto it = stages.rbegin(); it != stages.rend(); ++it) {
@@ -384,6 +394,46 @@ void Funnel::to_dot(ostream& out) {
     }
 
     out << "}" << endl;
+}
+void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness) {
+    for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
+        // Save the number of items
+        set_annotation(aln, "stage_" + stage + "_results", (double)result_sizes.size());
+    });
+
+    if (annotate_correctness) {
+        // And with the last stage at which we had any descendants of the correct seed hit locations
+        set_annotation(aln, "last_correct_stage", last_correct_stage());
+    }
+    
+    // Annotate with the performances of all the filters
+    // We need to track filter number
+    size_t filter_num = 0;
+    for_each_filter([&](const string& stage, const string& filter,
+        const Funnel::FilterPerformance& by_count, const Funnel::FilterPerformance& by_size,
+        const vector<double>& filter_statistics_correct, const vector<double>& filter_statistics_non_correct) {
+
+            string filter_id = to_string(filter_num) + "_" + filter + "_" + stage;
+
+            // Save the stats
+            set_annotation(aln, "filter_" + filter_id + "_passed_count_total", (double) by_count.passing);
+            set_annotation(aln, "filter_" + filter_id + "_failed_count_total", (double) by_count.failing);
+            set_annotation(aln, "filter_" + filter_id + "_passed_size_total", (double) by_size.passing);
+            set_annotation(aln, "filter_" + filter_id + "_failed_size_total", (double) by_size.failing);
+            
+            if (annotate_correctness) {
+                set_annotation(aln, "filter_" + filter_id + "_passed_count_correct", (double) by_count.passing_correct);
+                set_annotation(aln, "filter_" + filter_id + "_failed_count_correct", (double) by_count.failing_correct);
+                set_annotation(aln, "filter_" + filter_id + "_passed_size_correct", (double) by_size.passing_correct);
+                set_annotation(aln, "filter_" + filter_id + "_failed_size_correct", (double) by_size.failing_correct);
+            }
+            
+            // Save the correct and non-correct filter statistics, even if
+            // everything is non-correct because correctness isn't computed
+            set_annotation(aln, "filterstats_" + filter_id + "_correct", filter_statistics_correct);
+            set_annotation(aln, "filterstats_" + filter_id + "_noncorrect", filter_statistics_non_correct);
+            filter_num++;
+        });
 }
 
 Funnel::Item& Funnel::get_item(size_t index) {

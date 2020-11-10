@@ -6,6 +6,8 @@
 #include "../vg.hpp"
 #include "../augment.hpp"
 #include "../utility.hpp"
+#include "../algorithms/unchop.hpp"
+#include "../algorithms/normalize.hpp"
 
 namespace vg {
 namespace unittest {
@@ -148,7 +150,7 @@ TEST_CASE("is_acyclic() should return whether the graph is acyclic", "[vg][cycle
 
 TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
    
-    unordered_map<id_t, pair<id_t, bool> > node_translation;
+    unordered_map<nid_t, pair<nid_t, bool> > node_translation;
    
     SECTION("a tiny DAG should remain unmodified") {
         const string graph_json = R"(
@@ -246,7 +248,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         VG graph = string_to_graph(graph_json);
         
-        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
         
         Graph& g = unfolded.graph;
@@ -261,7 +263,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         for (int i = 0; i < g.node_size(); i++) {
             const Node& n = g.node(i);
-            int64_t orig_id = node_translation[n.id()].first;
+            nid_t orig_id = node_translation[n.id()].first;
             if (orig_id == 1) {
                 found_node_1 = true;
             }
@@ -288,8 +290,8 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         for (int i = 0; i < g.edge_size(); i++) {
             const Edge& e = g.edge(i);
-            int64_t from = node_translation[e.from()].first;
-            int64_t to = node_translation[e.to()].first;
+            nid_t from = node_translation[e.from()].first;
+            nid_t to = node_translation[e.to()].first;
             Node& orig_from_node = *graph.get_node(from);
             Node& orig_to_node = *graph.get_node(to);
             Node& unfold_from_node = *unfolded.get_node(e.from());
@@ -375,7 +377,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         VG graph = string_to_graph(graph_json);
         
-        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
         
         Graph& g = unfolded.graph;
@@ -450,7 +452,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         VG graph = string_to_graph(graph_json);
         
-        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
         
         Graph& g = unfolded.graph;
@@ -458,14 +460,14 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         REQUIRE(g.node_size() == 4);
         REQUIRE(g.edge_size() == 4);
         
-        int64_t node_1 = 0;
-        int64_t node_2 = 0;
-        int64_t node_3 = 0;
-        int64_t node_4 = 0;
+        nid_t node_1 = 0;
+        nid_t node_2 = 0;
+        nid_t node_3 = 0;
+        nid_t node_4 = 0;
         
         for (int i = 0; i < g.node_size(); i++) {
             const Node& n = g.node(i);
-            int64_t orig_id = node_translation[n.id()].first;
+            nid_t orig_id = node_translation[n.id()].first;
             bool flipped =  node_translation[n.id()].second;
             if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
                 node_1 = n.id();
@@ -540,7 +542,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         VG graph = string_to_graph(graph_json);
         
-        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
         
         Graph& g = unfolded.graph;
@@ -548,20 +550,20 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         REQUIRE(g.node_size() == 10);
         REQUIRE(g.edge_size() == 10);
         
-        int64_t node_1 = 0;
-        int64_t node_2 = 0;
-        int64_t node_3 = 0;
-        int64_t node_4 = 0;
-        int64_t node_5 = 0;
-        int64_t node_6 = 0;
-        int64_t node_7 = 0;
-        int64_t node_8 = 0;
-        int64_t node_9 = 0;
-        int64_t node_10 = 0;
+        nid_t node_1 = 0;
+        nid_t node_2 = 0;
+        nid_t node_3 = 0;
+        nid_t node_4 = 0;
+        nid_t node_5 = 0;
+        nid_t node_6 = 0;
+        nid_t node_7 = 0;
+        nid_t node_8 = 0;
+        nid_t node_9 = 0;
+        nid_t node_10 = 0;
         
         for (int i = 0; i < g.node_size(); i++) {
             const Node& n = g.node(i);
-            int64_t orig_id = node_translation[n.id()].first;
+            nid_t orig_id = node_translation[n.id()].first;
             bool flipped =  node_translation[n.id()].second;
             if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
                 node_1 = n.id();
@@ -697,7 +699,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         VG graph = string_to_graph(graph_json);
         
-        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(10000, node_translation);
         
         Graph& g = unfolded.graph;
@@ -705,20 +707,20 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         REQUIRE(g.node_size() == 10);
         REQUIRE(g.edge_size() == 12);
         
-        int64_t node_1 = 0;
-        int64_t node_2 = 0;
-        int64_t node_3 = 0;
-        int64_t node_4 = 0;
-        int64_t node_5 = 0;
-        int64_t node_6 = 0;
-        int64_t node_7 = 0;
-        int64_t node_8 = 0;
-        int64_t node_9 = 0;
-        int64_t node_10 = 0;
+        nid_t node_1 = 0;
+        nid_t node_2 = 0;
+        nid_t node_3 = 0;
+        nid_t node_4 = 0;
+        nid_t node_5 = 0;
+        nid_t node_6 = 0;
+        nid_t node_7 = 0;
+        nid_t node_8 = 0;
+        nid_t node_9 = 0;
+        nid_t node_10 = 0;
         
         for (int i = 0; i < g.node_size(); i++) {
             const Node& n = g.node(i);
-            int64_t orig_id = node_translation[n.id()].first;
+            nid_t orig_id = node_translation[n.id()].first;
             bool flipped =  node_translation[n.id()].second;
             if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
                 node_1 = n.id();
@@ -865,7 +867,7 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         
         VG graph = string_to_graph(graph_json);
         
-        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        unordered_map<nid_t, pair<nid_t, bool> > node_translation;
         VG unfolded = graph.unfold(2, node_translation);
         
         Graph& g = unfolded.graph;
@@ -873,18 +875,18 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
         REQUIRE(g.node_size() == 8);
         REQUIRE(g.edge_size() == 8);
         
-        int64_t node_1 = 0;
-        int64_t node_2 = 0;
-        int64_t node_3 = 0;
-        int64_t node_4 = 0;
-        int64_t node_5 = 0;
-        int64_t node_6 = 0;
-        int64_t node_7 = 0;
-        int64_t node_8 = 0;
+        nid_t node_1 = 0;
+        nid_t node_2 = 0;
+        nid_t node_3 = 0;
+        nid_t node_4 = 0;
+        nid_t node_5 = 0;
+        nid_t node_6 = 0;
+        nid_t node_7 = 0;
+        nid_t node_8 = 0;
         
         for (int i = 0; i < g.node_size(); i++) {
             const Node& n = g.node(i);
-            int64_t orig_id = node_translation[n.id()].first;
+            nid_t orig_id = node_translation[n.id()].first;
             bool flipped =  node_translation[n.id()].second;
             if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
                 node_1 = n.id();
@@ -1474,7 +1476,7 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         
         VG graph = string_to_graph(graph_json);
         graph.bluntify();
-        graph.unchop();
+        algorithms::unchop(&graph);
         
         SECTION("the unchopped bluntified graph should have one node") {
             REQUIRE(graph.node_count() == 1);
@@ -1563,14 +1565,14 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     // First prepare the various state things we need to pass
     
     // This can be empty if no changes have been made yet
-    map<pos_t, id_t> node_translation;
+    map<pos_t, nid_t> node_translation;
     // As can this
-    unordered_map<pair<pos_t, string>, vector<id_t>> added_seqs;
+    unordered_map<pair<pos_t, string>, vector<nid_t>> added_seqs;
     // And this
-    unordered_map<id_t, Path> added_nodes;
+    unordered_map<nid_t, Path> added_nodes;
     
     // This actually needs to be filled in
-    unordered_map<id_t, size_t> orig_node_sizes;
+    unordered_map<nid_t, size_t> orig_node_sizes;
     graph.for_each_node([&](Node* node) {
         orig_node_sizes[node->id()] = node->sequence().size();
     });
@@ -1742,7 +1744,7 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
         vg.create_edge(n6, n4, true, true);
         vg.create_edge(n3, n6);
       
-        unordered_map<int64_t, pair<int64_t, bool>> trans;
+        unordered_map<nid_t, pair<nid_t, bool>> trans;
         VG rev = vg.reverse_complement_graph(trans);
         
         REQUIRE(trans.size() == rev.graph.node_size());
@@ -1753,11 +1755,11 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
             Node* orig_node = vg.get_node(trans[node.id()].first);
             REQUIRE(reverse_complement(node.sequence()) == orig_node->sequence());
             
-            vector<pair<int64_t, bool>> start_edges = vg.edges_start(orig_node);
-            vector<pair<int64_t, bool>> end_edges = vg.edges_end(orig_node);
+            vector<pair<nid_t, bool>> start_edges = vg.edges_start(orig_node);
+            vector<pair<nid_t, bool>> end_edges = vg.edges_end(orig_node);
             
-            vector<pair<int64_t, bool>> rev_start_edges = rev.edges_start(node.id());
-            vector<pair<int64_t, bool>> rev_end_edges = rev.edges_end(node.id());
+            vector<pair<nid_t, bool>> rev_start_edges = rev.edges_start(node.id());
+            vector<pair<nid_t, bool>> rev_end_edges = rev.edges_end(node.id());
             
             REQUIRE(start_edges.size() == rev_end_edges.size());
             REQUIRE(end_edges.size() == rev_start_edges.size());
@@ -1797,7 +1799,7 @@ TEST_CASE("find_breakpoints() should determine where the graph needs to break to
     // We will find breakpoints for a path
     Path path;
     // And store them here.
-    unordered_map<id_t, set<pos_t>> breakpoints;
+    unordered_map<nid_t, set<pos_t>> breakpoints;
     
     SECTION("find_breakpoints() works on a single edit perfect match") {
         
@@ -1870,7 +1872,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
         )";
         
         VG graph = string_to_graph(graph_json);
-        graph.normalize();
+        algorithms::normalize(&graph);
         
         // One of the two alternative Ts should have been eliminated
         REQUIRE(graph.get_node_count() == 4);
@@ -1901,7 +1903,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
         )";
         
         VG graph = string_to_graph(graph_json);
-        graph.normalize();
+        algorithms::normalize(&graph);
         
         // Those duplicate Ts should be eliminated
         REQUIRE(graph.length() == 13);
@@ -1935,7 +1937,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
         )";
         
         VG graph = string_to_graph(graph_json);
-        graph.normalize();
+        algorithms::normalize(&graph);
         
         // Those duplicate Ts and Gs should be eliminated
         REQUIRE(graph.length() == 14);
@@ -1969,7 +1971,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
         )";
         
         VG graph = string_to_graph(graph_json);
-        graph.normalize();
+        algorithms::normalize(&graph);
         
         // Those duplicate Ts and Gs should be eliminated
         REQUIRE(graph.length() == 14);
@@ -2007,7 +2009,7 @@ TEST_CASE("normalize() can join nodes and merge siblings when nodes are backward
         )";
         
         VG graph = string_to_graph(graph_json);
-        graph.normalize();
+        algorithms::normalize(&graph);
         
         // Those duplicate Ts (actually As) should be eliminated
         REQUIRE(graph.length() == 13);
@@ -2046,7 +2048,7 @@ TEST_CASE("normalize() can join nodes and merge siblings when nodes are backward
         )";
         
         VG graph = string_to_graph(graph_json);
-        graph.normalize();
+        algorithms::normalize(&graph);
         
         // Those duplicate Ts (actually As) and Gs (actually Cs) should be eliminated
         REQUIRE(graph.length() == 11);

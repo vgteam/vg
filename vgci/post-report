@@ -211,10 +211,12 @@ cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g" | tee processed.md
 
 if [ ! -z "${CI}" ]; then
     # On cloud CI, so actually post a comment
-    
+	 
+	 pip install pygithub
+	 
     # Comment on the commit we built.
     # We don't have a good way to know if there is an open PR for it, and there might be more than one maybe.
-    vgci/post-comment.py vgteam/vg --in_file processed.md --commit "${CI_COMMIT_SHA}" || true 
+    python3 vgci/post-comment.py vgteam/vg --in_file processed.md --commit "${CI_COMMIT_SHA}" || true 
     
     if [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
         # Normal master build

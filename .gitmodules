@@ -1,12 +1,12 @@
 [submodule "vcflib"]
 	path = deps/vcflib
-	url = https://github.com/vgteam/vcflib.git
+	url = https://github.com/vcflib/vcflib.git
 [submodule "fastahack"]
 	path = deps/fastahack
 	url = https://github.com/vgteam/fastahack.git
 [submodule "gssw"]
 	path = deps/gssw
-	url = https://github.com/ekg/gssw.git
+	url = https://github.com/vgteam/gssw.git
 [submodule "bash-tap"]
 	path = deps/bash-tap
 	url = https://github.com/illusori/bash-tap.git
@@ -16,9 +16,6 @@
 [submodule "lru_cache"]
 	path = deps/lru_cache
 	url = https://github.com/ekg/lru_cache.git
-[submodule "htslib"]
-	path = deps/htslib
-	url = https://github.com/vgteam/htslib.git
 [submodule "sha1"]
 	path = deps/sha1
 	url = https://github.com/vog/sha1.git
@@ -122,6 +119,6 @@
 [submodule "deps/mmmultimap"]
 	path = deps/mmmultimap
 	url = https://github.com/ekg/mmmultimap.git
-[submodule "deps/BBHash"]
+[submodule "vgteam_bbhash"]
 	path = deps/BBHash
-	url = https://github.com/rizkg/BBHash.git
+	url = https://github.com/vgteam/BBHash.git

@@ -1,6 +1,7 @@
 #include <cstdint>
 #include "variant_recall.hpp"
 #include "algorithms/topological_sort.hpp"
+#include "cactus_snarl_finder.hpp"
 #include "traversal_finder.hpp"
 #include "augment.hpp"
 #include "xg.hpp"
@@ -70,14 +71,14 @@ void genotype_svs(VG* graph,
     vg::io::for_each_interleaved_pair_parallel(gamstream, readfunc);
     vector<Translation> transls;
     if (refpath != ""){
-        augment(graph, direct_ins, &transls);
+        augment(graph, direct_ins, "GAM", &transls);
 
         XG xg_index;
         xg_index.from_path_handle_graph(*graph); // Index the graph so deconstruct can get path positions
         Deconstructor decon;
         CactusSnarlFinder finder(xg_index);
         SnarlManager snarl_manager = finder.find_snarls();
-        decon.deconstruct({refpath}, &xg_index, &snarl_manager, false);
+        decon.deconstruct({refpath}, &xg_index, &snarl_manager, false, 1, false);
     }
     direct_ins.clear();
 
@@ -368,7 +369,7 @@ void variant_recall(VG* graph,
     else{
         Index gamindex;
         gamindex.open_read_only(gamfile);
-        vector<int64_t> vn(variant_nodes.begin(), variant_nodes.end());
+        vector<nid_t> vn(variant_nodes.begin(), variant_nodes.end());
         gamindex.for_alignment_to_nodes(vn, index_incr);
     }
 

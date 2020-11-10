@@ -17,7 +17,15 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_packed_graph() {
-  Registry::register_bare_loader_saver<bdsg::PackedGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("PackedGraph", [](istream& input) -> void* {
+
+    // Convert the PackedGraph SerializableHandleGraph magic number to a string
+    bdsg::PackedGraph empty;
+    // Make sure it is in network byte order
+    uint32_t new_magic_number = htonl(empty.get_magic_number());
+    // Load all 4 characters of it into a string
+    string new_magic((char*)&new_magic_number, 4);
+    
+    Registry::register_bare_loader_saver_with_magic<bdsg::PackedGraph, MutablePathDeletableHandleGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("PackedGraph", new_magic, [](istream& input) -> void* {
         // Allocate a PackedGraph
          bdsg::PackedGraph* packed_graph = new bdsg::PackedGraph();
         

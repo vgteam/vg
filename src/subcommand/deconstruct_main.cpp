@@ -14,9 +14,10 @@
 
 #include "../vg.hpp"
 #include "../deconstructor.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -26,13 +27,15 @@ void help_deconstruct(char** argv){
     cerr << "usage: " << argv[0] << " deconstruct [options] [-p|-P] <PATH> <GRAPH>" << endl
          << "Outputs VCF records for Snarls present in a graph (relative to a chosen reference path)." << endl
          << "options: " << endl
-         << "    -p, --path NAME        A reference path to deconstruct against (comma-separated list accepted)." << endl
-         << "    -P, --path-prefix NAME All paths beginning with NAME used as reference (comma-separated list accepted)." << endl
-         << "    -A, --alt-prefix NAME  Non-reference paths beginning with NAME get lumped together to same sample in VCF (comma-separated list accepted)." << endl
-         << "    -r, --snarls FILE      Snarls file (from vg snarls) to avoid recomputing." << endl
-         << "    -e, --path-traversals  Only consider traversals that correspond to paths in the grpah." << endl
-         << "    -t, --threads N        Use N threads" << endl
-         << "    -v, --verbose          Print some status messages" << endl
+         << "    -p, --path NAME          A reference path to deconstruct against (multiple allowed)." << endl
+         << "    -P, --path-prefix NAME   All paths beginning with NAME used as reference (multiple allowed)." << endl
+         << "    -A, --alt-prefix NAME    Non-reference paths beginning with NAME get lumped together to same sample in VCF (multiple allowed).  Other non-ref paths not considered as samples." << endl
+         << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
+         << "    -e, --path-traversals    Only consider traversals that correspond to paths in the grpah." << endl
+         << "    -a, --all-snarls         Process all snarls, including nested snarls (by default only top-level snarls reported)." << endl
+         << "    -d, --ploidy N           Expected ploidy.  If more traversals found, they will be flagged as conflicts (default: 2)" << endl
+         << "    -t, --threads N          Use N threads" << endl
+         << "    -v, --verbose            Print some status messages" << endl
          << endl;
 }
 
@@ -49,6 +52,8 @@ int main_deconstruct(int argc, char** argv){
     string snarl_file_name;
     bool path_restricted_traversals = false;
     bool show_progress = false;
+    int ploidy = 2;
+    bool all_snarls = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -61,6 +66,8 @@ int main_deconstruct(int argc, char** argv){
                 {"alt-prefix", required_argument, 0, 'A'},
                 {"snarls", required_argument, 0, 'r'},
                 {"path-traversals", no_argument, 0, 'e'},
+                {"ploidy", required_argument, 0, 'd'},
+                {"all-snarls", no_argument, 0, 'a'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
@@ -68,7 +75,7 @@ int main_deconstruct(int argc, char** argv){
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:A:r:et:v",
+        c = getopt_long (argc, argv, "hp:P:A:r:ed:at:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -78,19 +85,25 @@ int main_deconstruct(int argc, char** argv){
         switch (c)
         {
         case 'p':
-            refpaths = split(optarg, ",");
+            refpaths.push_back(optarg);
             break;
         case 'P':
-            refpath_prefixes = split(optarg, ",");
+            refpath_prefixes.push_back(optarg);
             break;
         case 'A':
-            altpath_prefixes = split(optarg, ",");
-            break;            
+            altpath_prefixes.push_back(optarg);
+            break;
         case 'r':
             snarl_file_name = optarg;
             break;
         case 'e':
             path_restricted_traversals = true;
+            break;
+        case 'd':
+            ploidy = parse<int>(optarg);
+            break;
+        case 'a':
+            all_snarls = true;
             break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
@@ -117,7 +130,7 @@ int main_deconstruct(int argc, char** argv){
     if (!altpath_prefixes.empty() && !path_restricted_traversals) {
         cerr << "Error [vg decontruct]: -A can only be used with -e" << endl;
     }
-    
+
     // Read the graph
     unique_ptr<PathHandleGraph> path_handle_graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
@@ -140,18 +153,18 @@ int main_deconstruct(int argc, char** argv){
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
     } else {
-        CactusSnarlFinder finder(*graph);
+        IntegratedSnarlFinder finder(*graph);
         if (show_progress) {
             cerr << "Finding snarls" << endl;
         }
-        snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls())));
+        snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
 
     // We use this to map, for example, from chromosome to genome (eg S288C.chrXVI --> S288C)
     unordered_map<string, string> alt_path_to_prefix;
     
     // process the prefixes
-    if (!refpath_prefixes.empty()) {
+    if (!refpath_prefixes.empty() || !altpath_prefixes.empty()) {
         graph->for_each_path_handle([&](const path_handle_t& path_handle) {
                 string path_name = graph->get_path_name(path_handle);
                 bool is_ref = false;
@@ -188,7 +201,7 @@ int main_deconstruct(int argc, char** argv){
     if (show_progress) {
         cerr << "Decsontructing top-level snarls" << endl;
     }
-    dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals,
+    dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy, all_snarls,
                    !alt_path_to_prefix.empty() ? &alt_path_to_prefix : nullptr);
     return 0;
 }

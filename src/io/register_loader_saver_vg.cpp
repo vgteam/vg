@@ -4,6 +4,7 @@
  */
 
 #include <vg/io/registry.hpp>
+#include <vg/io/protobuf_iterator.hpp>
 #include "register_loader_saver_vg.hpp"
 
 #include "../vg.hpp"
@@ -17,7 +18,7 @@ using namespace vg::io;
 
 void register_loader_saver_vg() {
     // We register for "" so we can handle untagged old-style vg files and make them into HandleGraphs
-    Registry::register_loader_saver<VG, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>(vector<string>{"VG", ""},
+    Registry::register_loader_saver<VG>(vector<string>{"VG", ""},
         [](const message_sender_function_t& for_each_message) -> void* {
         // We have a bit of a control problem.
         // The source function wants to drive; we give it a function of strings, and it calls it with all the strings in turn.
@@ -31,7 +32,7 @@ void register_loader_saver_vg() {
             for_each_message([&](const string& serialized_graph) {
                 // Parse the message to a Graph
                 Graph g;
-                if (!g.ParseFromString(serialized_graph)) {
+                if (!ProtobufIterator<Graph>::parse_from_string(g, serialized_graph)) {
                     // Handle bad graphs.
                     // TODO: make this an exception if we ever want to be allowed to continue from this.
                     cerr << "error[register_loader_saver_vg]: invalid Graph message" << endl;

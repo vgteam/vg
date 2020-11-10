@@ -67,26 +67,33 @@ is "$?" 0 "deconstruct correctly handles a simple inversion when the reference c
 rm -f inv.gfa inv.vg inv.xg inv_decon.vcf inv_decon.tsv inv_truth.tsv
 
 
+vg construct -v small/x.vcf.gz -r small/x.fa | vg view -g - > cyclic_small.gfa
+ printf "L\t33\t+\t30\t+\t0M\n" >> cyclic_small.gfa
+ printf "P\ty\t1+,3+,5+,6+,8+,9+,11+,12+,14+,15+,17+,18+,20+,21+,23+,24+,26+,27+,29+,30+,32+,33+,30+,31+,33+,35+,36+,38+,40+,41+,43+,44+,46+,47+,49+,50+,52+,53+,55+,56+,57+,60+,61+,62+,64+,65+,67+,68+,70+,71+,73+,74+,76+,78+,79+,81+,83+,84+,86+,87+,89+,90+,92+,94+,95+,97+,98+,100+,101+,102+,103+,104+,106+,107+,109+,110+,112+,114+,115+,117+,118+,120+,122+,123+,124+,126+,127+,129+,130+,132+,133+,135+,136+,137+,139+,141+,142+,144+,145+,147+,148+,149+,151+,152+,154+,155+,157+,158+,159+,160+,162+,163+,165+,166+,168+,169+,171+,172+,174+,176+,177+,179+,181+,182+,184+,185+,187+,188+,190+,191+,193+,195+,196+,198+,199+,201+,202+,204+,205+,206+,207+,209+,210+,211+,212+,214+,215+\t8M,1M,1M,3M,1M,19M,1M,4M,1M,12M,1M,6M,32M,9M,1M,2M,1M,18M,1M,19M,1M,17M,19M,1M,17M,1M,12M,5M,1M,8M,1M,12M,1M,3M,1M,13M,1M,2M,1M,32M,18M,1M,1M,3M,1M,9M,1M,6M,1M,2M,1M,14M,1M,1M,32M,1M,1M,5M,1M,19M,1M,23M,1M,1M,6M,1M,2M,1M,32M,26M,1M,6M,1M,14M,1M,11M,22M,1M,9M,1M,20M,12M,1M,32M,30M,1M,17M,1M,6M,1M,14M,1M,1M,11M,6M,1M,9M,1M,15M,1M,32M,10M,1M,17M,1M,1M,1M,12M,1M,4M,1M,17M,1M,9M,1M,3M,1M,30M,1M,1M,1M,16M,1M,10M,1M,10M,1M,1M,1M,14M,1M,1M,5M,1M,1M,1M,3M,1M,10M,1M,4M,1M,27M,2M,25M,1M,1M\n" >> cyclic_small.gfa
+vg view -Fv cyclic_small.gfa > cyclic_small.vg
+vg index cyclic_small.vg -x cyclic_small.xg
+vg deconstruct cyclic_small.xg -p y -e > cyclic_small_decon.vcf
+grep -v "#" cyclic_small_decon.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > cyclic_small_decon.tsv
+printf "y\t121\tTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAACGTTTGACAATCTATCACCAGGGGTAATGTGGGGAAA\tTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA\t1\n" > cyclic_small_truth.tsv
+diff cyclic_small_decon.tsv cyclic_small_truth.tsv
+is "$?" 0 "deconstruct correctly handles a cycle in the reference path when contained inside snarl"
+
+rm -f cyclic_small_decon.vcf cyclic_small_decon.tsv cyclic_small_truth.tsv
+
+vg deconstruct cyclic_small.xg -p x -e > cyclic_small_decon.vcf
+grep -v "#" cyclic_small_decon.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > cyclic_small_decon.tsv
+printf "x\t121\tTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA\tTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAACGTTTGACAATCTATCACCAGGGGTAATGTGGGGAAA\t1\n" > cyclic_small_truth.tsv
+diff cyclic_small_decon.tsv cyclic_small_truth.tsv
+is "$?" 0 "deconstruct correctly handles a cycle in the alt path"
+
+rm -f cyclic_small_decon.vcf cyclic_small_decon.tsv cyclic_small_truth.tsv cyclic_small.gfa cyclic_small.vg cyclic_small.xg
+
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg view -g - > cyclic_tiny.gfa
 printf "L\t12\t+\t9\t+\t0M\n" >> cyclic_tiny.gfa
 printf "P\ty\t1+,3+,5+,6+,8+,9+,11+,12+,9+,10+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,19M,1M,4M,1M,11M\n" >> cyclic_tiny.gfa
 vg view -Fv cyclic_tiny.gfa > cyclic_tiny.vg
 vg index cyclic_tiny.vg -x cyclic_tiny.xg
-vg deconstruct cyclic_tiny.xg -p y -e > cyclic_tiny_decon.vcf
-grep -v "#" cyclic_tiny_decon.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > cyclic_tiny_decon.tsv
-printf "y\t13\tGGAAATTTTCTGGAGTTCTATTATATAAATTTTCTGGAGTTCTATAATATT\tGGAAATTTTCTGGAGTTCTATTATATT\t1\n" > cyclic_tiny_truth.tsv
-diff cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
-is "$?" 0 "deconstruct correctly handles a cycle in the reference path when contained inside snarl"
-
-rm -f cyclic_tiny_decon.vcf cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
-
-vg deconstruct cyclic_tiny.xg -p x -e > cyclic_tiny_decon.vcf
-grep -v "#" cyclic_tiny_decon.vcf | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > cyclic_tiny_decon.tsv
-printf "x\t13\tGGAAATTTTCTGGAGTTCTATTATATT\tGGAAATTTTCTGGAGTTCTATTATATAAATTTTCTGGAGTTCTATAATATT\t1\n" > cyclic_tiny_truth.tsv
-diff cyclic_tiny_decon.tsv cyclic_tiny_truth.tsv
-is "$?" 0 "deconstruct correctly handles a cycle in the alt path"
-
-vg chunk -x cyclic_tiny.xg -r 10:15 -c 1 > cycle.vg
+vg find -x cyclic_tiny.xg  -n 10 -n 11 -n 12 -n 13 -n 14 -n 15 -c 1 > cycle.vg
 vg index cycle.vg -x cycle.xg
 vg deconstruct cycle.xg -p y -e -t 1 > cycle_decon.vcf
 is $(grep -v "#" cycle_decon.vcf | wc -l) 2 "cyclic reference deconstruction has correct number of variants"
@@ -108,11 +115,11 @@ printf "P\talt2.3\t1+,2+,4+,6+,8+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1
 printf "P\talt2.3\t1+,2+,4+,6+,8+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1M,11M\n" >> tiny_names.gfa
 vg view -Fv tiny_names.gfa > tiny_names.vg
 vg index tiny_names.vg -x tiny_names.xg
-vg deconstruct tiny_names.xg -P ref -A alt1,alt2 -e > tiny_names_decon.vcf
+vg deconstruct tiny_names.xg -P ref -A alt1 -A alt2 -e -d 1 | sort > tiny_names_decon.vcf
 is $(grep -v "#" tiny_names_decon.vcf | wc -l) 2 "-P -A options return correct number of variants"
 is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | wc -l) 2 "-P -A options use correct reference name"
 is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | grep 14 | grep "CONFLICT=alt1" | wc -l) 1 "-P -A identifies conflict in alt1 in second variant"
-vg deconstruct tiny_names.vg -P ref -A alt1,alt2 -e > tiny_names_decon_vg.vcf
+vg deconstruct tiny_names.vg -P ref -A alt1 -A alt2 -e -d 1 | sort > tiny_names_decon_vg.vcf
 diff tiny_names_decon.vcf tiny_names_decon_vg.vcf
 is "$?" 0 "deconstructing vg graph gives same output as xg graph"
 

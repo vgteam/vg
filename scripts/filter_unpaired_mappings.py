@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # filter_unpaired_mappings.py: Filter alignments so that every pair of lines represents a valid read pair
 """
 
@@ -112,8 +112,8 @@ def filter_json_gam(options):
             first_record = gam
         elif 'fragment_prev' in gam and first_record and gam['fragment_prev']['name'] == first_record['name']:
             assert first_record['fragment_next']['name'] == gam['name']
-            print json.dumps(first_record)
-            print json.dumps(gam)
+            print(json.dumps(first_record))
+            print(json.dumps(gam))
             num_written += 2
         elif 'fragment_next' not in gam and 'fragment_prev' not in gam:
             raise RuntimeError('fragment_prev/next not set for record: {}'.format(json.dumps(gam)))

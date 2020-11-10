@@ -139,13 +139,17 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
         if (sample_to_traversals.count(sample_name)) {
             const vector<int>& travs = sample_to_traversals[sample_name];
             assert(!travs.empty());
-            int chosen_trav;
+            vector<int> chosen_travs;
             bool conflict;
-            std::tie(chosen_trav, conflict) = choose_traversal(travs, trav_to_allele, names);
+            std::tie(chosen_travs, conflict) = choose_traversals(travs, trav_to_allele, names);
             if (conflict) {
                 conflicts.insert(sample_name);
             }
-            v.samples[sample_name]["GT"] = {std::to_string(trav_to_allele[chosen_trav])};
+            string genotype = std::to_string(trav_to_allele[chosen_travs[0]]);
+            for (int i = 1; i < chosen_travs.size(); ++i) {
+                genotype += "/" + std::to_string(trav_to_allele[chosen_travs[i]]);
+            }
+            v.samples[sample_name]["GT"] = {genotype};
             if (path_to_sample) {
                 for (auto trav : travs) {
                     v.samples[sample_name]["PI"].push_back(names[trav] + "=" + std::to_string(trav_to_allele[trav]));
@@ -163,32 +167,45 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
     }
 }
 
-pair<int, bool> Deconstructor::choose_traversal(const vector<int>& travs, const vector<int>& trav_to_allele,
-                                                const vector<string>& trav_to_name) {
+pair<vector<int>, bool> Deconstructor::choose_traversals(const vector<int>& travs, const vector<int>& trav_to_allele,
+                                                         const vector<string>& trav_to_name) {
     assert(!travs.empty());
-    vector<int> frequencies(trav_to_allele.size(), 0);
+    // count the number of times each allele comes up in a traversal
+    vector<int> allele_frequencies(trav_to_allele.size(), 0);
     for (auto trav : travs) {
-        ++frequencies[trav];
+        ++allele_frequencies[trav_to_allele[trav]];
     }
-
-    int most_frequent = -1;
-    bool conflict = false;
-
-    for (auto trav: travs) {
-        if (most_frequent == -1 ||
+    // sort on frquency
+    function<bool(int, int)> comp = [&] (int trav1, int trav2) {
+        if (allele_frequencies[trav_to_allele[trav1]] < allele_frequencies[trav_to_allele[trav2]]) {
+            return true;
+        } else if (allele_frequencies[trav_to_allele[trav1]] == allele_frequencies[trav_to_allele[trav2]]) {
             // prefer non-ref when possible
-            (trav_to_allele[most_frequent] == 0 && trav_to_allele[trav] != 0) ||
-            // otherwise use frequency
-            (((trav_to_allele[most_frequent] == 0) == (trav_to_allele[trav] == 0)) &&
-             (frequencies[trav] > frequencies[most_frequent] ||
-              // break frequency tie using lex order on path name
-              (frequencies[trav] == frequencies[most_frequent] && trav_to_name[trav] < trav_to_name[most_frequent])))) {
-            most_frequent = trav;
+            if (trav_to_allele[trav1] == 0 && trav_to_allele[trav2] != 0) {
+                return true;
+            }
+            // or break tie using lex order on path name
+            else {
+                return trav_to_name[trav1] < trav_to_name[trav2];
+            }
+        } else {
+            return false;
         }
-        conflict = conflict || trav_to_allele[trav] != trav_to_allele[travs[0]];
+    };
+    vector<int> sorted_travs = travs;
+    std::sort(sorted_travs.begin(), sorted_travs.end());
+    
+    // find the <ploidy> most frequent traversals
+    vector<int> most_frequent_travs;
+    for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < ploidy; --i) {
+        most_frequent_travs.push_back(sorted_travs[i]);
     }
 
-    return make_pair(most_frequent, conflict);
+    // check if there's a conflict
+    size_t zero_count = std::count(allele_frequencies.begin(), allele_frequencies.end(), 0);
+    bool conflict = allele_frequencies.size() - zero_count > ploidy;
+
+    return make_pair(most_frequent_travs, conflict);
 }
     
 bool Deconstructor::deconstruct_site(const Snarl* snarl) {
@@ -329,6 +346,8 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         first_path_pos += 1;
 
         v.position = first_path_pos;
+
+        v.id = std::to_string(snarl->start().node_id()) + "_" + std::to_string(snarl->end().node_id());
         
         // Convert the snarl traversals to strings and add them to the variant
         vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx, prev_char, use_start);
@@ -353,12 +372,13 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
  * Convenience wrapper function for deconstruction of multiple paths.
  */
 void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
-                                bool path_restricted_traversals,
+                                bool path_restricted_traversals, int ploidy, bool include_nested,
                                 const unordered_map<string, string>* path_to_sample) {
 
     this->graph = graph;
     this->snarl_manager = snarl_manager;
     this->path_restricted = path_restricted_traversals;
+    this->ploidy =ploidy;
     this->path_to_sample = path_to_sample;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
     assert(path_to_sample == nullptr || path_restricted);
@@ -369,8 +389,11 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
             string path_name = graph->get_path_name(path_handle);
             if (!this->ref_paths.count(path_name)) {
                 // rely on the given map.  if a path isn't in it, it'll be ignored
-                if (path_to_sample && path_to_sample->count(path_name)) {
-                    sample_names.insert(path_to_sample->find(path_name)->second);
+                if (path_to_sample) {
+                    if (path_to_sample->count(path_name)) {
+                        sample_names.insert(path_to_sample->find(path_name)->second);
+                    }
+                    // if we have the map, we only consider paths there-in
                 }
                 else {
                     // no name mapping, just use every path as is
@@ -430,7 +453,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                     // if we can't make a variant from the snarl due to not finding
                     // paths through it, we try again on the children
                     // note: we may want to push the parallelism down a bit 
-                    if (!deconstruct_site(next_snarl)) {
+                    if (!deconstruct_site(next_snarl) || include_nested) {
                         const vector<const Snarl*>& children = snarl_manager->children_of(next_snarl);
                         next.insert(next.end(), children.begin(), children.end());
                     }

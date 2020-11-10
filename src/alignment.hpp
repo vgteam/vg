@@ -8,12 +8,13 @@
 #include "path.hpp"
 #include "position.hpp"
 #include <vg/vg.pb.h>
-#include "edit.hpp"
+#include "vg/io/edit.hpp"
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
 #include "htslib/sam.h"
 #include "htslib/vcf.h"
 #include "handle.hpp"
+#include "vg/io/alignment_io.hpp"
 
 namespace vg {
 
@@ -26,6 +27,8 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda,
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
                           const PathPositionHandleGraph* graph);
 int fastq_for_each(string& filename, function<void(Alignment&)> lambda);
+
+// fastq
 bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment);
 bool get_next_interleaved_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2);
 bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, size_t len, Alignment& mate1, Alignment& mate2);
@@ -53,8 +56,11 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
-                             map<string, int64_t>& path_length,
-                             map<string, string>& rg_sample);
+                             const map<string, int64_t>& path_length,
+                             const map<string, string>& rg_sample);
+bam_hdr_t* hts_string_header(string& header,
+                             const vector<pair<string, int64_t>>& path_order_and_length,
+                             const map<string, string>& rg_sample);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
@@ -68,6 +74,38 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, cons
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
 
 /**
+ * Add a CIGAR operation to a vector representing the parsed CIGAR string.
+ *
+ * Coalesces adjacent operations of the same type. Coalesces runs of inserts
+ * and deletes into a signle delete followed by a single insert.
+ */
+inline void append_cigar_operation(const int length, const char operation, vector<pair<int, char>>& cigar) {
+    if (cigar.empty()) {
+        // Always append to an empty CIGAR
+        cigar.emplace_back(length, operation);
+    } else if (operation != cigar.back().second) {
+        // We have changed operations
+        if (operation == 'D' && cigar.back().second == 'I') {
+            // This deletion needs to come before the adjacent insertion
+            if (cigar.size() > 1 && cigar[cigar.size() - 2].second == 'D') {
+                // Add to the deletion that laready exists before the insertion
+                cigar[cigar.size() - 2].first += length;
+            } else {
+                // Create a new deletion
+                cigar.emplace_back(length, operation);
+                // Put it under the insertion
+                std::swap(cigar[cigar.size() - 2], cigar.back());
+            }
+        } else {
+            // This is an ordinary change of operations.
+            cigar.emplace_back(length, operation);
+        }
+    } else {
+        cigar.back().first += length;
+    }
+}
+
+/**
  * Convert a paired Alignment to a BAM record. If the alignment is unmapped,
  * refpos must be -1. Otherwise, refpos must be the position on the reference
  * sequence to which the alignment is aligned. Similarly, refseq must be the
@@ -78,7 +116,7 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
  *
  * Remember to clean up with bam_destroy1(b);
  */
-bam1_t* alignment_to_bam(const string& sam_header,
+bam1_t* alignment_to_bam(bam_hdr_t* bam_header,
                          const Alignment& alignment,
                          const string& refseq,
                          const int32_t refpos,
@@ -98,12 +136,12 @@ bam1_t* alignment_to_bam(const string& sam_header,
  *
  * Remember to clean up with bam_destroy1(b);
  */
-bam1_t* alignment_to_bam(const string& sam_header,
-                        const Alignment& alignment,
-                        const string& refseq,
-                        const int32_t refpos,
-                        const bool refrev,
-                        const vector<pair<int, char>>& cigar);
+bam1_t* alignment_to_bam(bam_hdr_t* bam_header,
+                         const Alignment& alignment,
+                         const string& refseq,
+                         const int32_t refpos,
+                         const bool refrev,
+                         const vector<pair<int, char>>& cigar);
                          
 /**
  * Convert a paired Alignment to a SAM record. If the alignment is unmapped,
@@ -138,6 +176,17 @@ string alignment_to_sam(const Alignment& alignment,
                         const vector<pair<int, char>>& cigar);
                         
 
+/// Returns the SAM bit-coded flag for alignment with
+int32_t determine_flag(const Alignment& alignment,
+                       const string& refseq,
+                       const int32_t refpos,
+                       const bool refrev,
+                       const string& mateseq,
+                       const int32_t matepos,
+                       bool materev,
+                       const int32_t tlen,
+                       bool paired,
+                       const int32_t tlen_max);
 
 /// Create a CIGAR from the given Alignment. If softclip_suppress is nonzero,
 /// suppress softclips up to that length. This will necessitate adjusting pos,
@@ -154,12 +203,6 @@ pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vecto
     const int64_t& pos2, const vector<pair<int, char>>& cigar2);
 
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired);
-short quality_char_to_short(char c);
-char quality_short_to_char(short i);
-string string_quality_char_to_short(const string& quality);
-string string_quality_short_to_char(const string& quality);
-void alignment_quality_char_to_short(Alignment& alignment);
-void alignment_quality_short_to_char(Alignment& alignment);
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample);
 int alignment_to_length(const Alignment& a);
 int alignment_from_length(const Alignment& a);
@@ -207,6 +250,17 @@ void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >&
 // listed. It needs a callback to ask the length of any given node.
 void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_t(int64_t)>& node_length);
 
+/// Returns true if the alignment sequence contains any U's and false if the alignment sequence contains
+/// and T's. In the case that both T's and U's are included, responds according to whichever comes first.
+/// If the sequence contains neither U's nor T's, returns false.
+bool uses_Us(const Alignment& alignment);
+
+/// Replaces any U's in the sequence or the Path with T's
+void convert_Us_to_Ts(Alignment& alignment);
+
+/// Replaces any T's in the sequence or the Path with U's
+void convert_Ts_to_Us(Alignment& alignment);
+
 /// Simplifies the Path in the Alignment. Note that this removes deletions at
 /// the start and end of Mappings, so code that handles simplified Alignments
 /// needs to handle offsets on internal Mappings.
@@ -246,6 +300,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const string& n
 /// The edits are inserted into the generated Alignment, cut as necessary to fit into the Alignment's Mappings.
 Alignment target_alignment(const PathPositionHandleGraph* graph, const string& name, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse, Mapping& cigar_mapping);
+
 }
 
 #endif

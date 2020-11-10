@@ -1,15 +1,10 @@
 #include <unordered_set>
 #include "cactus.hpp"
 #include "vg.hpp"
-#include "algorithms/topological_sort.hpp"
+#include "algorithms/find_tips.hpp"
 #include "algorithms/weakly_connected_components.hpp"
 #include "algorithms/strongly_connected_components.hpp"
 #include "algorithms/find_shortest_paths.hpp"
-
-extern "C" {
-#include "sonLib.h"
-#include "stCactusGraphs.h"
-}
 
 //#define debug
 
@@ -203,7 +198,8 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
 // Step 2) Make a Cactus Graph. Returns the graph and a list of paired
 // cactusEdgeEnd telomeres, one after the other. Both members of the return
 // value must be destroyed.
-pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& graph, const unordered_set<string>& hint_paths) {
+pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& graph, const unordered_set<string>& hint_paths,
+                                                     bool single_component) {
 
     // in a cactus graph, every node is an adjacency component.
     // every edge is a *vg* node connecting the component
@@ -264,7 +260,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
                 cac_side2->node = other_node_id;
                 cac_side2->is_end = other_is_end;
 #ifdef debug
-                cerr << "Creating cactus edge for sides " << pb2json(graph.to_visit(side)) << " -- " << pb2json(graph.to_visit(other_side)) << ": " << i << " -> " << j << endl;
+                //cerr << "Creating cactus edge for sides " << pb2json(graph.to_visit(side)) << " -- " << pb2json(graph.to_visit(other_side)) << ": " << i << " -> " << j << endl;
 #endif
                 
                 // We get the cactusEdgeEnd corresponding to the side stored in side.
@@ -289,7 +285,16 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
     
     // Now we decide on telomere pairs.
     // We need one for each weakly connected component in the graph, so first we break into connected components.
-    vector<unordered_set<id_t>> weak_components_all = algorithms::weakly_connected_components(&graph);
+    vector<unordered_set<id_t>> weak_components_all;
+    if (single_component == false) {
+        weak_components_all = algorithms::weakly_connected_components(&graph);
+    } else {
+        // the calling funciton knows it's just one component, so we skip the calculation
+        weak_components_all.resize(1);
+        graph.for_each_handle([&weak_components_all, &graph](handle_t handle) {
+                weak_components_all[0].insert(graph.get_id(handle));
+            });
+    }
 
     // If we feed size 1 components through to Cactus it will apparently crash.
     bool warned = false;
@@ -316,26 +321,19 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
         }
     }
        
-    // Then we find the heads and tails
-    auto all_heads = algorithms::head_nodes(&graph);
-    auto all_tails = algorithms::tail_nodes(&graph);
+    // Then we find all the tips, inward-facing
+    auto all_tips = algorithms::find_tips(&graph);
     
 #ifdef debug
-    cerr << "Found " << all_heads.size() << " heads and " << all_tails.size() << " tails in graph" << endl;
+    cerr << "Found " << all_tips.size() << " tips in graph" << endl;
 #endif
     
-    // Alot them to components. We store tips in an inward-facing direction
+    // Allot them to components. We store tips in an inward-facing direction
     vector<unordered_set<handle_t>> component_tips(weak_components.size());
-    for (auto& head : all_heads) {
-        component_tips[node_to_component[graph.get_id(head)]].insert(head);
+    for (auto& tip : all_tips) {
+        component_tips[node_to_component[graph.get_id(tip)]].insert(tip);
 #ifdef debug
-        cerr << "Found head " << graph.get_id(head) << " in component " << node_to_component[graph.get_id(head)] << endl;
-#endif
-    }
-    for (auto& tail : all_tails) {
-        component_tips[node_to_component[graph.get_id(tail)]].insert(graph.flip(tail));
-#ifdef debug
-        cerr << "Found tail " << graph.get_id(tail) << " in component " << node_to_component[graph.get_id(tail)] << endl;
+        cerr << "Found tip " << graph.get_id(tip) << (graph.get_is_reverse(tip) ? '-' : '+') << " in component " << node_to_component[graph.get_id(tip)] << endl;
 #endif
     }
     

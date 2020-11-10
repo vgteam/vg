@@ -25,8 +25,16 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch "deps/gcc$(gcc -dumpversion)"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
-  # Travis can't always avtually use Homebrew to install our dependencies
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; brew bundle --verbose; fi
+  # Travis can't always actually use Homebrew to install our dependencies
+  # And Homebrew can't always bundle unless it is the exact latest version:
+  # See <https://github.com/Homebrew/homebrew-bundle/issues/646>
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update --verbose; fi
+  # Allow the bundle command to fail because if anything it tries to install (like Python) 
+  # provides a binary that can replace something that already exists, it will treat the
+  # inability to link it as an error and fail the command. You can --force a link step, but
+  # I don't see a way to tell it to not replace things that exist and also not fail.
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew bundle --verbose || true; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link --overwrite python@3.9 || brew link --overwrite python@3.8 || true; fi
   # Try installing gcc6 twice in case of errors like this:
   # Error: HOMEBREW_LOGS was not exported!
   # Please don't worry, you likely hit a bug auto-updating from an old version.
@@ -50,6 +58,7 @@ script:
   - if [[ ! -z "$BUILD_DOCS_ONLY" ]]; then doc/publish-docs.sh; fi
 # Cache all our dependency directories, and our lib and include
 cache:
+  ccache: true
   directories:
     - deps
     - lib
@@ -115,5 +124,3 @@ matrix:
     # We have a special entry to do the docs build
     - os: linux
       env: BUILD_DOCS_ONLY=1
-        
-

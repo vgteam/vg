@@ -45,8 +45,16 @@ void extract_containing_graph(const HandleGraph* source,
     int64_t max_search_length = max(*std::max_element(forward_search_lengths.begin(), forward_search_lengths.end()),
                                     *std::max_element(backward_search_lengths.begin(), backward_search_lengths.end()));
     
+    
+#ifdef debug_vg_algorithms
+    cerr << "[extract_containing_graph] artificial offset calculated to be " << max_search_length << endl;
+#endif
     // for keeping track of all the edges we cross to add later
-    unordered_set<edge_t> observed_edges;
+    //
+    // we use spp because the order of the edges affects some tie-breaking behavior
+    // later on that we want to remain system independent (i.e. no dependence on the
+    // system stdlib)
+    spp::sparse_hash_set<edge_t> observed_edges;
     
     // initialize the queue, opposite order so priority queue selects minimum
     // priority represent distance from starting pos to the left side of this node
@@ -69,15 +77,27 @@ void extract_containing_graph(const HandleGraph* source,
         // add a traversal for each direction
         queue.push_or_reprioritize(is_rev(pos) ? source->flip(source_handle) : source_handle, dist_forward);
         queue.push_or_reprioritize(is_rev(pos) ? source_handle : source->flip(source_handle), dist_backward);
+#ifdef debug_vg_algorithms
+        cerr << "[extract_containing_graph] init enqueue " << id(pos) << " " << is_rev(pos) << ": " << dist_forward << endl;
+        cerr << "[extract_containing_graph] init enqueue " << id(pos) << " " << !is_rev(pos) << ": " << dist_backward << endl;
+#endif
     }
     
     while (!queue.empty()) {
         // get the next shortest distance traversal from either the init
-        pair<handle_t, size_t> trav = queue.top();
+        pair<handle_t, int64_t> trav = queue.top();
         queue.pop();
+        
+        
+#ifdef debug_vg_algorithms
+        cerr << "[extract_containing_graph] dequeue " << source->get_id(trav.first) << " " << source->get_is_reverse(trav.first) << ": " << trav.second << endl;
+#endif
         
         // make sure the node is in the graph
         if (!into->has_node(source->get_id(trav.first))) {
+#ifdef debug_vg_algorithms
+            cerr << "[extract_containing_graph] adding node to subgraph" << endl;
+#endif
             into->create_handle(source->get_sequence(source->forward(trav.first)), source->get_id(trav.first));
         }
         
@@ -90,9 +110,11 @@ void extract_containing_graph(const HandleGraph* source,
             source->follow_edges(trav.first, false, [&](const handle_t& next) {
                 // record the edge
                 observed_edges.insert(source->edge_handle(trav.first, next));
-                
                 // add it to the queue
                 queue.push_or_reprioritize(next, dist_thru);
+#ifdef debug_vg_algorithms
+                cerr << "[extract_containing_graph] traverse and (possibly) enqueue " << source->get_id(next) << " " << source->get_is_reverse(next) << ": " << dist_thru << endl;
+#endif
             });
         }
         
@@ -111,12 +133,18 @@ void extract_containing_graph(const HandleGraph* source,
                 
                 // add it to the queue
                 queue.push_or_reprioritize(next, max_search_length - reversing_walk_length);
+#ifdef debug_vg_algorithms
+                cerr << "[extract_containing_graph] reverse walk and (possibly) enqueue " << source->get_id(next) << " " << source->get_is_reverse(next) << ": " << max_search_length - reversing_walk_length << endl;
+#endif
             });
         }
     }
     
     // add the edges to the graph
     for (const edge_t& edge : observed_edges) {
+#ifdef debug_vg_algorithms
+        cerr << "[extract_containing_graph] adding edge " << source->get_id(edge.first) << " " << source->get_is_reverse(edge.first) << " -> " << source->get_id(edge.second) << " " << source->get_is_reverse(edge.second) << endl;
+#endif
         into->create_edge(into->get_handle(source->get_id(edge.first), source->get_is_reverse(edge.first)),
                           into->get_handle(source->get_id(edge.second), source->get_is_reverse(edge.second)));
     }

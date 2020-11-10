@@ -5,17 +5,21 @@
 #include "../mapper.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include <vg/io/protobuf_emitter.hpp>
+#include <gbwt/gbwt.h>
 #include "../region.hpp"
 #include "../stream_index.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 #include "../algorithms/approx_path_distance.hpp"
-#include <bdsg/overlay_helper.hpp>
+#include "../algorithms/walk.hpp"
+#include <bdsg/overlays/overlay_helper.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
 
 using namespace vg;
 using namespace vg::subcommand;
+using namespace vg::io;
 
 void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] >sub.vg" << endl
@@ -39,6 +43,8 @@ void help_find(char** argv) {
          << "    -E, --path-dag         with -p or -R, gets any node in the partial order from pos1 to pos2, assumes id sorted DAG" << endl
          << "    -W, --save-to PREFIX   instead of writing target subgraphs to stdout," << endl
          << "                           write one per given target to a separate file named PREFIX[path]:[start]-[end].vg" << endl
+         << "    -K, --subgraph-k K     instead of graphs, write kmers from the subgraphs" << endl
+         << "    -H, --gbwt FILE        when enumerating kmers from subgraphs, determine their frequencies in this GBWT haplotype index" << endl
          << "alignments:" << endl
          << "    -d, --db-name DIR      use this RocksDB database to retrieve alignments" << endl
          << "    -l, --sorted-gam FILE  use this sorted, indexed GAM file" << endl
@@ -48,7 +54,7 @@ void help_find(char** argv) {
          << "sequences:" << endl
          << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph" << endl
          << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
-         << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
+         << "    -j, --kmer-stride N    step distance between successive kmers in sequence (default 1)" << endl
          << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
          << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
          << "    -B, --reseed-length N  find non-super-maximal MEMs inside SMEMs of length at least N" << endl
@@ -111,6 +117,8 @@ int main_find(int argc, char** argv) {
     bool path_dag = false;
     string bed_targets_file;
     string save_to_prefix;
+    int subgraph_k = 0;
+    string gbwt_name;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -153,11 +161,13 @@ int main_find(int argc, char** argv) {
                 {"min-mem", required_argument, 0, 'Z'},
                 {"paths-named", required_argument, 0, 'Q'},
                 {"list-paths", no_argument, 0, 'I'},
+                {"subgraph-k", required_argument, 0, 'K'},
+                {"gbwt", required_argument, 0, 'H'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:B:fDG:N:A:Y:Z:IQ:ER:W:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:B:fDG:N:A:Y:Z:IQ:ER:W:K:H:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -309,6 +319,14 @@ int main_find(int argc, char** argv) {
             to_graph_file = optarg;
             break;
 
+        case 'K':
+            subgraph_k = atoi(optarg);
+            break;
+
+        case 'H':
+            gbwt_name = optarg;
+            break;
+
         case 'h':
         case '?':
             help_find(argv);
@@ -350,7 +368,7 @@ int main_find(int argc, char** argv) {
         string line;
         while (getline(nli, line)){
             for (auto& idstr : split_delims(line, " \t")) {
-                node_ids.push_back(parse<int64_t>(idstr.c_str()));
+                node_ids.push_back(parse<nid_t>(idstr.c_str()));
             }
         }
         nli.close();
@@ -369,6 +387,18 @@ int main_find(int argc, char** argv) {
     if (!xg_name.empty()) {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         xindex = overlay_helper.apply(path_handle_graph.get());
+    }
+
+    unique_ptr<gbwt::GBWT> gbwt_index;
+    if (!gbwt_name.empty()) {
+        // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
+        // Load the GBWT from its container
+        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name.c_str());
+        if (gbwt_index.get() == nullptr) {
+            // Complain if we couldn't.
+            cerr << "error:[vg find] unable to load gbwt index file" << endl;
+            return 1;
+        }
     }
     
     unique_ptr<GAMIndex> gam_index;
@@ -620,10 +650,10 @@ int main_find(int argc, char** argv) {
                 if (path_dag) {
                     // find the start and end node of this
                     // and fill things in
-                    int64_t id_start = std::numeric_limits<int64_t>::max();
-                    int64_t id_end = 1;
+                    nid_t id_start = std::numeric_limits<nid_t>::max();
+                    nid_t id_end = 1;
                     graph.for_each_handle([&](handle_t handle) {
-                            int64_t id = graph.get_id(handle);
+                            nid_t id = graph.get_id(handle);
                             id_start = std::min(id_start, id);
                             id_end = std::max(id_end, id);
                         });
@@ -643,15 +673,75 @@ int main_find(int argc, char** argv) {
                     VG empty;
                     graph = empty;
                 }
+                if (subgraph_k) {
+                    prep_graph(); // don't forget to prep the graph, or the kmer set will be wrong[
+                    // enumerate the kmers, calculating including their start positions relative to the reference
+                    // and write to stdout?
+                    bool use_gbwt = false;
+                    if (!gbwt_name.empty()) {
+                        use_gbwt = true;
+                    }
+                    algorithms::for_each_walk(
+                        graph, subgraph_k, 0,
+                        [&](const algorithms::walk_t& walk) {
+                            // get the reference-relative position
+                            string start_str, end_str;
+                            for (auto& p : algorithms::nearest_offsets_in_paths(xindex, walk.begin, subgraph_k*2)) {
+                                const uint64_t& start_p = p.second.front().first;
+                                const bool& start_rev = p.second.front().second;
+                                if (p.first == path_handle && (!start_rev && start_p >= target.start || start_rev && start_p <= target.end)) {
+                                    start_str = target.seq + ":" + std::to_string(start_p) + (p.second.front().second ? "-" : "+");
+                                }
+                            }
+                            for (auto& p : algorithms::nearest_offsets_in_paths(xindex, walk.end, subgraph_k*2)) {
+                                const uint64_t& end_p = p.second.front().first;
+                                const bool& end_rev = p.second.front().second;
+                                if (p.first == path_handle && (!end_rev && end_p <= target.end || end_rev && end_p >= target.start)) {
+                                    end_str = target.seq + ":" + std::to_string(end_p) + (p.second.front().second ? "-" : "+");
+                                }
+                            }
+                            if (!start_str.empty() && !end_str.empty()) {
+                                stringstream ss;
+                                ss << target.seq << ":" << target.start << "-" << target.end << "\t"
+                                   << walk.seq << "\t" << start_str << "\t" << end_str << "\t";
+                                uint64_t on_path = 0;
+                                for (auto& h : walk.path) {
+                                    xindex->for_each_step_on_handle(xindex->get_handle(graph.get_id(h), graph.get_is_reverse(h)),
+                                                                    [&](const step_handle_t& step) {
+                                                                        if (xindex->get_path_handle_of_step(step) == path_handle) {
+                                                                            ++on_path;
+                                                                        }
+                                                                    });
+                                }
+                                // get haplotype frequency
+                                if (use_gbwt) {
+                                    ss << walk_haplotype_frequency(graph, *gbwt_index, walk) << "\t";
+                                } else {
+                                    ss << 0 << "\t";
+                                }
+                                if (on_path == walk.path.size()) {
+                                    ss << "ref" << "\t";
+                                } else {
+                                    ss << "non.ref" << "\t";
+                                }
+                                for (auto& h : walk.path) {
+                                    ss << graph.get_id(h) << (graph.get_is_reverse(h)?"-":"+") << ",";
+                                }
+                                // write our record
+#pragma omp critical (cout)
+                                cout << ss.str() << std::endl;
+                            }
+                        });
+                }
             }
-            if (save_to_prefix.empty()) {
+            if (save_to_prefix.empty() && !subgraph_k) {
                 prep_graph();
                 graph.serialize_to_ostream(cout);
             }
         }
         if (!range.empty()) {
             VG graph;
-            int64_t id_start=0, id_end=0;
+            nid_t id_start=0, id_end=0;
             vector<string> parts = split_delims(range, ":");
             if (parts.size() == 1) {
                 cerr << "[vg find] error, format of range must be \"N:M\" where start id is N and end id is M, got " << range << endl;
@@ -664,8 +754,8 @@ int main_find(int argc, char** argv) {
             } else {
                 // treat id_end as length instead.
                 size_t length = 0;
-                int64_t found_id_end = id_start;
-                for (int64_t cur_id = id_start; length < id_end; ++cur_id) {
+                nid_t found_id_end = id_start;
+                for (nid_t cur_id = id_start; length < id_end; ++cur_id) {
                     if (!xindex->has_node(cur_id)) {
                         break;
                     }
@@ -690,15 +780,17 @@ int main_find(int argc, char** argv) {
         }
         if (extract_paths) {
             for (auto& pattern : extract_path_patterns) {
+            
+                // We want to write uncompressed protobuf Graph objects containing our paths.
+                vg::io::ProtobufEmitter<Graph> out(cout, false);
+            
                 xindex->for_each_path_handle([&](path_handle_t path_handle) {
                         string path_name = xindex->get_path_name(path_handle);
                         if (pattern.length() <= path_name.length() && path_name.compare(0, pattern.length(), pattern) == 0) {
                             // We need a Graph for serialization purposes.
                             Graph g;
                             *g.add_path() = path_from_path_handle(*xindex, path_handle);
-                            // Dump the graph with its mappings. TODO: can we restrict these to
-                            vector<Graph> gb = { g };
-                            vg::io::write_buffered(cout, gb, 0);
+                            out.write(std::move(g));
                         }
                     });
             }
@@ -776,7 +868,7 @@ int main_find(int argc, char** argv) {
         if (!node_ids.empty() && !path_name.empty()) {
             int64_t path_id = vindex->get_path_id(path_name);
             for (auto node_id : node_ids) {
-                list<pair<int64_t, bool>> path_prev, path_next;
+                list<pair<nid_t, bool>> path_prev, path_next;
                 int64_t prev_pos=0, next_pos=0;
                 bool prev_backward, next_backward;
                 if (vindex->get_node_path_relative_position(node_id, false, path_id,
@@ -796,7 +888,7 @@ int main_find(int argc, char** argv) {
         }
         if (!range.empty()) {
             VG graph;
-            int64_t id_start=0, id_end=0;
+            nid_t id_start=0, id_end=0;
             vector<string> parts = split_delims(range, ":");
             if (parts.size() == 1) {
                 cerr << "[vg find] error, format of range must be \"N:M\" where start id is N and end id is M, got " << range << endl;
@@ -881,7 +973,7 @@ int main_find(int argc, char** argv) {
             }
         } else if (kmer_table) {
             for (auto& kmer : kmers) {
-                map<string, vector<pair<int64_t, int32_t> > > positions;
+                map<string, vector<pair<nid_t, int32_t> > > positions;
                 vindex->get_kmer_positions(kmer, positions);
                 for (auto& k : positions) {
                     for (auto& p : k.second) {

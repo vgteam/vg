@@ -13,10 +13,11 @@
 #include "subcommand.hpp"
 #include "../path.hpp"
 #include "../graph_caller.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
-#include <bdsg/overlay_helper.hpp>
+#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -27,18 +28,27 @@ void help_call(char** argv) {
        << "Call variants or genotype known variants" << endl
        << endl
        << "support calling options:" << endl
-       << "    -k, --pack FILE         Supports created from vg pack for given input graph" << endl
-       << "    -b, --het-bias M,N      Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
-       << "    -m, --min-support M,N   Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
+       << "    -k, --pack FILE          Supports created from vg pack for given input graph" << endl
+       << "    -m, --min-support M,N    Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
+       << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.001]" << endl
+       << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
+       << "    -b, --het-bias M,N       Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
+       << "GAF options:" << endl
+       << "    -G, --gaf               Output GAF genotypes instead of VCF" << endl
+       << "    -T, --traversals        Output all candidate traversals in GAF without doing any genotyping" << endl
+       << "    -M, --trav-padding N    Extend each flank of traversals (from -T) with reference path by N bases if possible" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
+       << "    -a, --genotype-snarls   Genotype every snarl, including reference calls (use to compare multiple samples)" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
        << "    -i, --ins-fasta FILE    Insertions fasta (required if VCF contains symbolic insertions)" << endl
        << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
        << "    -r, --snarls FILE       Snarls (from vg snarls) to avoid recomputing." << endl
+       << "    -g, --gbwt FILE         Only call genotypes that are present in given GBWT index." << endl
        << "    -p, --ref-path NAME     Reference path to call on (multipile allowed.  defaults to all paths)" << endl
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
        << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
+       << "    -d, --ploidy N          Ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
@@ -48,13 +58,33 @@ int main_call(int argc, char** argv) {
     string vcf_filename;
     string sample_name = "SAMPLE";
     string snarl_filename;
+    string gbwt_filename;
     string ref_fasta_filename;
     string ins_fasta_filename;
     vector<string> ref_paths;
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
     string min_support_string;
+    string baseline_error_string;
     string bias_string;
+    bool ratio_caller = false;
+    bool legacy = false;
+    int ploidy = 2;
+    bool traversals_only = false;
+    bool gaf_output = false;
+    size_t trav_padding = 0;
+    bool genotype_snarls = false;
+
+    // constants
+    const size_t avg_trav_threshold = 50;
+    const size_t avg_node_threshold = 50;
+    const size_t min_depth_bin_width = 50;
+    const size_t max_depth_bin_width = 50000000;
+    const double depth_scale_fac = 1.5;
+    const size_t max_yens_traversals = traversals_only ? 100 : 50;
+    // used to merge up snarls from chains when generating traversals
+    const size_t max_chain_edges = 1000; 
+    const size_t max_chain_trivial_travs = 5;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -62,16 +92,25 @@ int main_call(int argc, char** argv) {
 
         static const struct option long_options[] = {
             {"pack", required_argument, 0, 'k'},
+            {"bias-mode", no_argument, 0, 'B'},
+            {"baseline-error", required_argument, 0, 'e'},
             {"het-bias", required_argument, 0, 'b'},
             {"min-support", required_argument, 0, 'm'},
             {"vcf", required_argument, 0, 'v'},
+            {"genotype-snarls", no_argument, 0, 'a'},
             {"ref-fasta", required_argument, 0, 'f'},
             {"ins-fasta", required_argument, 0, 'i'},
             {"sample", required_argument, 0, 's'},            
             {"snarls", required_argument, 0, 'r'},
+            {"gbwt", required_argument, 0, 'g'},
             {"ref-path", required_argument, 0, 'p'},
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
+            {"ploidy", required_argument, 0, 'd'},
+            {"gaf", no_argument, 0, 'G'},
+            {"traversals", no_argument, 0, 'T'},
+            {"min-trav-len", required_argument, 0, 'M'},
+            {"legacy", no_argument, 0, 'L'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
@@ -79,7 +118,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:b:m:v:f:i:s:r:p:o:l:t:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:af:i:s:r:g:p:o:l:d:GTLM:t:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -91,14 +130,23 @@ int main_call(int argc, char** argv) {
         case 'k':
             pack_filename = optarg;
             break;
+        case 'B':
+            ratio_caller = true;
+            break;
         case 'b':
             bias_string = optarg;
             break;
         case 'm':
             min_support_string = optarg;
             break;
+        case 'e':
+            baseline_error_string = optarg;
+            break;
         case 'v':
             vcf_filename = optarg;
+            break;
+        case 'a':
+            genotype_snarls = true;
             break;
         case 'f':
             ref_fasta_filename = optarg;
@@ -112,6 +160,9 @@ int main_call(int argc, char** argv) {
         case 'r':
             snarl_filename = optarg;
             break;
+        case 'g':
+            gbwt_filename = optarg;
+            break;
         case 'p':
             ref_paths.push_back(optarg);
             break;
@@ -120,7 +171,23 @@ int main_call(int argc, char** argv) {
             break;
         case 'l':
             ref_path_lengths.push_back(parse<int>(optarg));
-            break;            
+            break;
+        case 'd':
+            ploidy = parse<int>(optarg);
+            break;
+        case 'G':
+            gaf_output = true;
+            break;
+        case 'T':
+            traversals_only = true;
+            gaf_output = true;
+            break;
+        case 'M':
+            trav_padding = parse<size_t>(optarg);
+            break;
+        case 'L':
+            legacy = true;
+            break;
         case 't':
         {
             int num_threads = parse<int>(optarg);
@@ -175,6 +242,30 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: -b option expects at most two comma separated numbers M,N" << endl;
         return 1;
     }
+    // parse the baseline errors
+    vector<string> error_toks = split_delims(baseline_error_string, ",");
+    double baseline_error_large = -1;
+    double baseline_error_small = -1;
+    if (error_toks.size() == 2) {
+        baseline_error_small = parse<double>(error_toks[0]);
+        baseline_error_large = parse<double>(error_toks[1]);
+        if (baseline_error_small < baseline_error_large) {
+            cerr << "warning [vg call]: with baseline error -e X,Y option, small variant error (X) normally less than large (Y)" << endl;
+        }
+    } else if (error_toks.size() != 0) {
+        cerr << "error [vg call]: -e option expects exactly two comma-separated numbers X,Y" << endl;
+        return 1;
+    }
+
+    if (trav_padding > 0 && traversals_only == false) {
+        cerr << "error [vg call]: -M option can only be used in conjunction with -T" << endl;
+        return 1;
+    }
+
+    if (!vcf_filename.empty() && genotype_snarls) {
+        cerr << "error [vg call]: -v and -a options cannot be used together" << endl;
+        return 1;
+    }
     
     // Read the graph
     unique_ptr<PathHandleGraph> path_handle_graph;
@@ -218,6 +309,32 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: when using -l, the same number paths must be given with -p" << endl;
         return 1;
     }
+    // Check bias option
+    if (!bias_string.empty() && !ratio_caller) {
+        cerr << "error [vg call]: -b can only be used with -B" << endl;
+        return 1;
+    }
+    // Check ploidy option
+    if (ploidy < 1 || ploidy > 2) {
+        cerr << "error [vg call]: ploidy (-d) must be either 1 or 2" << endl;
+        return 1;
+    }
+    if (ratio_caller == true && ploidy != 2) {
+        cerr << "error [vg call]: ploidy (-d) must be 2 when using ratio caller (-B)" << endl;
+        return 1;
+    }
+    if (legacy == true && ploidy != 2) {
+        cerr << "error [vg call]: ploidy (-d) must be 2 when using legacy caller (-L)" << endl;
+        return 1;
+    }
+    if (!vcf_filename.empty() && !gbwt_filename.empty()) {
+        cerr << "error [vg call]: gbwt (-g) cannot be used when genotyping VCF (-v)" << endl;
+        return 1;
+    }
+    if (legacy == true && !gbwt_filename.empty()) {
+        cerr << "error [vg call]: gbwt (-g) cannot be used with legacy caller (-L)" << endl;
+        return 1;
+    }
 
     // No paths specified: use them all
     if (ref_paths.empty()) {
@@ -239,33 +356,75 @@ int main_call(int argc, char** argv) {
         }
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
     } else {
-        CactusSnarlFinder finder(*graph);
-        snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls())));
+        IntegratedSnarlFinder finder(*graph);
+        snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
     
-    unique_ptr<GraphCaller> graph_caller;
-    unique_ptr<SnarlCaller> snarl_caller;
-
     // Make a Packed Support Caller
+    unique_ptr<SnarlCaller> snarl_caller;
+    algorithms::BinnedDepthIndex depth_index;
+
     unique_ptr<Packer> packer;
+    unique_ptr<TraversalSupportFinder> support_finder;
     if (!pack_filename.empty()) {        
         // Load our packed supports (they must have come from vg pack on graph)
         packer = unique_ptr<Packer>(new Packer(graph));
         packer->load_from_file(pack_filename);
-        PackedSupportSnarlCaller* packed_caller = new PackedSupportSnarlCaller(*packer, *snarl_manager);
-        if (het_bias >= 0) {
-            packed_caller->set_het_bias(het_bias, ref_het_bias);
+        // Make a packed traversal support finder (using cached veresion important for poisson caller)
+        PackedTraversalSupportFinder* packed_support_finder = new CachedPackedTraversalSupportFinder(*packer, *snarl_manager);
+        support_finder = unique_ptr<TraversalSupportFinder>(packed_support_finder);
+        
+        // need to use average support when genotyping as small differences in between sample and graph
+        // will lead to spots with 0-support, espeically in and around SVs. 
+        support_finder->set_support_switch_threshold(avg_trav_threshold, avg_node_threshold);
+
+        // todo: toggle between min / average (or thresholds) via command line
+        
+        SupportBasedSnarlCaller* packed_caller = nullptr;
+
+        if (ratio_caller == false) {
+            // Make a depth index
+            depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
+                                                                depth_scale_fac, 0, true, true);
+            // Make a new-stype probablistic caller
+            auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index,
+                                                                //todo: qualities need to be used better in conjunction with
+                                                                //expected depth.
+                                                                //packer->has_qualities());
+                                                                false);
+
+            // Pass the errors through
+            poisson_caller->set_baseline_error(baseline_error_small, baseline_error_large);
+                
+            packed_caller = poisson_caller;
+        } else {
+            // Make an old-style ratio support caller
+            auto ratio_caller = new RatioSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder);
+            if (het_bias >= 0) {
+                ratio_caller->set_het_bias(het_bias, ref_het_bias);
+            }
+            packed_caller = ratio_caller;
         }
         if (min_allele_support >= 0) {
             packed_caller->set_min_supports(min_allele_support, min_allele_support, min_site_support);
         }
+        
         snarl_caller = unique_ptr<SnarlCaller>(packed_caller);
     }
 
     if (!snarl_caller) {
-        cerr << "error [vg call]: pack file (-p) is required" << endl;
+        cerr << "error [vg call]: pack file (-k) is required" << endl;
         return 1;
     }
+
+    unique_ptr<AlignmentEmitter> alignment_emitter;
+    if (gaf_output) {
+      alignment_emitter = vg::io::get_non_hts_alignment_emitter("-", "GAF", {}, get_thread_count(), graph);
+    }
+
+    unique_ptr<GraphCaller> graph_caller;
+    unique_ptr<TraversalFinder> traversal_finder;
+    unique_ptr<gbwt::GBWT> gbwt_index;
 
     vcflib::VariantCallFile variant_file;
     unique_ptr<FastaReference> ref_fasta;
@@ -293,26 +452,81 @@ int main_call(int argc, char** argv) {
                                                        *snarl_manager, variant_file,
                                                        sample_name, ref_paths,
                                                        ref_fasta.get(),
-                                                       ins_fasta.get());
+                                                       ins_fasta.get(),
+                                                       alignment_emitter.get(),
+                                                       traversals_only,
+                                                       gaf_output,
+                                                       trav_padding);
         graph_caller = unique_ptr<GraphCaller>(vcf_genotyper);
-    } else {
+    } else if (legacy) {
         // de-novo caller (port of the old vg call code, which requires a support based caller)
         LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                        *snarl_manager,
                                                        sample_name, ref_paths, ref_path_offsets);
         graph_caller = unique_ptr<GraphCaller>(legacy_caller);
+    } else {
+        // flow caller can take any kind of traversal finder.  two are supported for now:
+        
+        if (!gbwt_filename.empty()) {
+            // GBWT traversals
+            gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_filename);
+            if (gbwt_index.get() == nullptr) {
+                cerr << "error:[vg call] unable to load gbwt index file: " << gbwt_filename << endl;
+                return 1;
+            }
+            GBWTTraversalFinder* gbwt_traversal_finder = new GBWTTraversalFinder(*graph, *gbwt_index.get());
+            traversal_finder = unique_ptr<TraversalFinder>(gbwt_traversal_finder);
+        } else {
+            // Flow traversals (Yen's algorithm)
+            
+            // todo: do we ever want to toggle in min-support?
+            function<double(handle_t)> node_support = [&] (handle_t h) {
+                return support_finder->support_val(support_finder->get_avg_node_support(graph->get_id(h)));
+            };
+            
+            function<double(edge_t)> edge_support = [&] (edge_t e) {
+                return support_finder->support_val(support_finder->get_edge_support(e));
+            };
+
+            // create the flow traversal finder
+            FlowTraversalFinder* flow_traversal_finder = new FlowTraversalFinder(*graph, *snarl_manager, max_yens_traversals,
+                                                                                 node_support, edge_support);
+            traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
+        }
+
+        FlowCaller* flow_caller = new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                                 *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+                                                 *snarl_manager,
+                                                 sample_name, *traversal_finder, ref_paths, ref_path_offsets,
+                                                 alignment_emitter.get(),
+                                                 traversals_only,
+                                                 gaf_output,
+                                                 trav_padding,
+                                                 genotype_snarls);
+        graph_caller = unique_ptr<GraphCaller>(flow_caller);
     }
 
     // Call the graph
-    graph_caller->call_top_level_snarls();
+    if (!traversals_only) {
 
-    // VCF output is our only supported output
-    VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
-    assert(vcf_caller != nullptr);
-    cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
-    vcf_caller->write_variants(cout);
-        
+        // Call each snarl
+        // (todo: try chains in normal mode)
+        graph_caller->call_top_level_snarls(*graph, ploidy);
+    } else {
+        // Attempt to call chains instead of snarls so that the output traversals are longer
+        // Todo: this could probably help in some cases when making VCFs too
+        graph_caller->call_top_level_chains(*graph, ploidy, max_chain_edges,  max_chain_trivial_travs);
+    }
+
+    if (!gaf_output) {
+        // Output VCF
+        VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        assert(vcf_caller != nullptr);
+        cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+        vcf_caller->write_variants(cout);
+    }
+    
     return 0;
 }
 
