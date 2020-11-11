@@ -169,7 +169,8 @@ using namespace std;
         vector<vector<size_t>> transitive_reduction(const vector<vector<size_t>>& adj) const;
         
         /// eliminate any path chunks that have the exact same colinearities as another but are much shorter
-        vector<vector<size_t>> remove_dominated_chunks(const vector<vector<size_t>>& adj,
+        vector<vector<size_t>> remove_dominated_chunks(const string& src_sequence,
+                                                       const vector<vector<size_t>>& adj,
                                                        vector<path_chunk_t>& path_chunks,
                                                        vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                                        vector<tuple<size_t, size_t, int32_t>>& connections) const;

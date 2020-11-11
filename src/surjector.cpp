@@ -352,7 +352,8 @@ using namespace std;
         return reduction;
     }
 
-    vector<vector<size_t>> Surjector::remove_dominated_chunks(const vector<vector<size_t>>& adj,
+    vector<vector<size_t>> Surjector::remove_dominated_chunks(const string& src_sequence,
+                                                              const vector<vector<size_t>>& adj,
                                                               vector<path_chunk_t>& path_chunks,
                                                               vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                                               vector<tuple<size_t, size_t, int32_t>>& connections) const {
@@ -398,6 +399,19 @@ using namespace std;
                 for (size_t i = 0; i < group.second.size(); ++i) {
                     auto& chunk = path_chunks[group.second[i]];
                     total_lengths[i] = path_from_length(chunk.second) + (chunk.first.second - chunk.first.first);
+                    // don't count softclips
+                    if (chunk.first.first == src_sequence.begin()) {
+                        const auto& first_edit = *chunk.second.mapping().begin()->edit().begin();
+                        if (first_edit.from_length() == 0) {
+                            total_lengths[i] -= first_edit.to_length();
+                        }
+                    }
+                    if (chunk.first.second == src_sequence.end()) {
+                        const auto& last_edit = *chunk.second.mapping().rbegin()->edit().rbegin();
+                        if (last_edit.from_length() == 0) {
+                            total_lengths[i] -= last_edit.to_length();
+                        }
+                    }
                     max_total_length = max(total_lengths[i], max_total_length);
                 }
                 for (size_t i = 0; i < group.second.size(); ++i) {
@@ -766,6 +780,55 @@ using namespace std;
         
         
 #ifdef debug_spliced_surject
+        cerr << "removing any pure insertion path chunks" << endl;
+#endif
+        
+        vector<size_t> insertions_removed(path_chunks.size() + 1, 0);
+        for (size_t i = 0; i < path_chunks.size(); ++i) {
+            const auto& chunk = path_chunks[i].second;
+            bool has_aligned_bases = false;
+            for (size_t j = 0; j < chunk.mapping_size() && !has_aligned_bases; ++j) {
+                const auto& mapping = chunk.mapping(j);
+                for (size_t k = 0; k < mapping.edit_size() && !has_aligned_bases; ++k) {
+                    has_aligned_bases = mapping.edit(k).from_length() != 0;
+                }
+            }
+            if (!has_aligned_bases) {
+                insertions_removed[i + 1] = insertions_removed[i] + 1;
+            }
+            else {
+                insertions_removed[i + 1] = insertions_removed[i];
+                if (insertions_removed[i]) {
+                    path_chunks[i - insertions_removed[i]] = move(path_chunks[i]);
+                    ref_chunks[i - insertions_removed[i]] = move(ref_chunks[i]);
+                }
+            }
+        }
+        
+        if (insertions_removed.back()) {
+            path_chunks.resize(path_chunks.size() - insertions_removed.back());
+            ref_chunks.resize(path_chunks.size());
+            
+            // update connections with the new indexes
+            size_t connections_removed = 0;
+            for (size_t i = 0; i < connections.size(); ++i) {
+                auto& connection = connections[i];
+                if (insertions_removed[get<0>(connection)] != insertions_removed[get<0>(connection) + 1]
+                    || insertions_removed[get<1>(connection)] != insertions_removed[get<1>(connection) + 1]) {
+                    ++connections_removed;
+                }
+                else {
+                    get<0>(connection) -= insertions_removed[get<0>(connection)];
+                    get<1>(connection) -= insertions_removed[get<1>(connection)];
+                    connections[i - connections_removed] = connection;
+                }
+            }
+            
+            connections.resize(connections.size() - connections_removed);
+        }
+        
+#ifdef debug_spliced_surject
+        cerr << "removed " << insertions_removed.back() << " chunks" << endl;
         cerr << "making colinearity graph for " << path_chunks.size() << " path chunks" << endl;
 #endif
         
@@ -826,7 +889,7 @@ using namespace std;
         cerr << "removing dominated path chunks" << endl;
 #endif
         
-        colinear_adj_red = remove_dominated_chunks(colinear_adj_red, path_chunks, ref_chunks, connections);
+        colinear_adj_red = remove_dominated_chunks(src_sequence, colinear_adj_red, path_chunks, ref_chunks, connections);
         
 #ifdef debug_spliced_surject
         cerr << "with dominated chunks removed:" << endl;
