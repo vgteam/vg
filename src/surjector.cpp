@@ -410,7 +410,7 @@ using namespace std;
         
         if (!to_remove.empty()) {
 #ifdef debug_spliced_surject
-            cerr << "marked for removal:" << endl;
+            cerr << "marked for removal (unless has a connection):" << endl;
             for (auto i : to_remove) {
                 cerr << "\t" << i << endl;
             }
@@ -961,15 +961,15 @@ using namespace std;
                         int64_t dist = path_distance(i, j);
                         int64_t score;
                         if (dist >= min_splice_length) {
+                            includes_splice = true;
                             score = 0;
                         }
                         else {
-                            includes_splice = true;
                             score = get_aligner(!src_quality.empty())->score_gap(dist);
                         }
                         
 #ifdef debug_spliced_surject
-                        cerr << "deletion of length " << dist << " from " << left << " to " << right << " is recorded as part of a splice biclique, and given score " << score << endl;
+                        cerr << "deletion of length " << dist << " from " << i << " to " << j << " is recorded as part of a splice biclique, and given score " << score << endl;
 #endif
                         
                         new_edges.emplace_back(i, j, score);
