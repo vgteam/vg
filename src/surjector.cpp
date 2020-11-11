@@ -695,7 +695,7 @@ using namespace std;
                             incompatible = true;
                         }
                     }
-                    incompatible = incompatible && (num_clique_edges == right_side.size() - right_connected.size());
+                    incompatible = incompatible || (num_clique_edges != right_side.size() - right_connected.size());
                 }
                 
                 if (incompatible) {
