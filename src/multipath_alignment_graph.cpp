@@ -2396,7 +2396,7 @@ namespace vg {
                 size_t curr_offset = endpoint_offset(endpoints->at(range_begin), contains_ends);
                 size_t prev_offset = curr_offset;
                 // find the range of endpoints that are at the first offset
-                while (range_end == endpoints->size() ? false : endpoint_offset(endpoints->at(range_end), contains_ends) == curr_offset) {
+                while (range_end < endpoints->size() && endpoint_offset(endpoints->at(range_end), contains_ends) == curr_offset) {
                     range_end++;
                 }
                 
@@ -2427,7 +2427,7 @@ namespace vg {
                     // find the range of endpoints at this offset
                     prev_offset = curr_offset;
                     curr_offset = endpoint_offset(endpoints->at(range_begin), contains_ends);
-                    while (range_end == endpoints->size() ? false : endpoint_offset(endpoints->at(range_end), contains_ends) == curr_offset) {
+                    while (range_end < endpoints->size() && endpoint_offset(endpoints->at(range_end), contains_ends) == curr_offset) {
                         range_end++;
                     }
                     
