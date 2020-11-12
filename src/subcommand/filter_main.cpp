@@ -67,6 +67,7 @@ int main_filter(int argc, char** argv) {
     vector<string> name_prefixes;
     vector<regex> excluded_refpos_contigs;
     unordered_set<string> excluded_features;
+    vector<string> subsequences;
     bool set_min_primary = false;
     double min_primary;
     bool set_min_secondary = false;
@@ -110,6 +111,8 @@ int main_filter(int argc, char** argv) {
                 {"input-mp-alns", no_argument, 0, 'M'},
                 {"name-prefix", required_argument, 0, 'n'},
                 {"name-prefixes", required_argument, 0, 'N'},
+                {"subsequence", required_argument, 0, 'a'},
+                {"subsequences", required_argument, 0, 'A'},
                 {"exclude-contig", required_argument, 0, 'X'},
                 {"exclude-feature", required_argument, 0, 'F'},
                 {"min-secondary", required_argument, 0, 's'},
@@ -136,7 +139,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "Mn:N:X:F:s:r:Od:e:fauo:m:Sx:vVq:E:D:C:d:iIb:Ut:",
+        c = getopt_long (argc, argv, "Mn:N:a:A:X:F:s:r:Od:e:fauo:m:Sx:vVq:E:D:C:d:iIb:Ut:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -161,6 +164,22 @@ int main_filter(int argc, char** argv) {
                         break;
                     }
                     name_prefixes.push_back(line);
+                }
+            });
+            break;
+        case 'a':
+            subsequences.push_back(optarg);
+            break;
+        case 'A':
+            get_input_file(optarg, [&](istream& in) {
+                // Parse the input file right here in the option parsing.
+                for (string line; getline(in, line);) {
+                    // For each line
+                    if (line.empty()) {
+                        // No empty lines
+                        break;
+                    }
+                    subsequences.push_back(line);
                 }
             });
             break;
@@ -318,6 +337,7 @@ int main_filter(int argc, char** argv) {
     // template lambda to set parameters
     auto set_params = [&](auto& filter) {
         filter.name_prefixes = name_prefixes;
+        filter.subsequences = subsequences;
         filter.excluded_refpos_contigs = excluded_refpos_contigs;
         filter.excluded_features = excluded_features;
         if (set_min_secondary) {

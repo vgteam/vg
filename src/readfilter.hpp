@@ -45,6 +45,8 @@ public:
     vector<string> name_prefixes;
     /// Read must not have a refpos set with a contig name containing a match to any of these
     vector<regex> excluded_refpos_contigs;
+    /// Read must contain at least one of these strings as a subsequence
+    vector<string> subsequences;
     /// If a read has one of the features in this set as annotations, the read
     /// is filtered out.
     unordered_set<string> excluded_features;
@@ -95,9 +97,6 @@ public:
     // minimum fraction of bases in reads that must have quality at least <min_base_quality>
     double min_base_quality_fraction = numeric_limits<double>::lowest();
       
-    
-    bool append_regions = false;
-
     /**
      * Run all the filters on an alignment. The alignment may get modified in-place by the defray filter
      */
@@ -159,35 +158,100 @@ private:
      */
     bool sample_read(const Read& read) const;
     
+    /**
+     * Convert a multipath alignment to a single path
+     */
     Alignment to_alignment(const MultipathAlignment& multipath_aln) const;
     
+    /**
+     * Get the score indicated by the params
+     */
     double get_score(const Read& read) const;
+    
+    /**
+     * Does the read name have one of the indicated prefixes?
+     */
     bool matches_name(const Read& read) const;
+    
+    /**
+     * Does the read match one of the excluded refpos contigs?
+     */
     bool has_excluded_refpos(const Read& read) const;
+    
+    /**
+     * Is the read annotated with any of the excluded features
+     */
     bool has_excuded_feature(const Read& read) const;
+    
+    /**
+     * Is the read a secondary alignments?
+     */
     bool is_secondary(const Read& read) const;
+    
+    /**
+     * How long are the read overhangs?
+     */
     int get_overhang(const Read& read) const;
+    
+    /**
+     * Internal helper for get_overhang
+     */
     int alignment_overhang(const Alignment& aln) const;
-    int alignment_end_matches(const Alignment& aln) const;
+    
+    /**
+     * What is the shortest run of end matches on either end?
+     */
     int get_end_matches(const Read& read) const;
+    
+    /**
+     * internal helper for get_end_matches
+     */
+    int alignment_end_matches(const Alignment& aln) const;
+    
+    /**
+     * What is the read's mapping quality
+     */
     int get_mapq(const Read& read) const;
+    
+    /**
+     * What fraction of the base qualities are at least as large as the min base quality
+     */
     double get_min_base_qual_fraction(const Read& read) const;
+    
+    /**
+     * Is the read paired?
+     */
     bool get_is_paired(const Read& read) const;
     
+    /**
+     * Does the read contain at least one of the indicated sequences
+     */
+    bool contains_subsequence(const Read& read) const;
+    
+    /**
+     * Write the read to stdout
+     */
     void emit(Read& read);
+    
+    /**
+     * Write a read pair to stdout
+     */
     void emit(Read& read1, Read& read2);
     
+    
+    /// The twp specializations have different writing infrastructure
     unique_ptr<AlignmentEmitter> aln_emitter;
     unique_ptr<MultipathAlignmentEmitter> mp_aln_emitter;
     
+    /// Helper function for filter
     void filter_internal(istream* in);
 };
 
 // Keep some basic counts for when verbose mode is enabled
 struct Counts {
     enum FilterName { read = 0, wrong_name, wrong_refpos, excluded_feature, min_score, min_sec_score, max_overhang,
-        min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, filtered,
-        last };
+        min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, subsequence, filtered,
+        last};
     vector<size_t> counts;
     Counts () : counts(FilterName::last, 0) {}
     Counts& operator+=(const Counts& other) {
@@ -292,7 +356,7 @@ inline int ReadFilter<Alignment>::filter(istream* alignment_stream) {
     
     if (write_output) {
         // Keep an AlignmentEmitter to multiplex output from multiple threads.
-        aln_emitter = get_non_hts_alignment_emitter("-", "GAM",  map<string, int64_t>(), get_thread_count());
+        aln_emitter = get_non_hts_alignment_emitter("-", "GAM", map<string, int64_t>(), get_thread_count());
     }
     
     filter_internal(alignment_stream);
@@ -358,6 +422,13 @@ Counts ReadFilter<Read>::filter_alignment(Read& read) {
         if (!matches_name(read)) {
             // There are prefixes and we don't match any, so drop the read.
             ++counts.counts[Counts::FilterName::wrong_name];
+            keep = false;
+        }
+    }
+    if ((keep || verbose) && !subsequences.empty()) {
+        if (!contains_subsequence(read)) {
+            // There are subsequences and we don't match any, so drop the read.
+            ++counts.counts[Counts::FilterName::subsequence];
             keep = false;
         }
     }
@@ -1163,6 +1234,19 @@ inline bool ReadFilter<Alignment>::get_is_paired(const Alignment& aln) const {
 template<>
 inline bool ReadFilter<MultipathAlignment>::get_is_paired(const MultipathAlignment& mp_aln) const {
     return !mp_aln.paired_read_name().empty();
+}
+    
+    
+template<typename Read>
+bool ReadFilter<Read>::contains_subsequence(const Read& read) const {
+    bool found = false;
+    for (const string& seq : subsequences) {
+        if (read.sequence().find(seq) != string::npos) {
+            found = true;
+            break;
+        }
+    }
+    return found;
 }
 
 template<typename Read>
