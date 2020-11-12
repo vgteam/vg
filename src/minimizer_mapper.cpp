@@ -1587,9 +1587,11 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
                 attempt_rescue(mapped_aln, rescued_aln, minimizers_by_read[(found_first ? 1 : 0)], found_first);
 
-                int64_t fragment_dist = found_first ? distance_between(mapped_aln, rescued_aln) 
+                if (rescued_aln.path().mapping_size() != 0) {
+                    //If we actually found an alignment
+
+                    int64_t fragment_dist = found_first ? distance_between(mapped_aln, rescued_aln) 
                                                       : distance_between(rescued_aln, mapped_aln);
-                if (fragment_dist != std::numeric_limits<int64_t>::max()) {
                     bool duplicated = false;
 
                     double dev = fragment_dist - fragment_length_distr.mean();
@@ -2328,6 +2330,11 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - rescue_subgraph_stdevs * fragment_length_distr.std_dev());
     int64_t max_distance = fragment_length_distr.mean() + rescue_subgraph_stdevs * fragment_length_distr.std_dev();
     distance_index.subgraph_in_range(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
+
+    if (rescue_nodes.size() == 0) {
+        //If the rescue subgraph is empty
+        return;
+    }
 
     // Remove node ids that do not exist in the GBWTGraph from the subgraph.
     // We may be using the distance index of the original graph, and nodes
