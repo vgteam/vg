@@ -1816,10 +1816,12 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         double estimated_multiplicity_from_1 = unpaired_count_1 > 0 ? (double) unpaired_count_1 / min(rescued_count_1, max_rescue_attempts) : 1.0;
         double estimated_multiplicity_from_2 = unpaired_count_2 > 0 ? (double) unpaired_count_2 / min(rescued_count_2, max_rescue_attempts) : 1.0;
         vector<double> paired_multiplicities;
+        bool all_rescued = true;
         for (PairType type : types) {
             switch (type){
                 case paired:
                     paired_multiplicities.push_back(1.0);
+                    all_rescued=false;
                 case unpaired:
                     paired_multiplicities.push_back(1.0);
                 case rescued_from_first:
@@ -1828,7 +1830,7 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
                     paired_multiplicities.push_back(estimated_multiplicity_from_2);
             }
         }
-        const vector<double>* multiplicities = paired_multiplicities.size() == scores.size() ? &paired_multiplicities : nullptr; 
+        const vector<double>* multiplicities = all_rescued ? &paired_multiplicities : nullptr; 
         // Compute base MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
         // If all of the alignment pairs were found with rescue, use the multiplicities to determine mapq
         // Use exact mapping quality
@@ -1884,8 +1886,13 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
 
             //TODO: How to cap mapq when the reads were unpaired
             if (types.front() == unpaired) {
-                //If this pair came from two different fragment cluster
+                //If this pair came from two different fragment cluster, then cap mapq at the mapq
+                //from only unpaired alignments of this read
                 mapq_cap = std::min(mapq_cap, (double)get_regular_aligner()->compute_mapping_quality(unpaired_scores[read_num], false));
+            }
+            if (distances.front() == std::numeric_limits<int64_t>::max()) {
+                //If the two reads are not reachable, lower cap
+                mapq_cap = mapq_cap / 2.0;
             }
             
             // Find the MAPQ to cap
