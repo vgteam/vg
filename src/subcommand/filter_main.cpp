@@ -28,8 +28,11 @@ void help_filter(char** argv) {
          << "Filter alignments by properties." << endl
          << endl
          << "options:" << endl
+         << "    -M, --input-mp-alns        input is multipath alignments (GAMP) rather than GAM" << endl
          << "    -n, --name-prefix NAME     keep only reads with this prefix in their names [default='']" << endl
          << "    -N, --name-prefixes FILE   keep reads with names with one of many prefixes, one per nonempty line" << endl
+         << "    -a, --subsequence NAME     keep reads that contain this subsequence" << endl
+         << "    -A, --subsequences FILE    keep reads that contain one of these subsequences, one per nonempty line" << endl
          << "    -X, --exclude-contig REGEX drop reads with refpos annotations on contigs matching the given regex (may repeat)" << endl
          << "    -F, --exclude-feature NAME drop reads with the given feature in the \"features\" annotation (may repeat)" << endl
          << "    -s, --min-secondary N      minimum score to keep secondary alignment" << endl
@@ -41,7 +44,6 @@ void help_filter(char** argv) {
          << "    -m, --min-end-matches N    filter reads that don't begin with at least N matches on each end" << endl
          << "    -S, --drop-split           remove split reads taking nonexistent edges" << endl
          << "    -x, --xg-name FILE         use this xg index or graph (required for -S and -D)" << endl
-         << "    -A, --append-regions       append to alignments created with -RB" << endl
          << "    -v, --verbose              print out statistics on numbers of reads filtered by what." << endl
          << "    -V, --no-output            print out statistics (as above) but do not write out filtered GAM." << endl
          << "    -q, --min-mapq N           filter alignments with mapping quality < N" << endl
