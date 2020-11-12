@@ -1,4 +1,3 @@
-
 #include "contracting_graph.hpp"
 #include <structures/union_find.hpp>
 
@@ -13,7 +12,7 @@ namespace vg{
             
 
     }
-    
+
     unordered_map<size_t, size_t> ContractingGraph::get_edges(size_t group_num){
         
         //create container to keep group and edge_totals
@@ -29,49 +28,26 @@ namespace vg{
 
         //search through the adj list for node=group_num
         //if an adj_node exists in group_nodes then it is a contracted edge, we treat it as a special case  
-        for(size_t i = 0; i<connecting_nodes.size(); i++){
-            int adj_node = connecting_nodes[i];
-            size_t group_id = uf.find_group(adj_node);
-            if (group_id == group_num){
-                // if adjacent node is in the super group
-                // get the node that connects with group_num and another node from adj_list 
-                // enter it into the unordered map but use the other_node as a key
+        for(size_t i = 0; i<group_nodes.size(); i++){
+            int member = group_nodes[i];
+            for (size_t j = 0; j < graph.nodes[member].edges.size(); j++){
+                int edge_destination = graph.nodes[member].edges[j].other;
+                size_t dest_edge_group_id = uf.find_group(edge_destination);
 
+                if (dest_edge_group_id == group_num){
+                    continue;
+                }else{
 
-
-
-            }else{
-
-                for (size_t j = 0; j< graph.nodes[adj_node].edges.size(); j++){
-            
                 //if it doesn't exist add, otherwise add weight to existing value
-                group_edges[adj_node] += graph.nodes[adj_node].edges[j].weight;
+                group_edges[dest_edge_group_id] += graph.nodes[dest_edge_group_id].edges[j].weight;
 
-
+                }
             }
 
-            }
-            
-            
-            
-                
-                
-            
-
-            
-
-            
-            
-            
         }
-
-
-        
 
         return group_edges;
         
-
-                
     }
     
     vector<size_t> ContractingGraph::get_nodes(){
@@ -86,9 +62,6 @@ namespace vg{
                 heads.push_back(i);
 
             }
-
-
-
         }
        
         return heads;
