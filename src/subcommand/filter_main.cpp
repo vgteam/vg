@@ -85,7 +85,7 @@ int main_filter(int argc, char** argv) {
     bool set_min_mapq = false;
     int min_mapq;
     bool verbose = false;
-    bool write_output = false;
+    bool write_output = true;
     bool set_repeat_size = false;
     int repeat_size;
     bool set_defray_length = false;
