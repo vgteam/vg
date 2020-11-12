@@ -158,6 +158,10 @@ namespace vg {
             multipath_alns_out.resize(max_alt_mappings);
         }
         
+        for (size_t i = 1; i < multipath_alns_out.size(); ++i) {
+            multipath_alns_out[i].set_annotation("secondary", true);
+        }
+        
         if (simplify_topologies) {
             for (multipath_alignment_t& multipath_aln : multipath_alns_out) {
                 merge_non_branching_subpaths(multipath_aln);
@@ -1932,6 +1936,11 @@ namespace vg {
         // if we computed extra alignments to get a mapping quality or investigate ambiguous clusters, remove them
         if (multipath_aln_pairs_out.size() > max_alt_mappings) {
             multipath_aln_pairs_out.resize(max_alt_mappings);
+        }
+        
+        for (size_t i = 1; i < multipath_aln_pairs_out.size(); ++i) {
+            multipath_aln_pairs_out[i].first.set_annotation("secondary", true);
+            multipath_aln_pairs_out[i].second.set_annotation("secondary", true);
         }
         
         if (simplify_topologies) {

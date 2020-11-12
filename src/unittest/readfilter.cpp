@@ -53,7 +53,7 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
     index.from_path_handle_graph(VG(chunk));
     
     // Make a ReadFilter;
-    ReadFilter filter;
+    ReadFilter<Alignment> filter;
     filter.graph = &index;
     
     SECTION("A read that is not ambiguous is not trimmed") {
