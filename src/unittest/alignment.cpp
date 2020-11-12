@@ -271,5 +271,47 @@ TEST_CASE("Inter-alignment distance computation for HTS output formats matches B
     REQUIRE(lengths.second == -593);
 }
 
+TEST_CASE("CIGAR generation forces adjacent insertions and deletions to obey GATK's constraints", "[alignment]") {
+    // See https://github.com/vgteam/vg/issues/3080
+    vector<pair<int, char>> cigar;
+    
+    SECTION("DID becomes DI") {
+        append_cigar_operation(1, 'D', cigar);
+        append_cigar_operation(5, 'I', cigar);
+        append_cigar_operation(2, 'D', cigar);
+        
+        REQUIRE(cigar.size() == 2);
+        REQUIRE(cigar[0].first == 3);
+        REQUIRE(cigar[0].second == 'D');
+        REQUIRE(cigar[1].first == 5);
+        REQUIRE(cigar[1].second == 'I');
+    }
+    
+    SECTION("MMIDIIDDIMM becomes MDIM") {
+        append_cigar_operation(1, 'M', cigar);
+        append_cigar_operation(1, 'M', cigar);
+        append_cigar_operation(1, 'I', cigar);
+        append_cigar_operation(1, 'D', cigar);
+        append_cigar_operation(1, 'I', cigar);
+        append_cigar_operation(1, 'I', cigar);
+        append_cigar_operation(1, 'D', cigar);
+        append_cigar_operation(1, 'D', cigar);
+        append_cigar_operation(1, 'I', cigar);
+        append_cigar_operation(1, 'M', cigar);
+        append_cigar_operation(1, 'M', cigar);
+        
+        REQUIRE(cigar.size() == 4);
+        REQUIRE(cigar[0].first == 2);
+        REQUIRE(cigar[0].second == 'M');
+        REQUIRE(cigar[1].first == 3);
+        REQUIRE(cigar[1].second == 'D');
+        REQUIRE(cigar[2].first == 4);
+        REQUIRE(cigar[2].second == 'I');
+        REQUIRE(cigar[3].first == 2);
+        REQUIRE(cigar[3].second == 'M');
+    }
+    
+}
+
 }
 }
