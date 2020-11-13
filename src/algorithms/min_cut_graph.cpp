@@ -23,21 +23,21 @@ namespace vg {
 
 
         int64_t kargers_min_cut(Graph graph, const int n_iterations, const int seed, int V) {
-            // 
+ 
      
             minstd_rand0 random_engine(seed);
             structures::UnionFind uf(V, true);
             vector<unordered_map<size_t, size_t>> group_total_edge_weights;
 
-            // make adjacency list
+            // // make adjacency list
             vector<vector<int> > adj;
-            for(int i = 0; i< V; i++){
-                for(int j = 0; j< graph.nodes.at(i).edges.size(); j++ ){
-                    adj[i].push_back(graph.nodes.at(i).edges[j].other);
+            // for(int i = 0; i< V; i++){
+            //     for(int j = 0; j< graph.nodes.at(i).edges.size(); j++ ){
+            //         adj[i].push_back(graph.nodes.at(i).edges[j].other);
 
-                }
+            //     }
 
-            }
+            // }
             
 
             ContractingGraph cg(graph, V, adj, uf); 
@@ -67,16 +67,31 @@ namespace vg {
                 //get the other node of the edge
                 size_t other_node = graph.nodes[random_node].edges[random_edge].other;
 
-                //get the random_edge located between random_node and other_node 
+                //contract edge between random node and other node 
                 uf.union_groups(random_node, other_node);
 
-                //subtract the contracted edge from the incident edges total weight 
-                graph.nodes[random_node].weight = graph.nodes[random_node].weight - graph.nodes[random_node].edges[random_edge].weight;
-                graph.nodes[other_node].weight = graph.nodes[other_node].weight - graph.nodes[other_node].edges[random_edge].weight;
+                //subtract the contracted edge weight from the incident edges total weight 
+                //we don't want to update the original graph
+                // graph.nodes[random_node].weight = graph.nodes[random_node].weight - graph.nodes[random_node].edges[random_edge].weight;
+                // graph.nodes[other_node].weight = graph.nodes[other_node].weight - graph.nodes[other_node].edges[random_edge].weight;
                 
-                
+                // have to check how many nodes we have and will break out of while loop when we only have two nodes in contracted graph
+                vector<size_t> super_nodes = cg.get_nodes();
+                V = super_nodes.size();
+
+                // get the group_id for the contracted node 
                 size_t group_id = uf.find_group(random_node);
+
+                //get the total edge weights for contracted graph
+                //how do we know the group_id once we finish the loop?
+                //maybe we don't want to keep a vector outside and only keep the last result?
                 group_total_edge_weights.push_back(cg.get_edges(group_id));
+
+
+                //the minimum total edge weight of graph will give us the min-cut
+
+                //two dijoint sets are the nodes inside each super-node or head
+
                 
 
             }

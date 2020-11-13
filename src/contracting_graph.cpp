@@ -24,22 +24,22 @@ namespace vg{
 
         // the connecting nodes in adjacency list corresponding to node[group_num]
         // note: will remove the group_nodes from connecting nodes (contracted edges)
-        vector<int> connecting_nodes  = adj_list[group_num];
+        // vector<int> connecting_nodes  = adj_list[group_num];
 
-        //search through the adj list for node=group_num
+        
         //if an adj_node exists in group_nodes then it is a contracted edge, we treat it as a special case  
         for(size_t i = 0; i<group_nodes.size(); i++){
             int member = group_nodes[i];
             for (size_t j = 0; j < graph.nodes[member].edges.size(); j++){
-                int edge_destination = graph.nodes[member].edges[j].other;
-                size_t dest_edge_group_id = uf.find_group(edge_destination);
+                int connecting_node = graph.nodes[member].edges[j].other;
+                size_t connecting_node_group_id = uf.find_group(connecting_node);
 
-                if (dest_edge_group_id == group_num){
+                if(connecting_node_group_id == group_num){
                     continue;
                 }else{
 
                 //if it doesn't exist add, otherwise add weight to existing value
-                group_edges[dest_edge_group_id] += graph.nodes[dest_edge_group_id].edges[j].weight;
+                group_edges[connecting_node] += graph.nodes[connecting_node].edges[j].weight;
 
                 }
             }
