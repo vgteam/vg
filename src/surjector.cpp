@@ -9,6 +9,7 @@
 //#define debug_anchored_surject
 //#define debug_multipath_surject
 //#define debug_constrictions
+//#define debug_prune_unconnectable
 //#define debug_filter_paths
 //#define debug_validate_anchored_multipath_alignment
 
@@ -517,6 +518,17 @@ using namespace std;
             }
         }
         
+#ifdef debug_prune_unconnectable
+        cerr << "connects forward:" << endl;
+        for (size_t i = 0; i < adj.size(); ++i) {
+            cerr << "\t" << i << ": " << connects_forward[i] << endl;
+        }
+        cerr << "connects backward:" << endl;
+        for (size_t i = 0; i < adj.size(); ++i) {
+            cerr << "\t" << i << ": " << connects_backward[i] << endl;
+        }
+#endif
+        
         // mark path chunks for removal if a component has a connection but the
         // chunks don't occur on any interconnectino paths
         vector<unordered_set<size_t>> to_remove_by_group(comp_groups.size());
@@ -525,6 +537,9 @@ using namespace std;
             if ((comp_has_connection_to[grp] && !connects_forward[i])
                 || (comp_has_connection_from[grp] && !connects_backward[i])) {
                 to_remove_by_group[grp].insert(i);
+#ifdef debug_prune_unconnectable
+                cerr << "marking " << i << " for removal" << endl;
+#endif
             }
         }
         
@@ -536,11 +551,15 @@ using namespace std;
             // TODO: but how can we be sure to produce sensible results when an entire group
             // should be removed?
             if (to_remove_by_group[grp].count(i)
-                && to_remove_by_group[grp].size() < comp_groups[i].size()) {
+                && to_remove_by_group[grp].size() < comp_groups[grp].size()) {
+#ifdef debug_prune_unconnectable
+                cerr << "removing " << i << endl;
+#endif
                 removed[i + 1] = removed[i] + 1;
             }
             else {
-                size_t removed_so_far = removed[i + 1] = removed[i];
+                size_t removed_so_far = removed[i];
+                removed[i + 1] = removed_so_far;
                 if (removed_so_far) {
                     adj[i - removed_so_far] = move(adj[i]);
                     splice_adj[i - removed_so_far] = move(splice_adj[i]);
@@ -552,6 +571,12 @@ using namespace std;
         }
         
         if (removed.back()) {
+            adj.resize(adj.size() - removed.back());
+            splice_adj.resize(adj.size());
+            path_chunks.resize(adj.size());
+            ref_chunks.resize(adj.size());
+            component.resize(adj.size());
+            
             // rewire the adjacencies to the correct chunks
             for (auto& adj_list : adj) {
                 size_t adj_removed = 0;
@@ -565,6 +590,17 @@ using namespace std;
                 }
                 adj_list.resize(adj_list.size() - adj_removed);
             }
+            
+#ifdef debug_prune_unconnectable
+            cerr << "rewired adj list:" << endl;
+            for (size_t i = 0; i < adj.size(); ++i) {
+                cerr << i << ":";
+                for (auto j : adj[i]) {
+                    cerr << " " << j;
+                }
+                cerr << endl;
+            }
+#endif
             
             // rewire the splice adjacencies to the correct chunks
             for (auto& splice_adj_list : splice_adj) {
@@ -581,6 +617,17 @@ using namespace std;
                 splice_adj_list.resize(splice_adj_list.size() - adj_removed);
             }
             
+#ifdef debug_prune_unconnectable
+            cerr << "rewired splice adj list:" << endl;
+            for (size_t i = 0; i < splice_adj.size(); ++i) {
+                cerr << i << ":";
+                for (auto edge : splice_adj[i]) {
+                    cerr << " (" << get<0>(edge) << " " << get<1>(edge) << " " << get<2>(edge) << ")";
+                }
+                cerr << endl;
+            }
+#endif
+            
             // correct the indexes in the group
             for (auto& group : comp_groups) {
                 size_t grp_removed = 0;
@@ -594,6 +641,7 @@ using namespace std;
                 }
                 group.resize(group.size() - grp_removed);
             }
+            
         }
     }
 
