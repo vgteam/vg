@@ -482,6 +482,121 @@ using namespace std;
         return fwd_adj;
     }
 
+    void Surjector::prune_unconnectable(vector<vector<size_t>>& adj,
+                                        vector<vector<tuple<size_t, int32_t, bool>>>& splice_adj,
+                                        vector<size_t>& component,
+                                        vector<vector<size_t>>& comp_groups,
+                                        vector<path_chunk_t>& path_chunks,
+                                        vector<pair<step_handle_t, step_handle_t>>& ref_chunks) const {
+        
+        // record which path chunks and component groups have connection adjacencies
+        vector<bool> has_connection_from(adj.size(), false), has_connection_to(adj.size(), false);
+        vector<bool> comp_has_connection_from(comp_groups.size(), false), comp_has_connection_to(comp_groups.size(), false);
+        for (size_t i = 0; i < splice_adj.size(); ++i) {
+            for (auto& edge : splice_adj[i]) {
+                if (get<2>(edge)) {
+                    has_connection_from[i] = true;
+                    comp_has_connection_from[component[i]] = true;
+                    has_connection_to[get<0>(edge)] = true;
+                    comp_has_connection_to[component[get<0>(edge)]] = true;
+                }
+            }
+        }
+        
+        // record which path chunks are reachable from the connections adjacencies
+        vector<bool> connects_forward(adj.size(), false), connects_backward(adj.size(), false);
+        for (size_t i = 0; i < adj.size(); ++i) {
+            size_t j = adj.size() - i - 1;
+            connects_forward[i] = connects_forward[i]  || has_connection_to[i];
+            connects_backward[j] = connects_backward[j] || has_connection_from[j];
+            for (auto k : adj[i]) {
+                connects_forward[k] = connects_forward[k] || connects_forward[i];
+            }
+            for (auto k : adj[j]) {
+                connects_backward[j] = connects_backward[j] || connects_backward[k];
+            }
+        }
+        
+        // mark path chunks for removal if a component has a connection but the
+        // chunks don't occur on any interconnectino paths
+        vector<unordered_set<size_t>> to_remove_by_group(comp_groups.size());
+        for (size_t i = 0; i < adj.size(); ++i) {
+            size_t grp = component[i];
+            if ((comp_has_connection_to[grp] && !connects_forward[i])
+                || (comp_has_connection_from[grp] && !connects_backward[i])) {
+                to_remove_by_group[grp].insert(i);
+            }
+        }
+        
+        // filter out the chunks
+        vector<size_t> removed(adj.size() + 1, 0);
+        for (size_t i = 0; i < adj.size(); ++i) {
+            size_t grp = component[i];
+            // remove if not on an inter-connection path, but don't remove an entire group
+            // TODO: but how can we be sure to produce sensible results when an entire group
+            // should be removed?
+            if (to_remove_by_group[grp].count(i)
+                && to_remove_by_group[grp].size() < comp_groups[i].size()) {
+                removed[i + 1] = removed[i] + 1;
+            }
+            else {
+                size_t removed_so_far = removed[i + 1] = removed[i];
+                if (removed_so_far) {
+                    adj[i - removed_so_far] = move(adj[i]);
+                    splice_adj[i - removed_so_far] = move(splice_adj[i]);
+                    path_chunks[i - removed_so_far] = move(path_chunks[i]);
+                    ref_chunks[i - removed_so_far] = move(ref_chunks[i]);
+                    component[i - removed_so_far] = component[i];
+                }
+            }
+        }
+        
+        if (removed.back()) {
+            // rewire the adjacencies to the correct chunks
+            for (auto& adj_list : adj) {
+                size_t adj_removed = 0;
+                for (size_t i = 0; i < adj_list.size(); ++i) {
+                    if (removed[adj_list[i]] != removed[adj_list[i] + 1]) {
+                        ++adj_removed;
+                    }
+                    else {
+                        adj_list[i - adj_removed] = adj_list[i] - removed[adj_list[i]];
+                    }
+                }
+                adj_list.resize(adj_list.size() - adj_removed);
+            }
+            
+            // rewire the splice adjacencies to the correct chunks
+            for (auto& splice_adj_list : splice_adj) {
+                size_t adj_removed = 0;
+                for (size_t i = 0; i < splice_adj_list.size(); ++i) {
+                    auto& edge = splice_adj_list[i];
+                    if (removed[get<0>(edge)] != removed[get<0>(edge) + 1]) {
+                        ++adj_removed;
+                    }
+                    else {
+                        splice_adj_list[i - adj_removed] = make_tuple(get<0>(edge) - removed[get<0>(edge)], get<1>(edge), get<2>(edge));
+                    }
+                }
+                splice_adj_list.resize(splice_adj_list.size() - adj_removed);
+            }
+            
+            // correct the indexes in the group
+            for (auto& group : comp_groups) {
+                size_t grp_removed = 0;
+                for (size_t i = 0; i < group.size(); ++i) {
+                    if (removed[group[i]] != removed[group[i] + 1]) {
+                        ++grp_removed;
+                    }
+                    else {
+                        group[i - grp_removed] = group[i] - removed[group[i]];
+                    }
+                }
+                group.resize(group.size() - grp_removed);
+            }
+        }
+    }
+
     vector<pair<vector<size_t>, vector<size_t>>> Surjector::find_constriction_bicliques(const vector<vector<size_t>>& adj,
                                                                                         const string& src_sequence,
                                                                                         const vector<path_chunk_t>& path_chunks,
@@ -639,7 +754,7 @@ using namespace std;
                 }
 #endif
                 
-                // record which pairs have a conneection
+                // record which pairs have a connection
                 bool incompatible = false;
                 unordered_set<size_t> left_connected, right_connected;
                 for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
@@ -1095,53 +1210,19 @@ using namespace std;
         }
 #endif
         
-        // make sure the boundaries of component groups expose the ends necessary for connections
-        if (!connections.empty()) {
-            vector<pair<string::const_iterator, string::const_iterator>> group_interval(comp_groups.size());
-            for (size_t i = 0; i < comp_groups.size(); ++i) {
-                group_interval[i] = path_chunks[comp_groups[i][0]].first;
-                for (size_t j = 1; j < comp_groups[i].size(); ++j) {
-                    auto& interval = path_chunks[comp_groups[i][j]].first;
-                    group_interval[i].first = min(group_interval[i].first, interval.first);
-                    group_interval[i].second = max(group_interval[i].second, interval.second);
-                }
+        prune_unconnectable(colinear_adj_red, splice_edges, constriction_comps, comp_groups,
+                            path_chunks, ref_chunks);
+        
+#ifdef debug_spliced_surject
+        cerr << "groups after pruning unconnectable" << endl;
+        for (size_t i = 0; i < comp_groups.size(); ++i) {
+            cerr << "group " << i << ":";
+            for (auto j : comp_groups[i]) {
+                cerr << " " << j;
             }
-            
-            for (const auto& connection : connections) {
-                auto from = get<0>(connection);
-                auto from_grp = constriction_comps[from];
-                if (group_interval[from_grp].second > path_chunks[from].first.second) {
-                    // some path chunk is overhanging this connection, we need to get rid of it
-                    size_t end = comp_groups[from_grp].size();
-                    for (size_t i = 0; i < end;) {
-                        if (path_chunks[comp_groups[from_grp][i]].first.second > path_chunks[from].first.second) {
-                            comp_groups[from_grp][i] = comp_groups[from_grp].back();
-                            --end;
-                        }
-                        else {
-                            ++i;
-                        }
-                    }
-                    comp_groups[from_grp].resize(end);
-                }
-                auto to = get<1>(connection);
-                auto to_grp = constriction_comps[to];
-                if (group_interval[to_grp].first < path_chunks[to].first.first) {
-                    // some path chunk is overhanging this connection, we need to get rid of it
-                    size_t end = comp_groups[to_grp].size();
-                    for (size_t i = 0; i < end;) {
-                        if (path_chunks[comp_groups[to_grp][i]].first.first < path_chunks[to].first.first) {
-                            comp_groups[to_grp][i] = comp_groups[to_grp].back();
-                            --end;
-                        }
-                        else {
-                            ++i;
-                        }
-                    }
-                    comp_groups[to_grp].resize(end);
-                }
-            }
+            cerr << endl;
         }
+#endif
         
         
         // convert the splice edges into edges between the components and identify sources/sinks
@@ -1510,6 +1591,9 @@ using namespace std;
         if (surj_path.mapping_size() > 0) {
             // the surjection is mapped
             
+#ifdef debug_anchored_surject
+            cerr << "assigning a path range to surjected path: " << pb2json(surj_path) << endl;
+#endif
             size_t mappings_matched = 0;
             int rev = 0;
             for (; rev < 2 && mappings_matched != surj_path.mapping_size(); ++rev) {

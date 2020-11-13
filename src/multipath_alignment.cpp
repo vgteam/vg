@@ -1712,7 +1712,7 @@ namespace vg {
     ///                      if not empty)
     ///
     inline void rev_comp_subpath(const subpath_t& subpath, const function<int64_t(int64_t)>& node_length,
-                          subpath_t& rev_comp_out) {
+                                 subpath_t& rev_comp_out) {
         
         *(rev_comp_out.mutable_path()) = reverse_complement_path(subpath.path(), node_length);
         rev_comp_out.set_score(subpath.score());

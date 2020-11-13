@@ -184,6 +184,13 @@ using namespace std;
                                                                                  const vector<path_chunk_t>& path_chunks,
                                                                                  const vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
+        void prune_unconnectable(vector<vector<size_t>>& adj,
+                                 vector<vector<tuple<size_t, int32_t, bool>>>& splice_adj,
+                                 vector<size_t>& component,
+                                 vector<vector<size_t>>& comp_groups,
+                                 vector<path_chunk_t>& path_chunks,
+                                 vector<pair<step_handle_t, step_handle_t>>& ref_chunks) const;
+        
         /// make a sentinel meant to indicate an unmapped read
         static Alignment make_null_alignment(const Alignment& source);
         
