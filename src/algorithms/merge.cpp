@@ -52,6 +52,14 @@ void merge(handlegraph::MutablePathDeletableHandleGraph* graph, const vector<pai
             divisions.push_back(offset + length);
         }
         
+#ifdef debug
+        cerr << "Splitting " << graph->get_id(to_split) << (graph->get_is_reverse(to_split) ? '-' : '+') << " at:";
+        for (auto& index : divisions) {
+            cerr << " " << index;
+        }
+        cerr << endl;
+#endif
+        
         if (divisions.empty()) {
             // Just use the whole node
             middles.push_back(to_split);
@@ -62,22 +70,62 @@ void merge(handlegraph::MutablePathDeletableHandleGraph* graph, const vector<pai
         }
     }
     
+#ifdef debug
+    cerr << "Got middles:" << endl;
+    for (auto& part : middles) {
+        cerr << "\t" << graph->get_id(part) << (graph->get_is_reverse(part) ? '-' : '+') << endl;
+    }
+#endif
+        
+    
     // Pick one to be the one that survives
     handle_t merged = middles.back();
     middles.pop_back();
     
+#ifdef debug
+    cerr << "Chose representative: " << graph->get_id(merged) << (graph->get_is_reverse(merged) ? '-' : '+') << endl;
+#endif
+
+    // Define a translator that reroutes edges from other middles to other
+    // middles to instead point to the final merged middle.
+    unordered_set<handle_t> other_middles(middles.begin(), middles.end());
+    auto translate = [&](const handle_t neighbor) {
+        if (other_middles.count(neighbor)) {
+            return merged;
+        } else if (other_middles.count(graph->flip(neighbor))) {
+            return graph->flip(merged);
+        } else {
+            return neighbor;
+        }
+    };
+   
     // Make sets of neighbors we already have
     unordered_set<handle_t> existing_right_neighbors;
     unordered_set<handle_t> existing_left_neighbors;
     
     graph->follow_edges(merged, false, [&](const handle_t& h) {
-        // Look right and collect neighbors
+        // Look right and collect neighbors.
+        // Don't translate here; edges to other middles will be removed, so
+        // they will still need remaking.
         existing_right_neighbors.insert(h);
     });
     graph->follow_edges(merged, true, [&](const handle_t& h) {
-        // Look left and collect neighbors
+        // Look left and collect neighbors.
+        // Don't translate here; edges to other middles will be removed, so
+        // they will still need remaking.
         existing_left_neighbors.insert(h);
     });
+    
+#ifdef debug
+    cerr << "Existing right neighbors: " << endl;
+    for (auto& neighbor : existing_right_neighbors) {
+        cerr << "\t" << graph->get_id(neighbor) << (graph->get_is_reverse(neighbor) ? '-' : '+') << endl;
+    }
+    cerr << "Existing left neighbors: " << endl;
+    for (auto& neighbor : existing_left_neighbors) {
+        cerr << "\t" << graph->get_id(neighbor) << (graph->get_is_reverse(neighbor) ? '-' : '+') << endl;
+    }
+#endif
     
     
     // Create edges from everything attached to the other ones to the first one.
@@ -90,18 +138,45 @@ void merge(handlegraph::MutablePathDeletableHandleGraph* graph, const vector<pai
     
     for (auto& other : middles) {
         // For each node we merge in
+        
+#ifdef debug
+    cerr << "Other version " << graph->get_id(other) << (graph->get_is_reverse(other) ? '-' : '+') << " adds:" << endl;
+#endif
+        
         graph->follow_edges(other, false, [&](const handle_t& h) {
             // Look right and collect new neighbors
-            if (!existing_right_neighbors.count(h)) {
-                right_neighbors.insert(h);
+            
+            // Alias other middles to the true middle
+            auto dest = translate(h);
+            if (!existing_right_neighbors.count(dest)) {
+                right_neighbors.insert(dest);
+#ifdef debug
+                cerr << "\tRight neighbor " << graph->get_id(h) << (graph->get_is_reverse(h) ? '-' : '+')
+                    << " = " << graph->get_id(dest) << (graph->get_is_reverse(dest) ? '-' : '+') << endl;
+#endif
             }
         });
         graph->follow_edges(other, true, [&](const handle_t& h) {
             // Look left and collect new neighbors
-            if (!existing_left_neighbors.count(h)) {
-                left_neighbors.insert(h);
+            
+            // Alias other middles to the true middle
+            auto dest = translate(h);
+            if (!existing_left_neighbors.count(dest)) {
+                left_neighbors.insert(dest);
+#ifdef debug
+                cerr << "\tLeft neighbor " << graph->get_id(h) << (graph->get_is_reverse(h) ? '-' : '+')
+                    << " = " << graph->get_id(dest) << (graph->get_is_reverse(dest) ? '-' : '+') << endl;
+#endif
             }
         });
+    }
+    
+    // Make sure the end-to-start self loop only gets made once.
+    // If it existed before, it won't be added.
+    // But if it didn't, we might see ourselves as both a right and a left neighbor.
+    if (right_neighbors.count(merged) && left_neighbors.count(merged)) {
+        // Erase from right so we only make an edge based on left.
+        right_neighbors.erase(merged);
     }
     
     for (auto& h : right_neighbors) {
@@ -137,6 +212,11 @@ void merge(handlegraph::MutablePathDeletableHandleGraph* graph, const vector<pai
     
     for (auto& other : middles) {
         // Delete the other versions of the merged segment.
+        
+#ifdef debug
+        cerr << "Destroy other version " << graph->get_id(other) << (graph->get_is_reverse(other) ? '-' : '+') << " and its edges" << endl;
+#endif
+        
         // First we have to delete each edge exactly once
         unordered_set<edge_t> to_remove;
         graph->follow_edges(other, false, [&](const handle_t& h) {
