@@ -867,6 +867,9 @@ bool trim_path(path_t* path, bool from_left, int64_t mapping_idx, int64_t edit_i
                     if (!edit->sequence().empty()) {
                         edit->set_sequence(edit->sequence().substr(base_idx, edit->to_length()));
                     }
+                    if (edit->from_length() == 0 && edit->to_length() == 0) {
+                        ++edit_idx;
+                    }
                 }
                 for (int64_t i = 0; i < edit_idx; ++i) {
                     from_length_removed += mapping->edit(i).from_length();
@@ -884,6 +887,9 @@ bool trim_path(path_t* path, bool from_left, int64_t mapping_idx, int64_t edit_i
                     edit->set_to_length(min<int64_t>(edit->to_length(), base_idx));
                     if (!edit->sequence().empty()) {
                         edit->set_sequence(edit->sequence().substr(0, base_idx));
+                    }
+                    if (edit->from_length() == 0 && edit->to_length() == 0) {
+                        --edit_idx;
                     }
                 }
                 mapping->mutable_edit()->resize(edit_idx + 1);

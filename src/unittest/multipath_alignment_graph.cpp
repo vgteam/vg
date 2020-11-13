@@ -180,7 +180,8 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         mem_hits.first.emplace_back(&mems.back(), make_pos_t(4, false, 0));
         
         // Make the MultipathAlignmentGraph to test
-        MultipathAlignmentGraph mpg(vg, mem_hits, identity);
+        vector<size_t> provenance;
+        MultipathAlignmentGraph mpg(vg, mem_hits, identity, provenance);
         
         // Make the output multipath_alignment_t
         multipath_alignment_t out;
@@ -274,7 +275,8 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         mem_hits.first.emplace_back(&mems.back(), make_pos_t(7, false, 0));
         
         // Make the MultipathAlignmentGraph to test
-        MultipathAlignmentGraph mpg(vg, mem_hits, identity);
+        vector<size_t> provenance;
+        MultipathAlignmentGraph mpg(vg, mem_hits, identity, provenance);
         
         // Make the output multipath_alignment_t
         multipath_alignment_t out;

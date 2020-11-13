@@ -783,6 +783,9 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
             cigar.back().second = 'S';
         }
     }
+    
+    consolidate_ID_runs(cigar);
+    
     return cigar;
 }
 

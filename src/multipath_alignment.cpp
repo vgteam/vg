@@ -1712,7 +1712,7 @@ namespace vg {
     ///                      if not empty)
     ///
     inline void rev_comp_subpath(const subpath_t& subpath, const function<int64_t(int64_t)>& node_length,
-                          subpath_t& rev_comp_out) {
+                                 subpath_t& rev_comp_out) {
         
         *(rev_comp_out.mutable_path()) = reverse_complement_path(subpath.path(), node_length);
         rev_comp_out.set_score(subpath.score());
@@ -3333,6 +3333,17 @@ namespace vg {
                 swap(cigar[i], cigar[cigar.size() - i - 1]);
             }
         }
+        
+#ifdef debug_cigar
+        cerr << "got cigar: ";
+        for (auto& cigar_record : cigar) {
+            cerr << cigar_record.first << cigar_record.second;
+        }
+        cerr << endl;
+        cerr << "coalescing runs of I/D..." << endl;
+#endif
+
+        consolidate_ID_runs(cigar);
         
 #ifdef debug_cigar
         cerr << "final cigar: ";

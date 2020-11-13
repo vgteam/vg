@@ -66,12 +66,14 @@ namespace vg {
         MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                 const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                vector<size_t>& path_node_provenance,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks = nullptr);
                                 
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily.
         MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                vector<size_t>& path_node_provenance,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks = nullptr);
         
@@ -79,6 +81,7 @@ namespace vg {
         /// using a lambda for a projector
         MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                 const function<pair<id_t, bool>(id_t)>& project,
+                                vector<size_t>& path_node_provenance,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks = nullptr);
         
@@ -139,8 +142,8 @@ namespace vg {
         /// within some amount of the highest scoring path. Reachability edges must be present.
         void prune_to_high_scoring_paths(const Alignment& alignment, const GSSWAligner* aligner,
                                          double max_suboptimal_score_ratio, const vector<size_t>& topological_order,
-                                         vector<pair<const MaximalExactMatch*, pos_t>>& cluster,
-                                         function<pair<id_t, bool>(id_t)>& translator);
+                                         function<pair<id_t, bool>(id_t)>& translator,
+                                         vector<size_t>& path_node_provenance);
         
         /// Clear reachability edges, so that add_reachability_edges can be run
         /// (possibly after modifying the graph).
@@ -174,7 +177,8 @@ namespace vg {
         /// Add edges between reachable nodes and split nodes at overlaps
         void add_reachability_edges(const HandleGraph& vg,
                                     const function<pair<id_t, bool>(id_t)>& project,
-                                    const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+                                    const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                    vector<size_t>* path_node_provenance = nullptr);
                                     
         /// Do intervening and tail alignments between the anchoring paths and
         /// store the result in a multipath_alignment_t. Reachability edges must
@@ -215,7 +219,9 @@ namespace vg {
         vector<vector<id_t>> get_connected_components() const;
         
         /// Does the multipath alignment graph have any nodes?
-        bool empty();
+        bool empty() const;
+        
+        size_t size() const;
         
     private:
         
@@ -250,6 +256,7 @@ namespace vg {
         void create_match_nodes(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                 const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                vector<size_t>& path_node_provenance,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks);
         
         
@@ -257,7 +264,8 @@ namespace vg {
         /// Identifies runs of exact matches that are sub-maximal because they hit the order of the GCSA
         /// index and merges them into a single node, assumes that match nodes are sorted by length and
         /// then lexicographically by read interval, does not update edges
-        void collapse_order_length_runs(const HandleGraph& graph, gcsa::GCSA* gcsa);
+        void collapse_order_length_runs(const HandleGraph& graph, gcsa::GCSA* gcsa,
+                                        vector<size_t>& path_node_provenance);
         
         /// Reorders adjacency list representation of edges so that they follow the indicated
         /// ordering of their target nodes
