@@ -20,7 +20,7 @@ var searchData=
   ['thread_5fqueue_5fmutexes',['thread_queue_mutexes',['../classvg_1_1io_1_1StreamMultiplexer.html#ae0404331337813a02b7bafd0fb95e10a',1,'vg::io::StreamMultiplexer']]],
   ['thread_5fqueues',['thread_queues',['../classvg_1_1io_1_1StreamMultiplexer.html#aa4bc760981467acc3bff684653ffebd5',1,'vg::io::StreamMultiplexer']]],
   ['thread_5fstreams',['thread_streams',['../classvg_1_1io_1_1StreamMultiplexer.html#a9e75e8ebd9b414f7438dea9b43af3b56',1,'vg::io::StreamMultiplexer']]],
-  ['threads',['threads',['../classvg_1_1Index.html#afa3ca566571f082a5a1528d2da20b018',1,'vg::Index::threads()'],['../classvg_1_1ReadFilter.html#a22e4ebb26cce954d20deb7b0d7a31641',1,'vg::ReadFilter::threads()']]],
+  ['threads',['threads',['../classvg_1_1Index.html#afa3ca566571f082a5a1528d2da20b018',1,'vg::Index::threads()'],['../classvg_1_1ReadFilter.html#a41808c4d5db46d1405ac906a01bbf794',1,'vg::ReadFilter::threads()']]],
   ['tick_5fchain_5fparent',['tick_chain_parent',['../structvg_1_1Range.html#ae0be818c9296bc19e77d5e3b0df7bd20',1,'vg::Range']]],
   ['time_5fused',['time_used',['../structvg_1_1Alignment.html#a0c8b04a220715a894a19dcc70ed581c0',1,'vg::Alignment']]],
   ['timed_5fout',['timed_out',['../structvg_1_1Watchdog_1_1thread__state__t.html#a0a1e9d9760eaa0803da68a1ef3a0cdb0',1,'vg::Watchdog::thread_state_t']]],

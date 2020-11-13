@@ -3,7 +3,7 @@ var searchData=
   ['k',['K',['../classvg_1_1FlowTraversalFinder.html#a6f3d138926abc87592571c2182faf31e',1,'vg::FlowTraversalFinder']]],
   ['k_5fwidest_5fpaths_2ecpp',['k_widest_paths.cpp',['../k__widest__paths_8cpp.html',1,'']]],
   ['k_5fwidest_5fpaths_2ehpp',['k_widest_paths.hpp',['../k__widest__paths_8hpp.html',1,'']]],
-  ['keep',['keep',['../structvg_1_1ReadFilter_1_1Counts.html#af0ef5d49dab2bafc5fd225b4dfa62a44',1,'vg::ReadFilter::Counts']]],
+  ['keep',['keep',['../structvg_1_1Counts.html#a4ffc0e936d50a5bce649cc973f8cbe98',1,'vg::Counts']]],
   ['keep_5fmultinode_5fstrongly_5fconnected_5fcomponents',['keep_multinode_strongly_connected_components',['../classvg_1_1VG.html#a049393f32addf4071a14de2e874e94ac',1,'vg::VG']]],
   ['keep_5fpath',['keep_path',['../classvg_1_1VG.html#a65cc16f52f478a25e84c6f1fc2805915',1,'vg::VG']]],
   ['keep_5fpaths',['keep_paths',['../classvg_1_1Paths.html#a4ed60968ce4b7d6e4bd7f3d24c895f94',1,'vg::Paths::keep_paths()'],['../classvg_1_1VG.html#ac2aa9d438bcec4d7facbfcc44abea8fd',1,'vg::VG::keep_paths()']]],

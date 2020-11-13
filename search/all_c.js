@@ -3,7 +3,7 @@ var searchData=
   ['lane',['lane',['../structvg_1_1ReplaceSnarlHaplotypeCommand.html#a197d4920d6cbdfabac08f0de992a425a',1,'vg::ReplaceSnarlHaplotypeCommand']]],
   ['large_5falignment_5fband_5fpadding',['large_alignment_band_padding',['../classvg_1_1VariantAdder.html#aefe81cd7c81a7f3ba54c73e25c24ba3f',1,'vg::VariantAdder']]],
   ['larger_5fprime',['larger_prime',['../classvg_1_1ShuffledPairs.html#a20b31eca7b0fc0185246c560fd8e266d',1,'vg::ShuffledPairs']]],
-  ['last',['last',['../structvg_1_1FeatureSet_1_1Feature.html#a9fb23b0b9affcc51a2610bb287b2082b',1,'vg::FeatureSet::Feature::last()'],['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388a307890827d887acbf41ae36644759cee',1,'vg::ReadFilter::Counts::last()'],['../structbdsg_1_1ODGI_1_1path__metadata__t.html#a844088324dc909e4ae21ec63f150552e',1,'bdsg::ODGI::path_metadata_t::last()']]],
+  ['last',['last',['../structvg_1_1FeatureSet_1_1Feature.html#a9fb23b0b9affcc51a2610bb287b2082b',1,'vg::FeatureSet::Feature::last()'],['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a1f9f68c932a97214ed914c8ba2c882f2',1,'vg::Counts::last()'],['../structbdsg_1_1ODGI_1_1path__metadata__t.html#a844088324dc909e4ae21ec63f150552e',1,'bdsg::ODGI::path_metadata_t::last()']]],
   ['last_5fcheckin',['last_checkin',['../structvg_1_1Watchdog_1_1thread__state__t.html#ad54ba05d09be7a40b4e9504b8d020ea6',1,'vg::Watchdog::thread_state_t']]],
   ['last_5fcorrect_5fstage',['last_correct_stage',['../classvg_1_1Funnel.html#a99b8a07d0b3a1d0649aae4090918bfad',1,'vg::Funnel']]],
   ['last_5fgroup_5fmin_5fid',['last_group_min_id',['../classvg_1_1StreamIndexBase.html#aef3a7bd46aeb49185a8cd6a9a261e883',1,'vg::StreamIndexBase']]],

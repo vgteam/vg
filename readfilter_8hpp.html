@@ -76,15 +76,23 @@ $(function() {
 <code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
 <code>#include &lt;regex&gt;</code><br />
+<code>#include &lt;fstream&gt;</code><br />
+<code>#include &lt;sstream&gt;</code><br />
 <code>#include &quot;<a class="el" href="vg_8hpp.html">vg.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
+<code>#include &quot;IntervalTree.h&quot;</code><br />
+<code>#include &quot;<a class="el" href="annotation_8hpp.html">annotation.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="multipath__alignment__emitter_8hpp.html">multipath_alignment_emitter.hpp</a>&quot;</code><br />
+<code>#include &lt;<a class="el" href="alignment__emitter_8hpp.html">vg/io/alignment_emitter.hpp</a>&gt;</code><br />
 <code>#include &lt;vg/vg.pb.h&gt;</code><br />
+<code>#include &lt;<a class="el" href="stream_8hpp.html">vg/io/stream.hpp</a>&gt;</code><br />
+<code>#include &lt;htslib/khash.h&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html">vg::ReadFilter&lt; Read &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ReadFilter_1_1Counts.html">vg::ReadFilter::Counts</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Counts.html">vg::Counts</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -94,8 +102,8 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a8dad8aaa23b1f822b9877f1d6c4acb45"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8dad8aaa23b1f822b9877f1d6c4acb45">vg::operator&lt;&lt;</a> (ostream &amp;os, const ReadFilter::Counts &amp;counts)</td></tr>
-<tr class="separator:a8dad8aaa23b1f822b9877f1d6c4acb45"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a35d8d71a9d6d51760cc7354910d029e9"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a35d8d71a9d6d51760cc7354910d029e9">vg::operator&lt;&lt;</a> (ostream &amp;os, const Counts &amp;counts)</td></tr>
+<tr class="separator:a35d8d71a9d6d51760cc7354910d029e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Provides a way to filter and transform reads, implementing the bulk of the <code>vg filter</code> command. </p>

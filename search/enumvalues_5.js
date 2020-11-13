@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['filtered',['filtered',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388a060b43f8b38b7cb06700b61015e04206',1,'vg::ReadFilter::Counts']]]
+  ['filtered',['filtered',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a1a3ab41c6f9d712e6419fb1a2b359fd7',1,'vg::Counts']]]
 ];

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['filtername',['FilterName',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388',1,'vg::ReadFilter::Counts']]]
+  ['filtername',['FilterName',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9',1,'vg::Counts']]]
 ];

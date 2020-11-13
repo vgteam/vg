@@ -84,7 +84,7 @@ var searchData=
   ['write_5fmany',['write_many',['../classvg_1_1io_1_1ProtobufEmitter.html#a05abdc0c51cc62b21c849c2ef13e81e0',1,'vg::io::ProtobufEmitter']]],
   ['write_5fmapping',['write_mapping',['../classvg_1_1PhaseUnfolder.html#a708fb760e358eedc63c624c617885548',1,'vg::PhaseUnfolder']]],
   ['write_5foptions',['write_options',['../classvg_1_1Index.html#a785085834ced227c9a7182776e3126d0',1,'vg::Index']]],
-  ['write_5foutput',['write_output',['../classvg_1_1ReadFilter.html#ad5bab332dd50a2b84e4bb7798fabd349',1,'vg::ReadFilter']]],
+  ['write_5foutput',['write_output',['../classvg_1_1ReadFilter.html#a249032f1613c12263e7c14d83b4e527e',1,'vg::ReadFilter']]],
   ['write_5fsequences',['write_sequences',['../classvg_1_1Transcriptome.html#a21215127ca34332cff285e93c6af6258',1,'vg::Transcriptome']]],
   ['write_5fsnarls_5fto_5fjson',['write_snarls_to_json',['../classvg_1_1MinimumDistanceIndex.html#ae20a265127d05b3b8bf4e247563f466a',1,'vg::MinimumDistanceIndex']]],
   ['write_5fsplice_5fgraph',['write_splice_graph',['../classvg_1_1Transcriptome.html#a1531c856c447cf7b9666cdf9e3983f52',1,'vg::Transcriptome']]],
@@ -98,6 +98,6 @@ var searchData=
   ['writer_5fstop',['writer_stop',['../classvg_1_1io_1_1StreamMultiplexer.html#ae51a3ffdfe9ec988bf732e4904dcbf60',1,'vg::io::StreamMultiplexer']]],
   ['writer_5fthread',['writer_thread',['../classvg_1_1io_1_1StreamMultiplexer.html#a56a9d39b8ccdd13f07e835ad7a967a60',1,'vg::io::StreamMultiplexer']]],
   ['writer_5fthread_5ffunction',['writer_thread_function',['../classvg_1_1io_1_1StreamMultiplexer.html#a29ba6b97591887c453b0cc112cae41e4',1,'vg::io::StreamMultiplexer']]],
-  ['wrong_5fname',['wrong_name',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388aa701e41f77955abe2ab0987627df4d3f',1,'vg::ReadFilter::Counts']]],
-  ['wrong_5frefpos',['wrong_refpos',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388ae2aa11efa38f8a46410102500d80d28b',1,'vg::ReadFilter::Counts']]]
+  ['wrong_5fname',['wrong_name',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a5d133dedebb885c312dbfca70d5abe15',1,'vg::Counts']]],
+  ['wrong_5frefpos',['wrong_refpos',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a069ad2b94f1414f1ba774043f5047d15',1,'vg::Counts']]]
 ];

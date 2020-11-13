@@ -124,6 +124,7 @@ var searchData=
   ['match_5fforward',['match_forward',['../namespacevg.html#a2818a9f845648a5853b256df6849adf1',1,'vg']]],
   ['match_5finitial',['match_initial',['../namespacevg.html#a42bc45580d0c9ea8d2b56abc80fed5c1',1,'vg']]],
   ['matches',['matches',['../classvg_1_1DinucleotideMachine.html#a2250f97747bf0e9390ed7326d357c557',1,'vg::DinucleotideMachine::matches(uint32_t state, const char *dinucleotide) const'],['../classvg_1_1DinucleotideMachine.html#aa30db9eff5e43b78cd23094f3d7edce5',1,'vg::DinucleotideMachine::matches(uint32_t state, const string &amp;dinucleotide) const']]],
+  ['matches_5fname',['matches_name',['../classvg_1_1ReadFilter.html#ab72c4fd96eedcb4bcd6aa565e97dfe4d',1,'vg::ReadFilter']]],
   ['matrix_5finvert',['matrix_invert',['../namespacevg.html#a7effc13e3f877e676d65d9164a44b4a6',1,'vg']]],
   ['matrix_5fmultiply',['matrix_multiply',['../namespacevg.html#a02d66ca193142fb4825a62b300d60697',1,'vg::matrix_multiply(const vector&lt; vector&lt; double &gt;&gt; &amp;A, const vector&lt; vector&lt; double &gt;&gt; &amp;B)'],['../namespacevg.html#a9a1927488f1b7b82758828d5a53ca845',1,'vg::matrix_multiply(const vector&lt; vector&lt; double &gt;&gt; &amp;A, const vector&lt; double &gt; &amp;b)']]],
   ['max',['max',['../classvg_1_1WideningPRNG.html#a3083db737b68cc80dacad05c9e1ae1ee',1,'vg::WideningPRNG']]],

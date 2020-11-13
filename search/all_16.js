@@ -54,7 +54,7 @@ var searchData=
   ['vectorizer',['Vectorizer',['../classVectorizer.html',1,'Vectorizer'],['../classVectorizer.html#ac6f2b56806bc2e8444492cb3d32f42be',1,'Vectorizer::Vectorizer()']]],
   ['vectorizer_2ecpp',['vectorizer.cpp',['../vectorizer_8cpp.html',1,'']]],
   ['vectorizer_2ehpp',['vectorizer.hpp',['../vectorizer_8hpp.html',1,'']]],
-  ['verbose',['verbose',['../classvg_1_1NestedTraversalFinder.html#a67980934b7315e90dcd63fa046b465b7',1,'vg::NestedTraversalFinder::verbose()'],['../classvg_1_1ReadFilter.html#a2ad1a1b72ee0b450fe79340451893cfa',1,'vg::ReadFilter::verbose()'],['../classvg_1_1RepresentativeTraversalFinder.html#a6af3519805d1115b006ad8b3bf2d3a3e',1,'vg::RepresentativeTraversalFinder::verbose()']]],
+  ['verbose',['verbose',['../classvg_1_1NestedTraversalFinder.html#a67980934b7315e90dcd63fa046b465b7',1,'vg::NestedTraversalFinder::verbose()'],['../classvg_1_1ReadFilter.html#aa207b19d222c64919714bae506b726a6',1,'vg::ReadFilter::verbose()'],['../classvg_1_1RepresentativeTraversalFinder.html#a6af3519805d1115b006ad8b3bf2d3a3e',1,'vg::RepresentativeTraversalFinder::verbose()']]],
   ['verify_5fpath',['verify_path',['../namespacevg.html#a3ed0a4f26673002b2081832a7602e9bd',1,'vg']]],
   ['verify_5fpaths',['verify_paths',['../classvg_1_1PhaseUnfolder.html#a910deba7dd5b5f9bce7a1da4e53cfeb1',1,'vg::PhaseUnfolder']]],
   ['verify_5fvalid_5flog_5fodds_5fscore_5fmatrix',['verify_valid_log_odds_score_matrix',['../classvg_1_1GSSWAligner.html#a65f35576e740e49d2723cb1b635d40c5',1,'vg::GSSWAligner']]],

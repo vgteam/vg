@@ -149,6 +149,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html">Constructor</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Counts.html">Counts</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DagifiedGraph.html">DagifiedGraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html">Deconstructor</a></td></tr>
@@ -1665,8 +1667,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a4b1a635d2dfecadd8fe795cb80cedfb7"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1pair__hash__set.html">pair_hash_set</a>&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4b1a635d2dfecadd8fe795cb80cedfb7">find_edges_to_prune</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t k, size_t edge_max)</td></tr>
 <tr class="memdesc:a4b1a635d2dfecadd8fe795cb80cedfb7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all the walks up to length k, adding edges which.  <a href="#a4b1a635d2dfecadd8fe795cb80cedfb7">More...</a><br /></td></tr>
 <tr class="separator:a4b1a635d2dfecadd8fe795cb80cedfb7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8dad8aaa23b1f822b9877f1d6c4acb45"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8dad8aaa23b1f822b9877f1d6c4acb45">operator&lt;&lt;</a> (ostream &amp;os, const <a class="el" href="structvg_1_1ReadFilter_1_1Counts.html">ReadFilter::Counts</a> &amp;counts)</td></tr>
-<tr class="separator:a8dad8aaa23b1f822b9877f1d6c4acb45"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a35d8d71a9d6d51760cc7354910d029e9"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a35d8d71a9d6d51760cc7354910d029e9">operator&lt;&lt;</a> (ostream &amp;os, const <a class="el" href="structvg_1_1Counts.html">Counts</a> &amp;counts)</td></tr>
+<tr class="separator:a35d8d71a9d6d51760cc7354910d029e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a253257615743a1cfb948b749be7700e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a253257615743a1cfb948b749be7700e2">parse_region</a> (const string &amp;target, string &amp;name, int64_t &amp;start, int64_t &amp;end)</td></tr>
 <tr class="separator:a253257615743a1cfb948b749be7700e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8fd1e3436d98304996aaecece048cb45"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8fd1e3436d98304996aaecece048cb45">parse_bed_regions</a> (const string &amp;bed_path, vector&lt; <a class="el" href="structvg_1_1Region.html">Region</a> &gt; &amp;out_regions, vector&lt; string &gt; *out_names)</td></tr>
@@ -13334,8 +13336,36 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
+<a id="a35d8d71a9d6d51760cc7354910d029e9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a35d8d71a9d6d51760cc7354910d029e9">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[1/13]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
+          <td>(</td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>os</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Counts.html">Counts</a> &amp;&#160;</td>
+          <td class="paramname"><em>counts</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a7cc9c4d4d792e1e7f38c2c6009207706"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7cc9c4d4d792e1e7f38c2c6009207706">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[1/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a7cc9c4d4d792e1e7f38c2c6009207706">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[2/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13364,7 +13394,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="af0a4b11db620d43a7e20886d5563e5b8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af0a4b11db620d43a7e20886d5563e5b8">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[2/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#af0a4b11db620d43a7e20886d5563e5b8">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[3/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13392,7 +13422,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="ad1bdeb550c6f5fa632ad61454321e001"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad1bdeb550c6f5fa632ad61454321e001">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[3/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ad1bdeb550c6f5fa632ad61454321e001">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[4/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13430,7 +13460,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a19349c6c73bac7da9651ee91c4272156"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a19349c6c73bac7da9651ee91c4272156">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[4/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a19349c6c73bac7da9651ee91c4272156">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[5/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13468,7 +13498,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a9b4bea48392e7bb9e745b3b04e5bf223"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[5/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a9b4bea48392e7bb9e745b3b04e5bf223">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[6/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13506,7 +13536,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a1e7a5fc9017560cc1b505641cc4ef6d0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1e7a5fc9017560cc1b505641cc4ef6d0">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[6/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a1e7a5fc9017560cc1b505641cc4ef6d0">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[7/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13534,7 +13564,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[7/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[8/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13564,7 +13594,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="ac5fc02ee1a5713060cd5f4b33e2eaaab"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac5fc02ee1a5713060cd5f4b33e2eaaab">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[8/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ac5fc02ee1a5713060cd5f4b33e2eaaab">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[9/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13594,7 +13624,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a0e459d4a7dda13edf5b79ea8996cfd82"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0e459d4a7dda13edf5b79ea8996cfd82">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[9/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a0e459d4a7dda13edf5b79ea8996cfd82">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[10/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13624,7 +13654,7 @@ template&lt;typename Scalar &gt; </div>
 </div>
 </div>
 <a id="a141fbf9c40f389909c5c46132ab6c615"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a141fbf9c40f389909c5c46132ab6c615">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[10/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a141fbf9c40f389909c5c46132ab6c615">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[11/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13649,34 +13679,6 @@ template&lt;typename Scalar &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Allow printing a <a class="el" href="structvg_1_1Support.html" title="Aggregates information about the reads supporting an allele. ">Support</a>. </p>
-
-</div>
-</div>
-<a id="a8dad8aaa23b1f822b9877f1d6c4acb45"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8dad8aaa23b1f822b9877f1d6c4acb45">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[11/13]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
-          <td>(</td>
-          <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>os</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1ReadFilter_1_1Counts.html">ReadFilter::Counts</a> &amp;&#160;</td>
-          <td class="paramname"><em>counts</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>
