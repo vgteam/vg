@@ -1855,8 +1855,6 @@ TEST_CASE("MultipathMapper can make splice alignments from different candidates"
         auto& m = mp_alns.front();
         REQUIRE(optimal_alignment_score(m) == aln.sequence().size() + 10);
         
-        delete get<0>(cluster_graph);
-        
     }
 }
 

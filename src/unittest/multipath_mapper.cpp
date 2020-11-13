@@ -26,7 +26,7 @@ public:
     using MultipathMapper::multipath_align;
     using MultipathMapper::strip_full_length_bonuses;
     using MultipathMapper::sort_and_compute_mapping_quality;
-    using MultipathMapper::read_coverage;
+    using MultipathMapper::set_read_coverage;
 };
 
 TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipathmapper]" ) {
@@ -38,15 +38,16 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
     vector<MaximalExactMatch> mems;
     
     // This will hold our MEMs and their start positions in the imaginary graph.
-    pair<vector<pair<const MaximalExactMatch*, pos_t>>, double> mem_hits;
+    MultipathMapper::clustergraph_t cluster_graph;
+    pair<vector<pair<const MaximalExactMatch*, pos_t>>, double>& mem_hits = get<1>(cluster_graph);
     mem_hits.second = 1.0;
     
     // We need a fake read
     string read("GATTACA");
     
     SECTION("No hits cover no bases") {
-        auto covered = TestMultipathMapper::read_coverage(mem_hits);
-        REQUIRE(covered == 0);
+        TestMultipathMapper::set_read_coverage(cluster_graph);
+        REQUIRE(get<2>(cluster_graph) == 0);
     }
     
     SECTION("A hit of zero length covers 0 bases") {
@@ -55,8 +56,8 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         // Drop it on some arbitrary node
         mem_hits.first.emplace_back(&mems.back(), make_pos_t(999, false, 3));
         
-        auto covered = TestMultipathMapper::read_coverage(mem_hits);
-        REQUIRE(covered == 0);
+        TestMultipathMapper::set_read_coverage(cluster_graph);
+        REQUIRE(get<2>(cluster_graph) == 0);
     }
     
     SECTION("A hit that one-past-the-ends just after its start position covers 1 base") {
@@ -65,8 +66,8 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         // Drop it on some arbitrary node
         mem_hits.first.emplace_back(&mems.back(), make_pos_t(999, false, 3));
         
-        auto covered = TestMultipathMapper::read_coverage(mem_hits);
-        REQUIRE(covered == 1);
+        TestMultipathMapper::set_read_coverage(cluster_graph);
+        REQUIRE(get<2>(cluster_graph) == 1);
     }
     
     SECTION("A hit that ends at the end of the string covers the string") {
@@ -75,8 +76,8 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         // Drop it on some arbitrary node
         mem_hits.first.emplace_back(&mems.back(), make_pos_t(999, false, 3));
         
-        auto covered = TestMultipathMapper::read_coverage(mem_hits);
-        REQUIRE(covered == read.size());
+        TestMultipathMapper::set_read_coverage(cluster_graph);
+        REQUIRE(get<2>(cluster_graph) == read.size());
     }
     
     SECTION("Two overlapping hits still only cover the string once") {
@@ -90,8 +91,8 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         mem_hits.first.emplace_back(&mems[0], make_pos_t(999, false, 3));
         mem_hits.first.emplace_back(&mems[1], make_pos_t(888, false, 3));
         
-        auto covered = TestMultipathMapper::read_coverage(mem_hits);
-        REQUIRE(covered == read.size());
+        TestMultipathMapper::set_read_coverage(cluster_graph);
+        REQUIRE(get<2>(cluster_graph) == read.size());
     }
     
     SECTION("Two abutting hits cover the string") {
@@ -104,8 +105,8 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         mem_hits.first.emplace_back(&mems[0], make_pos_t(999, false, 3));
         mem_hits.first.emplace_back(&mems[1], make_pos_t(888, false, 3));
         
-        auto covered = TestMultipathMapper::read_coverage(mem_hits);
-        REQUIRE(covered == read.size());
+        TestMultipathMapper::set_read_coverage(cluster_graph);
+        REQUIRE(get<2>(cluster_graph) == read.size());
     }
 
 }
@@ -167,11 +168,6 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         auto results = mapper.query_cluster_graphs(aln, mems, clusters);
         
         REQUIRE(results.size() == 0);
-        
-        for (auto cluster_graph : results) {
-            // Clean up all those vg graphs
-            delete get<0>(cluster_graph);
-        }
     
     }
     
@@ -204,11 +200,6 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(where == make_pos_t(1, false, 0));
         // It covers 3 bases from that MEM
         REQUIRE(get<2>(results[0]) == 3);
-        
-        for (auto cluster_graph : results) {
-            // Clean up all those vg graphs
-            delete get<0>(cluster_graph);
-        }
     
     }
     
@@ -240,12 +231,6 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(found == wanted);
         // It covers all 7 bases, like the MEMs do together
         REQUIRE(get<2>(results[0]) == 7);
-        
-        for (auto cluster_graph : results) {
-            // Clean up all those vg graphs
-            delete get<0>(cluster_graph);
-        }
-    
     }
     
     
@@ -277,11 +262,6 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(found == wanted);
         // It covers all 7 bases, like the MEMs do together
         REQUIRE(get<2>(results[0]) == 7);
-        
-        for (auto cluster_graph : results) {
-            // Clean up all those vg graphs
-            delete get<0>(cluster_graph);
-        }
     
     }
 }

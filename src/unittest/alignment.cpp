@@ -240,5 +240,78 @@ TEST_CASE("Target to alignment extraction", "[target-to-aln]") {
     
 }
 
+TEST_CASE("consolidate_ID_runs merges runs of adjacent I's and D's in cigars", "[alignment][surject]") {
+    
+    vector<pair<int, char>> cigar{
+        make_pair(2, 'D'),
+        make_pair(1, 'I'),
+        make_pair(4, 'D'),
+        make_pair(1, 'M'),
+        make_pair(3, 'I'),
+        make_pair(5, 'D'),
+        make_pair(1, 'I')
+    };
+
+    consolidate_ID_runs(cigar);
+    REQUIRE(cigar.size() == 5);
+    bool consolidated_1 = ((cigar[0] == make_pair(6, 'D') && cigar[1] == make_pair(1, 'I'))
+                           || (cigar[0] == make_pair(1, 'I') && cigar[1] == make_pair(6, 'D')));
+    bool consolidated_2 = ((cigar[3] == make_pair(5, 'D') && cigar[4] == make_pair(4, 'I'))
+                           || (cigar[3] == make_pair(4, 'I') && cigar[4] == make_pair(5, 'D')));
+    
+    REQUIRE(consolidated_1);
+    REQUIRE(consolidated_2);
+}
+
+TEST_CASE("Inter-alignment distance computation for HTS output formats matches BWA", "[alignment]") {
+    // See https://github.com/vgteam/vg/issues/3078. We want to match BWA on
+    // these straightforward, fully-matching reads.
+    auto lengths = compute_template_lengths(10206220, {{151, 'M'}}, 10206662, {{151, 'M'}});
+    REQUIRE(lengths.first == 593);
+    REQUIRE(lengths.second == -593);
+}
+
+TEST_CASE("CIGAR generation forces adjacent insertions and deletions to obey GATK's constraints", "[alignment]") {
+    // See https://github.com/vgteam/vg/issues/3080
+    vector<pair<int, char>> cigar;
+    
+    SECTION("DID becomes DI") {
+        append_cigar_operation(1, 'D', cigar);
+        append_cigar_operation(5, 'I', cigar);
+        append_cigar_operation(2, 'D', cigar);
+        
+        REQUIRE(cigar.size() == 2);
+        REQUIRE(cigar[0].first == 3);
+        REQUIRE(cigar[0].second == 'D');
+        REQUIRE(cigar[1].first == 5);
+        REQUIRE(cigar[1].second == 'I');
+    }
+    
+    SECTION("MMIDIIDDIMM becomes MDIM") {
+        append_cigar_operation(1, 'M', cigar);
+        append_cigar_operation(1, 'M', cigar);
+        append_cigar_operation(1, 'I', cigar);
+        append_cigar_operation(1, 'D', cigar);
+        append_cigar_operation(1, 'I', cigar);
+        append_cigar_operation(1, 'I', cigar);
+        append_cigar_operation(1, 'D', cigar);
+        append_cigar_operation(1, 'D', cigar);
+        append_cigar_operation(1, 'I', cigar);
+        append_cigar_operation(1, 'M', cigar);
+        append_cigar_operation(1, 'M', cigar);
+        
+        REQUIRE(cigar.size() == 4);
+        REQUIRE(cigar[0].first == 2);
+        REQUIRE(cigar[0].second == 'M');
+        REQUIRE(cigar[1].first == 3);
+        REQUIRE(cigar[1].second == 'D');
+        REQUIRE(cigar[2].first == 4);
+        REQUIRE(cigar[2].second == 'I');
+        REQUIRE(cigar[3].first == 2);
+        REQUIRE(cigar[3].second == 'M');
+    }
+    
+}
+
 }
 }

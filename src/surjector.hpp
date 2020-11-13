@@ -169,15 +169,27 @@ using namespace std;
         vector<vector<size_t>> transitive_reduction(const vector<vector<size_t>>& adj) const;
         
         /// eliminate any path chunks that have the exact same colinearities as another but are much shorter
-        vector<vector<size_t>> remove_dominated_chunks(const vector<vector<size_t>>& adj,
+        vector<vector<size_t>> remove_dominated_chunks(const string& src_sequence,
+                                                       const vector<vector<size_t>>& adj,
                                                        vector<path_chunk_t>& path_chunks,
                                                        vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                                        vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
-        /// returns the nodes that are the center of a directed star through which all source-to-sink
-        /// paths in their connected component flow. paired bool indicates whether the star faces
-        /// forward (false) or backward (true).
-        vector<pair<size_t, bool>> find_constriction_stars(const vector<vector<size_t>>& adj) const;
+        /// returns all sets of chunks such that 1) all of chunks on the left set abut all of the chunks on the right
+        /// set on the read, 2) all source-to-sink paths in the connected component go through an edge between
+        /// the left and right sides, 3) all of the chunks that do not have a connection between them are fully
+        /// connected (i.e. form a biclique)
+        vector<pair<vector<size_t>, vector<size_t>>> find_constriction_bicliques(const vector<vector<size_t>>& adj,
+                                                                                 const string& src_sequence,
+                                                                                 const vector<path_chunk_t>& path_chunks,
+                                                                                 const vector<tuple<size_t, size_t, int32_t>>& connections) const;
+        
+        void prune_unconnectable(vector<vector<size_t>>& adj,
+                                 vector<vector<tuple<size_t, int32_t, bool>>>& splice_adj,
+                                 vector<size_t>& component,
+                                 vector<vector<size_t>>& comp_groups,
+                                 vector<path_chunk_t>& path_chunks,
+                                 vector<pair<step_handle_t, step_handle_t>>& ref_chunks) const;
         
         /// make a sentinel meant to indicate an unmapped read
         static Alignment make_null_alignment(const Alignment& source);

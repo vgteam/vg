@@ -484,7 +484,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(const HandleGraph& grap
     if (treat_as_source && ncols > 0) {
         if (cumulative_seq_len != 0) {
             cerr << "error:[BandedGlobalAligner] banded alignment has no node predecessor for node in middle of path" << endl;
-            exit(0);
+            exit(1);
         }
         
 #ifdef debug_banded_aligner_fill_matrix
@@ -498,8 +498,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(const HandleGraph& grap
         idx = iter_start * ncols;
         
         // cap stop index if last diagonal is below bottom of matrix
-        int64_t iter_stop = bottom_diag > (int64_t) read.length() ? band_height + (int64_t) read.length() - bottom_diag - 1 : band_height;
-        
+        int64_t iter_stop = bottom_diag >= (int64_t) read.length() ? band_height + (int64_t) read.length() - bottom_diag - 1 : band_height;
         // match of first nucleotides
         if (qual_adjusted) {
             match[idx] = max<IntType>(score_mat[25 * base_quality[0] + 5 * nt_table[node_seq[0]] + nt_table[read[0]]], match[idx]);
@@ -534,7 +533,6 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(const HandleGraph& grap
                                            insert_col[up_idx] - gap_open);
             // must take two gaps to get into first column
             insert_col[idx] = max<IntType>(-2 * gap_open - (top_diag + i) * gap_extend, insert_col[idx]);
-
 #ifdef debug_banded_aligner_fill_matrix
             cerr << "[BAMatrix::fill_matrix]: on left edge of matrix at rectangle coords (" << i << ", " << 0 << "), match score of node char " << 0 << " (" << node_seq[0] << ") and read char " << i + top_diag << " (" << read[i + top_diag] << ") is " << (int) match_score << ", leading gap length is " << top_diag + i << " for total match matrix score of " << (int) match[idx] << endl;
 #endif

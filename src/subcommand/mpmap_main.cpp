@@ -1656,7 +1656,11 @@ int main_mpmap(int argc, char** argv) {
     if (matrix_stream.is_open()) {
         multipath_mapper.set_alignment_scores(matrix_stream, gap_open_score, gap_extension_score, full_length_bonus);
     }
-    else {
+    else if (match_score != default_match
+             || mismatch_score != default_mismatch
+             || gap_open_score != default_gap_open
+             || gap_extension_score != default_gap_extension
+             || full_length_bonus != default_full_length_bonus) {
         multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
     }
     multipath_mapper.adjust_alignments_for_base_quality = qual_adjusted;
