@@ -31,6 +31,7 @@
 #include "../algorithms/expand_context.hpp"
 #include "../algorithms/are_equivalent.hpp"
 #include "../algorithms/simplify_siblings.hpp"
+#include "../algorithms/normalize.hpp"
 #include "../algorithms/unchop.hpp"
 #include "random_graph.hpp"
 #include "randomness.hpp"
@@ -5961,6 +5962,87 @@ TEST_CASE("simplify_siblings() can actually merge some siblings", "[algorithms][
     REQUIRE(seqs.count("G"));
     REQUIRE(seqs.count("CA"));
     REQUIRE(seqs.size() == 4);
+}
+
+TEST_CASE("simplify_siblings() works on a reversing self loop", "[algorithms][simplify_siblings]") {
+    VG graph;
+    
+    // Create handle 1: A
+    handle_t h1 = graph.create_handle("C", 1);
+    // Create edge 1+->1-
+    graph.create_edge(h1, graph.flip(h1));
+    // Create path x
+    path_handle_t p = graph.create_path_handle("x");
+    // Create step of x on 1+
+    graph.append_step(p, h1);
+    // Create step of x on 1-
+    graph.append_step(p, graph.flip(h1));
+    // Set circularity of x to 0
+    graph.set_circularity(p, false);
+    
+    // Make sure it can run without breaking this graph.
+    algorithms::simplify_siblings(&graph);
+    REQUIRE(graph.is_valid(true, true, true, true));
+}
+
+TEST_CASE("simplify_siblings() works on a graph with a reversing self loop", "[algorithms][simplify_siblings]") {
+    // See https://github.com/vgteam/vg/issues/3086
+    
+    string graph_json = R"(
+        {"edge": [{"from": "1", "to": "3"}, {"from": "1", "to": "2"}, {"from": "2", "to": "2", "to_end": true}], "node": [{"id": "1", "sequence": "T"}, {"id": "2", "sequence": "A"}, {"id": "3", "sequence": "ACA"}], "path": [{"mapping": [{"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "1"}, "rank": "1"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "2"}, "rank": "2"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "2"}, "rank": "3"}], "name": "x"}, {"mapping": [{"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "1"}, "rank": "1"}, {"edit": [{"from_length": 3, "to_length": 3}], "position": {"node_id": "3"}, "rank": "2"}], "name": "y"}]}
+    )";
+    
+    Graph source;
+    json2pb(source, graph_json.c_str(), graph_json.size());
+            
+    VG graph;
+    graph.extend(source);
+            
+    
+    
+    // Make sure it can run without breaking this graph.
+    algorithms::simplify_siblings(&graph);
+    REQUIRE(graph.is_valid(true, true, true, true));
+}
+
+TEST_CASE("simplify_siblings() works on a smaller graph with a reversing self loop", "[algorithms][simplify_siblings]") {
+    // See https://github.com/vgteam/vg/issues/3086
+    
+    string graph_json = R"(
+        {"edge": [{"from": "1", "to": "3"}, {"from": "1", "to": "2"}, {"from": "2", "to": "2", "to_end": true}], "node": [{"id": "1", "sequence": "T"}, {"id": "2", "sequence": "A"}, {"id": "3", "sequence": "A"}], "path": [{"mapping": [{"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "1"}, "rank": "1"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "2"}, "rank": "2"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "2"}, "rank": "3"}], "name": "x"}]}
+    )";
+    
+    Graph source;
+    json2pb(source, graph_json.c_str(), graph_json.size());
+            
+    VG graph;
+    graph.extend(source);
+            
+    
+    
+    // Make sure it can run without breaking this graph.
+    algorithms::simplify_siblings(&graph);
+    REQUIRE(graph.is_valid(true, true, true, true));
+}
+
+TEST_CASE("normalize() works on a graph with a reversing self loop", "[algorithms][normalize]") {
+    // See https://github.com/vgteam/vg/issues/3086
+    
+    string graph_json = R"(
+        {"edge": [{"from": "1", "to": "3"}, {"from": "1", "to": "2"}, {"from": "2", "to": "2", "to_end": true}], "node": [{"id": "1", "sequence": "T"}, {"id": "2", "sequence": "A"}, {"id": "3", "sequence": "ACA"}], "path": [{"mapping": [{"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "1"}, "rank": "1"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "2"}, "rank": "2"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "2"}, "rank": "3"}], "name": "x"}, {"mapping": [{"edit": [{"from_length": 1, "to_length": 1}], "position": {"node_id": "1"}, "rank": "1"}, {"edit": [{"from_length": 3, "to_length": 3}], "position": {"node_id": "3"}, "rank": "2"}], "name": "y"}]}
+    )";
+    
+    Graph source;
+    json2pb(source, graph_json.c_str(), graph_json.size());
+            
+    VG graph;
+    graph.extend(source);
+            
+    
+    
+    // Make sure it can run without breaking this graph.
+    algorithms::normalize(&graph, 10, false);
+    REQUIRE(graph.is_valid(true, true, true, true));
 }
 
 }
