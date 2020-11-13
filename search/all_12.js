@@ -171,7 +171,7 @@ var searchData=
   ['remove',['remove',['../classvg_1_1PhasedGenome.html#a3706e208421ac10d5695ed5d5ec45090',1,'vg::PhasedGenome::remove()'],['../classbdsg_1_1HashGraph_1_1path__t.html#a32079d237b40b4b6c231959af3f1b434',1,'bdsg::HashGraph::path_t::remove()'],['../namespacevg_1_1temp__file.html#a9885078330e16129fccc5fb6d8717ec5',1,'vg::temp_file::remove()'],['../namespacexg_1_1temp__file.html#aa4e7fb2251b2ba8f6d054d873eae4988',1,'xg::temp_file::remove()']]],
   ['remove_5fbonuses',['remove_bonuses',['../classvg_1_1GSSWAligner.html#a092c4c915bea1128d93f8f26056d0e84',1,'vg::GSSWAligner']]],
   ['remove_5fclipped_5fportion',['remove_clipped_portion',['../classvg_1_1Filter.html#ac246ae985a763a2d10edc92c81639913',1,'vg::Filter']]],
-  ['remove_5fdominated_5fchunks',['remove_dominated_chunks',['../classvg_1_1Surjector.html#ace96dc0ef3e19c5de75b90217d871d4d',1,'vg::Surjector']]],
+  ['remove_5fdominated_5fchunks',['remove_dominated_chunks',['../classvg_1_1Surjector.html#aafa4eb4d310ac530ed186170dc34dba9',1,'vg::Surjector']]],
   ['remove_5fduplicate_5fedges',['remove_duplicate_edges',['../namespacevg.html#add4d3a3d1917566a8df138c80b38e548',1,'vg']]],
   ['remove_5fduplicate_5fnodes',['remove_duplicate_nodes',['../namespacevg.html#a6dbe8468f2f2bcf8ceb859e6a0f8b4b1',1,'vg']]],
   ['remove_5fduplicated_5fin',['remove_duplicated_in',['../classvg_1_1VG.html#a33424c3be8c3e088631dfb37c48773d3',1,'vg::VG']]],

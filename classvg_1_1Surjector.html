@@ -156,11 +156,13 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a2149d1e5e6aba2e07b92030e6afc617d"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a2149d1e5e6aba2e07b92030e6afc617d">transitive_reduction</a> (const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj) const</td></tr>
 <tr class="memdesc:a2149d1e5e6aba2e07b92030e6afc617d"><td class="mdescLeft">&#160;</td><td class="mdescRight">returns the transitive reduction of a topologically sorted DAG's adjacency list  <a href="#a2149d1e5e6aba2e07b92030e6afc617d">More...</a><br /></td></tr>
 <tr class="separator:a2149d1e5e6aba2e07b92030e6afc617d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ace96dc0ef3e19c5de75b90217d871d4d"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ace96dc0ef3e19c5de75b90217d871d4d">remove_dominated_chunks</a> (const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj, vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections) const</td></tr>
-<tr class="memdesc:ace96dc0ef3e19c5de75b90217d871d4d"><td class="mdescLeft">&#160;</td><td class="mdescRight">eliminate any path chunks that have the exact same colinearities as another but are much shorter  <a href="#ace96dc0ef3e19c5de75b90217d871d4d">More...</a><br /></td></tr>
-<tr class="separator:ace96dc0ef3e19c5de75b90217d871d4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a10ba1fad2731d7830eb07becf5eb0bc2"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; size_t, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a10ba1fad2731d7830eb07becf5eb0bc2">find_constriction_stars</a> (const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj) const</td></tr>
-<tr class="separator:a10ba1fad2731d7830eb07becf5eb0bc2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aafa4eb4d310ac530ed186170dc34dba9"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#aafa4eb4d310ac530ed186170dc34dba9">remove_dominated_chunks</a> (const string &amp;src_sequence, const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj, vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections) const</td></tr>
+<tr class="memdesc:aafa4eb4d310ac530ed186170dc34dba9"><td class="mdescLeft">&#160;</td><td class="mdescRight">eliminate any path chunks that have the exact same colinearities as another but are much shorter  <a href="#aafa4eb4d310ac530ed186170dc34dba9">More...</a><br /></td></tr>
+<tr class="separator:aafa4eb4d310ac530ed186170dc34dba9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a057141cd5d1aabc6fbb977ab71446f6c"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; vector&lt; size_t &gt;, vector&lt; size_t &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a057141cd5d1aabc6fbb977ab71446f6c">find_constriction_bicliques</a> (const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj, const string &amp;src_sequence, const vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, const vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections) const</td></tr>
+<tr class="separator:a057141cd5d1aabc6fbb977ab71446f6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab65da876e448d86bc64985c0b14d3e78"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ab65da876e448d86bc64985c0b14d3e78">prune_unconnectable</a> (vector&lt; vector&lt; size_t &gt;&gt; &amp;adj, vector&lt; vector&lt; tuple&lt; size_t, int32_t, bool &gt;&gt;&gt; &amp;splice_adj, vector&lt; size_t &gt; &amp;component, vector&lt; vector&lt; size_t &gt;&gt; &amp;comp_groups, vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks) const</td></tr>
+<tr class="separator:ab65da876e448d86bc64985c0b14d3e78"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#ab180631766b1e787e29dd202ad455d90">AlignerClient</a> (double <a class="el" href="classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a">gc_content_estimate</a>=vg::default_gc_content)</td></tr>
 <tr class="separator:ab180631766b1e787e29dd202ad455d90 inherit pro_methods_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -515,8 +517,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a10ba1fad2731d7830eb07becf5eb0bc2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a10ba1fad2731d7830eb07becf5eb0bc2">&#9670;&nbsp;</a></span>find_constriction_stars()</h2>
+<a id="a057141cd5d1aabc6fbb977ab71446f6c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a057141cd5d1aabc6fbb977ab71446f6c">&#9670;&nbsp;</a></span>find_constriction_bicliques()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -525,11 +527,33 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; pair&lt; size_t, bool &gt; &gt; vg::Surjector::find_constriction_stars </td>
+          <td class="memname">vector&lt; pair&lt; vector&lt; size_t &gt;, vector&lt; size_t &gt; &gt; &gt; vg::Surjector::find_constriction_bicliques </td>
           <td>(</td>
           <td class="paramtype">const vector&lt; vector&lt; size_t &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>adj</em></td><td>)</td>
-          <td> const</td>
+          <td class="paramname"><em>adj</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>src_sequence</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>path_chunks</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>connections</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -538,7 +562,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>returns the nodes that are the center of a directed star through which all source-to-sink paths in their connected component flow. paired bool indicates whether the star faces forward (false) or backward (true). </p>
+<p>returns all sets of chunks such that 1) all of chunks on the left set abut all of the chunks on the right set on the read, 2) all source-to-sink paths in the connected component go through an edge between the left and right sides, 3) all of the chunks that do not have a connection between them are fully connected (i.e. form a biclique) </p>
 
 </div>
 </div>
@@ -590,6 +614,66 @@ Additional Inherited Members</h2></td></tr>
   </td>
   <td class="mlabels-right">
 <span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ab65da876e448d86bc64985c0b14d3e78"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab65da876e448d86bc64985c0b14d3e78">&#9670;&nbsp;</a></span>prune_unconnectable()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::prune_unconnectable </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; vector&lt; size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>adj</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; vector&lt; tuple&lt; size_t, int32_t, bool &gt;&gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>splice_adj</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>component</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; vector&lt; size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>comp_groups</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>path_chunks</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_chunks</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -668,8 +752,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ace96dc0ef3e19c5de75b90217d871d4d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ace96dc0ef3e19c5de75b90217d871d4d">&#9670;&nbsp;</a></span>remove_dominated_chunks()</h2>
+<a id="aafa4eb4d310ac530ed186170dc34dba9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aafa4eb4d310ac530ed186170dc34dba9">&#9670;&nbsp;</a></span>remove_dominated_chunks()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -680,6 +764,12 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="memname">vector&lt; vector&lt; size_t &gt; &gt; vg::Surjector::remove_dominated_chunks </td>
           <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>src_sequence</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">const vector&lt; vector&lt; size_t &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>adj</em>, </td>
         </tr>

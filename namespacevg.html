@@ -794,6 +794,9 @@ Functions</h2></td></tr>
 <tr class="separator:ad953da018dee6e40bab9dafb321444ac"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a43ac2d1903fa51a20a2366a865f5f0a4"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int, char &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a43ac2d1903fa51a20a2366a865f5f0a4">cigar_against_path</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, bool on_reverse_strand, int64_t &amp;pos, size_t path_len, size_t softclip_suppress)</td></tr>
 <tr class="separator:a43ac2d1903fa51a20a2366a865f5f0a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a600674bca13274a035316cdca23686b4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a600674bca13274a035316cdca23686b4">consolidate_ID_runs</a> (vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar)</td></tr>
+<tr class="memdesc:a600674bca13274a035316cdca23686b4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Merge runs of successive I/D operations into a single I and D.  <a href="#a600674bca13274a035316cdca23686b4">More...</a><br /></td></tr>
+<tr class="separator:a600674bca13274a035316cdca23686b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad3824b96906cc229f270166a06a7a625"><td class="memItemLeft" align="right" valign="top">pair&lt; int32_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad3824b96906cc229f270166a06a7a625">compute_template_lengths</a> (const int64_t &amp;pos1, const vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar1, const int64_t &amp;pos2, const vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar2)</td></tr>
 <tr class="separator:ad3824b96906cc229f270166a06a7a625"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae37c6d66a01cef6f92707d367ebf4cdb"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae37c6d66a01cef6f92707d367ebf4cdb">sam_flag</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, bool on_reverse_strand, bool paired)</td></tr>
@@ -5437,6 +5440,26 @@ template&lt;typename Annotated &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Returns a vector whose elements are vectors with the indexes of the Subpaths in each connected component. An unmapped <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> with no subpaths produces an empty vector. </p>
+
+</div>
+</div>
+<a id="a600674bca13274a035316cdca23686b4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a600674bca13274a035316cdca23686b4">&#9670;&nbsp;</a></span>consolidate_ID_runs()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::consolidate_ID_runs </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; pair&lt; int, char &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>cigar</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Merge runs of successive I/D operations into a single I and D. </p>
 
 </div>
 </div>
@@ -17275,37 +17298,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a486054f13a4dc43e37c0f0131f6a51ad"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a486054f13a4dc43e37c0f0131f6a51ad">&#9670;&nbsp;</a></span>simplify() <span class="overload">[2/3]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> vg::simplify </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>a</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>trim_internal_deletions</em> = <code>true</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Simplifies the <a class="el" href="structvg_1_1Path.html">Path</a> in the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. Note that this removes deletions at the start and end of Mappings, so code that handles simplified Alignments needs to handle offsets on internal Mappings. </p>
-
-</div>
-</div>
 <a id="a9514446da89671007ae40e420c1297d7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9514446da89671007ae40e420c1297d7">&#9670;&nbsp;</a></span>simplify() <span class="overload">[3/3]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a9514446da89671007ae40e420c1297d7">&#9670;&nbsp;</a></span>simplify() <span class="overload">[2/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -17330,6 +17324,35 @@ template&lt;typename T &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Merge adjacent edits of the same type, strip leading and trailing deletion edits (while updating positions if necessary), and makes sure position is actually set. </p>
+
+</div>
+</div>
+<a id="a486054f13a4dc43e37c0f0131f6a51ad"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a486054f13a4dc43e37c0f0131f6a51ad">&#9670;&nbsp;</a></span>simplify() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> vg::simplify </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>a</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>trim_internal_deletions</em> = <code>true</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Simplifies the <a class="el" href="structvg_1_1Path.html">Path</a> in the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. Note that this removes deletions at the start and end of Mappings, so code that handles simplified Alignments needs to handle offsets on internal Mappings. </p>
 
 </div>
 </div>
