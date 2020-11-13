@@ -28,8 +28,11 @@ void help_filter(char** argv) {
          << "Filter alignments by properties." << endl
          << endl
          << "options:" << endl
+         << "    -M, --input-mp-alns        input is multipath alignments (GAMP) rather than GAM" << endl
          << "    -n, --name-prefix NAME     keep only reads with this prefix in their names [default='']" << endl
          << "    -N, --name-prefixes FILE   keep reads with names with one of many prefixes, one per nonempty line" << endl
+         << "    -a, --subsequence NAME     keep reads that contain this subsequence" << endl
+         << "    -A, --subsequences FILE    keep reads that contain one of these subsequences, one per nonempty line" << endl
          << "    -X, --exclude-contig REGEX drop reads with refpos annotations on contigs matching the given regex (may repeat)" << endl
          << "    -F, --exclude-feature NAME drop reads with the given feature in the \"features\" annotation (may repeat)" << endl
          << "    -s, --min-secondary N      minimum score to keep secondary alignment" << endl
@@ -41,7 +44,6 @@ void help_filter(char** argv) {
          << "    -m, --min-end-matches N    filter reads that don't begin with at least N matches on each end" << endl
          << "    -S, --drop-split           remove split reads taking nonexistent edges" << endl
          << "    -x, --xg-name FILE         use this xg index or graph (required for -S and -D)" << endl
-         << "    -A, --append-regions       append to alignments created with -RB" << endl
          << "    -v, --verbose              print out statistics on numbers of reads filtered by what." << endl
          << "    -V, --no-output            print out statistics (as above) but do not write out filtered GAM." << endl
          << "    -q, --min-mapq N           filter alignments with mapping quality < N" << endl
@@ -62,12 +64,43 @@ int main_filter(int argc, char** argv) {
         help_filter(argv);
         return 1;
     }
-
-    // This is the better design for a subcommand: we have a class that
-    // implements it and encapsulates all the default parameters, and then we
-    // just feed in overrides in the option parsing code. Thsi way we don't have
-    // multiple defaults all over the place.
-    ReadFilter filter;
+    
+    bool input_gam = true;
+    vector<string> name_prefixes;
+    vector<regex> excluded_refpos_contigs;
+    unordered_set<string> excluded_features;
+    vector<string> subsequences;
+    bool set_min_primary = false;
+    double min_primary;
+    bool set_min_secondary = false;
+    double min_secondary;
+    bool rescore = false;
+    bool frac_score = false;
+    bool sub_score = false;
+    bool set_max_overhang = false;
+    int max_overhang;
+    bool set_min_end_matches = false;
+    int min_end_matches;
+    bool drop_split = false;
+    bool set_min_mapq = false;
+    int min_mapq;
+    bool verbose = false;
+    bool write_output = true;
+    bool set_repeat_size = false;
+    int repeat_size;
+    bool set_defray_length = false;
+    int defray_length;
+    bool set_defray_count = false;
+    int defray_count;
+    bool set_downsample = false;
+    uint64_t seed;
+    double downsample_probability;
+    bool interleaved = false;
+    bool filter_on_all = false;
+    bool set_min_base_quality = false;
+    int min_base_quality;
+    double min_base_quality_fraction;
+    bool complement_filter = false;
 
     // What XG index, if any, should we load to support the other options?
     string xg_name;
@@ -77,8 +110,11 @@ int main_filter(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
+                {"input-mp-alns", no_argument, 0, 'M'},
                 {"name-prefix", required_argument, 0, 'n'},
                 {"name-prefixes", required_argument, 0, 'N'},
+                {"subsequence", required_argument, 0, 'a'},
+                {"subsequences", required_argument, 0, 'A'},
                 {"exclude-contig", required_argument, 0, 'X'},
                 {"exclude-feature", required_argument, 0, 'F'},
                 {"min-secondary", required_argument, 0, 's'},
@@ -90,7 +126,6 @@ int main_filter(int argc, char** argv) {
                 {"min-end-matches", required_argument, 0, 'm'},
                 {"drop-split",  no_argument, 0, 'S'},
                 {"xg-name", required_argument, 0, 'x'},
-                {"append-regions", no_argument, 0, 'A'},
                 {"verbose",  no_argument, 0, 'v'},
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
@@ -106,7 +141,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:N:X:F:s:r:Od:e:fauo:m:Sx:AvVq:E:D:C:d:iIb:Ut:",
+        c = getopt_long (argc, argv, "Mn:N:a:A:X:F:s:r:Od:e:fauo:m:Sx:vVq:E:D:C:d:iIb:Ut:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -115,8 +150,11 @@ int main_filter(int argc, char** argv) {
 
         switch (c)
         {
+        case 'M':
+            input_gam = false;
+            break;
         case 'n':
-            filter.name_prefixes.push_back(optarg);
+            name_prefixes.push_back(optarg);
             break;
         case 'N':
             get_input_file(optarg, [&](istream& in) {
@@ -127,66 +165,88 @@ int main_filter(int argc, char** argv) {
                         // No empty lines
                         break;
                     }
-                    filter.name_prefixes.push_back(line);
+                    name_prefixes.push_back(line);
+                }
+            });
+            break;
+        case 'a':
+            subsequences.push_back(optarg);
+            break;
+        case 'A':
+            get_input_file(optarg, [&](istream& in) {
+                // Parse the input file right here in the option parsing.
+                for (string line; getline(in, line);) {
+                    // For each line
+                    if (line.empty()) {
+                        // No empty lines
+                        break;
+                    }
+                    subsequences.push_back(line);
                 }
             });
             break;
         case 'X':
-            filter.excluded_refpos_contigs.push_back(parse<std::regex>(optarg));
+            excluded_refpos_contigs.push_back(parse<std::regex>(optarg));
             break;
         case 'F':
-            filter.excluded_features.insert(optarg);
+            excluded_features.insert(optarg);
             break;
         case 's':
-            filter.min_secondary = parse<double>(optarg);
+            set_min_secondary = true;
+            min_secondary = parse<double>(optarg);
             break;
         case 'r':
-            filter.min_primary = parse<double>(optarg);
+            set_min_primary = true;
+            min_primary = parse<double>(optarg);
             break;
         case 'O':
-            filter.rescore = true;
+            rescore = true;
             break;
         case 'f':
-            filter.frac_score = true;
+            frac_score = true;
             break;
         case 'u':
-            filter.sub_score = true;
+            sub_score = true;
             break;
         case 'o':
-            filter.max_overhang = parse<int>(optarg);
+            set_max_overhang = true;
+            max_overhang = parse<int>(optarg);
             break;
         case 'm':
-            filter.min_end_matches = parse<int>(optarg);
+            set_min_end_matches = true;
+            min_end_matches = parse<int>(optarg);
             break;            
         case 'S':
-            filter.drop_split = true;
+            drop_split = true;
         case 'x':
             xg_name = optarg;
             break;
-        case 'A':
-            filter.append_regions = true;
-            break;
         case 'q':
-            filter.min_mapq = parse<double>(optarg);
+            set_min_mapq = true;
+            min_mapq = parse<double>(optarg);
             break;
         case 'v':
-            filter.verbose = true;
+            verbose = true;
             break;
         case 'V':
-            filter.verbose = true;
-            filter.write_output = false;
+            verbose = true;
+            write_output = false;
             break;
         case 'E':
-            filter.repeat_size = parse<int>(optarg);
+            set_repeat_size = true;
+            repeat_size = parse<int>(optarg);
             break;
         case 'D':
-            filter.defray_length = parse<int>(optarg);
+            set_defray_length = true;
+            defray_length = parse<int>(optarg);
             break;
         case 'C':
-            filter.defray_count = parse<int>(optarg);
+            set_defray_count = true;
+            defray_count = parse<int>(optarg);
             break;
         case 'd':
             {
+                set_downsample = true;
                 // We need to split out the seed and the probability in S.P
                 string opt_string(optarg);
                 
@@ -201,52 +261,43 @@ int main_filter(int argc, char** argv) {
                     
                     // Everything including and after the decimal point is the probability
                     auto prob_string = opt_string.substr(point);
-                    filter.downsample_probability = parse<double>(prob_string);
+                    downsample_probability = parse<double>(prob_string);
                     
                     // Everything before that is the seed
                     auto seed_string = opt_string.substr(0, point);
                     // Use the 0 seed by default even if no actual seed shows up
-                    int32_t seed = 0;
                     if (seed_string != "") {
                         // If there was a seed (even 0), parse it
                         seed = parse<int32_t>(seed_string);
-                    }
-                    
-                    if (seed != 0) {
-                        // We want a nonempty mask.
-                        
-                        // Use the C rng like Samtools does to get a mask.
-                        // See https://github.com/samtools/samtools/blob/60138c42cf04c5c473dc151f3b9ca7530286fb1b/sam_view.c#L298-L299
-                        srand(seed);
-                        filter.downsample_seed_mask = rand();
                     }
                 }
             }
             break;
         case 'i':
-            filter.interleaved = true;
+            interleaved = true;
             break;
         case 'I':
-            filter.interleaved = true;
-            filter.filter_on_all = true;
+            interleaved = true;
+            filter_on_all = true;
             break;
         case 'b':
             {
+                set_min_base_quality = true;
                 vector<string> parts = split_delims(string(optarg), ":");
                 if (parts.size() != 2) {
                     cerr << "[vg filter] Error: -b expects value in form of <INT>:<FLOAT>" << endl;
                     return 1;
                 }
-                filter.min_base_quality = parse<int>(parts[0]);
-                filter.min_base_quality_fraction = parse<double>(parts[1]);
-                if (filter.min_base_quality_fraction < 0 || filter.min_base_quality_fraction > 1) {
+                min_base_quality = parse<int>(parts[0]);
+                min_base_quality_fraction = parse<double>(parts[1]);
+                if (min_base_quality_fraction < 0 || min_base_quality_fraction > 1) {
                     cerr << "[vg filter] Error: second part of -b input must be between 0 and 1" << endl;
                     return 1;
                 }
             }
             break;
         case 'U':
-            filter.complement_filter = true;
+            complement_filter = true;
             break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
@@ -263,8 +314,6 @@ int main_filter(int argc, char** argv) {
             abort ();
         }
     }
-
-    filter.threads = get_thread_count();
     
     if (optind >= argc) {
         help_filter(argv);
@@ -275,7 +324,7 @@ int main_filter(int argc, char** argv) {
     int error_code = 0;
     
     // Sort the prefixes for reads we will accept, for efficient search
-    sort(filter.name_prefixes.begin(), filter.name_prefixes.end());
+    sort(name_prefixes.begin(), name_prefixes.end());
     
      // If the user gave us an XG index, we probably ought to load it up.
     PathPositionHandleGraph* xindex = nullptr;
@@ -286,14 +335,80 @@ int main_filter(int argc, char** argv) {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         xindex = overlay_helper.apply(path_handle_graph.get());
     }
-    filter.graph = xindex;
+    
+    // template lambda to set parameters
+    auto set_params = [&](auto& filter) {
+        filter.name_prefixes = name_prefixes;
+        filter.subsequences = subsequences;
+        filter.excluded_refpos_contigs = excluded_refpos_contigs;
+        filter.excluded_features = excluded_features;
+        if (set_min_secondary) {
+            filter.min_secondary = min_secondary;
+        }
+        if (set_min_primary) {
+            filter.min_primary = min_primary;
+        }
+        filter.rescore = rescore;
+        filter.frac_score = frac_score;
+        filter.sub_score = sub_score;
+        if (set_max_overhang){
+            filter.max_overhang = max_overhang;
+        }
+        if (set_min_end_matches) {
+            filter.min_end_matches = min_end_matches;
+        }
+        filter.drop_split = drop_split;
+        if (set_min_mapq) {
+            filter.min_mapq = min_mapq;
+        }
+        filter.verbose = verbose;
+        filter.write_output = write_output;
+        if (set_repeat_size) {
+            filter.repeat_size = repeat_size;
+        }
+        if (set_defray_length){
+            filter.defray_length = defray_length;
+        }
+        if (set_defray_count) {
+            filter.defray_count = defray_count;
+        }
+        if (set_downsample) {
+            filter.downsample_probability = downsample_probability;
+            if (seed != 0) {
+                // We want a nonempty mask.
+                
+                // Use the C rng like Samtools does to get a mask.
+                // See https://github.com/samtools/samtools/blob/60138c42cf04c5c473dc151f3b9ca7530286fb1b/sam_view.c#L298-L299
+                srand(seed);
+                filter.downsample_seed_mask = rand();
+            }
+        }
+        filter.interleaved = interleaved;
+        filter.filter_on_all = filter_on_all;
+        if (set_min_base_quality) {
+            filter.min_base_quality = min_base_quality;
+            filter.min_base_quality_fraction = min_base_quality_fraction;
+        }
+        filter.complement_filter = complement_filter;
+        filter.threads = get_thread_count();
+        filter.graph = xindex;
+    };
     
     // Read in the alignments and filter them.
     get_input_file(optind, argc, argv, [&](istream& in) {
         // Open up the alignment stream
         
         // Read in the alignments and filter them.
-        error_code = filter.filter(&in);
+        if (input_gam) {
+            ReadFilter<Alignment> filter;
+            set_params(filter);
+            error_code = filter.filter(&in);
+        }
+        else {
+            ReadFilter<MultipathAlignment> filter;
+            set_params(filter);
+            error_code = filter.filter(&in);
+        }
     });
 
     return error_code;
