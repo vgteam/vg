@@ -1890,10 +1890,6 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
                 //from only unpaired alignments of this read
                 mapq_cap = std::min(mapq_cap, (double)get_regular_aligner()->compute_mapping_quality(unpaired_scores[read_num], false));
             }
-            if (distances.front() == std::numeric_limits<int64_t>::max()) {
-                //If the two reads are not reachable, lower cap
-                mapq_cap = mapq_cap / 2.0;
-            }
             
             // Find the MAPQ to cap
             double read_mapq = uncapped_mapq;
@@ -1905,7 +1901,12 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
             set_annotation(to_annotate, "mapq_applied_cap", mapq_cap);
 
             // Apply the cap, and limit to 0-60
-            read_mapq = max(min(mapq_cap, min(read_mapq, 120.0)) / 2.0, 0.0);
+            double capped_mapq = min(mapq_cap, read_mapq); 
+            if (distances.front() == std::numeric_limits<int64_t>::max()) {
+                //If the two reads are not reachable, lower cap
+                capped_mapq = capped_mapq / 2.0;
+            }
+            read_mapq = max(min(capped_mapq, 120.0) / 2.0, 0.0);
             
             // Save the MAPQ
             to_annotate.set_mapping_quality(read_mapq);
@@ -3688,7 +3689,6 @@ double MinimizerMapper::score_alignment_pair(Alignment& aln1, Alignment& aln2, i
 
     double dev = fragment_distance - fragment_length_distr.mean();
     double fragment_length_log_likelihood = (-dev * dev / (2.0 * fragment_length_distr.std_dev() * fragment_length_distr.std_dev()))/ get_aligner()->log_base;
-    fragment_length_log_likelihood = std::max(fragment_length_log_likelihood, (-5.0/ get_aligner() ->log_base));
     double score = aln1.score() + aln2.score() +fragment_length_log_likelihood ;
 
     //Don't let the fragment length log likelihood bring score down below the score of the best alignment
