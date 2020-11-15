@@ -2544,20 +2544,43 @@ namespace vg {
         return return_val;
     }
 
-    pair<tuple<int64_t, int64_t, int64_t, int64_t>, tuple<int64_t, int64_t, int64_t>>
+    pair<tuple<int64_t, int64_t, int64_t>, vector<tuple<int64_t, int64_t, int64_t, int64_t>>>
     trace_path(const multipath_alignment_t& multipath_aln, const Path& path,
                int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx,
                bool search_left) {
         
 #ifdef debug_trace
-        cerr << "entering trace path algorithm" << endl;
+        cerr << "entering trace path algorithm, searching left? " << search_left << endl;
+        cerr << "tracing path " << pb2json(path) << endl;
+        cerr << "start coordinate: " << subpath_idx << ", " << mapping_idx << ", " << edit_idx << ", " << base_idx << endl;
 #endif
+        pair<tuple<int64_t, int64_t, int64_t>, vector<tuple<int64_t, int64_t, int64_t, int64_t>>> return_val;
+        auto& pfarthest = return_val.first;
+        auto& mfarthest = return_val.second;
+        
+        if (search_left) {
+            // we like to index the base as if it's from the left even though it's from the right
+            // to simplify some conditions later, so we have to reverse it now
+            const auto& start_path = multipath_aln.subpath(subpath_idx).path();
+            if (mapping_idx < start_path.mapping_size()) {
+                const auto& start_mapping = start_path.mapping(mapping_idx);
+                if (edit_idx < start_mapping.edit_size()) {
+                    const auto& start_edit = start_mapping.edit(edit_idx);
+                    base_idx = max(start_edit.from_length(), start_edit.to_length()) - base_idx;
+#ifdef debug_trace
+                    cerr << "flip leftward base index on edit " << debug_string(start_edit) << " to " << base_idx << endl;
+#endif
+                }
+            }
+        }
         
         // the farthest match along the path
-        tuple<int64_t, int64_t, int64_t> pfarthest(-1, -1, -1);
+        pfarthest = search_left ? tuple<int64_t, int64_t, int64_t>(path.mapping_size(), 0, 0)
+                                : tuple<int64_t, int64_t, int64_t>(-1, 0, 0);
+        
         // the position on the mp aln that corresponds to this match
-        tuple<int64_t, int64_t, int64_t, int64_t> mfarthest(subpath_idx, mapping_idx,
-                                                            edit_idx, base_idx);
+        
+        mfarthest.emplace_back(subpath_idx, mapping_idx, edit_idx, base_idx);
         
         // DFS stack
         vector<bool> stacked(multipath_aln.subpath_size(), false);
@@ -2596,11 +2619,15 @@ namespace vg {
         stack.emplace_back(subpath_idx, mapping_idx, edit_idx, base_idx,
                            p_start_mapping_idx, p_start_edit_idx, 0);
         stacked[subpath_idx] = true;
+        bool first_iter = true;
         while (!stack.empty()) {
             // load up the indexes of where we're going to look for a match
             int64_t i, j, k, l, pj, pk, pl;
             tie(i, j, k, l, pj, pk, pl) = stack.back();
             stack.pop_back();
+            
+            bool any_new_match = first_iter;
+            first_iter = false;
             
 #ifdef debug_trace
             cerr << "destack (" << i << " " << j << " " << k << " " << l << ") (" << pj << " " << pk << " " << pl << ")" << endl;
@@ -2609,12 +2636,12 @@ namespace vg {
             const subpath_t& subpath = multipath_aln.subpath(i);
             const path_t& mpath = subpath.path();
             bool reached_mismatch = false;
-            while (j < mpath.mapping_size() && pj < path.mapping_size() && !reached_mismatch) {
+            while (j < mpath.mapping_size() && pj < path.mapping_size() && j >= 0 && pj >= 0 && !reached_mismatch) {
                 
 #ifdef debug_trace
                 cerr << "mp mapping " << j << ", p mapping " << pj << endl;
 #endif
-                
+                                
                 const auto& mmapping = mpath.mapping(j);
                 const auto& pmapping = path.mapping(pj);
                 
@@ -2644,6 +2671,7 @@ namespace vg {
                     else {
                         k = 0;
                     }
+                    any_new_match = true;
                     continue;
                 }
                 // skip over the path mapping if it's empty
@@ -2668,6 +2696,7 @@ namespace vg {
                     else {
                         pk = 0;
                     }
+                    any_new_match = true;
                     continue;
                 }
                 
@@ -2757,13 +2786,14 @@ namespace vg {
                               || medit.to_length() - l <= pedit.to_length() - pl) &&
                              (medit.sequence().empty() == pedit.sequence().empty())) {
                         // subpath edit is a prefix of path edit
-                        l = 0;
-                        pk += incr;
                         pl += max(medit.from_length(), medit.to_length()) - l;
                         if (pl == max(pedit.from_length(), pedit.to_length())) {
+                            // TODO: won't this never happen because of the earlier condition?
                             pl = 0;
                             pk += incr;
                         }
+                        l = 0;
+                        k += incr;
 #ifdef debug_trace
                         cerr << "mp edit is prefix" << endl;
 #endif
@@ -2776,6 +2806,7 @@ namespace vg {
                         // path edit is a prefix of subpath edit
                         l += max(pedit.from_length(), pedit.to_length()) - pl;
                         if (l == max(medit.from_length(), medit.to_length())) {
+                            // TODO: won't this never happen because of the earlier condition?
                             l = 0;
                             k += incr;
                         }
@@ -2792,63 +2823,61 @@ namespace vg {
                         cerr << "edits mismatch" << endl;
 #endif
                     }
+                    any_new_match = any_new_match || !reached_mismatch;
                 }
                 
                 // did we finish off either mapping?
                 if (k == mmapping.edit_size() || k < 0) {
-                    l = 0;
-                    j += incr;
-                    if (search_left && j >= 0) {
-                        k = mpath.mapping(j).edit_size() - 1;
-                    }
-                    else {
-                        k = 0;
-                    }
 #ifdef debug_trace
                     cerr << "finished mp mapping" << endl;
 #endif
+                    j += incr;
+                    k = 0;
+                    if (search_left && j >= 0) {
+                        k = mpath.mapping(j).edit_size() - 1;
+                    }
+                    l = 0;
                 }
                 if (pk == pmapping.edit_size() || pk < 0) {
-                    pl = 0;
-                    pj += incr;
-                    if (search_left && pj >= 0) {
-                        pk = mpath.mapping(pj).edit_size() - 1;
-                    }
-                    else {
-                        pk = 0;
-                    }
 #ifdef debug_trace
                     cerr << "finished p mapping" << endl;
 #endif
+                    pj += incr;
+                    pk = 0;
+                    if (search_left && pj >= 0) {
+                        pk = path.mapping(pj).edit_size() - 1;
+                    }
+                    pl = 0;
                 }
             }
             // how far did we get along the path by walking this subpath?
-            if (search_left) {
-                if (pj < get<0>(pfarthest) ||
-                    (pj == get<0>(pfarthest) && pk < get<1>(pfarthest)) ||
-                    (pj == get<0>(pfarthest) && pk == get<1>(pfarthest) && pl < get<2>(pfarthest))) {
-                    // we've traversed more of the path than on any previous subpath
-                    
-                    pfarthest = make_tuple(pj, pk, pl);
-                    mfarthest = make_tuple(i, j, k, l);
-                }
+            if ((search_left && (pj < get<0>(pfarthest) ||
+                                 (pj == get<0>(pfarthest) && pk < get<1>(pfarthest)) ||
+                                 (pj == get<0>(pfarthest) && pk == get<1>(pfarthest) && pl < get<2>(pfarthest)))) ||
+                (!search_left && (pj > get<0>(pfarthest) ||
+                                  (pj == get<0>(pfarthest) && pk > get<1>(pfarthest)) ||
+                                  (pj == get<0>(pfarthest) && pk == get<1>(pfarthest) && pl > get<2>(pfarthest))))) {
+                // we've traversed more of the path than on any previous subpath
+#ifdef debug_trace
+                cerr << "new farthest at subpath index " << i << ", " << j << ", " << k << ", " << l << " and path index " << pj << ", " << pk << ", " << pl << endl;
+#endif
+                pfarthest = make_tuple(pj, pk, pl);
+                mfarthest.clear();
+                mfarthest.emplace_back(i, j, k, l);
             }
-            else {
-                if (pj > get<0>(pfarthest) ||
-                    (pj == get<0>(pfarthest) && pk > get<1>(pfarthest)) ||
-                    (pj == get<0>(pfarthest) && pk == get<1>(pfarthest) && pl > get<2>(pfarthest))) {
-                    // we've traversed more of the path than on any previous subpath
-                    
-                    pfarthest = make_tuple(pj, pk, pl);
-                    mfarthest = make_tuple(i, j, k, l);
-                }
+            else if (pj == get<0>(pfarthest) && pk == get<1>(pfarthest) && pl == get<2>(pfarthest) && any_new_match) {
+                // we've tied the farthest we've gone along the path previously
+#ifdef debug_trace
+                cerr << "tied existing farthest at subpath index " << i << ", " << j << ", " << k << ", " << l << endl;
+#endif
+                mfarthest.emplace_back(i, j, k, l);
             }
             
             if (pj == path.mapping_size() || pj < 0) {
                 // we've found the farthest point possible
                 break;
             }
-            if (j == mpath.mapping_size() || j < 0 && !reached_mismatch) {
+            if ((j == mpath.mapping_size() || j < 0) && !reached_mismatch) {
                 // we got to the end of the subpath without exhausting our match
                 if (search_left) {
                     for (auto n : reverse_adjacencies[i]) {
@@ -2881,7 +2910,54 @@ namespace vg {
                 }
             }
         }
-        return make_pair(mfarthest, pfarthest);
+        
+        if (search_left) {
+            // we're set up to find past-the-first coordinates, but if we're going leftward
+            // what we want is actually the final coordinates
+            
+#ifdef debug_trace
+            cerr << "converting past-the-first coordinates to at-the-first" << endl;
+            cerr << "p farthest (" << get<0>(pfarthest) << " " << get<1>(pfarthest) << " " << get<2>(pfarthest) << ") -> ";
+#endif
+            if (get<0>(pfarthest) < 0) {
+                get<0>(pfarthest) = 0;
+            }
+            else if (get<1>(pfarthest) < 0) {
+                get<1>(pfarthest) = 0;
+                // even though we interpreted the base index of 0 differently before, it's already what we want here
+            }
+            else {
+                // switch index of the base to from-the-end
+                const auto& final_edit = path.mapping(get<0>(pfarthest)).edit(get<1>(pfarthest));
+                get<2>(pfarthest) = max(final_edit.from_length(), final_edit.to_length()) - get<2>(pfarthest);
+            }
+#ifdef debug_trace
+            cerr << "(" << get<0>(pfarthest) << " " << get<1>(pfarthest) << " " << get<2>(pfarthest) << ")" << endl;
+#endif
+            
+            for (auto& coord : mfarthest) {
+#ifdef debug_trace
+                cerr << "m farthest (" << get<0>(coord) << " " << get<1>(coord) << " " << get<2>(coord) << " " << get<3>(coord) << ") -> ";
+#endif
+                if (get<1>(coord) < 0) {
+                    get<1>(coord) = 0;
+                }
+                else if (get<2>(coord) < 0) {
+                    get<2>(coord) = 0;
+                    // even though we interpreted the base index of 0 differently before, it's already what we want here
+                }
+                else {
+                    // switch index of the base to from-the-end
+                    const auto& final_edit =  multipath_aln.subpath(get<0>(coord)).path().mapping(get<1>(coord)).edit(get<2>(coord));
+                    get<3>(coord) = max(final_edit.from_length(), final_edit.to_length()) - get<3>(coord);
+                }
+#ifdef debug_trace
+                cerr << "(" << get<0>(coord) << " " << get<1>(coord) << " " << get<2>(coord) << " " << get<3>(coord) << ")" << endl;
+#endif
+            }
+        }
+        
+        return return_val;
     }
 
     bool contains_match(const multipath_alignment_t& multipath_aln, const pos_t& pos,

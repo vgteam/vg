@@ -583,7 +583,7 @@ namespace vg {
                                        vector<deque<pair<string::const_iterator, char>>>& fanouts) const;
         
         /// Get a distance measurer based on the configuartion of the mapper
-        unique_ptr<OrientedDistanceMeasurer>&& get_distance_measurer(MemoizingGraph& memoizing_graph) const;
+        unique_ptr<OrientedDistanceMeasurer> get_distance_measurer(MemoizingGraph& memoizing_graph) const;
         
         /// Compute the approximate distance between two multipath alignments
         /// If either is unmapped, or the distance cannot be obtained, returns numeric_limits<int64_t>::max()

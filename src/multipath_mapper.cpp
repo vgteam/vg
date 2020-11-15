@@ -1048,7 +1048,7 @@ namespace vg {
         suppress_p_value_memoization = false;
     }
 
-    unique_ptr<OrientedDistanceMeasurer>&& MultipathMapper::get_distance_measurer(MemoizingGraph& memoizing_graph) const {
+    unique_ptr<OrientedDistanceMeasurer> MultipathMapper::get_distance_measurer(MemoizingGraph& memoizing_graph) const {
         
         unique_ptr<OrientedDistanceMeasurer> distance_measurer;
         if (distance_index) {
@@ -1062,9 +1062,9 @@ namespace vg {
             cerr << "using a path-based distance measurer (if doing oriented distance clustering)" << endl;
 #endif
             distance_measurer = unique_ptr<OrientedDistanceMeasurer>(new PathOrientedDistanceMeasurer(&memoizing_graph,
-                                                                                                      path_component_index));
+                                                                                                      path_component_index.get()));
         }
-        return move(distance_measurer);
+        return distance_measurer;
     }
     
     int64_t MultipathMapper::distance_between(const multipath_alignment_t& multipath_aln_1,
