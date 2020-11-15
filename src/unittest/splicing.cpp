@@ -1749,6 +1749,13 @@ TEST_CASE("MultipathMapper can make splice alignments from different candidates"
     graph.create_edge(h3, h4);
     graph.create_edge(h4, h5);
     
+    path_handle_t ph = graph.create_path_handle("p");
+    graph.append_step(ph, h1);
+    graph.append_step(ph, h2);
+    graph.append_step(ph, h3);
+    graph.append_step(ph, h4);
+    graph.append_step(ph, h5);
+    
     // Configure GCSA temp directory to the system temp directory
     gcsa::TempFile::setDirectory(temp_file::get_dir());
     // And make it quiet

@@ -113,7 +113,7 @@ int64_t ref_path_distance(const PathPositionHandleGraph* graph, const pos_t& pos
         }
     }
     
-    return -1;
+    return approx_ref_dist;
 }
     
 }

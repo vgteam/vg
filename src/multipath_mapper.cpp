@@ -2273,16 +2273,18 @@ namespace vg {
                             if (distance_index) {
                                 // use the distance index to judge reachability
                                 dist = distance_index->min_distance(l_pos, r_pos);
-                                if (dist >= 0) {
-                                    // see if we can get a better estimate of long-range genomic distance from
-                                    // a reference path (to avoid splicing junctions)
-                                    int64_t ref_dist = algorithms::ref_path_distance(xindex, l_pos, r_pos,
-                                                                                     min_splice_ref_search_length,
-                                                                                     max_splice_ref_search_length);
-                                    if (ref_dist != numeric_limits<int64_t>::max()) {
-                                        dist = ref_dist;
-                                    }
-                                }
+                                // TODO: i still might want to activate this later, but it will only be important
+                                // if i get the intron length distribution up and running
+//                                if (dist >= 0 && xindex->get_path_count() != 0) {
+//                                    // see if we can get a better estimate of long-range genomic distance from
+//                                    // a reference path (to avoid splicing junctions)
+//                                    int64_t ref_dist = algorithms::ref_path_distance(xindex, l_pos, r_pos,
+//                                                                                     min_splice_ref_search_length,
+//                                                                                     max_splice_ref_search_length);
+//                                    if (ref_dist != numeric_limits<int64_t>::max()) {
+//                                        dist = ref_dist;
+//                                    }
+//                                }
                             }
                             else {
                                 dist = algorithms::ref_path_distance(xindex, l_pos, r_pos,
