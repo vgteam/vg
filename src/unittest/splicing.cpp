@@ -1129,13 +1129,9 @@ TEST_CASE("fuse_spliced_alignments produces the correct results",
     int64_t splice_idx = 1;
     int32_t splice_score = -2;
 
-
-    SECTION("Fusing works when linker is empty") {
-
-        multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
-                                                              linker, splice_idx, splice_score,
-                                                              *test_aligner.get_regular_aligner(), graph);
-
+    
+    // test for the spliced alignment we expect from this
+    auto test_spliced_aln = [&](multipath_alignment_t& fused) {
         REQUIRE(fused.subpath_size() == 2);
         REQUIRE(fused.subpath(0).score() == 8);
         REQUIRE(fused.subpath(0).path().mapping_size() == 1);
@@ -1150,7 +1146,7 @@ TEST_CASE("fuse_spliced_alignments produces the correct results",
         REQUIRE(fused.subpath(0).connection_size() == 1);
         REQUIRE(fused.subpath(0).connection(0).next() == 1);
         REQUIRE(fused.subpath(0).connection(0).score() == splice_score);
-
+        
         REQUIRE(fused.subpath(1).score() == 9);
         REQUIRE(fused.subpath(1).path().mapping_size() == 1);
         REQUIRE(fused.subpath(1).path().mapping(0).position().node_id() == graph.get_id(h2));
@@ -1162,6 +1158,14 @@ TEST_CASE("fuse_spliced_alignments produces the correct results",
         REQUIRE(fused.subpath(1).path().mapping(0).edit(0).sequence() == "");
         REQUIRE(fused.subpath(1).next_size() == 0);
         REQUIRE(fused.subpath(1).connection_size() == 0);
+    };
+
+    SECTION("Fusing works when linker is empty") {
+
+        multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
+                                                              linker, splice_idx, splice_score,
+                                                              *test_aligner.get_regular_aligner(), graph);
+        test_spliced_aln(fused);
     }
 
     m2->mutable_position()->set_offset(2);
@@ -1173,50 +1177,11 @@ TEST_CASE("fuse_spliced_alignments produces the correct results",
     left_bridge_point = 2;
 
     SECTION("Fusing works when linker is only empty on the right side") {
-
+        
         multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
                                                               linker, splice_idx, splice_score,
                                                               *test_aligner.get_regular_aligner(), graph);
-
-        REQUIRE(fused.subpath_size() == 3);
-        REQUIRE(fused.subpath(0).score() == 7);
-        REQUIRE(fused.subpath(0).path().mapping_size() == 1);
-        REQUIRE(fused.subpath(0).path().mapping(0).position().node_id() == graph.get_id(h0));
-        REQUIRE(fused.subpath(0).path().mapping(0).position().is_reverse() == false);
-        REQUIRE(fused.subpath(0).path().mapping(0).position().offset() == 0);
-        REQUIRE(fused.subpath(0).path().mapping(0).edit_size() == 1);
-        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).from_length() == 2);
-        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).to_length() == 2);
-        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(fused.subpath(0).next_size() == 1);
-        REQUIRE(fused.subpath(0).next(0) == 1);
-        REQUIRE(fused.subpath(0).connection_size() == 0);
-
-        REQUIRE(fused.subpath(1).score() == 1);
-        REQUIRE(fused.subpath(1).path().mapping_size() == 1);
-        REQUIRE(fused.subpath(1).path().mapping(0).position().node_id() == graph.get_id(h0));
-        REQUIRE(fused.subpath(1).path().mapping(0).position().is_reverse() == false);
-        REQUIRE(fused.subpath(1).path().mapping(0).position().offset() == 2);
-        REQUIRE(fused.subpath(1).path().mapping(0).edit_size() == 1);
-        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).from_length() == 1);
-        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).to_length() == 1);
-        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(fused.subpath(1).next_size() == 0);
-        REQUIRE(fused.subpath(1).connection_size() == 1);
-        REQUIRE(fused.subpath(1).connection(0).next() == 2);
-        REQUIRE(fused.subpath(1).connection(0).score() == splice_score);
-
-        REQUIRE(fused.subpath(2).score() == 9);
-        REQUIRE(fused.subpath(2).path().mapping_size() == 1);
-        REQUIRE(fused.subpath(2).path().mapping(0).position().node_id() == graph.get_id(h2));
-        REQUIRE(fused.subpath(2).path().mapping(0).position().is_reverse() == false);
-        REQUIRE(fused.subpath(2).path().mapping(0).position().offset() == 3);
-        REQUIRE(fused.subpath(2).path().mapping(0).edit_size() == 1);
-        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).from_length() == 4);
-        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).to_length() == 4);
-        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(fused.subpath(2).next_size() == 0);
-        REQUIRE(fused.subpath(2).connection_size() == 0);
+        test_spliced_aln(fused);
     }
 
     auto e5 = m3->add_edit();
@@ -1229,59 +1194,7 @@ TEST_CASE("fuse_spliced_alignments produces the correct results",
         multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
                                                               linker, splice_idx, splice_score,
                                                               *test_aligner.get_regular_aligner(), graph);
-
-        REQUIRE(fused.subpath_size() == 4);
-        REQUIRE(fused.subpath(0).score() == 7);
-        REQUIRE(fused.subpath(0).path().mapping_size() == 1);
-        REQUIRE(fused.subpath(0).path().mapping(0).position().node_id() == graph.get_id(h0));
-        REQUIRE(fused.subpath(0).path().mapping(0).position().is_reverse() == false);
-        REQUIRE(fused.subpath(0).path().mapping(0).position().offset() == 0);
-        REQUIRE(fused.subpath(0).path().mapping(0).edit_size() == 1);
-        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).from_length() == 2);
-        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).to_length() == 2);
-        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(fused.subpath(0).next_size() == 1);
-        REQUIRE(fused.subpath(0).next(0) == 1);
-        REQUIRE(fused.subpath(0).connection_size() == 0);
-
-        REQUIRE(fused.subpath(1).score() == 1);
-        REQUIRE(fused.subpath(1).path().mapping_size() == 1);
-        REQUIRE(fused.subpath(1).path().mapping(0).position().node_id() == graph.get_id(h0));
-        REQUIRE(fused.subpath(1).path().mapping(0).position().is_reverse() == false);
-        REQUIRE(fused.subpath(1).path().mapping(0).position().offset() == 2);
-        REQUIRE(fused.subpath(1).path().mapping(0).edit_size() == 1);
-        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).from_length() == 1);
-        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).to_length() == 1);
-        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(fused.subpath(1).next_size() == 0);
-        REQUIRE(fused.subpath(1).connection_size() == 1);
-        REQUIRE(fused.subpath(1).connection(0).next() == 2);
-        REQUIRE(fused.subpath(1).connection(0).score() == splice_score);
-
-        REQUIRE(fused.subpath(2).score() == 1);
-        REQUIRE(fused.subpath(2).path().mapping_size() == 1);
-        REQUIRE(fused.subpath(2).path().mapping(0).position().node_id() == graph.get_id(h2));
-        REQUIRE(fused.subpath(2).path().mapping(0).position().is_reverse() == false);
-        REQUIRE(fused.subpath(2).path().mapping(0).position().offset() == 3);
-        REQUIRE(fused.subpath(2).path().mapping(0).edit_size() == 1);
-        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).from_length() == 1);
-        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).to_length() == 1);
-        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(fused.subpath(2).next_size() == 1);
-        REQUIRE(fused.subpath(2).next(0) == 3);
-        REQUIRE(fused.subpath(2).connection_size() == 0);
-
-        REQUIRE(fused.subpath(3).score() == 8);
-        REQUIRE(fused.subpath(3).path().mapping_size() == 1);
-        REQUIRE(fused.subpath(3).path().mapping(0).position().node_id() == graph.get_id(h2));
-        REQUIRE(fused.subpath(3).path().mapping(0).position().is_reverse() == false);
-        REQUIRE(fused.subpath(3).path().mapping(0).position().offset() == 4);
-        REQUIRE(fused.subpath(3).path().mapping(0).edit_size() == 1);
-        REQUIRE(fused.subpath(3).path().mapping(0).edit(0).from_length() == 3);
-        REQUIRE(fused.subpath(3).path().mapping(0).edit(0).to_length() == 3);
-        REQUIRE(fused.subpath(3).path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(fused.subpath(3).next_size() == 0);
-        REQUIRE(fused.subpath(3).connection_size() == 0);
+        test_spliced_aln(fused);
     }
 
 
@@ -1296,46 +1209,7 @@ TEST_CASE("fuse_spliced_alignments produces the correct results",
         multipath_alignment_t fused = fuse_spliced_alignments(aln, move(left_mp_aln), move(right_mp_aln), left_bridge_point,
                                                               linker, splice_idx, splice_score,
                                                               *test_aligner.get_regular_aligner(), graph);
-
-        REQUIRE(fused.subpath_size() == 3);
-
-        REQUIRE(fused.subpath(0).score() == 8);
-        REQUIRE(fused.subpath(0).path().mapping_size() == 1);
-        REQUIRE(fused.subpath(0).path().mapping(0).position().node_id() == graph.get_id(h0));
-        REQUIRE(fused.subpath(0).path().mapping(0).position().is_reverse() == false);
-        REQUIRE(fused.subpath(0).path().mapping(0).position().offset() == 0);
-        REQUIRE(fused.subpath(0).path().mapping(0).edit_size() == 1);
-        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).from_length() == 3);
-        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).to_length() == 3);
-        REQUIRE(fused.subpath(0).path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(fused.subpath(0).next_size() == 0);
-        REQUIRE(fused.subpath(0).connection_size() == 1);
-        REQUIRE(fused.subpath(0).connection(0).next() == 1);
-        REQUIRE(fused.subpath(0).connection(0).score() == splice_score);
-
-        REQUIRE(fused.subpath(1).score() == 1);
-        REQUIRE(fused.subpath(1).path().mapping_size() == 1);
-        REQUIRE(fused.subpath(1).path().mapping(0).position().node_id() == graph.get_id(h2));
-        REQUIRE(fused.subpath(1).path().mapping(0).position().is_reverse() == false);
-        REQUIRE(fused.subpath(1).path().mapping(0).position().offset() == 3);
-        REQUIRE(fused.subpath(1).path().mapping(0).edit_size() == 1);
-        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).from_length() == 1);
-        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).to_length() == 1);
-        REQUIRE(fused.subpath(1).path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(fused.subpath(1).next_size() == 1);
-        REQUIRE(fused.subpath(1).next(0) == 2);
-
-        REQUIRE(fused.subpath(2).score() == 8);
-        REQUIRE(fused.subpath(2).path().mapping_size() == 1);
-        REQUIRE(fused.subpath(2).path().mapping(0).position().node_id() == graph.get_id(h2));
-        REQUIRE(fused.subpath(2).path().mapping(0).position().is_reverse() == false);
-        REQUIRE(fused.subpath(2).path().mapping(0).position().offset() == 4);
-        REQUIRE(fused.subpath(2).path().mapping(0).edit_size() == 1);
-        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).from_length() == 3);
-        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).to_length() == 3);
-        REQUIRE(fused.subpath(2).path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(fused.subpath(2).next_size() == 0);
-        REQUIRE(fused.subpath(2).connection_size() == 0);
+        test_spliced_aln(fused);
     }
 }
 

@@ -2389,7 +2389,7 @@ namespace vg {
             auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
             REQUIRE(search.size() == 1);
             tie(i, j, k, l) = search.front();
-            auto trace = trace_path(mp_aln, path, i, j, k, l, false);
+            auto trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
             REQUIRE(get<0>(trace.first) == 1);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2406,7 +2406,7 @@ namespace vg {
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             REQUIRE(search.size() == 1);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, false);
+            trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
             REQUIRE(get<0>(trace.first) == 1);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2426,7 +2426,7 @@ namespace vg {
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             REQUIRE(search.size() == 1);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, false);
+            trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
             REQUIRE(get<0>(trace.first) == 1);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2448,7 +2448,7 @@ namespace vg {
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             REQUIRE(search.size() == 1);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, false);
+            trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
             REQUIRE(get<0>(trace.first) == 1);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2481,7 +2481,7 @@ namespace vg {
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             REQUIRE(search.size() == 1);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, false);
+            trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
             REQUIRE(get<0>(trace.first) == 2);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2500,7 +2500,7 @@ namespace vg {
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             REQUIRE(search.size() == 1);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, false);
+            trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
             REQUIRE(get<0>(trace.first) == 1);
             REQUIRE(get<1>(trace.first) == 2);
@@ -2546,7 +2546,7 @@ namespace vg {
             auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
             REQUIRE(search.size() == 1);
             tie(i, j, k, l) = search.front();
-            auto trace = trace_path(mp_aln, path, i, j, k, l, false);
+            auto trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
             REQUIRE(get<0>(trace.first) == 1);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2565,7 +2565,7 @@ namespace vg {
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             REQUIRE(search.size() == 1);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, false);
+            trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
             REQUIRE(get<0>(trace.first) == 2);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2619,7 +2619,7 @@ namespace vg {
             int64_t i, j, k, l;
             auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
             tie(i, j, k, l) = search.front();
-            auto trace = trace_path(mp_aln, path, i, j, k, l, true);
+            auto trace = trace_path(mp_aln, path, i, j, k, l, true, 0);
 
             REQUIRE(get<0>(trace.first) == 0);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2636,7 +2636,7 @@ namespace vg {
 
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, true);
+            trace = trace_path(mp_aln, path, i, j, k, l, true, 0);
 
             REQUIRE(get<0>(trace.first) == 0);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2654,7 +2654,7 @@ namespace vg {
 
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, true);
+            trace = trace_path(mp_aln, path, i, j, k, l, true, 0);
 
             REQUIRE(get<0>(trace.first) == 0);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2676,7 +2676,7 @@ namespace vg {
 
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, true);
+            trace = trace_path(mp_aln, path, i, j, k, l, true, 0);
 
             REQUIRE(get<0>(trace.first) == 0);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2694,7 +2694,7 @@ namespace vg {
 
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, true);
+            trace = trace_path(mp_aln, path, i, j, k, l, true, 0);
 
             REQUIRE(get<0>(trace.first) == 0);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2721,7 +2721,7 @@ namespace vg {
 
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, true);
+            trace = trace_path(mp_aln, path, i, j, k, l, true, 0);
 
             REQUIRE(get<0>(trace.first) == 0);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2748,7 +2748,7 @@ namespace vg {
 
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, true);
+            trace = trace_path(mp_aln, path, i, j, k, l, true, 0);
 
             REQUIRE(get<0>(trace.first) == 0);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2765,7 +2765,7 @@ namespace vg {
 
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, true);
+            trace = trace_path(mp_aln, path, i, j, k, l, true, 0);
 
             REQUIRE(get<0>(trace.first) == 0);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2780,7 +2780,7 @@ namespace vg {
 
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, path, i, j, k, l, true);
+            trace = trace_path(mp_aln, path, i, j, k, l, true, 0);
 
             REQUIRE(get<0>(trace.first) == 0);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2833,7 +2833,7 @@ namespace vg {
             int64_t i, j, k, l;
             auto search = search_multipath_alignment(mp_aln, pos, seq_idx);
             tie(i, j, k, l) = search.front();
-            auto trace = trace_path(mp_aln, p, i, j, k, l, false);
+            auto trace = trace_path(mp_aln, p, i, j, k, l, false, p.mapping_size());
 
             REQUIRE(get<0>(trace.first) == 1);
             REQUIRE(get<1>(trace.first) == 0);
@@ -2852,7 +2852,7 @@ namespace vg {
 
             search = search_multipath_alignment(mp_aln, pos, seq_idx);
             tie(i, j, k, l) = search.front();
-            trace = trace_path(mp_aln, p, i, j, k, l, true);
+            trace = trace_path(mp_aln, p, i, j, k, l, true, 0);
 
             REQUIRE(get<0>(trace.first) == 0);
             REQUIRE(get<1>(trace.first) == 0);

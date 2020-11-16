@@ -350,10 +350,12 @@ namespace vg {
 
     /// Returns a pair of (mapping, edit, base) and possibly multiple (subpath, mapping, edit, base),of the furthest position
     /// that can be traced through the multipath alignment along the pathstarting the indicated position in the multipath
-    /// alignment. The path can be traced rightward starting at the beginning, or leftward starting
+    /// alignment. The path can be traced rightward starting at the beginning, or leftward starting.
+    /// Search is limited to not passing a given mapping on the path.
     pair<tuple<int64_t, int64_t, int64_t>, vector<tuple<int64_t, int64_t, int64_t, int64_t>>>
     trace_path(const multipath_alignment_t& multipath_aln, const Path& path,
-               int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx, bool search_left);
+               int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx, bool search_left,
+               int64_t search_limit);
 
     /// Returns true if the multipath alignment contains a match of a given length starting at the graph and
     /// read position
