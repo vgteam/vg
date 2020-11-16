@@ -1603,7 +1603,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     identify_start_subpaths(left_mp_aln);
     
     // and remove any empty bits
-    remove_empty_subpaths(left_mp_aln);
+    remove_empty_alignment_sections(left_mp_aln);
     
 #ifdef debug_fusing
     cerr << "final product after removing empty subpaths:" << endl;

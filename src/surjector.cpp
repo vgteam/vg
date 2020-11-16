@@ -1610,7 +1610,7 @@ using namespace std;
             if (preserve_tail_indel_anchors) {
                 // this code path sometimes produces subpaths that have no aligned bases, which
                 // sometimes play poorly with other parts of the code base
-                remove_empty_subpaths(mp_aln);
+                remove_empty_alignment_sections(mp_aln);
             }
             
             for (size_t i = 0; i < mp_aln.subpath_size(); i++) {

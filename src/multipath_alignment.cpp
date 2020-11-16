@@ -229,24 +229,38 @@ namespace vg {
         }
     }
 
-    void remove_empty_subpaths(multipath_alignment_t& multipath_aln) {
+    void remove_empty_alignment_sections(multipath_alignment_t& multipath_aln) {
         
         vector<bool> is_empty(multipath_aln.subpath_size(), false);
-        bool any_empty = false;
+        bool any_empty_subpaths = false;
         
         // find subpaths that don't have any aligned bases
         for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
-            const path_t& path = multipath_aln.subpath(i).path();
-            bool empty = true;
-            for (size_t j = 0; j < path.mapping_size() && empty; ++j) {
-                const path_mapping_t& mapping = path.mapping(j);
-                for (size_t k = 0; k < mapping.edit_size() && empty; ++k) {
-                    const edit_t& edit = mapping.edit(k);
-                    empty = edit.from_length() == 0 && edit.to_length() == 0;
+            auto path = multipath_aln.mutable_subpath(i)->mutable_path();
+            size_t mappings_removed = 0;
+            for (size_t j = 0; j < path->mapping_size(); ++j) {
+                auto mapping = path->mutable_mapping(j);
+                size_t edits_removed = 0;
+                for (size_t k = 0; k < mapping->edit_size(); ++k) {
+                    auto edit = mapping->mutable_edit(k);
+                    if (edit->from_length() == 0 && edit->to_length() == 0) {
+                        ++edits_removed;
+                    }
+                    else if (edits_removed != 0) {
+                        *mapping->mutable_edit(k - edits_removed) = move(*edit);
+                    }
+                }
+                mapping->mutable_edit()->resize(mapping->edit_size() - edits_removed);
+                if (mapping->edit().empty()) {
+                    ++mappings_removed;
+                }
+                else if (mappings_removed != 0) {
+                    *path->mutable_mapping(j - mappings_removed) = move(*mapping);
                 }
             }
-            is_empty[i] = empty;
-            any_empty = any_empty || empty;
+            path->mutable_mapping()->resize(path->mapping_size() - mappings_removed);
+            is_empty[i] = path->mapping().empty();
+            any_empty_subpaths = any_empty_subpaths || path->mapping().empty();
         }
         
 #ifdef debug_remove_empty
@@ -256,7 +270,7 @@ namespace vg {
         }
 #endif
         
-        if (any_empty) {
+        if (any_empty_subpaths) {
             // there's at least one empty subpath
             
             // compute the transitive edges through empty subpaths
@@ -443,7 +457,6 @@ namespace vg {
                 }
             }
             
-            
 #ifdef debug_remove_empty
             cerr << "before updating starts" << endl;
             cerr << debug_string(multipath_aln) << endl;
@@ -461,36 +474,6 @@ namespace vg {
                 // this is easy);
                 identify_start_subpaths(multipath_aln);
             }
-            
-#ifdef debug_remove_empty
-            cerr << "before deduplicating nexts and connections" << endl;
-            cerr << debug_string(multipath_aln) << endl;
-#endif
-            for (size_t i = 0; i < multipath_aln.start_size(); ++i) {
-                auto subpath = multipath_aln.mutable_subpath(i);
-                unordered_set<int64_t> nexts_seen;
-                for (int64_t j = 0; j < subpath->next_size(); ++j) {
-                    if (nexts_seen.count(subpath->next(j))) {
-                        continue;
-                    }
-                    subpath->set_next(nexts_seen.size(), subpath->next(j));
-                    nexts_seen.insert(subpath->next(j));
-                }
-                subpath->mutable_next()->resize(nexts_seen.size());
-                
-                unordered_set<pair<size_t, int64_t>> connections_seen;
-                for (int64_t j = 0; j < subpath->connection_size(); ++j) {
-                    auto& connection = subpath->connection(j);
-                    auto key = pair<size_t, int64_t>(connection.next(), connection.score());
-                    if (connections_seen.count(key)) {
-                        continue;
-                    }
-                    *subpath->mutable_connection(nexts_seen.size()) = subpath->connection(j);
-                    connections_seen.insert(key);
-                }
-                subpath->mutable_connection()->resize(connections_seen.size());
-            }
-            
         }
     }
     
