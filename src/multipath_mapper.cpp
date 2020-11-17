@@ -2403,8 +2403,8 @@ namespace vg {
              [&](const PutativeJoin& join_1, const PutativeJoin& join_2) {
             auto net_score_1 = join_net_score(join_1);
             auto net_score_2 = join_net_score(join_2);
-            return (net_score_1 > net_score_2 ||
-                    (net_score_1 == net_score_2 && join_1.estimated_intron_length < join_2.estimated_intron_length));
+            return (net_score_1 < net_score_2 ||
+                    (net_score_1 == net_score_2 && join_1.estimated_intron_length > join_2.estimated_intron_length));
         });
         
         // greedily fix the strand

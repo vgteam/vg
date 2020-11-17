@@ -2791,56 +2791,54 @@ namespace vg {
                         cerr << "p edit empty" << endl;
 #endif
                     }
-                    else if (((medit.from_length() == 0 && pedit.from_length() == 0)
-                              || medit.from_length() - l == pedit.from_length() - pl) &&
-                             ((medit.to_length() == 0 && pedit.to_length() == 0)
-                              || medit.to_length() - l == pedit.to_length() - pl) &&
-                             (medit.sequence().empty() == pedit.sequence().empty())) {
-                        // follow a matching edit
-                        l = 0;
-                        k += incr;
-                        pl = 0;
-                        pk += incr;
+                    else if ((medit.from_length() == 0) == (pedit.from_length() == 0) &&
+                             (medit.to_length() == 0) == (pedit.to_length() == 0) &&
+                             medit.sequence().empty() == pedit.sequence().empty()) {
                         
-#ifdef debug_trace
-                        cerr << "edits match" << endl;
-#endif
-                    }
-                    else if (((medit.from_length() == 0 && pedit.from_length() == 0)
-                              || medit.from_length() - l <= pedit.from_length() - pl) &&
-                             ((medit.to_length() == 0 && pedit.to_length() == 0)
-                              || medit.to_length() - l <= pedit.to_length() - pl) &&
-                             (medit.sequence().empty() == pedit.sequence().empty())) {
-                        // subpath edit is a prefix of path edit
-                        pl += max(medit.from_length(), medit.to_length()) - l;
-                        if (pl == max(pedit.from_length(), pedit.to_length())) {
-                            // TODO: won't this never happen because of the earlier condition?
-                            pl = 0;
-                            pk += incr;
-                        }
-                        l = 0;
-                        k += incr;
-#ifdef debug_trace
-                        cerr << "mp edit is prefix" << endl;
-#endif
-                    }
-                    else if (((medit.from_length() == 0 && pedit.from_length() == 0)
-                              || medit.from_length() - l >= pedit.from_length() - pl) &&
-                             ((medit.to_length() == 0 && pedit.to_length() == 0)
-                              || medit.to_length() - l >= pedit.to_length() - pl) &&
-                             (medit.sequence().empty() == pedit.sequence().empty())) {
-                        // path edit is a prefix of subpath edit
-                        l += max(pedit.from_length(), pedit.to_length()) - pl;
-                        if (l == max(medit.from_length(), medit.to_length())) {
-                            // TODO: won't this never happen because of the earlier condition?
+                        // the type of edit matches
+                        
+                        if ((medit.from_length() == 0 || medit.from_length() - l == pedit.from_length() - pl) &&
+                            (medit.to_length() == 0 || medit.to_length() - l == pedit.to_length() - pl)) {
+                            // the size of edit matches
                             l = 0;
                             k += incr;
-                        }
-                        pl = 0;
-                        pk += incr;
+                            pl = 0;
+                            pk += incr;
+                            
 #ifdef debug_trace
-                        cerr << "p edit is prefix" << endl;
+                            cerr << "edits match" << endl;
 #endif
+                        }
+                        else if ((medit.from_length() == 0 || medit.from_length() - l < pedit.from_length() - pl) &&
+                                 (medit.to_length() == 0 || medit.to_length() - l < pedit.to_length() - pl)) {
+                            
+                            // subpath edit is a prefix of path edit
+                            pl += max(medit.from_length(), medit.to_length()) - l;
+                            if (pl == max(pedit.from_length(), pedit.to_length())) {
+                                // TODO: won't this never happen because of the earlier condition?
+                                pl = 0;
+                                pk += incr;
+                            }
+                            l = 0;
+                            k += incr;
+#ifdef debug_trace
+                            cerr << "mp edit is prefix" << endl;
+#endif
+                        }
+                        else {
+                            // path edit is a prefix of subpath edit
+                            l += max(pedit.from_length(), pedit.to_length()) - pl;
+                            if (l == max(medit.from_length(), medit.to_length())) {
+                                // TODO: won't this never happen because of the earlier condition?
+                                l = 0;
+                                k += incr;
+                            }
+                            pl = 0;
+                            pk += incr;
+#ifdef debug_trace
+                            cerr << "p edit is prefix" << endl;
+#endif
+                        }
                     }
                     else {
                         // the edits do not match
