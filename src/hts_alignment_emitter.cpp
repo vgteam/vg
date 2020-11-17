@@ -690,12 +690,7 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                     // we may still be searching through an initial softclip to find
                     // the edit that corresponds to the BAM position
                     if (edit.to_length() > 0 && edit.from_length() == 0) {
-                        if (cigar.empty()) {
-                            cigar.emplace_back(edit.to_length(), 'S');
-                        }
-                        else {
-                            cigar.back().first += edit.to_length();
-                        }
+                        append_cigar_operation(edit.to_length(), 'S', cigar);
                         // skip the main block where we assign cigar operations
                         continue;
                     }
@@ -723,14 +718,7 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                     throw std::runtime_error("Spliced CIGAR construction can only convert simple edits");
                 }
                 
-                if (!cigar.empty() && cigar.back().second == cigar_code) {
-                    // extend the previous cigar operation
-                    cigar.back().first += length;
-                }
-                else {
-                    // create a new cigar operation
-                    cigar.emplace_back(length, cigar_code);
-                }
+                append_cigar_operation(length, cigar_code, cigar);
             } // close loop over edits
             
             if (found_pos && i + 1 < path.mapping_size()) {
@@ -771,18 +759,17 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                     size_t deletion_length = (nearest_offset - curr_offset -
                                               graph.get_length(graph.get_handle_of_step(step)));
                     
+                    
+                    append_cigar_operation(deletion_length, 'N', cigar);
+                    
                     // add to the cigar
                     if (deletion_length >= min_splice_length) {
                         // long enough to be a splice
-                        cigar.emplace_back(deletion_length, 'N');
-                    }
-                    else if (cigar.back().second == 'D') {
-                        // extend a deletion
-                        cigar.back().first += deletion_length;
+                        append_cigar_operation(deletion_length, 'N', cigar);
                     }
                     else if (deletion_length) {
-                        // create a new deletion
-                        cigar.emplace_back(deletion_length, 'D');
+                        // create or extend a deletion
+                        append_cigar_operation(deletion_length, 'D', cigar);
                     }
                 }
                 
@@ -796,6 +783,9 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
             cigar.back().second = 'S';
         }
     }
+    
+    consolidate_ID_runs(cigar);
+    
     return cigar;
 }
 

@@ -1570,43 +1570,47 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 //Rescue the alignment
                 attempt_rescue(mapped_aln, rescued_aln, minimizers_by_read[(found_first ? 1 : 0)], found_first);
 
-                int64_t fragment_dist = found_first ? distance_between(mapped_aln, rescued_aln) 
+                if (rescued_aln.path().mapping_size() != 0) {
+                    //If we actually found an alignment
+
+                    int64_t fragment_dist = found_first ? distance_between(mapped_aln, rescued_aln) 
                                                       : distance_between(rescued_aln, mapped_aln);
 
-                double score = score_alignment_pair(mapped_aln, rescued_aln, fragment_dist);
+                    double score = score_alignment_pair(mapped_aln, rescued_aln, fragment_dist);
 
-                set_annotation(mapped_aln, "rescuer", true);
-                set_annotation(rescued_aln, "rescued", true);
-                set_annotation(mapped_aln,  "fragment_length", (double)fragment_dist);
-                set_annotation(rescued_aln, "fragment_length", (double)fragment_dist);
+                    set_annotation(mapped_aln, "rescuer", true);
+                    set_annotation(rescued_aln, "rescued", true);
+                    set_annotation(mapped_aln,  "fragment_length", (double)fragment_dist);
+                    set_annotation(rescued_aln, "fragment_length", (double)fragment_dist);
 
-                //Since we're still accumulating a list of indexes of pairs of alignments,
-                //add the new alignment to the list of alignments 
-                //(in a separate "fragment cluster" vector for rescued alignments) and keep track of its index
-                //
-                pair<size_t, size_t> mapped_index (std::get<0>(index), std::get<1>(index)); 
-                pair<size_t, size_t> rescued_index (alignments.size() - 1, 
-                            found_first ? alignments.back().second.size() : alignments.back().first.size());
-                found_first ? alignments.back().second.emplace_back(std::move(rescued_aln)) 
-                            : alignments.back().first.emplace_back(std::move(rescued_aln));
-                found_first ? rescued_count_1++ : rescued_count_2++;
+                    //Since we're still accumulating a list of indexes of pairs of alignments,
+                    //add the new alignment to the list of alignments 
+                    //(in a separate "fragment cluster" vector for rescued alignments) and keep track of its index
+                    //
+                    pair<size_t, size_t> mapped_index (std::get<0>(index), std::get<1>(index)); 
+                    pair<size_t, size_t> rescued_index (alignments.size() - 1, 
+                                found_first ? alignments.back().second.size() : alignments.back().first.size());
+                    found_first ? alignments.back().second.emplace_back(std::move(rescued_aln)) 
+                                : alignments.back().first.emplace_back(std::move(rescued_aln));
+                    found_first ? rescued_count_1++ : rescued_count_2++;
 
-                found_first ? alignment_groups.back().second.emplace_back() : alignment_groups.back().first.emplace_back();
-                pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = found_first ? 
-                            make_pair(mapped_index, rescued_index) : make_pair(rescued_index, mapped_index);
-                paired_alignments.push_back(index_pair);
-                paired_scores.emplace_back(score);
-                fragment_distances.emplace_back(fragment_dist);
-                pair_types.push_back(found_first ? rescued_from_first : rescued_from_second); 
-                better_cluster_count_by_pairs.emplace_back(better_cluster_count[mapped_index.first]);
+                    found_first ? alignment_groups.back().second.emplace_back() : alignment_groups.back().first.emplace_back();
+                    pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = found_first ? 
+                                make_pair(mapped_index, rescued_index) : make_pair(rescued_index, mapped_index);
+                    paired_alignments.push_back(index_pair);
+                    paired_scores.emplace_back(score);
+                    fragment_distances.emplace_back(fragment_dist);
+                    pair_types.push_back(found_first ? rescued_from_first : rescued_from_second); 
+                    better_cluster_count_by_pairs.emplace_back(better_cluster_count[mapped_index.first]);
 
 #ifdef print_minimizers
-                alignment_was_rescued.emplace_back(!found_first, found_first);
+                    alignment_was_rescued.emplace_back(!found_first, found_first);
 #endif
-                if (track_provenance) {
-                    funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
-                    funnels[found_first ? 0 : 1].project(j);
-                    funnels[found_first ? 1 : 0].introduce();
+                    if (track_provenance) {
+                        funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
+                        funnels[found_first ? 0 : 1].project(j);
+                        funnels[found_first ? 1 : 0].introduce();
+                    }
                 }
                 if (track_provenance) {
                     funnels[found_first ? 0 : 1].processed_input();
@@ -2327,6 +2331,11 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - rescue_subgraph_stdevs * fragment_length_distr.std_dev());
     int64_t max_distance = fragment_length_distr.mean() + rescue_subgraph_stdevs * fragment_length_distr.std_dev();
     distance_index.subgraph_in_range(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
+
+    if (rescue_nodes.size() == 0) {
+        //If the rescue subgraph is empty
+        return;
+    }
 
     // Remove node ids that do not exist in the GBWTGraph from the subgraph.
     // We may be using the distance index of the original graph, and nodes

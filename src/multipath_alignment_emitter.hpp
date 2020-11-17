@@ -46,7 +46,8 @@ public:
     /// Choose a sample name to apply to all emitted alignments
     void set_sample_name(const string& sample_name);
     
-    ///
+    /// Set the length deletion (at a node boundary) that will be considered an unaligned splicing event
+    /// in HTSLib output
     void set_min_splice_length(int64_t min_splice_length);
     
     /// Emit paired read mappings as interleaved protobuf messages
@@ -61,9 +62,11 @@ public:
     
 private:
     
+    /// what format are we outputting in
     enum output_format_t {GAMP, GAM, GAF, BAM, SAM, CRAM};
     output_format_t format;
     
+    /// make a GAM alignment from a multipath alignment
     void convert_to_alignment(const multipath_alignment_t& mp_aln, Alignment& aln,
                               const string* prev_name = nullptr,
                               const string* next_name = nullptr) const;
@@ -73,10 +76,12 @@ private:
                                Alignment& shim, const string* prev_name = nullptr,
                                const string* next_name = nullptr) const;
     
+    /// store a bam1_t object with the indicated data in the dest vector
     void convert_to_hts_unpaired(const string& name, const multipath_alignment_t& mp_aln,
                                  const string& ref_name, bool ref_rev, int64_t ref_pos,
                                  bam_hdr_t* header, vector<bam1_t*>& dest) const;
     
+    /// store two paired bam1_t objects with the indicated data in the dest vector
     void convert_to_hts_paired(const string& name_1, const string& name_2,
                                const multipath_alignment_t& mp_aln_1,
                                const multipath_alignment_t& mp_aln_2,
