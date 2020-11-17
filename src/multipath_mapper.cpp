@@ -3247,6 +3247,10 @@ namespace vg {
                                                            vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs_out,
                                                            vector<double>& pair_multiplicities_out) const {
         
+#ifdef debug_multipath_mapper
+        cerr << "trying to re-pair spliced alignments" << endl;
+#endif
+        
         MemoizingGraph memoizing_graph(xindex);
         unique_ptr<OrientedDistanceMeasurer> distance_measurer = get_distance_measurer(memoizing_graph);
         
@@ -3263,15 +3267,20 @@ namespace vg {
         // multiple times
         bool found_consistent = false;
         auto attempt_to_pair = [&](size_t i, size_t j) {
+
             Alignment opt_1;
             optimal_alignment(multipath_alns_1[i], opt_1);
             pos_t inner_pos_1 = final_position(opt_1.path());
             int64_t aligned_length_1 = path_from_length(opt_1.path());
             
             Alignment opt_2;
-            optimal_alignment(multipath_alns_2[i], opt_2);
+            optimal_alignment(multipath_alns_2[j], opt_2);
             pos_t inner_pos_2 = initial_position(opt_2.path());
             int64_t aligned_length_2 = path_from_length(opt_2.path());
+            
+#ifdef debug_multipath_mapper
+            cerr << "trying to re-pair alns " << i << " and " << j << " with inner positions " << inner_pos_1 << " and " << inner_pos_2 << ", and aligned lengths " << aligned_length_1 << " and " << aligned_length_2 << endl;
+#endif
             
             int64_t dist = distance_measurer->oriented_distance(inner_pos_1, inner_pos_2);
             if (dist != numeric_limits<int64_t>::max()) {
@@ -3281,6 +3290,9 @@ namespace vg {
                     // point to alignments instead of clusters
                     cluster_pairs_out.emplace_back(make_pair(i, j), total_dist);
                     found_consistent = true;
+#ifdef debug_multipath_mapper
+                    cerr << "re-pair succeeded" << endl;
+#endif
                 }
             }
         };
