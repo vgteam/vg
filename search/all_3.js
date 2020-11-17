@@ -247,6 +247,7 @@ var searchData=
   ['constructor_2ecpp',['constructor.cpp',['../constructor_8cpp.html',1,'']]],
   ['constructor_2ehpp',['constructor.hpp',['../constructor_8hpp.html',1,'']]],
   ['contains',['contains',['../structvg_1_1GaplessExtension.html#abfa77e71c6b3b5193a57dd13b42ecf40',1,'vg::GaplessExtension::contains()'],['../classvg_1_1SmallBitset.html#a58b8cbb133801d25d76785eb54bf6247',1,'vg::SmallBitset::contains()']]],
+  ['contains_5fconnection',['contains_connection',['../namespacevg.html#a3f65013661cfc322222585843c30773a',1,'vg']]],
   ['contains_5fmatch',['contains_match',['../namespacevg.html#accfb6f4fc450e420c5b147cff9e6ae31',1,'vg']]],
   ['contains_5fsubsequence',['contains_subsequence',['../classvg_1_1ReadFilter.html#a553af1f5f52e24334fb2dd22928ac86a',1,'vg::ReadFilter']]],
   ['content',['content',['../structvg_1_1BitStringTree_1_1TreeNode.html#a654e2ccb451511ff925aa9d66e290fbe',1,'vg::BitStringTree::TreeNode']]],

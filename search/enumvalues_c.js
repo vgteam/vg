@@ -9,5 +9,6 @@ var searchData=
   ['rescue_5fdozeu',['rescue_dozeu',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4a4120cab71587100aa2d1308010fec524',1,'vg::MinimizerMapper']]],
   ['rescue_5fgssw',['rescue_gssw',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4aa3089b08bc714c195447adf06eff27d9',1,'vg::MinimizerMapper']]],
   ['rescue_5fhaplotypes',['rescue_haplotypes',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4a164e85180cee59af15aee042c5dc3a18',1,'vg::MinimizerMapper']]],
-  ['rescue_5fnone',['rescue_none',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4a830c2c22efd3590551f37663c11f61e7',1,'vg::MinimizerMapper']]]
+  ['rescue_5fnone',['rescue_none',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4a830c2c22efd3590551f37663c11f61e7',1,'vg::MinimizerMapper']]],
+  ['reverse',['Reverse',['../classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccda3720d917b5b410fbff17c73d58c1eaf2',1,'vg::MultipathMapper']]]
 ];

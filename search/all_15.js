@@ -16,6 +16,7 @@ var searchData=
   ['uncompressed_5fout_5fwritten',['uncompressed_out_written',['../classvg_1_1io_1_1MessageEmitter.html#ae75aa23f1b6b85340f7bc586282e7c55',1,'vg::io::MessageEmitter']]],
   ['underflow',['underflow',['../classvg_1_1io_1_1fdinbuf.html#a67ea7aab3e21cacec9fb836d4a70673e',1,'vg::io::fdinbuf::underflow()'],['../classvg_1_1io_1_1streaminbuf.html#afa7f9b8f4f3159d819b2c9a2eb6a05cb',1,'vg::io::streaminbuf::underflow()']]],
   ['underlying_5finterval',['underlying_interval',['../classvg_1_1IncrementalSubgraph.html#ab6537f375ee27409fee46bd4dfdcb1a3',1,'vg::IncrementalSubgraph::underlying_interval()'],['../classvg_1_1JoinedSpliceGraph.html#ad9a0c6d572cb5052efa79e66d8cd29ab',1,'vg::JoinedSpliceGraph::underlying_interval()']]],
+  ['undetermined',['Undetermined',['../classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccda6fa550428b55152a0c55175786170a75',1,'vg::MultipathMapper']]],
   ['unescape_5fdelim',['unescape_delim',['../classvg_1_1Packer.html#a32f8697cf4c222f5e207a4b15a1f0883',1,'vg::Packer']]],
   ['unescape_5fdelims',['unescape_delims',['../classvg_1_1Packer.html#a92b44e965dd5da9da72e1a9196290d94',1,'vg::Packer']]],
   ['unfold',['unfold',['../classvg_1_1PhaseUnfolder.html#a39a286ab3746a9a175a898bead3d2612',1,'vg::PhaseUnfolder::unfold()'],['../classvg_1_1VG.html#a6552b9da8cff82802ee24090064eb3a8',1,'vg::VG::unfold()']]],

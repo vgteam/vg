@@ -151,6 +151,7 @@ var searchData=
   ['get_5fdir',['get_dir',['../namespacevg_1_1temp__file.html#ab1b0884547b4f3403e8cde0ca8b75b7c',1,'vg::temp_file::get_dir()'],['../namespacexg_1_1temp__file.html#a1cef40a1b0f27d1693d827db9773c020',1,'xg::temp_file::get_dir()']]],
   ['get_5fdistance',['get_distance',['../classvg_1_1IndexManager.html#a29a7edb443b3d155fc2922276bea1d31',1,'vg::IndexManager']]],
   ['get_5fdistance_5flimit',['get_distance_limit',['../classvg_1_1MinimizerMapper.html#a27798cd4a1bee171ec38713d402e8793',1,'vg::MinimizerMapper']]],
+  ['get_5fdistance_5fmeasurer',['get_distance_measurer',['../classvg_1_1MultipathMapper.html#a56e1c69cfba7c1eebb4cae0af59a018d',1,'vg::MultipathMapper']]],
   ['get_5fduplicate_5fhandle',['get_duplicate_handle',['../classvg_1_1DozeuPinningOverlay.html#af51998490e3eac92e0d106b791eebbce',1,'vg::DozeuPinningOverlay']]],
   ['get_5fdynamic',['get_dynamic',['../gbwt__main_8cpp.html#af69307b432c908bb7e7aed34ecff9cbf',1,'gbwt_main.cpp']]],
   ['get_5fedge',['get_edge',['../classvg_1_1Index.html#acdd51ebff16b4cffe40e195166b87026',1,'vg::Index::get_edge()'],['../classvg_1_1VG.html#a8668ddc84b9abe4fe9cb5acb3efd877b',1,'vg::VG::get_edge(const NodeSide &amp;side1, const NodeSide &amp;side2)'],['../classvg_1_1VG.html#a227023072262f46f7c423d30cf8bc443',1,'vg::VG::get_edge(const pair&lt; NodeSide, NodeSide &gt; &amp;sides)'],['../classvg_1_1VG.html#af63d7ba7b69594ee99f3ad99dd394171',1,'vg::VG::get_edge(const NodeTraversal &amp;left, const NodeTraversal &amp;right)']]],

@@ -1326,9 +1326,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a3ca9ccb5a2301ed1ce48f6334b3c4937"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3ca9ccb5a2301ed1ce48f6334b3c4937">topologically_order_subpaths</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
 <tr class="memdesc:a3ca9ccb5a2301ed1ce48f6334b3c4937"><td class="mdescLeft">&#160;</td><td class="mdescRight">Put subpaths in topological order (assumed to be true for other algorithms)  <a href="#a3ca9ccb5a2301ed1ce48f6334b3c4937">More...</a><br /></td></tr>
 <tr class="separator:a3ca9ccb5a2301ed1ce48f6334b3c4937"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abb632e1f2772495562643cf312a7886f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abb632e1f2772495562643cf312a7886f">remove_empty_subpaths</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
-<tr class="memdesc:abb632e1f2772495562643cf312a7886f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Removes subpaths that have no aligned bases and adds in any implied edges crossing through them.  <a href="#abb632e1f2772495562643cf312a7886f">More...</a><br /></td></tr>
-<tr class="separator:abb632e1f2772495562643cf312a7886f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af3fb034fcd6d50c2b84f40026b40f284"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af3fb034fcd6d50c2b84f40026b40f284">remove_empty_alignment_sections</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
+<tr class="separator:af3fb034fcd6d50c2b84f40026b40f284"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0844cc3c2da56dfed0e9436d7f0dd7de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0844cc3c2da56dfed0e9436d7f0dd7de">identify_start_subpaths</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
 <tr class="separator:a0844cc3c2da56dfed0e9436d7f0dd7de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab6b884009be7f9219b6c9d3068c8bb73"><td class="memItemLeft" align="right" valign="top">tuple&lt; <a class="el" href="structvg_1_1MultipathProblem.html">MultipathProblem</a>, int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab6b884009be7f9219b6c9d3068c8bb73">run_multipath_dp</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, bool subpath_global=false)</td></tr>
@@ -1405,10 +1404,13 @@ Functions</h2></td></tr>
 <tr class="memitem:ac93525ce8a55a9394025efe575468488"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac93525ce8a55a9394025efe575468488">append_multipath_alignment</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;to_append)</td></tr>
 <tr class="memdesc:ac93525ce8a55a9394025efe575468488"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add the subpaths of one multipath alignment onto another.  <a href="#ac93525ce8a55a9394025efe575468488">More...</a><br /></td></tr>
 <tr class="separator:ac93525ce8a55a9394025efe575468488"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3f65013661cfc322222585843c30773a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3f65013661cfc322222585843c30773a">contains_connection</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
+<tr class="memdesc:a3f65013661cfc322222585843c30773a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if any subpath has a connection adjacency.  <a href="#a3f65013661cfc322222585843c30773a">More...</a><br /></td></tr>
+<tr class="separator:a3f65013661cfc322222585843c30773a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa9d71371be6972c8284b267d42fac754"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; int64_t, int64_t, int64_t, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa9d71371be6972c8284b267d42fac754">search_multipath_alignment</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;graph_pos, int64_t seq_pos)</td></tr>
 <tr class="separator:aa9d71371be6972c8284b267d42fac754"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a422ee7d48c95e4cdea8ec163fae32d6d"><td class="memItemLeft" align="right" valign="top">pair&lt; tuple&lt; int64_t, int64_t, int64_t, int64_t &gt;, tuple&lt; int64_t, int64_t, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a422ee7d48c95e4cdea8ec163fae32d6d">trace_path</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx)</td></tr>
-<tr class="separator:a422ee7d48c95e4cdea8ec163fae32d6d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a83257be63a821ae991e1b332b62facd4"><td class="memItemLeft" align="right" valign="top">pair&lt; tuple&lt; int64_t, int64_t, int64_t &gt;, vector&lt; tuple&lt; int64_t, int64_t, int64_t, int64_t &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a83257be63a821ae991e1b332b62facd4">trace_path</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx, bool search_left, int64_t search_limit)</td></tr>
+<tr class="separator:a83257be63a821ae991e1b332b62facd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:accfb6f4fc450e420c5b147cff9e6ae31"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#accfb6f4fc450e420c5b147cff9e6ae31">contains_match</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos, int64_t read_pos, int64_t match_length)</td></tr>
 <tr class="separator:accfb6f4fc450e420c5b147cff9e6ae31"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaa223d83f7bc78267d7c7a522c909231"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; int, char &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaa223d83f7bc78267d7c7a522c909231">cigar_against_path</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const string &amp;path_name, bool rev, int64_t path_pos, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, int64_t min_splice_length)</td></tr>
@@ -1785,8 +1787,8 @@ Functions</h2></td></tr>
 <tr class="separator:a9e61398cd459bb9ba3a1ced205491712"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab8d0345d2d7cea79ffdca38d33ed0c7f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab8d0345d2d7cea79ffdca38d33ed0c7f">trim_path</a> (<a class="el" href="classvg_1_1path__t.html">path_t</a> *path, bool from_left, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx)</td></tr>
 <tr class="separator:ab8d0345d2d7cea79ffdca38d33ed0c7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a94a1aebfa54abf2c5dacf40af8bdac80"><td class="memItemLeft" align="right" valign="top">pair&lt; pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, int32_t &gt;, pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, int32_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a94a1aebfa54abf2c5dacf40af8bdac80">split_splice_segment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;splice_segment, int64_t splice_junction_idx, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> &amp;scorer, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph)</td></tr>
-<tr class="separator:a94a1aebfa54abf2c5dacf40af8bdac80"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa1942eca151dd66b06f508fee93186a7"><td class="memItemLeft" align="right" valign="top">pair&lt; pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, int32_t &gt;, pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, int32_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa1942eca151dd66b06f508fee93186a7">split_splice_segment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;splice_segment, const tuple&lt; int64_t, int64_t, int64_t &gt; &amp;left_trace, const tuple&lt; int64_t, int64_t, int64_t &gt; &amp;right_trace, int64_t splice_junction_idx, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> &amp;scorer, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph)</td></tr>
+<tr class="separator:aa1942eca151dd66b06f508fee93186a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5b37106006a0286045cd12f9159ac245"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5b37106006a0286045cd12f9159ac245">fuse_spliced_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&amp;left_mp_aln, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&amp;right_mp_aln, int64_t left_bridge_point, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;splice_segment, int64_t splice_junction_idx, int32_t splice_score, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> &amp;scorer, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph)</td></tr>
 <tr class="separator:a5b37106006a0286045cd12f9159ac245"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6eef175773ce8532826ba78eee0cece5"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6eef175773ce8532826ba78eee0cece5">median</a> (std::vector&lt; int &gt; &amp;v)</td></tr>
@@ -5500,6 +5502,26 @@ template&lt;typename Annotated &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a3f65013661cfc322222585843c30773a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3f65013661cfc322222585843c30773a">&#9670;&nbsp;</a></span>contains_connection()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::contains_connection </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns true if any subpath has a connection adjacency. </p>
 
 </div>
 </div>
@@ -16128,14 +16150,14 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
-<a id="abb632e1f2772495562643cf312a7886f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abb632e1f2772495562643cf312a7886f">&#9670;&nbsp;</a></span>remove_empty_subpaths()</h2>
+<a id="af3fb034fcd6d50c2b84f40026b40f284"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af3fb034fcd6d50c2b84f40026b40f284">&#9670;&nbsp;</a></span>remove_empty_alignment_sections()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::remove_empty_subpaths </td>
+          <td class="memname">void vg::remove_empty_alignment_sections </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
           <td class="paramname"><em>multipath_aln</em></td><td>)</td>
@@ -16143,8 +16165,7 @@ template&lt;class Decoder &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Removes subpaths that have no aligned bases and adds in any implied edges crossing through them. </p>
+<p>Removes all edit, mappings, and subpaths that have no aligned bases, and introduces transitive edges to preserve connectivity through any completely removed subpaths </p>
 
 </div>
 </div>
@@ -17775,8 +17796,8 @@ template&lt;class RandomIt , class Compare &gt; </div>
 
 </div>
 </div>
-<a id="a94a1aebfa54abf2c5dacf40af8bdac80"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a94a1aebfa54abf2c5dacf40af8bdac80">&#9670;&nbsp;</a></span>split_splice_segment()</h2>
+<a id="aa1942eca151dd66b06f508fee93186a7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa1942eca151dd66b06f508fee93186a7">&#9670;&nbsp;</a></span>split_splice_segment()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -17786,6 +17807,18 @@ template&lt;class RandomIt , class Compare &gt; </div>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>splice_segment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const tuple&lt; int64_t, int64_t, int64_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>left_trace</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const tuple&lt; int64_t, int64_t, int64_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>right_trace</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -19269,14 +19302,14 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
-<a id="a422ee7d48c95e4cdea8ec163fae32d6d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a422ee7d48c95e4cdea8ec163fae32d6d">&#9670;&nbsp;</a></span>trace_path()</h2>
+<a id="a83257be63a821ae991e1b332b62facd4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a83257be63a821ae991e1b332b62facd4">&#9670;&nbsp;</a></span>trace_path()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; tuple&lt; int64_t, int64_t, int64_t, int64_t &gt;, tuple&lt; int64_t, int64_t, int64_t &gt; &gt; vg::trace_path </td>
+          <td class="memname">pair&lt; tuple&lt; int64_t, int64_t, int64_t &gt;, vector&lt; tuple&lt; int64_t, int64_t, int64_t, int64_t &gt; &gt; &gt; vg::trace_path </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
           <td class="paramname"><em>multipath_aln</em>, </td>
@@ -19309,7 +19342,19 @@ template&lt;typename Collection &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>base_idx</em>&#160;</td>
+          <td class="paramname"><em>base_idx</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>search_left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>search_limit</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -19318,6 +19363,7 @@ template&lt;typename Collection &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Returns a pair of (mapping, edit, base) and possibly multiple (subpath, mapping, edit, base),of the furthest position that can be traced through the multipath alignment along the pathstarting the indicated position in the multipath alignment. The path can be traced rightward starting at the beginning, or leftward starting. Search is limited to not passing a given mapping on the path. </p>
 
 </div>
 </div>
