@@ -1181,6 +1181,14 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         }
     }
     
+    // ensure that the connection locations are unique and in increasing order by subpath index
+    sort(left_mp_aln_trace.begin(), left_mp_aln_trace.end());
+    sort(right_mp_aln_trace.begin(), right_mp_aln_trace.end());
+    auto new_left_end = unique(left_mp_aln_trace.begin(), left_mp_aln_trace.end());
+    left_mp_aln_trace.erase(new_left_end, left_mp_aln_trace.end());
+    auto new_right_end = unique(right_mp_aln_trace.begin(), right_mp_aln_trace.end());
+    right_mp_aln_trace.erase(new_right_end, right_mp_aln_trace.end());
+        
 #ifdef debug_fusing
     cerr << "left traced path location:" << endl;
     cerr << "\t" << get<0>(left_path_trace) << " " << get<1>(left_path_trace) << " " << get<2>(left_path_trace) << endl;
@@ -1191,84 +1199,6 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     cerr << "right traced path location:" << endl;
     cerr << "\t" << get<0>(right_path_trace) << " " << get<1>(right_path_trace) << " " << get<2>(right_path_trace) << endl;
     cerr << "right traced multipath locations:" << endl;
-    for (auto loc : right_mp_aln_trace) {
-        cerr << "\t" << get<0>(loc) << " " << get<1>(loc) << " " << get<2>(loc) << " " << get<3>(loc) << endl;
-    }
-#endif
-    
-    // normalize multipath alignments to the beginning of subpaths on the left
-    for (size_t i = 0, end = left_mp_aln_trace.size(); i < end; ++i) {
-        int64_t j, k, l, m;
-        tie(j, k, l, m) = left_mp_aln_trace[i];
-        const auto& subpath = left_mp_aln.subpath(j);
-        const auto& path = subpath.path();
-        if (k == path.mapping_size() ||
-            (k + 1 == path.mapping_size() && l == path.mapping(k).edit_size()) ||
-            (k + 1 == path.mapping_size() && l + 1 == path.mapping(k).edit_size()
-             && m == max(path.mapping(k).edit(l).from_length(), path.mapping(k).edit(l).to_length()))) {
-            if (!subpath.next().empty()) {
-                // this location is at the end of a subpath, but we'll put it at the start of the next
-                // subpath(s) to maintain the branching structure of the multipath alignment
-                left_mp_aln_trace[i] = tuple<int64_t, int64_t, int64_t, int64_t>(subpath.next().front(), 0, 0, 0);
-                for (size_t n = 1; n < subpath.next_size(); ++n) {
-                    left_mp_aln_trace.emplace_back(subpath.next(n), 0, 0, 0);
-                }
-            }
-        }
-    }
-    
-    // reverse adjacency list, but we won't actually make it unless we need it
-    vector<vector<int64_t>> right_reverse_next;
-    // normalize multipath alignment locations to the end of subpaths on the right
-    for (size_t i = 0, end = right_mp_aln_trace.size(); i < end; ++i) {
-        int64_t j, k, l, m;
-        tie(j, k, l, m) = right_mp_aln_trace[i];
-        if (k == 0 && l == 0 && m == 0) {
-            if (right_reverse_next.empty()) {
-                // let's make the reverse adjacencies
-                right_reverse_next.resize(right_mp_aln.subpath_size());
-                for (int64_t from = 0; from < right_mp_aln.subpath_size(); ++from) {
-                    for (auto to : right_mp_aln.subpath(from).next()) {
-                        right_reverse_next[to].emplace_back(from);
-                    }
-                }
-            }
-            auto& rev_adj = right_reverse_next[j];
-            if (!rev_adj.empty()) {
-                // this location is at the beginning of a subpath, but we'll put it at the start of the next
-                // subpath(s) to maintain the branching structure of the multipath alignment
-                auto idx = rev_adj.front();
-                const auto& subpath = right_mp_aln.subpath(idx);
-                right_mp_aln_trace[i] = tuple<int64_t, int64_t, int64_t, int64_t>(idx,
-                                                                                  right_mp_aln.subpath(idx).path().mapping_size(),
-                                                                                  0, 0);
-                for (size_t n = 1; n < subpath.next_size(); ++n) {
-                    idx = rev_adj[n];
-                    left_mp_aln_trace.emplace_back(idx, right_mp_aln.subpath(idx).path().mapping_size(),
-                                                   0, 0);
-                }
-            }
-        }
-    }
-    
-    // ensure that the connection locations are unique and in increasing order by subpath index
-    sort(left_mp_aln_trace.begin(), left_mp_aln_trace.end());
-    sort(right_mp_aln_trace.begin(), right_mp_aln_trace.end());
-    auto new_left_end = unique(left_mp_aln_trace.begin(), left_mp_aln_trace.end());
-    left_mp_aln_trace.erase(new_left_end, left_mp_aln_trace.end());
-    auto new_right_end = unique(right_mp_aln_trace.begin(), right_mp_aln_trace.end());
-    right_mp_aln_trace.erase(new_right_end, right_mp_aln_trace.end());
-        
-#ifdef debug_fusing
-    cerr << "left normalized path location:" << endl;
-    cerr << "\t" << get<0>(left_path_trace) << " " << get<1>(left_path_trace) << " " << get<2>(left_path_trace) << endl;
-    cerr << "left normalized multipath locations:" << endl;
-    for (auto loc : left_mp_aln_trace) {
-        cerr << "\t" << get<0>(loc) << " " << get<1>(loc) << " " << get<2>(loc) << " " << get<3>(loc) << endl;
-    }
-    cerr << "right normalized path location:" << endl;
-    cerr << "\t" << get<0>(right_path_trace) << " " << get<1>(right_path_trace) << " " << get<2>(right_path_trace) << endl;
-    cerr << "right normalized multipath locations:" << endl;
     for (auto loc : right_mp_aln_trace) {
         cerr << "\t" << get<0>(loc) << " " << get<1>(loc) << " " << get<2>(loc) << " " << get<3>(loc) << endl;
     }
