@@ -79,6 +79,8 @@ public:
     pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
 
 
+
+
     // Mapping settings.
     // TODO: document each
 
@@ -588,7 +590,11 @@ protected:
      */ 
     void dfs_gbwt(const gbwt::SearchState& start_state, size_t from_offset, size_t walk_distance,
         const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const;
-        
+ 
+    /**
+     * Score a pair of alignments given the distance between them
+     */
+    double score_alignment_pair(Alignment& aln1, Alignment& aln2, int64_t fragment_distance);
     
     /**
      * Given a vector of items, a function to get the score of each, a
