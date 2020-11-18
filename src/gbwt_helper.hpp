@@ -74,6 +74,57 @@ void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
 
 //------------------------------------------------------------------------------
 
+/// Load a compressed GBWT from the file.
+void load_gbwt(const std::string& filename, gbwt::GBWT& index, bool show_progress = false);
+
+/// Load a dynamic GBWT from the file.
+void load_gbwt(const std::string& filename, gbwt::DynamicGBWT& index, bool show_progress = false);
+
+/**
+ * Helper class that stores either a GBWT or a DynamicGBWT and loads them from a file
+ * or converts between them when necessary.
+ */
+struct GBWTHandler {
+    enum index_type { index_none, index_compressed, index_dynamic };
+
+    /// Compressed GBWT.
+    gbwt::GBWT compressed;
+
+    /// Dynamic GBWT.
+    gbwt::DynamicGBWT dynamic;
+
+    /// Which index is in use.
+    index_type in_use = index_none;
+
+    /// The in-memory indexes are backed by this file.
+    std::string filename;
+
+    /// Print progress information to stderr when loading/converting indexes.
+    bool show_progress = false;
+
+    /// Switch to a compressed GBWT, converting it from the dynamic GBWT or reading it
+    /// from a file if necessary.
+    void use_compressed();
+
+    /// Switch to a dynamic GBWT, converting it from the compressed GBWT or reading it
+    /// from a file if necessary.
+    void use_dynamic();
+
+    /// Start using this compressed GBWT. Clears the index used as the argument.
+    void use(gbwt::GBWT& new_index);
+
+    /// Start using this dynamic GBWT. Clears the index used as the argument.
+    void use(gbwt::DynamicGBWT& new_index);
+
+    /// Serialize the in-memory index to this file and start using it as the backing file.
+    void serialize(const std::string& new_filename);
+
+    /// Clear the in-memory index.
+    void clear();
+};
+
+//------------------------------------------------------------------------------
+
 /// Insert a GBWT thread into the graph and return its name. Returns an empty string on failure.
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
 std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id);
