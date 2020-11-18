@@ -1,7 +1,8 @@
 /** \file gbwt_main.cpp
  *
- * Defines the "vg gbwt" subcommand, which wraps up access for commands we'd otherwise find
- * in the gbwt submodule.  */
+ * Defines the "vg gbwt" subcommand for building, merging, and manipulating GBWT indexes
+ * and GBWTGraphs.
+ */
 
 #include <omp.h>
 #include <unistd.h>
@@ -16,17 +17,12 @@
 #include "../region.hpp"
 
 #include <vg/io/vpkg.hpp>
-#include <bdsg/overlays/overlay_helper.hpp>
 
 #include <gbwt/fast_locate.h>
 #include <gbwtgraph/gbwtgraph.h>
 #include <gbwtgraph/path_cover.h>
 
-using namespace std;
 using namespace vg;
-using namespace vg::subcommand;
-
-#include <unistd.h>
 
 enum build_mode { build_none, build_vcf, build_paths, build_alignments };
 enum merge_mode { merge_none, merge_insert, merge_fast };
@@ -1145,5 +1141,5 @@ void use_preset(HaplotypeIndexer& haplotype_indexer, std::string preset_name) {
 //----------------------------------------------------------------------------
 
 // Register subcommand
-static Subcommand vg_gbwt("gbwt", "Manipulate GBWTs", main_gbwt);
+static vg::subcommand::Subcommand vg_gbwt("gbwt", "Manipulate GBWTs", main_gbwt);
 
