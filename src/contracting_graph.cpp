@@ -7,8 +7,8 @@ namespace vg{
     using namespace structures;
 
 
-    ContractingGraph::ContractingGraph(Graph graph, int n_nodes, vector<vector<int>> adj_list, UnionFind uf)
-        :graph(graph), n_nodes(n_nodes), adj_list(adj_list), uf(uf){
+    ContractingGraph::ContractingGraph(Graph graph, UnionFind uf)
+        :graph(graph), uf(uf){
             
 
     }
@@ -21,17 +21,11 @@ namespace vg{
         //get contents of group 
         vector<size_t> group_nodes = uf.group(group_num);
         
-
-        // the connecting nodes in adjacency list corresponding to node[group_num]
-        // note: will remove the group_nodes from connecting nodes (contracted edges)
-        // vector<int> connecting_nodes  = adj_list[group_num];
-
-        
         //if an adj_node exists in group_nodes then it is a contracted edge, we treat it as a special case  
         for(size_t i = 0; i<group_nodes.size(); i++){
             int member = group_nodes[i];
             for (size_t j = 0; j < graph.nodes[member].edges.size(); j++){
-                int connecting_node = graph.nodes[member].edges[j].other;
+                size_t connecting_node = graph.nodes[member].edges[j].other;
                 size_t connecting_node_group_id = uf.find_group(connecting_node);
 
                 if(connecting_node_group_id == group_num){

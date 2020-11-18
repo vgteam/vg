@@ -12,12 +12,10 @@ namespace vg{
     class ContractingGraph{
             
             Graph graph;
-            int n_nodes;
-            vector<vector<int>> adj_list;
             structures::UnionFind uf;
 
             public:
-            ContractingGraph(Graph graph, int n_nodes, vector<vector<int>> adj_list, UnionFind uf);
+            ContractingGraph(Graph graph, UnionFind uf);
 
             unordered_map<size_t, size_t>  get_edges(size_t group_num);
             //

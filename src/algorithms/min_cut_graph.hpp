@@ -34,7 +34,9 @@ namespace vg {
 
         }; 
 
-        int64_t kargers_min_cut(Graph graph, const int n_iterations, const int seed, int V);
+        structures::UnionFind kargers_min_cut(Graph graph, const int n_iterations, const int seed, int V);
+
+        vector<vector<int>> compute_min_cut(Graph graph, const int n_iterations, const int seed, int V);
 
         
     }
