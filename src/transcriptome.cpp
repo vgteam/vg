@@ -1657,7 +1657,7 @@ int32_t Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder,
             gbwt_builder->insert(gbwt_thread, add_bidirectional);
 
             // Insert transcript path name into GBWT index.
-            gbwt_builder->index.metadata.addPath({static_cast<gbwt::PathName::path_name_type>(sample_names.size()), 0, 0, 0});
+            gbwt_builder->index.metadata.addPath(sample_names.size(), 0, 0, 0);
             sample_names.emplace_back(transcript_path.name);
         }
     }
