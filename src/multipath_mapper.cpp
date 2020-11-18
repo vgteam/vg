@@ -3277,14 +3277,20 @@ namespace vg {
             optimal_alignment(multipath_alns_2[j], opt_2);
             pos_t inner_pos_2 = initial_position(opt_2.path());
             int64_t aligned_length_2 = path_from_length(opt_2.path());
-            
+
 #ifdef debug_multipath_mapper
             cerr << "trying to re-pair alns " << i << " and " << j << " with inner positions " << inner_pos_1 << " and " << inner_pos_2 << ", and aligned lengths " << aligned_length_1 << " and " << aligned_length_2 << endl;
 #endif
+            if (aligned_length_1 == 0 || aligned_length_2 == 0) {
+                return;
+            }
             
             int64_t dist = distance_measurer->oriented_distance(inner_pos_1, inner_pos_2);
             if (dist != numeric_limits<int64_t>::max()) {
                 int64_t total_dist = dist + aligned_length_1 + aligned_length_2;
+#ifdef debug_multipath_mapper
+                cerr << "re-estimated disatnce: " << total_dist << endl;
+#endif
                 if (is_consistent(total_dist)) {
                     // note: we're kind of abusing cluster pairs here by temporarily making it
                     // point to alignments instead of clusters
