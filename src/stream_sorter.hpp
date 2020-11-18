@@ -272,7 +272,7 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
                     // Until we run out of input messages or space, buffer each, recording its size.
                     thread_buffer.emplace_back(std::move(input_cursor.take()));
                     // Note that the message has to be small enough for its size to fit in a signed int
-                    buffered_message_bytes += thread_buffer.back().ByteSize();
+                    buffered_message_bytes += thread_buffer.back().ByteSizeLong();
                 }
             
                 // Update the progress bar

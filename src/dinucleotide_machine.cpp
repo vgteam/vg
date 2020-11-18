@@ -48,7 +48,7 @@ DinucleotideMachine::DinucleotideMachine() {
     }
 #endif
     
-    // build a translation table for
+    // build a translation table for ASCII nucleotides
     for (size_t i = 0; i < 256; ++i) {
         switch (i) {
             case 'a':

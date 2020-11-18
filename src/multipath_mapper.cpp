@@ -31,7 +31,7 @@ namespace vg {
         BaseMapper(graph, gcsa_index, lcp_array, haplo_score_provider),
         snarl_manager(snarl_manager),
         distance_index(distance_index),
-        path_component_index(distance_index ? new PathComponentIndex(graph) : nullptr),
+        path_component_index(distance_index ? nullptr : new PathComponentIndex(graph)),
         splice_motifs(*get_regular_aligner())
     {
         // nothing to do
