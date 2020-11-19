@@ -223,7 +223,7 @@ struct Range {
 // See https://stackoverflow.com/a/25803794
 
 // In general, things aren't instantiations of things
-template <typename Subject, template<typename...> typename Predicate>
+template <typename Subject, template<typename...> class Predicate>
 struct is_instantiation_of : std::false_type {
 };
 
