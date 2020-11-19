@@ -25,7 +25,7 @@
 using namespace vg;
 
 enum build_mode { build_none, build_vcf, build_paths, build_alignments };
-enum merge_mode { merge_none, merge_insert, merge_fast };
+enum merge_mode { merge_none, merge_insert, merge_fast, merge_parallel };
 enum path_cover_mode { path_cover_none, path_cover_augment, path_cover_local, path_cover_greedy };
 
 void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, GBWTHandler& gbwts, std::vector<std::string>& filenames, size_t i, bool show_progress);
@@ -59,6 +59,10 @@ size_t default_build_jobs() {
     return std::max(static_cast<size_t>(1), static_cast<size_t>(omp_get_max_threads() / 2));
 }
 
+size_t default_merge_jobs() {
+    return std::min(static_cast<size_t>(gbwt::MergeParameters::MERGE_JOBS), std::max(static_cast<size_t>(1), static_cast<size_t>(omp_get_max_threads() / 2)));
+}
+
 void use_preset(HaplotypeIndexer& haplotype_indexer, std::string preset_name);
 
 void help_gbwt(char** argv) {
@@ -73,8 +77,11 @@ void help_gbwt(char** argv) {
     std::cerr << "    -p, --progress          show progress and statistics" << std::endl;
     std::cerr << std::endl;
     std::cerr << "GBWT construction parameters (for steps 1 and 4):" << std::endl;
-    std::cerr << "    -b, --buffer-size N     GBWT construction buffer size in millions of nodes (default " << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << ")" << std::endl;
-    std::cerr << "    -i, --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
+    std::cerr << "        --buffer-size N     GBWT construction buffer size in millions of nodes (default " << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << ")" << std::endl;
+    std::cerr << "        --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
+    std::cerr << std::endl;
+    std::cerr << "Search parameters (for -b and -r):" << std::endl;
+    std::cerr << "        --num-threads N     use N parallel search threads (default " << omp_get_max_threads() << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 1: GBWT construction (requires -o, -x, and one of { -v, -E, A }):" << std::endl;
     std::cerr << "    -v, --vcf-input         index the haplotypes in the VCF files specified in input args in parallel" << std::endl;
@@ -103,6 +110,12 @@ void help_gbwt(char** argv) {
     std::cerr << "Step 2: Merge multiple input GBWTs (requires -o; use deps/gbwt/merge_gbwt for more options):" << std::endl;
     std::cerr << "    -m, --merge             use the insertion algorithm" << std::endl;
     std::cerr << "    -f, --fast              fast merging algorithm (node ids must not overlap)" << std::endl;
+    std::cerr << "    -b, --parallel          use the parallel algorithm" << std::endl;
+    std::cerr << "        --chunk-size N      search in chunks of N sequences (default " << gbwt::MergeParameters::CHUNK_SIZE << ")" << std::endl;
+    std::cerr << "        --pos-buffer N      use N MiB position buffers for each search thread (default " << gbwt::MergeParameters::POS_BUFFER_SIZE << ")" << std::endl;
+    std::cerr << "        --thread-buffer N   use N MiB thread buffers for each search thread (default " << gbwt::MergeParameters::THREAD_BUFFER_SIZE << ")" << std::endl;
+    std::cerr << "        --merge-buffers N   merge 2^N thread buffers into one file per merge job (default " << gbwt::MergeParameters::MERGE_BUFFERS << ")" << std::endl;
+    std::cerr << "        --merge-jobs N      run N parallel merge jobs (default " << default_merge_jobs() << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 3: Remove samples (requires -o and one input GBWT):" << std::endl;
     std::cerr << "    -R, --remove-sample X   remove the sample with name X from the index (may repeat)" << std::endl;
@@ -119,7 +132,6 @@ void help_gbwt(char** argv) {
     std::cerr << std::endl;
     std::cerr << "Step 6: R-index construction (one input GBWT):" << std::endl;
     std::cerr << "    -r, --r-index FILE      build an r-index and store it in FILE" << std::endl;
-    std::cerr << "        --num-threads N     use N parallel search threads (default " << omp_get_max_threads() << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 7: Metadata (one input GBWT; use deps/gbwt/metadata_tool to modify):" << std::endl;
     std::cerr << "    -M, --metadata          print basic metadata" << std::endl;
@@ -144,6 +156,9 @@ int main_gbwt(int argc, char** argv)
     }
 
     // Long options with no corresponding short options.
+    constexpr int OPT_BUFFER_SIZE = 1000;
+    constexpr int OPT_ID_INTERVAL = 1001;
+    constexpr int OPT_NUM_THREADS = 1002;
     constexpr int OPT_PRESET = 1100;
     constexpr int OPT_NUM_JOBS = 1101;
     constexpr int OPT_INPUTS_AS_JOBS = 1102;
@@ -160,7 +175,11 @@ int main_gbwt(int argc, char** argv)
     constexpr int OPT_EXCLUDE_SAMPLE = 1113;
     constexpr int OPT_PATHS_AS_SAMPLES = 1114;
     constexpr int OPT_GAM_FORMAT = 1115;
-    constexpr int OPT_NUM_THREADS = 1600;
+    constexpr int OPT_CHUNK_SIZE = 1200;
+    constexpr int OPT_POS_BUFFER = 1201;
+    constexpr int OPT_THREAD_BUFFER = 1202;
+    constexpr int OPT_MERGE_BUFFERS = 1203;
+    constexpr int OPT_MERGE_JOBS = 1204;
 
     // Requirements and modes.
     bool produces_one_gbwt = false;
@@ -174,13 +193,17 @@ int main_gbwt(int argc, char** argv)
     bool gam_format = false, inputs_as_jobs = false, parse_only = false;
     size_t build_jobs = default_build_jobs();
 
+    // Parallel merging.
+    gbwt::MergeParameters merge_parameters;
+    merge_parameters.setMergeJobs(default_merge_jobs());
+
     // Other parameters and flags.
     bool show_progress = false;
     bool count_threads = false;
     bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, thread_names = false;
     size_t num_paths = gbwtgraph::PATH_COVER_DEFAULT_N, context_length = gbwtgraph::PATH_COVER_DEFAULT_K;
     bool num_paths_set = false;
-    size_t r_index_threads = omp_get_max_threads();
+    size_t search_threads = omp_get_max_threads();
 
     // File/sample names.
     std::string gbwt_output, thread_output;
@@ -200,8 +223,11 @@ int main_gbwt(int argc, char** argv)
                 { "progress",  no_argument, 0, 'p' },
 
                 // GBWT construction parameters
-                { "buffer-size", required_argument, 0, 'b' },
-                { "id-interval", required_argument, 0, 'i' },
+                { "buffer-size", required_argument, 0, OPT_BUFFER_SIZE },
+                { "id-interval", required_argument, 0, OPT_ID_INTERVAL },
+
+                // Search parameters
+                { "num-threads", required_argument, 0, OPT_NUM_THREADS },
 
                 // Input GBWT construction
                 { "vcf-input", no_argument, 0, 'v' },
@@ -227,6 +253,12 @@ int main_gbwt(int argc, char** argv)
                 // Merging
                 { "merge", no_argument, 0, 'm' },
                 { "fast", no_argument, 0, 'f' },
+                { "parallel", no_argument, 0, 'b' },
+                { "chunk-size", required_argument, 0, OPT_CHUNK_SIZE },
+                { "pos-buffer", required_argument, 0, OPT_POS_BUFFER },
+                { "thread-buffer", required_argument, 0, OPT_THREAD_BUFFER },
+                { "merge-buffers", required_argument, 0, OPT_MERGE_BUFFERS },
+                { "merge-jobs", required_argument, 0, OPT_MERGE_JOBS },
 
                 // Remove sample
                 { "remove-sample", required_argument, 0, 'R' },
@@ -243,7 +275,6 @@ int main_gbwt(int argc, char** argv)
 
                 // R-index
                 { "r-index", required_argument, 0, 'r' },
-                { "num-threads", required_argument, 0, OPT_NUM_THREADS },
 
                 // Metadata
                 { "metadata", no_argument, 0, 'M' },
@@ -262,7 +293,7 @@ int main_gbwt(int argc, char** argv)
             };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "x:o:d:pb:i:vEAmfR:alPn:k:g:r:MCHSLTce:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "x:o:d:pvEAmfbR:alPn:k:g:r:MCHSLTce:h?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -286,11 +317,16 @@ int main_gbwt(int argc, char** argv)
             break;
 
         // GBWT construction parameters
-        case 'b':
+        case OPT_BUFFER_SIZE:
             haplotype_indexer.gbwt_buffer_size = std::max(parse<size_t>(optarg), 1ul);
             break;
-        case 'i':
+        case OPT_ID_INTERVAL:
             haplotype_indexer.id_interval = parse<size_t>(optarg);
+            break;
+
+        // Search parameters
+        case OPT_NUM_THREADS:
+            search_threads = std::max(parse<size_t>(optarg), 1ul);
             break;
 
         // Input GBWT construction
@@ -400,6 +436,25 @@ int main_gbwt(int argc, char** argv)
             merge = merge_fast;
             produces_one_gbwt = true;
             break;
+        case 'b':
+            merge = merge_parallel;
+            produces_one_gbwt = true;
+            break;
+        case OPT_CHUNK_SIZE:
+            merge_parameters.setChunkSize(parse<size_t>(optarg));
+            break;
+        case OPT_POS_BUFFER:
+            merge_parameters.setPosBufferSize(parse<size_t>(optarg));
+            break;
+        case OPT_THREAD_BUFFER:
+            merge_parameters.setThreadBufferSize(parse<size_t>(optarg));
+            break;
+        case OPT_MERGE_BUFFERS:
+            merge_parameters.setMergeBuffers(parse<size_t>(optarg));
+            break;
+        case OPT_MERGE_JOBS:
+            merge_parameters.setMergeJobs(parse<size_t>(optarg));
+            break;
 
         // Remove sample
         case 'R':
@@ -439,9 +494,6 @@ int main_gbwt(int argc, char** argv)
         // Build r-index
         case 'r':
             r_index_name = optarg;
-            break;
-        case OPT_NUM_THREADS:
-            r_index_threads = parse<size_t>(optarg);
             break;
 
         // Metadata
@@ -677,7 +729,14 @@ int main_gbwt(int argc, char** argv)
     if (merge != merge_none) {
         double start = gbwt::readTimer();
         if (show_progress) {
-            std::string algo_name = (merge == merge_fast ? "fast" : "insertion");
+            std::string algo_name;
+            if (merge == merge_fast) {
+                algo_name = "fast";
+            } else if (merge == merge_insert) {
+                algo_name = "insertion";
+            } else if (merge == merge_parallel) {
+                algo_name = "parallel";
+            }
             std::cerr << "Merging " << input_filenames.size() << " input GBWTs (" << algo_name << " algorithm)" << std::endl;
         }
         if (merge == merge_fast) {
@@ -690,8 +749,7 @@ int main_gbwt(int argc, char** argv)
             }
             gbwt::GBWT merged(indexes);
             gbwts.use(merged);
-        }
-        else if (merge == merge_insert) {
+        } else if (merge == merge_insert) {
             gbwts.use_dynamic();
             for (size_t i = 1; i < input_filenames.size(); i++) {
                 gbwt::GBWT next;
@@ -704,6 +762,21 @@ int main_gbwt(int argc, char** argv)
                     std::cerr << "Inserting " << next.sequences() << " sequences of total length " << next.size() << std::endl;
                 }
                 gbwts.dynamic.merge(next);
+            }
+        } else if (merge == merge_parallel) {
+            gbwts.use_dynamic();
+            omp_set_num_threads(search_threads);
+            for (size_t i = 1; i < input_filenames.size(); i++) {
+                gbwt::DynamicGBWT next;
+                load_gbwt(input_filenames[i], next, show_progress);
+                if (next.size() > 2 * gbwts.dynamic.size()) {
+                    std::cerr << "warning: [vg gbwt] merging " << input_filenames[i] << " into a substantially smaller index" << std::endl;
+                    std::cerr << "warning: [vg gbwt] merging would be faster in another order" << std::endl;
+                }
+                if (show_progress) {
+                    std::cerr << "Inserting " << next.sequences() << " sequences of total length " << next.size() << std::endl;
+                }
+                gbwts.dynamic.merge(next, merge_parameters);
             }
         }
         if (show_progress) {
@@ -837,7 +910,7 @@ int main_gbwt(int argc, char** argv)
         if (show_progress) {
             std::cerr << "Building r-index" << std::endl;
         }
-        omp_set_num_threads(r_index_threads);
+        omp_set_num_threads(search_threads);
         gbwts.use_compressed();
         if (show_progress) {
             std::cerr << "Starting the construction" << std::endl;
