@@ -107,7 +107,7 @@ void help_gbwt(char** argv) {
     std::cerr << "    -A, --alignment-input   index the alignments in the GAF files specified in input args" << std::endl;
     std::cerr << "        --gam-format        the input files are in GAM format instead of GAF format" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Step 2: Merge multiple input GBWTs (requires -o; use deps/gbwt/merge_gbwt for more options):" << std::endl;
+    std::cerr << "Step 2: Merge multiple input GBWTs (requires -o):" << std::endl;
     std::cerr << "    -m, --merge             use the insertion algorithm" << std::endl;
     std::cerr << "    -f, --fast              fast merging algorithm (node ids must not overlap)" << std::endl;
     std::cerr << "    -b, --parallel          use the parallel algorithm" << std::endl;
@@ -133,7 +133,7 @@ void help_gbwt(char** argv) {
     std::cerr << "Step 6: R-index construction (one input GBWT):" << std::endl;
     std::cerr << "    -r, --r-index FILE      build an r-index and store it in FILE" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Step 7: Metadata (one input GBWT; use deps/gbwt/metadata_tool to modify):" << std::endl;
+    std::cerr << "Step 7: Metadata (one input GBWT):" << std::endl;
     std::cerr << "    -M, --metadata          print basic metadata" << std::endl;
     std::cerr << "    -C, --contigs           print the number of contigs" << std::endl;
     std::cerr << "    -H, --haplotypes        print the number of haplotypes" << std::endl;
