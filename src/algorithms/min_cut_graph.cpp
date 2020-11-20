@@ -34,50 +34,19 @@ namespace vg {
             unordered_map<size_t, size_t> cgraph_total_edge_weights;
             
             while(V > 2){
-                // will hold most up-to-date contracted graphs weights
-                cgraph_total_edge_weights.clear();
+                
 
                 // get nodes will return the heads of all the nodes
                 // at first call all nodes will be heads
                 vector<size_t> super_nodes = cg.get_nodes();
                 V = super_nodes.size();
 
-                // create a vector with the node weights 
-                vector<int> node_weights;
-                int node_num;
-                for (int i =0; i <V; i++){
-                    node_num = super_nodes[i];
-                    node_weights.push_back(graph.nodes[node_num].weight);
-                }
-                // create a uniform discrete distrbution with node weights 
-                discrete_distribution<int> nodes_distribution(begin(node_weights), end(node_weights));
-                //pick a random node proportional to its weight
-                size_t random_node = nodes_distribution(random_engine);
-
-                // get the group_id for the contracted node
-                //initially this will be equal to the node 
-                size_t group_id = uf.find_group(random_node);
-
-                //create a vector with edges of random node
-                vector<int> edge_weights;
-                for (int j =0; j <graph.nodes[random_node].edges.size(); j++){
-                    edge_weights.push_back(graph.nodes[random_node].edges[j].weight);
-                }
-                // create a uniform discrete distrbution with edge weights 
-                discrete_distribution<int> edges_distribution(begin(edge_weights), end(edge_weights));
-                //pick a random edge in that node
-                size_t random_edge = edges_distribution(random_engine);
-
-                //get the other node of the edge
-                size_t other_node = graph.nodes[random_node].edges[random_edge].other;
-
-                //contract edge between random node and other node 
-                uf.union_groups(random_node, other_node);
-
                 //get the total edge weights for super_nodes in contracted graph
+                unordered_map<size_t, unordered_map<size_t, size_t>> contracted_graph;
                 for (int i =0; i < super_nodes.size(); i++){
                     //get total edge weights for each super node
                     unordered_map<size_t, size_t> supernode_edge_weights = cg.get_edges(super_nodes[i]);
+                    contracted_graph[super_nodes[i]] = supernode_edge_weights; 
                     size_t total_weight = 0;
                     for_each(supernode_edge_weights.begin(), supernode_edge_weights.end() , [&](pair<size_t, size_t > element){
                         total_weight += element.second;
@@ -87,12 +56,70 @@ namespace vg {
                     cgraph_total_edge_weights[super_nodes[i]] = total_weight;
 
                 }
+
+                // create a vector with the node weights 
+                vector<int> node_weights;
+                int node_num;
+                for (int i =0; i <V; i++){
+                    node_num = super_nodes[i];
+                    node_weights.push_back(cgraph_total_edge_weights[node_num]);
+                }
+                // create a discrete distrbution with node weights 
+                discrete_distribution<int> nodes_distribution(begin(node_weights), end(node_weights));
+                
+                //pick an node proportional to its total weight from incident edges
+                //will choose the weight first and will get the node that maps to it after
+                size_t incident_edge_totweight = nodes_distribution(random_engine);
+
+                //check if there is more than one node with equal chosen weight
+                vector <int> dup_nodes = find_dups(cgraph_total_edge_weights, incident_edge_totweight);
+     
+                int random_node;
+                if(dup_nodes.size()>1){
+                    //pick nodes with duplicate weights with equal likelihood 
+                    random_node = sample_dups_uniformly(dup_nodes,random_engine);
+                }else{
+                    random_node = dup_nodes[0];
+                }
+                
+
+                //get the edge weights of random node
+                vector <int> rand_ew; 
+                unordered_map<size_t, size_t> rand_node_edges = contracted_graph[random_node];
+                for_each(rand_node_edges.begin(), rand_node_edges.end() , [&](pair<size_t, size_t > element){
+                        //push back the weights 
+                         rand_ew.push_back(element.second);
+                });
+
+                // create a discrete distrbution with edge weights 
+                discrete_distribution<int> edges_distribution(begin(rand_ew), end(rand_ew));
+
+                //pick a random edge weight proportional to its value
+                size_t random_edge_weight = edges_distribution(random_engine);
+
+                vector<int> dup_edges = find_dups(rand_node_edges, random_edge_weight);
+
+                //if there are edges with duplicate total weights, sample from them uniformly
+                int other_node;
+                if(dup_edges.size()>1){
+                    other_node = sample_dups_uniformly(dup_edges,random_engine);
+                }else{
+                    other_node = dup_edges[0];
+                }
+
+                //contract edge between random node and other node 
+                uf.union_groups(random_node, other_node);
+
+                
                 // check the new size of super nodes after contraction
                 // if we have only two we can break out of the while loop
                 vector<size_t> super_nodes = cg.get_nodes();
                 if(super_nodes.size() == 2){
                     break;
                 }
+
+                // will hold most up-to-date contracted graphs weights
+                cgraph_total_edge_weights.clear();
 
             }
         // or send back a pair containing min_cut_of_cgraph and uf objects so we can get the disjoint sets
@@ -113,6 +140,30 @@ namespace vg {
 
 
 
+
+
+        }
+
+        size_t sample_dups_uniformly(vector<int> to_check, minstd_rand0 random_engine){
+            int size = to_check.size();
+            uniform_int_distribution<int> distribution(0,size-1);
+            int node_index = distribution(random_engine);
+
+            size_t random_node = to_check[node_index];
+
+            return random_node;
+
+        }
+
+        vector<int> find_dups(unordered_map<size_t, size_t> to_search, size_t num_to_find){
+            vector<int> to_return;
+            for_each(to_search.begin(), to_search.end() , [&](pair<size_t, size_t > element){
+                    if(element.second == num_to_find){
+                        to_return.push_back(element.first);
+                    }
+                    
+            });
+            return to_return;
 
 
         }
