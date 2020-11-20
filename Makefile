@@ -811,7 +811,6 @@ clean: clean-rocksdb clean-vcflib
 	$(RM) -r share/
 	cd $(DEP_DIR) && cd sonLib && $(MAKE) clean
 	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean
-	cd $(DEP_DIR) && cd htslib && $(MAKE) clean
 	cd $(DEP_DIR) && cd fastahack && $(MAKE) clean
 	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwt && $(MAKE) clean
