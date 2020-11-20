@@ -116,6 +116,9 @@ struct GBWTHandler {
     /// Start using this dynamic GBWT. Clears the index used as the argument.
     void use(gbwt::DynamicGBWT& new_index);
 
+    /// The GBWT is no longer backed by a file.
+    void unbacked();
+
     /// Serialize the in-memory index to this file and start using it as the backing file.
     void serialize(const std::string& new_filename);
 

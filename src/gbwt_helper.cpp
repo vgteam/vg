@@ -175,6 +175,10 @@ void GBWTHandler::use(gbwt::DynamicGBWT& new_index) {
     this->in_use = index_dynamic;
 }
 
+void GBWTHandler::unbacked() {
+    this->filename = std::string();
+}
+
 void GBWTHandler::serialize(const std::string& new_filename) {
     this->filename = new_filename;
     if (this->show_progress) {

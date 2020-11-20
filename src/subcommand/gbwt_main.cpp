@@ -182,7 +182,7 @@ int main_gbwt(int argc, char** argv)
     constexpr int OPT_MERGE_JOBS = 1204;
 
     // Requirements and modes.
-    bool produces_one_gbwt = false;
+    bool produces_one_gbwt = false; // Steps 1-4 eventually produce one input GBWT regardless of the number of input args.
     build_mode build = build_none;
     merge_mode merge = merge_none;
     path_cover_mode path_cover = path_cover_none;
@@ -333,6 +333,7 @@ int main_gbwt(int argc, char** argv)
         case 'v':
             assert(build == build_none);
             build = build_vcf;
+            produces_one_gbwt = true;
             break;
         case OPT_PRESET:
             use_preset(haplotype_indexer, optarg);
@@ -582,7 +583,6 @@ int main_gbwt(int argc, char** argv)
         }
     }
     if (!to_remove.empty()) {
-        // Ugly hack: We cannot use produces_one_gbwt, because the GBWT may be produced in the next step.
         if (!(input_filenames.size() == 1 || merge != merge_none) || gbwt_output.empty()) {
             std::cerr << "error: [vg gbwt]: removing a sample requires one input GBWT and output GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -597,7 +597,7 @@ int main_gbwt(int argc, char** argv)
             std::cerr << "error: [vg gbwt]: greedy path cover does not use input GBWTs" << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        if ((path_cover == path_cover_local || path_cover == path_cover_augment) && !(input_filenames.size() == 1 || produces_one_gbwt)) {
+        if ((path_cover == path_cover_local || path_cover == path_cover_augment) && !(input_filenames.size() == 1 || merge != merge_none)) {
             std::cerr << "error: [vg gbwt]: path cover options -a and -l require one input GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
@@ -654,6 +654,7 @@ int main_gbwt(int argc, char** argv)
         if (show_progress) {
             std::cerr << "Building input GBWTs" << std::endl;
         }
+        gbwts.unbacked(); // We will build a new GBWT.
         get_graph(input_graph, graph_in_use, xg_name, show_progress);
         if (build == build_vcf) {
             if (show_progress) {
@@ -779,6 +780,7 @@ int main_gbwt(int argc, char** argv)
                 gbwts.dynamic.merge(next, merge_parameters);
             }
         }
+        gbwts.unbacked(); // We modified the GBWT.
         if (show_progress) {
             print_metadata(std::cerr, gbwts);
             double seconds = gbwt::readTimer() - start;
@@ -821,6 +823,7 @@ int main_gbwt(int argc, char** argv)
             }
             size_t foo = gbwts.dynamic.remove(path_ids);
         }
+        gbwts.unbacked(); // We modified the GBWT.
         if (show_progress) {
             double seconds = gbwt::readTimer() - start;
             std::cerr << "Samples removed in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
@@ -856,6 +859,7 @@ int main_gbwt(int argc, char** argv)
             gbwt::GBWT cover = gbwtgraph::local_haplotypes(*input_graph, gbwts.compressed, num_paths, context_length, haplotype_indexer.gbwt_buffer_size * gbwt::MILLION, haplotype_indexer.id_interval, show_progress);
             gbwts.use(cover);
         }
+        gbwts.unbacked(); // We modified the GBWT.
         if (show_progress) {
             double seconds = gbwt::readTimer() - start;
             std::cerr << "Path cover built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
