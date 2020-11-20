@@ -4789,11 +4789,12 @@ namespace vg {
                                           multipath_alignment_t& multipath_aln_out,
                                           const match_fanouts_t* fanouts) const {
 
-#ifdef debug_multipath_mapper_alignment
-        cerr << "constructing alignment graph" << endl;
-#endif
         auto graph = get<0>(cluster_graph).get();
         auto& graph_mems = get<1>(cluster_graph);
+        
+#ifdef debug_multipath_mapper_alignment
+        cerr << "constructing alignment graph for cluster of " << get<1>(cluster_graph).first.size() << " hits" << endl;
+#endif
         
         if (graph_mems.first.empty()) {
 #ifdef debug_multipath_mapper_alignment
@@ -4916,10 +4917,10 @@ namespace vg {
             multi_aln_graph.prune_to_high_scoring_paths(alignment, aligner, max_suboptimal_path_score_ratio,
                                                         topological_order, translator, hit_provenance);
             
-            if (multi_aln_graph.size() < size_before_prune && do_spliced_alignment) {
+            if (multi_aln_graph.size() != size_before_prune && do_spliced_alignment) {
                 // we pruned away some path nodes, so let's check if we pruned away any entire hits
                 // and, if so, un-claim them from this cluster
-                
+                                
                 vector<bool> found(graph_mems.first.size(), false);
                 for (auto i : hit_provenance) {
                     found[i] = true;
