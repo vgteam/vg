@@ -31,15 +31,14 @@ class SnarlNormalizer {
     // the maximum number of threads allowed to align in a given snarl. If the number of
     // threads exceeds this threshold, the snarl is skipped.
     int _max_alignment_size;
-    id_t _cur_source_id;
-    id_t _cur_sink_id;
     const string &_path_finder;
 
     tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
     extract_gbwt_haplotypes(const SubHandleGraph &snarl,
                             const id_t &source_id, const id_t &sink_id);
 
-    pair<vector<string>, unordered_set<handle_t>> source_to_sink_exhaustive_path_finder();
+    pair<vector<string>, unordered_set<handle_t>> 
+    source_to_sink_exhaustive_path_finder(const id_t &source_id, const id_t &sink_id);
 
     vector<vector<handle_t>>
     find_haplotypes_not_at_source(unordered_set<handle_t> &touched_handles,
@@ -60,7 +59,8 @@ class SnarlNormalizer {
                                     const id_t &end_id);
 
     void integrate_snarl(const HandleGraph &new_snarl,
-                         const vector<pair<step_handle_t, step_handle_t>> embedded_paths);
+                         const vector<pair<step_handle_t, step_handle_t>> embedded_paths,
+                         const id_t &source_id, const id_t &sink_id);
 
     void move_path_to_snarl(const pair<step_handle_t, step_handle_t> &old_embedded_path,
                             vector<handle_t> &new_snarl_handles, id_t &new_source_id,
