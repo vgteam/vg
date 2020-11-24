@@ -36,7 +36,7 @@ class SnarlNormalizer {
     const string &_path_finder;
 
     tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
-    extract_gbwt_haplotypes(const SubHandleGraph &snarl, const gbwtgraph::GBWTGraph &graph,
+    extract_gbwt_haplotypes(const SubHandleGraph &snarl,
                             const id_t &source_id, const id_t &sink_id);
 
     pair<vector<string>, unordered_set<handle_t>> source_to_sink_exhaustive_path_finder();

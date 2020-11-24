@@ -33,8 +33,7 @@ void help_normalize(char **argv) {
         << "    -m, --max_alignment_size       limits the number of threads that will "
            "be aligned in any snarl. If exceeded, program skips snarl. Default is 200 "
            "threads. If you don't want to skip any snarls based on thread count, enter 0."
-        << endl
-        << "    -s, --snarls       snarls file corresponding to hashgraph." << endl;
+        << endl;
 }
 
 int main_normalize(int argc, char **argv) {
