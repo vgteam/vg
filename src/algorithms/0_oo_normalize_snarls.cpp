@@ -159,7 +159,7 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
 
     // extract threads
     tuple<vector<string>, vector<vector<handle_t>>, unordered_set<handle_t>> haplotypes;
-    SnarlSequenceFinder sequence_finder = SnarlSequenceFinder(snarl, _haploGraph, source_id, sink_id);
+    SnarlSequenceFinder sequence_finder = SnarlSequenceFinder(_graph, snarl, _haploGraph, source_id, sink_id);
     
     if (_path_finder == "GBWT") {
         tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
@@ -197,7 +197,7 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
         // Get the embedded paths in the snarl from _graph, to move them to new_snarl.
         // Any embedded paths not in gbwt are aligned in the new snarl.
         vector<pair<step_handle_t, step_handle_t>> embedded_paths =
-            extract_embedded_paths_in_snarl(_graph, source_id, sink_id);
+            sequence_finder.find_embedded_paths();
 
         //todo: debug_statement
         cerr << "Let's see what sequences I have before adding embedded paths to seq info:" << endl;
@@ -804,120 +804,120 @@ void SnarlNormalizer::force_maximum_handle_size(MutableHandleGraph &graph,
     });
 }
 
-// Finds all embedded paths that either start or end in a snarl (or both) defined by
-// source_id, sink_id.
-//      returns a vector of the embedded paths, where each entry in the vector is defined
-//      by the pair of step_handles closest to the beginning and end of the path. If the
-//      path is fully contained within the snarl, these step_handles will the be the
-//      leftmost and rightmost handles in the path.
-// Arguments:
-//      _graph: a pathhandlegraph containing the snarl with embedded paths.
-//      source_id: the source of the snarl of interest.
-//      sink_id: the sink of the snarl of interest.
-// Returns:
-//      a vector containing all the embedded paths in the snarl, in pair< step_handle_t,
-//      step_handle_t > > format. Pair.first is the first step in the path's range of
-//      interest, and pair.second is the step *after* the last step in the path's range of
-//      interest (can be the null step at end of path).
-vector<pair<step_handle_t, step_handle_t>>
-SnarlNormalizer::extract_embedded_paths_in_snarl(const PathHandleGraph &graph,
-                                                 const id_t &source_id,
-                                                 const id_t &sink_id) {
-    // cerr << "extract_embedded_paths_in_snarl" << endl;
-    // cerr << "source id: " << source_id << endl;
-    // cerr << "source id contains what paths?: " << endl;
-    // for (auto step : _graph.steps_of_handle(graph.get_handle(_source_id))) {
-    //     cerr << "\t" << _graph.get_path_name(graph.get_path_handle_of_step(step)) <<
-    //     endl;
-    // }
-    // cerr << "neighbors of 71104? (should include 71097):" << endl;
-    // handle_t test_handle = _graph.get_handle(71104);
-    // _graph.follow_edges(test_handle, true, [&](const handle_t &handle) {
-    //     cerr << _graph.get_id(handle) << endl;
-    // });
-    // cerr << "can I still access source handle?"
-    //      << _graph.get_sequence(graph.get_handle(_source_id)) << endl;
+// // Finds all embedded paths that either start or end in a snarl (or both) defined by
+// // source_id, sink_id.
+// //      returns a vector of the embedded paths, where each entry in the vector is defined
+// //      by the pair of step_handles closest to the beginning and end of the path. If the
+// //      path is fully contained within the snarl, these step_handles will the be the
+// //      leftmost and rightmost handles in the path.
+// // Arguments:
+// //      _graph: a pathhandlegraph containing the snarl with embedded paths.
+// //      source_id: the source of the snarl of interest.
+// //      sink_id: the sink of the snarl of interest.
+// // Returns:
+// //      a vector containing all the embedded paths in the snarl, in pair< step_handle_t,
+// //      step_handle_t > > format. Pair.first is the first step in the path's range of
+// //      interest, and pair.second is the step *after* the last step in the path's range of
+// //      interest (can be the null step at end of path).
+// vector<pair<step_handle_t, step_handle_t>>
+// SnarlNormalizer::extract_embedded_paths_in_snarl(const PathHandleGraph &graph,
+//                                                  const id_t &source_id,
+//                                                  const id_t &sink_id) {
+//     // cerr << "extract_embedded_paths_in_snarl" << endl;
+//     // cerr << "source id: " << source_id << endl;
+//     // cerr << "source id contains what paths?: " << endl;
+//     // for (auto step : _graph.steps_of_handle(graph.get_handle(_source_id))) {
+//     //     cerr << "\t" << _graph.get_path_name(graph.get_path_handle_of_step(step)) <<
+//     //     endl;
+//     // }
+//     // cerr << "neighbors of 71104? (should include 71097):" << endl;
+//     // handle_t test_handle = _graph.get_handle(71104);
+//     // _graph.follow_edges(test_handle, true, [&](const handle_t &handle) {
+//     //     cerr << _graph.get_id(handle) << endl;
+//     // });
+//     // cerr << "can I still access source handle?"
+//     //      << _graph.get_sequence(graph.get_handle(_source_id)) << endl;
 
-    // get the snarl subgraph of the PathHandleGraph, in order to ensure that we don't
-    // extend the path to a point beyond the source or sink.
-    SubHandleGraph snarl = extract_subgraph(graph, source_id, sink_id);
-    // key is path_handle, value is a step in that path from which to extend.
-    unordered_map<path_handle_t, step_handle_t> paths_found;
+//     // get the snarl subgraph of the PathHandleGraph, in order to ensure that we don't
+//     // extend the path to a point beyond the source or sink.
+//     SubHandleGraph snarl = extract_subgraph(graph, source_id, sink_id);
+//     // key is path_handle, value is a step in that path from which to extend.
+//     unordered_map<path_handle_t, step_handle_t> paths_found;
 
-    // look for handles with paths we haven't touched yet.
-    snarl.for_each_handle([&](const handle_t &handle) {
-        vector<step_handle_t> steps = graph.steps_of_handle(handle);
-        // do any of these steps belong to a path not in paths_found?
-        for (step_handle_t &step : steps) {
-            path_handle_t path = graph.get_path_handle_of_step(step);
-            // If it's a step along a new path, save the first step to that path we find.
-            // In addtion, if there are multiple steps found in the path, (The avoidance
-            // of source and sink here is to ensure that we can properly check to see if
-            // we've reached the end of an embedded path walking in any arbitrary
-            // direction (i.e. source towards sink or sink towards source).
-            if (paths_found.find(path) == paths_found.end() ||
-                graph.get_id(graph.get_handle_of_step(paths_found[path])) == source_id ||
-                graph.get_id(graph.get_handle_of_step(paths_found[path])) == sink_id) {
-                // then we need to mark it as found and save the step.
-                paths_found[path] = step;
-            }
-        }
-    });
+//     // look for handles with paths we haven't touched yet.
+//     snarl.for_each_handle([&](const handle_t &handle) {
+//         vector<step_handle_t> steps = graph.steps_of_handle(handle);
+//         // do any of these steps belong to a path not in paths_found?
+//         for (step_handle_t &step : steps) {
+//             path_handle_t path = graph.get_path_handle_of_step(step);
+//             // If it's a step along a new path, save the first step to that path we find.
+//             // In addtion, if there are multiple steps found in the path, (The avoidance
+//             // of source and sink here is to ensure that we can properly check to see if
+//             // we've reached the end of an embedded path walking in any arbitrary
+//             // direction (i.e. source towards sink or sink towards source).
+//             if (paths_found.find(path) == paths_found.end() ||
+//                 graph.get_id(graph.get_handle_of_step(paths_found[path])) == source_id ||
+//                 graph.get_id(graph.get_handle_of_step(paths_found[path])) == sink_id) {
+//                 // then we need to mark it as found and save the step.
+//                 paths_found[path] = step;
+//             }
+//         }
+//     });
 
-    // todo: debug_statement
-    // cerr << "################looking for new paths################" << endl;
-    // for (auto path : paths_found) {
-    //     cerr << _graph.get_path_name(path.first) << " "
-    //          << _graph.get_id(graph.get_handle_of_step(path.second)) << endl;
-    // }
+//     // todo: debug_statement
+//     // cerr << "################looking for new paths################" << endl;
+//     // for (auto path : paths_found) {
+//     //     cerr << _graph.get_path_name(path.first) << " "
+//     //          << _graph.get_id(graph.get_handle_of_step(path.second)) << endl;
+//     // }
 
-    /// for each step_handle_t corresponding to a unique path, we want to get the steps
-    /// closest to both the end and beginning step that still remains in the snarl.
-    // TODO: Note copy paste of code here. In python I'd do "for fxn in [fxn1, fxn2]:",
-    // TODO      so that I could iterate over the fxn. That sounds template-messy in C++
-    // tho'. Should I?
-    vector<pair<step_handle_t, step_handle_t>> paths_in_snarl;
-    for (auto &it : paths_found) {
-        step_handle_t step = it.second;
-        // path_in_snarl describes the start and end steps in the path,
-        // as constrained by the snarl.
-        pair<step_handle_t, step_handle_t> path_in_snarl;
+//     /// for each step_handle_t corresponding to a unique path, we want to get the steps
+//     /// closest to both the end and beginning step that still remains in the snarl.
+//     // TODO: Note copy paste of code here. In python I'd do "for fxn in [fxn1, fxn2]:",
+//     // TODO      so that I could iterate over the fxn. That sounds template-messy in C++
+//     // tho'. Should I?
+//     vector<pair<step_handle_t, step_handle_t>> paths_in_snarl;
+//     for (auto &it : paths_found) {
+//         step_handle_t step = it.second;
+//         // path_in_snarl describes the start and end steps in the path,
+//         // as constrained by the snarl.
+//         pair<step_handle_t, step_handle_t> path_in_snarl;
 
-        // Look for the step closest to the beginning of the path, as constrained by the
-        // snarl.
-        step_handle_t begin_in_snarl_step = step;
-        id_t begin_in_snarl_id =
-            _graph.get_id(graph.get_handle_of_step(begin_in_snarl_step));
+//         // Look for the step closest to the beginning of the path, as constrained by the
+//         // snarl.
+//         step_handle_t begin_in_snarl_step = step;
+//         id_t begin_in_snarl_id =
+//             _graph.get_id(graph.get_handle_of_step(begin_in_snarl_step));
 
-        while ((begin_in_snarl_id != source_id) &&
-               _graph.has_previous_step(begin_in_snarl_step)) {
-            begin_in_snarl_step = _graph.get_previous_step(begin_in_snarl_step);
-            begin_in_snarl_id =
-                _graph.get_id(graph.get_handle_of_step(begin_in_snarl_step));
-        }
-        path_in_snarl.first = begin_in_snarl_step;
+//         while ((begin_in_snarl_id != source_id) &&
+//                _graph.has_previous_step(begin_in_snarl_step)) {
+//             begin_in_snarl_step = _graph.get_previous_step(begin_in_snarl_step);
+//             begin_in_snarl_id =
+//                 _graph.get_id(graph.get_handle_of_step(begin_in_snarl_step));
+//         }
+//         path_in_snarl.first = begin_in_snarl_step;
 
-        // Look for the step closest to the end of the path, as constrained by the snarl.
-        step_handle_t end_in_snarl_step = step;
-        id_t end_in_snarl_id = _graph.get_id(graph.get_handle_of_step(end_in_snarl_step));
+//         // Look for the step closest to the end of the path, as constrained by the snarl.
+//         step_handle_t end_in_snarl_step = step;
+//         id_t end_in_snarl_id = _graph.get_id(graph.get_handle_of_step(end_in_snarl_step));
 
-        // while (end_in_snarl_id != source_id and end_in_snarl_id != sink_id and
-        //        _graph.has_next_step(end_in_snarl_step)) {
-        while (end_in_snarl_id != sink_id and graph.has_next_step(end_in_snarl_step)) {
-            end_in_snarl_step = graph.get_next_step(end_in_snarl_step);
-            end_in_snarl_id = graph.get_id(graph.get_handle_of_step(end_in_snarl_step));
-        }
-        // Note: when adding the end step, path notation convention requires that we add
-        // the null step at the end of the path (or the next arbitrary step, in the case
-        // of a path that extends beyond our snarl.)
-        // TODO: do we want the next arbitrary step in that latter case?
-        path_in_snarl.second = _graph.get_next_step(end_in_snarl_step);
+//         // while (end_in_snarl_id != source_id and end_in_snarl_id != sink_id and
+//         //        _graph.has_next_step(end_in_snarl_step)) {
+//         while (end_in_snarl_id != sink_id and graph.has_next_step(end_in_snarl_step)) {
+//             end_in_snarl_step = graph.get_next_step(end_in_snarl_step);
+//             end_in_snarl_id = graph.get_id(graph.get_handle_of_step(end_in_snarl_step));
+//         }
+//         // Note: when adding the end step, path notation convention requires that we add
+//         // the null step at the end of the path (or the next arbitrary step, in the case
+//         // of a path that extends beyond our snarl.)
+//         // TODO: do we want the next arbitrary step in that latter case?
+//         path_in_snarl.second = _graph.get_next_step(end_in_snarl_step);
 
-        paths_in_snarl.push_back(path_in_snarl);
-    }
+//         paths_in_snarl.push_back(path_in_snarl);
+//     }
 
-    return paths_in_snarl;
-}
+//     return paths_in_snarl;
+// }
 
 // TODO: change the arguments to handles, which contain orientation within themselves.
 // Given a start and end node id, construct an extract subgraph between the two nodes
