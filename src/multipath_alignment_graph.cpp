@@ -679,7 +679,7 @@ namespace vg {
                         }
                         const path_mapping_t& mapping = path.mapping(k);
                         // the length through this mapping
-                        int64_t prefix_through_length = prefix_length + mapping_from_length(mapping);
+                        int64_t prefix_through_length = prefix_length + mapping_to_length(mapping);
 #ifdef debug_multipath_alignment
                         cerr << "after traversing the " << k << "-th step, we have covered a distance of " << prefix_through_length << endl;
 #endif
@@ -750,7 +750,7 @@ namespace vg {
             const pos_t& hit_pos = hit.second;
             
 #ifdef debug_multipath_alignment
-            cerr << "walking MEM hit " << hit_pos << " " << hit.first->sequence() << endl;
+            cerr << "walking MEM hit " << i << ": " << hit_pos << " " << hit.first->sequence() << endl;
             if (fanout_breaks && fanout_breaks->count(hit.first)) {
                 cerr << "fan-out breaks:" << endl;
                 for (auto fanout : fanout_breaks->at(hit.first)) {
@@ -906,6 +906,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
                                     cerr << "adding path node for walked match of sequence " << string(curr_node_begin, node_end) << endl;
                                     cerr << debug_string(path) << endl;
+                                    cerr << "provenance of path traces to hit " << i << endl;
 #endif
                                     
                                     // create a path node
@@ -915,7 +916,7 @@ namespace vg {
                                     match_node.begin = curr_node_begin;
                                     match_node.end = node_end;
                                     
-                                    path_node_provenance.emplace_back(i);
+                                    path_node_provenance.emplace_back(i - num_failed_walks);
                                     
                                     if (filter_sub_mems_on_fly) {
                                         record_node_matches(path_nodes.size() - 1);
@@ -3076,7 +3077,12 @@ namespace vg {
             for (; it != iter_range_end; ++it) {
                 cerr << ", " << get<3>(*it);
             }
-            cerr << " of read length " << get<0>(*iter) << " and graph length " << get<1>(*iter) << endl;
+            cerr << " of read length " << get<0>(*iter) << " and graph length " << get<1>(*iter);
+            if (path_node_provenance) {
+                cerr << ", provenances " << path_node_provenance->at(get<2>(*iter)) << " and " << path_node_provenance->at(get<3>(*iter));
+            }
+            cerr << endl;
+            
 #endif
             
             
@@ -3286,6 +3292,7 @@ namespace vg {
             cerr << endl;
         }
 #endif
+        
     }
     
     void MultipathAlignmentGraph::clear_reachability_edges() {
@@ -3556,7 +3563,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
         cerr << "pruned to high scoring paths, topology is:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            cerr << "node " << i << ", " << debug_string(path_nodes.at(i).path.mapping(0).position()) << " ";
+            cerr << "node " << i << " (hit " << path_node_provenance[i] << "), " << debug_string(path_nodes.at(i).path.mapping(0).position()) << " ";
             for (auto iter = path_nodes.at(i).begin; iter != path_nodes.at(i).end; iter++) {
                 cerr << *iter;
             }
