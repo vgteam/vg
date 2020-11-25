@@ -4,17 +4,20 @@
 
 
 namespace vg {
+namespace algorithms {
 
-class SnarlSequences {
+class SnarlSequenceFinder {
   public:
-    virtual ~SnarlSequences() = default;
+    virtual ~SnarlSequenceFinder() = default;
 
-    SnarlSequences(const SubHandleGraph &snarl,
+    SnarlSequenceFinder(const SubHandleGraph &snarl,
                    const gbwtgraph::GBWTGraph &haploGraph, const id_t &source_id, 
                    const id_t &sink_id);
 
     tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
     find_gbwt_haps();
+
+    pair<vector<string>, unordered_set<handle_t>> find_exhaustive_paths();
 
   protected:
     // member variables:
@@ -28,4 +31,5 @@ class SnarlSequences {
 
     vector<vector<handle_t>> find_haplotypes_not_at_source(unordered_set<handle_t> &touched_handles);
 };
+}
 }

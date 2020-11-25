@@ -8,6 +8,7 @@
 
 
 namespace vg {
+namespace algorithms {
 
 class SnarlNormalizer {
   public:
@@ -81,5 +82,5 @@ class SnarlNormalizer {
     pair<vector<handle_t>, vector<handle_t>>
     debug_get_sources_and_sinks(const HandleGraph &graph);
 };
-
+}
 } // namespace vg

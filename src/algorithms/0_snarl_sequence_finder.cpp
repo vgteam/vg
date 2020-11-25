@@ -1,13 +1,42 @@
-#include "0_snarl_sequences.hpp"
+#include "0_snarl_sequence_finder.hpp"
+
+// #include "0_oo_normalize_snarls.hpp"
+// #include "0_snarl_sequence_finder.hpp"
 // #include <algorithm>
+// #include <string>
+
+// #include <seqan/align.h>
+// #include <seqan/graph_align.h>
+// #include <seqan/graph_msa.h>
+
+// #include <gbwtgraph/gbwtgraph.h>
+
+// #include "../gbwt_helper.hpp"
+// #include "../handle.hpp"
+// #include "../msa_converter.hpp"
+// #include "../snarls.hpp"
+// #include "../vg.hpp"
+// #include "is_acyclic.hpp"
+
+// #include "../types.hpp"
+// #include "extract_containing_graph.hpp"
+
+// #include <algorithm>
+
+// #include "../msa_converter.hpp"
+// #include "vg.hpp"
+
+#include "topological_sort.hpp"
+
+
 #include <gbwtgraph/gbwtgraph.h>
 #include "../handle.hpp"
-
 #include "../subgraph.hpp"
 
 
 namespace vg {
-SnarlSequences::SnarlSequences(const SubHandleGraph &snarl,
+namespace algorithms{
+SnarlSequenceFinder::SnarlSequenceFinder(const SubHandleGraph &snarl,
                                const gbwtgraph::GBWTGraph &haploGraph, 
                                const id_t &source_id, const id_t &sink_id)
     : _haploGraph(haploGraph), _snarl(snarl), _source_id(source_id), _sink_id(sink_id) {}
@@ -24,7 +53,7 @@ SnarlSequences::SnarlSequences(const SubHandleGraph &snarl,
  * 3) a vector of all handles oberved by the method. 
 */
 tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
-SnarlSequences::find_gbwt_haps() {
+SnarlSequenceFinder::find_gbwt_haps() {
     /** 
      * haplotype_queue contains all started exon_haplotypes not completed yet.
      * Every time we encounter a branch in the paths, the next node down the path
@@ -215,7 +244,7 @@ SnarlSequences::find_gbwt_haps() {
 //      a vector of haplotypes in vector<handle_t> format that start in the middle of the
 //      snarl.
 vector<vector<handle_t>>
-SnarlSequences::find_haplotypes_not_at_source(unordered_set<handle_t> &touched_handles) {
+SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touched_handles) {
     // cerr << "find_haplotypes_not_at_source" << endl;
 
     /// Search every handle in touched handles for haplotypes starting at that point.
@@ -358,4 +387,97 @@ SnarlSequences::find_haplotypes_not_at_source(unordered_set<handle_t> &touched_h
     return finished_haplotypes;
 }
 
+///////////////////////////////////
+// exhaustive sequence extraction:
+///////////////////////////////////
+// Runs through the whole snarl and generates all possible strings representing walks
+// from source to sink. Generates a combinatorial number of possible paths with splits
+// in the snarl.
+//todo: for consistency, have source_to_sink_exhaustive_path_finder return paths in format
+//todo:     vector<vector<handle_t>> instead of vector<string>
+pair<vector<string>, unordered_set<handle_t>>
+SnarlSequenceFinder::find_exhaustive_paths() {
+    // cerr << "debug_graph_to_strings" << endl;
+    unordered_set<handle_t> touched_handles;
+
+    unordered_map<handle_t, vector<string>> sequences;
+    vector<handle_t> sinks;
+    unordered_map<handle_t, size_t> count;
+    count.reserve(_snarl.get_node_count());     // resize count to contain enough buckets
+                                               // for size of _snarl
+    sequences.reserve(_snarl.get_node_count()); // resize sequences to contain enough
+                                               // buckets for size of _snarl
+
+    // identify sources and sinks //TODO: once we've established that this fxn works,
+    // we can just use start_id and sink_id.
+    _snarl.for_each_handle([&](const handle_t &handle) {
+        bool is_source = true, is_sink = true;
+        _snarl.follow_edges(handle, true, [&](const handle_t &prev) {
+            is_source = false;
+            return false;
+        });
+        _snarl.follow_edges(handle, false, [&](const handle_t &next) {
+            is_sink = false;
+            return false;
+        });
+
+        // base case for dynamic programming
+        if (is_source) {
+            count[handle] = 1;
+            sequences[handle].push_back(
+                _snarl.get_sequence(handle)); // TODO: presented in the handle's local
+                                             // forward orientation. An issue?
+        }
+        if (is_sink) {
+            sinks.emplace_back(handle);
+        }
+    });
+
+    // count walks by dynamic programming
+    bool overflowed = false;
+    for (const handle_t &handle : lazier_topological_order(&_snarl)) {
+        touched_handles.emplace(handle);
+        size_t count_here = count[handle];
+        vector<string> seqs_here = sequences[handle];
+
+        _snarl.follow_edges(handle, false, [&](const handle_t &next) {
+            size_t &count_next = count[next];
+            string seq_next = _snarl.get_sequence(next);
+
+            if (numeric_limits<size_t>::max() - count_here < count_next) {
+                overflowed = true;
+            }
+
+            else {
+                count_next += count_here;
+                for (string seq : seqs_here) {
+                    sequences[next].push_back(seq + seq_next);
+                }
+            }
+        });
+        /// TODO: figure out how to deal with overflow.
+        // if (overflowed) {
+        //     return numeric_limits<size_t>::max();
+        // }
+    }
+
+    // total up the walks at the sinks
+    size_t total_count = 0;
+    for (handle_t &sink : sinks) {
+        total_count += count[sink];
+    }
+
+    // all the sequences at the sinks will be all the sequences in the _snarl.
+    vector<string> walks;
+    for (handle_t &sink : sinks) {
+        for (string seq : sequences[sink]) {
+            walks.push_back(seq);
+        }
+    }
+
+    return make_pair(walks, touched_handles);
+}
+
+
+}
 }

@@ -145,8 +145,8 @@ int main_normalize(int argc, char **argv) {
         // Record start time
         auto start = chrono::high_resolution_clock::now();
 
-        SnarlNormalizer normalizer =
-            SnarlNormalizer(*graph, haploGraph, max_alignment_size);
+        algorithms::SnarlNormalizer normalizer =
+            algorithms::SnarlNormalizer(*graph, haploGraph, max_alignment_size);
 
         // run test code on all snarls in graph.
         normalizer.normalize_top_level_snarls(snarl_stream);

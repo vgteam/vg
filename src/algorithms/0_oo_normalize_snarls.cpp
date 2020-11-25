@@ -1,8 +1,8 @@
 #pragma once // TODO: remove this, to avoid warnings + maybe bad coding practice?
 
 #include "0_oo_normalize_snarls.hpp"
-#include "0_snarl_sequences.hpp"
-#include <algorithm>
+#include "0_snarl_sequence_finder.hpp"
+// #include <algorithm>
 #include <string>
 
 #include <seqan/align.h>
@@ -30,7 +30,7 @@ TODO: test that extract_gbwt haplotypes successfully extracts any haplotypes tha
 TODO:    the snarl.
 */
 namespace vg {
-
+namespace algorithms{
 /**
  * To "normalize" a snarl, SnarlNormalizer extracts all the sequences in the snarl as
  * represented in the gbwt, and then realigns them to create a replacement snarl. 
@@ -159,7 +159,7 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
 
     // extract threads
     tuple<vector<string>, vector<vector<handle_t>>, unordered_set<handle_t>> haplotypes;
-    SnarlSequences sequence_finder = SnarlSequences(snarl, _haploGraph, source_id, sink_id);
+    SnarlSequenceFinder sequence_finder = SnarlSequenceFinder(snarl, _haploGraph, source_id, sink_id);
     
     if (_path_finder == "GBWT") {
         tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
@@ -170,7 +170,7 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
         get<2>(haplotypes) = get<2>(gbwt_haplotypes);
     } else if (_path_finder == "exhaustive") {
         pair<vector<string>, unordered_set<handle_t>> exhaustive_haplotypes =
-            source_to_sink_exhaustive_path_finder(source_id, sink_id);
+            sequence_finder.find_exhaustive_paths();
         get<0>(haplotypes) = exhaustive_haplotypes.first;
         get<2>(haplotypes) = exhaustive_haplotypes.second;
     } else {
@@ -1702,7 +1702,7 @@ SnarlNormalizer::source_to_sink_exhaustive_path_finder(const id_t &source_id, co
 
     // count walks by dynamic programming
     bool overflowed = false;
-    for (const handle_t &handle : algorithms::lazier_topological_order(&snarl)) {
+    for (const handle_t &handle : lazier_topological_order(&snarl)) {
         touched_handles.emplace(handle);
         size_t count_here = count[handle];
         vector<string> seqs_here = sequences[handle];
@@ -1745,4 +1745,5 @@ SnarlNormalizer::source_to_sink_exhaustive_path_finder(const id_t &source_id, co
     return make_pair(walks, touched_handles);
 }
 
-} // namespace vg
+}
+}
