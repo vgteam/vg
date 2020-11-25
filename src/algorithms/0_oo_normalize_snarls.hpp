@@ -34,30 +34,21 @@ class SnarlNormalizer {
     int _max_alignment_size;
     const string &_path_finder;
 
-    tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
-    extract_gbwt_haplotypes(const SubHandleGraph &snarl,
-                            const id_t &source_id, const id_t &sink_id);
-
-    pair<vector<string>, unordered_set<handle_t>> 
-    source_to_sink_exhaustive_path_finder(const id_t &source_id, const id_t &sink_id);
-
-    vector<vector<handle_t>>
-    find_haplotypes_not_at_source(unordered_set<handle_t> &touched_handles,
-                                  const id_t &sink_id);
-
-    vector<string> format_handle_haplotypes_to_strings(
-        const vector<vector<handle_t>> &haplotype_handle_vectors);
-
-    VG align_source_to_sink_haplotypes(vector<string> source_to_sink_haplotypes);
-
-    void force_maximum_handle_size(MutableHandleGraph &graph, const size_t &max_size);
-
-    vector<pair<step_handle_t, step_handle_t>>
-    extract_embedded_paths_in_snarl(const PathHandleGraph &graph, const id_t &source_id,
-                                    const id_t &sink_id);
+    //////////////////////////////////////////////////////////////////////////////////////
+    // finding information on original graph:
+    //////////////////////////////////////////////////////////////////////////////////////
 
     SubHandleGraph extract_subgraph(const HandleGraph &graph, const id_t &start_id,
                                     const id_t &end_id);
+                                    
+    vector<int> check_handle_as_start_of_path_seq(const string &handle_seq,
+                                                  const string &path_seq);
+
+    //////////////////////////////////////////////////////////////////////////////////////
+    // creation of new graph:
+    //////////////////////////////////////////////////////////////////////////////////////
+
+    VG align_source_to_sink_haplotypes(vector<string> source_to_sink_haplotypes);
 
     void integrate_snarl(const HandleGraph &new_snarl,
                          const vector<pair<step_handle_t, step_handle_t>> embedded_paths,
@@ -73,8 +64,14 @@ class SnarlNormalizer {
         const bool &touching_source, const bool &touching_sink,
         const handle_t &potential_source, const handle_t &potential_sink);
 
-    vector<int> check_handle_as_start_of_path_seq(const string &handle_seq,
-                                                  const string &path_seq);
+    void force_maximum_handle_size(MutableHandleGraph &graph, const size_t &max_size);
+
+    //////////////////////////////////////////////////////////////////////////////////////
+    // format-type switching:
+    //////////////////////////////////////////////////////////////////////////////////////
+    vector<string> format_handle_haplotypes_to_strings(
+        const vector<vector<handle_t>> &haplotype_handle_vectors);
+
 
     // -------------------------------- DEBUG CODE BELOW:
     // ------------------------------------
