@@ -3632,43 +3632,52 @@ namespace vg {
         }
         
         // we use this function to remove alignments that follow the same path, keeping only the highest scoring one
-        auto deduplicate_alt_alns = [](vector<Alignment>& alt_alns) {
-            // we use stable sort to keep the original ordering among alignments
+        auto deduplicate_alt_alns = [](vector<Alignment>& alt_alns) -> vector<pair<path_t, int32_t>> {
+            // init the deduplicated vector in STL types with move operators
+            vector<pair<path_t, int32_t>> deduplicated(alt_alns.size());
+            for (size_t i = 0; i < alt_alns.size(); ++i) {
+                const auto& aln = alt_alns[i];
+                deduplicated[i].second = aln.score();
+                from_proto_path(aln.path(), deduplicated[i].first);
+            }
+            // we use stable sort to keep the original score-ordering among alignments
             // that take the same path, which is descending by score
-            stable_sort(alt_alns.begin(), alt_alns.end(), [](const Alignment& aln_1, const Alignment& aln_2) {
+            stable_sort(deduplicated.begin(), deduplicated.end(),
+                        [](const pair<path_t, int32_t>& aln_1, const pair<path_t, int32_t>& aln_2) {
                 bool is_less = false;
-                const Path& path_1 = aln_1.path(), path_2 = aln_2.path();
+                const auto& path_1 = aln_1.first, path_2 = aln_2.first;
                 size_t i = 0;
                 for (; i < path_1.mapping_size() && i < path_2.mapping_size(); i++) {
-                    const Position& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(i).position();
-                    if (pos_1.node_id() < pos_2.node_id() || (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() < pos_2.is_reverse())) {
+                    const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(i).position();
+                    if (pos_1.node_id() < pos_2.node_id() ||
+                        (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() < pos_2.is_reverse())) {
                         is_less = true;
                         break;
                     }
-                    else if (pos_1.node_id() > pos_2.node_id() || (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() > pos_2.is_reverse())) {
+                    else if (pos_1.node_id() > pos_2.node_id() ||
+                             (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() > pos_2.is_reverse())) {
                         break;
                     }
                 }
                 return is_less || (i == path_1.mapping_size() && i < path_2.mapping_size());
             });
+            
             // move alignments that have the same path to the end of the vector, keeping the
             // first one (which has the highest score)
-            auto new_end = unique(alt_alns.begin(), alt_alns.end(), [](const Alignment& aln_1, const Alignment& aln_2) {
-                bool is_equal = true;
-                const Path& path_1 = aln_1.path(), path_2 = aln_2.path();
-                if (path_1.mapping_size() == path_2.mapping_size()) {
-                    for (size_t i = 0; i < path_1.mapping_size() && is_equal; i++) {
-                        const Position& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(i).position();
-                        is_equal = (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() == pos_2.is_reverse());
-                    }
-                }
-                else {
-                    is_equal = false;
+            auto new_end = unique(deduplicated.begin(), deduplicated.end(),
+                                  [](const pair<path_t, int32_t>& aln_1, const pair<path_t, int32_t>& aln_2) {
+                const auto& path_1 = aln_1.first, path_2 = aln_2.first;
+                bool is_equal = (path_1.mapping_size() == path_2.mapping_size());
+                for (size_t i = 0; i < path_1.mapping_size() && is_equal; i++) {
+                    const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(i).position();
+                    is_equal = (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() == pos_2.is_reverse());
                 }
                 return is_equal;
             });
+            
             // remove the duplicates at the end
-            alt_alns.erase(new_end, alt_alns.end());
+            deduplicated.erase(new_end, deduplicated.end());
+            return deduplicated;
         };
         
 #ifdef debug_multipath_alignment
@@ -3778,25 +3787,24 @@ namespace vg {
                 }
                 
                 // remove alignments with the same path
-                deduplicate_alt_alns(alt_alignments);
+                auto deduplicated = deduplicate_alt_alns(alt_alignments);
                 
-                for (Alignment& connecting_alignment : alt_alignments) {
+                for (auto& connecting_alignment : deduplicated) {
 #ifdef debug_multipath_alignment
                     cerr << "translating connecting alignment: " << pb2json(connecting_alignment) << endl;
 #endif
                     
-                    const Path& aligned_path = connecting_alignment.path();
-                    const Mapping& first_mapping = aligned_path.mapping(0);
-                    const Mapping& last_mapping = aligned_path.mapping(aligned_path.mapping_size() - 1);
+                    auto& aligned_path = connecting_alignment.first;
+                    const auto& first_mapping = aligned_path.mapping(0);
+                    const auto& last_mapping = aligned_path.mapping(aligned_path.mapping_size() - 1);
                     
                     bool add_first_mapping = mapping_from_length(first_mapping) != 0 || mapping_to_length(first_mapping) != 0;
-                    bool add_last_mapping = ((mapping_from_length(last_mapping) != 0 || mapping_to_length(last_mapping) != 0)
-                                             && aligned_path.mapping_size() > 1);
+                    bool add_last_mapping = mapping_from_length(last_mapping) != 0 || mapping_to_length(last_mapping) != 0;
                     
                     if (!(add_first_mapping || add_last_mapping) && aligned_path.mapping_size() <= 2) {
                         if (!added_direct_connection) {
                             // edge case where there is a simple split but other non-simple edges intersect the target
-                            // at the same place (so it passes the previous filter)
+                            // at the same place (so it passes the previous deduplicating filter)
                             // it actually doesn't need an alignment, just a connecting edge
                             src_subpath->add_next(edge.first);
                             added_direct_connection = true;
@@ -3806,33 +3814,20 @@ namespace vg {
                     
                     // create a subpath between the matches for this alignment
                     subpath_t* connecting_subpath = multipath_aln_out.add_subpath();
-                    connecting_subpath->set_score(connecting_alignment.score());
-                    path_t* subpath_path = connecting_subpath->mutable_path();
+                    connecting_subpath->set_score(connecting_alignment.second);
                     
                     // get a pointer to the subpath again in case the vector reallocated
                     src_subpath = multipath_aln_out.mutable_subpath(j);
-                                        
-                    // check to make sure the first is not an empty anchoring mapping
-                    if (add_first_mapping) {
-                        from_proto_mapping(first_mapping, *subpath_path->add_mapping());
-#ifdef debug_multipath_alignment
-                        cerr << "first mapping is not empty, formed mapping: " << pb2json(first_mapping) << endl;
-#endif
+                    
+                    // get rid of the ends if they are empty
+                    if (!add_last_mapping) {
+                        aligned_path.mutable_mapping()->pop_back();
                     }
-                    // add all mapping in between the ends
-                    for (size_t j = 1; j < aligned_path.mapping_size() - 1; j++) {
-                        from_proto_mapping(aligned_path.mapping(j), *subpath_path->add_mapping());
-#ifdef debug_multipath_alignment
-                        cerr << "added middle mapping: " << pb2json(aligned_path.mapping(j)) << endl;
-#endif
+                    if (!add_first_mapping && !aligned_path.mapping().empty()) {
+                        aligned_path.mutable_mapping()->erase(aligned_path.mutable_mapping()->begin());
                     }
-                    // check to make sure the last is not an empty anchoring mapping or the same as the first
-                    if (add_last_mapping) {
-                        from_proto_mapping(last_mapping, *subpath_path->add_mapping());
-#ifdef debug_multipath_alignment
-                        cerr << "final mapping is not empty, formed mapping: " << pb2json(last_mapping) << endl;
-#endif
-                    }
+                    
+                    *connecting_subpath->mutable_path() = move(aligned_path);
                     
                     // add the appropriate connections
                     src_subpath->add_next(multipath_aln_out.subpath_size() - 1);
@@ -3881,7 +3876,7 @@ namespace vg {
             vector<Alignment>& alt_alignments = kv.second;
             
             // remove alignments with the same path
-            deduplicate_alt_alns(alt_alignments);
+            auto deduplicated = deduplicate_alt_alns(alt_alignments);
         
             PathNode& path_node = path_nodes.at(j);
             
@@ -3891,13 +3886,13 @@ namespace vg {
             
             pos_t end_pos = final_position(path_node.path);
             
-            for (const Alignment& tail_alignment : alt_alignments) {
+            for (auto& tail_alignment : deduplicated) {
                 
                 sink_subpath->add_next(multipath_aln_out.subpath_size());
                 
                 subpath_t* tail_subpath = multipath_aln_out.add_subpath();
-                from_proto_path(tail_alignment.path(), *tail_subpath->mutable_path());
-                tail_subpath->set_score(tail_alignment.score());
+                *tail_subpath->mutable_path() = move(tail_alignment.first);
+                tail_subpath->set_score(tail_alignment.second);
                 
                 // get the pointer again in case the vector reallocated
                 sink_subpath = multipath_aln_out.mutable_subpath(j);
@@ -3907,7 +3902,7 @@ namespace vg {
                 if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
                     first_mapping->mutable_position()->set_offset(offset(end_pos));
                 }
-                else if (tail_alignment.path().mapping_size() == 1 && first_mapping->edit_size() == 1
+                else if (tail_subpath->path().mapping_size() == 1 && first_mapping->edit_size() == 1
                          && first_mapping->edit(0).from_length() == 0 && first_mapping->edit(0).to_length() > 0
                          && first_mapping->position().node_id() != final_mapping.position().node_id()) {
                     // this is a pure soft-clip on the beginning of the next node, we'll move it to the end
@@ -3934,13 +3929,13 @@ namespace vg {
                 // There should be some alignments
                 vector<Alignment>& alt_alignments = tail_alignments[false][j];
                 // remove alignments with the same path
-                deduplicate_alt_alns(alt_alignments);
+                auto deduplicated = deduplicate_alt_alns(alt_alignments);
                                 
                 const path_mapping_t& first_mapping = path_node.path.mapping(0);
-                for (Alignment& tail_alignment : alt_alignments) {
+                for (auto& tail_alignment : deduplicated) {
                     subpath_t* tail_subpath = multipath_aln_out.add_subpath();
-                    from_proto_path(tail_alignment.path(), *tail_subpath->mutable_path());
-                    tail_subpath->set_score(tail_alignment.score());
+                    *tail_subpath->mutable_path() = move(tail_alignment.first);
+                    tail_subpath->set_score(tail_alignment.second);
                     
                     tail_subpath->add_next(j);
                     multipath_aln_out.add_start(multipath_aln_out.subpath_size() - 1);
