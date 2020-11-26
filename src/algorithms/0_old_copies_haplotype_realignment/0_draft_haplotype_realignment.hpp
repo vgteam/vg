@@ -47,15 +47,17 @@ TODO:       snarl in the given graph).
 */
 namespace vg {
 void disambiguate_top_level_snarls(MutablePathDeletableHandleGraph &graph,
-                                   const GBWTGraph &haploGraph, ifstream &snarl_stream);
+                                   const GBWTGraph &haploGraph, ifstream &snarl_stream,
+                                   const int &max_alignment_size);
 
-bool disambiguate_snarl(MutablePathDeletableHandleGraph &graph,
-                        const GBWTGraph &haploGraph, const id_t &source_id,
-                        const id_t &sink_id);
+tuple<bool, bool, bool, bool, int, int>
+disambiguate_snarl(MutablePathDeletableHandleGraph &graph, const GBWTGraph &haploGraph,
+                   const id_t &source_id, const id_t &sink_id,
+                   const int &max_alignment_size);
 
-pair<vector<vector<handle_t>>, vector<vector<handle_t>>>
-extract_gbwt_haplotypes(const GBWTGraph &graph, const id_t &source_id,
-                        const id_t &sink_id);
+tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
+extract_gbwt_haplotypes(const SubHandleGraph &snarl, const GBWTGraph &graph,
+                        const id_t &source_id, const id_t &sink_id);
 
 vector<vector<handle_t>>
 find_haplotypes_not_at_source(const GBWTGraph &haploGraph,
@@ -66,7 +68,9 @@ vector<string> format_handle_haplotypes_to_strings(
     const GBWTGraph &haploGraph,
     const vector<vector<handle_t>> &haplotype_handle_vectors);
 
-VG align_source_to_sink_haplotypes(const vector<string> &source_to_sink_haplotypes);
+VG align_source_to_sink_haplotypes(vector<string> source_to_sink_haplotypes);
+
+void force_maximum_handle_size(MutableHandleGraph &graph, const size_t &max_size);
 
 vector<pair<step_handle_t, step_handle_t>>
 extract_embedded_paths_in_snarl(const PathHandleGraph &graph, const id_t &source_id,
@@ -81,8 +85,14 @@ void integrate_snarl(MutablePathDeletableHandleGraph &graph, const HandleGraph &
 
 void move_path_to_snarl(MutablePathDeletableHandleGraph &graph,
                         const pair<step_handle_t, step_handle_t> &old_embedded_path,
-                        vector<handle_t> &new_snarl_handles, id_t &source_id,
-                        id_t &sink_id);
+                        vector<handle_t> &new_snarl_handles, id_t &new_source_id,
+                        id_t &new_sink_id, const id_t &old_source_id,
+                        const id_t &old_sink_id);
+
+bool source_and_sink_handles_map_properly(
+    const HandleGraph &graph, const id_t &new_source_id, const id_t &new_sink_id,
+    const bool &touching_source, const bool &touching_sink,
+    const handle_t &potential_source, const handle_t &potential_sink);
 
 vector<int> check_handle_as_start_of_path_seq(const string &handle_seq,
                                               const string &path_seq);
