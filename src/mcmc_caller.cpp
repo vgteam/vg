@@ -22,7 +22,7 @@ namespace vg {
         sample_name(sample_name), ref_paths(ref_paths), ref_path_offsets(ref_path_offsets),
         ref_path_lengths(ref_path_lengths), out_stream(out_stream) {
         
-        if(&path_position_handle_graph == nullptr || &path_position_handle_graph == 0){
+        if(path_position_handle_graph == nullptr){
             cerr << "graph is empty" <<endl;
             //exit not succesful
             exit(1);
