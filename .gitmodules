@@ -78,7 +78,7 @@
 	url = https://github.com/greg7mdp/sparsepp.git
 [submodule "deps/vowpal_wabbit"]
 	path = deps/vowpal_wabbit
-	url = https://github.com/JohnLangford/vowpal_wabbit.git
+	url = https://github.com/vgteam/vowpal_wabbit.git
 [submodule "deps/libdeflate"]
 	path = deps/libdeflate
 	url = https://github.com/ebiggers/libdeflate.git

@@ -465,8 +465,9 @@ $(LIB_DIR)/cleaned_old_protobuf_v003: $(wildcard $(LIB_DIR)/libproto*) $(wildcar
 	+rm -Rf $(INC_DIR)/google/protobuf deps/protobuf
 	+touch $(LIB_DIR)/cleaned_old_protobuf_v003
     
-$(LIB_DIR)/cleaned_old_boost: $(wildcard $(LIB_DIR)/libboost_*)
+$(LIB_DIR)/cleaned_old_boost: $(wildcard $(LIB_DIR)/libboost_*) $(wildcard $(INC_DIR)/boost/*)
 	+rm -f $(LIB_DIR)/libboost_*
+	+rm -Rf $(INC_DIR)/boost
 	+touch $(LIB_DIR)/cleaned_old_boost
 
 $(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
