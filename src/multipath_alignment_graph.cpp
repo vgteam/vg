@@ -3733,14 +3733,12 @@ namespace vg {
                 
                 // extract the graph between the matches
                 bdsg::HashGraph connecting_graph;
-                unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&align_graph,      // DAG with split strands
-                                                                                               &connecting_graph, // graph to extract into
-                                                                                               max_dist,          // longest distance necessary
-                                                                                               src_pos,           // end of earlier match
-                                                                                               dest_pos,          // beginning of later match
-                                                                                               false,             // do not bother finding all cycles (it's a DAG)
-                                                                                               true,              // only include nodes on connecting paths
-                                                                                               false);            // do not enforce max distance
+                auto connect_trans = algorithms::extract_connecting_graph(&align_graph,      // DAG with split strands
+                                                                          &connecting_graph, // graph to extract into
+                                                                          max_dist,          // longest distance necessary
+                                                                          src_pos,           // end of earlier match
+                                                                          dest_pos,          // beginning of later match
+                                                                          false);            // do not enforce max distance strictly
                                 
                 if (connecting_graph.get_node_count() == 0) {
                     // the MEMs weren't connectable with a positive score after all, mark the edge for removal

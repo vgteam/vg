@@ -5435,10 +5435,12 @@ namespace vg {
             // Generate the top alignments on each side, or the top
             // population_max_paths alignments if we are doing multiple
             // alignments for population scoring.
-            vector<vector<Alignment>> alignments(2);
+            vector<vector<Alignment>> alignments;
+            int32_t aln_score_1 = -1, aln_score_2 = -1;
             
             if (query_population) {
                 // We want to do population scoring
+                alignments.resize(2);
                 if (!top_tracebacks && haplo_score_provider->has_incremental_search()) {
                     // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
                     // Make sure to also always include the optimal alignment first, even if inconsistent.
@@ -5452,27 +5454,35 @@ namespace vg {
                     alignments[0] = optimal_alignments(multipath_aln_pair.first, population_max_paths);
                     alignments[1] = optimal_alignments(multipath_aln_pair.second, population_max_paths);
                 }
+                
+                if (!alignments[0].empty()) {
+                    aln_score_1 = alignments[0].front().score();
+                }
+                if (!alignments[1].empty()) {
+                    aln_score_2 = alignments[1].front().score();
+                }
+                
+#ifdef debug_multipath_mapper
+                
+                cerr << "Got " << alignments[0].size() << " and " << alignments[1].size() << " linearizations on each end" << endl;
+#endif
             } else {
                 // Just compute a single optimal alignment
-                alignments[0] = optimal_alignments(multipath_aln_pair.first, 1);
-                alignments[1] = optimal_alignments(multipath_aln_pair.second, 1);
+                aln_score_1 = optimal_alignment_score(multipath_aln_pair.first);
+                aln_score_2 = optimal_alignment_score(multipath_aln_pair.second);
             }
             
-#ifdef debug_multipath_mapper
-            cerr << "Got " << alignments[0].size() << " and " << alignments[1].size() << " linearizations on each end" << endl;
-#endif
             
             // We used to fail an assert if either list of optimal alignments
             // was empty, but now we handle it as if that side is an unmapped
             // read with score 0.
             
             // Compute the optimal alignment score ignoring population
-            int32_t alignment_score = (alignments[0].empty() ? 0 : alignments[0][0].score()) +
-            (alignments[1].empty() ? 0 : alignments[1][0].score());
+            int32_t alignment_score = max<int32_t>(aln_score_1, 0) + max<int32_t>(aln_score_2, 0);
             
             // This is the contribution to the alignment's score from the fragment length distribution
             double frag_score;
-            if (alignments[0].empty() || alignments[1].empty()) {
+            if (aln_score_1 == -1 || aln_score_2 == -1) {
                 // Actually there should be no fragment score, because one or both ends are unmapped
                 frag_score = 0;
             } else {
@@ -5598,9 +5608,10 @@ namespace vg {
             scores = move(pop_adjusted_scores);
         }
         
+        // Pull the min frag or extra score out of the score so it will be nonnegative
+        double zero_point = (include_population_component && all_multipaths_pop_consistent) ? min_extra_score : min_frag_score;
         for (auto& score : scores) {
-            // Pull the min frag or extra score out of the score so it will be nonnegative
-            score -= (include_population_component && all_multipaths_pop_consistent) ? min_extra_score : min_frag_score;
+            score -= zero_point;
         }
         
         if (include_population_component && all_multipaths_pop_consistent) {
