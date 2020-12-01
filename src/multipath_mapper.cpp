@@ -5258,6 +5258,7 @@ namespace vg {
             /// Get all the linearizations we are going to work with, possibly with duplicates.
             /// The first alignment will be optimal.
             vector<Alignment> alignments;
+            int32_t aln_score = -1;
             
             if (query_population) {
                 // We want to do population scoring
@@ -5271,9 +5272,11 @@ namespace vg {
                     // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
                     alignments = optimal_alignments(multipath_alns[i], population_max_paths);
                 }
+                
+                aln_score = alignments.front().score();
             } else {
                 // Just compute a single optimal alignment
-                alignments = optimal_alignments(multipath_alns[i], 1);
+                aln_score = optimal_alignment_score(multipath_alns[i]);
             }
             
 #ifdef debug_multipath_mapper
@@ -5292,7 +5295,7 @@ namespace vg {
             // Collect the score of the optimal alignment, to use if population
             // scoring fails for a multipath alignment. Put it in the optimal
             // base score.
-            scores[i] = alignments.empty() ? 0 : alignments[0].score();
+            scores[i] = max<int32_t>(aln_score, 0);
             
             if (query_population) {
                 
