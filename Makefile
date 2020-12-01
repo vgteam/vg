@@ -76,12 +76,13 @@ ifeq ($(shell uname -s),Darwin)
     endif
     ifeq ($(shell if [ -d /usr/local/include ];then echo 1;else echo 0;fi), 1)
         # Use /usr/local/include to the end of the include search path.
-        INCLUDE_FLAGS += -I /usr/local/include
+        # Make sure it is system level only so it comes after other -I paths.
+        INCLUDE_FLAGS += -isystem /usr/local/include
 
         ifeq ($(shell if [ -d /usr/local/include/cairo ];then echo 1;else echo 0;fi), 1)	
             # pkg-config is not always smart enough to find Cairo's include path for us.
             # We make sure to grab its directory manually if we see it.
-            INCLUDE_FLAGS += -I /usr/local/include/cairo
+            INCLUDE_FLAGS += -isystem /usr/local/include/cairo
             LD_LIB_FLAGS += -lcairo
         endif
     endif
@@ -124,12 +125,12 @@ ifeq ($(shell uname -s),Darwin)
         LD_LIB_FLAGS += -L/opt/local/lib/libomp
         # And we need to find the includes. Homebrew puts them in the normal place
         # but Macports hides them in "libomp"
-        INCLUDE_FLAGS += -I/opt/local/include/libomp
+        INCLUDE_FLAGS += -isystem /opt/local/include/libomp
     endif
 
     # And we need to find the includes for OMP. Homebrew puts them in the
     # normal place but macports hides them in "libomp"
-    INCLUDE_FLAGS += -I/opt/local/include/libomp
+    INCLUDE_FLAGS += -isystem /opt/local/include/libomp
 
     # We care about building only for the current machine. If we do something
     # more restrictive we can have trouble inlining parts of the standard
