@@ -777,8 +777,6 @@ int main_mod(int argc, char** argv) {
         vg_graph->paths = Paths();
     }
 
-    graph->serialize_to_ostream(std::cout);
-
     // Save the modified graph
     vg::io::save_handle_graph(graph.get(), std::cout);
 
