@@ -53,6 +53,7 @@
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>
+#include <algorithm>
 
 // note: only activated for single end mapping
 //#define mpmap_instrument_mem_statistics

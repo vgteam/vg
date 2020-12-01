@@ -153,7 +153,7 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
                     subgraph.follow_edges(handle, !search_left, [&](const handle_t& prev) {
                         if (search_left) {
                             if (subgraph.get_base(prev, 0) == splice_motifs.oriented_motif(i, true).front()) {
-                                int64_t trav_dist = subgraph.distance_from_start(prev) + subgraph.get_length(prev) - 1;
+                                int64_t trav_dist = subgraph.min_distance_from_start(prev) + subgraph.get_length(prev) - 1;
                                 motif_matches[i].emplace_back(prev, 1, trav_dist);
 #ifdef debug_splice_region
                                 cerr << "record match to motif " << i << " at " << subgraph.order_of(prev) << ", dist " << trav_dist << endl;
@@ -163,7 +163,7 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
                         else {
                             size_t k = subgraph.get_length(prev) - 1;
                             if (subgraph.get_base(prev, k) == splice_motifs.oriented_motif(i, false).front()) {
-                                int64_t trav_dist = subgraph.distance_from_start(prev) + k;
+                                int64_t trav_dist = subgraph.min_distance_from_start(prev) + k;
                                 motif_matches[i].emplace_back(prev, k, trav_dist);
 #ifdef debug_splice_region
                                 cerr << "record match to motif " << i << " at " << subgraph.order_of(prev) << ", dist " << trav_dist << endl;
@@ -173,7 +173,7 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
                     });
                 }
                 else {
-                    int64_t trav_dist = subgraph.distance_from_start(handle);
+                    int64_t trav_dist = subgraph.min_distance_from_start(handle);
                     if (search_left) {
                         trav_dist += states.size() - j - 2;
                     }
@@ -207,7 +207,7 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
         }
         
         // determine the bounds of the iteration
-        int64_t prev_dist = subgraph.distance_from_start(here);
+        int64_t prev_dist = subgraph.min_distance_from_start(here);
         int64_t left_end = 0;
         int64_t right_end = seq.size();
         if (prev_dist + seq.size() >= search_dist) {
@@ -361,8 +361,27 @@ handle_t JoinedSpliceGraph::right_splice_node() const {
     return handlegraph::number_bool_packing::pack(num_left_handles, false);
 }
 
+int64_t JoinedSpliceGraph::min_link_length() const {
+    handle_t splice_left = left_subgraph->handle_at_order(handle_idxs[num_left_handles - 1]);
+    handle_t splice_right = right_subgraph->handle_at_order(handle_idxs[num_left_handles]);
+    return (left_subgraph->min_distance_from_start(splice_left)
+            + right_subgraph->min_distance_from_start(splice_right)
+            + left_splice_offset
+            + right_subgraph->get_length(splice_right) - right_splice_offset);
+}
+
+int64_t JoinedSpliceGraph::max_link_length() const {
+    handle_t splice_left = left_subgraph->handle_at_order(handle_idxs[num_left_handles - 1]);
+    handle_t splice_right = right_subgraph->handle_at_order(handle_idxs[num_left_handles]);
+    return (left_subgraph->max_distance_from_start(splice_left)
+            + right_subgraph->max_distance_from_start(splice_right)
+            + left_splice_offset
+            + right_subgraph->get_length(splice_right) - right_splice_offset);
+    
+}
+
 bool JoinedSpliceGraph::has_node(id_t node_id) const {
-    return node_id >= 0 && node_id <= handle_idxs.size();
+    return node_id > 0 && node_id <= handle_idxs.size();
 }
 
 handle_t JoinedSpliceGraph::get_handle(const id_t& node_id, bool is_reverse) const {
@@ -495,7 +514,7 @@ pair<size_t, size_t> JoinedSpliceGraph::underlying_interval(const handle_t& hand
     handle_t under = subgraph.handle_at_order(handle_idxs[i]);
     size_t begin, end;
     if (i == 0) {
-        begin = -subgraph.distance_from_start(under);
+        begin = -subgraph.min_distance_from_start(under);
     }
     else if (i == num_left_handles) {
         begin = right_splice_offset;
@@ -504,7 +523,7 @@ pair<size_t, size_t> JoinedSpliceGraph::underlying_interval(const handle_t& hand
         begin = 0;
     }
     if (i + 1 == handle_idxs.size()) {
-        end = subgraph.get_length(under) + subgraph.distance_from_start(under);
+        end = subgraph.get_length(under) + subgraph.min_distance_from_start(under);
     }
     else if (i + 1 == num_left_handles) {
         end = left_splice_offset;
