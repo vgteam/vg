@@ -42,8 +42,9 @@ CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g $(CXXFLAGS)
 # Keep dependency generation flags for just our own sources
 DEPGEN_FLAGS := -MMD -MP
 
-# Set include flags. All -I options need to go in here, so the first directory listed is genuinely searched first.
-INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS))
+# Set include flags. All -I options need to go in here, so the first directory
+# listed is genuinely searched first.
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS))
 
 # Define libraries to link against.
 LD_LIB_FLAGS := -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lvw -lboost_program_options -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
@@ -502,11 +503,11 @@ $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDE
 # If we need either the library or the pkg-config file (which we didn't used to ship), run the whole build.
 # We use a wildcard match to make sure make understands that both files come from one command run.
 # See https://stackoverflow.com/a/3077254
-# We also need to make sure that htslib searches itself before system paths
-# (which we also specify with -I) in case another htslib is installed on the
-# system.
+# We also need to make sure that htslib searches itself before system paths, as
+# a system path, in case another htslib is installed on the system. Some HTSlib
+# headers look for the current HTSlib with <>.
 $(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
-	+. ./source_me.sh && cd $(HTSLIB_DIR) && rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts* && autoheader && autoconf && CFLAGS="-I$(CWD)/$(HTSLIB_DIR) -isystem $(CWD)/$(HTSLIB_DIR) -I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install
+	+. ./source_me.sh && cd $(HTSLIB_DIR) && rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts* && autoheader && autoconf && CFLAGS="-I$(CWD)/$(HTSLIB_DIR) -isystem $(CWD)/$(HTSLIB_DIR) -I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install && ls $(CWD)/$(INC_DIR)/htslib
 
 # When building vcflib, make sure to force it to use our libdeflate, since we wnt in and configured its htslib to use libdeflate.
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h $(VCFLIB_DIR)/tabixpp/*.cpp $(VCFLIB_DIR)/tabixpp/*.hpp
