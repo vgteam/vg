@@ -47,7 +47,8 @@ DEPGEN_FLAGS := -MMD -MP
 INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS))
 
 # Define libraries to link against.
-LD_LIB_FLAGS := -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lvw -lboost_program_options -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
+LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
+LD_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lvw -lboost_program_options -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
 # We define some more libraries to link against at the end, in static linking mode if possible, so we can use faster non-PIC code.
 LD_STATIC_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lz -lbz2 -llzma
 # Some of our static libraries depend on libraries that may not always be svailable in static form.
@@ -69,11 +70,11 @@ ifeq ($(shell uname -s),Darwin)
     # TODO: where does Homebrew keep libraries?
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
         # Use /opt/local/lib if present
-        LD_LIB_FLAGS += -L/opt/local/lib
+        LD_LIB_DIR_FLAGS += -L/opt/local/lib
     endif
     ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
         # Use /usr/local/lib if present.
-        LD_LIB_FLAGS += -L/usr/local/lib
+        LD_LIB_DIR_FLAGS += -L/usr/local/lib
     endif
     ifeq ($(shell if [ -d /usr/local/include ];then echo 1;else echo 0;fi), 1)
         # Use /usr/local/include to the end of the include search path.
@@ -123,7 +124,7 @@ ifeq ($(shell uname -s),Darwin)
     ifeq ($(shell if [ -d /opt/local/lib/libomp ];then echo 1;else echo 0;fi), 1)
         # Use /opt/local/lib/libomp if present, because Macports installs libomp there.
         # Brew is supposed to put it somewhere the compiler can find it by default.
-        LD_LIB_FLAGS += -L/opt/local/lib/libomp
+        LD_LIB_DIR_FLAGS += -L/opt/local/lib/libomp
         # And we need to find the includes. Homebrew puts them in the normal place
         # but Macports hides them in "libomp"
         INCLUDE_FLAGS += -isystem /opt/local/include/libomp
@@ -342,11 +343,11 @@ endif
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) 
+	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) 
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
 $(LIB_DIR)/vg_is_static: $(INC_DIR)/vg_environment_version.hpp $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
@@ -393,7 +394,7 @@ else
 endif
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/vg.hpp
-	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
+	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
 
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
@@ -582,15 +583,16 @@ $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STR
 # Also, we need to make sure nothing about -fopenmp makes it into the build, in case we are on Clang.
 # vw doesn't need OpenMP
 $(LIB_DIR)/libvw.a: $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/* $(LIB_DIR)/cleaned_old_boost
+	+. ./source_me.sh && rm -Rf $(LIB_DIR)/libvw.* $(INC_DIR)/vowpalwabbit
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.pc//g' Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.la//g' vowpalwabbit/Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper\.pc/d' configure.ac
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/vwdll/d' Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper/d' vowpalwabbit/Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && rm -Rf vowpalwabbit/*.la vowpalwabbit/.libs
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" ./autogen.sh || true
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" ./configure --with-boost=no --with-boost-program-options=boost_program_options
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && $(MAKE) clean && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" $(MAKE) $(FILTER)
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./autogen.sh || true
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && (CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./configure --with-boost=no --with-boost-program-options=boost-program-options || CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./configure --with-boost=no --with-boost-program-options=mt) 
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && $(MAKE) clean && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" $(MAKE) $(FILTER)
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/.libs/libvw.a vowpalwabbit/.libs/liballreduce.a $(CWD)/$(LIB_DIR)/
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && mkdir -p $(CWD)/$(INC_DIR)/vowpalwabbit
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/*.h $(CWD)/$(INC_DIR)/vowpalwabbit/
