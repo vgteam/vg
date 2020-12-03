@@ -44,16 +44,19 @@ DEPGEN_FLAGS := -MMD -MP
 
 # Set include flags. All -I options need to go in here, so the first directory
 # listed is genuinely searched first.
-# Also, pkg-config flags need to be made -isystem or they might put a system
-# HTSlib before ours.
+# We make our dependency install directory -isystem; this might not be
+# necessary on all platforms and suppresses warnings.
+# Also, pkg-config flags need to be made -isystem if our dependency install
+# directory is, or they might put a system HTSlib before ours.
 INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | sed 's/ -I/ -isystem /g')
 
 # Define libraries to link against.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lvw -lboost_program_options -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
+LD_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lvw -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
+# We omit Boost Program Options for now; we find it in a platform-dependent way.
 # We define some more libraries to link against at the end, in static linking mode if possible, so we can use faster non-PIC code.
 LD_STATIC_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lz -lbz2 -llzma
-# Some of our static libraries depend on libraries that may not always be svailable in static form.
+# Some of our static libraries depend on libraries that may not always be avilable in static form.
 LD_STATIC_LIB_DEPS := -lpthread -lm
 # Use pkg-config to find dependencies.
 # Always use --static so that we have the -l flags for transitive dependencies, in case we're doing a full static build.
@@ -90,6 +93,18 @@ ifeq ($(shell uname -s),Darwin)
             LD_LIB_FLAGS += -lcairo
         endif
     endif
+	
+	# We need to find Boost Program Options. It is usually
+	# -lboost_program_options, except for on Macports installs of Boost where
+	# it is -lboost_program_options-mt. If we were a real build system we would
+	# try things until it worked. Instead, we guess. 
+    ifeq ($(shell if [ -f /opt/local/lib/libboost_program_options-mt.dylib ];then echo 1;else echo 0;fi), 1)
+        # This is where Macports puts it, so use that name
+		LD_LIB_FLAGS += -lboost_program_options-mt
+    else
+		# It probably uses the normal name like Homebrew does
+		LD_LIB_FLAGS += -lboost_program_options
+	endif
 
     # Our compiler might be clang that lacks -fopenmp support.
     # Sniff that
@@ -150,7 +165,11 @@ ifeq ($(shell uname -s),Darwin)
     
 else
     # We are not running on OS X
-    # We can also have a normal Unix rpath
+    
+	# Boost is probably installed with "system" layout.
+	LD_LIB_FLAGS += -lboost_program_options
+
+	# We can also have a normal Unix rpath
     LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)
     # Make sure to allow backtrace access to all our symbols, even those which are not exported.
     # Absolutely no help in a static build.
