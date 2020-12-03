@@ -44,7 +44,9 @@ DEPGEN_FLAGS := -MMD -MP
 
 # Set include flags. All -I options need to go in here, so the first directory
 # listed is genuinely searched first.
-INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS))
+# Also, pkg-config flags need to be made -isystem or they might put a system
+# HTSlib before ours.
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | sed 's/ -I/ -isystem /g')
 
 # Define libraries to link against.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
