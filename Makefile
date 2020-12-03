@@ -54,6 +54,8 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SR
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
 LD_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lvw -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
+# By default it has no suffix
+BOOST_SUFFIX=""
 # We define some more libraries to link against at the end, in static linking mode if possible, so we can use faster non-PIC code.
 LD_STATIC_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lz -lbz2 -llzma
 # Some of our static libraries depend on libraries that may not always be avilable in static form.
@@ -100,11 +102,8 @@ ifeq ($(shell uname -s),Darwin)
 	# try things until it worked. Instead, we guess. 
     ifeq ($(shell if [ -f /opt/local/lib/libboost_program_options-mt.dylib ];then echo 1;else echo 0;fi), 1)
         # This is where Macports puts it, so use that name
-		LD_LIB_FLAGS += -lboost_program_options-mt
-    else
-		# It probably uses the normal name like Homebrew does
-		LD_LIB_FLAGS += -lboost_program_options
-	endif
+		BOOST_SUFFIX="-mt"
+    endif
 
     # Our compiler might be clang that lacks -fopenmp support.
     # Sniff that
@@ -165,10 +164,6 @@ ifeq ($(shell uname -s),Darwin)
     
 else
     # We are not running on OS X
-    
-	# Boost is probably installed with "system" layout.
-	LD_LIB_FLAGS += -lboost_program_options
-
 	# We can also have a normal Unix rpath
     LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)
     # Make sure to allow backtrace access to all our symbols, even those which are not exported.
@@ -194,6 +189,9 @@ endif
 
 # Propagate CXXFLAGS to child makes and other build processes
 export CXXFLAGS
+
+# Actually set the Boost library option, with the determined suffix
+LD_LIB_FLAGS += "-lboost_program_options$(BOOST_SUFFIX)"
 
 # These libs need to come after libdw if used, because libdw depends on them
 LD_LIB_FLAGS += -ldl -llzma -lbz2
@@ -604,7 +602,7 @@ $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STR
 # Also, we need to make sure nothing about -fopenmp makes it into the build, in case we are on Clang.
 # vw doesn't need OpenMP
 $(LIB_DIR)/libvw.a: $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/* $(LIB_DIR)/cleaned_old_boost
-	+. ./source_me.sh && rm -Rf $(LIB_DIR)/libvw.* $(INC_DIR)/vowpalwabbit
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && rm -Rf $(CWD)/$(LIB_DIR)/libvw.* $(CWD)/$(INC_DIR)/vowpalwabbit
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.pc//g' Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.la//g' vowpalwabbit/Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper\.pc/d' configure.ac
@@ -612,7 +610,7 @@ $(LIB_DIR)/libvw.a: $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/* $(L
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper/d' vowpalwabbit/Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && rm -Rf vowpalwabbit/*.la vowpalwabbit/.libs
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./autogen.sh || true
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && (CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./configure --with-boost=no --with-boost-program-options=boost-program-options || CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./configure --with-boost=no --with-boost-program-options=mt) 
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./configure --with-boost=no --with-boost-program-options=boost_program_options$(BOOST_SUFFIX) 
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && $(MAKE) clean && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" $(MAKE) $(FILTER)
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/.libs/libvw.a vowpalwabbit/.libs/liballreduce.a $(CWD)/$(LIB_DIR)/
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && mkdir -p $(CWD)/$(INC_DIR)/vowpalwabbit
