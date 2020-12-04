@@ -158,7 +158,7 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
     }
 
     // extract threads
-    tuple<vector<string>, vector<vector<handle_t>>, unordered_set<handle_t>> haplotypes;
+    tuple<unordered_set<string>, vector<vector<handle_t>>, unordered_set<handle_t>> haplotypes;
     SnarlSequenceFinder sequence_finder = SnarlSequenceFinder(_graph, snarl, _haploGraph, source_id, sink_id);
     
     if (_path_finder == "GBWT") {
@@ -169,7 +169,7 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
         get<1>(haplotypes) = get<1>(gbwt_haplotypes);
         get<2>(haplotypes) = get<2>(gbwt_haplotypes);
     } else if (_path_finder == "exhaustive") {
-        pair<vector<string>, unordered_set<handle_t>> exhaustive_haplotypes =
+        pair<unordered_set<string>, unordered_set<handle_t>> exhaustive_haplotypes =
             sequence_finder.find_exhaustive_paths();
         get<0>(haplotypes) = exhaustive_haplotypes.first;
         get<2>(haplotypes) = exhaustive_haplotypes.second;
@@ -224,7 +224,7 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
                     path_seq += _graph.get_sequence(_graph.get_handle_of_step(cur_step));
                     cur_step = _graph.get_next_step(cur_step);
                 }
-                get<0>(haplotypes).push_back(path_seq);
+                get<0>(haplotypes).emplace(path_seq);
             }
         }
         // Align the new snarl:
@@ -291,15 +291,15 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
 //      handle_t > format.
 // Returns: a vector of haplotypes of format string (which is the concatenated sequences
 // in the handles).
-vector<string> SnarlNormalizer::format_handle_haplotypes_to_strings(
+unordered_set<string> SnarlNormalizer::format_handle_haplotypes_to_strings(
     const vector<vector<handle_t>> &haplotype_handle_vectors) {
-    vector<string> haplotype_strings;
+    unordered_set<string> haplotype_strings;
     for (vector<handle_t> haplotype_handles : haplotype_handle_vectors) {
         string hap;
         for (handle_t &handle : haplotype_handles) {
             hap += _haploGraph.get_sequence(handle);
         }
-        haplotype_strings.push_back(hap);
+        haplotype_strings.emplace(hap);
     }
     return haplotype_strings;
 }
@@ -313,7 +313,7 @@ vector<string> SnarlNormalizer::format_handle_haplotypes_to_strings(
 // Returns:
 //      VG object representing the newly realigned snarl.
 VG SnarlNormalizer::align_source_to_sink_haplotypes(
-    vector<string> source_to_sink_haplotypes) {
+    unordered_set<string> source_to_sink_haplotypes) {
     // cerr << "align_source_to_sink_haplotypes" << endl;
     // cerr << " haplotypes in source_to_sink_haplotypes: " << endl;
     // for (string hap : source_to_sink_haplotypes) {
@@ -329,10 +329,16 @@ VG SnarlNormalizer::align_source_to_sink_haplotypes(
     // maintains the context of the snarl.
 
     // store the source/sink chars for later reattachment to source and sink.
-    string source_char(1, source_to_sink_haplotypes.back().front());
-    string sink_char(1, source_to_sink_haplotypes.back().back());
+    string random_element;
+    for (auto hap : source_to_sink_haplotypes){
+        random_element = hap;
+        break;
+    }
+    string source_char(1, random_element.front());
+    string sink_char(1, random_element.back());
 
-    for (string &hap : source_to_sink_haplotypes) {
+    // replace the source and sink chars with X, to force match at source and sink.
+    for (auto hap : source_to_sink_haplotypes) {
         hap.replace(0, 1, "X");
         hap.replace(hap.size() - 1, 1, "X");
     }
@@ -367,8 +373,10 @@ VG SnarlNormalizer::align_source_to_sink_haplotypes(
     seqan::Align<seqan::CharString> align;
 
     seqan::resize(rows(align), source_to_sink_haplotypes.size());
-    for (int i = 0; i < source_to_sink_haplotypes.size(); ++i) {
-        assignSource(row(align, i), source_to_sink_haplotypes[i].c_str());
+    int i = 0;
+    for (auto hap : source_to_sink_haplotypes) {
+        assignSource(row(align, i), hap.c_str());
+        i++;
     }
 
     globalMsaAlignment(align, seqan::SimpleScore(5, -3, -1, -3));

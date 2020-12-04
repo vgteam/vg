@@ -48,7 +48,7 @@ class SnarlNormalizer {
     // creation of new graph:
     //////////////////////////////////////////////////////////////////////////////////////
 
-    VG align_source_to_sink_haplotypes(vector<string> source_to_sink_haplotypes);
+    VG align_source_to_sink_haplotypes(unordered_set<string> source_to_sink_haplotypes);
 
     void integrate_snarl(const HandleGraph &new_snarl,
                          const vector<pair<step_handle_t, step_handle_t>> embedded_paths,
@@ -69,7 +69,7 @@ class SnarlNormalizer {
     //////////////////////////////////////////////////////////////////////////////////////
     // format-type switching:
     //////////////////////////////////////////////////////////////////////////////////////
-    vector<string> format_handle_haplotypes_to_strings(
+    unordered_set<string> format_handle_haplotypes_to_strings(
         const vector<vector<handle_t>> &haplotype_handle_vectors);
 
 

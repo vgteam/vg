@@ -511,7 +511,7 @@ SnarlSequenceFinder::find_embedded_paths() {
 // in the snarl.
 //todo: for consistency, have source_to_sink_exhaustive_path_finder return paths in format
 //todo:     vector<vector<handle_t>> instead of vector<string>
-pair<vector<string>, unordered_set<handle_t>>
+pair<unordered_set<string>, unordered_set<handle_t>>
 SnarlSequenceFinder::find_exhaustive_paths() {
     // cerr << "debug_graph_to_strings" << endl;
     unordered_set<handle_t> touched_handles;
@@ -584,10 +584,10 @@ SnarlSequenceFinder::find_exhaustive_paths() {
     }
 
     // all the sequences at the sinks will be all the sequences in the _snarl.
-    vector<string> walks;
+    unordered_set<string> walks;
     for (handle_t &sink : sinks) {
         for (string seq : sequences[sink]) {
-            walks.push_back(seq);
+            walks.emplace(seq);
         }
     }
 
