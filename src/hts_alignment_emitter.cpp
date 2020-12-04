@@ -759,9 +759,6 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                     size_t deletion_length = (nearest_offset - curr_offset -
                                               graph.get_length(graph.get_handle_of_step(step)));
                     
-                    
-                    append_cigar_operation(deletion_length, 'N', cigar);
-                    
                     // add to the cigar
                     if (deletion_length >= min_splice_length) {
                         // long enough to be a splice
