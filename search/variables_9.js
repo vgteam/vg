@@ -19,6 +19,7 @@ var searchData=
   ['in',['in',['../classvg_1_1GFFReader.html#a349dc0d2a38d966c4c4c265ac056346f',1,'vg::GFFReader']]],
   ['in_5fchain',['in_chain',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a131e01d3f5d3ce2f07c5ad12dd527c56',1,'vg::MinimumDistanceIndex::SnarlIndex']]],
   ['in_5ffrom',['in_from',['../classvg_1_1ExtraNodeGraph.html#a4b2d9d6b68d55c26d367ad717b13da15',1,'vg::ExtraNodeGraph']]],
+  ['in_5fuse',['in_use',['../structvg_1_1GBWTHandler.html#a1fb3dbca40a78ec37d8e04eef008bd70',1,'vg::GBWTHandler']]],
   ['include_5fcomponent',['include_component',['../classvg_1_1MinimumDistanceIndex.html#a454ae38cac447a2871104df2a764e3e7',1,'vg::MinimumDistanceIndex']]],
   ['include_5fendpoints',['include_endpoints',['../classvg_1_1VCFTraversalFinder.html#a27189437955d4b5f8b8ca92433c8fac2',1,'vg::VCFTraversalFinder']]],
   ['include_5ffull_5flength_5fbonuses',['include_full_length_bonuses',['../classvg_1_1Mapper.html#a9472c75cceb3382b70bbd27bfbc4a894',1,'vg::Mapper']]],

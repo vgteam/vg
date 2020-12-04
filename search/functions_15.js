@@ -2,6 +2,7 @@ var searchData=
 [
   ['uf_5fhandle',['uf_handle',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a84a5d20d03e165edd89bdddf7ccfa25f',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
   ['uf_5frank',['uf_rank',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a7d285e6a4baec754e89edd5338589f3e',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
+  ['unbacked',['unbacked',['../structvg_1_1GBWTHandler.html#aed5e6775de6c9c96c78a752903a5a3ac',1,'vg::GBWTHandler']]],
   ['unchop',['unchop',['../namespacevg_1_1algorithms.html#a0109d211ac713194397e14a1f7dc8435',1,'vg::algorithms']]],
   ['underflow',['underflow',['../classvg_1_1io_1_1fdinbuf.html#a67ea7aab3e21cacec9fb836d4a70673e',1,'vg::io::fdinbuf::underflow()'],['../classvg_1_1io_1_1streaminbuf.html#afa7f9b8f4f3159d819b2c9a2eb6a05cb',1,'vg::io::streaminbuf::underflow()']]],
   ['underlying_5finterval',['underlying_interval',['../classvg_1_1IncrementalSubgraph.html#ab6537f375ee27409fee46bd4dfdcb1a3',1,'vg::IncrementalSubgraph::underlying_interval()'],['../classvg_1_1JoinedSpliceGraph.html#ad9a0c6d572cb5052efa79e66d8cd29ab',1,'vg::JoinedSpliceGraph::underlying_interval()']]],
@@ -37,7 +38,10 @@ var searchData=
   ['update_5fstate',['update_state',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#afb76a0ce92c750ae8cb12eaf2c0ae7fd',1,'vg::BandedGlobalAligner::BABuilder::update_state()'],['../classvg_1_1DinucleotideMachine.html#a9b246cec10b2a7e45ed7f3a3261427e5',1,'vg::DinucleotideMachine::update_state()']]],
   ['update_5fvcf_5fheader',['update_vcf_header',['../classvg_1_1SnarlCaller.html#a7fb3205d6e94505aadf0c9944fac7eb4',1,'vg::SnarlCaller::update_vcf_header()'],['../classvg_1_1RatioSupportSnarlCaller.html#ac7a153c3c35bc7d314f69f8ccbc30ae1',1,'vg::RatioSupportSnarlCaller::update_vcf_header()'],['../classvg_1_1PoissonSupportSnarlCaller.html#a2872f6728e288de01d5403fcdb76a05b',1,'vg::PoissonSupportSnarlCaller::update_vcf_header()']]],
   ['update_5fvcf_5finfo',['update_vcf_info',['../classvg_1_1MCMCCaller.html#a8deeb18605436556136403261715155e',1,'vg::MCMCCaller::update_vcf_info()'],['../classvg_1_1SnarlCaller.html#a5098383d371e037c79e4c278e3fbbea1',1,'vg::SnarlCaller::update_vcf_info()'],['../classvg_1_1SupportBasedSnarlCaller.html#a3ddd1e17537734b984fa0befe9f0d7f6',1,'vg::SupportBasedSnarlCaller::update_vcf_info()'],['../classvg_1_1RatioSupportSnarlCaller.html#a3dc6a3524e755fba03211f0f0dd3483f',1,'vg::RatioSupportSnarlCaller::update_vcf_info()'],['../classvg_1_1PoissonSupportSnarlCaller.html#abe1990823417defcd0c6f68132680db1',1,'vg::PoissonSupportSnarlCaller::update_vcf_info()']]],
-  ['use_5for_5fsave',['use_or_save',['../gbwt__main_8cpp.html#abe2b43f7ed83f01932af89aa0ba79512',1,'gbwt_main.cpp']]],
+  ['use',['use',['../structvg_1_1GBWTHandler.html#a8062238f984f4c521cef46cfc2961626',1,'vg::GBWTHandler::use(gbwt::GBWT &amp;new_index)'],['../structvg_1_1GBWTHandler.html#a574972e799a708837a0e2e481926f87a',1,'vg::GBWTHandler::use(gbwt::DynamicGBWT &amp;new_index)']]],
+  ['use_5fcompressed',['use_compressed',['../structvg_1_1GBWTHandler.html#a40007a32d020290a72aaef0e830454c4',1,'vg::GBWTHandler']]],
+  ['use_5fdynamic',['use_dynamic',['../structvg_1_1GBWTHandler.html#a88de75253b3b9b54e844d0a20ff9a5c7',1,'vg::GBWTHandler']]],
+  ['use_5for_5fsave',['use_or_save',['../gbwt__main_8cpp.html#ab82463d53fb85eaec6c4e581e009d9e6',1,'gbwt_main.cpp']]],
   ['use_5fpreset',['use_preset',['../gbwt__main_8cpp.html#aced82702cdd5b5b57764288e66d41119',1,'gbwt_main.cpp']]],
   ['used_5fbins_5fof_5frange',['used_bins_of_range',['../classvg_1_1StreamIndexBase.html#a94777b19236dfb74d66ba8c484bf663f',1,'vg::StreamIndexBase']]],
   ['uses_5fus',['uses_Us',['../namespacevg.html#acd966c42f332957a1b9317faa3d26407',1,'vg']]]

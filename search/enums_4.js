@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['index_5ftype',['index_type',['../gbwt__main_8cpp.html#ae64cdae0e55ff5e53a48409a6fc1af1d',1,'gbwt_main.cpp']]]
+  ['index_5ftype',['index_type',['../structvg_1_1GBWTHandler.html#aad418d9725da4ccbb6c60055eb5e9033',1,'vg::GBWTHandler']]]
 ];

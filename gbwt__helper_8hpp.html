@@ -64,6 +64,7 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
@@ -75,6 +76,11 @@ $(function() {
 <code>#include &lt;gbwt/dynamic_gbwt.h&gt;</code><br />
 <code>#include &lt;<a class="el" href="mutable__path__handle__graph_8hpp.html">handlegraph/mutable_path_handle_graph.hpp</a>&gt;</code><br />
 </div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTHandler.html">vg::GBWTHandler</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
@@ -110,9 +116,15 @@ Functions</h2></td></tr>
 <tr class="memitem:ada6300e45d21f1171c5ff2b71f4d173b"><td class="memItemLeft" align="right" valign="top">gbwt::size_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ada6300e45d21f1171c5ff2b71f4d173b">vg::gbwt_node_width</a> (const HandleGraph &amp;graph)</td></tr>
 <tr class="memdesc:ada6300e45d21f1171c5ff2b71f4d173b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine the node width in bits for the GBWT nodes based on the given graph.  <a href="namespacevg.html#ada6300e45d21f1171c5ff2b71f4d173b">More...</a><br /></td></tr>
 <tr class="separator:ada6300e45d21f1171c5ff2b71f4d173b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac2fee40d55dfda86b1e0cc2f2500b280"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac2fee40d55dfda86b1e0cc2f2500b280">vg::finish_gbwt_constuction</a> (gbwt::GBWTBuilder &amp;builder, const std::vector&lt; std::string &gt; &amp;sample_names, const std::vector&lt; std::string &gt; &amp;contig_names, size_t haplotype_count, bool <a class="el" href="gbwt__main_8cpp.html#a9c4b7bf94160b49f0acca29dc7de9648">print_metadata</a>, const std::string &amp;header=&quot;GBWT&quot;)</td></tr>
+<tr class="memitem:ac2fee40d55dfda86b1e0cc2f2500b280"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac2fee40d55dfda86b1e0cc2f2500b280">vg::finish_gbwt_constuction</a> (gbwt::GBWTBuilder &amp;builder, const std::vector&lt; std::string &gt; &amp;sample_names, const std::vector&lt; std::string &gt; &amp;contig_names, size_t haplotype_count, bool <a class="el" href="gbwt__main_8cpp.html#af705c69cda26007b3ea9bb76849e21b1">print_metadata</a>, const std::string &amp;header=&quot;GBWT&quot;)</td></tr>
 <tr class="memdesc:ac2fee40d55dfda86b1e0cc2f2500b280"><td class="mdescLeft">&#160;</td><td class="mdescRight">Finish GBWT construction and optionally print the metadata.  <a href="namespacevg.html#ac2fee40d55dfda86b1e0cc2f2500b280">More...</a><br /></td></tr>
 <tr class="separator:ac2fee40d55dfda86b1e0cc2f2500b280"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a39725e6c5cb1fc38f484e56b8fdc907f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a39725e6c5cb1fc38f484e56b8fdc907f">vg::load_gbwt</a> (const std::string &amp;filename, gbwt::GBWT &amp;index, bool show_progress=false)</td></tr>
+<tr class="memdesc:a39725e6c5cb1fc38f484e56b8fdc907f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a compressed GBWT from the file.  <a href="namespacevg.html#a39725e6c5cb1fc38f484e56b8fdc907f">More...</a><br /></td></tr>
+<tr class="separator:a39725e6c5cb1fc38f484e56b8fdc907f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5463a09e3854197eae3f257614049a83"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5463a09e3854197eae3f257614049a83">vg::load_gbwt</a> (const std::string &amp;filename, gbwt::DynamicGBWT &amp;index, bool show_progress=false)</td></tr>
+<tr class="memdesc:a5463a09e3854197eae3f257614049a83"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a dynamic GBWT from the file.  <a href="namespacevg.html#a5463a09e3854197eae3f257614049a83">More...</a><br /></td></tr>
+<tr class="separator:a5463a09e3854197eae3f257614049a83"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2a5c03248078b33eab4f3126d668a2f6"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2a5c03248078b33eab4f3126d668a2f6">vg::insert_gbwt_path</a> (MutablePathHandleGraph &amp;graph, const gbwt::GBWT &amp;gbwt_index, gbwt::size_type id)</td></tr>
 <tr class="separator:a2a5c03248078b33eab4f3126d668a2f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a768828fcd9f2ecf7661e7d873f23bc58"><td class="memItemLeft" align="right" valign="top">Path&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a768828fcd9f2ecf7661e7d873f23bc58">vg::extract_gbwt_path</a> (const HandleGraph &amp;graph, const gbwt::GBWT &amp;gbwt_index, gbwt::size_type id)</td></tr>

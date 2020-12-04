@@ -173,7 +173,7 @@ var searchData=
   ['print_5fgraph',['print_graph',['../classxg_1_1XG.html#acb2f541cd3f91783d07532d75da80b0a',1,'xg::XG']]],
   ['print_5fhelp',['print_help',['../classvg_1_1ConfigurableParser.html#a29abcf4fbb780c4e586130b095aa0098',1,'vg::ConfigurableParser']]],
   ['print_5fmatrix',['print_matrix',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#aee399b25f2ed671ad8a17e6c55757671',1,'vg::BandedGlobalAligner::BAMatrix']]],
-  ['print_5fmetadata',['print_metadata',['../gbwt__main_8cpp.html#a9c4b7bf94160b49f0acca29dc7de9648',1,'gbwt_main.cpp']]],
+  ['print_5fmetadata',['print_metadata',['../gbwt__main_8cpp.html#af705c69cda26007b3ea9bb76849e21b1',1,'gbwt_main.cpp']]],
   ['print_5fphased_5fgenome',['print_phased_genome',['../classvg_1_1PhasedGenome.html#a4727557def28b369312b2f4a56d86a7d',1,'vg::PhasedGenome']]],
   ['print_5frectangularized_5fbands',['print_rectangularized_bands',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a6c94c4cb68bf76d3b8531f004c17b26d',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['print_5freport',['print_report',['../classvg_1_1IndexedVG.html#a08b7d5f9e8ad7c9b42d58ce8d2629000',1,'vg::IndexedVG']]],

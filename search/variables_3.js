@@ -49,6 +49,7 @@ var searchData=
   ['component_5fto_5fchain_5flength',['component_to_chain_length',['../classvg_1_1MinimumDistanceIndex.html#a28827043fb90ebd7e91c004e0a82b804',1,'vg::MinimumDistanceIndex']]],
   ['component_5fto_5findex',['component_to_index',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a355ddd9e0ebdbeb8c0652d0564738eb7',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['components',['components',['../classvg_1_1MEMClusterer_1_1HitGraph.html#ab0952f2992c99f031ac813bfa563bf34',1,'vg::MEMClusterer::HitGraph']]],
+  ['compressed',['compressed',['../structvg_1_1GBWTHandler.html#ab411b9b6da9c6f80918cc64718761490',1,'vg::GBWTHandler']]],
   ['cond_5fdistrs',['cond_distrs',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a8bef106a51ae52b02b3cf9ea9179dc69',1,'vg::NGSSimulator::MarkovDistribution']]],
   ['configurables',['configurables',['../classvg_1_1ConfigurableParser.html#a022f098012e68510e490a407261bf01e',1,'vg::ConfigurableParser']]],
   ['connection',['connection',['../structvg_1_1Subpath.html#a45ec767985d769bc4998fa7d705e90f9',1,'vg::Subpath']]],

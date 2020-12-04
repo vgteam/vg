@@ -18,6 +18,7 @@ var searchData=
   ['deduplicate_5fcluster_5fpairs',['deduplicate_cluster_pairs',['../classvg_1_1MEMClusterer.html#ae99c87e944c8c1056abb8efc7da5786e',1,'vg::MEMClusterer']]],
   ['deep_5fcontents',['deep_contents',['../classvg_1_1SnarlManager.html#a88dbb1a06fa24de3459f62ecdbc7d962',1,'vg::SnarlManager']]],
   ['default_5fbuild_5fjobs',['default_build_jobs',['../gbwt__main_8cpp.html#a180fab610cb13b3f68628d5430fae343',1,'gbwt_main.cpp']]],
+  ['default_5fmerge_5fjobs',['default_merge_jobs',['../gbwt__main_8cpp.html#a30fe8f429a84640149b334ec38695789',1,'gbwt_main.cpp']]],
   ['deflect_5fto_5fmatrix',['deflect_to_matrix',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a6abbf28540a3e93c039ee2ec6ccf26be',1,'vg::BandedGlobalAligner::AltTracebackStack::deflect_to_matrix()'],['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a5c24b2c60ef30f7ff29f3b28534496c2',1,'vg::BandedGlobalAligner::AltTracebackStack::deflect_to_matrix(int64_t &amp;to_node_id)']]],
   ['deflection',['Deflection',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#a44389670dc49e1dadf64104423dd064f',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
   ['defragment',['defragment',['../classbdsg_1_1PackedGraph.html#afa7edd80968f8d6d2865da20a1307179',1,'bdsg::PackedGraph']]],

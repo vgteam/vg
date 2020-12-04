@@ -42,7 +42,7 @@ var searchData=
   ['file',['file',['../classvg_1_1VcfBuffer.html#a6d744dafd27fb2fdea09d106b1553a55',1,'vg::VcfBuffer']]],
   ['file_5fexists',['file_exists',['../namespacevg.html#abebdd1477a436020f3d3f8368d825054',1,'vg']]],
   ['file_5fheader',['file_header',['../classvg_1_1MinimumDistanceIndex.html#a3e515f34b0d941a0f55e15739a3e5014',1,'vg::MinimumDistanceIndex']]],
-  ['filename',['filename',['../structjob__type.html#a9453f5bf04ab3780dcb2fa1c8264eb65',1,'job_type']]],
+  ['filename',['filename',['../structvg_1_1GBWTHandler.html#a551e856227d00e32f1c66691d44ec502',1,'vg::GBWTHandler::filename()'],['../structjob__type.html#a9453f5bf04ab3780dcb2fa1c8264eb65',1,'job_type::filename()']]],
   ['filenames',['filenames',['../structvg_1_1temp__file_1_1Handler.html#a712176aeac999c1930b246fa02dc0f25',1,'vg::temp_file::Handler::filenames()'],['../classvg_1_1VGset.html#a49cf0bee988a30fb024218dd4f4eed56',1,'vg::VGset::filenames()'],['../structxg_1_1temp__file_1_1Handler.html#ad61c52d26a2feddf0770d74d4ff65754',1,'xg::temp_file::Handler::filenames()']]],
   ['fill_5fbuffer',['fill_buffer',['../classvg_1_1VcfBuffer.html#afff803310f8c3bca9788b30ebba8450f',1,'vg::VcfBuffer']]],
   ['fill_5fdepth',['fill_depth',['../classvg_1_1DepthMap.html#a46253215a059652f640b4d32852c676e',1,'vg::DepthMap']]],

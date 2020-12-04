@@ -5,6 +5,7 @@ var searchData=
   ['merge_5ffast',['merge_fast',['../gbwt__main_8cpp.html#a7e58588619a1c4b0edfca9eb70fc2469acd345ea33975fbb1f549d7f8cb94407f',1,'gbwt_main.cpp']]],
   ['merge_5finsert',['merge_insert',['../gbwt__main_8cpp.html#a7e58588619a1c4b0edfca9eb70fc2469ab3b404897fb5c4bb2ee69b118ff22c23',1,'gbwt_main.cpp']]],
   ['merge_5fnone',['merge_none',['../gbwt__main_8cpp.html#a7e58588619a1c4b0edfca9eb70fc2469a447dd7a4f2d54443903f0bcd42b083c7',1,'gbwt_main.cpp']]],
+  ['merge_5fparallel',['merge_parallel',['../gbwt__main_8cpp.html#a7e58588619a1c4b0edfca9eb70fc2469a5f2a0aac451bd71a4d1879bddc976269',1,'gbwt_main.cpp']]],
   ['min_5fbase_5fqual',['min_base_qual',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a81bd6ba848d5742091102b7e6e7f0528',1,'vg::Counts']]],
   ['min_5fend_5fmatches',['min_end_matches',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a0035f968d8e0ae55fcaf6763f7dd01a1',1,'vg::Counts']]],
   ['min_5fmapq',['min_mapq',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a228a82cd163bae9299de79bacd32fab8',1,'vg::Counts']]],

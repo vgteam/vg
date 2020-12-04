@@ -7,6 +7,7 @@ var searchData=
   ['gaplessextender',['GaplessExtender',['../classvg_1_1GaplessExtender.html',1,'vg']]],
   ['gaplessextension',['GaplessExtension',['../structvg_1_1GaplessExtension.html',1,'vg']]],
   ['gbwt_5fthread_5ft',['gbwt_thread_t',['../structhaplo_1_1gbwt__thread__t.html',1,'haplo']]],
+  ['gbwthandler',['GBWTHandler',['../structvg_1_1GBWTHandler.html',1,'vg']]],
   ['gbwtscoreprovider',['GBWTScoreProvider',['../classhaplo_1_1GBWTScoreProvider.html',1,'haplo']]],
   ['gbwttraversalfinder',['GBWTTraversalFinder',['../classvg_1_1GBWTTraversalFinder.html',1,'vg']]],
   ['genomestate',['GenomeState',['../classvg_1_1GenomeState.html',1,'vg']]],

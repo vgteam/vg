@@ -43,7 +43,7 @@ var searchData=
   ['show_5fcnv',['show_cnv',['../classvg_1_1Viz.html#ace366df624ca2b225d3c8d20d9cb15db',1,'vg::Viz']]],
   ['show_5fdna',['show_dna',['../classvg_1_1Viz.html#a2b8e6f510bca9925fd39e37feddce251',1,'vg::Viz']]],
   ['show_5fpaths',['show_paths',['../classvg_1_1Viz.html#a501ab25fb94a4d3abd508af7bc77aac3',1,'vg::Viz']]],
-  ['show_5fprogress',['show_progress',['../classvg_1_1Genotyper.html#a72599c00acaed553e0d235e5c73d4b82',1,'vg::Genotyper::show_progress()'],['../classvg_1_1Progressive.html#a6653625f496832c4cb8711185d5e04cb',1,'vg::Progressive::show_progress()'],['../classvg_1_1VGset.html#aa848e2230f2d5c016c0a816cfa14501e',1,'vg::VGset::show_progress()']]],
+  ['show_5fprogress',['show_progress',['../structvg_1_1GBWTHandler.html#a7513df04845c0145e6933236346ec8fc',1,'vg::GBWTHandler::show_progress()'],['../classvg_1_1Genotyper.html#a72599c00acaed553e0d235e5c73d4b82',1,'vg::Genotyper::show_progress()'],['../classvg_1_1Progressive.html#a6653625f496832c4cb8711185d5e04cb',1,'vg::Progressive::show_progress()'],['../classvg_1_1VGset.html#aa848e2230f2d5c016c0a816cfa14501e',1,'vg::VGset::show_progress()']]],
   ['sigma',['sigma',['../classvg_1_1FragmentLengthDistribution.html#a6462bb11645a893b5dc2de057714d8f6',1,'vg::FragmentLengthDistribution']]],
   ['simple_5fsnarl_5fto_5fnodes_5fby_5fcomponent',['simple_snarl_to_nodes_by_component',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html#a76057827a02e4fccf12b34fa4ab3e908',1,'vg::SnarlSeedClusterer::TreeState']]],
   ['simplify_5ftopologies',['simplify_topologies',['../classvg_1_1MultipathMapper.html#a5f865a27bd34ffce2e2ea1d05fc02b43',1,'vg::MultipathMapper']]],

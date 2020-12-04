@@ -58,7 +58,7 @@ var searchData=
   ['load_5ffrom_5ffile',['load_from_file',['../classvg_1_1Packer.html#a55b21208921e13f2399f4475d4d02b32',1,'vg::Packer']]],
   ['load_5ffrom_5fold_5fversion',['load_from_old_version',['../classxg_1_1XGPath.html#ac67bde23d92b8720ece6d1176e09a103',1,'xg::XGPath']]],
   ['load_5ffunction_5ft',['load_function_t',['../namespacevg_1_1io.html#a645533291ad3ae31bd8db73e51b3ac31',1,'vg::io']]],
-  ['load_5fgbwt',['load_gbwt',['../gbwt__main_8cpp.html#a7abf9aa413b0dca5e088c6bf900b3295',1,'load_gbwt(const std::string &amp;filename, gbwt::GBWT &amp;index, bool show_progress):&#160;gbwt_main.cpp'],['../gbwt__main_8cpp.html#a072aef35f1a34bf1f3d37feca1ee9e9a',1,'load_gbwt(const std::string &amp;filename, gbwt::DynamicGBWT &amp;index, bool show_progress):&#160;gbwt_main.cpp']]],
+  ['load_5fgbwt',['load_gbwt',['../namespacevg.html#a39725e6c5cb1fc38f484e56b8fdc907f',1,'vg::load_gbwt(const std::string &amp;filename, gbwt::GBWT &amp;index, bool show_progress=false)'],['../namespacevg.html#a5463a09e3854197eae3f257614049a83',1,'vg::load_gbwt(const std::string &amp;filename, gbwt::DynamicGBWT &amp;index, bool show_progress=false)']]],
   ['load_5fgraph',['load_graph',['../classvg_1_1Index.html#a0c6f4fc6c51426cc3ff46bcaed6973ee',1,'vg::Index']]],
   ['load_5finto_5fone',['load_into_one',['../classvg_1_1io_1_1VPKG.html#a73aa334d91b78d80c7ad0c6505552806',1,'vg::io::VPKG']]],
   ['load_5fone',['load_one',['../classvg_1_1io_1_1VPKG.html#aae9030bf4195ca81ed30228d875175ef',1,'vg::io::VPKG::load_one(istream &amp;in)'],['../classvg_1_1io_1_1VPKG.html#a60cacf98de761eab29ed168ee56e8e39',1,'vg::io::VPKG::load_one(const string &amp;filename)']]],
