@@ -2090,7 +2090,6 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
 
 //-----------------------------------------------------------------------------
 
-#undef debug
 double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored,
     const string& sequence, const string& quality_bytes) {
 
@@ -2318,7 +2317,6 @@ double MinimizerMapper::get_prob_of_disruption_in_column(const vector<Minimizer>
     
     return p;
 }
-#define debug
 
 //-----------------------------------------------------------------------------
 
