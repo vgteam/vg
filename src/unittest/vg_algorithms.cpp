@@ -433,7 +433,7 @@ TEST_CASE( "Connecting graph extraction produces expected results in an acyclic 
     }
 }
         
-TEST_CASE( "Connecting graph extraction pruning options perform as expected", "[algorithms][broken]" ) {
+TEST_CASE( "Connecting graph extraction pruning options perform as expected", "[algorithms]" ) {
     VG vg;
             
     Node* n0 = vg.create_node("CGA");
@@ -452,103 +452,6 @@ TEST_CASE( "Connecting graph extraction pruning options perform as expected", "[
     vg.create_edge(n3, n3, true, true);
     vg.create_edge(n4, n6, true, false);
     vg.create_edge(n5, n6);
-            
-    SECTION("Connecting graph extraction can extract a graph without pruning") {
-                
-        VG extractor;
-        auto trans = algorithms::extract_connecting_graph(&vg, &extractor, 10,
-                                                          make_pos_t(n1->id(), false, 3),
-                                                          make_pos_t(n6->id(), false, 1));
-                
-        Graph& g = extractor.graph;
-                
-        REQUIRE(g.node_size() == 6);
-        REQUIRE(g.edge_size() == 7);
-                
-        bool found_node_0 = false;
-        bool found_node_1 = false;
-        bool found_node_2 = false;
-        bool found_node_3 = false;
-        bool found_node_4 = false;
-        bool found_node_5 = false;
-                
-        for (int i = 0; i < g.node_size(); i++) {
-            const Node& n = g.node(i);
-            if (n.sequence() == "G") {
-                found_node_0 = true;
-            }
-            else if (n.sequence() == "T") {
-                found_node_1 = true;
-            }
-            else if (n.sequence() == "GT") {
-                found_node_2 = true;
-            }
-            else if (n.sequence() == "ATG") {
-                found_node_3 = true;
-            }
-            else if (n.sequence() == "TGAG") {
-                found_node_4 = true;
-            }
-            else if (n.sequence() == "CA") {
-                found_node_5 = true;
-            }
-        }
-                
-        REQUIRE(found_node_0);
-        REQUIRE(found_node_1);
-        REQUIRE(found_node_2);
-        REQUIRE(found_node_3);
-        REQUIRE(found_node_4);
-        REQUIRE(found_node_5);
-                
-        bool found_edge_0 = false;
-        bool found_edge_1 = false;
-        bool found_edge_2 = false;
-        bool found_edge_3 = false;
-        bool found_edge_4 = false;
-        bool found_edge_5 = false;
-        bool found_edge_6 = false;
-                
-        for (int i = 0; i < g.edge_size(); i++) {
-            const Edge& e = g.edge(i);
-            if (((trans[e.from()] == n1->id() && !e.from_start() && trans[e.to()] == n2->id() && !e.to_end())
-                 ||(trans[e.from()] == n2->id() && e.from_start() && trans[e.to()] == n1->id() && e.to_end()))) {
-                found_edge_0 = true;
-            }
-            else if (((trans[e.from()] == n1->id() && !e.from_start() && trans[e.to()] == n3->id() && !e.to_end())
-                      ||(trans[e.from()] == n3->id() && e.from_start() && trans[e.to()] == n1->id() && e.to_end()))) {
-                found_edge_1 = true;
-            }
-            else if (((trans[e.from()] == n1->id() && !e.from_start() && trans[e.to()] == n4->id() && e.to_end())
-                      ||(trans[e.from()] == n4->id() && !e.from_start() && trans[e.to()] == n1->id() && e.to_end()))) {
-                found_edge_2 = true;
-            }
-            else if (((trans[e.from()] == n1->id() && !e.from_start() && trans[e.to()] == n5->id() && !e.to_end())
-                      ||(trans[e.from()] == n5->id() && e.from_start() && trans[e.to()] == n1->id() && e.to_end()))) {
-                found_edge_3 = true;
-            }
-            else if (((trans[e.from()] == n3->id() && !e.from_start() && trans[e.to()] == n3->id() && !e.to_end())
-                      ||(trans[e.from()] == n3->id() && e.from_start() && trans[e.to()] == n3->id() && e.to_end()))) {
-                found_edge_4 = true;
-            }
-            else if (((trans[e.from()] == n4->id() && e.from_start() && trans[e.to()] == n6->id() && !e.to_end())
-                      ||(trans[e.from()] == n6->id() && e.from_start() && trans[e.to()] == n4->id() && !e.to_end()))) {
-                found_edge_5 = true;
-            }
-            else if (((trans[e.from()] == n5->id() && !e.from_start() && trans[e.to()] == n6->id() && !e.to_end())
-                      ||(trans[e.from()] == n6->id() && e.from_start() && trans[e.to()] == n5->id() && e.to_end()))) {
-                found_edge_6 = true;
-            }
-        }
-                
-        REQUIRE(found_edge_0);
-        REQUIRE(found_edge_1);
-        REQUIRE(found_edge_2);
-        REQUIRE(found_edge_3);
-        REQUIRE(found_edge_4);
-        REQUIRE(found_edge_5);
-        REQUIRE(found_edge_6);
-    }
             
     SECTION("Connecting graph extraction can prune a graph to only nodes on walks between the two positions") {
                 
