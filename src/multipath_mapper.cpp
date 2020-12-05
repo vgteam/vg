@@ -1,8 +1,8 @@
-//
-//  multipath_mapper.cpp
-//
-//
-//
+/**
+ * \file multipath_mapper.cpp
+ *
+ * Implements the MultipathMapper class
+ */
 
 //#define debug_multipath_mapper
 //#define debug_multipath_mapper_alignment

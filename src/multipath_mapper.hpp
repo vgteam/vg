@@ -1,8 +1,8 @@
-//
-//  multipath_mapper.hpp
-//
-//
-//
+/**
+ * \file multipath_mapper.hpp
+ *
+ * Defines the MultipathMapper class
+ */
 
 #ifndef multipath_mapper_hpp
 #define multipath_mapper_hpp
