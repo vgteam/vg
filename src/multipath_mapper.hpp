@@ -1,8 +1,8 @@
-//
-//  multipath_mapper.hpp
-//
-//
-//
+/**
+ * \file multipath_mapper.hpp
+ *
+ * Defines the MultipathMapper class
+ */
 
 #ifndef multipath_mapper_hpp
 #define multipath_mapper_hpp
@@ -53,6 +53,7 @@
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>
+#include <algorithm>
 
 // note: only activated for single end mapping
 //#define mpmap_instrument_mem_statistics
