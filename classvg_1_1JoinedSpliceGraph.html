@@ -107,6 +107,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:adf8ca2fd45b0d024bf4b12ea04fbfc79"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1JoinedSpliceGraph.html#adf8ca2fd45b0d024bf4b12ea04fbfc79">right_splice_node</a> () const</td></tr>
 <tr class="memdesc:adf8ca2fd45b0d024bf4b12ea04fbfc79"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the handle corresponding to the right side of the splice join.  <a href="#adf8ca2fd45b0d024bf4b12ea04fbfc79">More...</a><br /></td></tr>
 <tr class="separator:adf8ca2fd45b0d024bf4b12ea04fbfc79"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92c8438c7a1efd3f0c5351a59b519a38"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1JoinedSpliceGraph.html#a92c8438c7a1efd3f0c5351a59b519a38">min_link_length</a> () const</td></tr>
+<tr class="memdesc:a92c8438c7a1efd3f0c5351a59b519a38"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the minimum length of a walk from the left seed to the right seed.  <a href="#a92c8438c7a1efd3f0c5351a59b519a38">More...</a><br /></td></tr>
+<tr class="separator:a92c8438c7a1efd3f0c5351a59b519a38"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a25612fe4db491aa5cbcc06f5816bd5bd"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1JoinedSpliceGraph.html#a25612fe4db491aa5cbcc06f5816bd5bd">max_link_length</a> () const</td></tr>
+<tr class="memdesc:a25612fe4db491aa5cbcc06f5816bd5bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the maximum length of a walk from the left seed to the right seed.  <a href="#a25612fe4db491aa5cbcc06f5816bd5bd">More...</a><br /></td></tr>
+<tr class="separator:a25612fe4db491aa5cbcc06f5816bd5bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af167d082a5c148792ae9a533eac068f0"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1JoinedSpliceGraph.html#af167d082a5c148792ae9a533eac068f0">has_node</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id) const</td></tr>
 <tr class="memdesc:af167d082a5c148792ae9a533eac068f0"><td class="mdescLeft">&#160;</td><td class="mdescRight">HandleGraph interface.  <a href="#af167d082a5c148792ae9a533eac068f0">More...</a><br /></td></tr>
 <tr class="separator:af167d082a5c148792ae9a533eac068f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -756,6 +762,25 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a25612fe4db491aa5cbcc06f5816bd5bd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a25612fe4db491aa5cbcc06f5816bd5bd">&#9670;&nbsp;</a></span>max_link_length()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::JoinedSpliceGraph::max_link_length </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the maximum length of a walk from the left seed to the right seed. </p>
+
+</div>
+</div>
 <a id="abbf5f65b4f075efb985c0978cead8513"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#abbf5f65b4f075efb985c0978cead8513">&#9670;&nbsp;</a></span>max_node_id()</h2>
 
@@ -782,6 +807,25 @@ Additional Inherited Members</h2></td></tr>
 <p>Return the largest ID in the graph, or some larger number if the largest ID is unavailable. Return value is unspecified if the graph is empty. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a5a2e2b1ea6a29b3f4b34a6abcb6dbc50">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
+<a id="a92c8438c7a1efd3f0c5351a59b519a38"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a92c8438c7a1efd3f0c5351a59b519a38">&#9670;&nbsp;</a></span>min_link_length()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::JoinedSpliceGraph::min_link_length </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the minimum length of a walk from the left seed to the right seed. </p>
 
 </div>
 </div>

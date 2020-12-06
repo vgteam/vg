@@ -116,6 +116,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:add91075c3490f8dc5acf667f2b26832c"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#add91075c3490f8dc5acf667f2b26832c">get_step_count</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const =0</td></tr>
 <tr class="memdesc:add91075c3490f8dc5acf667f2b26832c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of node steps in the path.  <a href="#add91075c3490f8dc5acf667f2b26832c">More...</a><br /></td></tr>
 <tr class="separator:add91075c3490f8dc5acf667f2b26832c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6d3a31f0c19054cd2908525119869b80"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a6d3a31f0c19054cd2908525119869b80">get_step_count</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
+<tr class="memdesc:a6d3a31f0c19054cd2908525119869b80"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of node steps on a handle.  <a href="#a6d3a31f0c19054cd2908525119869b80">More...</a><br /></td></tr>
+<tr class="separator:a6d3a31f0c19054cd2908525119869b80"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a339e690ce3e2bb8280dd1f3ea45abe42"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a339e690ce3e2bb8280dd1f3ea45abe42">get_handle_of_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const =0</td></tr>
 <tr class="memdesc:a339e690ce3e2bb8280dd1f3ea45abe42"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a node handle (node ID and orientation) from a handle to an step on a path.  <a href="#a339e690ce3e2bb8280dd1f3ea45abe42">More...</a><br /></td></tr>
 <tr class="separator:a339e690ce3e2bb8280dd1f3ea45abe42"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -647,7 +650,7 @@ template&lt;typename Iteratee &gt; </div>
 </div>
 </div>
 <a id="add91075c3490f8dc5acf667f2b26832c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#add91075c3490f8dc5acf667f2b26832c">&#9670;&nbsp;</a></span>get_step_count()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#add91075c3490f8dc5acf667f2b26832c">&#9670;&nbsp;</a></span>get_step_count() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -673,6 +676,36 @@ template&lt;typename Iteratee &gt; </div>
 <p>Returns the number of node steps in the path. </p>
 
 <p>Implemented in <a class="el" href="classxg_1_1XG.html#a0609241ee4795d7c9dd2a2b5cc8ce3a4">xg::XG</a>, <a class="el" href="classbdsg_1_1PackedGraph.html#a51ec5ffe54100d8ce84aa41ea666f694">bdsg::PackedGraph</a>, <a class="el" href="classbdsg_1_1HashGraph.html#a502ba5bdf003e4b933744422dc5df0f4">bdsg::HashGraph</a>, <a class="el" href="classvg_1_1VG.html#a3efe30807d096a6175373bc3f4863dd7">vg::VG</a>, <a class="el" href="classbdsg_1_1ODGI.html#a43e16430b1cf49be4c97acb99301f0f9">bdsg::ODGI</a>, <a class="el" href="classvg_1_1PathSubgraphOverlay.html#ae2df84b76bcec7b4899838a99d3799f5">vg::PathSubgraphOverlay</a>, and <a class="el" href="classvg_1_1MemoizingGraph.html#ae0bc7232272e70adab6333dbe3718f46">vg::MemoizingGraph</a>.</p>
+
+</div>
+</div>
+<a id="a6d3a31f0c19054cd2908525119869b80"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6d3a31f0c19054cd2908525119869b80">&#9670;&nbsp;</a></span>get_step_count() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t handlegraph::PathHandleGraph::get_step_count </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Returns the number of node steps on a handle. </p>
+
+<p>Reimplemented in <a class="el" href="classbdsg_1_1ODGI.html#a77cd4dee45911bb99040688f664d9c79">bdsg::ODGI</a>.</p>
 
 </div>
 </div>

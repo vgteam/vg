@@ -107,9 +107,15 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a8c2059a01cfda921bd8c5f91bd3763c7"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a8c2059a01cfda921bd8c5f91bd3763c7">handle_at_order</a> (size_t i) const</td></tr>
 <tr class="memdesc:a8c2059a01cfda921bd8c5f91bd3763c7"><td class="mdescLeft">&#160;</td><td class="mdescRight">The node at a given position in the topological order.  <a href="#a8c2059a01cfda921bd8c5f91bd3763c7">More...</a><br /></td></tr>
 <tr class="separator:a8c2059a01cfda921bd8c5f91bd3763c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6b7338324ba8009d80b14303ba551754"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a6b7338324ba8009d80b14303ba551754">distance_from_start</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
-<tr class="memdesc:a6b7338324ba8009d80b14303ba551754"><td class="mdescLeft">&#160;</td><td class="mdescRight">The minimum distance from the start position.  <a href="#a6b7338324ba8009d80b14303ba551754">More...</a><br /></td></tr>
-<tr class="separator:a6b7338324ba8009d80b14303ba551754"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab859980ced41bcd382cd5961ff3b8475"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#ab859980ced41bcd382cd5961ff3b8475">min_distance_from_start</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
+<tr class="memdesc:ab859980ced41bcd382cd5961ff3b8475"><td class="mdescLeft">&#160;</td><td class="mdescRight">The minimum distance from the start position.  <a href="#ab859980ced41bcd382cd5961ff3b8475">More...</a><br /></td></tr>
+<tr class="separator:ab859980ced41bcd382cd5961ff3b8475"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0d573babd81fa2d0c209c75afec6c91d"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a0d573babd81fa2d0c209c75afec6c91d">max_distance_from_start</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
+<tr class="memdesc:a0d573babd81fa2d0c209c75afec6c91d"><td class="mdescLeft">&#160;</td><td class="mdescRight">The minimum distance from the start position.  <a href="#a0d573babd81fa2d0c209c75afec6c91d">More...</a><br /></td></tr>
+<tr class="separator:a0d573babd81fa2d0c209c75afec6c91d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a91bb045370337f4f91aea10c14fdca95"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a91bb045370337f4f91aea10c14fdca95">extracting_left</a> () const</td></tr>
+<tr class="memdesc:a91bb045370337f4f91aea10c14fdca95"><td class="mdescLeft">&#160;</td><td class="mdescRight">Are we doing extraction left or right?  <a href="#a91bb045370337f4f91aea10c14fdca95">More...</a><br /></td></tr>
+<tr class="separator:a91bb045370337f4f91aea10c14fdca95"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a29fe9b69774ab975e3b6fe15900d1c9e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a29fe9b69774ab975e3b6fe15900d1c9e">has_node</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id) const</td></tr>
 <tr class="memdesc:a29fe9b69774ab975e3b6fe15900d1c9e"><td class="mdescLeft">&#160;</td><td class="mdescRight">HandleGraph interface.  <a href="#a29fe9b69774ab975e3b6fe15900d1c9e">More...</a><br /></td></tr>
 <tr class="separator:a29fe9b69774ab975e3b6fe15900d1c9e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -196,9 +202,9 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:a06d0598eae084de70fa40ed859ce9704"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a06d0598eae084de70fa40ed859ce9704">max_distance</a></td></tr>
 <tr class="memdesc:a06d0598eae084de70fa40ed859ce9704"><td class="mdescLeft">&#160;</td><td class="mdescRight">farthest distance we will travel from the start pos  <a href="#a06d0598eae084de70fa40ed859ce9704">More...</a><br /></td></tr>
 <tr class="separator:a06d0598eae084de70fa40ed859ce9704"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a291c6268f6d2ae0ccb5c9ce6c3d3ba53"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, vector&lt; size_t &gt;, vector&lt; size_t &gt;, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a291c6268f6d2ae0ccb5c9ce6c3d3ba53">extracted</a></td></tr>
-<tr class="memdesc:a291c6268f6d2ae0ccb5c9ce6c3d3ba53"><td class="mdescLeft">&#160;</td><td class="mdescRight">records of (underlying handle, left edges, right edges, distance)  <a href="#a291c6268f6d2ae0ccb5c9ce6c3d3ba53">More...</a><br /></td></tr>
-<tr class="separator:a291c6268f6d2ae0ccb5c9ce6c3d3ba53"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a07d9afa325ba5788ae4ad9cb4539d644"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, vector&lt; size_t &gt;, vector&lt; size_t &gt;, int64_t, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a07d9afa325ba5788ae4ad9cb4539d644">extracted</a></td></tr>
+<tr class="memdesc:a07d9afa325ba5788ae4ad9cb4539d644"><td class="mdescLeft">&#160;</td><td class="mdescRight">records of (underlying handle, left edges, right edges, min distance, max distance)  <a href="#a07d9afa325ba5788ae4ad9cb4539d644">More...</a><br /></td></tr>
+<tr class="separator:a07d9afa325ba5788ae4ad9cb4539d644"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03e6a015e2c78eb7ba568472c140043a"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a03e6a015e2c78eb7ba568472c140043a">extracted_index</a></td></tr>
 <tr class="memdesc:a03e6a015e2c78eb7ba568472c140043a"><td class="mdescLeft">&#160;</td><td class="mdescRight">index of latest addition of a handle in the extracted vector  <a href="#a03e6a015e2c78eb7ba568472c140043a">More...</a><br /></td></tr>
 <tr class="separator:a03e6a015e2c78eb7ba568472c140043a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -318,26 +324,6 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a6b7338324ba8009d80b14303ba551754"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6b7338324ba8009d80b14303ba551754">&#9670;&nbsp;</a></span>distance_from_start()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t vg::IncrementalSubgraph::distance_from_start </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>handle</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>The minimum distance from the start position. </p>
-
-</div>
-</div>
 <a id="a35e5051258b792c91da00cc0810ed178"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a35e5051258b792c91da00cc0810ed178">&#9670;&nbsp;</a></span>extend()</h2>
 
@@ -354,6 +340,25 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Extract an additional node. </p>
+
+</div>
+</div>
+<a id="a91bb045370337f4f91aea10c14fdca95"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a91bb045370337f4f91aea10c14fdca95">&#9670;&nbsp;</a></span>extracting_left()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::IncrementalSubgraph::extracting_left </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Are we doing extraction left or right? </p>
 
 </div>
 </div>
@@ -895,6 +900,26 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a0d573babd81fa2d0c209c75afec6c91d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0d573babd81fa2d0c209c75afec6c91d">&#9670;&nbsp;</a></span>max_distance_from_start()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::IncrementalSubgraph::max_distance_from_start </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>The minimum distance from the start position. </p>
+
+</div>
+</div>
 <a id="aa92bb84a3ea785a09c814932ae56a5a8"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa92bb84a3ea785a09c814932ae56a5a8">&#9670;&nbsp;</a></span>max_node_id()</h2>
 
@@ -921,6 +946,26 @@ Additional Inherited Members</h2></td></tr>
 <p>Return the largest ID in the graph, or some larger number if the largest ID is unavailable. Return value is unspecified if the graph is empty. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a5a2e2b1ea6a29b3f4b34a6abcb6dbc50">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
+<a id="ab859980ced41bcd382cd5961ff3b8475"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab859980ced41bcd382cd5961ff3b8475">&#9670;&nbsp;</a></span>min_distance_from_start()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::IncrementalSubgraph::min_distance_from_start </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>The minimum distance from the start position. </p>
 
 </div>
 </div>
@@ -1024,8 +1069,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a291c6268f6d2ae0ccb5c9ce6c3d3ba53"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a291c6268f6d2ae0ccb5c9ce6c3d3ba53">&#9670;&nbsp;</a></span>extracted</h2>
+<a id="a07d9afa325ba5788ae4ad9cb4539d644"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a07d9afa325ba5788ae4ad9cb4539d644">&#9670;&nbsp;</a></span>extracted</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1034,7 +1079,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt;tuple&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, vector&lt;size_t&gt;, vector&lt;size_t&gt;, int64_t&gt; &gt; vg::IncrementalSubgraph::extracted</td>
+          <td class="memname">vector&lt;tuple&lt;<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, vector&lt;size_t&gt;, vector&lt;size_t&gt;, int64_t, int64_t&gt; &gt; vg::IncrementalSubgraph::extracted</td>
         </tr>
       </table>
   </td>
@@ -1044,7 +1089,7 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>records of (underlying handle, left edges, right edges, distance) </p>
+<p>records of (underlying handle, left edges, right edges, min distance, max distance) </p>
 
 </div>
 </div>

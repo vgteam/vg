@@ -132,6 +132,7 @@ var searchData=
   ['trim_5fto_5fvariable',['trim_to_variable',['../classvg_1_1Constructor.html#a428cf1b27e402a304c18e40f87e9dc02',1,'vg::Constructor']]],
   ['trimmed_5fend',['trimmed_end',['../namespacevg.html#a9e61398cd459bb9ba3a1ced205491712',1,'vg']]],
   ['trivialtraversalfinder',['TrivialTraversalFinder',['../classvg_1_1TrivialTraversalFinder.html#a46403401b7efaec8d99b63b2013f7e60',1,'vg::TrivialTraversalFinder']]],
+  ['truncate_5fhandle',['truncate_handle',['../classhandlegraph_1_1DeletableHandleGraph.html#aa65cef3b3261f8d1bc2057c5f2ee100a',1,'handlegraph::DeletableHandleGraph']]],
   ['try_5fload_5fone',['try_load_one',['../classvg_1_1io_1_1VPKG.html#aeeac79f6760560223f9ffdc34da527e2',1,'vg::io::VPKG::try_load_one(istream &amp;in)'],['../classvg_1_1io_1_1VPKG.html#ab3a2026ac79ee1539271ba1791108c66',1,'vg::io::VPKG::try_load_one(const string &amp;filename)']]],
   ['tsvalignmentemitter',['TSVAlignmentEmitter',['../classvg_1_1io_1_1TSVAlignmentEmitter.html#aa8778347f51972fcb03f74565c5e3117',1,'vg::io::TSVAlignmentEmitter']]],
   ['tv_5fpath',['tv_path',['../classvg_1_1TargetValueSearch.html#a9ab66a82967803031203885c18291c6f',1,'vg::TargetValueSearch']]],
