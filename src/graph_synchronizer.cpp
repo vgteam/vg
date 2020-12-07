@@ -143,9 +143,7 @@ void GraphSynchronizer::Lock::lock() {
                 (past_end - start) * 2,
                 left_pos,
                 right_pos,
-                false, // Disallow terminal node cycles, so we don't duplicate nodes
-                true, // We don't want extraneous material that doesn't connect the positions
-                false); // But we don't care about being strictly less than the specified length
+                false); // We don't care about being strictly less than the specified length
                 
 #ifdef debug
             cerr << "Extracted " << context.graph.node_size() << " nodes and " << context.graph.edge_size() << " edges between " << path_name << ":" << start << "-" << past_end << endl;

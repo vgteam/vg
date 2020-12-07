@@ -42,14 +42,23 @@ CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g $(CXXFLAGS)
 # Keep dependency generation flags for just our own sources
 DEPGEN_FLAGS := -MMD -MP
 
-# Set include flags. All -I options need to go in here, so the first directory listed is genuinely searched first.
-INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS))
+# Set include flags. All -I options need to go in here, so the first directory
+# listed is genuinely searched first.
+# We make our dependency install directory -isystem; this might not be
+# necessary on all platforms and suppresses warnings.
+# Also, pkg-config flags need to be made -isystem if our dependency install
+# directory is, or they might put a system HTSlib before ours.
+INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic $(shell $(PKG_CONFIG) --cflags $(PKG_CONFIG_DEPS) $(PKG_CONFIG_STATIC_DEPS) | sed 's/ -I/ -isystem /g')
 
 # Define libraries to link against.
-LD_LIB_FLAGS := -L$(CWD)/$(LIB_DIR) $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lvw -lboost_program_options -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
+LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
+LD_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lvw -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
+# We omit Boost Program Options for now; we find it in a platform-dependent way.
+# By default it has no suffix
+BOOST_SUFFIX=""
 # We define some more libraries to link against at the end, in static linking mode if possible, so we can use faster non-PIC code.
 LD_STATIC_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lz -lbz2 -llzma
-# Some of our static libraries depend on libraries that may not always be svailable in static form.
+# Some of our static libraries depend on libraries that may not always be avilable in static form.
 LD_STATIC_LIB_DEPS := -lpthread -lm
 # Use pkg-config to find dependencies.
 # Always use --static so that we have the -l flags for transitive dependencies, in case we're doing a full static build.
@@ -68,22 +77,32 @@ ifeq ($(shell uname -s),Darwin)
     # TODO: where does Homebrew keep libraries?
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
         # Use /opt/local/lib if present
-        LD_LIB_FLAGS += -L/opt/local/lib
+        LD_LIB_DIR_FLAGS += -L/opt/local/lib
     endif
     ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
         # Use /usr/local/lib if present.
-        LD_LIB_FLAGS += -L/usr/local/lib
+        LD_LIB_DIR_FLAGS += -L/usr/local/lib
     endif
     ifeq ($(shell if [ -d /usr/local/include ];then echo 1;else echo 0;fi), 1)
         # Use /usr/local/include to the end of the include search path.
-        INCLUDE_FLAGS += -I /usr/local/include
+        # Make sure it is system level only so it comes after other -I paths.
+        INCLUDE_FLAGS += -isystem /usr/local/include
 
         ifeq ($(shell if [ -d /usr/local/include/cairo ];then echo 1;else echo 0;fi), 1)	
             # pkg-config is not always smart enough to find Cairo's include path for us.
             # We make sure to grab its directory manually if we see it.
-            INCLUDE_FLAGS += -I /usr/local/include/cairo
+            INCLUDE_FLAGS += -isystem /usr/local/include/cairo
             LD_LIB_FLAGS += -lcairo
         endif
+    endif
+	
+	# We need to find Boost Program Options. It is usually
+	# -lboost_program_options, except for on Macports installs of Boost where
+	# it is -lboost_program_options-mt. If we were a real build system we would
+	# try things until it worked. Instead, we guess. 
+    ifeq ($(shell if [ -f /opt/local/lib/libboost_program_options-mt.dylib ];then echo 1;else echo 0;fi), 1)
+        # This is where Macports puts it, so use that name
+		BOOST_SUFFIX="-mt"
     endif
 
     # Our compiler might be clang that lacks -fopenmp support.
@@ -121,15 +140,15 @@ ifeq ($(shell uname -s),Darwin)
     ifeq ($(shell if [ -d /opt/local/lib/libomp ];then echo 1;else echo 0;fi), 1)
         # Use /opt/local/lib/libomp if present, because Macports installs libomp there.
         # Brew is supposed to put it somewhere the compiler can find it by default.
-        LD_LIB_FLAGS += -L/opt/local/lib/libomp
+        LD_LIB_DIR_FLAGS += -L/opt/local/lib/libomp
         # And we need to find the includes. Homebrew puts them in the normal place
         # but Macports hides them in "libomp"
-        INCLUDE_FLAGS += -I/opt/local/include/libomp
+        INCLUDE_FLAGS += -isystem /opt/local/include/libomp
     endif
 
     # And we need to find the includes for OMP. Homebrew puts them in the
     # normal place but macports hides them in "libomp"
-    INCLUDE_FLAGS += -I/opt/local/include/libomp
+    INCLUDE_FLAGS += -isystem /opt/local/include/libomp
 
     # We care about building only for the current machine. If we do something
     # more restrictive we can have trouble inlining parts of the standard
@@ -145,7 +164,7 @@ ifeq ($(shell uname -s),Darwin)
     
 else
     # We are not running on OS X
-    # We can also have a normal Unix rpath
+	# We can also have a normal Unix rpath
     LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)
     # Make sure to allow backtrace access to all our symbols, even those which are not exported.
     # Absolutely no help in a static build.
@@ -170,6 +189,9 @@ endif
 
 # Propagate CXXFLAGS to child makes and other build processes
 export CXXFLAGS
+
+# Actually set the Boost library option, with the determined suffix
+LD_LIB_FLAGS += "-lboost_program_options$(BOOST_SUFFIX)"
 
 # These libs need to come after libdw if used, because libdw depends on them
 LD_LIB_FLAGS += -ldl -llzma -lbz2
@@ -249,7 +271,6 @@ STRUCTURES_DIR:=deps/structures
 BACKWARD_CPP_DIR:=deps/backward-cpp
 DOZEU_DIR:=deps/dozeu
 ELFUTILS_DIR:=deps/elfutils
-BOOST_DIR:=deps/boost-subset
 VOWPALWABBIT_DIR:=deps/vowpal_wabbit
 LIBDEFLATE_DIR:=deps/libdeflate
 LIBVGIO_DIR:=deps/libvgio
@@ -292,7 +313,6 @@ LIB_DEPS += $(LIB_DIR)/libsublinearLS.a
 LIB_DEPS += $(LIB_DIR)/libstructures.a
 LIB_DEPS += $(LIB_DIR)/libvw.a
 LIB_DEPS += $(LIB_DIR)/liballreduce.a
-LIB_DEPS += $(LIB_DIR)/libboost_program_options.a
 LIB_DEPS += $(LIB_DIR)/libdeflate.a
 LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
@@ -342,11 +362,11 @@ endif
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) 
+	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) 
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
 $(LIB_DIR)/vg_is_static: $(INC_DIR)/vg_environment_version.hpp $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
@@ -367,7 +387,7 @@ $(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
 
 # We have system-level deps to install
 get-deps:
-	sudo apt-get install -qq -y --no-upgrade build-essential git protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq rs samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev 
+	sudo apt-get install -qq -y --no-upgrade build-essential git protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq rs samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev 
 
 # And we have submodule deps to build
 deps: $(DEPS)
@@ -393,7 +413,7 @@ else
 endif
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/vg.hpp
-	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
+	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
 
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
@@ -466,7 +486,12 @@ $(LIB_DIR)/cleaned_old_protobuf_v003: $(wildcard $(LIB_DIR)/libproto*) $(wildcar
 	+rm -f $(LIB_DIR)/libproto* $(LIB_DIR)/pkgconfig/protobuf* $(BIN_DIR)/protoc
 	+rm -Rf $(INC_DIR)/google/protobuf deps/protobuf
 	+touch $(LIB_DIR)/cleaned_old_protobuf_v003
-	
+    
+$(LIB_DIR)/cleaned_old_boost: $(wildcard $(LIB_DIR)/libboost_*) $(wildcard $(INC_DIR)/boost/*)
+	+rm -f $(LIB_DIR)/libboost_*
+	+rm -Rf $(INC_DIR)/boost
+	+touch $(LIB_DIR)/cleaned_old_boost
+
 $(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
 	+rm -f $(CWD)/$(INC_DIR)/vg.pb.h $(CWD)/$(INC_DIR)/vg/vg.pb.h
 	+rm -Rf $(CWD)/$(INC_DIR)/vg/io/
@@ -498,8 +523,11 @@ $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDE
 # If we need either the library or the pkg-config file (which we didn't used to ship), run the whole build.
 # We use a wildcard match to make sure make understands that both files come from one command run.
 # See https://stackoverflow.com/a/3077254
+# We also need to make sure that htslib searches itself before system paths, as
+# a system path, in case another htslib is installed on the system. Some HTSlib
+# headers look for the current HTSlib with <>.
 $(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
-	+. ./source_me.sh && cd $(HTSLIB_DIR) && rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts* && autoheader && autoconf && CFLAGS="-I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install
+	+. ./source_me.sh && cd $(HTSLIB_DIR) && rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts* && autoheader && autoconf && CFLAGS="-I$(CWD)/$(HTSLIB_DIR) -isystem $(CWD)/$(HTSLIB_DIR) -I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install && ls $(CWD)/$(INC_DIR)/htslib
 
 # When building vcflib, make sure to force it to use our libdeflate, since we wnt in and configured its htslib to use libdeflate.
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h $(VCFLIB_DIR)/tabixpp/*.cpp $(VCFLIB_DIR)/tabixpp/*.hpp
@@ -573,31 +601,22 @@ $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STR
 # if it doesn't find it, so let it fail.
 # Also, we need to make sure nothing about -fopenmp makes it into the build, in case we are on Clang.
 # vw doesn't need OpenMP
-$(LIB_DIR)/libvw.a: $(LIB_DIR)/libboost_program_options.a $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/*
+$(LIB_DIR)/libvw.a: $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/* $(LIB_DIR)/cleaned_old_boost
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && rm -Rf $(CWD)/$(LIB_DIR)/libvw.* $(CWD)/$(INC_DIR)/vowpalwabbit
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.pc//g' Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.la//g' vowpalwabbit/Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper\.pc/d' configure.ac
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/vwdll/d' Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper/d' vowpalwabbit/Makefile.am
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" ./autogen.sh || true
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" ./configure --with-boost=$(CWD)
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" $(MAKE) $(FILTER)
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && rm -Rf vowpalwabbit/*.la vowpalwabbit/.libs
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./autogen.sh || true
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./configure --with-boost=no --with-boost-program-options=boost_program_options$(BOOST_SUFFIX) 
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && $(MAKE) clean && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" $(MAKE) $(FILTER)
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/.libs/libvw.a vowpalwabbit/.libs/liballreduce.a $(CWD)/$(LIB_DIR)/
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && mkdir -p $(CWD)/$(INC_DIR)/vowpalwabbit
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/*.h $(CWD)/$(INC_DIR)/vowpalwabbit/
 
 $(LIB_DIR)/liballreduce.a: $(LIB_DIR)/libvw.a
-
-# Building Boost with GCC against libc++ on Mac doesn't work. See https://travis-ci.org/vgteam/vg/jobs/583377358
-# So on Mac we make sure to always use Clang, even if the rest of the build uses GCC.
-# See https://gist.github.com/jimporter/10442880
-$(LIB_DIR)/libboost_program_options.a: $(BOOST_DIR)/libs/program_options/src/* $(BOOST_DIR)/boost/program_options/*
-ifeq ($(shell uname -s),Darwin)
-	+. ./source_me.sh && cd $(BOOST_DIR) && ./bootstrap.sh --with-libraries=program_options --libdir=$(CWD)/$(LIB_DIR) --includedir=$(CWD)/$(INC_DIR) $(FILTER) && ./b2 --ignore-site-config --link=static toolset=clang cxxflags="-std=c++1y -stdlib=libc++" linkflags="-stdlib=libc++" install $(FILTER)
-	+. ./source_me.sh && install_name_tool -id $(CWD)/$(LIB_DIR)/libboost_program_options.dylib $(CWD)/$(LIB_DIR)/libboost_program_options.dylib
-else
-	+. ./source_me.sh && cd $(BOOST_DIR) && ./bootstrap.sh --with-libraries=program_options --libdir=$(CWD)/$(LIB_DIR) --includedir=$(CWD)/$(INC_DIR) $(FILTER) && ./b2 --ignore-site-config --link=static cxxflags="$(CXXFLAGS)" linkflags="$(CXXFLAGS)" install $(FILTER)
-endif
 
 $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 	+cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
@@ -811,7 +830,6 @@ clean: clean-rocksdb clean-vcflib
 	$(RM) -r share/
 	cd $(DEP_DIR) && cd sonLib && $(MAKE) clean
 	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean
-	cd $(DEP_DIR) && cd htslib && $(MAKE) clean
 	cd $(DEP_DIR) && cd fastahack && $(MAKE) clean
 	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwt && $(MAKE) clean

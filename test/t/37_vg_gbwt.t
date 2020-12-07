@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 85
+plan tests 91
 
 
 # Build vg graphs for two chromosomes
@@ -98,6 +98,10 @@ vg gbwt -f -o xy.fast.gbwt x.gbwt y.gbwt
 is $? 0 "fast merging with multiple chromosomes"
 cmp xy.merge.gbwt xy.fast.gbwt
 is $? 0 "identical merging results with the insertion and fast algorithms"
+vg gbwt -b --merge-jobs 1 -o xy.parallel.gbwt x.gbwt y.gbwt
+is $? 0 "parallel merging with multiple chromosomes"
+cmp xy.merge.gbwt xy.parallel.gbwt
+is $? 0 "identical merging results with the insertion and parallel algorithms"
 vg gbwt -x xy-alt.xg -o xy.direct.gbwt -v small/xy2.vcf.gz
 is $? 0 "direct construction with multiple chromosomes and a single VCF"
 cmp xy.direct.gbwt xy.merge.gbwt
@@ -117,7 +121,7 @@ is $(vg gbwt -C xy.merge.gbwt) 2 "multiple chromosomes: 2 contigs"
 is $(vg gbwt -H xy.merge.gbwt) 2 "multiple chromosomes: 2 haplotypes"
 is $(vg gbwt -S xy.merge.gbwt) 1 "multiple chromosomes: 1 sample"
 
-rm -f x.gbwt y.gbwt xy.merge.gbwt xy.fast.gbwt xy.direct.gbwt xy.multi.gbwt
+rm -f x.gbwt y.gbwt xy.merge.gbwt xy.fast.gbwt xy.parallel.gbwt xy.direct.gbwt xy.multi.gbwt
 rm -f xy.1000gp.gbwt
 
 
@@ -180,6 +184,18 @@ is $? 0 "the index remains unchanged"
 # Fast merging, empty + x
 vg gbwt -f -o x2.gbwt empty.gbwt x.gbwt
 is $? 0 "fast merging: empty + non-empty"
+cmp x.gbwt x2.gbwt
+is $? 0 "the index remains unchanged"
+
+# Parallel merging, x + empty
+vg gbwt -b --merge-jobs 1 -o x2.gbwt x.gbwt empty.gbwt
+is $? 0 "parallel merging: non-empty + empty"
+cmp x.gbwt x2.gbwt
+is $? 0 "the index remains unchanged"
+
+# Parallel merging, empty + x; silence the warning about the merging order
+vg gbwt -b --merge-jobs 1 -o x2.gbwt empty.gbwt x.gbwt 2> /dev/null
+is $? 0 "parallel merging: empty + non-empty"
 cmp x.gbwt x2.gbwt
 is $? 0 "the index remains unchanged"
 

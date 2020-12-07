@@ -566,6 +566,8 @@ TEST_CASE("JoinedSpliceGraph can correctly perform queries on a simple graph",
     });
 
     // check for the specific topology we should have
+    REQUIRE(joined_graph.min_link_length() == 6);
+    REQUIRE(joined_graph.max_link_length() == 6);
     REQUIRE(joined_graph.get_node_count() == 2);
     bool found1 = false, found2 = false;
     size_t count = 0;
@@ -697,7 +699,7 @@ TEST_CASE("JoinedSpliceGraph can correctly perform queries a more complicated gr
     handle_t h2 = graph.create_handle("TGG");
     handle_t h3 = graph.create_handle("CGCGAAA");
     handle_t h4 = graph.create_handle("GAC");
-    handle_t h5 = graph.create_handle("AGA");
+    handle_t h5 = graph.create_handle("AGAT");
     handle_t h6 = graph.create_handle("CGATGAC");
     
     graph.create_edge(h0, h1);
@@ -741,6 +743,8 @@ TEST_CASE("JoinedSpliceGraph can correctly perform queries a more complicated gr
     
     
     REQUIRE(joined_graph.get_node_count() == 6);
+    REQUIRE(joined_graph.min_link_length() == 21);
+    REQUIRE(joined_graph.max_link_length() == 22);
     bool found1 = false, found2 = false, found3 = false, found4 = false, found5 = false, found6 = false;
     handle_t t0, t1, t2, t3, t4, t5;
     joined_graph.for_each_handle([&](const handle_t& h) {
@@ -760,7 +764,7 @@ TEST_CASE("JoinedSpliceGraph can correctly perform queries a more complicated gr
             found4 = true;
             t3 = h;
         }
-        else if (joined_graph.get_sequence(h) == "AGA") {
+        else if (joined_graph.get_sequence(h) == "AGAT") {
             found5 = true;
             t4 = h;
         }

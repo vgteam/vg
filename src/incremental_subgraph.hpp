@@ -53,7 +53,13 @@ public:
     handle_t handle_at_order(size_t i) const;
     
     /// The minimum distance from the start position
-    int64_t distance_from_start(const handle_t& handle) const;
+    int64_t min_distance_from_start(const handle_t& handle) const;
+    
+    /// The minimum distance from the start position
+    int64_t max_distance_from_start(const handle_t& handle) const;
+    
+    /// Are we doing extraction left or right?
+    bool extracting_left() const;
     
     //////////////////////////
     /// HandleGraph interface
@@ -148,8 +154,8 @@ private:
     /// farthest distance we will travel from the start pos
     int64_t max_distance;
     
-    /// records of (underlying handle, left edges, right edges, distance)
-    vector<tuple<handle_t, vector<size_t>, vector<size_t>, int64_t>> extracted;
+    /// records of (underlying handle, left edges, right edges, min distance, max distance)
+    vector<tuple<handle_t, vector<size_t>, vector<size_t>, int64_t, int64_t>> extracted;
     /// index of latest addition of a handle in the extracted vector
     unordered_map<handle_t, size_t> extracted_index;
     
