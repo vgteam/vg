@@ -44,7 +44,7 @@ void help_index(char** argv) {
          << "xg options:" << endl
          << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s), or read for GCSA or distance indexing" << endl
          << "    -L, --xg-alts          include alt paths in xg" << endl
-         << "gbwt options:" << endl
+         << "gbwt options (more in vg gbwt):" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
          << "    -W, --ignore-missing   don't warn when variants in the VCF are missing from the graph; silently skip them" << endl
          << "    -T, --store-threads    generate threads from the embedded paths" << endl
@@ -92,7 +92,7 @@ void help_index(char** argv) {
 
 void multiple_thread_sources() {
     std::cerr << "error: [vg index] cannot generate threads from multiple sources (VCF, GAM, GAF, paths)" << std::endl;
-    std::cerr << "error: [vg index] GBWT indexes can be built separately and merged with vg gbwt -m" << std::endl;
+    std::cerr << "error: [vg index] GBWT indexes can be built separately and merged with vg gbwt" << std::endl;
     std::exit(EXIT_FAILURE);
 }
 
