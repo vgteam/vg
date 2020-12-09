@@ -36,7 +36,7 @@ public:
      */
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-         const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes,
+         const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
          MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -235,7 +235,7 @@ protected:
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
-    const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes;
+    const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     MinimumDistanceIndex& distance_index;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
