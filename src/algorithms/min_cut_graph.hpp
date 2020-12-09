@@ -34,13 +34,9 @@ namespace vg {
 
         }; 
 
-        structures::UnionFind kargers_min_cut(Graph graph, const int n_iterations, const int seed, int V);
+        pair<vector<vector<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed, int V);
 
-        vector<vector<int>> compute_min_cut(Graph graph, const int n_iterations, const int seed, int V);
-
-        size_t sample_dups_uniformly(vector<int> to_check, minstd_rand0 random_engine);
-
-        vector<int> find_dups(unordered_map<size_t, size_t> to_search, size_t num_to_find);
+        pair<vector<vector<size_t>>, size_t> compute_min_cut(Graph graph, const int n_iterations, const int seed, int V);
 
         
     }

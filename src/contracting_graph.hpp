@@ -12,13 +12,13 @@ namespace vg{
     class ContractingGraph{
             
             Graph graph;
-            structures::UnionFind uf;
+            structures::UnionFind& uf;
 
             public:
-            ContractingGraph(Graph graph, UnionFind uf);
+            ContractingGraph(Graph graph, UnionFind& uf);
 
             unordered_map<size_t, size_t>  get_edges(size_t group_num);
-            //
+
 
             vector<size_t> get_nodes();
             //looping through original nodes and sending them to find_group() and determining which nodes are heads

@@ -1,13 +1,14 @@
 #include "contracting_graph.hpp"
 #include <structures/union_find.hpp>
+#include <iostream>
 
-
+// #define debug
 namespace vg{
     using namespace std;
     using namespace structures;
 
 
-    ContractingGraph::ContractingGraph(Graph graph, UnionFind uf)
+    ContractingGraph::ContractingGraph(Graph graph, UnionFind& uf)
         :graph(graph), uf(uf){
             
 
@@ -20,14 +21,15 @@ namespace vg{
 
         //get contents of group 
         vector<size_t> group_nodes = uf.group(group_num);
-        
+
         //if an adj_node exists in group_nodes then it is a contracted edge, we treat it as a special case  
         for(size_t i = 0; i<group_nodes.size(); i++){
             int member = group_nodes[i];
+
             for (size_t j = 0; j < graph.nodes[member].edges.size(); j++){
+
                 size_t connecting_node = graph.nodes[member].edges[j].other;
                 size_t connecting_node_group_id = uf.find_group(connecting_node);
-
                 if(connecting_node_group_id == group_num){
                     continue;
                 }else{
@@ -48,8 +50,20 @@ namespace vg{
         
         //holds indices of nodes that are heads in the contracting graph 
         vector<size_t> heads;
-        
+
         //loop through graph nodes and determine which nodes are heads of the group
+#ifdef debug
+            vector<vector<size_t>> all_gs = uf.all_groups();
+            cout << "group size" << all_gs.size() << endl;
+            for (size_t i = 0; i < all_gs.size(); i++){
+                cout << "group_i " << i << endl;
+                vector<size_t> v = all_gs[i];
+
+                for(size_t j = 0; j < v.size(); j++)
+                    cout << "member_j " << v[j] <<endl;
+            }
+                
+#endif
         for(int i =0; i < graph.nodes.size(); i++){
             size_t group_head = uf.find_group(i);
             if(i == group_head){
