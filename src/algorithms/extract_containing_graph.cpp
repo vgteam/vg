@@ -23,12 +23,12 @@ void extract_containing_graph(const HandleGraph* source,
     if (forward_search_lengths.size() != backward_search_lengths.size()
         || forward_search_lengths.size() != positions.size()) {
         cerr << "error:[extract_containing_graph] subgraph extraction search lengths do not match seed positions" << endl;
-        assert(false);
+        exit(1);
     }
     
     if (into->get_node_count()) {
         cerr << "error:[extract_containing_graph] must extract into an empty graph" << endl;
-        assert(false);
+        exit(1);
     }
     
 #ifdef debug_vg_algorithms

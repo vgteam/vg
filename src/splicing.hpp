@@ -133,6 +133,12 @@ public:
     /// Get the handle corresponding to the right side of the splice join
     handle_t right_splice_node() const;
     
+    /// Get the minimum length of a walk from the left seed to the right seed
+    int64_t min_link_length() const;
+    
+    /// Get the maximum length of a walk from the left seed to the right seed
+    int64_t max_link_length() const;
+    
     //////////////////////////
     /// HandleGraph interface
     //////////////////////////
@@ -222,28 +228,6 @@ private:
     // left subgraph
     size_t num_left_handles;
 };
-
-///*
-// * Struct to hold the relevant information for a detected candidate splice site
-// */
-//struct SpliceSide {
-//public:
-//    SpliceSide(const pos_t& search_pos, const pos_t& splice_pos, int64_t search_dist,
-//               int64_t trim_length, int64_t trimmed_score);
-//    SpliceSide() = default;
-//    ~SpliceSide() = default;
-//
-//    // where did we start looking for the splice site
-//    pos_t search_pos;
-//    // where is the splice motif
-//    pos_t splice_pos;
-//    // how far is the splice from the search pos in the graph
-//    int64_t search_dist;
-//    // how far is the splice from the end of the read
-//    int64_t trim_length;
-//    // how much is the score of the clipped region's alignment
-//    int64_t trimmed_score;
-//};
 
 multipath_alignment_t from_hit(const Alignment& alignment, const HandleGraph& graph,
                                const pos_t& hit_pos, const MaximalExactMatch& mem,

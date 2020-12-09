@@ -826,23 +826,22 @@ int main_mpmap(int argc, char** argv) {
         error_rate = "high";
     }
     
-    // normalize capitalization
-    if (out_format == "gamp") {
+    if (out_format == "gamp" || out_format == "Gamp") {
         out_format = "GAMP";
     }
-    if (out_format == "gam") {
+    else if (out_format == "gam" || out_format == "Gam") {
         out_format = "GAM";
     }
-    if (out_format == "gaf") {
+    else if (out_format == "gaf" || out_format == "Gaf") {
         out_format = "GAF";
     }
-    if (out_format == "sam") {
+    else if (out_format == "sam" || out_format == "Sam") {
         out_format = "SAM";
     }
-    if (out_format == "bam") {
+    else if (out_format == "bam" || out_format == "Bam") {
         out_format = "BAM";
     }
-    if (out_format == "cram") {
+    else if (out_format == "cram" || out_format == "Cram") {
         out_format = "CRAM";
     }
     
@@ -919,6 +918,8 @@ int main_mpmap(int argc, char** argv) {
             // we'll allow multicomponent alignments so that the two sides of a shRNA
             // can be one alignment
             suppress_multicomponent_splitting = true;
+            // miRNA aren't spliced like mRNA
+            do_spliced_alignment = false;
         }
     }
     else if (nt_type != "dna") {
