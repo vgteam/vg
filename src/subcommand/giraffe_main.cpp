@@ -1373,6 +1373,4 @@ int main_giraffe(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_giraffe("giraffe", "Graph Alignment Format Fast Emitter", DEVELOPMENT, main_giraffe);
-
-
+static Subcommand vg_giraffe("giraffe", "fast haplotype-aware short read alignment", PIPELINE, 4, main_giraffe);
