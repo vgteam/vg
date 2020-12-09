@@ -44,10 +44,9 @@ void help_index(char** argv) {
          << "xg options:" << endl
          << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s), or read for GCSA or distance indexing" << endl
          << "    -L, --xg-alts          include alt paths in xg" << endl
-         << "gbwt options:" << endl
+         << "gbwt options (more in vg gbwt):" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
          << "    -W, --ignore-missing   don't warn when variants in the VCF are missing from the graph; silently skip them" << endl
-         << "    -e, --parse-only FILE  store the VCF parsing with prefix FILE without generating threads" << endl
          << "    -T, --store-threads    generate threads from the embedded paths" << endl
          << "    --paths-as-samples     interpret the paths as samples instead of contigs in -T" << endl
          << "    -M, --store-gam FILE   generate threads from the alignments in gam FILE (many allowed)" << endl
@@ -93,7 +92,7 @@ void help_index(char** argv) {
 
 void multiple_thread_sources() {
     std::cerr << "error: [vg index] cannot generate threads from multiple sources (VCF, GAM, GAF, paths)" << std::endl;
-    std::cerr << "error: [vg index] GBWT indexes can be built separately and merged with vg gbwt -m" << std::endl;
+    std::cerr << "error: [vg index] GBWT indexes can be built separately and merged with vg gbwt" << std::endl;
     std::exit(EXIT_FAILURE);
 }
 
@@ -173,7 +172,6 @@ int main_index(int argc, char** argv) {
             // GBWT
             {"vcf-phasing", required_argument, 0, 'v'},
             {"ignore-missing", no_argument, 0, 'W'},
-            {"parse-only", required_argument, 0, 'e'},
             {"store-threads", no_argument, 0, 'T'},
             {"paths-as-samples", no_argument, 0, OPT_PATHS_AS_SAMPLES},
             {"store-gam", required_argument, 0, 'M'},
@@ -223,7 +221,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:Lv:We:TM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:w:h",
+        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:w:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -263,9 +261,6 @@ int main_index(int argc, char** argv) {
             break;
         case 'W':
             haplotype_indexer.warn_on_missing_variants = false;
-            break;
-        case 'e':
-            haplotype_indexer.batch_file_prefix = optarg;
             break;
         case 'T':
             if (thread_source != thread_source_none) {
@@ -461,7 +456,7 @@ int main_index(int argc, char** argv) {
     xg::temp_file::set_dir(temp_file::get_dir());
 
 
-    if (xg_name.empty() && gbwt_name.empty() && haplotype_indexer.batch_file_prefix.empty() &&
+    if (xg_name.empty() && gbwt_name.empty() &&
         gcsa_name.empty() && rocksdb_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty()) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
@@ -472,13 +467,8 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    if (!haplotype_indexer.batch_file_prefix.empty() && thread_source != thread_source_vcf) {
-        cerr << "error: [vg index] --parse-only works with --vcf-phasing only" << endl;
-        return 1;
-    }
-
-    if (thread_source != thread_source_none && !(build_gbwt || !haplotype_indexer.batch_file_prefix.empty())) {
-        cerr << "error: [vg index] no output format specified for the threads" << endl;
+    if (thread_source != thread_source_none && !build_gbwt) {
+        cerr << "error: [vg index] no GBWT output specified for the threads" << endl;
         return 1;
     }
 
@@ -569,9 +559,7 @@ int main_index(int argc, char** argv) {
         if (thread_source == thread_source_vcf) {
             std::vector<std::string> parse_files = haplotype_indexer.parse_vcf(vcf_name, *path_handle_graph);
             path_handle_graph.reset(); // Save memory by deleting the graph.
-            if (haplotype_indexer.batch_file_prefix.empty()) {
-                gbwt_index = haplotype_indexer.build_gbwt(parse_files);
-            }
+            gbwt_index = haplotype_indexer.build_gbwt(parse_files);
         } else if (thread_source == thread_source_paths) {
             gbwt_index = haplotype_indexer.build_gbwt(*path_handle_graph);
         } else if (thread_source == thread_source_gam) {

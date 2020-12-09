@@ -31,9 +31,9 @@ namespace vg {
 using namespace std;
 
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-    const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes,
+    const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
     MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
-    path_graph(path_graph), minimizer_indexes(minimizer_indexes),
+    path_graph(path_graph), minimizer_index(minimizer_index),
     distance_index(distance_index), gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index),
     fragment_length_distr(1000,1000,0.95) {
@@ -2526,23 +2526,21 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
 
     std::vector<Minimizer> result;
     double base_score = 1.0 + std::log(this->hard_hit_cap);
-    for (size_t i = 0; i < this->minimizer_indexes.size(); i++) {
-        // Get minimizers and their window agglomeration starts and lengths
-        vector<tuple<gbwtgraph::DefaultMinimizerIndex::minimizer_type, size_t, size_t>> current_minimizers = 
-            minimizer_indexes[i]->minimizer_regions(sequence);
-        for (auto& m : current_minimizers) {
-            double score = 0.0;
-            auto hits = this->minimizer_indexes[i]->count_and_find(get<0>(m));
-            if (hits.first > 0) {
-                if (hits.first <= this->hard_hit_cap) {
-                    score = base_score - std::log(hits.first);
-                } else {
-                    score = 1.0;
-                }
+    // Get minimizers and their window agglomeration starts and lengths
+    vector<tuple<gbwtgraph::DefaultMinimizerIndex::minimizer_type, size_t, size_t>> minimizers =
+        this->minimizer_index.minimizer_regions(sequence);
+    for (auto& m : minimizers) {
+        double score = 0.0;
+        auto hits = this->minimizer_index.count_and_find(get<0>(m));
+        if (hits.first > 0) {
+            if (hits.first <= this->hard_hit_cap) {
+                score = base_score - std::log(hits.first);
+            } else {
+                score = 1.0;
             }
-            result.push_back({ std::get<0>(m), std::get<1>(m), std::get<2>(m), hits.first, hits.second,
-                               (int32_t) minimizer_indexes[i]->k(), (int32_t) minimizer_indexes[i]->w(), score });
         }
+        result.push_back({ std::get<0>(m), std::get<1>(m), std::get<2>(m), hits.first, hits.second,
+                            (int32_t) minimizer_index.k(), (int32_t) minimizer_index.w(), score });
     }
     std::sort(result.begin(), result.end());
 
@@ -3094,14 +3092,9 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 right_frontier.push_back(pareto_point(seq_len - extension.mismatch_positions.back() - 1, right_penalty));
             }
         }
-        size_t min_k = this->minimizer_indexes.front()->k();
-        size_t min_w = this->minimizer_indexes.front()->w();
-        for (size_t i = 1; i < this->minimizer_indexes.size(); i++) {
-            min_k = std::min(min_k, this->minimizer_indexes[i]->k());
-            min_w = std::min(min_w, this->minimizer_indexes[i]->w());
-        }
-        left_frontier.push_back(pareto_point(min_k + min_w - 2, 0));
-        right_frontier.push_back(pareto_point(min_k + min_w - 2, 0));
+        size_t window_length = this->minimizer_index.k() + this->minimizer_index.w() - 1;
+        left_frontier.push_back(pareto_point(window_length - 1, 0));
+        right_frontier.push_back(pareto_point(window_length - 1, 0));
     }
     find_pareto_frontier(left_frontier);
     find_pareto_frontier(right_frontier);
