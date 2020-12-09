@@ -1218,5 +1218,5 @@ void use_preset(HaplotypeIndexer& haplotype_indexer, std::string preset_name) {
 //----------------------------------------------------------------------------
 
 // Register subcommand
-static vg::subcommand::Subcommand vg_gbwt("gbwt", "Manipulate GBWTs", main_gbwt);
+static vg::subcommand::Subcommand vg_gbwt("gbwt", "build and manipulate GBWTs", vg::subcommand::TOOLKIT, main_gbwt);
 
