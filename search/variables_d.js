@@ -176,7 +176,7 @@ var searchData=
   ['min_5ftotal_5fsupport_5ffor_5fcall',['min_total_support_for_call',['../classvg_1_1SupportBasedSnarlCaller.html#a559c8afa8e4f1f73768d7d90ff6a6db0',1,'vg::SupportBasedSnarlCaller']]],
   ['min_5funique_5fper_5fstrand',['min_unique_per_strand',['../classvg_1_1Genotyper.html#a6b1feebb10944e684e417115e880fe39',1,'vg::Genotyper']]],
   ['minimizer',['minimizer',['../classvg_1_1IndexManager.html#a02eb3d0c9f855bac8fe0126fed70368f',1,'vg::IndexManager']]],
-  ['minimizer_5findexes',['minimizer_indexes',['../classvg_1_1MinimizerMapper.html#a8158d7661a52252dd77e2ec0dcaa1964',1,'vg::MinimizerMapper']]],
+  ['minimizer_5findex',['minimizer_index',['../classvg_1_1MinimizerMapper.html#a30be171658ca4f82aaa05e0c42c0d61b',1,'vg::MinimizerMapper']]],
   ['minimizer_5fk',['minimizer_k',['../classvg_1_1IndexManager.html#a89303cd1df38f4e28dce8f3122d96f5d',1,'vg::IndexManager']]],
   ['minimizer_5foverride',['minimizer_override',['../classvg_1_1IndexManager.html#a2470de3a46478125009a3bd72340f226',1,'vg::IndexManager']]],
   ['minimizer_5fs',['minimizer_s',['../classvg_1_1IndexManager.html#aeffbd785d4fae45180596cdf0eb33274',1,'vg::IndexManager']]],

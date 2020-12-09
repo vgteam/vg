@@ -104,10 +104,10 @@ Variables</h2></td></tr>
 <tr class="separator:a5b3b08bd8224196307cb86df71ff927d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Defines the "vg minimizer" subcommand, which builds the experimental minimizer index.</p>
+<div class="textblock"><p>Defines the "vg minimizer" subcommand, which builds the minimizer index.</p>
 <p>The index contains the lexicographically smallest kmer in a window of w successive kmers and their reverse complements. If the kmer contains characters other than A, C, G, and T, it will not be indexed.</p>
-<p>The index contains either all or haplotype-consistent minimizers. Indexing all minimizers from complex graph regions can take a long time (e.g. 65 hours vs 10 minutes for 1000GP), because many windows have the same minimizer. As the total number of minimizers is manageable (e.g. 2.1 billion vs. 1.4 billion for 1000GP), it should be possible to develop a better algorithm for finding the minimizers.</p>
-<p>A quick idea:</p><ul>
+<p>The index contains either all or haplotype-consistent minimizers. Indexing all minimizers from complex graph regions can take a long time (e.g. tens of hours vs 5-10 minutes for 1000GP), because many windows have the same minimizer. As the total number of minimizers is manageable (e.g. 1.5x more for 1000GP) it should be possible to develop a better algorithm for finding the minimizers.</p>
+<p>A quick idea for indexing the entire graph:</p><ul>
 <li>For each node v, extract the subgraph for the windows starting in v.</li>
 <li>Extract all k'-mers from the subgraph and use them to determine where the minimizers can start. </li>
 </ul>
