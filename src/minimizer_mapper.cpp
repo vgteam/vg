@@ -21,10 +21,10 @@
 #include <algorithm>
 #include <cmath>
 
-//#define debug
-//#define print_minimizers
-//#define debug_dump_graph
-//#define debug_fragment_distr
+#define debug
+#define print_minimizers
+#define debug_dump_graph
+#define debug_fragment_distr
 
 namespace vg {
 
@@ -1780,7 +1780,10 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
     // And one base uncapped MAPQ
     double uncapped_mapq = 0;
     double new_cluster_cap = numeric_limits<double>::infinity();
- 
+
+    // Store multiplicities, if we fill them in
+    vector<double> paired_multiplicities;
+
     if (mappings.first.empty()) {
         //If we didn't get an alignment, return empty alignments
         mappings.first.emplace_back(aln1);
@@ -1819,7 +1822,6 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         //We're only using multiplicities if the alignments were rescued
         double estimated_multiplicity_from_1 = unpaired_count_1 > 0 ? (double) unpaired_count_1 / min(rescued_count_1, max_rescue_attempts) : 1.0;
         double estimated_multiplicity_from_2 = unpaired_count_2 > 0 ? (double) unpaired_count_2 / min(rescued_count_2, max_rescue_attempts) : 1.0;
-        vector<double> paired_multiplicities;
         bool all_rescued = true;
         for (PairType type : types) {
             switch (type){
@@ -2008,7 +2010,7 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         int64_t dist = distances[i];
         assert(dist == distance_between(aln_1, aln_2)); 
 
-        assert(scores[i] == score_alignment_pair(aln_1, aln_2, dist);
+        assert(scores[i] == score_alignment_pair(aln_1, aln_2, dist));
 
         double multiplicity = paired_multiplicities.size() == scores.size() ? paired_multiplicities[i] : 1.0;
 
@@ -2055,7 +2057,7 @@ vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> pair_indices;
         int64_t dist = distances[i];
         assert(dist == distance_between(aln_1, aln_2)); 
 
-        assert(scores[i] == score_alignment_pair(aln_1, aln_2, dist);
+        assert(scores[i] == score_alignment_pair(aln_1, aln_2, dist));
 
         double multiplicity = paired_multiplicities.size() == scores.size() ? paired_multiplicities[i] : 1.0;
 
