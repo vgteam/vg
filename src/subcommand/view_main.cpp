@@ -896,6 +896,7 @@ int main_view(int argc, char** argv) {
 
     if (output_type == "gfa") {
         graph_to_gfa(graph, std::cout);
+        return 0;
     } 
 
     // Now we know graph was filled in from the input format. Spit it out in the

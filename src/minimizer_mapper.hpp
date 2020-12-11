@@ -36,7 +36,7 @@ public:
      */
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-         const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes,
+         const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
          MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -142,6 +142,9 @@ public:
     /// and track if/when their descendants make it through stages of the
     /// algorithm. Only works if track_provenance is true.
     bool track_correctness = false;
+    
+    /// If set, log what the mapper is thinking in its mapping of each read.
+    bool show_work = false;
 
     ////How many stdevs from fragment length distr mean do we cluster together?
     double paired_distance_stdevs = 2.0; 
@@ -235,7 +238,7 @@ protected:
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
-    const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes;
+    const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     MinimumDistanceIndex& distance_index;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
@@ -652,6 +655,9 @@ protected:
     
     /// Print a sequence with base numbering
     static void dump_debug_sequence(ostream& out, const string& sequence);
+    
+    /// Get the thread identifier prefix for logging
+    static string log_name();
 
     friend class TestMinimizerMapper;
 };

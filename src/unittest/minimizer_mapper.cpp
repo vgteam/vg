@@ -19,10 +19,10 @@ class TestMinimizerMapper : public MinimizerMapper {
 public:
     TestMinimizerMapper(
         gbwtgraph::GBWTGraph gbwt_graph,
-        vector<gbwtgraph::DefaultMinimizerIndex*> minimizer_indexes,
+        gbwtgraph::DefaultMinimizerIndex minimizer_index,
         MinimumDistanceIndex distance_index,
         PathPositionHandleGraph* handle_graph) 
-        : MinimizerMapper(gbwt_graph, minimizer_indexes, distance_index, handle_graph){};
+        : MinimizerMapper(gbwt_graph, minimizer_index, distance_index, handle_graph){};
     using MinimizerMapper::MinimizerMapper;
     using MinimizerMapper::score_extension_group;
     using MinimizerMapper::Minimizer;
@@ -214,10 +214,10 @@ TEST_CASE("Fragment length distribution gets reasonable value", "[giraffe][mappi
 
         //Make an empty minimizer mapper just to get the fragment length distr
         gbwtgraph::GBWTGraph gbwt_graph;
-        vector<gbwtgraph::DefaultMinimizerIndex*> minimizer_indexes;
+        gbwtgraph::DefaultMinimizerIndex minimizer_index;
         MinimumDistanceIndex distance_index;
         PathPositionHandleGraph* handle_graph;
-        TestMinimizerMapper test_mapper (gbwt_graph, minimizer_indexes, distance_index, handle_graph);
+        TestMinimizerMapper test_mapper (gbwt_graph, minimizer_index, distance_index, handle_graph);
         for (int64_t dist : distances) {
             if (dist <= test_mapper.max_fragment_length) {
                 test_mapper.fragment_length_distr.register_fragment_length(dist);

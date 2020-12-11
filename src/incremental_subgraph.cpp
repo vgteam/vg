@@ -19,7 +19,7 @@ IncrementalSubgraph::IncrementalSubgraph(const HandleGraph& graph,
 {
     handle_t start = graph.get_handle(id(start_pos), is_rev(start_pos));
     int64_t dist = extract_left ? offset(start_pos) - graph.get_length(start) : -offset(start_pos);
-    extracted.emplace_back(start, vector<size_t>(), vector<size_t>(), dist);
+    extracted.emplace_back(start, vector<size_t>(), vector<size_t>(), dist, dist);
     extracted_index[start] = 0;
     
     // initialize the frontier
@@ -91,6 +91,7 @@ handle_t IncrementalSubgraph::extend() {
     auto& extracted_record = extracted.back();
     get<0>(extracted_record) = get<2>(nearest);
     get<3>(extracted_record) = get<1>(nearest);
+    get<4>(extracted_record) = 0;
     // add edges to predecessors that have already been taken out of the frontier
     graph->follow_edges(get<2>(nearest), !extract_left, [&](const handle_t& prev) {
         // TODO: is it sufficient to only add edges to the last copy in the presence
@@ -99,9 +100,12 @@ handle_t IncrementalSubgraph::extend() {
         if (it != extracted_index.end()) {
             get<1>(extracted_record).push_back(it->second);
             get<2>(extracted[it->second]).push_back(extracted.size() - 1);
-            
+            get<4>(extracted_record) = max<int64_t>(get<4>(extracted_record),
+                                                    get<4>(extracted[it->second])
+                                                    + graph->get_length(it->first));
 #ifdef debug_incremental_subgraph
             cerr << "add edge " << it->second << " -> " << extracted.size() - 1 << endl;
+            cerr << "update max dist to " << get<4>(extracted_record) << endl;
 #endif
         }
     });
@@ -116,8 +120,16 @@ handle_t IncrementalSubgraph::handle_at_order(size_t i) const {
     return handlegraph::number_bool_packing::pack(i, false);
 }
 
-int64_t IncrementalSubgraph::distance_from_start(const handle_t& handle) const {
+int64_t IncrementalSubgraph::min_distance_from_start(const handle_t& handle) const {
     return get<3>(extracted[order_of(handle)]);
+}
+
+int64_t IncrementalSubgraph::max_distance_from_start(const handle_t& handle) const {
+    return get<4>(extracted[order_of(handle)]);
+}
+
+bool IncrementalSubgraph::extracting_left() const {
+    return extract_left;
 }
 
 bool IncrementalSubgraph::has_node(id_t node_id) const {
