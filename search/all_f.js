@@ -97,6 +97,7 @@ var searchData=
   ['opt_5fsecondary_5fmax_5fdiff',['OPT_SECONDARY_MAX_DIFF',['../mpmap__main_8cpp.html#a1783eb188d16ca662e0b6302086d350b',1,'mpmap_main.cpp']]],
   ['opt_5fsecondary_5frescue_5fattempts',['OPT_SECONDARY_RESCUE_ATTEMPTS',['../mpmap__main_8cpp.html#ad104748288226e8b7051688389fdd714',1,'mpmap_main.cpp']]],
   ['opt_5fshort_5fmem_5ffilter_5ffactor',['OPT_SHORT_MEM_FILTER_FACTOR',['../mpmap__main_8cpp.html#a318c97f0fac2cb91d18d7fca8772bf7f',1,'mpmap_main.cpp']]],
+  ['opt_5fshow_5fwork',['OPT_SHOW_WORK',['../giraffe__main_8cpp.html#a4108d1aa45ee8d8f7099af817397586b',1,'giraffe_main.cpp']]],
   ['opt_5fstrip_5fcount',['OPT_STRIP_COUNT',['../mpmap__main_8cpp.html#ad8233b7b00bc4fa0c87c4af3ed501cfd',1,'mpmap_main.cpp']]],
   ['opt_5fstrip_5flength',['OPT_STRIP_LENGTH',['../mpmap__main_8cpp.html#abe95d7c95e55ac2cc94394e657ce16fd',1,'mpmap_main.cpp']]],
   ['opt_5fstripped_5fmatch',['OPT_STRIPPED_MATCH',['../mpmap__main_8cpp.html#a241677bb449101778f187f6be8cdd2a0',1,'mpmap_main.cpp']]],

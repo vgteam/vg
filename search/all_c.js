@@ -87,6 +87,7 @@ var searchData=
   ['log_5fcontinue_5fprobability',['log_continue_probability',['../structhaplo_1_1haploMath_1_1RRMemo.html#afd6af2944e0a42df7f251fe008ba3e90',1,'haplo::haploMath::RRMemo']]],
   ['log_5flikelihood',['log_likelihood',['../structvg_1_1Genotype.html#ad14f6fc449e1086ccd2de2bc4ad419a4',1,'vg::Genotype']]],
   ['log_5flikelihood_5fapprox_5ffactor',['log_likelihood_approx_factor',['../classvg_1_1MultipathMapper.html#a28e3e0b047b5d3c195431982f76084c1',1,'vg::MultipathMapper']]],
+  ['log_5fname',['log_name',['../classvg_1_1MinimizerMapper.html#ad49858579fbcd962383387351e2b0183',1,'vg::MinimizerMapper']]],
   ['log_5fpopulation_5fsize',['log_population_size',['../structhaplo_1_1haploMath_1_1RRMemo.html#a27a02a4732a9e50c9a1cb9f0b7d7ac3b',1,'haplo::haploMath::RRMemo']]],
   ['log_5fposterior',['log_posterior',['../structvg_1_1Genotype.html#a743da1ba7239bddcd6316a60f66bd307',1,'vg::Genotype']]],
   ['log_5fprior',['log_prior',['../structvg_1_1Genotype.html#a94b836b6384c02e11478b2ec18ab0ad7',1,'vg::Genotype']]],

@@ -43,6 +43,7 @@ var searchData=
   ['log10_5fadd_5fone',['log10_add_one',['../namespacevg.html#a16b2b6e110a2f72a871c309b888b013c',1,'vg']]],
   ['log10_5fto_5fln',['log10_to_ln',['../namespacevg.html#a48d9ec9295afc7457506af4ddaf44217',1,'vg']]],
   ['log_5fcontinue_5ffactor',['log_continue_factor',['../structhaplo_1_1haploMath_1_1RRMemo.html#a4a3dacc819f40fd7e5063821b133028d',1,'haplo::haploMath::RRMemo']]],
+  ['log_5fname',['log_name',['../classvg_1_1MinimizerMapper.html#ad49858579fbcd962383387351e2b0183',1,'vg::MinimizerMapper']]],
   ['log_5fpopulation_5fsize',['log_population_size',['../structhaplo_1_1haploMath_1_1RRMemo.html#a27a02a4732a9e50c9a1cb9f0b7d7ac3b',1,'haplo::haploMath::RRMemo']]],
   ['log_5frecombination_5fpenalty',['log_recombination_penalty',['../structhaplo_1_1haploMath_1_1RRMemo.html#aa33b509ee804234be1fb33061b3a9f76',1,'haplo::haploMath::RRMemo']]],
   ['log_5ftarget',['log_target',['../classvg_1_1MCMCGenotyper.html#a4622c5efee68d8f148b961a92a1abc62',1,'vg::MCMCGenotyper']]],

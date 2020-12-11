@@ -186,6 +186,9 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aeabec85347521c1f42ef51e0453c4e5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7896c6cccfa011c4fbad1b916d30052e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a7896c6cccfa011c4fbad1b916d30052e">track_correctness</a> = false</td></tr>
 <tr class="separator:a7896c6cccfa011c4fbad1b916d30052e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a089bb5c8a56a7614a2f494690f3b5acd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a089bb5c8a56a7614a2f494690f3b5acd">show_work</a> = false</td></tr>
+<tr class="memdesc:a089bb5c8a56a7614a2f494690f3b5acd"><td class="mdescLeft">&#160;</td><td class="mdescRight">If set, log what the mapper is thinking in its mapping of each read.  <a href="#a089bb5c8a56a7614a2f494690f3b5acd">More...</a><br /></td></tr>
+<tr class="separator:a089bb5c8a56a7614a2f494690f3b5acd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a94bd867270265d26c4f2abfbd730f316"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a94bd867270265d26c4f2abfbd730f316">paired_distance_stdevs</a> = 2.0</td></tr>
 <tr class="separator:a94bd867270265d26c4f2abfbd730f316"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a923b2f2f9aa86e445add3be0d1c4abae"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a923b2f2f9aa86e445add3be0d1c4abae">paired_rescue_score_limit</a> = 0.9</td></tr>
@@ -306,6 +309,9 @@ Static Protected Member Functions</h2></td></tr>
 <tr class="memitem:a76d10debe8563e4a84d837a1a895c70b"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a76d10debe8563e4a84d837a1a895c70b">dump_debug_sequence</a> (ostream &amp;out, const string &amp;sequence)</td></tr>
 <tr class="memdesc:a76d10debe8563e4a84d837a1a895c70b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print a sequence with base numbering.  <a href="#a76d10debe8563e4a84d837a1a895c70b">More...</a><br /></td></tr>
 <tr class="separator:a76d10debe8563e4a84d837a1a895c70b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad49858579fbcd962383387351e2b0183"><td class="memItemLeft" align="right" valign="top">static string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ad49858579fbcd962383387351e2b0183">log_name</a> ()</td></tr>
+<tr class="memdesc:ad49858579fbcd962383387351e2b0183"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the thread identifier prefix for logging.  <a href="#ad49858579fbcd962383387351e2b0183">More...</a><br /></td></tr>
+<tr class="separator:ad49858579fbcd962383387351e2b0183"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -1724,6 +1730,33 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="ad49858579fbcd962383387351e2b0183"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad49858579fbcd962383387351e2b0183">&#9670;&nbsp;</a></span>log_name()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::MinimizerMapper::log_name </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the thread identifier prefix for logging. </p>
+
+</div>
+</div>
 <a id="a4c955e7607a1c07d2ca2b22a065e8b91"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4c955e7607a1c07d2ca2b22a065e8b91">&#9670;&nbsp;</a></span>map() <span class="overload">[1/2]</span></h2>
 
@@ -2984,6 +3017,22 @@ template&lt;typename Item , typename Score &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a089bb5c8a56a7614a2f494690f3b5acd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a089bb5c8a56a7614a2f494690f3b5acd">&#9670;&nbsp;</a></span>show_work</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MinimizerMapper::show_work = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>If set, log what the mapper is thinking in its mapping of each read. </p>
 
 </div>
 </div>
