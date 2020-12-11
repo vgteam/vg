@@ -309,6 +309,7 @@ void help_giraffe(char** argv) {
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
     << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
+    << "  --show-work                   log how the mapper comes to its conclusions about mapping locations" << endl
     << "algorithm presets:" << endl
     << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
     << "computational parameters:" << endl
@@ -354,6 +355,7 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_CLUSTER_STDEV 1007
     #define OPT_RESCUE_STDEV 1008
     #define OPT_REF_PATHS 1009
+    #define OPT_SHOW_WORK 1010
     
 
     // initialize parameters with their default options
@@ -425,6 +427,8 @@ int main_giraffe(int argc, char** argv) {
     bool track_provenance = false;
     // Should we track candidate correctness?
     bool track_correctness = false;
+    // Should we log our mapping decision making?
+    bool show_work = false;
 
     // Chain all the ranges and get a function that loops over all combinations.
     auto for_each_combo = distance_limit
@@ -509,6 +513,7 @@ int main_giraffe(int argc, char** argv) {
             {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
+            {"show-work", no_argument, 0, OPT_SHOW_WORK},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
@@ -835,6 +840,10 @@ int main_giraffe(int argc, char** argv) {
                 track_correctness = true;
                 break;
                 
+            case OPT_SHOW_WORK:
+                show_work = true;
+                break;
+                
             case 't':
             {
                 int num_threads = parse<int>(optarg);
@@ -1147,6 +1156,11 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--track-correctness " << endl;
         }
         minimizer_mapper.track_correctness = track_correctness;
+        
+        if (show_progress && show_work) {
+            cerr << "--show-work " << endl;
+        }
+        minimizer_mapper.show_work = show_work;
 
         if (show_progress && paired) {
             if (forced_mean && forced_stdev) {
