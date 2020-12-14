@@ -291,7 +291,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     {
                         const Minimizer& minimizer = minimizers[seed.source];
                         cerr << log_name() << "Seed read:" << minimizer.value.offset << " = " << seed.pos
-                            << " from minimizer " << seed.source << "(" << minimizer.hits << ")" << endl;
+                            << " from minimizer " << seed.source << "(" << minimizer.hits << "), #" << seed_index << endl;
                     }
                 }
             }
@@ -602,7 +602,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             // Tell the funnel
             funnel.pass("max-multimaps", alignment_num);
             funnel.project(alignment_num);
-            funnel.score(alignment_num, scores.back());
+            funnel.score(funnel.latest(), scores.back());
         }
         
         return true;
@@ -1202,7 +1202,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                             #pragma omp critical (cerr)
                             {
                                 cerr << log_name() << "Seed read:" << minimizers[seed.source].value.offset << " = " << seed.pos
-                                    << " from minimizer " << seed.source << endl;
+                                    << " from minimizer " << seed.source << ", #" << seed_index << endl;
                             }
                         }
                     }
@@ -1378,7 +1378,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
                     if (track_provenance) {
                         funnels[read_num].project(extension_num);
-                        funnels[read_num].score(extension_num, alignment_list.back().score());
+                        funnels[read_num].score(funnels[read_num].latest(), alignment_list.back().score());
                     }
                     
                     if (show_work) {
@@ -1430,7 +1430,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     //Now that we have alignments, figure out how to pair them up
     
     if (track_provenance) {
-        // Now say we are finding the winner(s)
+        // Now say we are finding the pairs
         funnels[0].stage("pairing");
         funnels[1].stage("pairing");
     }
@@ -1520,8 +1520,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         funnels[1].substage("pair-clusters");
                         funnels[0].pass("max-rescue-attempts", funnel_index1);
                         funnels[0].project(funnel_index1);
+                        funnels[0].score(funnels[0].latest(), score);
                         funnels[1].pass("max-rescue-attempts", funnel_index2);
                         funnels[1].project(funnel_index2);
+                        funnels[1].score(funnels[1].latest(), score);
                         funnels[0].substage_stop();
                         funnels[1].substage_stop();
                         funnels[0].processed_input();
@@ -1746,6 +1748,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         funnels[found_first ? 0 : 1].pass("max-rescue-attempts", j);
                         funnels[found_first ? 0 : 1].project(j);
                         funnels[found_first ? 1 : 0].introduce();
+                        funnels[0].score(funnels[0].latest(), score);
+                        funnels[1].score(funnels[1].latest(), score);
                     }
                 }
                 if (track_provenance) {
@@ -1870,10 +1874,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             // Tell the funnel
             funnels[0].pass("max-multimaps", alignment_num);
             funnels[0].project(alignment_num);
-            funnels[0].score(alignment_num, scores.back());
+            funnels[0].score(funnels[0].latest(), scores.back());
             funnels[1].pass("max-multimaps", alignment_num);
             funnels[1].project(alignment_num);
-            funnels[1].score(alignment_num, scores.back());
+            funnels[1].score(funnels[1].latest(), scores.back());
         }
         
         return true;
@@ -1983,7 +1987,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             get_regular_aligner()->compute_mapping_quality(scores, false, multiplicities);
 
         //Cap mapq at 1 - 1 / # equivalent or better fragment clusters, including self
-         if (better_cluster_count_by_mappings.front() > 1) {
+        if (better_cluster_count_by_mappings.front() > 1) {
             // TODO: why is this a sensible cap?
             fragment_cluster_cap = prob_to_phred(1.0 - (1.0 / (double) better_cluster_count_by_mappings.front()));
             // Leave zeros in here and don't round.
@@ -2216,18 +2220,17 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }
 #endif
 
-    // Ship out all the aligned alignments
-    return mappings;
-
 #ifdef debug_dump_funnel
     // Dump the funnel info graph.
     funnels[0].to_dot(cerr);
     funnels[1].to_dot(cerr);
 #endif
+
+    // Ship out all the aligned alignments
+    return mappings;
 }
 
 //-----------------------------------------------------------------------------
-
 
 double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored,
     const string& sequence, const string& quality_bytes) {
