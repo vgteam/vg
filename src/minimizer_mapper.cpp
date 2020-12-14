@@ -2680,6 +2680,7 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
     std::vector<Minimizer> result;
     double base_score = 1.0 + std::log(this->hard_hit_cap);
     // Get minimizers and their window agglomeration starts and lengths
+    // Starts and lengths are all 0 if we are using syncmers.
     vector<tuple<gbwtgraph::DefaultMinimizerIndex::minimizer_type, size_t, size_t>> minimizers =
         this->minimizer_index.minimizer_regions(sequence);
     for (auto& m : minimizers) {
@@ -2692,8 +2693,25 @@ std::vector<MinimizerMapper::Minimizer> MinimizerMapper::find_minimizers(const s
                 score = 1.0;
             }
         }
-        result.push_back({ std::get<0>(m), std::get<1>(m), std::get<2>(m), hits.first, hits.second,
-                            (int32_t) minimizer_index.k(), (int32_t) minimizer_index.w(), score });
+        
+        // Length of the match from this minimizer or syncmer
+        int32_t match_length = (int32_t) minimizer_index.k();
+        // Number of candidate kmers that this minimizer is minimal of
+        int32_t candidate_count = this->minimizer_index.uses_syncmers() ? 1 : (int32_t) minimizer_index.w();
+        
+        auto& value = std::get<0>(m);
+        size_t agglomeration_start = std::get<1>(m);
+        size_t agglomeration_length = std::get<2>(m);
+        if (this->minimizer_index.uses_syncmers()) {
+            // The index says the start and length are 0. Really they should be where the k-mer is.
+            // So start where the k-mer is on the forward strand
+            agglomeration_start = value.is_reverse ? (value.offset - (match_length - 1)) : value.offset;
+            // And run for the k-mer length
+            agglomeration_length = match_length;
+        }
+        
+        result.push_back({ value, agglomeration_start, agglomeration_length, hits.first, hits.second,
+                            match_length, candidate_count, score });
     }
     std::sort(result.begin(), result.end());
 
@@ -3236,7 +3254,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
          extension followed by the entire extension.
       2. A gap from the start/end of the read to the start/end of the
          extension followed by the extension until the first mismatch.
-      3. A k + w - 2 bp exact match at the start/end of the read.
+      3. An all-windows-length - 1 bp exact match at the start/end of the read.
     */
     const Aligner* aligner = this->get_regular_aligner();
     std::vector<pareto_point> left_frontier, right_frontier;
@@ -3256,7 +3274,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 right_frontier.push_back(pareto_point(seq_len - extension.mismatch_positions.back() - 1, right_penalty));
             }
         }
-        size_t window_length = this->minimizer_index.k() + this->minimizer_index.w() - 1;
+        size_t window_length = this->minimizer_index.uses_syncmers() ? this->minimizer_index.k() : (this->minimizer_index.k() + this->minimizer_index.w() - 1);
         left_frontier.push_back(pareto_point(window_length - 1, 0));
         right_frontier.push_back(pareto_point(window_length - 1, 0));
     }

@@ -190,6 +190,7 @@ protected:
 
     /**
      * We define our own type for minimizers, to use during mapping and to pass around between our internal functions.
+     * Also used to represent syncmers, in which case the only window, the "minimizer", and the agglomeration are all the same region.
      */
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
@@ -198,7 +199,7 @@ protected:
         size_t hits; // How many hits does the minimizer have?
         const gbwtgraph::hit_type* occs;
         int32_t length; // How long is the minimizer (index's k)
-        int32_t candidates_per_window; // How many minimizers compete to be the best (index's w)  
+        int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
 
         // Sort the minimizers in descending order by score.
