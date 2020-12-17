@@ -639,7 +639,7 @@ namespace vg {
 #endif
                 
                 for (int64_t j : node_matches[injected_id]) {
-                    PathNode& match_node = path_nodes.at(j);
+                    PathNode& match_node = path_nodes[j];
                     
                     if (begin < match_node.begin || end > match_node.end) {
 #ifdef debug_multipath_alignment
@@ -1063,12 +1063,16 @@ namespace vg {
             }
         }
         
+        
         unordered_set<int64_t> already_merged;
         for (const auto& overlapping_pair : pairs_to_attempt) {
             if (already_merged.count(overlapping_pair.first) || already_merged.count(overlapping_pair.second)) {
                 // too complicated to try to merge the same node multiple times
                 continue;
             }
+#ifdef debug_multipath_alignment
+            cerr << "checking overlapping pair " << overlapping_pair.first << ", " << overlapping_pair.second << endl;
+#endif
             
             auto& path_node_1 = path_nodes[overlapping_pair.first];
             auto& path_node_2 = path_nodes[overlapping_pair.second];
@@ -1116,11 +1120,11 @@ namespace vg {
                 cerr << string(path_nodes[overlapping_pair.second].begin, path_nodes[overlapping_pair.second].end) << endl;
                 cerr << debug_string(path_nodes[overlapping_pair.second].path) << endl;
                 for (const auto& segment : identical_segments) {
-                    cerr << "\t(i: " << get<0>(segment) << ", j: " << get<1>(segment) << ", len: " << get<2>(segment) << endl;
+                    cerr << "\ti: " << get<0>(segment) << ", j: " << get<1>(segment) << ", len: " << get<2>(segment) << endl;
                 }
 #endif
                 
-                // add a path node for a segment, updating the tracking variables as necessary
+                // function to add a path node for a segment, updating the tracking variables as necessary
                 auto add_segment_path_node = [&](PathNode& original_path_node, size_t seg_begin, size_t seg_end,
                                                  size_t orig_idx, size_t prov, bool& replaced_orig, int64_t& to_length) {
                     size_t idx;
@@ -1158,14 +1162,19 @@ namespace vg {
                 bool replaced_1 = false, replaced_2 = false;
                 int64_t to_length_1 = 0, to_length_2 = 0;
                 for (size_t i = 0; i <= identical_segments.size(); ++i) {
+#ifdef debug_multipath_alignment
+                    cerr << "segment iter " << i << " of " << identical_segments.size() << endl;
+#endif
+                    
                     // identify the segments (if any) between the identical segments
                     size_t prev_1, prev_2;
                     if (i == 0) {
                         prev_1 = prev_2 = 0;
                     }
                     else {
-                        prev_1 = get<0>(identical_segments[i - 1]);
-                        prev_2 = get<1>(identical_segments[i - 1]);
+                        auto& prev_segment = identical_segments[i - 1];
+                        prev_1 = get<0>(prev_segment) + get<2>(prev_segment);
+                        prev_2 = get<1>(prev_segment) + get<2>(prev_segment);
                     }
                     size_t here_1, here_2;
                     if (i < identical_segments.size()) {
@@ -1176,6 +1185,10 @@ namespace vg {
                         here_1 = original_path_node_1.path.mapping_size();
                         here_2 = original_path_node_2.path.mapping_size();
                     }
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "intervening ranges: [" << prev_1 << ", " << here_1 << "), [" << prev_2 << ", " << here_2 << ")" << endl;
+#endif
                     
                     // add unshared portions as path nodes
                     if (prev_1 != here_1) {
@@ -1204,6 +1217,11 @@ namespace vg {
                 already_merged.insert(overlapping_pair.first);
                 already_merged.insert(overlapping_pair.second);
             }
+#ifdef debug_multipath_alignment
+            else {
+                cerr << "no matching segments, not merging pair" << endl;
+            }
+#endif
         }
     }
     
@@ -3953,7 +3971,7 @@ namespace vg {
                 
                 for (auto& connecting_alignment : deduplicated) {
 #ifdef debug_multipath_alignment
-                    cerr << "translating connecting alignment: " << debug_string(connecting_alignment.first), ", score " << connecting_alignment.second << endl;
+                    cerr << "translating connecting alignment: " << debug_string(connecting_alignment.first) << ", score " << connecting_alignment.second << endl;
 #endif
                     
                     auto& aligned_path = connecting_alignment.first;
