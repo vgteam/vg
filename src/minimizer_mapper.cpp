@@ -27,8 +27,6 @@
 //#define print_minimizer_table
 // Dump local graphs that we align against 
 //#define debug_dump_graph
-// Dump the funnel information about where candidates were lost
-//#define debug_dump_funnel
 // Dump fragment length distribution information
 //#define debug_fragment_distr
 
@@ -743,10 +741,13 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     }
 #endif
 
-#ifdef debug_dump_funnel
-    // Dump the funnel info graph.
-    funnel.to_dot(cerr);
-#endif
+    if (track_provenance && show_work) {
+        // Dump the funnel info graph.
+        #pragma omp critical (cerr)
+        {
+            funnel.to_dot(cerr);
+        }
+    }
 
     return mappings;
 }
@@ -2220,11 +2221,14 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }
 #endif
 
-#ifdef debug_dump_funnel
-    // Dump the funnel info graph.
-    funnels[0].to_dot(cerr);
-    funnels[1].to_dot(cerr);
-#endif
+    if (track_provenance && show_work) {
+        // Dump the funnel info graph.
+        #pragma omp critical (cerr)
+        {
+            funnels[0].to_dot(cerr);
+            funnels[1].to_dot(cerr);
+        }
+    }
 
     // Ship out all the aligned alignments
     return mappings;
