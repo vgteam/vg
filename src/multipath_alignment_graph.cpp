@@ -1066,6 +1066,7 @@ namespace vg {
         
         unordered_set<int64_t> already_merged;
         for (const auto& overlapping_pair : pairs_to_attempt) {
+            
             if (already_merged.count(overlapping_pair.first) || already_merged.count(overlapping_pair.second)) {
                 // too complicated to try to merge the same node multiple times
                 continue;
@@ -1081,7 +1082,10 @@ namespace vg {
             vector<tuple<size_t, size_t, size_t>> identical_segments;
             int64_t to_length_1 = 0, to_length_2 = 0;
             bool in_identical_segment = false;
-            for (size_t i = 0, j = 0; i < path_node_1.path.mapping_size() && path_node_2.path.mapping_size(); ) {
+            for (size_t i = 0, j = 0; i < path_node_1.path.mapping_size() && j < path_node_2.path.mapping_size(); ) {
+#ifdef debug_multipath_alignment
+                cerr << "compare mappings " << i << " and " << j << ", idx diff " << ((path_node_2.begin - path_node_1.begin) + to_length_2 - to_length_1) << ", pos " << debug_string(path_node_1.path.mapping(i).position()) << " and " << debug_string(path_node_2.path.mapping(j).position()) << endl;
+#endif
                 if (path_node_1.begin + to_length_1 > path_node_2.begin + to_length_2) {
                     in_identical_segment = false;
                     to_length_2 += mapping_to_length(path_node_2.path.mapping(j));
