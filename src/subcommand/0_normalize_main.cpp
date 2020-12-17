@@ -169,11 +169,9 @@ int main_normalize(int argc, char **argv) {
         vg::evaluate_normalized_snarls(snarl_stream);
     }
 
-    // TODO: NOTE: this may be cumbersome code if we decide to add more argument types.
-    // Consider changing.
-
     if (normalize) {
-        vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph *>(graph.get()), cout);
+        //todo: maybe rewrite to mimic mod_main.
+        // vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph *>(graph.get()), cout);
 
         // graph->serialize(std::cout);
     }

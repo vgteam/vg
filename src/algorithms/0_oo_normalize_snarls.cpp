@@ -67,20 +67,35 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
      *      4) number of bases in the snarl before normalization
      *      5) number of bases in the snarl after normalization.
     */ 
-    int error_record_size = 5;
+    int error_record_size = 6;
     vector<int> one_snarl_error_record(error_record_size, 0);
     vector<int> full_error_record(error_record_size, 0);
 
     pair<int, int> snarl_sequence_change;
 
+    // //todo: debug_code
+    int stop_size = 1;
+    int num_snarls_touched = 0;
+
+    int skip_first_few = 1;
+    int skipped = 0;
     for (auto roots : snarl_roots) {
+        if (skipped < skip_first_few){
+            skipped++;
+            continue;
+        }
+        if (num_snarls_touched == stop_size){
+            break;
+        } else {
+            num_snarls_touched++;
+        }
         // if (roots->start().node_id() > 269600 && roots->start().node_id() < 269700) {
             cerr << "disambiguating snarl #"
                  << (num_snarls_normalized + num_snarls_skipped)
                  << " source: " << roots->start().node_id()
                  << " sink: " << roots->end().node_id() << endl;
 
-            normalize_snarl(roots->start().node_id(), roots->end().node_id());
+            one_snarl_error_record = normalize_snarl(roots->start().node_id(), roots->end().node_id());
 
             if (!((one_snarl_error_record[0]) || (one_snarl_error_record[1]) ||
                   (one_snarl_error_record[2]) || (one_snarl_error_record[3]))) {
@@ -100,6 +115,14 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
                 num_snarls_skipped += 1;
             }
         // }
+        //todo: debug_statement for extracting snarl of interest.
+        VG outGraph;
+        pos_t source_pos = make_pos_t(roots->start().node_id(), false, 0);
+        vector<pos_t> pos_vec;
+        pos_vec.push_back(source_pos);
+        algorithms::extract_containing_graph(&_graph, &outGraph, pos_vec, 1000);
+        // algorithms::extract_containing_graph(&_graph, &outGraph, pos_vec, roots->end().node_id() - roots->start().node_id() + 2);
+        outGraph.serialize_to_ostream(cout);
     }
     cerr << endl
          << "normalized " << num_snarls_normalized << " snarl(s), skipped "
@@ -115,12 +138,14 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
     cerr << "amount of sequence in normalized snarls after normalization: "
          << snarl_sequence_change.second << endl;
 
-    // //todo: debug_statement for extracting snarl of interest.
+    //todo: debug_statement for extracting snarl of interest.
     // VG outGraph;
     // pos_t source_pos = make_pos_t(269695, false, 0);
     // vector<pos_t> pos_vec;
     // pos_vec.push_back(source_pos);
     // algorithms::extract_containing_graph(&_graph, &outGraph, pos_vec, 1000);
+    // _graph = outGraph;
+    // vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph *>(outGraph.get()), cout);
     // outGraph.serialize_to_ostream(cout);
 
     delete snarl_manager;
