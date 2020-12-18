@@ -22,15 +22,11 @@ namespace vg {
 
 
 
-        pair<vector<vector<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed, int V) {
+        pair<vector<vector<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed, size_t V) {
  
      
             minstd_rand0 random_engine(seed);
-            structures::UnionFind uf(V, true);
-            
-            
-
-            ContractingGraph cg(graph, uf); 
+            ContractingGraph cg(graph, V); 
             unordered_map<size_t, size_t> cgraph_total_edge_weights;
             pair<vector<vector<size_t>>, size_t> to_return;
             
@@ -112,50 +108,13 @@ namespace vg {
                     count++;
 
                 }
-#ifdef debug
-                cout << "random edge idx " << random_edge_weight_idx << endl;
-                cout << "other node  " << other_node << endl;
-                size_t g_size_random =  uf.group_size(random_node);
-                size_t g_size_other =  uf.group_size(other_node);
-                cout << "group size random" << g_size_random <<endl;
-                cout << "group size other" << g_size_other <<endl;
-                
-#endif
+
     
                 //contract edge between random node and other node 
-                uf.union_groups(random_node, other_node);
+                // uf.union_groups(random_node, other_node);
+                cg.contract(random_node, other_node);
                 
-                
-                
-                // get the size of the current groups - will tell us how many supernodes
-                vector<vector<size_t>> all_gs = uf.all_groups();
-                V = all_gs.size();
-#ifdef debug
 
-               
-                // cout << "g size" << all_gs.size() << endl;
-                // for (size_t i = 0; i < all_gs.size(); i++){
-                //     cout << "g_i " << i << endl;
-                //     vector<size_t> v = all_gs[i];
-
-                //     for(size_t j = 0; j < v.size(); j++)
-                //         cout << "m_j " << v[j] <<endl;
-                // }
-
-                // g_size_random =  uf.group_size(random_node);
-                // g_size_other =  uf.group_size(other_node);
-                // cout << "group size random" << g_size_random <<endl;
-                // cout << "group size other" << g_size_other <<endl;
-                // vector<size_t> group = uf.group(random_node);
-                // for (size_t i = 0; i < group.size(); i++){
-
-                //     cout << "group i member "<< group[i] <<endl;
-                // }
-                //call get_nodes again to see if the contraction worked
-                vector<size_t> sp = cg.get_nodes();
-                
-                
-#endif
                 // check the new size of super nodes after contraction
                 // if we have only two we can break out of the while loop
                 if(V == 2){
@@ -191,7 +150,7 @@ namespace vg {
         return to_return;    
         } 
 
-        pair<vector<vector<size_t>>, size_t> compute_min_cut(Graph graph, const int n_iterations, const int seed, int V){
+        pair<vector<vector<size_t>>, size_t> compute_min_cut(Graph graph, const int n_iterations, const int seed, size_t V){
 
             // compute min-cut twice and choose the min-cut with least total graph weights
             //the minimum total edge weight of graph will give us the min-cut

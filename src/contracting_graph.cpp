@@ -7,13 +7,16 @@ namespace vg{
     using namespace std;
     using namespace structures;
 
-
-    ContractingGraph::ContractingGraph(Graph graph, UnionFind& uf)
-        :graph(graph), uf(uf){
-            
+    ContractingGraph::ContractingGraph(Graph graph, size_t V)
+        :graph(graph), V(V){
 
     }
+  
+    void ContractingGraph::contract(size_t random_node, size_t other_node){
 
+        uf.union_groups(random_node, other_node);
+
+    }
     unordered_map<size_t, size_t> ContractingGraph::get_edges(size_t group_num){
         
         //create container to keep group and edge_totals
@@ -52,18 +55,6 @@ namespace vg{
         vector<size_t> heads;
 
         //loop through graph nodes and determine which nodes are heads of the group
-#ifdef debug
-            vector<vector<size_t>> all_gs = uf.all_groups();
-            cout << "group size" << all_gs.size() << endl;
-            for (size_t i = 0; i < all_gs.size(); i++){
-                cout << "group_i " << i << endl;
-                vector<size_t> v = all_gs[i];
-
-                for(size_t j = 0; j < v.size(); j++)
-                    cout << "member_j " << v[j] <<endl;
-            }
-                
-#endif
         for(int i =0; i < graph.nodes.size(); i++){
             size_t group_head = uf.find_group(i);
             if(i == group_head){
