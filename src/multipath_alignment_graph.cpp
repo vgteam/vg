@@ -1063,7 +1063,6 @@ namespace vg {
             }
         }
         
-        
         unordered_set<int64_t> already_merged;
         for (const auto& overlapping_pair : pairs_to_attempt) {
             
@@ -1074,6 +1073,9 @@ namespace vg {
 #ifdef debug_multipath_alignment
             cerr << "checking overlapping pair " << overlapping_pair.first << ", " << overlapping_pair.second << endl;
 #endif
+            
+            // TODO: right now only focusing on overlapping mappings, we could also merge along edits
+            // and partial edits
             
             auto& path_node_1 = path_nodes[overlapping_pair.first];
             auto& path_node_2 = path_nodes[overlapping_pair.second];
@@ -1210,10 +1212,11 @@ namespace vg {
                     }
                     
                     // add the shared segment as a path node
+                    int64_t to_length_before_advancing_1 = to_length_1;
                     add_segment_path_node(original_path_node_1, here_1, here_1 + get<2>(identical_segments[i]),
                                           overlapping_pair.first, prov_1, replaced_1, to_length_1);
-                    // because the segments are shared, the read position should end at the same place
-                    to_length_2 = to_length_1;
+                    // ugly, but it works
+                    to_length_2 += (to_length_before_advancing_1 - to_length_1);
                 }
                 
                 // mark these path nodes so we don't try to merge the same nodes (which have been chopped
