@@ -1150,8 +1150,10 @@ namespace vg {
                         to_length += mapping_to_length(node_into.path.mapping().back());
                     }
                     node_into.end = original_path_node.begin + to_length;
+                    
 #ifdef debug_multipath_alignment
                     cerr << "created node in index " << idx << endl;
+                    cerr << "relative sequence interval [" << (node_into.begin - original_path_node.begin) << ", " << (node_into.end - original_path_node.begin) << endl;
                     cerr << string(node_into.begin, node_into.end) << endl;
                     cerr << debug_string(node_into.path) << endl;
 #endif
@@ -1169,7 +1171,7 @@ namespace vg {
                 int64_t to_length_1 = 0, to_length_2 = 0;
                 for (size_t i = 0; i <= identical_segments.size(); ++i) {
 #ifdef debug_multipath_alignment
-                    cerr << "segment iter " << i << " of " << identical_segments.size() << endl;
+                    cerr << "segment iter " << i << " of " << identical_segments.size() << ", to len 1 " << to_length_1 << ", to len 2 " << to_length_2 << ", replaced 1? " << replaced_1 << ", replaced 2? " << replaced_2 << endl;
 #endif
                     
                     // identify the segments (if any) between the identical segments
@@ -1211,12 +1213,16 @@ namespace vg {
                         break;
                     }
                     
+#ifdef debug_multipath_alignment
+                    cerr << "matching ranges [" << here_1 << ", " << here_1 + get<2>(identical_segments[i]) << "), [" << here_2 << ", " << here_2 + get<2>(identical_segments[i]) << ")" << endl;
+#endif
+                    
                     // add the shared segment as a path node
                     int64_t to_length_before_advancing_1 = to_length_1;
                     add_segment_path_node(original_path_node_1, here_1, here_1 + get<2>(identical_segments[i]),
                                           overlapping_pair.first, prov_1, replaced_1, to_length_1);
                     // ugly, but it works
-                    to_length_2 += (to_length_before_advancing_1 - to_length_1);
+                    to_length_2 += (to_length_1 - to_length_before_advancing_1);
                 }
                 
                 // mark these path nodes so we don't try to merge the same nodes (which have been chopped
