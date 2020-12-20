@@ -157,6 +157,9 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:a3c85be16ae8b695687db4946940aab50"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a3c85be16ae8b695687db4946940aab50">create_match_nodes</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, <a class="el" href="classvg_1_1MultipathMapper.html#acae95760b8750cf3b2bb48d00fe499fd">MultipathMapper::memcluster_t</a> &amp;hits, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;project, const unordered_multimap&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;injection_trans, vector&lt; size_t &gt; &amp;path_node_provenance, const <a class="el" href="classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd">MultipathMapper::match_fanouts_t</a> *fanout_breaks)</td></tr>
 <tr class="memdesc:a3c85be16ae8b695687db4946940aab50"><td class="mdescLeft">&#160;</td><td class="mdescRight">Walk out MEMs into match nodes and filter out redundant sub-MEMs.  <a href="#a3c85be16ae8b695687db4946940aab50">More...</a><br /></td></tr>
 <tr class="separator:a3c85be16ae8b695687db4946940aab50"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9f8ca4f9936aa6abcc8681e91dae3f43"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a9f8ca4f9936aa6abcc8681e91dae3f43">merge_partially_redundant_match_nodes</a> (const unordered_map&lt; int64_t, vector&lt; int64_t &gt;&gt; &amp;node_matches, vector&lt; size_t &gt; &amp;path_node_provenance)</td></tr>
+<tr class="memdesc:a9f8ca4f9936aa6abcc8681e91dae3f43"><td class="mdescLeft">&#160;</td><td class="mdescRight">If path nodes partially overlap, merge the sections that overlap into a single path node.  <a href="#a9f8ca4f9936aa6abcc8681e91dae3f43">More...</a><br /></td></tr>
+<tr class="separator:a9f8ca4f9936aa6abcc8681e91dae3f43"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8f309bbf60941b009379bd9661cb9060"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a8f309bbf60941b009379bd9661cb9060">collapse_order_length_runs</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, gcsa::GCSA *gcsa, vector&lt; size_t &gt; &amp;path_node_provenance)</td></tr>
 <tr class="separator:a8f309bbf60941b009379bd9661cb9060"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adba05a33bf075eb3eb7260e229245f06"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#adba05a33bf075eb3eb7260e229245f06">reorder_adjacency_lists</a> (const vector&lt; size_t &gt; &amp;order)</td></tr>
@@ -1404,6 +1407,44 @@ Static Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Returns true if we're pointing into a snarl that we want to cut out of paths. </p>
+
+</div>
+</div>
+<a id="a9f8ca4f9936aa6abcc8681e91dae3f43"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9f8ca4f9936aa6abcc8681e91dae3f43">&#9670;&nbsp;</a></span>merge_partially_redundant_match_nodes()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathAlignmentGraph::merge_partially_redundant_match_nodes </td>
+          <td>(</td>
+          <td class="paramtype">const unordered_map&lt; int64_t, vector&lt; int64_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>node_matches</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>path_node_provenance</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>If path nodes partially overlap, merge the sections that overlap into a single path node. </p>
 
 </div>
 </div>

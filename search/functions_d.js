@@ -170,6 +170,7 @@ var searchData=
   ['merge_5fid_5fspace',['merge_id_space',['../classvg_1_1VGset.html#a968fb68f13f91ea8ded32d02c6ea683a',1,'vg::VGset']]],
   ['merge_5fnodes',['merge_nodes',['../classvg_1_1VG.html#a23051058968ffe6dc26a37b6efe72cbd',1,'vg::VG']]],
   ['merge_5fnon_5fbranching_5fsubpaths',['merge_non_branching_subpaths',['../namespacevg.html#a5f1b7c78c90897e87896612991b83139',1,'vg']]],
+  ['merge_5fpartially_5fredundant_5fmatch_5fnodes',['merge_partially_redundant_match_nodes',['../classvg_1_1MultipathAlignmentGraph.html#a9f8ca4f9936aa6abcc8681e91dae3f43',1,'vg::MultipathAlignmentGraph']]],
   ['merge_5frescued_5fmappings',['merge_rescued_mappings',['../classvg_1_1MultipathMapper.html#a525152a98c905ba789a0454c70336c3e',1,'vg::MultipathMapper']]],
   ['merge_5fstate',['merge_state',['../classvg_1_1DinucleotideMachine.html#ab28bcc9f016d8df680d6f17b5957fc57',1,'vg::DinucleotideMachine']]],
   ['merge_5funion',['merge_union',['../classvg_1_1VG.html#a5aff716eee0bf720b3836caa761d48be',1,'vg::VG']]],
