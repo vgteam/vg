@@ -635,24 +635,24 @@ namespace vg {
             // check all MEMs that traversed this node to see if this is a redundant sub-MEM
             if (node_matches.count(injected_id)) {
 #ifdef debug_multipath_alignment
-                cerr << "we need to check if this is a redundant sub MEM, there are previous that visited this hit" << endl;
+                cerr << "we need to check if this is a redundant sub MEM, there are previous paths that visited this hit" << endl;
 #endif
                 
                 for (int64_t j : node_matches[injected_id]) {
-                    PathNode& match_node = path_nodes.at(j);
+                    PathNode& match_node = path_nodes[j];
                     
                     if (begin < match_node.begin || end > match_node.end) {
 #ifdef debug_multipath_alignment
                         if (begin < match_node.begin) {
-                            cerr << "this MEM is earlier in the read than the other, so this is not redundant" << endl;
+                            cerr << "this MEM is earlier in the read than path node " << j << " by " << (match_node.begin - begin) << ", so this is not redundant" << endl;
                         }
                         else if (end > match_node.end) {
-                            cerr << "this MEM is later in the read than the other, so this is not redundant" << endl;
+                            cerr << "this MEM is later in the read than path node " << j << " by " << (end - match_node.end) << ", so this is not redundant" << endl;
                         }
 #endif
                         // the hit does not fall on the same section of the read as the other match, so
                         // it cannot be contained in it
-                        return false;
+                        continue;
                     }
                     
                     int64_t relative_offset = begin - match_node.begin;
@@ -990,9 +990,8 @@ namespace vg {
             }
         }
         
-        if (num_failed_walks != 0) {
-            hits.first.resize(hits.first.size() - num_failed_walks);
-        }
+        // clear out the space that we allocated for walks that failed (if any)
+        hits.first.resize(hits.first.size() - num_failed_walks);
         
         if (!filter_sub_mems_on_fly) {
             // we weren't removing redundant sub-MEMs as we made them, but now we can do it
@@ -1040,6 +1039,202 @@ namespace vg {
                 path_nodes.resize(path_nodes.size() - removed_so_far);
                 path_node_provenance.resize(path_nodes.size());
             }
+        }
+        
+        merge_partially_redundant_match_nodes(node_matches, path_node_provenance);
+    }
+
+    void MultipathAlignmentGraph::merge_partially_redundant_match_nodes(const unordered_map<int64_t, vector<int64_t>>& node_matches,
+                                                                        vector<size_t>& path_node_provenance) {
+        
+#ifdef debug_multipath_alignment
+        cerr << "looking for MEMs with partial redundancies to merge" << endl;
+#endif
+        
+        // find the pairs that share at least one node
+        set<pair<int64_t, int64_t>> pairs_to_attempt;
+        for (const auto& match_record : node_matches) {
+            if (match_record.second.size() > 1) {
+                for (int64_t i = 1; i < match_record.second.size(); ++i) {
+                    for (int64_t j = 0; j < i; ++j) {
+                        pairs_to_attempt.emplace(j, i);
+                    }
+                }
+            }
+        }
+        
+        unordered_set<int64_t> already_merged;
+        for (const auto& overlapping_pair : pairs_to_attempt) {
+            
+            if (already_merged.count(overlapping_pair.first) || already_merged.count(overlapping_pair.second)) {
+                // too complicated to try to merge the same node multiple times
+                continue;
+            }
+#ifdef debug_multipath_alignment
+            cerr << "checking overlapping pair " << overlapping_pair.first << ", " << overlapping_pair.second << endl;
+#endif
+            
+            // TODO: right now only focusing on overlapping mappings, we could also merge along edits
+            // and partial edits
+            
+            auto& path_node_1 = path_nodes[overlapping_pair.first];
+            auto& path_node_2 = path_nodes[overlapping_pair.second];
+            
+            // records of (start on 1, start on 2, length)
+            vector<tuple<size_t, size_t, size_t>> identical_segments;
+            int64_t to_length_1 = 0, to_length_2 = 0;
+            bool in_identical_segment = false;
+            for (size_t i = 0, j = 0; i < path_node_1.path.mapping_size() && j < path_node_2.path.mapping_size(); ) {
+#ifdef debug_multipath_alignment
+                cerr << "compare mappings " << i << " and " << j << ", idx diff " << ((path_node_2.begin - path_node_1.begin) + to_length_2 - to_length_1) << ", pos " << debug_string(path_node_1.path.mapping(i).position()) << " and " << debug_string(path_node_2.path.mapping(j).position()) << endl;
+#endif
+                if (path_node_1.begin + to_length_1 > path_node_2.begin + to_length_2) {
+                    in_identical_segment = false;
+                    to_length_2 += mapping_to_length(path_node_2.path.mapping(j));
+                    ++j;
+                }
+                else if (path_node_1.begin + to_length_1 < path_node_2.begin + to_length_2) {
+                    in_identical_segment = false;
+                    to_length_1 += mapping_to_length(path_node_1.path.mapping(i));
+                    ++i;
+                }
+                else {
+                    if (path_node_1.path.mapping(i) == path_node_2.path.mapping(j)) {
+                        if (in_identical_segment) {
+                            ++get<2>(identical_segments.back());
+                        }
+                        else {
+                            identical_segments.emplace_back(i, j, 1);
+                            in_identical_segment = true;
+                        }
+                    }
+                    else {
+                        in_identical_segment = false;
+                    }
+                    to_length_1 += mapping_to_length(path_node_1.path.mapping(i));
+                    to_length_2 += mapping_to_length(path_node_2.path.mapping(j));
+                    ++i;
+                    ++j;
+                }
+            }
+            
+            if (!identical_segments.empty()) {
+#ifdef debug_multipath_alignment
+                cerr << "found identical segments between nodes " << overlapping_pair.first << " and " << overlapping_pair.second << endl;
+                cerr << string(path_nodes[overlapping_pair.first].begin, path_nodes[overlapping_pair.first].end) << endl;
+                cerr << debug_string(path_nodes[overlapping_pair.first].path) << endl;
+                cerr << string(path_nodes[overlapping_pair.second].begin, path_nodes[overlapping_pair.second].end) << endl;
+                cerr << debug_string(path_nodes[overlapping_pair.second].path) << endl;
+                for (const auto& segment : identical_segments) {
+                    cerr << "\ti: " << get<0>(segment) << ", j: " << get<1>(segment) << ", len: " << get<2>(segment) << endl;
+                }
+#endif
+                
+                // function to add a path node for a segment, updating the tracking variables as necessary
+                auto add_segment_path_node = [&](PathNode& original_path_node, size_t seg_begin, size_t seg_end,
+                                                 size_t orig_idx, size_t prov, bool& replaced_orig, int64_t& to_length) {
+                    size_t idx;
+                    if (!replaced_orig) {
+                        idx = orig_idx;
+                        replaced_orig = true;
+                    }
+                    else {
+                        idx = path_nodes.size();
+                        path_nodes.emplace_back();
+                        path_node_provenance.emplace_back(prov);
+                    }
+                    auto& node_into = path_nodes[idx];
+                    node_into.begin = original_path_node.begin + to_length;
+                    for (size_t i = seg_begin; i < seg_end; ++i) {
+                        *node_into.path.add_mapping() = move(*original_path_node.path.mutable_mapping(i));
+                        to_length += mapping_to_length(node_into.path.mapping().back());
+                    }
+                    node_into.end = original_path_node.begin + to_length;
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "created node in index " << idx << endl;
+                    cerr << "relative sequence interval [" << (node_into.begin - original_path_node.begin) << ", " << (node_into.end - original_path_node.begin) << ")" << endl;
+                    cerr << string(node_into.begin, node_into.end) << endl;
+                    cerr << debug_string(node_into.path) << endl;
+#endif
+                };
+                
+                PathNode original_path_node_1 = move(path_node_1);
+                PathNode original_path_node_2 = move(path_node_2);
+                path_node_1.path.clear_mapping();
+                path_node_2.path.clear_mapping();
+                
+                size_t prov_1 = path_node_provenance[overlapping_pair.first];
+                size_t prov_2 = path_node_provenance[overlapping_pair.second];
+                
+                bool replaced_1 = false, replaced_2 = false;
+                int64_t to_length_1 = 0, to_length_2 = 0;
+                for (size_t i = 0; i <= identical_segments.size(); ++i) {
+#ifdef debug_multipath_alignment
+                    cerr << "segment iter " << i << " of " << identical_segments.size() << ", to len 1 " << to_length_1 << ", to len 2 " << to_length_2 << ", replaced 1? " << replaced_1 << ", replaced 2? " << replaced_2 << endl;
+#endif
+                    
+                    // identify the segments (if any) between the identical segments
+                    size_t prev_1, prev_2;
+                    if (i == 0) {
+                        prev_1 = prev_2 = 0;
+                    }
+                    else {
+                        auto& prev_segment = identical_segments[i - 1];
+                        prev_1 = get<0>(prev_segment) + get<2>(prev_segment);
+                        prev_2 = get<1>(prev_segment) + get<2>(prev_segment);
+                    }
+                    size_t here_1, here_2;
+                    if (i < identical_segments.size()) {
+                        here_1 = get<0>(identical_segments[i]);
+                        here_2 = get<1>(identical_segments[i]);
+                    }
+                    else {
+                        here_1 = original_path_node_1.path.mapping_size();
+                        here_2 = original_path_node_2.path.mapping_size();
+                    }
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "intervening ranges: [" << prev_1 << ", " << here_1 << "), [" << prev_2 << ", " << here_2 << ")" << endl;
+#endif
+                    
+                    // add unshared portions as path nodes
+                    if (prev_1 != here_1) {
+                        add_segment_path_node(original_path_node_1, prev_1, here_1, overlapping_pair.first,
+                                              prov_1, replaced_1, to_length_1);
+                    }
+                    if (prev_2 != here_2) {
+                        add_segment_path_node(original_path_node_2, prev_2, here_2, overlapping_pair.second,
+                                              prov_2, replaced_2, to_length_2);
+                    }
+                    
+                    if (i == identical_segments.size()) {
+                        // this was the final segment past the end of the shared segments
+                        break;
+                    }
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "matching ranges [" << here_1 << ", " << here_1 + get<2>(identical_segments[i]) << "), [" << here_2 << ", " << here_2 + get<2>(identical_segments[i]) << ")" << endl;
+#endif
+                    
+                    // add the shared segment as a path node
+                    int64_t to_length_before_advancing_1 = to_length_1;
+                    add_segment_path_node(original_path_node_1, here_1, here_1 + get<2>(identical_segments[i]),
+                                          overlapping_pair.first, prov_1, replaced_1, to_length_1);
+                    // ugly, but it works
+                    to_length_2 += (to_length_1 - to_length_before_advancing_1);
+                }
+                
+                // mark these path nodes so we don't try to merge the same nodes (which have been chopped
+                // up) again later
+                already_merged.insert(overlapping_pair.first);
+                already_merged.insert(overlapping_pair.second);
+            }
+#ifdef debug_multipath_alignment
+            else {
+                cerr << "no matching segments, not merging pair" << endl;
+            }
+#endif
         }
     }
     
@@ -3789,7 +3984,7 @@ namespace vg {
                 
                 for (auto& connecting_alignment : deduplicated) {
 #ifdef debug_multipath_alignment
-                    cerr << "translating connecting alignment: " << pb2json(connecting_alignment) << endl;
+                    cerr << "translating connecting alignment: " << debug_string(connecting_alignment.first) << ", score " << connecting_alignment.second << endl;
 #endif
                     
                     auto& aligned_path = connecting_alignment.first;

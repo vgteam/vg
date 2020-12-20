@@ -801,6 +801,15 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
+    if (optind != argc) {
+        cerr << "error:[vg mpmap] Unused positional argument(s):";
+        for (int i = optind; i < argc; ++i) {
+            cerr << " " << argv[i];
+        }
+        cerr << endl;
+        exit(1);
+    }
+    
     // normalize capitalization on preset options
     if (read_length == "Long" || read_length == "LONG") {
         read_length = "long";

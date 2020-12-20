@@ -385,6 +385,8 @@ public:
     inline const string& sequence() const;
     inline void set_sequence(const string& s);
     inline string* mutable_sequence();
+    inline bool operator==(const edit_t& other) const;
+    inline bool operator!=(const edit_t& other) const;
 private:
     int32_t _from_length;
     int32_t _to_length;
@@ -408,6 +410,8 @@ public:
     inline edit_t* mutable_edit(size_t i);
     inline edit_t* add_edit();
     inline size_t edit_size() const;
+    inline bool operator==(const path_mapping_t& other) const;
+    inline bool operator!=(const path_mapping_t& other) const;
 private:
     position_t _position;
     vector<edit_t> _edit;
@@ -428,6 +432,8 @@ public:
     inline path_mapping_t* add_mapping();
     inline void clear_mapping();
     inline size_t mapping_size() const;
+    inline bool operator==(const path_t& other) const;
+    inline bool operator!=(const path_t& other) const;
 private:
     vector<path_mapping_t> _mapping;
 };
@@ -499,6 +505,14 @@ inline void edit_t::set_sequence(const string& s) {
 inline string* edit_t::mutable_sequence() {
     return &_sequence;
 }
+inline bool edit_t::operator==(const edit_t& other) const {
+    return (_to_length == other._to_length
+            && _from_length == other._from_length
+            && _sequence == other._sequence);
+}
+inline bool edit_t::operator!=(const edit_t& other) const {
+    return !(*this == other);
+}
 
 /*
  * path_mapping_t
@@ -528,6 +542,12 @@ inline edit_t* path_mapping_t::mutable_edit(size_t i) {
 inline size_t path_mapping_t::edit_size() const {
     return _edit.size();
 }
+inline bool path_mapping_t::operator==(const path_mapping_t& other) const {
+    return (_position == other._position && _edit == other._edit);
+}
+inline bool path_mapping_t::operator!=(const path_mapping_t& other) const {
+    return !(*this == other);
+}
 
 /*
  * path_t
@@ -553,6 +573,12 @@ inline void path_t::clear_mapping() {
 }
 inline size_t path_t::mapping_size() const {
     return _mapping.size();
+}
+inline bool path_t::operator==(const path_t& other) const {
+    return _mapping == other._mapping;
+}
+inline bool path_t::operator!=(const path_t& other) const {
+    return !(*this == other);
 }
 }
 
