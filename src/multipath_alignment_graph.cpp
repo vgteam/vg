@@ -635,7 +635,7 @@ namespace vg {
             // check all MEMs that traversed this node to see if this is a redundant sub-MEM
             if (node_matches.count(injected_id)) {
 #ifdef debug_multipath_alignment
-                cerr << "we need to check if this is a redundant sub MEM, there are previous that visited this hit" << endl;
+                cerr << "we need to check if this is a redundant sub MEM, there are previous paths that visited this hit" << endl;
 #endif
                 
                 for (int64_t j : node_matches[injected_id]) {
@@ -644,15 +644,15 @@ namespace vg {
                     if (begin < match_node.begin || end > match_node.end) {
 #ifdef debug_multipath_alignment
                         if (begin < match_node.begin) {
-                            cerr << "this MEM is earlier in the read than the other, so this is not redundant" << endl;
+                            cerr << "this MEM is earlier in the read than path node " << j << " by " << (match_node.begin - begin) << ", so this is not redundant" << endl;
                         }
                         else if (end > match_node.end) {
-                            cerr << "this MEM is later in the read than the other, so this is not redundant" << endl;
+                            cerr << "this MEM is later in the read than path node " << j << " by " << (end - match_node.end) << ", so this is not redundant" << endl;
                         }
 #endif
                         // the hit does not fall on the same section of the read as the other match, so
                         // it cannot be contained in it
-                        return false;
+                        continue;
                     }
                     
                     int64_t relative_offset = begin - match_node.begin;
@@ -1153,7 +1153,7 @@ namespace vg {
                     
 #ifdef debug_multipath_alignment
                     cerr << "created node in index " << idx << endl;
-                    cerr << "relative sequence interval [" << (node_into.begin - original_path_node.begin) << ", " << (node_into.end - original_path_node.begin) << endl;
+                    cerr << "relative sequence interval [" << (node_into.begin - original_path_node.begin) << ", " << (node_into.end - original_path_node.begin) << ")" << endl;
                     cerr << string(node_into.begin, node_into.end) << endl;
                     cerr << debug_string(node_into.path) << endl;
 #endif

@@ -12,10 +12,7 @@ using namespace std;
 
 // construct the sequence of the MEM; useful in debugging
 string MaximalExactMatch::sequence(void) const {
-    string seq; //seq.resize(end-begin);
-    string::const_iterator c = begin;
-    while (c != end) seq += *c++;
-    return seq;
+    return string(begin, end);
 }
     
 // length of the MEM
