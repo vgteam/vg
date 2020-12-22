@@ -1093,7 +1093,11 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         for (auto& cluster : clusters) {
 
             if (cluster.coverage > best_cluster_coverage_score.first) {
+                //If this is the new best coverage, update both best coverage and best score
                 best_cluster_coverage_score.first = cluster.coverage;
+                best_cluster_coverage_score.second = cluster.score;
+            } else if (cluster.coverage ==  best_cluster_coverage_score.first) {
+                //If this is the same as the best coverage, get best score
                 best_cluster_coverage_score.second = std::max(best_cluster_coverage_score.second, cluster.score);
             }
 
