@@ -15,7 +15,7 @@ namespace vg {
 
 using namespace std;
 
-#define debug_seq_complexity
+//#define debug_seq_complexity
 
 /*
  * Struct to compute the complexity of sequence at different orders
@@ -109,7 +109,7 @@ double SeqComplexity<MaxOrder>::p_value(int order) const {
 
 template<int MaxOrder>
 double SeqComplexity<MaxOrder>::repetitiveness(int order) const {
-    return double(matches[order - 1]) / double(len);
+    return double(matches[order - 1]) / double(len - order);
 }
 
 

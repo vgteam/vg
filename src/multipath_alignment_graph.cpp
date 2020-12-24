@@ -3,6 +3,7 @@
 //
 
 #include "multipath_alignment_graph.hpp"
+#include "sequence_complexity.hpp"
 
 //#define debug_multipath_alignment
 
