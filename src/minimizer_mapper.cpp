@@ -1088,7 +1088,20 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
         // Retain clusters only if their score is better than this, in addition to the coverage cutoff
         double cluster_score_cutoff = 0.0, cluster_coverage_cutoff = 0.0, second_best_cluster_score = 0.0;
+
+        //The score and coverage of the best cluster, "best" is determined first by coverage then score
+        pair<double, double> best_cluster_coverage_score (0.0, 0.0);
         for (auto& cluster : clusters) {
+
+            if (cluster.coverage > best_cluster_coverage_score.first) {
+                //If this is the new best coverage, update both best coverage and best score
+                best_cluster_coverage_score.first = cluster.coverage;
+                best_cluster_coverage_score.second = cluster.score;
+            } else if (cluster.coverage ==  best_cluster_coverage_score.first) {
+                //If this is the same as the best coverage, get best score
+                best_cluster_coverage_score.second = std::max(best_cluster_coverage_score.second, cluster.score);
+            }
+
             cluster_coverage_cutoff = std::max(cluster_coverage_cutoff, cluster.coverage);
 
             if (cluster.score > cluster_score_cutoff) {
@@ -1149,8 +1162,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 // Handle sufficiently good clusters 
                 Cluster& cluster = clusters[cluster_num];
                 if (!found_paired_cluster || fragment_cluster_has_pair[cluster.fragment] || 
-                    (cluster.coverage == cluster_coverage_cutoff + cluster_coverage_threshold &&
-                           cluster.score == cluster_score_cutoff + cluster_score_threshold)) { 
+                    (cluster.coverage == best_cluster_coverage_score.first &&
+                     cluster.score    == best_cluster_coverage_score.second)) { 
                     //If this cluster has a pair or if we aren't looking at pairs
                     //Or if it is the best cluster
                     
