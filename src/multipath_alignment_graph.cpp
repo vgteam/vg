@@ -1068,6 +1068,9 @@ namespace vg {
             
             if (already_merged.count(overlapping_pair.first) || already_merged.count(overlapping_pair.second)) {
                 // too complicated to try to merge the same node multiple times
+#ifdef debug_multipath_alignment
+                cerr << "skipping overlapping pair " << overlapping_pair.first << ", " << overlapping_pair.second << endl;
+#endif
                 continue;
             }
 #ifdef debug_multipath_alignment
@@ -4293,6 +4296,9 @@ namespace vg {
                         }
 #ifdef debug_multipath_alignment
                         cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+                        for (size_t i = 0; i < alt_alignments.size(); ++i) {
+                            cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
+                        }
 #endif
                     }
                 }
@@ -4407,6 +4413,9 @@ namespace vg {
                         }
 #ifdef debug_multipath_alignment
                         cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+                        for (size_t i = 0; i < alt_alignments.size(); ++i) {
+                            cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
+                        }
 #endif
                     }
                 }
