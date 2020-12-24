@@ -4,7 +4,7 @@
 
 #include "multipath_alignment_graph.hpp"
 
-//#define debug_multipath_alignment
+#define debug_multipath_alignment
 
 using namespace std;
 namespace vg {
@@ -3951,40 +3951,48 @@ namespace vg {
                 size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&connecting_graph)) : 
                                                          max_alt_alns;
                 
-                bool added_direct_connection = false;
-                // TODO a better way of choosing the number of alternate alignments
-                vector<Alignment> alt_alignments;
-                if (num_alt_alns > 0) {
-                    // transfer the substring between the matches to a new alignment
-                    Alignment intervening_sequence;
-                    intervening_sequence.set_sequence(alignment.sequence().substr(src_path_node.end - alignment.sequence().begin(),
-                                                                                  dest_path_node.begin - src_path_node.end));
-                    
-#ifdef debug_multipath_alignment
-                    cerr << "making " << num_alt_alns << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
-                    connecting_graph.for_each_handle([&](const handle_t& handle) {
-                        cerr << connecting_graph.get_id(handle) << " " << connecting_graph.get_sequence(handle) << endl;
-                        connecting_graph.follow_edges(handle, true, [&](const handle_t& prev) {
-                            cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
-                        });
-                        connecting_graph.follow_edges(handle, false, [&](const handle_t& next) {
-                            cerr << "\t-> " << connecting_graph.get_id(next) << endl;
-                        });
-                    });
-#endif
-                    
-                    if (!alignment.quality().empty()) {
-                        intervening_sequence.set_quality(alignment.quality().substr(src_path_node.end - alignment.sequence().begin(),
-                                                                                    dest_path_node.begin - src_path_node.end));
-                    }
                 
-                    aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alt_alns,
-                                                       band_padding_function(intervening_sequence, connecting_graph), true);
+                // transfer the substring between the matches to a new alignment
+                Alignment intervening_sequence;
+                intervening_sequence.set_sequence(alignment.sequence().substr(src_path_node.end - alignment.sequence().begin(),
+                                                                              dest_path_node.begin - src_path_node.end));
+                if (!alignment.quality().empty()) {
+                    intervening_sequence.set_quality(alignment.quality().substr(src_path_node.end - alignment.sequence().begin(),
+                                                                                dest_path_node.begin - src_path_node.end));
                 }
                 
-                // remove alignments with the same path
-                auto deduplicated = deduplicate_alt_alns(alt_alignments);
+                // if we're doing dynamic alt alignments, possibly expand the number of tracebacks until we get an
+                // alignment to every path or hit the hard max
+                vector<pair<path_t, int32_t>> deduplicated;
+                for (size_t num_alns_iter = num_alt_alns;
+                     deduplicated.size() < num_alt_alns && num_alns_iter <= max_alt_alns;
+                     num_alns_iter *= 2) {
+                    
+                    vector<Alignment> alt_alignments;
+                    if (num_alns_iter > 0) {
+                        
+#ifdef debug_multipath_alignment
+                        cerr << "making " << num_alns_iter << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
+                        connecting_graph.for_each_handle([&](const handle_t& handle) {
+                            cerr << connecting_graph.get_id(handle) << " " << connecting_graph.get_sequence(handle) << endl;
+                            connecting_graph.follow_edges(handle, true, [&](const handle_t& prev) {
+                                cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
+                            });
+                            connecting_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                                cerr << "\t-> " << connecting_graph.get_id(next) << endl;
+                            });
+                        });
+#endif
+                        
+                        aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alns_iter,
+                                                           band_padding_function(intervening_sequence, connecting_graph), true);
+                    }
+                    
+                    // remove alignments with the same path
+                    deduplicated = deduplicate_alt_alns(alt_alignments);
+                }
                 
+                bool added_direct_connection = false;
                 for (auto& connecting_alignment : deduplicated) {
 #ifdef debug_multipath_alignment
                     cerr << "translating connecting alignment: " << debug_string(connecting_alignment.first) << ", score " << connecting_alignment.second << endl;
@@ -4189,6 +4197,17 @@ namespace vg {
         cerr << "doing tail alignments to:" << endl;
         to_dot(cerr);
 #endif
+        
+        // multiplier to account for low complexity sequences
+        auto low_complexity_multiplier = [](const Alignment& aln) {
+            static const double seq_cmplx_alpha = 0.05;
+            SeqComplexity<2> complexity(aln.sequence());
+            double repetitiveness = 0.0;
+            if (complexity.p_value(1) < seq_cmplx_alpha || complexity.p_value(2) < seq_cmplx_alpha) {
+                repetitiveness = max(complexity.repetitiveness(1), complexity.repetitiveness(2));
+            }
+            return 1.0 + repetitiveness;
+        };
                 
         // Make a structure to populate
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>> to_return;
@@ -4201,115 +4220,122 @@ namespace vg {
 #ifdef debug_multipath_alignment
             cerr << "Visit PathNode " << j << " with " << path_node.edges.size() << " outbound edges" << endl;
 #endif
-            if (path_node.edges.empty()) {
-                if (path_node.end != alignment.sequence().end()) {
-    
-#ifdef debug_multipath_alignment
-                    cerr << "doing right end alignment from sink node " << j << " with path " << debug_string(path_node.path) << " and sequence ";
-                    for (auto iter = path_node.begin; iter != path_node.end; iter++) {
-                        cerr << *iter;
-                    }
-                    cerr << endl;
-#endif
-                    
-                    // figure out how long we need to try to align out to
-                    int64_t tail_length = alignment.sequence().end() - path_node.end;
-                    int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.end), max_gap);
-                    if (pessimistic_tail_gap_multiplier) {
-                        gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
-                    }
-                    int64_t target_length = tail_length + gap;
-                    
-                    
-                    
-                    pos_t end_pos = final_position(path_node.path);
-                    
-                    bdsg::HashGraph tail_graph;
-                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               &tail_graph,
-                                                                                               target_length,
-                                                                                               end_pos,
-                                                                                               false,         // search forward
-                                                                                               false);        // no need to preserve cycles (in a DAG)
-                    
-                    size_t num_alt_alns;
-                    if (dynamic_alt_alns) {
-                        size_t num_paths = algorithms::count_walks(&tail_graph);
-                        if (num_paths < min_paths) {
-                            continue;
-                        }
-                        num_alt_alns = min(max_alt_alns, num_paths);
-                    }
-                    else {
-                        num_alt_alns = max_alt_alns;
-                    }
-                    
-                    if (num_alt_alns > 0) {
-                        
-                        // get the sequence remaining in the right tail
-                        Alignment right_tail_sequence;
-                        right_tail_sequence.set_sequence(alignment.sequence().substr(path_node.end - alignment.sequence().begin(),
-                                                                                     alignment.sequence().end() - path_node.end));
-                        if (!alignment.quality().empty()) {
-                            right_tail_sequence.set_quality(alignment.quality().substr(path_node.end - alignment.sequence().begin(),
-                                                                                       alignment.sequence().end() - path_node.end));
-                        }
-                        
-#ifdef debug_multipath_alignment
-                        cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
-                        tail_graph.for_each_handle([&](const handle_t& handle) {
-                            cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
-                            tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
-                                cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
-                            });
-                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
-                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
-                            });
-                        });
-#endif
-                        
-                        // align against the graph
-                        auto& alt_alignments = right_alignments[j];
-                        if (num_alt_alns == 1) {
-#ifdef debug_multipath_alignment
-                            cerr << "align right with dozeu with gap " << gap << endl;
-#endif
-                            // we can speed things up by using the dozeu pinned alignment
-                            alt_alignments.emplace_back(move(right_tail_sequence));
-                            aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
-                        }
-                        else {
-#ifdef debug_multipath_alignment
-                            cerr << "align right with gssw" << endl;
-#endif
-                            aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
-                        }
-                        
-                        // Translate back into non-extracted graph.
-                        // Make sure to account for having removed the left end of the cut node relative to end_pos
-                        for (auto& aln : alt_alignments) {
-                            // We always remove end_pos's offset, since we
-                            // search forward from it to extract the subgraph,
-                            // but that may be from the left or right end of
-                            // its node depending on orientation.
-                            translate_node_ids(*aln.mutable_path(), tail_trans, id(end_pos), offset(end_pos), is_rev(end_pos));
-                        }
-#ifdef debug_multipath_alignment
-                        cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
-                        for (size_t i = 0; i < alt_alignments.size(); ++i) {
-                            cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
-                        }
-#endif
-                    }
-                }
-            }
-            else {
+            if (!path_node.edges.empty()) {
                 // We go places from here.
                 for (const pair<size_t, size_t>& edge : path_node.edges) {
                     // Make everywhere we go as not a source
                     is_source_node[edge.first] = false;
 #ifdef debug_multipath_alignment
                     cerr << "Edge " << j << " -> " << edge.first << " makes " << edge.first << " not a source" << endl;
+#endif
+                }
+            }
+            else if (path_node.end != alignment.sequence().end()) {
+
+#ifdef debug_multipath_alignment
+                cerr << "doing right end alignment from sink node " << j << " with path " << debug_string(path_node.path) << " and sequence ";
+                for (auto iter = path_node.begin; iter != path_node.end; iter++) {
+                    cerr << *iter;
+                }
+                cerr << endl;
+#endif
+                
+                // figure out how long we need to try to align out to
+                int64_t tail_length = alignment.sequence().end() - path_node.end;
+                int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.end), max_gap);
+                if (pessimistic_tail_gap_multiplier) {
+                    gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
+                }
+                int64_t target_length = tail_length + gap;
+                
+                
+                
+                pos_t end_pos = final_position(path_node.path);
+                
+                bdsg::HashGraph tail_graph;
+                unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
+                                                                                           &tail_graph,
+                                                                                           target_length,
+                                                                                           end_pos,
+                                                                                           false,         // search forward
+                                                                                           false);        // no need to preserve cycles (in a DAG)
+                
+                size_t num_alt_alns;
+                if (dynamic_alt_alns) {
+                    size_t num_paths = algorithms::count_walks(&tail_graph);
+                    if (num_paths < min_paths) {
+                        continue;
+                    }
+                    num_alt_alns = min(max_alt_alns, num_paths);
+                }
+                else {
+                    num_alt_alns = max_alt_alns;
+                }
+                
+                if (num_alt_alns > 0) {
+                    
+                    // get the sequence remaining in the right tail
+                    Alignment right_tail_sequence;
+                    right_tail_sequence.set_sequence(alignment.sequence().substr(path_node.end - alignment.sequence().begin(),
+                                                                                 alignment.sequence().end() - path_node.end));
+                    if (!alignment.quality().empty()) {
+                        right_tail_sequence.set_quality(alignment.quality().substr(path_node.end - alignment.sequence().begin(),
+                                                                                   alignment.sequence().end() - path_node.end));
+                    }
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
+                    tail_graph.for_each_handle([&](const handle_t& handle) {
+                        cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
+                        tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
+                            cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
+                        });
+                        tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                            cerr << "\t-> " << tail_graph.get_id(next) << endl;
+                        });
+                    });
+#endif
+                    
+                    // align against the graph
+                    auto& alt_alignments = right_alignments[j];
+                    if (num_alt_alns == 1) {
+#ifdef debug_multipath_alignment
+                        cerr << "align right with dozeu with gap " << gap << endl;
+#endif
+                        // we can speed things up by using the dozeu pinned alignment
+                        alt_alignments.emplace_back(move(right_tail_sequence));
+                        aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
+                    }
+                    else {
+                        
+#ifdef debug_multipath_alignment
+                        cerr << "align right with gssw" << endl;
+#endif
+                        
+                        double multiplier = low_complexity_multiplier(right_tail_sequence);
+                        if (multiplier != 1.0) {
+                            num_alt_alns = round(multiplier * num_alt_alns);
+#ifdef debug_multipath_alignment
+                            cerr << "increase num alns for low complexity sequence to " << num_alt_alns << endl;
+#endif
+                        }
+                        aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                    }
+                    
+                    // Translate back into non-extracted graph.
+                    // Make sure to account for having removed the left end of the cut node relative to end_pos
+                    for (auto& aln : alt_alignments) {
+                        // We always remove end_pos's offset, since we
+                        // search forward from it to extract the subgraph,
+                        // but that may be from the left or right end of
+                        // its node depending on orientation.
+                        translate_node_ids(*aln.mutable_path(), tail_trans, id(end_pos), offset(end_pos), is_rev(end_pos));
+                    }
+#ifdef debug_multipath_alignment
+                    cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+                    for (size_t i = 0; i < alt_alignments.size(); ++i) {
+                        cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
+                    }
 #endif
                 }
             }
@@ -4329,7 +4355,7 @@ namespace vg {
                     sources->insert(j);
                 }
             
-                PathNode& path_node = path_nodes.at(j);
+                PathNode& path_node = path_nodes[j];
                 if (path_node.begin != alignment.sequence().begin()) {
                     
                     // figure out how far we need to try to align out to
@@ -4398,6 +4424,14 @@ namespace vg {
 #ifdef debug_multipath_alignment
                             cerr << "align left with gssw" << endl;
 #endif
+                            double multiplier = low_complexity_multiplier(left_tail_sequence);
+                            if (multiplier != 1.0) {
+                                num_alt_alns = round(multiplier * num_alt_alns);
+#ifdef debug_multipath_alignment
+                                cerr << "increase num alns for low complexity sequence to " << num_alt_alns << endl;
+#endif
+                            }
+                            
                             aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                         }
                         
