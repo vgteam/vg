@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <vector>
 #include <unordered_map>
+#include <algorithm>
 
 #include "structures/rank_pairing_heap.hpp"
 

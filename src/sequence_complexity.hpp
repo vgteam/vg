@@ -78,13 +78,11 @@ double SeqComplexity<MaxOrder>::p_value(int order) const {
     if (order < len && order + 8 > len) {
         // exact binomial CDF
         // TODO: flip sum if is smaller?
-        int k = matches[order - 1];
-        int N = len - order;
         double x = 1.0;
-        double y = N;
+        double y = len - order;
         double term = pow(0.75, y);
         double accum = 0.0;
-        for (int i = 0; i < k; ++i) {
+        for (int i = 0, k = matches[order - 1]; i < k; ++i) {
             accum += term;
             // the ratio of successive terms in the binomial distr pmf
             term *= 0.333333333333333333 * y / x;
