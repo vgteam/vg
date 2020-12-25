@@ -3831,7 +3831,7 @@ namespace vg {
         }
         
         // we use this function to remove alignments that follow the same path, keeping only the highest scoring one
-        auto deduplicate_alt_alns = [](vector<Alignment>& alt_alns) -> vector<pair<path_t, int32_t>> {
+        auto deduplicate_alt_alns = [](vector<Alignment>& alt_alns, bool leftward, bool rightward) -> vector<pair<path_t, int32_t>> {
             // init the deduplicated vector in STL types with move operators
             vector<pair<path_t, int32_t>> deduplicated(alt_alns.size());
             for (size_t i = 0; i < alt_alns.size(); ++i) {
@@ -3839,15 +3839,26 @@ namespace vg {
                 deduplicated[i].second = aln.score();
                 from_proto_path(aln.path(), deduplicated[i].first);
             }
+            
             // we use stable sort to keep the original score-ordering among alignments
             // that take the same path, which is descending by score
             stable_sort(deduplicated.begin(), deduplicated.end(),
-                        [](const pair<path_t, int32_t>& aln_1, const pair<path_t, int32_t>& aln_2) {
-                bool is_less = false;
+                        [&](const pair<path_t, int32_t>& aln_1, const pair<path_t, int32_t>& aln_2) {
                 const auto& path_1 = aln_1.first, path_2 = aln_2.first;
-                size_t i = 0;
-                for (; i < path_1.mapping_size() && i < path_2.mapping_size(); i++) {
-                    const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(i).position();
+                int64_t i, j, incr;
+                if (leftward) {
+                    i = path_1.mapping_size() - 1;
+                    j = path_2.mapping_size() - 1;
+                    incr = -1;
+                }
+                else {
+                    i = 0;
+                    j = 0;
+                    incr = 1;
+                }
+                bool is_less = false;
+                for (; i >= 0 && j >= 0 && i < path_1.mapping_size() && j < path_2.mapping_size(); i += incr, j += incr) {
+                    const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(j).position();
                     if (pos_1.node_id() < pos_2.node_id() ||
                         (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() < pos_2.is_reverse())) {
                         is_less = true;
@@ -3858,17 +3869,31 @@ namespace vg {
                         break;
                     }
                 }
-                return is_less || (i == path_1.mapping_size() && i < path_2.mapping_size());
+                // supersequences earlier in the case of paths of different lengths
+                return (is_less || (i < path_1.mapping_size() && i >= 0) && (j == path_2.mapping_size() || j < 0));
             });
             
             // move alignments that have the same path to the end of the vector, keeping the
             // first one (which has the highest score)
             auto new_end = unique(deduplicated.begin(), deduplicated.end(),
-                                  [](const pair<path_t, int32_t>& aln_1, const pair<path_t, int32_t>& aln_2) {
+                                  [&](const pair<path_t, int32_t>& aln_1, const pair<path_t, int32_t>& aln_2) {
                 const auto& path_1 = aln_1.first, path_2 = aln_2.first;
-                bool is_equal = (path_1.mapping_size() == path_2.mapping_size());
-                for (size_t i = 0; i < path_1.mapping_size() && is_equal; i++) {
-                    const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(i).position();
+                int64_t i, j, incr;
+                if (leftward) {
+                    i = path_1.mapping_size() - 1;
+                    j = path_2.mapping_size() - 1;
+                    incr = -1;
+                }
+                else {
+                    i = 0;
+                    j = 0;
+                    incr = 1;
+                }
+                // if this is a tail alignment, we allow paths of different lengths to be "equal"
+                // if one is a prefix of the other
+                bool is_equal = (path_1.mapping_size() == path_2.mapping_size() || leftward || rightward);
+                for (; i >= 0 && j >= 0 && i < path_1.mapping_size() && j < path_2.mapping_size() && is_equal; i += incr, j += incr) {
+                    const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(j).position();
                     is_equal = (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() == pos_2.is_reverse());
                 }
                 return is_equal;
@@ -3990,7 +4015,7 @@ namespace vg {
                     }
                     
                     // remove alignments with the same path
-                    deduplicated = deduplicate_alt_alns(alt_alignments);
+                    deduplicated = deduplicate_alt_alns(alt_alignments, false, false);
                 }
                 
                 bool added_direct_connection = false;
@@ -4081,7 +4106,7 @@ namespace vg {
             vector<Alignment>& alt_alignments = kv.second;
             
             // remove alignments with the same path
-            auto deduplicated = deduplicate_alt_alns(alt_alignments);
+            auto deduplicated = deduplicate_alt_alns(alt_alignments, false, true);
         
             PathNode& path_node = path_nodes.at(j);
             
@@ -4134,7 +4159,7 @@ namespace vg {
                 // There should be some alignments
                 vector<Alignment>& alt_alignments = tail_alignments[false][j];
                 // remove alignments with the same path
-                auto deduplicated = deduplicate_alt_alns(alt_alignments);
+                auto deduplicated = deduplicate_alt_alns(alt_alignments, true, false);
                                 
                 const path_mapping_t& first_mapping = path_node.path.mapping(0);
                 for (auto& tail_alignment : deduplicated) {
@@ -4201,13 +4226,19 @@ namespace vg {
         
         // multiplier to account for low complexity sequences
         auto low_complexity_multiplier = [](const Alignment& aln) {
+            // TODO: magic numbers
             static const double seq_cmplx_alpha = 0.05;
+            static const double max_multiplier = 32.0;
             SeqComplexity<2> complexity(aln.sequence());
-            double repetitiveness = 0.0;
             if (complexity.p_value(1) < seq_cmplx_alpha || complexity.p_value(2) < seq_cmplx_alpha) {
-                repetitiveness = max(complexity.repetitiveness(1), complexity.repetitiveness(2));
+                double repetitiveness = max(complexity.repetitiveness(1), complexity.repetitiveness(2));
+                double low_complexity_len = repetitiveness * aln.sequence().size();
+                // TODO: empirically-derived function, not very principled
+                return min(max_multiplier, 0.05 * low_complexity_len * low_complexity_len);
             }
-            return 1.0 + repetitiveness;
+            else {
+                return 1.0;
+            }
         };
                 
         // Make a structure to populate
