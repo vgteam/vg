@@ -2165,10 +2165,11 @@ void BandedGlobalAligner<IntType>::traceback(int8_t* score_mat, int8_t* nt_table
         }
         
         if (traceback_stack.next_is_empty()) {
+            traceback_stack.next_empty_alignment(*next_alignment);
 #ifdef debug_banded_aligner_traceback
             cerr << "[BandedGlobalAligner::traceback] taking the next full empty alignment" << endl;
+            cerr << pb2json(*next_alignment) << endl;
 #endif
-            traceback_stack.next_empty_alignment(*next_alignment);
         }
         else {
             
@@ -2257,6 +2258,9 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(const HandleG
             band_stack.pop_back();
             
             if (!band_matrix) {
+#ifdef debug_banded_aligner_traceback
+                cerr << "[BandedGlobalAligner::traceback] found stack marker, pulling " << path.front() << " from path" << endl;
+#endif
                 path.pop_front();
                 continue;
             }
@@ -2274,6 +2278,12 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(const HandleG
                 // whether they are sufficiently high scoring alignments to yield
                 if (source_node_matrices.count(band_matrix)) {
                     empty_full_paths.push_back(path);
+#ifdef debug_banded_aligner_traceback
+                    cerr << "[BandedGlobalAligner::traceback] found empty full path" << endl;
+                    for (auto nid : path ) {
+                        cerr << "\t" << nid << endl;
+                    }
+#endif
                     continue;
                 }
                 
@@ -2290,6 +2300,10 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(const HandleG
                 int64_t node_id = graph.get_id(node);
                 int64_t read_length = band_matrix->alignment.sequence().length();
                 int64_t ncols = graph.get_length(node);
+                
+#ifdef debug_banded_aligner_traceback
+                cerr << "[BandedGlobalAligner::traceback] initializing tracebacks on node " << node_id << endl;
+#endif
                 
                 int64_t final_col = ncols - 1;
                 int64_t final_row = band_matrix->bottom_diag + ncols > read_length ? read_length - band_matrix->top_diag - ncols : band_matrix->bottom_diag - band_matrix->top_diag;

@@ -4082,6 +4082,8 @@ namespace vg {
                      deduplicated.size() < num_alt_alns && num_alns_iter <= max_alt_alns;
                      num_alns_iter *= 2) {
                     
+                    intervening_sequence.clear_path();
+                    
                     vector<Alignment> alt_alignments;
                     if (num_alns_iter > 0) {
                         
