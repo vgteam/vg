@@ -157,6 +157,7 @@ var searchData=
   ['rrmemo',['RRMemo',['../structhaplo_1_1haploMath_1_1RRMemo.html#a3958ec23ff1fbaac901d909c5f134f27',1,'haplo::haploMath::RRMemo']]],
   ['run',['run',['../classvg_1_1Genotyper.html#af760be5c99e086b2c41510b3d3a47e5a',1,'vg::Genotyper']]],
   ['run_5fbenchmark',['run_benchmark',['../namespacevg.html#ac101c453ab2076d74f0324f73d174695',1,'vg::run_benchmark(const string &amp;name, size_t iterations, const function&lt; void(void)&gt; &amp;under_test)'],['../namespacevg.html#added44ff3bb1c0ce606563a40923c513',1,'vg::run_benchmark(const string &amp;name, size_t iterations, const function&lt; void(void)&gt; &amp;setup, const function&lt; void(void)&gt; &amp;under_test)']]],
+  ['run_5fdp',['run_dp',['../classvg_1_1DeletionAligner.html#a0eb6b38dc11173f5da75c5cafd3053fe',1,'vg::DeletionAligner']]],
   ['run_5fgenotype',['run_genotype',['../classvg_1_1MCMCGenotyper.html#a3bae6f8b2947e030935d5e9cf46fb324',1,'vg::MCMCGenotyper']]],
   ['run_5fmultipath_5fdp',['run_multipath_dp',['../namespacevg.html#ab6b884009be7f9219b6c9d3068c8bb73',1,'vg']]],
   ['run_5funit_5ftests',['run_unit_tests',['../namespacevg_1_1unittest.html#ae154dafb36ee57ef618704a37a11fb0c',1,'vg::unittest']]]

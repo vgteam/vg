@@ -22,6 +22,7 @@ var searchData=
   ['_7edeflection',['~Deflection',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#af4deb014af190975b2e7fe3540f6f461',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
   ['_7edeletablehandlegraph',['~DeletableHandleGraph',['../classhandlegraph_1_1DeletableHandleGraph.html#a62ed805e124ceb05cfa98d4e631a9ebd',1,'handlegraph::DeletableHandleGraph']]],
   ['_7edeletehaplotypecommand',['~DeleteHaplotypeCommand',['../structvg_1_1DeleteHaplotypeCommand.html#a2049b0eb4e4cf76d42b26fb9b0ecb659',1,'vg::DeleteHaplotypeCommand']]],
+  ['_7edeletionaligner',['~DeletionAligner',['../classvg_1_1DeletionAligner.html#a797ac3036e59d5086c0822b90302dd14',1,'vg::DeletionAligner']]],
   ['_7edinucleotidemachine',['~DinucleotideMachine',['../classvg_1_1DinucleotideMachine.html#a927431a787e6f77549850cea55d883b0',1,'vg::DinucleotideMachine']]],
   ['_7edistanceheuristic',['~DistanceHeuristic',['../classvg_1_1DistanceHeuristic.html#abca20b0fc239abad09fabb6d6bad0b50',1,'vg::DistanceHeuristic']]],
   ['_7edozeuinterface',['~DozeuInterface',['../classvg_1_1DozeuInterface.html#a0ac4d30c781e2a2278986ecbb84a34a6',1,'vg::DozeuInterface']]],

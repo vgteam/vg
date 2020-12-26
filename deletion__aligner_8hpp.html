@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/aligner.hpp File Reference</title>
+<title>vg: src/deletion_aligner.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -67,44 +67,18 @@ $(function() {
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a>  </div>
   <div class="headertitle">
-<div class="title">aligner.hpp File Reference</div>  </div>
+<div class="title">deletion_aligner.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;algorithm&gt;</code><br />
-<code>#include &lt;utility&gt;</code><br />
-<code>#include &lt;vector&gt;</code><br />
-<code>#include &lt;set&gt;</code><br />
-<code>#include &lt;string&gt;</code><br />
-<code>#include &lt;unordered_map&gt;</code><br />
-<code>#include &lt;unordered_set&gt;</code><br />
-<code>#include &quot;gssw.h&quot;</code><br />
+<div class="textblock"><code>#include &lt;cstdint&gt;</code><br />
 <code>#include &lt;vg/vg.pb.h&gt;</code><br />
-<code>#include &quot;<a class="el" href="vg_8hpp.html">vg.hpp</a>&quot;</code><br />
-<code>#include &quot;Variant.h&quot;</code><br />
-<code>#include &quot;Fasta.h&quot;</code><br />
-<code>#include &quot;<a class="el" href="path_8hpp.html">path.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="utility_8hpp.html">utility.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="statistics_8hpp.html">statistics.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="banded__global__aligner_8hpp.html">banded_global_aligner.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="deletion__aligner_8hpp.html">deletion_aligner.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="dozeu__interface_8hpp.html">dozeu_interface.hpp</a>&quot;</code><br />
+<code>#include &lt;structures/min_max_heap.hpp&gt;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="reverse__graph_8hpp.html">reverse_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="null__masking__graph_8hpp.html">null_masking_graph.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="dozeu__pinning__overlay_8hpp.html">dozeu_pinning_overlay.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="distance__to__tail_8hpp.html">algorithms/distance_to_tail.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="topological__sort_8hpp.html">algorithms/topological_sort.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseAligner.html">vg::BaseAligner</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html">vg::GSSWAligner</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html">vg::Aligner</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html">vg::QualAdjAligner</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DeletionAligner.html">vg::DeletionAligner</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -112,7 +86,9 @@ Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-</div><!-- contents -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Defines an aligner for global deletions </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

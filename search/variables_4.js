@@ -22,6 +22,7 @@ var searchData=
   ['deleted_5fnode_5frecords',['deleted_node_records',['../classbdsg_1_1PackedGraph.html#adf0248e98adea1be14aca2c4649ac1e7',1,'bdsg::PackedGraph']]],
   ['deleted_5fprior_5flogprob',['deleted_prior_logprob',['../classvg_1_1Genotyper.html#a853fb8840552901b359153ec80aa81e1',1,'vg::Genotyper']]],
   ['deleted_5freversing_5fself_5fedge_5frecords',['deleted_reversing_self_edge_records',['../classbdsg_1_1PackedGraph.html#a2da6fb453f0fa6b7e5862715c90b024c',1,'bdsg::PackedGraph']]],
+  ['deletion_5faligner',['deletion_aligner',['../classvg_1_1GSSWAligner.html#a7bd8654938361b8edf947fb888dcd6d8',1,'vg::GSSWAligner']]],
   ['deletions',['deletions',['../structvg_1_1DeleteHaplotypeCommand.html#a33e4ac2752620369abb200e585e667a4',1,'vg::DeleteHaplotypeCommand::deletions()'],['../structvg_1_1ReplaceLocalHaplotypeCommand.html#a3371d6a46feb1f9d218a577156aef698',1,'vg::ReplaceLocalHaplotypeCommand::deletions()']]],
   ['delim1',['delim1',['../classvg_1_1Packer.html#acffc9465bdaa0bb770372edf788aad48',1,'vg::Packer']]],
   ['delim2',['delim2',['../classvg_1_1Packer.html#a0d1336853823c62812b2009e80085800',1,'vg::Packer']]],

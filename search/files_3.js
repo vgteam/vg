@@ -8,6 +8,8 @@ var searchData=
   ['deconstructor_2ecpp',['deconstructor.cpp',['../deconstructor_8cpp.html',1,'']]],
   ['deconstructor_2ehpp',['deconstructor.hpp',['../deconstructor_8hpp.html',1,'']]],
   ['deletable_5fhandle_5fgraph_2ehpp',['deletable_handle_graph.hpp',['../deletable__handle__graph_8hpp.html',1,'']]],
+  ['deletion_5faligner_2ecpp',['deletion_aligner.cpp',['../deletion__aligner_8cpp.html',1,'']]],
+  ['deletion_5faligner_2ehpp',['deletion_aligner.hpp',['../deletion__aligner_8hpp.html',1,'']]],
   ['depth_5fmain_2ecpp',['depth_main.cpp',['../depth__main_8cpp.html',1,'']]],
   ['dfs_2ecpp',['dfs.cpp',['../dfs_8cpp.html',1,'']]],
   ['dfs_2ehpp',['dfs.hpp',['../dfs_8hpp.html',1,'']]],

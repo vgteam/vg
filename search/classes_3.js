@@ -5,6 +5,7 @@ var searchData=
   ['deflection',['Deflection',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['deletablehandlegraph',['DeletableHandleGraph',['../classhandlegraph_1_1DeletableHandleGraph.html',1,'handlegraph']]],
   ['deletehaplotypecommand',['DeleteHaplotypeCommand',['../structvg_1_1DeleteHaplotypeCommand.html',1,'vg']]],
+  ['deletionaligner',['DeletionAligner',['../classvg_1_1DeletionAligner.html',1,'vg']]],
   ['depthmap',['DepthMap',['../classvg_1_1DepthMap.html',1,'vg']]],
   ['dinucleotidemachine',['DinucleotideMachine',['../classvg_1_1DinucleotideMachine.html',1,'vg']]],
   ['discrete_5fdistribution',['discrete_distribution',['../classvg_1_1discrete__distribution.html',1,'vg']]],

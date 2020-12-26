@@ -358,6 +358,7 @@ var searchData=
   ['min_5fdistance_2ehpp',['min_distance.hpp',['../min__distance_8hpp.html',1,'']]],
   ['min_5fdistance_5ffrom_5fstart',['min_distance_from_start',['../classvg_1_1IncrementalSubgraph.html#ab859980ced41bcd382cd5961ff3b8475',1,'vg::IncrementalSubgraph']]],
   ['min_5fdistances',['min_distances',['../classvg_1_1MinimumDistanceIndex.html#a17330c71b9cf7a8a3fd3cae14aeed13a',1,'vg::MinimumDistanceIndex']]],
+  ['min_5fdists',['min_dists',['../classvg_1_1DeletionAligner.html#a42b9fef2da830c0912fb4141701c501e',1,'vg::DeletionAligner']]],
   ['min_5fedge_5fsupport',['min_edge_support',['../classvg_1_1SupportRestrictedTraversalFinder.html#aabc81064635f9311af46bf2b5f1417aa',1,'vg::SupportRestrictedTraversalFinder::min_edge_support()'],['../classvg_1_1RepresentativeTraversalFinder.html#a16cd92c3b27a0b6be9d9154a7d9da77a',1,'vg::RepresentativeTraversalFinder::min_edge_support()']]],
   ['min_5fend_5fmatches',['min_end_matches',['../classvg_1_1ReadFilter.html#a05d07dd311e58f3fc04d510870ddf662',1,'vg::ReadFilter::min_end_matches()'],['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9a0035f968d8e0ae55fcaf6763f7dd01a1',1,'vg::Counts::min_end_matches()']]],
   ['min_5fextensions',['min_extensions',['../classvg_1_1MinimizerMapper.html#a03f18247f88d4817feef2d25a46fd5ca',1,'vg::MinimizerMapper']]],
