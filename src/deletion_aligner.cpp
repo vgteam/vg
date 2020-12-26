@@ -7,6 +7,8 @@
 
 #include "deletion_aligner.hpp"
 
+//#define debug_deletion_aligner
+
 namespace vg {
 
 DeletionAligner::DeletionAligner(int8_t gap_open, int8_t gap_extension)
@@ -42,6 +44,9 @@ void DeletionAligner::align_multi(Alignment& aln, vector<Alignment>& alt_alns,
 
 vector<vector<handle_t>> DeletionAligner::run_dp(const HandleGraph& graph,
                                                  int32_t max_tracebacks) const {
+#ifdef debug_deletion_aligner
+    cerr << "aligning deletions with " << max_tracebacks << " tracebacks" << endl;
+#endif
     auto order = algorithms::lazier_topological_order(&graph);
     unordered_map<handle_t, size_t> index_of;
     index_of.reserve(order.size());
@@ -59,7 +64,9 @@ pair<vector<size_t>, vector<pair<size_t, size_t>>> DeletionAligner::min_dists(
       const unordered_map<handle_t, size_t>& index_of,
       const HandleGraph& graph) const
 {
-    
+#ifdef debug_deletion_aligner
+    cerr << "finding min dists" << endl;
+#endif
     // use dynamic programming to compute the minimum distance from a source
     vector<size_t> dists(order.size(), numeric_limits<size_t>::max());
     vector<pair<size_t, size_t>> sinks;
@@ -80,6 +87,16 @@ pair<vector<size_t>, vector<pair<size_t, size_t>>> DeletionAligner::min_dists(
             sinks.emplace_back(i, length_thru);
         }
     }
+#ifdef debug_deletion_aligner
+    cerr << "min dist results:" << endl;
+    for (size_t i = 0; i < order.size(); ++i) {
+        cerr << "\t" << i << " (node " << graph.get_id(order[i]) << "): " << dists[i] << endl;
+    }
+    cerr << "sinks:" << endl;
+    for (auto sink : sinks) {
+        cerr << "\t" << sink.first << " " << sink.second << endl;
+    }
+#endif
     return make_pair(dists, sinks);
 }
 
@@ -90,22 +107,34 @@ vector<vector<handle_t>> DeletionAligner::traceback(const vector<handle_t>& orde
                                                     const vector<pair<size_t, size_t>>& sinks,
                                                     size_t max_tracebacks) const {
 
-    
+#ifdef debug_deletion_aligner
+    cerr << "beginning multi-traceback" << endl;
+#endif
     // records of (distance, deflections (from, to))
     structures::MinMaxHeap<pair<size_t, vector<pair<size_t, size_t>>>> heap;
     vector<vector<handle_t>> traces;
     
     // check if we want to take this deviation from the optimal traceback next time
-    auto propose_deflection = [&](size_t from, size_t to, size_t dist, size_t deflxn,
+    auto propose_deflection = [&](size_t from, size_t to, size_t dist,
                                   const vector<pair<size_t, size_t>>& curr_deflections) {
-        if (heap.size() + traces.size() < max_tracebacks || heap.max().first > dist) {
+#ifdef debug_deletion_aligner
+        cerr << "proposing deflection from " << from << " to " << to << " with dist " << dist << endl;
+#endif
+        if (heap.size() + traces.size() < max_tracebacks ||
+            (!heap.empty() && heap.max().first > dist)) {
             // we've used all of the current deflections (so we can now propose more)
             // and we either haven't fully populated the heap, or this is better than
             // the worst
+#ifdef debug_deletion_aligner
+            cerr << "accepted deflection" << endl;
+#endif
             vector<pair<size_t, size_t>> deflections = curr_deflections;
             deflections.emplace_back(from, to);
             heap.emplace(dist, move(deflections));
             if (heap.size() + traces.size() > max_tracebacks) {
+#ifdef debug_deletion_aligner
+                cerr << "ejecting traceback with dist " << heap.max().first << endl;
+#endif
                 heap.pop_max();
             }
         }
@@ -130,7 +159,7 @@ vector<vector<handle_t>> DeletionAligner::traceback(const vector<handle_t>& orde
                 }
                 else if (deflxn == curr_deflections.size()) {
                     propose_deflection(at, idx, curr_dist - dist_here + dist_thru,
-                                       deflxn, curr_deflections);
+                                       curr_deflections);
                 }
                 // keep looking if we haven't found the trace or we're looking
                 // for deflections
@@ -143,11 +172,10 @@ vector<vector<handle_t>> DeletionAligner::traceback(const vector<handle_t>& orde
     
     // the first deflection is from a sentinel at the end to whichever
     // sink node we'll start from, propose these deflections to init the heap
-    size_t deflxn = 0;
     vector<pair<size_t, size_t>> deflections;
     for (auto& sink : sinks) {
         propose_deflection(order.size(), sink.first, sink.second,
-                           deflxn, deflections);
+                           deflections);
     }
     
     traces.reserve(max_tracebacks);
@@ -158,12 +186,22 @@ vector<vector<handle_t>> DeletionAligner::traceback(const vector<handle_t>& orde
         size_t trace_dist;
         tie(trace_dist, deflections) = heap.min();
         heap.pop_min();
-        deflxn = 0;
+        
+#ifdef debug_deletion_aligner
+        cerr << "beginning trace of dist " << trace_dist << " with deflections:" << endl;
+        for (auto d : deflections) {
+            cerr << "\t" << d.first << " -> " << d.second << endl;
+        }
+#endif
         
         // start by taking deflection from the beginning sentinel
+        size_t deflxn = 0;
         size_t tracer = get_next(order.size(), deflxn, trace_dist,
                                  deflections);
         while (tracer != numeric_limits<size_t>::max()) {
+#ifdef debug_deletion_aligner
+            cerr << "doing trace on " << tracer << endl;
+#endif
             trace.push_back(order[tracer]);
             tracer = get_next(tracer, deflxn, trace_dist, deflections);
         }
@@ -186,7 +224,8 @@ void DeletionAligner::trace_to_alignment(Alignment& aln, const vector<handle_t>&
         edit->set_from_length(graph.get_length(handle));
         total_dist += edit->from_length();
     }
-    aln.set_score(total_dist ? gap_open + (total_dist - 1) * gap_extension : 0);
+    // TODO: ideally scoring would live in the Aligner, but i guess it's okay
+    aln.set_score(total_dist ? -gap_open - (total_dist - 1) * gap_extension : 0);
 }
 
 }

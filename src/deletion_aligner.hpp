@@ -25,6 +25,7 @@ using namespace std;
 class DeletionAligner {
 public:
     DeletionAligner(int8_t gap_open, int8_t gap_extension);
+    DeletionAligner() = delete;
     ~DeletionAligner() = default;
     
     void align(Alignment& aln, const HandleGraph& graph) const;
