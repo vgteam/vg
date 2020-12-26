@@ -21,7 +21,7 @@ GSSWAligner::GSSWAligner(const int8_t* _score_matrix,
                          int8_t _gap_open,
                          int8_t _gap_extension,
                          int8_t _full_length_bonus,
-                         double _gc_content) {
+                         double _gc_content) : deletion_aligner(_gap_open, _gap_extension) {
     
     log_base = recover_log_base(_score_matrix, _gc_content, 1e-12);
     
@@ -1363,6 +1363,12 @@ void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_al
 void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
                                   int32_t band_padding, bool permissive_banding) const {
     
+    if (alignment.sequence().empty()) {
+        // we can save time by using a specialized deletion aligner for empty strings
+        deletion_aligner.align(alignment, g);
+        return;
+    }
+    
     // We need to figure out what size ints we need to use.
     // Get upper and lower bounds on the scores. TODO: if these overflow int64 we're out of luck
     int64_t best_score = alignment.sequence().size() * match;
@@ -1415,7 +1421,13 @@ void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
 
 void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                         int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) const {
-                                        
+                              
+    if (alignment.sequence().empty()) {
+        // we can save time by using a specialized deletion aligner for empty strings
+        deletion_aligner.align_multi(alignment, alt_alignments, g, max_alt_alns);
+        return;
+    }
+    
     // We need to figure out what size ints we need to use.
     // Get upper and lower bounds on the scores. TODO: if these overflow int64 we're out of luck
     int64_t best_score = alignment.sequence().size() * match;
@@ -1603,7 +1615,7 @@ QualAdjAligner::QualAdjAligner(const int8_t* _score_matrix,
                                int8_t _gap_extension,
                                int8_t _full_length_bonus,
                                double _gc_content)
-    : GSSWAligner(_score_matrix, _gap_open, _gap_extension, _full_length_bonus,  _gc_content)
+    : GSSWAligner(_score_matrix, _gap_open, _gap_extension, _full_length_bonus, _gc_content)
 {
     // TODO: this interface could really be improved in GSSW, oh well though
     
@@ -2025,6 +2037,12 @@ void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>&
 void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
                                          int32_t band_padding, bool permissive_banding) const {
     
+    if (alignment.sequence().empty()) {
+        // we can save time by using a specialized deletion aligner for empty strings
+        deletion_aligner.align(alignment, g);
+        return;
+    }
+    
     int64_t best_score = alignment.sequence().size() * match;
     size_t total_bases = 0;
     g.for_each_handle([&](const handle_t& handle) {
@@ -2075,6 +2093,12 @@ void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph
 
 void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                                int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) const {
+    
+    if (alignment.sequence().empty()) {
+        // we can save time by using a specialized deletion aligner for empty strings
+        deletion_aligner.align_multi(alignment, alt_alignments, g, max_alt_alns);
+        return;
+    }
     
     // We need to figure out what size ints we need to use.
     // Get upper and lower bounds on the scores. TODO: if these overflow int64 we're out of luck
