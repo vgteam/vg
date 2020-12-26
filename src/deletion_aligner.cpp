@@ -40,6 +40,7 @@ void DeletionAligner::align_multi(Alignment& aln, vector<Alignment>& alt_alns,
         trace_to_alignment(alt_alns[i], traces[i], graph);
     }
     *aln.mutable_path() = alt_alns.front().path();
+    aln.set_score(alt_alns.front().score());
 }
 
 vector<vector<handle_t>> DeletionAligner::run_dp(const HandleGraph& graph,
