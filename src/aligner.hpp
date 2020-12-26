@@ -17,6 +17,7 @@
 #include "utility.hpp"
 #include "statistics.hpp"
 #include "banded_global_aligner.hpp"
+#include "deletion_aligner.hpp"
 #include "dozeu_interface.hpp"
 #include "handle.hpp"
 #include "reverse_graph.hpp"
@@ -278,6 +279,7 @@ namespace vg {
         virtual int32_t remove_bonuses(const Alignment& aln, bool pinned = false, bool pin_left = false) const;
         
         // members
+        DeletionAligner deletion_aligner;
         int8_t* nt_table = nullptr;
         int8_t* score_matrix = nullptr;
         int8_t match;
