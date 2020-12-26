@@ -1220,6 +1220,9 @@ namespace vg {
                         heap.pop_back();
                     }
                     else {
+#ifdef debug_multipath_alignment
+                        cerr << "have not yet exhausted " << overlapping_group[it->first] << ", keeping on heap" << endl;
+#endif
                         ++it;
                     }
                 }
