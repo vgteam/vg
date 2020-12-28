@@ -1042,6 +1042,7 @@ namespace vg {
             }
         }
         
+        
         merge_partially_redundant_match_nodes(node_matches, path_node_provenance);
     }
 
@@ -1051,6 +1052,10 @@ namespace vg {
 #ifdef debug_multipath_alignment
         cerr << "looking for MEMs with partial redundancies to merge" << endl;
 #endif
+        
+        if (path_nodes.size() <= 1) {
+            return;
+        }
         
         // find the groups that share at least one node
         structures::UnionFind union_find(path_nodes.size(), false);
@@ -1131,7 +1136,7 @@ namespace vg {
                 // split into groups that have identical next mappings
                 vector<vector<size_t>> groups;
                 for (size_t i = 0, n = (heap.end() - heaped_end); i < n; ++i) {
-                        bool found_match = false;
+                    bool found_match = false;
                     for (auto& group : groups) {
                         if (next_mapping(*(heaped_end + i)) == next_mapping(*(heaped_end + group.front()))) {
                             group.push_back(i);
