@@ -1107,7 +1107,7 @@ namespace vg {
             }
             make_heap(heap.begin(), heap.end(), heap_cmp);
             
-            while (!heap.empty()) {
+            while (heap.size() > 1) {
                 // move all of the path nodes whose next mapping occurs
                 // at the next sequence position into the unheaped back
                 auto heaped_end = heap.end();
@@ -1121,6 +1121,10 @@ namespace vg {
                 cerr << "next mappings are at uncentered sequence index " << seq_pos(heap.back().first) - path_nodes.front().begin << ":" << endl;
                 for (auto it = heaped_end; it != heap.end(); ++it) {
                     cerr << "\t" << overlapping_group[it->first] << ": " << it->second << " " << debug_string(next_mapping(*it)) << endl;
+                }
+                cerr << "the other heaped mappings:" << endl;
+                for (auto it = heap.begin(); it != heaped_end; ++it) {
+                    cerr << "\t" << overlapping_group[it->first] << " (seq index " << seq_pos(it->first) - path_nodes.front().begin << "): " << it->second << " " << debug_string(next_mapping(*it)) << endl;
                 }
 #endif
                 
@@ -1221,7 +1225,7 @@ namespace vg {
                     }
                     else {
 #ifdef debug_multipath_alignment
-                        cerr << "have not yet exhausted " << overlapping_group[it->first] << ", keeping on heap" << endl;
+                        cerr << "have not yet exhausted (path node index) " << overlapping_group[it->first] << ", keeping on heap with a new uncentered seq index  of " << seq_pos(it->first) - path_nodes.front().begin << endl;
 #endif
                         ++it;
                     }
@@ -1232,7 +1236,7 @@ namespace vg {
                 
                 // and restore the heap
                 while (heaped_end != heap.end()) {
-                    push_heap(heap.begin(), heaped_end++, heap_cmp);
+                    push_heap(heap.begin(), ++heaped_end, heap_cmp);
                 }
             }
         }
