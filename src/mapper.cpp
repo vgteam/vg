@@ -1526,11 +1526,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
         string::const_iterator probe_string_begin = probe_string_end - min_sub_mem_length;
         
 #ifdef debug_mapper
-        cerr << "probe string is mem[" << probe_string_begin - mems[mem_idx].begin << ":" << probe_string_end - mems[mem_idx].begin << "] ";
-        for (auto iter = probe_string_begin; iter != probe_string_end; iter++) {
-            cerr << *iter;
-        }
-        cerr << endl;
+        cerr << "probe string is mem[" << probe_string_begin - mems[mem_idx].begin << ":" << probe_string_end - mems[mem_idx].begin << "] " << string(probe_string_begin, probe_string_end) << endl;
 #endif
         
         // set up LF searching
@@ -1550,6 +1546,9 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 (relative_idx >= sub_mem_thinning_burn_in && (relative_idx - sub_mem_thinning_burn_in) % sub_mem_count_thinning == 0)) {
                 
                 if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
+#ifdef debug_mapper
+                    cerr << "partial probe only occurs in parent mem[" << cursor - mems[mem_idx].begin << ":" << probe_string_end - mems[mem_idx].begin << "] " << string(cursor, probe_string_end) << endl;
+#endif
                     probe_string_more_frequent = false;
                     break;
                 }
