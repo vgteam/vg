@@ -205,6 +205,7 @@ var searchData=
   ['reorder_5fexons',['reorder_exons',['../classvg_1_1Transcriptome.html#ae6f600db9b276fe332d4f14919bba983',1,'vg::Transcriptome']]],
   ['repeat',['repeat',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9af8ac0bddf37c11c94f041c84a20a636b',1,'vg::Counts']]],
   ['repeat_5fsize',['repeat_size',['../classvg_1_1ReadFilter.html#a95e0303086c9c6dc7a17d452b7d7f928',1,'vg::ReadFilter']]],
+  ['repetitiveness',['repetitiveness',['../structvg_1_1SeqComplexity.html#a192996fb41444e1ccddd6b6e334cf2d3',1,'vg::SeqComplexity']]],
   ['replace_5fin_5fstring',['replace_in_string',['../namespacevg.html#ab169ac1e2fc6ba662eebc1ede1ffe157',1,'vg']]],
   ['replace_5flocal_5fhaplotype',['replace_local_haplotype',['../classvg_1_1GenomeState.html#a8048b04c0d1d0b438ec76bdc1c0b5779',1,'vg::GenomeState']]],
   ['replace_5fmapping',['replace_mapping',['../classvg_1_1Paths.html#a906246385a06c6825aaf9b3c58cbdeac',1,'vg::Paths']]],

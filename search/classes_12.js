@@ -3,6 +3,7 @@ var searchData=
   ['sampler',['Sampler',['../classvg_1_1Sampler.html',1,'vg']]],
   ['scoreprovider',['ScoreProvider',['../classhaplo_1_1ScoreProvider.html',1,'haplo']]],
   ['seed',['Seed',['../structvg_1_1SnarlSeedClusterer_1_1Seed.html',1,'vg::SnarlSeedClusterer']]],
+  ['seqcomplexity',['SeqComplexity',['../structvg_1_1SeqComplexity.html',1,'vg']]],
   ['serializablehandlegraph',['SerializableHandleGraph',['../classhandlegraph_1_1SerializableHandleGraph.html',1,'handlegraph']]],
   ['shuffledpairs',['ShuffledPairs',['../classvg_1_1ShuffledPairs.html',1,'vg']]],
   ['simpleconsistencycalculator',['SimpleConsistencyCalculator',['../classvg_1_1SimpleConsistencyCalculator.html',1,'vg']]],

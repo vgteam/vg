@@ -104,6 +104,7 @@ var searchData=
   ['remove_5ftransitive_5fedges',['remove_transitive_edges',['../classvg_1_1MultipathAlignmentGraph.html#aeb9c58b7f20245a4c400dd14e8488069',1,'vg::MultipathAlignmentGraph']]],
   ['reorder_5fadjacency_5flists',['reorder_adjacency_lists',['../classvg_1_1MultipathAlignmentGraph.html#adba05a33bf075eb3eb7260e229245f06',1,'vg::MultipathAlignmentGraph']]],
   ['reorder_5fexons',['reorder_exons',['../classvg_1_1Transcriptome.html#ae6f600db9b276fe332d4f14919bba983',1,'vg::Transcriptome']]],
+  ['repetitiveness',['repetitiveness',['../structvg_1_1SeqComplexity.html#a192996fb41444e1ccddd6b6e334cf2d3',1,'vg::SeqComplexity']]],
   ['replace_5fin_5fstring',['replace_in_string',['../namespacevg.html#ab169ac1e2fc6ba662eebc1ede1ffe157',1,'vg']]],
   ['replace_5flocal_5fhaplotype',['replace_local_haplotype',['../classvg_1_1GenomeState.html#a8048b04c0d1d0b438ec76bdc1c0b5779',1,'vg::GenomeState']]],
   ['replace_5fmapping',['replace_mapping',['../classvg_1_1Paths.html#a906246385a06c6825aaf9b3c58cbdeac',1,'vg::Paths']]],

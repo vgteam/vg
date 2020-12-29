@@ -24,7 +24,7 @@ var searchData=
   ['mask',['mask',['../classvg_1_1GaplessExtender.html#ad94f1c3994aa856c06d795d9e0658ecb',1,'vg::GaplessExtender']]],
   ['match',['match',['../classvg_1_1GSSWAligner.html#a7323efd4ef078ab5866b8c2b9fea87a8',1,'vg::GSSWAligner::match()'],['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a4fdc2b0adb79d04c4e928a61e891aa84',1,'vg::BandedGlobalAligner::BAMatrix::match()'],['../classvg_1_1SSWAligner.html#a8ec16a3583a2d8347ee9eaf1853b8cc8',1,'vg::SSWAligner::match()']]],
   ['match_5fcount',['match_count',['../classvg_1_1MaximalExactMatch.html#ab7a9c66468635a1498efdeb394c1fad6',1,'vg::MaximalExactMatch']]],
-  ['matches',['matches',['../structgafkluge_1_1GafRecord.html#a0cac64f74ee1a099fafc4148d08a630c',1,'gafkluge::GafRecord']]],
+  ['matches',['matches',['../structvg_1_1SeqComplexity.html#a03e3682e2a96bbf0595d38694d3818ad',1,'vg::SeqComplexity::matches()'],['../structgafkluge_1_1GafRecord.html#a0cac64f74ee1a099fafc4148d08a630c',1,'gafkluge::GafRecord::matches()']]],
   ['matching',['matching',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#a6bb2874bc8c41f0606f8f142a465e469',1,'vg::BandedGlobalAligner::BABuilder']]],
   ['mate_5fmapped_5fto_5fdisjoint_5fsubgraph',['mate_mapped_to_disjoint_subgraph',['../structvg_1_1Alignment.html#a95ed4d8c7a57e34a96871b74ff851821',1,'vg::Alignment']]],
   ['mate_5fon_5freverse_5fstrand',['mate_on_reverse_strand',['../structvg_1_1Alignment.html#aef312ed490cb8adf8b89eb36b46ee7d6',1,'vg::Alignment']]],

@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['p_5fvalue',['p_value',['../structvg_1_1SeqComplexity.html#a20dfb4fbec20a18a5decaccc046c10e8',1,'vg::SeqComplexity']]],
   ['pack',['pack',['../structbdsg_1_1ODGI_1_1edge__helper.html#aa2fbf045509b8bf188796d088bdca5da',1,'bdsg::ODGI::edge_helper::pack()'],['../structhandlegraph_1_1number__bool__packing.html#af5082dc39a2f308585402bd19de0caa8',1,'handlegraph::number_bool_packing::pack()']]],
   ['pack_5fquery_5fforward',['pack_query_forward',['../classvg_1_1DozeuInterface.html#acd17348d5d2dd0ec4c10af98748fe67a',1,'vg::DozeuInterface::pack_query_forward()'],['../classvg_1_1XdropAligner.html#a9179d91b00ed33fbc3e9e6a4bd6b9321',1,'vg::XdropAligner::pack_query_forward()'],['../classvg_1_1QualAdjXdropAligner.html#a0e1140ad3ee66b2583869ccd2267841b',1,'vg::QualAdjXdropAligner::pack_query_forward()']]],
   ['pack_5fquery_5freverse',['pack_query_reverse',['../classvg_1_1DozeuInterface.html#aa15876efde0e6d8f963d37ae245c8ead',1,'vg::DozeuInterface::pack_query_reverse()'],['../classvg_1_1XdropAligner.html#a3c3832ae9935773f0dd0b97ed031c70e',1,'vg::XdropAligner::pack_query_reverse()'],['../classvg_1_1QualAdjXdropAligner.html#a0d6b25927dccfe18f03eab6457486ac7',1,'vg::QualAdjXdropAligner::pack_query_reverse()']]],
