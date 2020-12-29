@@ -26,7 +26,6 @@ using namespace vg::subcommand;
 void help_locify(char** argv){
     cerr << "usage: " << argv[0] << " locify [options] " << endl
          << "    -l, --loci FILE      input loci over which to locify the alignments" << endl
-         << "    -a, --aln-idx DIR    use this rocksdb alignment index (from vg index -N)" << endl
          << "    -x, --xg-idx FILE    use this xg index or graph" << endl
          << "    -n, --name-alleles   generate names for each allele rather than using full Paths" << endl
          << "    -f, --forwardize     flip alignments on the reverse strand to the forward" << endl
@@ -37,7 +36,6 @@ void help_locify(char** argv){
 }
 
 int main_locify(int argc, char** argv){
-    string gam_idx_name;
     string loci_file;
     //Index gam_idx;
     string xg_idx_name;
@@ -79,7 +77,6 @@ int main_locify(int argc, char** argv){
         switch (c)
         {
         case 'g':
-            gam_idx_name = optarg;
             cerr << "RocksDB is no longer supported" << endl;
             return 1;
             break;
