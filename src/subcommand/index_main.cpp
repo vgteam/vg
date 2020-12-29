@@ -65,7 +65,7 @@ void help_index(char** argv) {
          << "    -E, --exclude SAMPLE   exclude any samples with the given name from haplotype indexing" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index to the given file" << endl
-         << "    -i, --dbg-in FILE      use kmers from FILE instead of input VG (may repeat)" << endl
+         //<< "    -i, --dbg-in FILE      use kmers from FILE instead of input VG (may repeat)" << endl
          << "    -f, --mapping FILE     use this node mapping in GCSA2 construction" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph (default " << gcsa::Key::MAX_LENGTH << ")" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction (default " << gcsa::ConstructionParameters::DOUBLING_STEPS << ")" << endl
@@ -367,6 +367,7 @@ int main_index(int argc, char** argv) {
             gcsa_name = optarg;
             break;
         case 'i':
+            cerr << "warning: -i option is deprecated" << endl;
             dbg_names.push_back(optarg);
             break;
         case 'f':

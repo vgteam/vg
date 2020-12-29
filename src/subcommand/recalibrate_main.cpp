@@ -260,4 +260,4 @@ int main_recalibrate(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_recalibrate("recalibrate", "recalibrate mapping qualities", main_recalibrate);
+static Subcommand vg_recalibrate("recalibrate", "recalibrate mapping qualities", DEPRECATED, main_recalibrate);

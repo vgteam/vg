@@ -361,5 +361,5 @@ int main_locify(int argc, char** argv){
 }
 
 // Register subcommand
-static Subcommand vg_locify("locify", "find loci", main_locify);
+static Subcommand vg_locify("locify", "find loci", DEPRECATED, main_locify);
 
