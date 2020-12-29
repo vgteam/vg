@@ -14,7 +14,6 @@
 
 #include "../vg.hpp"
 #include "../xg.hpp"
-#include "../index.hpp"
 #include "../convert.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
@@ -40,7 +39,7 @@ void help_locify(char** argv){
 int main_locify(int argc, char** argv){
     string gam_idx_name;
     string loci_file;
-    Index gam_idx;
+    //Index gam_idx;
     string xg_idx_name;
     bool name_alleles = false;
     bool forwardize = false;
@@ -81,6 +80,8 @@ int main_locify(int argc, char** argv){
         {
         case 'g':
             gam_idx_name = optarg;
+            cerr << "RocksDB is no longer supported" << endl;
+            return 1;
             break;
 
         case 'l':
@@ -123,9 +124,9 @@ int main_locify(int argc, char** argv){
         }
     }
 
-    if (!gam_idx_name.empty()) {
-        gam_idx.open_read_only(gam_idx_name);
-    }
+    //if (!gam_idx_name.empty()) {
+    //    gam_idx.open_read_only(gam_idx_name);
+    //}
 
     if (xg_idx_name.empty()) {
         cerr << "[vg locify] Error: no xg index provided" << endl;
@@ -229,7 +230,7 @@ int main_locify(int argc, char** argv){
         };
         vector<nid_t> nodes_vec;
         for (auto& id : nodes_in_locus) nodes_vec.push_back(id);
-        gam_idx.for_alignment_to_nodes(nodes_vec, fill_alns);
+        //gam_idx.for_alignment_to_nodes(nodes_vec, fill_alns);
     };
 
     if (!loci_file.empty()){

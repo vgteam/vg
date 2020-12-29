@@ -211,17 +211,6 @@ else
     FILTER=
 endif
 
-ROCKSDB_PORTABLE=PORTABLE=1 # needed to build rocksdb without weird assembler options
-# TODO: configure RPATH-equivalent on OS X for finding libraries without environment variables at runtime
-
-# RocksDB's dependecies depend on whether certain compression libraries
-# happen to be installed on the build system. Define a lazy macro to
-# detect these from its self-configuration. It has to be lazy because
-# the configuration (make_config.mk) won't exist until after RocksDB
-# is built by this Makefile.
-LD_LIB_FLAGS += -lrocksdb
-ROCKSDB_LDFLAGS = $(shell grep PLATFORM_LDFLAGS deps/rocksdb/make_config.mk | cut -d '=' -f2 | sed s/-ljemalloc// | sed s/-ltcmalloc// | sed s/-ltbb//)
-
 # When building statically, we need to tell the linker not to bail if it sees multiple definitions.
 # libc on e.g. our Jenkins host does not define malloc as weak, so other mallocs can't override it in a static build.
 # TODO: Why did this problem only begin to happen when libvw was added?
@@ -251,7 +240,6 @@ JEMALLOC_DIR:=deps/jemalloc
 LOCKFREE_MALLOC_DIR:=deps/lockfree-malloc
 SDSL_DIR:=deps/sdsl-lite
 SNAPPY_DIR:=deps/snappy
-ROCKSDB_DIR:=deps/rocksdb
 GCSA2_DIR:=deps/gcsa2
 GBWT_DIR:=deps/gbwt
 GBWTGRAPH_DIR=deps/gbwtgraph
@@ -297,7 +285,6 @@ LIB_DEPS =
 LIB_DEPS += $(LIB_DIR)/libsdsl.a
 LIB_DEPS += $(LIB_DIR)/libssw.a
 LIB_DEPS += $(LIB_DIR)/libsnappy.a
-LIB_DEPS += $(LIB_DIR)/librocksdb.a
 LIB_DEPS += $(LIB_DIR)/libgcsa2.a
 LIB_DEPS += $(LIB_DIR)/libgbwt.a
 LIB_DEPS += $(LIB_DIR)/libgbwtgraph.a
@@ -362,11 +349,11 @@ endif
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) 
+	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) 
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
 $(LIB_DIR)/vg_is_static: $(INC_DIR)/vg_environment_version.hpp $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
@@ -413,7 +400,7 @@ else
 endif
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/vg.hpp
-	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
+	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
 
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
@@ -435,9 +422,6 @@ $(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.h
 # it will drop the -Xpreprocessor and keep the -fopenmp and upset Clang.
 $(LIB_DIR)/libsnappy.a: $(SNAPPY_DIR)/*.cc $(SNAPPY_DIR)/*.h
 	+. ./source_me.sh && cd $(SNAPPY_DIR) && ./autogen.sh && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" ./configure --prefix=$(CWD) $(FILTER) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS))" $(MAKE) libsnappy.la $(FILTER) && cp .libs/libsnappy.a $(CWD)/lib/ && cp snappy-c.h snappy-sinksource.h snappy-stubs-public.h snappy.h $(CWD)/include/
-
-$(LIB_DIR)/librocksdb.a: $(LIB_DIR)/libsnappy.a $(ROCKSDB_DIR)/db/*.cc $(ROCKSDB_DIR)/db/*.h
-	+. ./source_me.sh && cd $(ROCKSDB_DIR) && $(ROCKSDB_PORTABLE) DISABLE_JEMALLOC=1 $(MAKE) static_lib $(FILTER) && mv librocksdb.a $(CWD)/${LIB_DIR}/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/gcsa/gcsa.h: $(LIB_DIR)/libgcsa2.a
 
@@ -818,7 +802,7 @@ clean-vg:
 	$(RM) -r $(OBJ_DIR)/*.o $(OBJ_DIR)/*.d
 	$(RM) -f $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_system_version.hpp
 
-clean: clean-rocksdb clean-vcflib
+clean: clean-vcflib
 	$(RM) -r $(BIN_DIR)
 	$(RM) -r $(LIB_DIR)
 	$(RM) -r $(UNITTEST_OBJ_DIR)
@@ -851,11 +835,6 @@ clean: clean-rocksdb clean-vcflib
 	cd $(DEP_DIR) && cd raptor && cd build && find . -not \( -name '.gitignore' -or -name 'pkg.m4' \) -delete
 	# lru_cache is never built because it is header-only
 	# bash-tap is never built either
-
-clean-rocksdb:
-	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
-	rm -f $(LIB_DIR)/librocksdb.a 
-	rm -rf $(INC_DIR)/rocksdb/
 
 clean-vcflib:
 	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
