@@ -1553,7 +1553,7 @@ Static Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Removes all transitive edges from graph (reduces to minimum equivalent graph). Note: reorders internal representation of adjacency lists. Reachability edges must be in the graph. </p>
+<p>Removes all transitive edges from graph (reduces to minimum equivalent graph), except for edges between path nodes that abut either on the graph or read. These edges often correspond to overlap breaks in low complexity sequence, so retaining them improves alignment in low-complexity regions like STR expansions. Note: reorders internal representation of adjacency lists. Reachability edges must be in the graph. </p>
 
 </div>
 </div>
