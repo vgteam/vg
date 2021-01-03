@@ -1230,7 +1230,7 @@ namespace vg {
                     }
                     else {
 #ifdef debug_multipath_alignment
-                        cerr << "have not yet exhausted (path node index) " << overlapping_group[it->first] << ", keeping on heap with a new uncentered seq index  of " << seq_pos(it->first) - path_nodes.front().begin << endl;
+                        cerr << "have not yet exhausted (path node index) " << overlapping_group[it->first] << ", keeping on heap with a new uncentered seq index of " << seq_pos(it->first) - path_nodes.front().begin << endl;
 #endif
                         ++it;
                     }
@@ -3677,7 +3677,7 @@ namespace vg {
         reorder_adjacency_lists(topological_order);
         
         for (size_t i : topological_order) {
-            vector<pair<size_t, size_t>>& edges = path_nodes.at(i).edges;
+            vector<pair<size_t, size_t>>& edges = path_nodes[i].edges;
             
             // if there is only one edge out of a node, that edge can never be transitive
             // (this optimization covers most cases)
@@ -3690,8 +3690,10 @@ namespace vg {
             
             for (size_t j = 0; j < edges.size(); j++) {
                 const pair<size_t, size_t>& edge = edges[j];
-                if (traversed.count(edge.first)) {
+                if (traversed.count(edge.first) && edge.second != 0 &&
+                    path_nodes[i].end != path_nodes[edge.first].begin) {
                     // we can reach the target of this edge by another path, so it is transitive
+                    // and the path nodes don't abut on either the read or graph
                     keep[j] = false;
                     continue;
                 }
@@ -3990,13 +3992,17 @@ namespace vg {
                     incr = 1;
                 }
                 // if this is a tail alignment, we allow paths of different lengths to be "equal"
-                // if one is a prefix of the other
+                // if one is a prefix of the other and lower-scoring
                 bool is_equal = (path_1.mapping_size() == path_2.mapping_size() || leftward || rightward);
                 for (; i >= 0 && j >= 0 && i < path_1.mapping_size() && j < path_2.mapping_size() && is_equal; i += incr, j += incr) {
                     const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(j).position();
                     is_equal = (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() == pos_2.is_reverse());
                 }
-                return is_equal;
+                // TODO: there has to be a more succinct way to check this condition
+                return (is_equal &&
+                        (path_1.mapping_size() == path_2.mapping_size() ||
+                         (path_1.mapping_size() > path_2.mapping_size() && aln_1.second > aln_2.second) ||
+                         (path_1.mapping_size() < path_2.mapping_size() && aln_1.second < aln_2.second)));
             });
             
             // remove the duplicates at the end
@@ -4200,6 +4206,8 @@ namespace vg {
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns,
                                            max_gap, pessimistic_tail_gap_multiplier, 0, &sources);
                 
+        // TODO: merge and simplify the tail alignments? rescoring would be kind of a pain...
+        
         // Handle the right tails
         for (auto& kv : tail_alignments[true]) {
             // For each sink subpath number
