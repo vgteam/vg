@@ -50,6 +50,20 @@ void IndexManager::set_vcf_filename(const string& filename) {
     vcf_filename = filename;
 }
 
+tuple<
+    shared_ptr<gbwtgraph::DefaultMinimizerIndex>,
+    shared_ptr<gbwtgraph::GBWTGraph>,
+    shared_ptr<gbwt::GBWT>,
+    shared_ptr<vg::MinimumDistanceIndex>> IndexManager::get_all_for_giraffe() {
+
+    return make_tuple(get_minimizer(), get_gbwtgraph(), get_gbwt(), get_distance());
+
+}
+
+bool IndexManager::can_get_all_for_giraffe() {
+    return can_get_minimizer() && can_get_gbwtgraph() && can_get_gbwt() && can_get_distance();
+}
+
 void IndexManager::set_minimizer_override(const string& filename) {
     minimizer_override = filename;
 }

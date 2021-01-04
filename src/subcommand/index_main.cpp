@@ -24,6 +24,7 @@
 #include "../min_distance.hpp"
 #include "../source_sink_overlay.hpp"
 #include "../gbwt_helper.hpp"
+#include "../index_manager.hpp"
 
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
@@ -34,13 +35,15 @@ using namespace vg;
 using namespace vg::subcommand;
 
 void help_index(char** argv) {
-    cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
-         << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
+    cerr << "usage: " << argv[0] << " index [options] <graph1>.[vg|xg|pg|hg|og] [<graph2>.[vg|xg|pg|hg|og] ...]" << endl
+         << "Creates indexes on the specified graph or graphs. All graphs indexed must " << endl
          << "already be in a joint ID space." << endl
          << "general options:" << endl
          << "    -b, --temp-dir DIR     use DIR for temporary files" << endl
          << "    -t, --threads N        number of threads to use" << endl
          << "    -p, --progress         show progress" << endl
+         << "tool options:" << endl
+         << "    --giraffe              generate indexes needed for the Giraffe mapper" << endl
          << "xg options:" << endl
          << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s), or read for GCSA or distance indexing" << endl
          << "    -L, --xg-alts          include alt paths in xg" << endl
@@ -106,6 +109,10 @@ int main_index(int argc, char** argv) {
     #define OPT_BUILD_VGI_INDEX 1000
     #define OPT_RENAME_VARIANTS 1001
     #define OPT_PATHS_AS_SAMPLES 1002
+    #define OPT_GIRAFFE 1003
+    
+    // Which tools to build for
+    bool build_for_giraffe = false;
 
     // Which indexes to build.
     bool build_xg = false, build_gbwt = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
@@ -163,6 +170,9 @@ int main_index(int argc, char** argv) {
             {"temp-dir", required_argument, 0, 'b'},
             {"threads", required_argument, 0, 't'},
             {"progress",  no_argument, 0, 'p'},
+            
+            // Tool
+            {"giraffe",  no_argument, 0, OPT_GIRAFFE},
 
             // XG
             {"xg-name", required_argument, 0, 'x'},
@@ -240,6 +250,11 @@ int main_index(int argc, char** argv) {
         case 'p':
             show_progress = true;
             haplotype_indexer.show_progress = true;
+            break;
+            
+        // Tool
+        case OPT_GIRAFFE:
+            build_for_giraffe = true;
             break;
 
         // XG
@@ -526,6 +541,53 @@ int main_index(int argc, char** argv) {
         std::cerr << "warning: [vg index] providing input XG with option -x is deprecated" << std::endl;
     }
 
+
+    // Build for specific tools using the IndexManager
+    IndexManager manager;
+    
+    // Fill in all the override/specification filenames
+    if (!vcf_name.empty()) {
+        manager.set_vcf_filename(vcf_name);
+    }
+    
+    if (!gbwt_name.empty()) {
+        manager.set_gbwt_override(gbwt_name);
+    }
+    
+    if (!dist_name.empty()) {
+        manager.set_distance_override(dist_name);
+    }
+    
+    if (!snarl_name.empty()) {
+        manager.set_snarls_override(snarl_name);
+    }
+    
+    if (!file_names.empty()) {
+        // TODO: if we actually use the index manager we need to prohibit more graph files.
+        manager.set_graph_override(file_names.front());
+    } else if (!xg_name.empty()) {
+        // Use this graph instead.
+        manager.set_graph_override(xg_name);
+    }
+        
+        
+    if (build_for_giraffe) {
+        if (file_names.size() > 1 || (file_names.size() == 1 && !xg_name.empty())) {
+            // We can only use one graph with the IndexManager
+            cerr << "error: [vg index] can only build Giraffe indexes from a single graph" << endl;
+            return 1;
+        }
+    
+        if (!manager.can_get_all_for_giraffe()) {
+            // We won't be able to build the indexes we need.
+            cerr << "error: [vg index] unable to build all Giraffe indexes" << endl;
+            return 1;
+        }
+        
+        // Actually kick off the indexing
+        manager.get_all_for_giraffe();
+    }
+    
 
     // Build XG. Include alt paths in the XG if requested with -L.
     if (build_xg) {

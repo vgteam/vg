@@ -51,6 +51,14 @@ using namespace std;
  * Note that the IndexManager may exit the process, instead of throwing an
  * exception, if something goes wrong during a "get_foo()" method, so you
  * should check "can_get_foo()" first.
+ *
+ * For each supported tool (bar), we need:
+ * 
+ * 1. A public method "get_all_for_bar()", to fill in and save all indexes the
+ *    tool uses.
+ * 2. A public methos "can_get_all_for_bar()", which returns true if it thinks
+ *    get_all_for_bar() will be successful, and false (and prints a warning) if
+ *    any required index has its can_get_foo() method fail.
  */
 class IndexManager : public Progressive {
 public:
@@ -67,6 +75,19 @@ public:
 
     /// Set the VCF filename
     void set_vcf_filename(const string& filename);
+    
+    // Functions to get indexes for a particular tool
+    
+    /// Get all indexes needed for the Giraffe mapper (MinimizerMapper).
+    /// Returns only the final indexes, not intermediates.
+    tuple<
+        shared_ptr<gbwtgraph::DefaultMinimizerIndex>,
+        shared_ptr<gbwtgraph::GBWTGraph>,
+        shared_ptr<gbwt::GBWT>,
+        shared_ptr<vg::MinimumDistanceIndex>> get_all_for_giraffe();
+    /// Returns true if the indexes needed for Giraffe are available or can be
+    /// generated/loaded, and false otherwise.
+    bool can_get_all_for_giraffe();
 
 
     // Functions to set a source filename override, and get an index, for each index type.
@@ -113,7 +134,6 @@ public:
     shared_ptr<PathHandleGraph> get_graph();
     /// Returns true if the graph is available or can be generated/loaded, and false otherwise.
     bool can_get_graph() const;
-    
     
     /// Minimizer kmer length to use when minimizer indexing
     constexpr static size_t minimizer_k = 29;
