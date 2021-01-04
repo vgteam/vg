@@ -158,5 +158,5 @@ int main_combine(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_combine("combine", "merge multiple graph files together", main_combine);
+static Subcommand vg_combine("combine", "merge multiple graph files together", DEPRECATED, main_combine);
 

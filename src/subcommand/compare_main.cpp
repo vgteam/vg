@@ -144,5 +144,5 @@ int main_compare(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_compare("compare", "compare the kmer space of two graphs", main_compare);
+static Subcommand vg_compare("compare", "compare the kmer space of two graphs", DEPRECATED, main_compare);
 
