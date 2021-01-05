@@ -7,7 +7,6 @@
 #include <ctime>
 #include "omp.h"
 #include "vg.hpp"
-#include "index.hpp"
 #include "bdsg/hash_graph.hpp"
 #include <gcsa/gcsa.h>
 #include <gcsa/lcp.h>
