@@ -10,7 +10,6 @@
 #include "../srpe.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
-#include "../index.hpp"
 #include "../position.hpp"
 #include "../path.hpp"
 #include "../genotypekit.hpp"
@@ -167,7 +166,6 @@ int main_srpe(int argc, char** argv){
     unique_ptr<PathPositionHandleGraph> xg_ind;
     unique_ptr<gcsa::GCSA> gcsa_ind;
     unique_ptr<gcsa::LCPArray> lcp_ind;
-    Index gamind;
 
     vg::VG* graph;
 
