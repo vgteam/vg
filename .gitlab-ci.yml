@@ -15,7 +15,11 @@ before_script:
   - which junit-merge || sudo npm install -g junit-merge
   # Configure Docker to use a mirror for Docker Hub and restart the daemon
   # Set the registry as insecure because it is probably cluster-internal over plain HTTP.
-  - 'if [[ ! -z "${DOCKER_HUB_MIRROR}" ]] ; then echo "{\"registry-mirrors\": [\"${DOCKER_HUB_MIRROR}\"], \"insecure-registries\": [\"${DOCKER_HUB_MIRROR##*://}\"]}" | sudo tee /etc/docker/daemon.json ; sudo kill -SIGHUP $(pidof dockerd) ; fi'
+  - |
+    if [[ ! -z "${DOCKER_HUB_MIRROR}" ]] ; then
+        echo "{\"registry-mirrors\": [\"${DOCKER_HUB_MIRROR}\"], \"insecure-registries\": [\"${DOCKER_HUB_MIRROR##*://}\"]}" | sudo tee /etc/docker/daemon.json
+        sudo kill -SIGHUP $(pidof dockerd)
+    fi
   - cat /etc/docker/daemon.json || true
   - startdocker || true
   - docker info
