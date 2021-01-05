@@ -90,7 +90,7 @@ void IndexManager::set_graph_override(const string& filename) {
     if (!graph_override.empty()) {
         // Graph basename should be used instead
         // TODO: keep it if someone comes along and sets the FASTA afterward.
-        pair<string, string> parts = split_ext(fasta_filename);
+        pair<string, string> parts = split_ext(graph_override);
         if (!parts.first.empty()) {
             // We aren't working with ".xg" or something.
             basename = parts.first;
