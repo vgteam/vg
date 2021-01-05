@@ -120,7 +120,6 @@ var searchData=
   ['buffer',['buffer',['../classvg_1_1VcfBuffer.html#a92c8a919554e2a7dd2ca34fae94948fc',1,'vg::VcfBuffer::buffer()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#aab5cfa13ff5e0449e105a0d9117aa38f',1,'vg::io::BlockedGzipOutputStream::buffer()'],['../classvg_1_1io_1_1fdinbuf.html#a1d32c47153a2a414ab06c867f0e05dfb',1,'vg::io::fdinbuf::buffer()'],['../classvg_1_1io_1_1streaminbuf.html#a183f94182736936b75529e14fad0f395',1,'vg::io::streaminbuf::buffer()']]],
   ['buffer_5fsize',['buffer_size',['../classvg_1_1ReadFilter.html#a2d00933de6bd943fed0a4ec48112f39e',1,'vg::ReadFilter']]],
   ['bufsize',['bufSize',['../classvg_1_1io_1_1fdinbuf.html#ae20c45d02cdacbc8a27b61ac41eb8f6f',1,'vg::io::fdinbuf::bufSize()'],['../classvg_1_1io_1_1streaminbuf.html#a633a4a419dad259a742de7e50f0568f1',1,'vg::io::streaminbuf::bufSize()']]],
-  ['bugs_5fmain_2ecpp',['bugs_main.cpp',['../bugs__main_8cpp.html',1,'']]],
   ['build_5falignments',['build_alignments',['../gbwt__main_8cpp.html#abac4f4392b124f1703a3c4bb5e743c44a3a9b86f9c709f3072afb54bc8a69d475',1,'gbwt_main.cpp']]],
   ['build_5fedge_5findexes',['build_edge_indexes',['../classvg_1_1VG.html#a3fb2cb59474393ac822847033f185d17',1,'vg::VG']]],
   ['build_5fedge_5findexes_5fno_5finit_5fsize',['build_edge_indexes_no_init_size',['../classvg_1_1VG.html#af63d4a22a3baa5b21623128b81a14872',1,'vg::VG']]],

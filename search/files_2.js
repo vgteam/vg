@@ -29,6 +29,5 @@ var searchData=
   ['coverage_5fdepth_2ecpp',['coverage_depth.cpp',['../coverage__depth_8cpp.html',1,'']]],
   ['coverage_5fdepth_2ehpp',['coverage_depth.hpp',['../coverage__depth_8hpp.html',1,'']]],
   ['crash_2ecpp',['crash.cpp',['../crash_8cpp.html',1,'']]],
-  ['crash_2ehpp',['crash.hpp',['../crash_8hpp.html',1,'']]],
-  ['crash_5fmain_2ecpp',['crash_main.cpp',['../crash__main_8cpp.html',1,'']]]
+  ['crash_2ehpp',['crash.hpp',['../crash_8hpp.html',1,'']]]
 ];

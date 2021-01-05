@@ -12,7 +12,6 @@ var searchData=
   ['blocked_5fgzip_5finput_5fstream_2ehpp',['blocked_gzip_input_stream.hpp',['../blocked__gzip__input__stream_8hpp.html',1,'']]],
   ['blocked_5fgzip_5foutput_5fstream_2ecpp',['blocked_gzip_output_stream.cpp',['../blocked__gzip__output__stream_8cpp.html',1,'']]],
   ['blocked_5fgzip_5foutput_5fstream_2ehpp',['blocked_gzip_output_stream.hpp',['../blocked__gzip__output__stream_8hpp.html',1,'']]],
-  ['bugs_5fmain_2ecpp',['bugs_main.cpp',['../bugs__main_8cpp.html',1,'']]],
   ['build_5findex_2ecpp',['build_index.cpp',['../build__index_8cpp.html',1,'']]],
   ['build_5findex_2ehpp',['build_index.hpp',['../build__index_8hpp.html',1,'']]]
 ];
