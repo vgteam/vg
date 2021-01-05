@@ -18,12 +18,6 @@ before_script:
   - |
     if [[ ! -z "${DOCKER_HUB_MIRROR}" ]] ; then
         echo "{\"registry-mirrors\": [\"${DOCKER_HUB_MIRROR}\"], \"insecure-registries\": [\"${DOCKER_HUB_MIRROR##*://}\"]}" | sudo tee /etc/docker/daemon.json
-        DOCKER_PID=$(pidof dockerd)
-        if [[ "$?" != "1" ]] ; then
-            # Docker already running
-            echo "Reloading Docker configuration"
-            sudo kill -SIGHUP ${DOCKER_PID}
-        fi
     fi
   - startdocker || true
   - docker info
