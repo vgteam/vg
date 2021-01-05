@@ -24,6 +24,9 @@ std::ostream& operator<<(std::ostream& out, const CommandCategory& category) {
     case DEVELOPMENT:
         out << "developer commands";
         break;
+    case DEPRECATED:
+        // we don't show these
+        break;
     }
     
     return out;

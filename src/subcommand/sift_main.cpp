@@ -585,6 +585,6 @@ else{
     return 0;
 }
 
-static Subcommand vg_sift("sift", "Filter Alignments by various metrics related to variant calling.", main_sift);
+static Subcommand vg_sift("sift", "Filter Alignments by various metrics related to variant calling.", DEPRECATED, main_sift);
 
 

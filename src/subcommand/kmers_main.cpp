@@ -173,5 +173,5 @@ int main_kmers(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_kmers("kmers", "enumerate kmers of the graph", main_kmers);
+static Subcommand vg_kmers("kmers", "enumerate kmers of the graph", DEPRECATED, main_kmers);
 

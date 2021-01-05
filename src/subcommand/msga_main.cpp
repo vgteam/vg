@@ -84,6 +84,12 @@ void help_msga(char** argv) {
 
 int main_msga(int argc, char** argv) {
 
+    cerr << "!!!" << endl;
+    cerr << "WARNING" << endl;
+    cerr << "!!!" << endl;
+    cerr << "vg msga was an early prototype for constructing genome graphs from multiple sequence alignments, but it is no longer state-of-the-art or even actively maintained. VG team members have developed improved graph construction algorithms in Cactus and PGGB, and several other tools have been developed by other groups." << endl << endl;
+    
+    
     if (argc == 2) {
         help_msga(argv);
         return 1;
@@ -908,4 +914,4 @@ int main_msga(int argc, char** argv) {
     return 0;
 }
 
-static Subcommand vg_msga("msga", "multiple sequence graph alignment", main_msga);
+static Subcommand vg_msga("msga", "multiple sequence graph alignment", DEPRECATED, main_msga);
