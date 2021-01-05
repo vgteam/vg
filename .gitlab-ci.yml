@@ -18,9 +18,13 @@ before_script:
   - |
     if [[ ! -z "${DOCKER_HUB_MIRROR}" ]] ; then
         echo "{\"registry-mirrors\": [\"${DOCKER_HUB_MIRROR}\"], \"insecure-registries\": [\"${DOCKER_HUB_MIRROR##*://}\"]}" | sudo tee /etc/docker/daemon.json
-        sudo kill -SIGHUP $(pidof dockerd)
+        DOCKER_PID=$(pidof dockerd)
+        if [[ "$?" != "1" ]] ; then
+            # Docker already running
+            echo "Reloading Docker configuration"
+            sudo kill -SIGHUP ${DOCKER_PID}
+        fi
     fi
-  - cat /etc/docker/daemon.json || true
   - startdocker || true
   - docker info
   - mkdir -p ~/.aws && cp "$GITLAB_SECRET_FILE_AWS_CREDENTIALS" ~/.aws/credentials
