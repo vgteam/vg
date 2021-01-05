@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order
 
-plan tests 61
+plan tests 62
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -83,6 +83,8 @@ vg index x.vg -F x-alts.gaf -G x-gaf.gbwt
 cmp x-gaf.gbwt x-gam.gbwt
 is $? 0 "GBWT from GAF same as from GAM"
 
+rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
+
 # Single graph with haplotypes, for Giraffe
 cp x.vg x2.vg
 
@@ -96,11 +98,14 @@ is $? 0 "the expected indexes exist"
 cmp x.gbwt x2.gbwt
 is $? 0 "the shared indexes are identical"
 
-rm -f x2.vg x2.gbwt x2.gg x2.snarls x2.dist x2.min
+rm -f x2.gbwt x2.gg x2.snarls x2.dist x2.min
+
+vg index --giraffe x2.vg -x x2.xg -v small/x.vcf.gz
+is $? 0 "graph with haplotypes can be indexed for Giraffe alognside xg"
 
 rm -f x.vg
 rm -f x.xg x-ap.xg x.gbwtx.gcsa x.gcsa.lcp
-rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
+rm -f x2.vg x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp x2.gg x2.snarls x2.dist x2.min
 rm -f x2-ap.xg x2-ap.gbwt x2-ap.gcsa x2-ap.gcsa.lcp
 rm -f empty.gbwt
 rm -f x-alts.gam x-alts.gaf x-gam.gbwt x-gaf.gbwt

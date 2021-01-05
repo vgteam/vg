@@ -155,7 +155,7 @@ void IndexManager::ensure(IndexHolderType& member, const string& filename_overri
         // Try to get it based on a basename.
         input_filename = get_filename(extension);
     }
-
+    
     ifstream in(input_filename);
     if (in) {
         // Load the item
@@ -248,7 +248,7 @@ bool IndexManager::can_get(IndexHolderType& member, const string& filename_overr
         // TODO: this will not memoize the recursion and may open files as many
         // times as they are used in the workflow.
         if (show_progress) {
-            cerr << "Needs to be built. Checking dependencies..." << endl;
+            cerr << "Not at " << input_filename << "; needs to be built. Checking dependencies..." << endl;
         }
         return poll_dependencies();
     }

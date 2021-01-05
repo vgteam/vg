@@ -471,7 +471,6 @@ int main_index(int argc, char** argv) {
     gbwt::TempFile::setDirectory(temp_file::get_dir());
     xg::temp_file::set_dir(temp_file::get_dir());
 
-
     if (xg_name.empty() && gbwt_name.empty() &&
         gcsa_name.empty() && rocksdb_name.empty() &&
         dist_name.empty() &&
@@ -500,12 +499,17 @@ int main_index(int argc, char** argv) {
         }
     }
 
-    if (thread_source != thread_source_none && file_names.size() != 1) {
+    if (thread_source != thread_source_none && file_names.size() != 1 && !build_for_giraffe) {
         cerr << "error: [vg index] exactly one graph required for generating threads" << std::endl;
         cerr << "error: [vg index] you may combine the graphs with vg index -x combined.xg --xg-alts" << std::endl;
         return 1;
     }
-
+    
+    if (build_for_giraffe && (thread_source == thread_source_gam || thread_source == thread_source_gaf)) {
+        // TODO: add a thread source for cover
+        cerr << "error: [vg index] indexing for Giraffe only supports a VCF thread source" << std::endl;
+    }
+    
     if (file_names.size() <= 0 && dbg_names.empty()){
         //cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
@@ -569,15 +573,12 @@ int main_index(int argc, char** argv) {
     if (!file_names.empty()) {
         // TODO: if we actually use the index manager we need to prohibit more graph files.
         manager.set_graph_override(file_names.front());
-    } else if (!xg_name.empty()) {
-        // Use this graph instead.
-        manager.set_graph_override(xg_name);
-    }
-        
+    } 
         
     if (build_for_giraffe) {
-        if (file_names.size() > 1 || (file_names.size() == 1 && !xg_name.empty())) {
-            // We can only use one graph with the IndexManager
+        if (file_names.size() != 1) {
+            // We can only use one graph with the IndexManager.
+            // And it has to come in as an input file and not via -x as an input.
             cerr << "error: [vg index] can only build Giraffe indexes from a single graph" << endl;
             return 1;
         }
@@ -668,6 +669,7 @@ int main_index(int argc, char** argv) {
                 delete_kmer_files = true;
             } else if (!xg_name.empty()) {
                 // Get the kmers from an XG
+                // TODO: unify with VGset codepath
                 
                 get_input_file(xg_name, [&](istream& xg_stream) {
                     // Load the XG
@@ -885,6 +887,7 @@ int main_index(int argc, char** argv) {
             //Get graph and build dist index
             if (file_names.empty() && !xg_name.empty()) {
                 // We were given a -x specifically to read as XG
+                // TODO: is there any point to this being a separate codepath?
                 
                 ifstream xg_stream(xg_name);
                 auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
