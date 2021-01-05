@@ -1,10 +1,8 @@
 #include <unordered_set>
 #include "cactus.hpp"
 #include "vg.hpp"
-#include "algorithms/find_tips.hpp"
-#include "algorithms/weakly_connected_components.hpp"
-#include "algorithms/strongly_connected_components.hpp"
-#include "algorithms/find_shortest_paths.hpp"
+#include "handle.hpp"
+#include "algorithms/dfs.hpp"
 
 //#define debug
 
@@ -287,7 +285,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
     // We need one for each weakly connected component in the graph, so first we break into connected components.
     vector<unordered_set<id_t>> weak_components_all;
     if (single_component == false) {
-        weak_components_all = algorithms::weakly_connected_components(&graph);
+        weak_components_all = handlealgs::weakly_connected_components(&graph);
     } else {
         // the calling funciton knows it's just one component, so we skip the calculation
         weak_components_all.resize(1);
@@ -322,7 +320,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
     }
        
     // Then we find all the tips, inward-facing
-    auto all_tips = algorithms::find_tips(&graph);
+    auto all_tips = handlealgs::find_tips(&graph);
     
 #ifdef debug
     cerr << "Found " << all_tips.size() << " tips in graph" << endl;
@@ -381,7 +379,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
     // This holds all the strongly connected components that live in each weakly connected component.
     vector<vector<unordered_set<id_t>>> component_strong_components(weak_components.size());
     size_t strong_component_count = 0;
-    for (auto& strong_component : algorithms::strongly_connected_components(&graph)) {
+    for (auto& strong_component : handlealgs::strongly_connected_components(&graph)) {
         // For each strongly connected component
         assert(!strong_component.empty());
         // Assign it to the weak component that some node in it belongs to
@@ -532,7 +530,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
                         << graph.get_id(key.first) << " " << graph.get_is_reverse(key.first) << endl;
 #endif
                     
-                    unordered_map<handle_t, size_t> distances = algorithms::find_shortest_paths(&graph, key.first);
+                    unordered_map<handle_t, size_t> distances = handlealgs::find_shortest_paths(&graph, key.first);
                     
                     for (auto& other_tip : component_tips[i]) {
                         // And save the distances for everything reachable or unreachable.
@@ -662,8 +660,8 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
 #endif
             
             // Dijkstra in both directions
-            unordered_map<handle_t, size_t> distances_right = algorithms::find_shortest_paths(&graph, start);
-            unordered_map<handle_t, size_t> distances_left = algorithms::find_shortest_paths(&graph, graph.flip(start));
+            unordered_map<handle_t, size_t> distances_right = handlealgs::find_shortest_paths(&graph, start);
+            unordered_map<handle_t, size_t> distances_left = handlealgs::find_shortest_paths(&graph, graph.flip(start));
             
             // Find the furthest-out reachable tip on each side
             handle_t furthest_right_tip;
@@ -716,7 +714,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(const PathHandleGraph& grap
 #endif
                
                     // Dijkstra out from the current starting tip
-                    unordered_map<handle_t, size_t> distances = algorithms::find_shortest_paths(&graph, best_tips[starting_tip]);
+                    unordered_map<handle_t, size_t> distances = handlealgs::find_shortest_paths(&graph, best_tips[starting_tip]);
                     
                     // Find the other tip that is furthest away (stored in tip orientation and not Dijkstra orientation)
                     handle_t maximal_tip = best_tips[!starting_tip];

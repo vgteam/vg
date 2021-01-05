@@ -7,16 +7,21 @@
 #ifndef multipath_mapper_hpp
 #define multipath_mapper_hpp
 
+#include <algorithm>
+#include <vg/vg.pb.h>
+#include <structures/union_find.hpp>
+#include <gbwt/gbwt.h>
+#include <vg/io/edit.hpp>
+#include <bdsg/hash_graph.hpp>
+
 #include "hash_map.hpp"
 #include "mapper.hpp"
 #include "aligner.hpp"
 #include "types.hpp"
 #include "multipath_alignment.hpp"
-#include <vg/vg.pb.h>
 #include "position.hpp"
 #include "nodeside.hpp"
 #include "path.hpp"
-#include "vg/io/edit.hpp"
 #include "snarls.hpp"
 #include "haplotypes.hpp"
 #include "min_distance.hpp"
@@ -32,28 +37,12 @@
 #include "split_strand_graph.hpp"
 #include "dagified_graph.hpp"
 
-#include "algorithms/topological_sort.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
-#include "algorithms/topological_sort.hpp"
-#include "algorithms/weakly_connected_components.hpp"
-#include "algorithms/is_acyclic.hpp"
-#include "algorithms/is_single_stranded.hpp"
-#include "algorithms/split_strands.hpp"
-#include "algorithms/count_walks.hpp"
-#include "algorithms/dagify.hpp"
-#include "algorithms/reverse_complement.hpp"
-#include "algorithms/extend.hpp"
 #include "algorithms/jump_along_path.hpp"
-#include "algorithms/copy_graph.hpp"
 #include "algorithms/ref_path_distance.hpp"
 
-#include "bdsg/hash_graph.hpp"
-
-#include <structures/union_find.hpp>
-#include <gbwt/gbwt.h>
-#include <algorithm>
 
 // note: only activated for single end mapping
 //#define mpmap_instrument_mem_statistics

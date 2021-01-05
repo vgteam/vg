@@ -6,9 +6,7 @@
 #include <vg/io/vpkg.hpp>
 #include "../kmer.hpp"
 #include "../build_index.hpp"
-#include "../algorithms/topological_sort.hpp"
 #include "../algorithms/normalize.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include "../chunker.hpp"
 #include "xg.hpp"
 
@@ -429,7 +427,7 @@ int main_msga(int argc, char** argv) {
         if (graph == nullptr) {
             // Copy instead.
             graph = new vg::VG();
-            algorithms::copy_path_handle_graph(loaded.get(), graph);
+            handlealgs::copy_path_handle_graph(loaded.get(), graph);
             // Make sure the paths are all synced up
             graph->paths.to_graph(graph->graph);
         }

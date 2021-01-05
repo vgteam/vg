@@ -8,7 +8,6 @@
 #include "random_graph.hpp"
 
 #include "../source_sink_overlay.hpp"
-#include "../algorithms/weakly_connected_components.hpp"
 #include "../kmer.hpp"
 #include "../vg.hpp"
 #include "vg/io/json2pb.h"
@@ -277,7 +276,7 @@ TEST_CASE("SourceSinkOverlay agrees with VG::add_start_end_markers in a random g
         // we have to break into a component with no real tips, we might break
         // in at a different place. So work out which components to not worry about so much.
         unordered_set<id_t> in_tipless_component;
-        vector<pair<unordered_set<id_t>, vector<handle_t>>> components = algorithms::weakly_connected_components_with_tips(&random);
+        vector<pair<unordered_set<id_t>, vector<handle_t>>> components = handlealgs::weakly_connected_components_with_tips(&random);
         for (auto& component : components) {
             if (component.second.empty()) {
                 for (auto& id : component.first) {

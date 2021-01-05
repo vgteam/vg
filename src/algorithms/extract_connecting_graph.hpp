@@ -14,8 +14,6 @@
 #include "../handle.hpp"
 #include "../hash_map.hpp"
 
-#include "find_shortest_paths.hpp"
-
 namespace vg {
 namespace algorithms {
     

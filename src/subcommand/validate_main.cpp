@@ -15,7 +15,6 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include "../alignment.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
 
@@ -149,7 +148,7 @@ int main_validate(int argc, char** argv) {
                 // Copy instead.
                 graph = new vg::VG();
                 // TODO: this conversion may make a valid graph out of an invalid one
-                algorithms::copy_path_handle_graph(loaded.get(), graph);
+                handlealgs::copy_path_handle_graph(loaded.get(), graph);
                 // Make sure the paths are all synced up
                 graph->paths.to_graph(graph->graph);
             }

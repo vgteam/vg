@@ -3,10 +3,8 @@
 #include "aligner.hpp"
 // We need to use ultrabubbles for dot output
 #include "genotypekit.hpp"
-#include "algorithms/topological_sort.hpp"
 #include "algorithms/id_sort.hpp"
 #include "algorithms/simplify_siblings.hpp"
-#include "algorithms/unchop.hpp"
 #include "cactus_snarl_finder.hpp"
 #include "augment.hpp"
 #include "prune.hpp"
@@ -2417,7 +2415,7 @@ void VG::sort() {
         return;
     }
     
-    apply_ordering(algorithms::topological_order(this));
+    apply_ordering(handlealgs::topological_order(this));
 }
     
 void VG::id_sort() {

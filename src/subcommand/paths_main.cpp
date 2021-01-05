@@ -20,8 +20,6 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/alignment_emitter.hpp>
 
-#include "../algorithms/copy_graph.hpp"
-
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -442,13 +440,13 @@ int main_paths(int argc, char** argv) {
             VG new_graph;
             
             // copy the nodes and edges
-            algorithms::copy_handle_graph(&(*graph), &new_graph);
+            handlealgs::copy_handle_graph(&(*graph), &new_graph);
             
             // copy the indicated paths
             graph->for_each_path_handle([&](const path_handle_t& path_handle) {
                 string name = graph->get_path_name(path_handle);
                 if (check_path_name(name) != drop_paths) {
-                    algorithms::copy_path(&(*graph), path_handle, &new_graph);
+                    handlealgs::copy_path(&(*graph), path_handle, &new_graph);
                 }
             });
             

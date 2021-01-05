@@ -1,8 +1,6 @@
 
 #include <thread>
 
-#include "../algorithms/topological_sort.hpp"
-#include "../algorithms/apply_bulk_modifications.hpp"
 #include "../io/save_handle_graph.hpp"
 
 #include "transcriptome.hpp"
@@ -1599,7 +1597,7 @@ void Transcriptome::remove_non_transcribed(const bool new_reference_paths) {
 void Transcriptome::compact_ordered() {
 
     assert(_transcript_paths.empty());
-    _splice_graph->apply_ordering(algorithms::topological_order(_splice_graph.get()), true);
+    _splice_graph->apply_ordering(handlealgs::topological_order(_splice_graph.get()), true);
 }
 
 int32_t Transcriptome::embed_transcript_paths(const bool add_reference_paths, const bool add_non_reference_paths) {

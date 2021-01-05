@@ -12,7 +12,6 @@
 #include <structures/min_max_heap.hpp>
 
 #include "handle.hpp"
-#include "algorithms/topological_sort.hpp"
 
 namespace vg {
 
