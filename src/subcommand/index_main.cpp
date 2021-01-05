@@ -473,17 +473,20 @@ int main_index(int argc, char** argv) {
 
 
     if (xg_name.empty() && gbwt_name.empty() &&
-        gcsa_name.empty() && rocksdb_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty()) {
+        gcsa_name.empty() && rocksdb_name.empty() &&
+        dist_name.empty() &&
+        !build_gai_index && !build_vgi_index &&
+        !build_for_giraffe) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
     }
-
+    
     if (build_gbwt && thread_source == thread_source_none) {
         cerr << "error: [vg index] cannot build GBWT without threads" << endl;
         return 1;
     }
 
-    if (thread_source != thread_source_none && !build_gbwt) {
+    if (thread_source != thread_source_none && (!build_gbwt && !build_for_giraffe)) {
         cerr << "error: [vg index] no GBWT output specified for the threads" << endl;
         return 1;
     }
@@ -544,6 +547,7 @@ int main_index(int argc, char** argv) {
 
     // Build for specific tools using the IndexManager
     IndexManager manager;
+    manager.show_progress = show_progress;
     
     // Fill in all the override/specification filenames
     if (!vcf_name.empty()) {
@@ -584,11 +588,11 @@ int main_index(int argc, char** argv) {
             return 1;
         }
         
-        // Actually kick off the indexing
-        manager.get_all_for_giraffe();
+        // We don't build for Giraffe now because we might write one of the
+        // indexes already to the specified path via the per-index generation
+        // code.
     }
-    
-
+        
     // Build XG. Include alt paths in the XG if requested with -L.
     if (build_xg) {
         if (file_names.empty()) {
@@ -903,6 +907,14 @@ int main_index(int argc, char** argv) {
         }
 
     }
+    
+    if (build_for_giraffe) {
+        // Actually kick off the indexing needed for Giraffe.
+        // If the options that set index paths were specified, those indexes
+        // will already be available at those paths and we will just load them.
+        manager.get_all_for_giraffe();
+    }
+    
     if (show_progress) {
         cerr << "Memory usage: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
     }
