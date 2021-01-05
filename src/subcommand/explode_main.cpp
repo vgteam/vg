@@ -180,6 +180,6 @@ int main_explode(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_explode("explode", "split graph into connected components", main_explode);
+static Subcommand vg_explode("explode", "split graph into connected components", DEPRECATED, main_explode);
 
 

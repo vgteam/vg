@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <vector>
 #include <unordered_map>
+#include <algorithm>
 
 #include "structures/rank_pairing_heap.hpp"
 
@@ -133,7 +134,10 @@ namespace vg {
         /// end of the alignment sequence.
         void trim_hanging_indels(const Alignment& alignment, bool trim_Ns = true, bool preserve_tail_anchors = false);
         
-        /// Removes all transitive edges from graph (reduces to minimum equivalent graph).
+        /// Removes all transitive edges from graph (reduces to minimum equivalent graph),
+        /// except for edges between path nodes that abut either on the graph or read. These
+        /// edges often correspond to overlap breaks in low complexity sequence, so retaining
+        /// them improves alignment in low-complexity regions like STR expansions.
         /// Note: reorders internal representation of adjacency lists.
         /// Reachability edges must be in the graph.
         void remove_transitive_edges(const vector<size_t>& topological_order);

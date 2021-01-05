@@ -200,5 +200,5 @@ int main_srpe(int argc, char** argv){
     return 0;
 }
 
-static Subcommand vg_srpe ("srpe", "graph-external SV detection", main_srpe);
+static Subcommand vg_srpe ("srpe", "graph-external SV detection", DEPRECATED, main_srpe);
 
