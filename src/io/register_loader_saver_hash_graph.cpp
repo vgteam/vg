@@ -3,6 +3,7 @@
  * Defines IO for a HashGraph from stream files.
  */
 
+#include <arpa/inet.h>
 #include <vg/io/registry.hpp>
 #include "register_loader_saver_hash_graph.hpp"
 #include "load_proto_to_graph.hpp"
