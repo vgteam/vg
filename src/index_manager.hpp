@@ -47,6 +47,8 @@ using namespace std;
  * 6. A public method "can_get_foo()" which returns true if it thinks get_foo()
  *    will be successful, and false (and prints a warning) if e.g. necessary
  *    files are missing.
+ * 7. Optionally, an sub-struct in the config struct with parameters for the
+ *    indexing algorithm.
  *
  * Note that the IndexManager may exit the process, instead of throwing an
  * exception, if something goes wrong during a "get_foo()" method, so you
@@ -62,13 +64,28 @@ using namespace std;
  */
 class IndexManager : public Progressive {
 public:
-    /*
+    /**
      * Make a new IndexManager with the given FASTA providing the basename, and
      * using the variants from the given VCF if indexes need to be constructed.
      *
      * The fasta must be .fa or .fa.gz
      */
     IndexManager(const string& fasta_filename = "", const string& vcf_filename = "");
+    
+    /**
+     * Configurations for each of the indexes to be generated.
+     */
+    struct {
+        /// Configuration for the minimizer index
+        struct {
+            /// Minimizer kmer length to use when minimizer indexing
+            size_t k = 29;
+            /// Minimizer window size to use when minimizer indexing
+            size_t w = 11;
+            /// Syncmer smer length to use when minimizer indexing
+            size_t s = 18;
+        } min;
+    } config;
 
     /// Set the FASTA filename (and thus the basename for looking for other indexes, if not already set).
     void set_fasta_filename(const string& filename);
@@ -135,13 +152,6 @@ public:
     /// Returns true if the graph is available or can be generated/loaded, and false otherwise.
     bool can_get_graph() const;
     
-    /// Minimizer kmer length to use when minimizer indexing
-    constexpr static size_t minimizer_k = 29;
-    /// Minimizer window size to use when minimizer indexing
-    constexpr static size_t minimizer_w = 11;
-    /// Syncmer smer length to use when minimizer indexing
-    constexpr static size_t minimizer_s = 18;
-
 protected:
 
     // Save the input FASTA filename

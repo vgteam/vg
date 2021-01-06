@@ -47,15 +47,15 @@ int get_default_threads() {
 }
 
 size_t get_default_k() {
-    return IndexManager::minimizer_k;
+    return IndexManager().config.min.k;
 }
 
 size_t get_default_w() {
-    return IndexManager::minimizer_w;
+    return IndexManager().config.min.w;
 }
 
 size_t get_default_s() {
-    return IndexManager::minimizer_s;
+    return IndexManager().config.min.s;
 }
 
 void help_minimizer(char** argv) {
