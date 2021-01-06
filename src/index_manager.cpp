@@ -487,7 +487,7 @@ void IndexManager::ensure_minimizer() {
         ensure_distance();
 
         // Make it
-        minimizer.reset(new gbwtgraph::DefaultMinimizerIndex(config.min.k, config.min.w));
+        minimizer.reset(new gbwtgraph::DefaultMinimizerIndex(config.minimizer.k, config.minimizer.w));
         gbwtgraph::index_haplotypes(*gbwtgraph.first, *minimizer, [&](const pos_t& pos) -> gbwtgraph::payload_type {
             return MIPayload::encode(distance->get_minimizer_distances(pos));
         });

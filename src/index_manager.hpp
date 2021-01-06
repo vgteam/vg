@@ -84,7 +84,7 @@ public:
             size_t w = 11;
             /// Syncmer smer length to use when minimizer indexing
             size_t s = 18;
-        } min;
+        } minimizer;
     } config;
 
     /// Set the FASTA filename (and thus the basename for looking for other indexes, if not already set).

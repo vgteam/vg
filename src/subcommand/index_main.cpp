@@ -44,7 +44,7 @@ void help_index(char** argv) {
          << "tool options:" << endl
          << "    --giraffe              generate indexes needed for the Giraffe mapper" << endl
          << "xg options:" << endl
-         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s), or read for GCSA or distance indexing" << endl
+         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s), or read for GCSA indexing" << endl
          << "    -L, --xg-alts          include alt paths in xg" << endl
          << "gbwt options (more in vg gbwt):" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
@@ -116,6 +116,7 @@ int main_index(int argc, char** argv) {
 
     // General
     bool show_progress = false;
+    IndexManager manager;
 
     // GBWT
     HaplotypeIndexer haplotype_indexer;
@@ -221,6 +222,7 @@ int main_index(int argc, char** argv) {
         case 'p':
             show_progress = true;
             haplotype_indexer.show_progress = true;
+            manager.show_progress = true;
             break;
             
         // Tool
@@ -493,10 +495,6 @@ int main_index(int argc, char** argv) {
         std::cerr << "warning: [vg index] providing input XG with option -x is deprecated" << std::endl;
     }
 
-
-    // Build for specific tools using the IndexManager
-    IndexManager manager;
-    manager.show_progress = show_progress;
     
     // Fill in all the override/specification filenames
     if (!vcf_name.empty()) {
@@ -729,51 +727,20 @@ int main_index(int argc, char** argv) {
 
     //Build new snarl-based minimum distance index
     if (build_dist) {
-        if (file_names.empty() && xg_name.empty()) {
+        if (file_names.empty()) {
             cerr << "error: [vg index] one graph is required to build a distance index" << endl;
             return 1;
-        } else if (file_names.size() > 1 || (file_names.size() == 1 && !xg_name.empty())) {
+        } else if (file_names.size() > 1) {
             cerr << "error: [vg index] only one graph at a time can be used to build a distance index" << endl;
-        } else if (dist_name.empty()) {
-            cerr << "error: [vg index] distance index requires an output file" << endl;
-            return 1;
-        } else if (snarl_name.empty()) {
+        } else if (snarl_name.empty() && !manager.can_get_snarls()) {
             cerr << "error: [vg index] distance index requires a snarl file" << endl;
             return 1;
-            
+        } else if (!manager.can_get_distance()) {
+            cerr << "error: [vg index] cannot build distance index" << endl;
+            return 1;
         } else {
-            //Get snarl manager
-            ifstream snarl_stream(snarl_name);
-            if (!snarl_stream) {
-                cerr << "error: [vg index] cannot open Snarls file" << endl;
-                exit(1);
-            }
-            SnarlManager* snarl_manager = new SnarlManager(snarl_stream);
-            snarl_stream.close();
-
-            //Get graph and build dist index
-            if (file_names.empty() && !xg_name.empty()) {
-                // We were given a -x specifically to read as XG
-                // TODO: is there any point to this being a separate codepath?
-                
-                ifstream xg_stream(xg_name);
-                auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
-
-                // Create the MinimumDistanceIndex
-                MinimumDistanceIndex di(xg.get(), snarl_manager);
-                // Save the completed DistanceIndex
-                vg::io::VPKG::save(di, dist_name);
-
-            } else {
-                // We were given a graph generically
-                auto graph = vg::io::VPKG::load_one<handlegraph::HandleGraph>(file_names.at(0));
-    
-                // Create the MinimumDistanceIndex
-                MinimumDistanceIndex di(graph.get(), snarl_manager);
-                vg::io::VPKG::save(di, dist_name);
-            }
-          
-            
+            // Build distance index and save it
+           manager.get_distance(); 
         }
 
     }
