@@ -19,6 +19,7 @@
 #include "min_distance.hpp"
 #include "snarls.hpp"
 #include "progressive.hpp"
+#include "haplotype_indexer.hpp"
 
 namespace vg {
 
@@ -72,6 +73,10 @@ public:
      */
     IndexManager(const string& fasta_filename = "", const string& vcf_filename = "");
     
+    /// For GBWTs, where should threads come from?
+    // TODO: Not all of these are implemented here yet.
+    enum thread_source_type { thread_source_default, thread_source_vcf, thread_source_paths, thread_source_gam, thread_source_gaf };
+    
     /**
      * Configurations for each of the indexes to be generated.
      */
@@ -85,6 +90,11 @@ public:
             /// Syncmer smer length to use when minimizer indexing
             size_t s = 18;
         } minimizer;
+        /// Configuration for GBWT (doubles as the haplotype indexer widget)
+        struct GBWTConfig : public HaplotypeIndexer {
+            /// Where should threads come from when generating the GBWT?
+            thread_source_type thread_source = thread_source_default;
+        } gbwt;
     } config;
 
     /// Set the FASTA filename (and thus the basename for looking for other indexes, if not already set).

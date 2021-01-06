@@ -151,6 +151,8 @@ vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R y -C -a > y.vg 2> /dev/null
 vg ids -j x.vg y.vg
 
+rm -f x.gbwt y.gbwt
+
 vg index -G x.gbwt -v small/xy2.vcf.gz x.vg && vg index -G y.gbwt -v small/xy2.vcf.gz y.vg && vg gbwt -m -f -o xy.gbwt x.gbwt y.gbwt
 is $? 0 "building a GBWT index of multiple graphs with haplotypes"
 

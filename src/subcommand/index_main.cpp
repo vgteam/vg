@@ -49,7 +49,7 @@ void help_index(char** argv) {
          << "gbwt options (more in vg gbwt):" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
          << "    -W, --ignore-missing   don't warn when variants in the VCF are missing from the graph; silently skip them" << endl
-         << "    -T, --store-threads    generate threads from the embedded paths" << endl
+         << "    -T, --store-threads    generate threads from the embedded paths (default if no other thread source is specified)" << endl
          << "    --paths-as-samples     interpret the paths as samples instead of contigs in -T" << endl
          << "    -M, --store-gam FILE   generate threads from the alignments in gam FILE (many allowed)" << endl
          << "    -F, --store-gaf FILE   generate threads from the alignments in gaf FILE (many allowed)" << endl
@@ -119,9 +119,6 @@ int main_index(int argc, char** argv) {
     IndexManager manager;
 
     // GBWT
-    HaplotypeIndexer haplotype_indexer;
-    enum thread_source_type { thread_source_none, thread_source_vcf, thread_source_paths, thread_source_gam, thread_source_gaf };
-    thread_source_type thread_source = thread_source_none;
     vector<string> aln_file_names;
 
     // GCSA
@@ -221,7 +218,7 @@ int main_index(int argc, char** argv) {
             break;
         case 'p':
             show_progress = true;
-            haplotype_indexer.show_progress = true;
+            manager.config.gbwt.show_progress = true;
             manager.show_progress = true;
             break;
             
@@ -241,37 +238,42 @@ int main_index(int argc, char** argv) {
 
         // GBWT
         case 'v':
-            if (thread_source != thread_source_none) {
+            if (manager.config.gbwt.thread_source != IndexManager::thread_source_default) {
                 multiple_thread_sources();
             }
-            thread_source = thread_source_vcf;
+            manager.config.gbwt.thread_source = IndexManager::thread_source_vcf;
             vcf_name = optarg;
             break;
         case 'W':
-            haplotype_indexer.warn_on_missing_variants = false;
+            manager.config.gbwt.warn_on_missing_variants = false;
             break;
         case 'T':
-            if (thread_source != thread_source_none) {
+            if (manager.config.gbwt.thread_source != IndexManager::thread_source_default) {
                 multiple_thread_sources();
             }
-            thread_source = thread_source_paths;
+            // Explicitly ask for threads from paths.
+            manager.config.gbwt.thread_source = IndexManager::thread_source_paths;
             break;
         case OPT_PATHS_AS_SAMPLES:
-            haplotype_indexer.paths_as_samples = true;
+            manager.config.gbwt.paths_as_samples = true;
             break;
         case 'M':
-            if (thread_source != thread_source_none && thread_source != thread_source_gam) {
+            if (manager.config.gbwt.thread_source != IndexManager::thread_source_default &&
+                manager.config.gbwt.thread_source != IndexManager::thread_source_gam) {
+                
                 multiple_thread_sources();
             }
-            thread_source = thread_source_gam;
+            manager.config.gbwt.thread_source = IndexManager::thread_source_gam;
             build_gbwt = true;
             aln_file_names.push_back(optarg);
             break;
         case 'F':
-            if (thread_source != thread_source_none && thread_source != thread_source_gaf) {
+            if (manager.config.gbwt.thread_source != IndexManager::thread_source_default &&
+                manager.config.gbwt.thread_source != IndexManager::thread_source_gaf) {
+                
                 multiple_thread_sources();
             }
-            thread_source = thread_source_gaf;
+            manager.config.gbwt.thread_source = IndexManager::thread_source_gaf;
             build_gbwt = true;
             aln_file_names.push_back(optarg);
             break;
@@ -280,22 +282,22 @@ int main_index(int argc, char** argv) {
             gbwt_name = optarg;
             break;
         case 'z':
-            haplotype_indexer.phase_homozygous = false;
+            manager.config.gbwt.phase_homozygous = false;
             break;
         case 'P':
-            haplotype_indexer.force_phasing = true;
+            manager.config.gbwt.force_phasing = true;
             break;
         case 'o':
-            haplotype_indexer.discard_overlaps = true;
+            manager.config.gbwt.discard_overlaps = true;
             break;
         case 'B':
-            haplotype_indexer.samples_in_batch = std::max(parse<size_t>(optarg), 1ul);
+            manager.config.gbwt.samples_in_batch = std::max(parse<size_t>(optarg), 1ul);
             break;
         case 'u':
-            haplotype_indexer.gbwt_buffer_size = std::max(parse<size_t>(optarg), 1ul);
+            manager.config.gbwt.gbwt_buffer_size = std::max(parse<size_t>(optarg), 1ul);
             break;
         case 'n':
-            haplotype_indexer.id_interval = parse<size_t>(optarg);
+            manager.config.gbwt.id_interval = parse<size_t>(optarg);
             break;
         case 'R':
             {
@@ -306,8 +308,8 @@ int main_index(int argc, char** argv) {
                     cerr << "error: [vg index] could not parse range " << temp << endl;
                     exit(1);
                 }
-                haplotype_indexer.sample_range.first = parse<size_t>(temp.substr(0, found));
-                haplotype_indexer.sample_range.second = parse<size_t>(temp.substr(found + 2)) + 1;
+                manager.config.gbwt.sample_range.first = parse<size_t>(temp.substr(0, found));
+                manager.config.gbwt.sample_range.second = parse<size_t>(temp.substr(found + 2)) + 1;
             }
             break;
         case 'r':
@@ -323,11 +325,11 @@ int main_index(int argc, char** argv) {
                 string vcf_contig = key_value.substr(0, found);
                 string graph_contig = key_value.substr(found + 1);
                 // Add the name mapping
-                haplotype_indexer.path_to_vcf[graph_contig] = vcf_contig;
+                manager.config.gbwt.path_to_vcf[graph_contig] = vcf_contig;
             }
             break;
         case OPT_RENAME_VARIANTS:
-            haplotype_indexer.rename_variants = true;
+            manager.config.gbwt.rename_variants = true;
             break;
         case 'I':
             {
@@ -342,11 +344,11 @@ int main_index(int argc, char** argv) {
                 }
                 
                 // Make sure to correct the coordinates to 0-based exclusive-end, from 1-based inclusive-end
-                haplotype_indexer.regions[parsed.seq] = make_pair((size_t) (parsed.start - 1), (size_t) parsed.end);
+                manager.config.gbwt.regions[parsed.seq] = make_pair((size_t) (parsed.start - 1), (size_t) parsed.end);
             }
             break;
         case 'E':
-            haplotype_indexer.excluded_samples.insert(optarg);
+            manager.config.gbwt.excluded_samples.insert(optarg);
             break;
 
         // GCSA
@@ -427,17 +429,16 @@ int main_index(int argc, char** argv) {
         return 1;
     }
     
-    if (build_gbwt && thread_source == thread_source_none) {
-        cerr << "error: [vg index] cannot build GBWT without threads" << endl;
-        return 1;
-    }
-
-    if (thread_source != thread_source_none && (!build_gbwt && !build_for_giraffe)) {
+    if (manager.config.gbwt.thread_source != IndexManager::thread_source_default &&
+        (!build_gbwt && !build_for_giraffe)) {
+        
         cerr << "error: [vg index] no GBWT output specified for the threads" << endl;
         return 1;
     }
 
-    if (thread_source == thread_source_gam || thread_source == thread_source_gaf) {
+    if (manager.config.gbwt.thread_source == IndexManager::thread_source_gam ||
+        manager.config.gbwt.thread_source == IndexManager::thread_source_gaf) {
+        
         for (const auto& name : aln_file_names) {
             if (name == "-") {
                 cerr << "error: [vg index] GAM (-M) and GAF (-F) input files cannot be read from stdin (-)" << endl;
@@ -446,15 +447,20 @@ int main_index(int argc, char** argv) {
         }
     }
 
-    if (thread_source != thread_source_none && file_names.size() != 1 && !build_for_giraffe) {
+    if (manager.config.gbwt.thread_source != IndexManager::thread_source_default &&
+        file_names.size() != 1 && !build_for_giraffe) {
+        
         cerr << "error: [vg index] exactly one graph required for generating threads" << std::endl;
         cerr << "error: [vg index] you may combine the graphs with vg index -x combined.xg --xg-alts" << std::endl;
         return 1;
     }
     
-    if (build_for_giraffe && (thread_source == thread_source_gam || thread_source == thread_source_gaf)) {
-        // TODO: add a thread source for cover
-        cerr << "error: [vg index] indexing for Giraffe only supports a VCF thread source" << std::endl;
+    if (build_for_giraffe &&
+        (manager.config.gbwt.thread_source == IndexManager::thread_source_gam ||
+         manager.config.gbwt.thread_source == IndexManager::thread_source_gaf)) {
+        
+        // TODO: add a thread source for cover, and support GAM/GAF thread sources
+        cerr << "error: [vg index] indexing for Giraffe does not support threads from alignments" << std::endl;
     }
     
     if (file_names.size() <= 0 && dbg_names.empty()){
@@ -558,31 +564,39 @@ int main_index(int argc, char** argv) {
     }
 
     // Generate threads
-    if (thread_source != thread_source_none) {
-
-        // Load the only input graph.
-        unique_ptr<PathHandleGraph> path_handle_graph;
-        get_input_file(file_names[0], [&](istream& in) {
-                path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-            });
-
-        std::unique_ptr<gbwt::DynamicGBWT> gbwt_index(nullptr);
-        if (thread_source == thread_source_vcf) {
-            std::vector<std::string> parse_files = haplotype_indexer.parse_vcf(vcf_name, *path_handle_graph);
-            path_handle_graph.reset(); // Save memory by deleting the graph.
-            gbwt_index = haplotype_indexer.build_gbwt(parse_files);
-        } else if (thread_source == thread_source_paths) {
-            gbwt_index = haplotype_indexer.build_gbwt(*path_handle_graph);
-        } else if (thread_source == thread_source_gam) {
-            gbwt_index = haplotype_indexer.build_gbwt(*path_handle_graph, aln_file_names, "GAM");
-        } else if (thread_source == thread_source_gaf) {
-            gbwt_index = haplotype_indexer.build_gbwt(*path_handle_graph, aln_file_names, "GAF");
-        }
-        if (build_gbwt && gbwt_index.get() != nullptr) {
-            if (show_progress) {
-                cerr << "Saving GBWT to disk..." << endl;
+    if (build_gbwt) {
+        switch (manager.config.gbwt.thread_source) {
+        case IndexManager::thread_source_default:
+        case IndexManager::thread_source_vcf:
+        case IndexManager::thread_source_paths:
+            // These are all implemented by the IndexManager
+            if (!manager.can_get_gbwt()) {
+                cerr << "error: [vg index] cannot build GBWT index" << endl;
+                return 1;
+            } else {
+                // Build GBWT index and save it
+               manager.get_gbwt(); 
             }
-            vg::io::VPKG::save(*gbwt_index, gbwt_name);
+            break;
+        case IndexManager::thread_source_gam:
+        case IndexManager::thread_source_gaf:
+            // These are not
+            {
+                std::unique_ptr<gbwt::DynamicGBWT> gbwt_index(nullptr);
+                // Grab a haplotype indexer that uses the configuration we already put into the manager.
+                // TODO: This depends on some sneaky inheritance in the IndexManaged
+                HaplotypeIndexer& haplotype_indexer = manager.config.gbwt;
+                gbwt_index = haplotype_indexer.build_gbwt(*manager.get_graph(), aln_file_names, manager.config.gbwt.thread_source == IndexManager::thread_source_gam ? "GAM" : "GAF");
+                if (show_progress) {
+                    cerr << "Saving GBWT to disk..." << endl;
+                }
+                vg::io::VPKG::save(*gbwt_index, gbwt_name);
+            }
+            break;
+        default:
+            cerr << "error: [vg index] unimplemented thread source!" << endl;
+            return 1;
+            break;
         }
     } // End of thread indexing.
 

@@ -170,8 +170,16 @@ void IndexManager::ensure(IndexHolderType& member, const string& filename_overri
         // Make the item and save it
 
         ofstream out;
-
-        string output_filename = get_filename(extension);
+        
+        string output_filename;
+        if (!filename_override.empty()) {
+            // If we have an override, write to it.
+            output_filename = filename_override;
+        } else {
+            // Write based on the basename.
+            output_filename = get_filename(extension);
+        }
+        
         // Don't make the output file until we're done with the build.
         // Otherwise if we fail we'll think we succeeded.
         string temp_filename = output_filename + ".part";
@@ -392,14 +400,28 @@ void IndexManager::ensure_gbwt() {
         // Make and save
 
         ensure_graph();
-        assert(!vcf_filename.empty());
-
-        HaplotypeIndexer indexer;
+        
+        // Sneakily configure a HaplotypeIndexer with the parameters we got.
+        // It just is the parameters struct.
+        HaplotypeIndexer& indexer = config.gbwt;
         indexer.show_progress = show_progress;
-
-        // Make it, making sure to convert to non-dynamic GBWT
-        std::vector<std::string> parse_files = indexer.parse_vcf(vcf_filename, *graph);
-        auto built = indexer.build_gbwt(parse_files);
+        
+        // We need to build a dynamic GBWT, but then convert it to a static one.
+        std::unique_ptr<gbwt::DynamicGBWT> built(nullptr);
+        
+        if (config.gbwt.thread_source == thread_source_vcf) {
+            // Make it from VCF
+            assert(!vcf_filename.empty());
+            std::vector<std::string> parse_files = indexer.parse_vcf(vcf_filename, *graph);
+            built = indexer.build_gbwt(parse_files);
+        } else if (config.gbwt.thread_source == thread_source_paths || config.gbwt.thread_source == thread_source_default) {
+            // Just make it from the graph
+            built = indexer.build_gbwt(*graph);
+        } else {
+            throw runtime_error("Unimplemented thread source!");
+        }
+        
+        // Convert to non-dynamic GBWT
         gbwt = make_shared<gbwt::GBWT>(*built);
         built.reset();
 
@@ -412,23 +434,32 @@ void IndexManager::ensure_gbwt() {
 
 bool IndexManager::can_get_gbwt() const {
     return can_get(gbwt, gbwt_override, "gbwt", [&]() {
-        // We need the graph and an indexed VCF.
+        // We need the graph
         if (!can_get_graph()) {
             cerr << "warning:[vg::IndexManager] GBWT cannot be built because graph is unavailable" << endl;
             return false;
         }
-        if (vcf_filename.empty()) {
-            cerr << "warning:[vg::IndexManager] GBWT cannot be built because no VCF file is specified" << endl;
-            return false;
-        }
-        if (!file_exists(vcf_filename)) {
-            cerr << "warning:[vg::IndexManager] GBWT cannot be built because VCF file " << vcf_filename << " can't be read" << endl;
-            return false;
-        }
-        string vcf_index_filename = vcf_filename + ".tbi";
-        if (!file_exists(vcf_index_filename)) {
-            cerr << "warning:[vg::IndexManager] GBWT cannot be built because VCF index file " << vcf_index_filename << " can't be read" << endl;
-            return false;
+        if (config.gbwt.thread_source == thread_source_vcf) {
+            if (show_progress) {
+                cerr << "Threads will come from VCF. Checking for VCF..." << endl;
+            }
+            // We need an indexed VCF
+            if (vcf_filename.empty()) {
+                cerr << "warning:[vg::IndexManager] GBWT cannot be built because no VCF file is specified" << endl;
+                return false;
+            }
+            if (!file_exists(vcf_filename)) {
+                cerr << "warning:[vg::IndexManager] GBWT cannot be built because VCF file " << vcf_filename << " can't be read" << endl;
+                return false;
+            }
+            string vcf_index_filename = vcf_filename + ".tbi";
+            if (!file_exists(vcf_index_filename)) {
+                cerr << "warning:[vg::IndexManager] GBWT cannot be built because VCF index file " << vcf_index_filename << " can't be read" << endl;
+                return false;
+            }
+            if (show_progress) {
+                cerr << "Will use indexed VCF from " << vcf_filename << endl;
+            }
         }
         return true;
     });
