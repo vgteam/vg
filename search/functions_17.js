@@ -16,7 +16,7 @@ var searchData=
   ['weibull_5flog_5flikelihood',['weibull_log_likelihood',['../namespacevg.html#ad93405cf370e6d92396691fc3320be1c',1,'vg']]],
   ['wellford_5fmean_5fvar',['wellford_mean_var',['../namespacevg.html#a4b96cd801bc780d426db346f80ab2172',1,'vg']]],
   ['wellford_5fupdate',['wellford_update',['../namespacevg.html#a614c672ed69c280b699a278ce0f34ade',1,'vg']]],
-  ['what',['what',['../classvg_1_1NoAlignmentInBandException.html#a006dddb79b9d1c6035c2466c35dbcacf',1,'vg::NoAlignmentInBandException::what()'],['../classvg_1_1indexOpenException.html#a333df86cfbb0c05dadd25081e69ac210',1,'vg::indexOpenException::what()'],['../classvg_1_1keyNotFoundException.html#ac67561e57be6703921105f1b46a81ccf',1,'vg::keyNotFoundException::what()'],['../classj2pb__error.html#a4ac3313fff0e2721ca9480b61ebe6a8b',1,'j2pb_error::what()']]],
+  ['what',['what',['../classvg_1_1NoAlignmentInBandException.html#a006dddb79b9d1c6035c2466c35dbcacf',1,'vg::NoAlignmentInBandException::what()'],['../classj2pb__error.html#a4ac3313fff0e2721ca9480b61ebe6a8b',1,'j2pb_error::what()']]],
   ['which_5fhaplotype',['which_haplotype',['../classvg_1_1PhasedGenome_1_1iterator.html#a02b60bd3c0ec6d86a8bec582e717ea15',1,'vg::PhasedGenome::iterator']]],
   ['wideningprng',['WideningPRNG',['../classvg_1_1WideningPRNG.html#a5437179a5230df00551a618df6bc4c53',1,'vg::WideningPRNG']]],
   ['widest_5fdijkstra',['widest_dijkstra',['../namespacevg_1_1algorithms.html#a08c6d85f2dc09c22c5d14ed81808769e',1,'vg::algorithms']]],

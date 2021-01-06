@@ -59,7 +59,6 @@ var searchData=
   ['_7ehtswriter',['~HTSWriter',['../classvg_1_1HTSWriter.html#a8be4096c91ac54b168828071b814104d',1,'vg::HTSWriter']]],
   ['_7eidentityoverlay',['~IdentityOverlay',['../classvg_1_1IdentityOverlay.html#a15e797a8861789f9d2f0ec0f0ca57032',1,'vg::IdentityOverlay']]],
   ['_7eincrementalsubgraph',['~IncrementalSubgraph',['../classvg_1_1IncrementalSubgraph.html#aabaea44c8bd9f00f31dea66894c25d79',1,'vg::IncrementalSubgraph']]],
-  ['_7eindex',['~Index',['../classvg_1_1Index.html#a16165115d093fb76d4d675acdb065f99',1,'vg::Index']]],
   ['_7einserthaplotypecommand',['~InsertHaplotypeCommand',['../structvg_1_1InsertHaplotypeCommand.html#a173157b02306f85eb55291107367602e',1,'vg::InsertHaplotypeCommand']]],
   ['_7eiterator',['~iterator',['../classvg_1_1PhasedGenome_1_1iterator.html#a49c0df47c5f5eb7afc45a2978f5dc497',1,'vg::PhasedGenome::iterator::~iterator()'],['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#a578e1ae4eb29377b05133e390ad1d4c3',1,'handlegraph::PathForEachSocket::iterator::~iterator()']]],
   ['_7ej2pb_5ferror',['~j2pb_error',['../classj2pb__error.html#a4bf7997e2520c68a3861f9f105132510',1,'j2pb_error']]],

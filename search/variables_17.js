@@ -19,7 +19,6 @@ var searchData=
   ['window_5fto_5fstart',['window_to_start',['../classvg_1_1StreamIndexBase.html#a47fab2baab7953595105558d0fcba4e2',1,'vg::StreamIndexBase']]],
   ['wrapped_5fostream',['wrapped_ostream',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a14d9a1a0917016a7af46f2960608d302',1,'vg::io::BlockedGzipOutputStream']]],
   ['write',['write',['../structhFILE__backend.html#ada22f61f6280c429aca37d82ef4c31a4',1,'hFILE_backend']]],
-  ['write_5foptions',['write_options',['../classvg_1_1Index.html#a785085834ced227c9a7182776e3126d0',1,'vg::Index']]],
   ['write_5foutput',['write_output',['../classvg_1_1ReadFilter.html#a249032f1613c12263e7c14d83b4e527e',1,'vg::ReadFilter']]],
   ['writer_5fstop',['writer_stop',['../classvg_1_1io_1_1StreamMultiplexer.html#ae51a3ffdfe9ec988bf732e4904dcbf60',1,'vg::io::StreamMultiplexer']]],
   ['writer_5fthread',['writer_thread',['../classvg_1_1io_1_1StreamMultiplexer.html#a56a9d39b8ccdd13f07e835ad7a967a60',1,'vg::io::StreamMultiplexer']]]

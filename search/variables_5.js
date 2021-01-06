@@ -48,7 +48,6 @@ var searchData=
   ['end_5flength',['end_length',['../structvg_1_1SnarlSeedClusterer_1_1Seed.html#a0122de306bc131c8ea6db9e3094e2aa1',1,'vg::SnarlSeedClusterer::Seed']]],
   ['end_5fmarker',['end_marker',['../classxg_1_1XG.html#a093c989279df231851f0bafba65abdb6',1,'xg::XG']]],
   ['end_5fself_5freachable',['end_self_reachable',['../structvg_1_1Snarl.html#a18c06a3bd33bd3385147838d4c7b867c',1,'vg::Snarl']]],
-  ['end_5fsep',['end_sep',['../classvg_1_1Index.html#a0c382438efc4d8003d166debd463f1ac',1,'vg::Index']]],
   ['endpoints',['endpoints',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a2b1f1d67a76ef6de89f8f30bd794f603',1,'vg::GraphSynchronizer::Lock']]],
   ['entries',['entries',['../structhaplo_1_1haplo__DP__column.html#aa46ab429b8d5eba3919e2c1cbf2e9a4e',1,'haplo::haplo_DP_column']]],
   ['exclude_5funaligned',['exclude_unaligned',['../classvg_1_1BaseMapper.html#ac71be220eec4224b249a6536db70bbe5',1,'vg::BaseMapper']]],

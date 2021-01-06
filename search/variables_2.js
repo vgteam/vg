@@ -50,7 +50,6 @@ var searchData=
   ['bufsize',['bufSize',['../classvg_1_1io_1_1fdinbuf.html#ae20c45d02cdacbc8a27b61ac41eb8f6f',1,'vg::io::fdinbuf::bufSize()'],['../classvg_1_1io_1_1streaminbuf.html#a633a4a419dad259a742de7e50f0568f1',1,'vg::io::streaminbuf::bufSize()']]],
   ['build_5fhost',['BUILD_HOST',['../classvg_1_1Version.html#a6e1e33f37aa4d73f0a9038e03bbbaec7',1,'vg::Version']]],
   ['build_5fuser',['BUILD_USER',['../classvg_1_1Version.html#a0ed0401bd4a0b5d42c2c40048f67f66c',1,'vg::Version']]],
-  ['bulk_5fload',['bulk_load',['../classvg_1_1Index.html#a060b892edbbac6f475d80510f50abda3',1,'vg::Index']]],
   ['by_5fid',['by_id',['../structvg_1_1PathIndex.html#a3f5697a5db586a467dc4923e2cccbfe1',1,'vg::PathIndex']]],
   ['by_5fstart',['by_start',['../structvg_1_1PathIndex.html#a55cb6181f7b4b80016aaf2fefbb402c2',1,'vg::PathIndex']]],
   ['byte_5fcount',['byte_count',['../classvg_1_1io_1_1BlockedGzipInputStream.html#aca10a84d86b0e9db6ef5727f9e454add',1,'vg::io::BlockedGzipInputStream::byte_count()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a745da931cd84709a1a8b8f64e357d2fb',1,'vg::io::BlockedGzipOutputStream::byte_count()']]]

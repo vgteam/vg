@@ -36,7 +36,6 @@ var searchData=
   ['col_5fidx',['col_idx',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#aac3083f9fb9e9521011f7a637753c302',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
   ['collapse_5ftranscript_5fpaths',['collapse_transcript_paths',['../classvg_1_1Transcriptome.html#aaef5359c4785d9e01e989a7875eed85e',1,'vg::Transcriptome']]],
   ['colors',['colors',['../classvg_1_1Colors.html#a20b7cf0022c8e1340b82176e5715cd2f',1,'vg::Colors']]],
-  ['column_5ffamily_5foptions',['column_family_options',['../classvg_1_1Index.html#a3b65ef8aecfa71ad34ecbe832a47e82e',1,'vg::Index']]],
   ['column_5fof',['column_of',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#af6f26344b2eec01c2f3847dfbbad5b3d',1,'vg::NGSSimulator::MarkovDistribution']]],
   ['compiler',['COMPILER',['../classvg_1_1Version.html#a20177da26bdbb15b48bae0c20b02b273',1,'vg::Version']]],
   ['complement',['complement',['../classvg_1_1ReverseGraph.html#af2508e0ccbc9186701840c7630b7c505',1,'vg::ReverseGraph::complement()'],['../structvg_1_1ChainIterator.html#a6699e092f944e1c311b4bbdf2e2cbe38',1,'vg::ChainIterator::complement()']]],

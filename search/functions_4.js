@@ -76,7 +76,7 @@ var searchData=
   ['draw',['draw',['../classvg_1_1Viz.html#aed21697f1ddd4fb1b9c5ea2fcaa831b3',1,'vg::Viz']]],
   ['draw_5fgraph',['draw_graph',['../classvg_1_1Viz.html#ad8b787e3208a261c77e12d8cd70e0d08',1,'vg::Viz']]],
   ['drop_5fprefix',['drop_prefix',['../classvg_1_1BitString.html#a2200dc1668821c7aa772f87fe9239ff3',1,'vg::BitString']]],
-  ['dump',['dump',['../classvg_1_1SnarlState.html#a73e89359341e01d66fbb28f110a6c24a',1,'vg::SnarlState::dump()'],['../classvg_1_1GenomeState.html#a96f209015d1816d0b7cdefc8f10c25b3',1,'vg::GenomeState::dump()'],['../classvg_1_1Index.html#a6c76fd1ff1c569c4ed9aae364be14d84',1,'vg::Index::dump()']]],
+  ['dump',['dump',['../classvg_1_1SnarlState.html#a73e89359341e01d66fbb28f110a6c24a',1,'vg::SnarlState::dump()'],['../classvg_1_1GenomeState.html#a96f209015d1816d0b7cdefc8f10c25b3',1,'vg::GenomeState::dump()']]],
   ['dump_5fdebug_5fextension_5fset',['dump_debug_extension_set',['../classvg_1_1MinimizerMapper.html#a2a9803373db4106b6362c97333a850fb',1,'vg::MinimizerMapper']]],
   ['dump_5fdebug_5fminimizers',['dump_debug_minimizers',['../classvg_1_1MinimizerMapper.html#a556b39c65762156bfab92c464b928fef',1,'vg::MinimizerMapper']]],
   ['dump_5fdebug_5fsequence',['dump_debug_sequence',['../classvg_1_1MinimizerMapper.html#a76d10debe8563e4a84d837a1a895c70b',1,'vg::MinimizerMapper']]],

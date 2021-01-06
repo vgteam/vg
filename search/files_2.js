@@ -14,7 +14,6 @@ var searchData=
   ['cluster_5fmain_2ecpp',['cluster_main.cpp',['../cluster__main_8cpp.html',1,'']]],
   ['colors_2ehpp',['colors.hpp',['../colors_8hpp.html',1,'']]],
   ['combine_5fmain_2ecpp',['combine_main.cpp',['../combine__main_8cpp.html',1,'']]],
-  ['compare_5fmain_2ecpp',['compare_main.cpp',['../compare__main_8cpp.html',1,'']]],
   ['concat_5fmain_2ecpp',['concat_main.cpp',['../concat__main_8cpp.html',1,'']]],
   ['construct_5fmain_2ecpp',['construct_main.cpp',['../construct__main_8cpp.html',1,'']]],
   ['constructor_2ecpp',['constructor.cpp',['../constructor_8cpp.html',1,'']]],

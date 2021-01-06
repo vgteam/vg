@@ -96,7 +96,6 @@ var searchData=
   ['start_5fpos',['start_pos',['../classvg_1_1MEMClusterer_1_1HitNode.html#ac1772330432b54080ac41ec1a4302d8d',1,'vg::MEMClusterer::HitNode']]],
   ['start_5fpos_5fsamplers',['start_pos_samplers',['../classvg_1_1NGSSimulator.html#abe06d132967858ffa36a6f5235a506f2',1,'vg::NGSSimulator']]],
   ['start_5fself_5freachable',['start_self_reachable',['../structvg_1_1Snarl.html#a9a2de860018e3c8cfd512f6a1904f18c',1,'vg::Snarl']]],
-  ['start_5fsep',['start_sep',['../classvg_1_1Index.html#a75488a0888544466a44feb28e11b0471',1,'vg::Index']]],
   ['state',['state',['../structvg_1_1GaplessExtension.html#a1b799cab247ae9b2551e902a9f7f2b25',1,'vg::GaplessExtension::state()'],['../classvg_1_1GenomeState.html#ab0f68d58776dcd18a1ef85409a29e452',1,'vg::GenomeState::state()'],['../structhaplo_1_1haplo__DP__rectangle.html#aff798553a0dfd177413b1649e049e574',1,'haplo::haplo_DP_rectangle::state()'],['../classvg_1_1Watchdog.html#a0cecf66da11a5f71e837a9d1b6f6c291',1,'vg::Watchdog::state()']]],
   ['states',['states',['../classvg_1_1PhaseUnfolder.html#ac7d3333de41989b2ca10db84ddb1d5a8',1,'vg::PhaseUnfolder']]],
   ['step',['step',['../structvg_1_1Range.html#a05a0a35957e0a0e127b9ef55a305df76',1,'vg::Range::step()'],['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#a44f22277ea90f802ae502bdb5bf8e478',1,'handlegraph::PathForEachSocket::iterator::step()']]],

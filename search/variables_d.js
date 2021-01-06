@@ -124,7 +124,7 @@ var searchData=
   ['memo',['memo',['../classhaplo_1_1hDP__gbwt__graph__accessor.html#a382739dd7136e759c6a01725ddebd301',1,'haplo::hDP_gbwt_graph_accessor']]],
   ['memory_5fhigh_5fwater_5fkb',['memory_high_water_kb',['../classvg_1_1Watchdog.html#aa759f3d73ebe15aeb95a13a8c86a0b59',1,'vg::Watchdog']]],
   ['merged_5fgroup',['merged_group',['../structvg_1_1IndexedVG_1_1CacheEntry.html#acd6301aa5e085df9fa56ba8b102cdde6',1,'vg::IndexedVG::CacheEntry']]],
-  ['message',['message',['../classvg_1_1NoAlignmentInBandException.html#a3cc1fd5899066709228ecea9e5a25956',1,'vg::NoAlignmentInBandException::message()'],['../classvg_1_1indexOpenException.html#ad2e9c28b9dd893378b1cd5af79ec2efb',1,'vg::indexOpenException::message()']]],
+  ['message',['message',['../classvg_1_1NoAlignmentInBandException.html#a3cc1fd5899066709228ecea9e5a25956',1,'vg::NoAlignmentInBandException']]],
   ['message_5femitter',['message_emitter',['../classvg_1_1io_1_1ProtobufEmitter.html#a1bdc1e48041d69eeca45745580af19f3',1,'vg::io::ProtobufEmitter']]],
   ['message_5fhandlers',['message_handlers',['../classvg_1_1io_1_1ProtobufEmitter.html#a73231a5a45811c280d1a6d346abc75eb',1,'vg::io::ProtobufEmitter']]],
   ['message_5fit',['message_it',['../classvg_1_1io_1_1ProtobufIterator.html#a787d06e13a1799b7e65ee1aa19ec3bb8',1,'vg::io::ProtobufIterator']]],
