@@ -4096,14 +4096,13 @@ namespace vg {
                 // if we're doing dynamic alt alignments, possibly expand the number of tracebacks until we get an
                 // alignment to every path or hit the hard max
                 vector<pair<path_t, int32_t>> deduplicated;
-                for (size_t num_alns_iter = num_alt_alns;
-                     deduplicated.size() < num_alt_alns && num_alns_iter <= max_alt_alns;
-                     num_alns_iter *= 2) {
+                size_t num_alns_iter = num_alt_alns;
+                while (deduplicated.size() < num_alt_alns) {
                     
                     intervening_sequence.clear_path();
                     
                     vector<Alignment> alt_alignments;
-                    if (num_alns_iter > 0) {
+                    if (num_alt_alns > 0) {
                         
 #ifdef debug_multipath_alignment
                         cerr << "making " << num_alns_iter << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
@@ -4120,10 +4119,20 @@ namespace vg {
                         
                         aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alns_iter,
                                                            band_padding_function(intervening_sequence, connecting_graph), true);
+                        
                     }
                     
                     // remove alignments with the same path
                     deduplicated = deduplicate_alt_alns(alt_alignments, false, false);
+                    
+                    if (num_alns_iter >= max_alt_alns || !dynamic_alt_alns) {
+                        // we don't want to try again even if we didn't find every path yet
+                        break;
+                    }
+                    else {
+                        // if we didn't find every path, we'll try again with this many tracebacks
+                        num_alns_iter = min(max_alt_alns, num_alns_iter * 2);
+                    }
                 }
                 
                 bool added_direct_connection = false;
@@ -4344,7 +4353,7 @@ namespace vg {
                 double repetitiveness = max(complexity.repetitiveness(1), complexity.repetitiveness(2));
                 double low_complexity_len = repetitiveness * aln.sequence().size();
                 // TODO: empirically-derived function, not very principled
-                return min(max_multiplier, 0.05 * low_complexity_len * low_complexity_len);
+                return max(1.0, min(max_multiplier, 0.05 * low_complexity_len * low_complexity_len));
             }
             else {
                 return 1.0;
