@@ -30,7 +30,36 @@ namespace vg {
             unordered_map<size_t, size_t> cgraph_total_edge_weights;
             pair<vector<vector<size_t>>, size_t> to_return;
             
-            //TODO: add case for V <= 2 from beginning 
+            if (V == 0 || V==1){
+                //there is no min-cut to calculate
+                return to_return;
+                
+            }
+            //handles: 2 nodes with edges, 2 nodes without edges
+            if (V==2 ){
+                //check that both nodes have edges
+                if (graph.nodes[0].edges.empty == false && graph.nodes[1].edges.empty == false){
+                    
+                    //disjoint sets will just be two sets, each containing one node
+                    //using index starting at 0 for nodes
+                    vector<size_t> supernode0 = 0;
+                    vector<size_t> supernode1 = 1;
+                    disjoint_sets.push_back(supernode0);
+                    disjoint_sets.push_back(supernode1);
+
+                    vector<vector<size_t>> disjoint_sets;
+                    //assumes weights from node 1->node 2 and node 2->node 1 are equal
+                    size_t weight_of_cut = graph.nodes[0].edges[0].weight;
+                    to_return = make_pair(disjoint_sets, weight_of_cut);
+                }else{
+                    //not  connected graph
+                    //to_return is empty
+                    return to_return;
+                    
+                }
+
+            }
+
             while(V > 2){
                 
 
@@ -119,9 +148,9 @@ namespace vg {
                 // if we have only two we can break out of the while loop
                 if(V == 2){
                     //compute the min cut of graph which is equal to the total edge weights of two supernodes 
-                    size_t min_cut;
+                    size_t weight_of_cut;
                     for (pair<size_t, size_t> element: cgraph_total_edge_weights){
-                        min_cut += element.second;
+                        weight_of_cut += element.second;
                     }
 
                     vector<vector<size_t>> disjoint_sets;
@@ -133,7 +162,7 @@ namespace vg {
                         disjoint_sets.push_back(d_set);
 
                     }
-                    to_return = make_pair(disjoint_sets, min_cut);
+                    to_return = make_pair(disjoint_sets, weight_of_cut);
                     break;
                 }
                 
@@ -157,11 +186,14 @@ namespace vg {
             const int seed2 = 3;
 
             //TODO: generate seeds in here or send two seeds
-            
             pair<vector<vector<size_t>>, size_t> to_return;
             pair<vector<vector<size_t>>, size_t> min_cut1 = kargers_min_cut(graph, n_iterations, seed, V);
             pair<vector<vector<size_t>>, size_t> min_cut2 = kargers_min_cut(graph, n_iterations, seed2, V);
-
+            if (min_cut1.first = 0 || min_cut2.first == 0 ){
+                // if pair is empty pair.first and pair.second will both be initialized to 0 during contruction
+                //return empty container
+                return to_return;
+            }
             if (min_cut1.second < min_cut2.second){
                 to_return = min_cut1;
 
