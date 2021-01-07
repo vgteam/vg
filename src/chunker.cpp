@@ -3,7 +3,7 @@
 #include <vg/io/stream.hpp>
 #include "chunker.hpp"
 #include "algorithms/subgraph.hpp"
-#include "algorithms/copy_graph.hpp"
+#include "handle.hpp"
 
 //#define debug
 
@@ -284,7 +284,7 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
 
     // copy back out of vg if necessary
     if (dynamic_cast<VG*>(&subgraph) == nullptr) {
-        algorithms::copy_path_handle_graph(vg_subgraph, &subgraph);
+        handlealgs::copy_path_handle_graph(vg_subgraph, &subgraph);
         delete vg_subgraph;
     }
 

@@ -1,7 +1,5 @@
 #include "traversal_finder.hpp"
 #include "genotypekit.hpp"
-#include "algorithms/topological_sort.hpp"
-#include "algorithms/is_acyclic.hpp"
 #include "algorithms/k_widest_paths.hpp"
 #include "cactus.hpp"
 

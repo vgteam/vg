@@ -18,8 +18,6 @@
 #include "memoizing_graph.hpp"
 #include "split_strand_graph.hpp"
 
-#include "algorithms/topological_sort.hpp"
-
 #include "bdsg/hash_graph.hpp"
 
 namespace vg {

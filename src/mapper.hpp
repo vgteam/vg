@@ -24,7 +24,6 @@
 #include "translator.hpp"
 // TODO: pull out ScoreProvider into its own file
 #include "haplotypes.hpp"
-#include "algorithms/reverse_complement.hpp"
 #include "algorithms/subgraph.hpp"
 #include "algorithms/nearest_offsets_in_paths.hpp"
 #include "algorithms/jump_along_path.hpp"

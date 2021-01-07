@@ -6,7 +6,6 @@
 #include "../vg.hpp"
 #include "../augment.hpp"
 #include "../utility.hpp"
-#include "../algorithms/unchop.hpp"
 #include "../algorithms/normalize.hpp"
 
 namespace vg {
@@ -1476,7 +1475,7 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         
         VG graph = string_to_graph(graph_json);
         graph.bluntify();
-        algorithms::unchop(&graph);
+        handlealgs::unchop(&graph);
         
         SECTION("the unchopped bluntified graph should have one node") {
             REQUIRE(graph.node_count() == 1);

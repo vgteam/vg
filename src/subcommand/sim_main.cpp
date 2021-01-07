@@ -20,7 +20,6 @@
 #include "../gbwt_helper.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "../sampler.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/hash_graph.hpp>
@@ -513,7 +512,7 @@ int main_sim(int argc, char** argv) {
                 std::cerr << "Converting the graph into HashGraph" << std::endl;
             }
             mutable_graph = new bdsg::HashGraph();
-            algorithms::copy_path_handle_graph(path_handle_graph.get(), mutable_graph);
+            handlealgs::copy_path_handle_graph(path_handle_graph.get(), mutable_graph);
             path_handle_graph.reset(mutable_graph);
         }
         if (progress) {

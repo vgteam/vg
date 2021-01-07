@@ -7,7 +7,6 @@
 #include <string>
 #include "vg/io/json2pb.h"
 #include "../tree_subgraph.hpp"
-#include "../algorithms/dijkstra.hpp"
 #include "catch.hpp"
 
 #include <vg/vg.pb.h>
@@ -82,7 +81,7 @@ TEST_CASE("TreeSubgraph can be created and traversed", "[subgraph]") {
         
             // Traverse the graph
             unordered_map<handle_t, size_t> seen;
-            algorithms::dijkstra(&subgraph, root, [&](const handle_t& reached, size_t distance) {
+            handlealgs::dijkstra(&subgraph, root, [&](const handle_t& reached, size_t distance) {
                 seen[reached] = distance;
                 return true;
             });

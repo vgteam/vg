@@ -2346,7 +2346,7 @@ namespace vg {
         unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_starts_from_end;
         
         // get a topological order over the nodes in the graph to iterate over
-        vector<handle_t> topological_order = algorithms::lazier_topological_order(&graph);
+        vector<handle_t> topological_order = handlealgs::lazier_topological_order(&graph);
         for (int64_t i = 0; i < topological_order.size(); i++) {
             id_t node_id = graph.get_id(topological_order[i]);
             
@@ -4080,7 +4080,7 @@ namespace vg {
                     continue;
                 }
                 
-                size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&connecting_graph)) : 
+                size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, handlealgs::count_walks(&connecting_graph)) :
                                                          max_alt_alns;
                 
                 
@@ -4404,7 +4404,7 @@ namespace vg {
                 
                 size_t num_alt_alns;
                 if (dynamic_alt_alns) {
-                    size_t num_paths = algorithms::count_walks(&tail_graph);
+                    size_t num_paths = handlealgs::count_walks(&tail_graph);
                     if (num_paths < min_paths) {
                         continue;
                     }
@@ -4521,7 +4521,7 @@ namespace vg {
                     
                     size_t num_alt_alns;
                     if (dynamic_alt_alns) {
-                        size_t num_paths = algorithms::count_walks(&tail_graph);
+                        size_t num_paths = handlealgs::count_walks(&tail_graph);
                         if (num_paths < min_paths) {
                             continue;
                         }

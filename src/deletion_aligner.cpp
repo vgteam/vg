@@ -48,7 +48,7 @@ vector<vector<handle_t>> DeletionAligner::run_dp(const HandleGraph& graph,
 #ifdef debug_deletion_aligner
     cerr << "aligning deletions with " << max_tracebacks << " tracebacks" << endl;
 #endif
-    auto order = algorithms::lazier_topological_order(&graph);
+    auto order = handlealgs::lazier_topological_order(&graph);
     unordered_map<handle_t, size_t> index_of;
     index_of.reserve(order.size());
     for (size_t i = 0; i < order.size(); ++i) {

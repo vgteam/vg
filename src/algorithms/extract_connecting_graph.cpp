@@ -341,8 +341,8 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
         // above the maximum distance, so we do a forward-backward distance search to check
         
         // compute the minimum distance from the two start point s
-        unordered_map<handle_t, size_t> forward_dist = find_shortest_paths(into, cut_handle_1, false);
-        unordered_map<handle_t, size_t> reverse_dist = find_shortest_paths(into, cut_handle_2, true);
+        unordered_map<handle_t, size_t> forward_dist = handlealgs::find_shortest_paths(into, cut_handle_1, false);
+        unordered_map<handle_t, size_t> reverse_dist = handlealgs::find_shortest_paths(into, cut_handle_2, true);
         
         // now we have the lengths of the shortest path remaining in graph to and from each node
         // with these, we can compute the shortest path that uses each node and edge to see if it

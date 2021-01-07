@@ -7,7 +7,6 @@
 
 #include "banded_global_aligner.hpp"
 #include "vg/io/json2pb.h"
-#include "algorithms/find_tips.hpp"
 
 //#define debug_banded_aligner_objects
 //#define debug_banded_aligner_graph_processing
@@ -1803,9 +1802,9 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
                                                   max_multi_alns(max_multi_alns),
                                                   adjust_for_base_quality(adjust_for_base_quality),
                                                   // compute some graph features we will be frequently reusing
-                                                  topological_order(algorithms::lazier_topological_order(&g)),
-                                                  source_nodes(algorithms::head_nodes(&g)),
-                                                  sink_nodes(algorithms::tail_nodes(&g))
+                                                  topological_order(handlealgs::lazier_topological_order(&g)),
+                                                  source_nodes(handlealgs::head_nodes(&g)),
+                                                  sink_nodes(handlealgs::tail_nodes(&g))
 {
 #ifdef debug_banded_aligner_objects
     cerr << "[BandedGlobalAligner]: constructing BandedBlobalAligner with " << band_padding << " padding, " << permissive_banding << " permissive, " << adjust_for_base_quality << " quality adjusted" << endl;

@@ -2,7 +2,6 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "xg.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include "../algorithms/gfa_to_handle.hpp"
 #include "../io/save_handle_graph.hpp"
 #include <vg/io/stream.hpp>
@@ -235,7 +234,7 @@ int main_convert(int argc, char** argv) {
             assert(mutable_output_graph != nullptr);
             // ID hint (currently only for odgi)
             mutable_output_graph->set_id_increment(input_graph->min_node_id());
-            algorithms::copy_path_handle_graph(input_path_graph, mutable_output_graph);
+            handlealgs::copy_path_handle_graph(input_path_graph, mutable_output_graph);
         }
         else {
             if (input_path_graph != nullptr) {
@@ -245,7 +244,7 @@ int main_convert(int argc, char** argv) {
             assert(mutable_output_graph != nullptr);
             // ID hint (currently only for odgi)
             mutable_output_graph->set_id_increment(input_graph->min_node_id());
-            algorithms::copy_handle_graph(input_graph.get(), mutable_output_graph);
+            handlealgs::copy_handle_graph(input_graph.get(), mutable_output_graph);
         }
     }
     

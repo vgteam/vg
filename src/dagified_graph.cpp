@@ -29,7 +29,7 @@ using namespace std;
         vector<vector<handle_t>> strong_components;
         {
             // get a low-FAS layout with a canonical orientation for each handle
-            vector<handle_t> layout = algorithms::eades_algorithm(graph);
+            vector<handle_t> layout = handlealgs::eades_algorithm(graph);
             
             // invert the mapping for the layout
             layout_order.reserve(layout.size());
@@ -42,7 +42,7 @@ using namespace std;
             // TODO: annoying that we have to work with this return type for strongly_connected_components
             scc_of_handle.resize(layout.size());
             size_t scc_idx = 0;
-            for (const unordered_set<id_t>& scc : algorithms::strongly_connected_components(graph)) {
+            for (const unordered_set<id_t>& scc : handlealgs::strongly_connected_components(graph)) {
                 // init new component
                 strong_components.emplace_back();
                 auto& component = strong_components.back();

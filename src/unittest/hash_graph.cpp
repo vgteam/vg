@@ -11,8 +11,6 @@
 #include "random_graph.hpp"
 #include "randomness.hpp"
 
-#include "algorithms/are_equivalent.hpp"
-
 #include "bdsg/hash_graph.hpp"
 
 #include "catch.hpp"
@@ -44,7 +42,7 @@ using namespace std;
             graph.serialize(strm);
             strm.seekg(0);
             bdsg::HashGraph loaded(strm);
-            REQUIRE(algorithms::are_equivalent_with_paths(&graph, &loaded));
+            REQUIRE(handlealgs::are_equivalent_with_paths(&graph, &loaded));
         }
     }
 }
