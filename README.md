@@ -49,7 +49,7 @@ First, obtain the repo and its submodules:
     git clone --recursive https://github.com/vgteam/vg.git
     cd vg
     
-Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need `jq`, `bc`, `rs`, and `npm`. On Ubuntu, you should be able to do:
+Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need `jq`, `bc`, and `rs`, and [`npm` for testing documentation examples](https://github.com/anko/txm)). On Ubuntu, you should be able to do:
 
     make get-deps
     
