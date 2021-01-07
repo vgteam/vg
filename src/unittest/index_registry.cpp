@@ -19,7 +19,7 @@ public:
 
 using namespace std;
     
-TEST_CASE("IndexRegistry works on a dummy dependency graph", "[indexregistry]") {
+TEST_CASE("IndexRegistry can make plans on a dummy recipe graph", "[indexregistry]") {
     
     TestIndexRegistry registry;
     
@@ -31,6 +31,8 @@ TEST_CASE("IndexRegistry works on a dummy dependency graph", "[indexregistry]") 
     registry.register_index("Pruned VG");
     registry.register_index("XG");
     registry.register_index("GCSA+LCP");
+    registry.register_index("Trivial Snarls");
+    registry.register_index("Distance");
     
     // make some dummy recipes that don't actually do anything
     registry.register_recipe("VG", {"FASTA", "VCF"},
@@ -61,6 +63,26 @@ TEST_CASE("IndexRegistry works on a dummy dependency graph", "[indexregistry]") 
     registry.register_recipe("GCSA+LCP", {"Pruned VG"},
                              [&] (const vector<const IndexFile*>& inputs) {
         vector<string> filenames{"gcsa-file", "lcp-file"};
+        return filenames;
+    });
+    registry.register_recipe("Trivial Snarls", {"XG"},
+                             [&] (const vector<const IndexFile*>& inputs) {
+        vector<string> filenames(1, "snarls-file");
+        return filenames;
+    });
+    registry.register_recipe("Trivial Snarls", {"VG"},
+                             [&] (const vector<const IndexFile*>& inputs) {
+        vector<string> filenames(1, "snarls-file");
+        return filenames;
+    });
+    registry.register_recipe("Distance", {"XG", "Trivial Snarls"},
+                             [&] (const vector<const IndexFile*>& inputs) {
+        vector<string> filenames(1, "dist-file");
+        return filenames;
+    });
+    registry.register_recipe("Distance", {"VG", "Trivial Snarls"},
+                             [&] (const vector<const IndexFile*>& inputs) {
+        vector<string> filenames(1, "dist-file");
         return filenames;
     });
     
@@ -154,8 +176,22 @@ TEST_CASE("IndexRegistry works on a dummy dependency graph", "[indexregistry]") 
         
         auto plan = registry.make_plan({"XG"});
         REQUIRE(plan.size() == 1);
-        REQUIRE(plan[1].first == "XG");
-        REQUIRE(plan[1].second == 1);
+        REQUIRE(plan[0].first == "XG");
+        REQUIRE(plan[0].second == 1);
+    }
+    
+    SECTION("Impossible plans with some inputs available can be identified") {
+        
+        registry.provide("Trivial Snarls", "snarls-name");
+        
+        bool caught = false;
+        try {
+            auto plan = registry.make_plan({"Distance"});
+        }
+        catch (InsufficientInputException ex) {
+            caught = true;
+        }
+        REQUIRE(caught);
     }
 }
 

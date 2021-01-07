@@ -23,6 +23,10 @@ void IndexRegistry::make_indexes(const vector<string>& identifiers) {
 
 void IndexRegistry::register_index(const string& identifier) {
     // Add this index to the registry
+    if (identifier.empty()) {
+        cerr << "error:[IndexRegistry] indexes must have a non-empty identifier" << endl;
+        exit(1);
+    }
     if (registry.count(identifier)) {
         cerr << "error:[IndexRegistry] index registry contains a duplicated identifier: " << identifier << endl;
         exit(1);
@@ -39,7 +43,7 @@ void IndexRegistry::provide(const string& identifier, const vector<string>& file
     get_index(identifier)->provide(filenames);
 }
 
-vector<string> IndexRegistry::provided_indexes() const {
+vector<string> IndexRegistry::completed_indexes() const {
     vector<string> indexes;
     for (const auto& index : registry) {
         if (index.second->is_finished()) {
@@ -234,7 +238,7 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
                     // this one
                     size_t requester = get<1>(plan_path.back());
 #ifdef debug_index_registry
-                    cerr << "pruning path to previous requester: " << identifier_order[requester] << endl;
+                    cerr << "pruning path to previous requester: " << (requester == identifier_order.size() ? "PLAN TARGET" : identifier_order[requester]) << endl;
 #endif
                     while (!plan_path.empty() && get<0>(plan_path.back()) != requester) {
                         
@@ -330,7 +334,6 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
     plan.resize(remove_if(plan.begin(), plan.end(), [&](const pair<string, size_t>& recipe_choice) {
         return get_index(recipe_choice.first)->is_finished();
     }) - plan.begin());
-    
     return plan;
 }
 
@@ -385,7 +388,7 @@ vector<string> IndexRecipe::execute() {
 
 InsufficientInputException::InsufficientInputException(const string& target,
                                                        const IndexRegistry& registry) :
-    runtime_error("Insufficient input to create " + target), target(target), inputs(registry.provided_indexes())
+    runtime_error("Insufficient input to create " + target), target(target), inputs(registry.completed_indexes())
 {
     // nothing else to do
 }
