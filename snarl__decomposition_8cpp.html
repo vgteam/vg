@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/algorithms/is_single_stranded.cpp File Reference</title>
+<title>vg: deps/libhandlegraph/src/snarl_decomposition.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,36 +59,27 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_94a36784afa54c0b50996002372b429e.html">deps</a></li><li class="navelem"><a class="el" href="dir_45ce01a577fb65f8a2885157ae4b8f6a.html">libhandlegraph</a></li><li class="navelem"><a class="el" href="dir_eba77e55b752d2a39db5e86e1323675f.html">src</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#namespaces">Namespaces</a> &#124;
-<a href="#func-members">Functions</a>  </div>
+<a href="#namespaces">Namespaces</a>  </div>
   <div class="headertitle">
-<div class="title">is_single_stranded.cpp File Reference</div>  </div>
+<div class="title">snarl_decomposition.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="is__single__stranded_8hpp.html">is_single_stranded.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;<a class="el" href="snarl__decomposition_8hpp.html">handlegraph/snarl_decomposition.hpp</a>&quot;</code><br />
+<code>#include &lt;vector&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
+<tr class="memitem:namespacehandlegraph"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html">handlegraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
-Functions</h2></td></tr>
-<tr class="memitem:ad379b8c4047be62b71c82aed8e456fbe"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad379b8c4047be62b71c82aed8e456fbe">vg::algorithms::is_single_stranded</a> (const HandleGraph *graph)</td></tr>
-<tr class="separator:ad379b8c4047be62b71c82aed8e456fbe"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2cddca7bead1e7bcedd402ff10edf4af"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a2cddca7bead1e7bcedd402ff10edf4af">vg::algorithms::single_stranded_orientation</a> (const HandleGraph *graph)</td></tr>
-<tr class="separator:a2cddca7bead1e7bcedd402ff10edf4af"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a44b88266bbec640c5450bb810843516a"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; id_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a44b88266bbec640c5450bb810843516a">vg::algorithms::make_single_stranded</a> (MutableHandleGraph *graph)</td></tr>
-<tr class="separator:a44b88266bbec640c5450bb810843516a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-</div><!-- contents -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Implement SnarlDecomposition methods. </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/algorithms/find_tips.hpp File Reference</title>
+<title>vg: deps/libhandlegraph/src/eades_algorithm.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,7 +59,7 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_94a36784afa54c0b50996002372b429e.html">deps</a></li><li class="navelem"><a class="el" href="dir_45ce01a577fb65f8a2885157ae4b8f6a.html">libhandlegraph</a></li><li class="navelem"><a class="el" href="dir_eba77e55b752d2a39db5e86e1323675f.html">src</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
@@ -67,33 +67,28 @@ $(function() {
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">find_tips.hpp File Reference</div>  </div>
+<div class="title">eades_algorithm.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="handle_8hpp.html">../handle.hpp</a>&quot;</code><br />
-<code>#include &lt;vector&gt;</code><br />
+<div class="textblock"><code>#include &lt;list&gt;</code><br />
+<code>#include &lt;unordered_map&gt;</code><br />
+<code>#include &lt;deque&gt;</code><br />
+<code>#include &quot;handlegraph/algorithms/eades_algorithm.hpp&quot;</code><br />
+<code>#include &quot;handlegraph/algorithms/is_single_stranded.hpp&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
+<tr class="memitem:namespacehandlegraph"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html">handlegraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
+<tr class="memitem:namespacehandlegraph_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html">handlegraph::algorithms</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:acb5f0ce7c6275d29fb4eb078f7038790"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#acb5f0ce7c6275d29fb4eb078f7038790">vg::algorithms::head_nodes</a> (const HandleGraph *g)</td></tr>
-<tr class="memdesc:acb5f0ce7c6275d29fb4eb078f7038790"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find all of the nodes with no edges on their left sides.  <a href="namespacevg_1_1algorithms.html#acb5f0ce7c6275d29fb4eb078f7038790">More...</a><br /></td></tr>
-<tr class="separator:acb5f0ce7c6275d29fb4eb078f7038790"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a93073667fd5b9e1b8c8b24eb3062077e"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a93073667fd5b9e1b8c8b24eb3062077e">vg::algorithms::tail_nodes</a> (const HandleGraph *g)</td></tr>
-<tr class="memdesc:a93073667fd5b9e1b8c8b24eb3062077e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find all of the nodes with no edges on their right sides.  <a href="namespacevg_1_1algorithms.html#a93073667fd5b9e1b8c8b24eb3062077e">More...</a><br /></td></tr>
-<tr class="separator:a93073667fd5b9e1b8c8b24eb3062077e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af14e3132063b658acc6c3fd73804dd64"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#af14e3132063b658acc6c3fd73804dd64">vg::algorithms::find_tips</a> (const HandleGraph *g)</td></tr>
-<tr class="separator:af14e3132063b658acc6c3fd73804dd64"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2dad089a8ba50413b0737bf6ceb52f80"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a2dad089a8ba50413b0737bf6ceb52f80">handlegraph::algorithms::eades_algorithm</a> (const HandleGraph *graph)</td></tr>
+<tr class="separator:a2dad089a8ba50413b0737bf6ceb52f80"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Defines algorithms for finding heads, tails, and general tips. </p>
-</div></div><!-- contents -->
+</div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

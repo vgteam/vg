@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/algorithms/copy_graph.cpp File Reference</title>
+<title>vg: deps/libhandlegraph/src/copy_graph.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,7 +59,7 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_94a36784afa54c0b50996002372b429e.html">deps</a></li><li class="navelem"><a class="el" href="dir_45ce01a577fb65f8a2885157ae4b8f6a.html">libhandlegraph</a></li><li class="navelem"><a class="el" href="dir_eba77e55b752d2a39db5e86e1323675f.html">src</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
@@ -70,25 +70,24 @@ $(function() {
 <div class="title">copy_graph.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="copy__graph_8hpp.html">copy_graph.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;handlegraph/algorithms/copy_graph.hpp&quot;</code><br />
+<code>#include &lt;stdexcept&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
+<tr class="memitem:namespacehandlegraph"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html">handlegraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
+<tr class="memitem:namespacehandlegraph_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html">handlegraph::algorithms</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a46731297393b748616cde6bd5a4d4acf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a46731297393b748616cde6bd5a4d4acf">vg::algorithms::copy_handle_graph</a> (const HandleGraph *from, MutableHandleGraph *into)</td></tr>
-<tr class="memdesc:a46731297393b748616cde6bd5a4d4acf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Copies the nodes and edges from one graph into another.  <a href="namespacevg_1_1algorithms.html#a46731297393b748616cde6bd5a4d4acf">More...</a><br /></td></tr>
-<tr class="separator:a46731297393b748616cde6bd5a4d4acf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4da81fd62ba067cf418c01d7162d1945"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4da81fd62ba067cf418c01d7162d1945">vg::algorithms::copy_path_handle_graph</a> (const PathHandleGraph *from, MutablePathMutableHandleGraph *into)</td></tr>
-<tr class="memdesc:a4da81fd62ba067cf418c01d7162d1945"><td class="mdescLeft">&#160;</td><td class="mdescRight">Copies the nodes, edges, and paths from one graph into another.  <a href="namespacevg_1_1algorithms.html#a4da81fd62ba067cf418c01d7162d1945">More...</a><br /></td></tr>
-<tr class="separator:a4da81fd62ba067cf418c01d7162d1945"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aefb8b127c084836606d55ffa81b6adcc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aefb8b127c084836606d55ffa81b6adcc">vg::algorithms::copy_path</a> (const PathHandleGraph *from, const path_handle_t &amp;path, MutablePathHandleGraph *into)</td></tr>
-<tr class="separator:aefb8b127c084836606d55ffa81b6adcc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3031a57a4bd2e9e4f65a1130fe4eb148"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a3031a57a4bd2e9e4f65a1130fe4eb148">handlegraph::algorithms::copy_handle_graph</a> (const HandleGraph *from, MutableHandleGraph *into)</td></tr>
+<tr class="separator:a3031a57a4bd2e9e4f65a1130fe4eb148"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1a253b430ffee65ce08f3a7508306550"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a1a253b430ffee65ce08f3a7508306550">handlegraph::algorithms::copy_path_handle_graph</a> (const PathHandleGraph *from, MutablePathMutableHandleGraph *into)</td></tr>
+<tr class="separator:a1a253b430ffee65ce08f3a7508306550"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a076f8f66511653b34cd99beffa568acf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a076f8f66511653b34cd99beffa568acf">handlegraph::algorithms::copy_path</a> (const PathHandleGraph *from, const path_handle_t &amp;path, MutablePathHandleGraph *into)</td></tr>
+<tr class="separator:a076f8f66511653b34cd99beffa568acf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

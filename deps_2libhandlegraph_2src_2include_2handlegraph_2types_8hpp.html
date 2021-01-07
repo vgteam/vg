@@ -80,7 +80,7 @@ $(function() {
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structhandlegraph_1_1handle__t.html">handlegraph::handle_t</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents the internal id of a node traversal.  <a href="structhandlegraph_1_1handle__t.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a traversal of a node in a graph in a particular direction.  <a href="structhandlegraph_1_1handle__t.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structhandlegraph_1_1path__handle__t.html">handlegraph::path_handle_t</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents the internal id of a path entity.  <a href="structhandlegraph_1_1path__handle__t.html#details">More...</a><br /></td></tr>
@@ -88,11 +88,17 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structhandlegraph_1_1step__handle__t.html">handlegraph::step_handle_t</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A step handle is an opaque reference to a single step of an oriented node on a path in a graph.  <a href="structhandlegraph_1_1step__handle__t.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structhandlegraph_1_1net__handle__t.html">handlegraph::net_handle_t</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structstd_1_1hash_3_01handlegraph_1_1handle__t_01_4.html">std::hash&lt; handlegraph::handle_t &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structstd_1_1hash_3_01handlegraph_1_1path__handle__t_01_4.html">std::hash&lt; handlegraph::path_handle_t &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structstd_1_1hash_3_01handlegraph_1_1step__handle__t_01_4.html">std::hash&lt; handlegraph::step_handle_t &gt;</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structstd_1_1hash_3_01handlegraph_1_1net__handle__t_01_4.html">std::hash&lt; handlegraph::net_handle_t &gt;</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structstd_1_1hash_3_01handlegraph_1_1edge__t_01_4.html">std::hash&lt; handlegraph::edge_t &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -130,6 +136,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a5a7206835ea412fabb928f106b291349"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a5a7206835ea412fabb928f106b291349">handlegraph::operator==</a> (const path_handle_t &amp;a, const path_handle_t &amp;b)</td></tr>
 <tr class="memdesc:a5a7206835ea412fabb928f106b291349"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define equality on path handles.  <a href="namespacehandlegraph.html#a5a7206835ea412fabb928f106b291349">More...</a><br /></td></tr>
 <tr class="separator:a5a7206835ea412fabb928f106b291349"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3b87d2ae8d5a93f67ddacb95a5fd791f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a3b87d2ae8d5a93f67ddacb95a5fd791f">handlegraph::operator==</a> (const net_handle_t &amp;a, const net_handle_t &amp;b)</td></tr>
+<tr class="memdesc:a3b87d2ae8d5a93f67ddacb95a5fd791f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define equality on net handles.  <a href="namespacehandlegraph.html#a3b87d2ae8d5a93f67ddacb95a5fd791f">More...</a><br /></td></tr>
+<tr class="separator:a3b87d2ae8d5a93f67ddacb95a5fd791f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a18f417ab023834f355f735c2baa18324"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a18f417ab023834f355f735c2baa18324">handlegraph::operator!=</a> (const path_handle_t &amp;a, const path_handle_t &amp;b)</td></tr>
 <tr class="memdesc:a18f417ab023834f355f735c2baa18324"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define inequality on path handles.  <a href="namespacehandlegraph.html#a18f417ab023834f355f735c2baa18324">More...</a><br /></td></tr>
 <tr class="separator:a18f417ab023834f355f735c2baa18324"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -139,6 +148,11 @@ Functions</h2></td></tr>
 <tr class="memitem:acbbe7b08c190039a0a3700e078818aa5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#acbbe7b08c190039a0a3700e078818aa5">handlegraph::operator!=</a> (const step_handle_t &amp;a, const step_handle_t &amp;b)</td></tr>
 <tr class="memdesc:acbbe7b08c190039a0a3700e078818aa5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define inequality on step handles.  <a href="namespacehandlegraph.html#acbbe7b08c190039a0a3700e078818aa5">More...</a><br /></td></tr>
 <tr class="separator:acbbe7b08c190039a0a3700e078818aa5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acc5274f38cf004b29d2bf398a96f4da5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#acc5274f38cf004b29d2bf398a96f4da5">handlegraph::operator!=</a> (const net_handle_t &amp;a, const net_handle_t &amp;b)</td></tr>
+<tr class="memdesc:acc5274f38cf004b29d2bf398a96f4da5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define inequality on net handles.  <a href="namespacehandlegraph.html#acc5274f38cf004b29d2bf398a96f4da5">More...</a><br /></td></tr>
+<tr class="separator:acc5274f38cf004b29d2bf398a96f4da5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abae1208746caacfaebe7e9493549ae0b"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacestd.html#abae1208746caacfaebe7e9493549ae0b">std::combine_hashes</a> (const size_t &amp;hsh1, const size_t hsh2)</td></tr>
+<tr class="separator:abae1208746caacfaebe7e9493549ae0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the types used for handles, and user-facing operators to work with them. </p>

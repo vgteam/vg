@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/algorithms/are_equivalent.cpp File Reference</title>
+<title>vg: deps/libhandlegraph/src/are_equivalent.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,7 +59,7 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_94a36784afa54c0b50996002372b429e.html">deps</a></li><li class="navelem"><a class="el" href="dir_45ce01a577fb65f8a2885157ae4b8f6a.html">libhandlegraph</a></li><li class="navelem"><a class="el" href="dir_eba77e55b752d2a39db5e86e1323675f.html">src</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
@@ -70,21 +70,25 @@ $(function() {
 <div class="title">are_equivalent.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="are__equivalent_8hpp.html">are_equivalent.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;handlegraph/algorithms/are_equivalent.hpp&quot;</code><br />
+<code>#include &lt;iostream&gt;</code><br />
+<code>#include &lt;algorithm&gt;</code><br />
+<code>#include &lt;vector&gt;</code><br />
+<code>#include &lt;cassert&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
+<tr class="memitem:namespacehandlegraph"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html">handlegraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
+<tr class="memitem:namespacehandlegraph_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html">handlegraph::algorithms</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:ac1efa9b65cea334763ddeaed312393b5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ac1efa9b65cea334763ddeaed312393b5">vg::algorithms::are_equivalent</a> (const HandleGraph *graph_1, const HandleGraph *graph_2, bool verbose)</td></tr>
-<tr class="separator:ac1efa9b65cea334763ddeaed312393b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaa8a33213cddde9f304fcfe3d83bba31"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aaa8a33213cddde9f304fcfe3d83bba31">vg::algorithms::are_equivalent_with_paths</a> (const PathHandleGraph *graph_1, const PathHandleGraph *graph_2, bool verbose)</td></tr>
-<tr class="separator:aaa8a33213cddde9f304fcfe3d83bba31"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3a3110dde9b4be48c07966ca05f07ce3"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a3a3110dde9b4be48c07966ca05f07ce3">handlegraph::algorithms::are_equivalent</a> (const HandleGraph *graph_1, const HandleGraph *graph_2, bool verbose)</td></tr>
+<tr class="separator:a3a3110dde9b4be48c07966ca05f07ce3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a47f57c2a75f2c22df467596639377d77"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a47f57c2a75f2c22df467596639377d77">handlegraph::algorithms::are_equivalent_with_paths</a> (const PathHandleGraph *graph_1, const PathHandleGraph *graph_2, bool verbose)</td></tr>
+<tr class="separator:a47f57c2a75f2c22df467596639377d77"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

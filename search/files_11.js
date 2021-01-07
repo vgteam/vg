@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['ranked_5fhandle_5fgraph_2ecpp',['ranked_handle_graph.cpp',['../ranked__handle__graph_8cpp.html',1,'']]],
   ['rare_5fvariant_5fsimplifier_2ecpp',['rare_variant_simplifier.cpp',['../rare__variant__simplifier_8cpp.html',1,'']]],
   ['rare_5fvariant_5fsimplifier_2ehpp',['rare_variant_simplifier.hpp',['../rare__variant__simplifier_8hpp.html',1,'']]],
   ['readfilter_2ecpp',['readfilter.cpp',['../readfilter_8cpp.html',1,'']]],
@@ -44,7 +45,6 @@ var searchData=
   ['remove_5fhigh_5fdegree_2ecpp',['remove_high_degree.cpp',['../remove__high__degree_8cpp.html',1,'']]],
   ['remove_5fhigh_5fdegree_2ehpp',['remove_high_degree.hpp',['../remove__high__degree_8hpp.html',1,'']]],
   ['reverse_5fcomplement_2ecpp',['reverse_complement.cpp',['../reverse__complement_8cpp.html',1,'']]],
-  ['reverse_5fcomplement_2ehpp',['reverse_complement.hpp',['../reverse__complement_8hpp.html',1,'']]],
   ['reverse_5fgraph_2ecpp',['reverse_graph.cpp',['../reverse__graph_8cpp.html',1,'']]],
   ['reverse_5fgraph_2ehpp',['reverse_graph.hpp',['../reverse__graph_8hpp.html',1,'']]],
   ['rna_5fmain_2ecpp',['rna_main.cpp',['../rna__main_8cpp.html',1,'']]]

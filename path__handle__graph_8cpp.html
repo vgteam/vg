@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/algorithms/append_graph.hpp File Reference</title>
+<title>vg: deps/libhandlegraph/src/path_handle_graph.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,37 +59,26 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_94a36784afa54c0b50996002372b429e.html">deps</a></li><li class="navelem"><a class="el" href="dir_45ce01a577fb65f8a2885157ae4b8f6a.html">libhandlegraph</a></li><li class="navelem"><a class="el" href="dir_eba77e55b752d2a39db5e86e1323675f.html">src</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#namespaces">Namespaces</a> &#124;
-<a href="#func-members">Functions</a>  </div>
+<a href="#namespaces">Namespaces</a>  </div>
   <div class="headertitle">
-<div class="title">append_graph.hpp File Reference</div>  </div>
+<div class="title">path_handle_graph.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;iostream&gt;</code><br />
-<code>#include &quot;<a class="el" href="handle_8hpp.html">../handle.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;<a class="el" href="path__handle__graph_8hpp.html">handlegraph/path_handle_graph.hpp</a>&quot;</code><br />
+<code>#include &lt;vector&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
+<tr class="memitem:namespacehandlegraph"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html">handlegraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
-Functions</h2></td></tr>
-<tr class="memitem:a1737619c147629476203076522addfc5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1737619c147629476203076522addfc5">vg::algorithms::append_handle_graph</a> (const HandleGraph *from, MutableHandleGraph *into)</td></tr>
-<tr class="memdesc:a1737619c147629476203076522addfc5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Append the heads of from to the tails of into.  <a href="namespacevg_1_1algorithms.html#a1737619c147629476203076522addfc5">More...</a><br /></td></tr>
-<tr class="separator:a1737619c147629476203076522addfc5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1233bcd96efe0f262b79eeba6d2b75ed"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1233bcd96efe0f262b79eeba6d2b75ed">vg::algorithms::append_path_handle_graph</a> (const PathHandleGraph *from, MutablePathMutableHandleGraph *into, bool only_connect_path_tips)</td></tr>
-<tr class="separator:a1233bcd96efe0f262b79eeba6d2b75ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Defines algorithms for appending handle graphs (as was once done in <a class="el" href="namespacevg_1_1algorithms.html#a91a6bbd822f6380421a973f75036c3d3">VG::merge()</a>) </p>
+<div class="textblock"><p>Implement PathHandleGraph and associated utilities' methods </p>
 </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->

@@ -16,8 +16,6 @@ var searchData=
   ['integrated_5fsnarl_5ffinder_2ecpp',['integrated_snarl_finder.cpp',['../integrated__snarl__finder_8cpp.html',1,'']]],
   ['integrated_5fsnarl_5ffinder_2ehpp',['integrated_snarl_finder.hpp',['../integrated__snarl__finder_8hpp.html',1,'']]],
   ['is_5facyclic_2ecpp',['is_acyclic.cpp',['../is__acyclic_8cpp.html',1,'']]],
-  ['is_5facyclic_2ehpp',['is_acyclic.hpp',['../is__acyclic_8hpp.html',1,'']]],
-  ['is_5fsingle_5fstranded_2ecpp',['is_single_stranded.cpp',['../src_2algorithms_2is__single__stranded_8cpp.html',1,'(Global Namespace)'],['../deps_2libbdsg_2src_2is__single__stranded_8cpp.html',1,'(Global Namespace)']]],
-  ['is_5fsingle_5fstranded_2ehpp',['is_single_stranded.hpp',['../is__single__stranded_8hpp.html',1,'']]],
+  ['is_5fsingle_5fstranded_2ecpp',['is_single_stranded.cpp',['../libbdsg_2src_2is__single__stranded_8cpp.html',1,'(Global Namespace)'],['../libhandlegraph_2src_2is__single__stranded_8cpp.html',1,'(Global Namespace)']]],
   ['iteratee_2ehpp',['iteratee.hpp',['../iteratee_8hpp.html',1,'']]]
 ];

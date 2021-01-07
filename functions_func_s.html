@@ -245,7 +245,8 @@ $(function() {
 <li>serialize()
 : <a class="el" href="structbdsg_1_1HashGraph_1_1node__t.html#af92bf81d2a9366bc37189f26c97571a6">bdsg::HashGraph::node_t</a>
 , <a class="el" href="classbdsg_1_1HashGraph_1_1path__t.html#aee766802eda670c3bf878aae127e0744">bdsg::HashGraph::path_t</a>
-, <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#aed30acaddc8cc1650044fd8299643a24">handlegraph::SerializableHandleGraph</a>
+, <a class="el" href="classhandlegraph_1_1Serializable.html#adae323cce9552f03774ab71dd5fb07d0">handlegraph::Serializable</a>
+, <a class="el" href="classhandlegraph_1_1TriviallySerializable.html#a3f0aef6c53e9702bb4dd9aafa6fe0e79">handlegraph::TriviallySerializable</a>
 , <a class="el" href="structvg_1_1GBWTHandler.html#aa855690c481cca126734e20f5d126d04">vg::GBWTHandler</a>
 , <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a1d46b1ff9efcf2ad291564abd55e506d">vg::MinimumDistanceIndex::ChainIndex</a>
 , <a class="el" href="classvg_1_1MinimumDistanceIndex.html#ab4c310126a430b51399962c9bf596210">vg::MinimumDistanceIndex</a>
@@ -255,6 +256,9 @@ $(function() {
 , <a class="el" href="classvg_1_1VG.html#a0ee4603518e9cd5915a65e65c2d763b2">vg::VG</a>
 , <a class="el" href="classxg_1_1XGPath.html#a74e7b70ac4829545e7b48c137808d6e4">xg::XGPath</a>
 </li>
+<li>serialize_and_get_mapping()
+: <a class="el" href="classhandlegraph_1_1TriviallySerializable.html#a3c34d628d98cbd2cebeb1ba7cc267599">handlegraph::TriviallySerializable</a>
+</li>
 <li>serialize_and_measure()
 : <a class="el" href="classbdsg_1_1ODGI.html#a316d91c973ef3b034a7d40118ff350b6">bdsg::ODGI</a>
 , <a class="el" href="classxg_1_1XG.html#aac0ec5744208c54abfc692bf7ff66536">xg::XG</a>
@@ -263,7 +267,8 @@ $(function() {
 : <a class="el" href="classbdsg_1_1HashGraph.html#a7e6e28ba93bfadf7d49e1bad238b3029">bdsg::HashGraph</a>
 , <a class="el" href="classbdsg_1_1ODGI.html#adb5e739dd1620c10e832108bb95eeeb3">bdsg::ODGI</a>
 , <a class="el" href="classbdsg_1_1PackedGraph.html#abebaf484e5f8ca064aa30cc3fba38d1f">bdsg::PackedGraph</a>
-, <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a4d33bf8cbf4fb0d5e81df696be177057">handlegraph::SerializableHandleGraph</a>
+, <a class="el" href="classhandlegraph_1_1Serializable.html#a79235728e5f1e8fb1c0e19e275a33fff">handlegraph::Serializable</a>
+, <a class="el" href="classhandlegraph_1_1TriviallySerializable.html#a9e119714758581c49160e41dd908937a">handlegraph::TriviallySerializable</a>
 , <a class="el" href="classxg_1_1XG.html#a99af109d31808040b7f1819c6a236b05">xg::XG</a>
 </li>
 <li>serialize_members_and_measure()
@@ -280,6 +285,15 @@ $(function() {
 </li>
 <li>serialize_to_ostream()
 : <a class="el" href="classvg_1_1VG.html#a70e67b525bca0f766d7f0170759ed1d0">vg::VG</a>
+</li>
+<li>serialized_data()
+: <a class="el" href="classhandlegraph_1_1TriviallySerializable.html#a066fb234cd8ae241db72065c9f03e5a6">handlegraph::TriviallySerializable</a>
+</li>
+<li>serialized_data_resize()
+: <a class="el" href="classhandlegraph_1_1TriviallySerializable.html#a027c1c29d601e058f9b701c084e88ff4">handlegraph::TriviallySerializable</a>
+</li>
+<li>serialized_data_size()
+: <a class="el" href="classhandlegraph_1_1TriviallySerializable.html#a8ef93330184d9b2c8497bcc9fbdcb423">handlegraph::TriviallySerializable</a>
 </li>
 <li>set_alignment_scores()
 : <a class="el" href="classvg_1_1AlignerClient.html#ab74784d7320b1c33c7bf6e75259d4cea">vg::AlignerClient</a>
@@ -527,7 +541,7 @@ $(function() {
 : <a class="el" href="classvg_1_1VG.html#ad363c6c82e88dcb1b88d05ff55074ed6">vg::VG</a>
 </li>
 <li>sides_from()
-: <a class="el" href="classvg_1_1VG.html#a95c975ed419a0873c894cef7a2f2d3ba">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#ac670f3c729f93ebaa7c8bd5063225597">vg::VG</a>
 </li>
 <li>sides_of()
 : <a class="el" href="classvg_1_1VG.html#a030b75d2ad50905cc01fe4b7223cbb83">vg::VG</a>
@@ -602,10 +616,10 @@ $(function() {
 : <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a79f33e3d6f49ac661ddcfb9c8a17329d">vg::MinimumDistanceIndex::SnarlIndex</a>
 </li>
 <li>SnarlIndex()
-: <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#abcc657eeec61bd2fdaf0aeb01e50b741">vg::MinimumDistanceIndex::SnarlIndex</a>
+: <a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#aacc124286d1779d7ed0068d7de54aa1a">vg::MinimumDistanceIndex::SnarlIndex</a>
 </li>
 <li>SnarlManager()
-: <a class="el" href="classvg_1_1SnarlManager.html#afe16f481e15e098c885d63f47eceb59c">vg::SnarlManager</a>
+: <a class="el" href="classvg_1_1SnarlManager.html#a7549f1ed7e0e02ae36f172ab5f1d3dbd">vg::SnarlManager</a>
 </li>
 <li>SnarlMinDistance()
 : <a class="el" href="classvg_1_1SnarlMinDistance.html#adc8c303e683b90d923c522790355abad">vg::SnarlMinDistance</a>
@@ -623,7 +637,7 @@ $(function() {
 : <a class="el" href="classvg_1_1io_1_1VPKG.html#afa8e994cf10b1916c3d32081bdd545dd">vg::io::VPKG</a>
 </li>
 <li>sniff_tag()
-: <a class="el" href="classvg_1_1io_1_1MessageIterator.html#aabd024a7358bae988de897aebff39645">vg::io::MessageIterator</a>
+: <a class="el" href="classvg_1_1io_1_1MessageIterator.html#ac9b3fff8dbbff744fe1ff60805af1c20">vg::io::MessageIterator</a>
 </li>
 <li>SNVs()
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#acde3b4cb1fc9eae479ee626bb0916992">haplo::linear_haplo_structure</a>
@@ -663,13 +677,13 @@ $(function() {
 : <a class="el" href="classvg_1_1SpliceMotifs.html#af4f870ffd1f5dd279439b0e816f8e005">vg::SpliceMotifs</a>
 </li>
 <li>SpliceRegion()
-: <a class="el" href="classvg_1_1SpliceRegion.html#a5935bbc5e17cceae08ee9ef0b91b9abe">vg::SpliceRegion</a>
+: <a class="el" href="classvg_1_1SpliceRegion.html#a8efb510b641b5a137b653c9c8d588d9b">vg::SpliceRegion</a>
 </li>
 <li>split()
 : <a class="el" href="classvg_1_1BitString.html#af826e3c7bce1aeada3f989b1b7d1bcc5">vg::BitString</a>
 </li>
 <li>split_multicomponent_alignments()
-: <a class="el" href="classvg_1_1MultipathMapper.html#a9257a7f9cc75ddd76a8daef803f2d031">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#af91f97b8331648b4df7587a461ca36b2">vg::MultipathMapper</a>
 </li>
 <li>split_read_filter()
 : <a class="el" href="classvg_1_1Filter.html#a0bc2a72604a0cb134c1f5bad7889a1bf">vg::Filter</a>
@@ -711,6 +725,18 @@ $(function() {
 <li>starting_position()
 : <a class="el" href="structvg_1_1GaplessExtension.html#a2dc9687b1ac33335f593028c981fe494">vg::GaplessExtension</a>
 </li>
+<li>starts_at()
+: <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html#ac6bb78bc95acfd353ff8d6c44915e524">handlegraph::SnarlDecomposition</a>
+</li>
+<li>starts_at_end()
+: <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html#aab710270e1997f22d1b09a4fd40a3eaf">handlegraph::SnarlDecomposition</a>
+</li>
+<li>starts_at_start()
+: <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html#adb1c7cccea8188c8e24a4e53c34117bb">handlegraph::SnarlDecomposition</a>
+</li>
+<li>starts_at_tip()
+: <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html#ac47bc288b1c0303d3356e953de4878e2">handlegraph::SnarlDecomposition</a>
+</li>
 <li>std_dev()
 : <a class="el" href="classvg_1_1FragmentLengthDistribution.html#a4da22f6209796ad178bd6ae88a995c03">vg::FragmentLengthDistribution</a>
 </li>
@@ -732,7 +758,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Funnel.html#adbe0233346c63f1693fa865eca0083b2">vg::Funnel</a>
 </li>
 <li>StrandSplitGraph()
-: <a class="el" href="classvg_1_1StrandSplitGraph.html#aede16e10fc0b17f2527a62861f155c6d">vg::StrandSplitGraph</a>
+: <a class="el" href="classvg_1_1StrandSplitGraph.html#a0e170b8ad07ca370e31497b804932220">vg::StrandSplitGraph</a>
 </li>
 <li>stream_sort()
 : <a class="el" href="classvg_1_1StreamSorter.html#a3ef7c0c822f58db91184e6b069c3ce59">vg::StreamSorter&lt; Message &gt;</a>
@@ -753,7 +779,7 @@ $(function() {
 : <a class="el" href="classvg_1_1io_1_1streamistream.html#a0b87c404670f610d20f49f1e2c166648">vg::io::streamistream</a>
 </li>
 <li>StreamMultiplexer()
-: <a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html#ad8b06aab5797747b1ce3d544be0cc965">vg::io::StreamMultiplexer</a>
+: <a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html#af8352f0fcbb63f162734d48d2ec573ce">vg::io::StreamMultiplexer</a>
 </li>
 <li>StreamSorter()
 : <a class="el" href="classvg_1_1StreamSorter.html#a0abd72f6a1ec534bb2071b3389231d97">vg::StreamSorter&lt; Message &gt;</a>
@@ -774,10 +800,11 @@ $(function() {
 : <a class="el" href="classvg_1_1SubgraphOverlay.html#ac9ffa71f1e615eb30efc626006c11242">vg::SubgraphOverlay</a>
 </li>
 <li>SubHandleGraph()
-: <a class="el" href="classvg_1_1SubHandleGraph.html#ae02101c50fc316637a11ed674637e6a4">vg::SubHandleGraph</a>
+: <a class="el" href="classhandlegraph_1_1algorithms_1_1SubHandleGraph.html#a4455c7d0983b1fcce544022a60fa76ab">handlegraph::algorithms::SubHandleGraph</a>
+, <a class="el" href="classvg_1_1SubHandleGraph.html#ae02101c50fc316637a11ed674637e6a4">vg::SubHandleGraph</a>
 </li>
 <li>subpath()
-: <a class="el" href="classvg_1_1multipath__alignment__t.html#a87bb864c7cd6e424fe9487cc662cade6">vg::multipath_alignment_t</a>
+: <a class="el" href="classvg_1_1multipath__alignment__t.html#a5544e1c157233fda1b528bdd3e426f90">vg::multipath_alignment_t</a>
 </li>
 <li>subpath_size()
 : <a class="el" href="classvg_1_1multipath__alignment__t.html#a3b6820ac77fa5438c55300ba1eb7a97d">vg::multipath_alignment_t</a>
@@ -802,7 +829,7 @@ $(function() {
 : <a class="el" href="classvg_1_1SupportRestrictedTraversalFinder.html#aceeb94d7e05fdbc113557b61448f6b2a">vg::SupportRestrictedTraversalFinder</a>
 </li>
 <li>surject()
-: <a class="el" href="classvg_1_1Surjector.html#a4e4e4c28b1313850e647f4d258a0ea82">vg::Surjector</a>
+: <a class="el" href="classvg_1_1Surjector.html#a265cf90a6fb12021a70b87ec647c0867">vg::Surjector</a>
 </li>
 <li>surject_alignments_in_place()
 : <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a5ba8aab649ae5f31c64be2c5461c743c">vg::SurjectingAlignmentEmitter</a>
@@ -839,7 +866,7 @@ $(function() {
 : <a class="el" href="classvg_1_1VG.html#afee31880eaf65a1a6d1a250663271b54">vg::VG</a>
 </li>
 <li>swap_node_ids()
-: <a class="el" href="classvg_1_1Paths.html#a3190f22ab39a9039ec9288e1c065ca9c">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#aba01c4d1b1d415622634db97f62b1188">vg::Paths</a>
 </li>
 <li>swap_nodes()
 : <a class="el" href="classvg_1_1VG.html#aa402d1cf817f83ca44f72f6112b6a2e3">vg::VG</a>

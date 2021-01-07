@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/algorithms/topological_sort.cpp File Reference</title>
+<title>vg: deps/libhandlegraph/src/topological_sort.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,7 +59,7 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_94a36784afa54c0b50996002372b429e.html">deps</a></li><li class="navelem"><a class="el" href="dir_45ce01a577fb65f8a2885157ae4b8f6a.html">libhandlegraph</a></li><li class="navelem"><a class="el" href="dir_eba77e55b752d2a39db5e86e1323675f.html">src</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
@@ -70,28 +70,29 @@ $(function() {
 <div class="title">topological_sort.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="topological__sort_8hpp.html">topological_sort.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="find__tips_8hpp.html">find_tips.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &lt;unordered_map&gt;</code><br />
+<code>#include &lt;map&gt;</code><br />
+<code>#include &lt;cassert&gt;</code><br />
+<code>#include &quot;handlegraph/algorithms/topological_sort.hpp&quot;</code><br />
+<code>#include &quot;handlegraph/algorithms/find_tips.hpp&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
+<tr class="memitem:namespacehandlegraph"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html">handlegraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
+<tr class="memitem:namespacehandlegraph_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html">handlegraph::algorithms</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a8442734145ff14710441ddca0b32bff6"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8442734145ff14710441ddca0b32bff6">vg::algorithms::topological_order</a> (const HandleGraph *g)</td></tr>
-<tr class="separator:a8442734145ff14710441ddca0b32bff6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a381d3ef448177fa551b5d4509aa6c17c"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a381d3ef448177fa551b5d4509aa6c17c">vg::algorithms::lazy_topological_order_internal</a> (const HandleGraph *g, bool lazier)</td></tr>
-<tr class="separator:a381d3ef448177fa551b5d4509aa6c17c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a29f9f211ee392e682e28e391ff42238a"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a29f9f211ee392e682e28e391ff42238a">vg::algorithms::lazy_topological_order</a> (const HandleGraph *g)</td></tr>
-<tr class="separator:a29f9f211ee392e682e28e391ff42238a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a12d0ce3a33a80b8b2eecbbc8abc5f5cd"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a12d0ce3a33a80b8b2eecbbc8abc5f5cd">vg::algorithms::lazier_topological_order</a> (const HandleGraph *g)</td></tr>
-<tr class="separator:a12d0ce3a33a80b8b2eecbbc8abc5f5cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a067f7b444391db934c13c07938c43569"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; id_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a067f7b444391db934c13c07938c43569">vg::algorithms::orient_nodes_forward</a> (MutableHandleGraph *g)</td></tr>
-<tr class="separator:a067f7b444391db934c13c07938c43569"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7063506d0cc176b808808147b83d7e33"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a7063506d0cc176b808808147b83d7e33">handlegraph::algorithms::topological_order</a> (const HandleGraph *g)</td></tr>
+<tr class="separator:a7063506d0cc176b808808147b83d7e33"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a53c98a2b062e6b5e92757945788b2e91"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a53c98a2b062e6b5e92757945788b2e91">handlegraph::algorithms::lazy_topological_order_internal</a> (const HandleGraph *g, bool lazier)</td></tr>
+<tr class="separator:a53c98a2b062e6b5e92757945788b2e91"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac9c0542f382080d1af3914714a62b9b6"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#ac9c0542f382080d1af3914714a62b9b6">handlegraph::algorithms::lazy_topological_order</a> (const HandleGraph *g)</td></tr>
+<tr class="separator:ac9c0542f382080d1af3914714a62b9b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a26e0547c886eede7d3c0766907f39645"><td class="memItemLeft" align="right" valign="top">vector&lt; handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a26e0547c886eede7d3c0766907f39645">handlegraph::algorithms::lazier_topological_order</a> (const HandleGraph *g)</td></tr>
+<tr class="separator:a26e0547c886eede7d3c0766907f39645"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

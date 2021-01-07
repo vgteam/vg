@@ -89,6 +89,7 @@ Inheritance diagram for xg::XG:</div>
 <area href="classhandlegraph_1_1SerializableHandleGraph.html" alt="handlegraph::SerializableHandleGraph" shape="rect" coords="245,112,480,136"/>
 <area href="classhandlegraph_1_1VectorizableHandleGraph.html" alt="handlegraph::VectorizableHandleGraph" shape="rect" coords="490,112,725,136"/>
 <area href="classhandlegraph_1_1PathHandleGraph.html" alt="handlegraph::PathHandleGraph" shape="rect" coords="0,56,235,80"/>
+<area href="classhandlegraph_1_1Serializable.html" alt="handlegraph::Serializable" shape="rect" coords="245,56,480,80"/>
 <area href="classhandlegraph_1_1RankedHandleGraph.html" alt="handlegraph::RankedHandleGraph" shape="rect" coords="490,56,725,80"/>
 <area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,235,24"/>
 <area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="490,0,725,24"/>
@@ -126,7 +127,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:ac8ed9c987e2693c548ad834b39df7a80"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the magic number used to prefix serialized streams.  <a href="#ac8ed9c987e2693c548ad834b39df7a80">More...</a><br /></td></tr>
 <tr class="separator:ac8ed9c987e2693c548ad834b39df7a80"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aac0ec5744208c54abfc692bf7ff66536"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#aac0ec5744208c54abfc692bf7ff66536">serialize_and_measure</a> (std::ostream &amp;out, sdsl::structure_tree_node *s=nullptr, std::string name=&quot;&quot;) const</td></tr>
-<tr class="memdesc:aac0ec5744208c54abfc692bf7ff66536"><td class="mdescLeft">&#160;</td><td class="mdescRight">Like <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#aed30acaddc8cc1650044fd8299643a24">serialize()</a> (inherited from SerializableHandleGraph) but logs internal member sizes and returns total size.  <a href="#aac0ec5744208c54abfc692bf7ff66536">More...</a><br /></td></tr>
+<tr class="memdesc:aac0ec5744208c54abfc692bf7ff66536"><td class="mdescLeft">&#160;</td><td class="mdescRight">Like <a class="el" href="classhandlegraph_1_1Serializable.html#adae323cce9552f03774ab71dd5fb07d0">serialize()</a> (inherited from SerializableHandleGraph) but logs internal member sizes and returns total size.  <a href="#aac0ec5744208c54abfc692bf7ff66536">More...</a><br /></td></tr>
 <tr class="separator:aac0ec5744208c54abfc692bf7ff66536"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a676a88d58aa3a9cc1cbe580472e3e083"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a676a88d58aa3a9cc1cbe580472e3e083">dump_to_stream</a> (std::ostream &amp;out) const</td></tr>
 <tr class="memdesc:a676a88d58aa3a9cc1cbe580472e3e083"><td class="mdescLeft">&#160;</td><td class="mdescRight">Dump information about the <a class="el" href="classxg_1_1XG.html">XG</a> to the given stream for debugging.  <a href="#a676a88d58aa3a9cc1cbe580472e3e083">More...</a><br /></td></tr>
@@ -348,17 +349,21 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a61570ded026f825d62ea7608a1e92349 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
 <tr class="memitem:a61570ded026f825d62ea7608a1e92349 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a61570ded026f825d62ea7608a1e92349">for_each_edge</a> (const Iteratee &amp;iteratee, bool parallel=false) const</td></tr>
 <tr class="separator:a61570ded026f825d62ea7608a1e92349 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="inherit_header pub_methods_classhandlegraph_1_1SerializableHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1SerializableHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html">handlegraph::SerializableHandleGraph</a></td></tr>
-<tr class="memitem:a21940e94ff216cfd44eaf540044d8fc7 inherit pub_methods_classhandlegraph_1_1SerializableHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a21940e94ff216cfd44eaf540044d8fc7">~SerializableHandleGraph</a> ()=default</td></tr>
-<tr class="separator:a21940e94ff216cfd44eaf540044d8fc7 inherit pub_methods_classhandlegraph_1_1SerializableHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aed30acaddc8cc1650044fd8299643a24 inherit pub_methods_classhandlegraph_1_1SerializableHandleGraph"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#aed30acaddc8cc1650044fd8299643a24">serialize</a> (std::ostream &amp;out) const</td></tr>
-<tr class="separator:aed30acaddc8cc1650044fd8299643a24 inherit pub_methods_classhandlegraph_1_1SerializableHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a97b908eb72c828e7f75d825a34a87651 inherit pub_methods_classhandlegraph_1_1SerializableHandleGraph"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a97b908eb72c828e7f75d825a34a87651">serialize</a> (const std::string &amp;filename) const</td></tr>
-<tr class="separator:a97b908eb72c828e7f75d825a34a87651 inherit pub_methods_classhandlegraph_1_1SerializableHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9736fd91bf5becf144e4e9c1a247af31 inherit pub_methods_classhandlegraph_1_1SerializableHandleGraph"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a9736fd91bf5becf144e4e9c1a247af31">deserialize</a> (std::istream &amp;in)</td></tr>
-<tr class="separator:a9736fd91bf5becf144e4e9c1a247af31 inherit pub_methods_classhandlegraph_1_1SerializableHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5e247159597af5d6596f7eba9afbe284 inherit pub_methods_classhandlegraph_1_1SerializableHandleGraph"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a5e247159597af5d6596f7eba9afbe284">deserialize</a> (const std::string &amp;filename)</td></tr>
-<tr class="separator:a5e247159597af5d6596f7eba9afbe284 inherit pub_methods_classhandlegraph_1_1SerializableHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_methods_classhandlegraph_1_1Serializable"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1Serializable')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1Serializable.html">handlegraph::Serializable</a></td></tr>
+<tr class="memitem:ade5618a9c7a93b72550fdbb06ca41518 inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1Serializable.html#ade5618a9c7a93b72550fdbb06ca41518">~Serializable</a> ()=default</td></tr>
+<tr class="separator:ade5618a9c7a93b72550fdbb06ca41518 inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adae323cce9552f03774ab71dd5fb07d0 inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1Serializable.html#adae323cce9552f03774ab71dd5fb07d0">serialize</a> (std::ostream &amp;out) const</td></tr>
+<tr class="separator:adae323cce9552f03774ab71dd5fb07d0 inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac6e9dfc830acdf96fbfe53d83d33802e inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1Serializable.html#ac6e9dfc830acdf96fbfe53d83d33802e">serialize</a> (const std::string &amp;filename) const</td></tr>
+<tr class="separator:ac6e9dfc830acdf96fbfe53d83d33802e inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e101879c6d02c4d189248c9bc340319 inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1Serializable.html#a2e101879c6d02c4d189248c9bc340319">deserialize</a> (std::istream &amp;in)</td></tr>
+<tr class="separator:a2e101879c6d02c4d189248c9bc340319 inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad3b89e4a5c2a4724fe8748c586dd8ccf inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1Serializable.html#ad3b89e4a5c2a4724fe8748c586dd8ccf">deserialize</a> (const std::string &amp;filename)</td></tr>
+<tr class="separator:ad3b89e4a5c2a4724fe8748c586dd8ccf inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a050e6c2b6e2fccd85362e908da60d20b inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1Serializable.html#a050e6c2b6e2fccd85362e908da60d20b">serialize</a> (std::ostream &amp;out)</td></tr>
+<tr class="separator:a050e6c2b6e2fccd85362e908da60d20b inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa97699c9b50235d5f2439eb57c5df653 inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1Serializable.html#aa97699c9b50235d5f2439eb57c5df653">serialize</a> (const std::string &amp;filename)</td></tr>
+<tr class="separator:aa97699c9b50235d5f2439eb57c5df653 inherit pub_methods_classhandlegraph_1_1Serializable"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1VectorizableHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1VectorizableHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html">handlegraph::VectorizableHandleGraph</a></td></tr>
 <tr class="memitem:ae5986cf718d8f9d98b20f7e819db43f3 inherit pub_methods_classhandlegraph_1_1VectorizableHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1VectorizableHandleGraph.html#ae5986cf718d8f9d98b20f7e819db43f3">~VectorizableHandleGraph</a> ()=default</td></tr>
 <tr class="separator:ae5986cf718d8f9d98b20f7e819db43f3 inherit pub_methods_classhandlegraph_1_1VectorizableHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -632,7 +637,7 @@ Static Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 <p>Load this <a class="el" href="classxg_1_1XG.html">XG</a> index from a stream from which the magic number has already been read. Throw an <a class="el" href="classxg_1_1XGFormatError.html">XGFormatError</a> if the stream does not produce a valid <a class="el" href="classxg_1_1XG.html">XG</a> file. </p>
 
-<p>Implements <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#ab33e6ceec2d8af4eb90607fa271cb7fb">handlegraph::SerializableHandleGraph</a>.</p>
+<p>Implements <a class="el" href="classhandlegraph_1_1Serializable.html#a33651ea0e5d56a7a1471f8f0ce10b95d">handlegraph::Serializable</a>.</p>
 
 </div>
 </div>
@@ -1437,7 +1442,7 @@ Static Private Attributes</h2></td></tr>
 
 <p>Get the magic number used to prefix serialized streams. </p>
 
-<p>Implements <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a9a599d81c23e4f13e4a94f7252e8351d">handlegraph::SerializableHandleGraph</a>.</p>
+<p>Implements <a class="el" href="classhandlegraph_1_1Serializable.html#a8879f13f2204a80a6c428883187961db">handlegraph::Serializable</a>.</p>
 
 </div>
 </div>
@@ -3072,7 +3077,7 @@ Static Private Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Like <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#aed30acaddc8cc1650044fd8299643a24">serialize()</a> (inherited from SerializableHandleGraph) but logs internal member sizes and returns total size. </p>
+<p>Like <a class="el" href="classhandlegraph_1_1Serializable.html#adae323cce9552f03774ab71dd5fb07d0">serialize()</a> (inherited from SerializableHandleGraph) but logs internal member sizes and returns total size. </p>
 
 </div>
 </div>
@@ -3102,7 +3107,7 @@ Static Private Attributes</h2></td></tr>
 
 <p>Write the <a class="el" href="classxg_1_1XG.html">XG</a>'s contents to a stream aready prefixed with a magic number. </p>
 
-<p>Implements <a class="el" href="classhandlegraph_1_1SerializableHandleGraph.html#a4d33bf8cbf4fb0d5e81df696be177057">handlegraph::SerializableHandleGraph</a>.</p>
+<p>Implements <a class="el" href="classhandlegraph_1_1Serializable.html#a79235728e5f1e8fb1c0e19e275a33fff">handlegraph::Serializable</a>.</p>
 
 </div>
 </div>

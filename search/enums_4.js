@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['index_5ftype',['index_type',['../structvg_1_1GBWTHandler.html#aad418d9725da4ccbb6c60055eb5e9033',1,'vg::GBWTHandler']]]
+  ['filtername',['FilterName',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9',1,'vg::Counts']]]
 ];

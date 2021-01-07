@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/algorithms/are_equivalent.hpp File Reference</title>
+<title>vg: std::hash&lt; handlegraph::edge_t &gt; Struct Template Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,37 +59,56 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacestd.html">std</a></li><li class="navelem"><a class="el" href="structstd_1_1hash_3_01handlegraph_1_1edge__t_01_4.html">hash&lt; handlegraph::edge_t &gt;</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#namespaces">Namespaces</a> &#124;
-<a href="#func-members">Functions</a>  </div>
+<a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="structstd_1_1hash_3_01handlegraph_1_1edge__t_01_4-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">are_equivalent.hpp File Reference</div>  </div>
+<div class="title">std::hash&lt; handlegraph::edge_t &gt; Struct Template Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;iostream&gt;</code><br />
-<code>#include &quot;<a class="el" href="handle_8hpp.html">../handle.hpp</a>&quot;</code><br />
-</div><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
-Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
-Functions</h2></td></tr>
-<tr class="memitem:ac1efa9b65cea334763ddeaed312393b5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ac1efa9b65cea334763ddeaed312393b5">vg::algorithms::are_equivalent</a> (const HandleGraph *graph_1, const HandleGraph *graph_2, bool verbose)</td></tr>
-<tr class="separator:ac1efa9b65cea334763ddeaed312393b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaa8a33213cddde9f304fcfe3d83bba31"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aaa8a33213cddde9f304fcfe3d83bba31">vg::algorithms::are_equivalent_with_paths</a> (const PathHandleGraph *graph_1, const PathHandleGraph *graph_2, bool verbose)</td></tr>
-<tr class="separator:aaa8a33213cddde9f304fcfe3d83bba31"><td class="memSeparator" colspan="2">&#160;</td></tr>
+
+<p><code>#include &lt;types.hpp&gt;</code></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
+Public Member Functions</h2></td></tr>
+<tr class="memitem:ae02ac63af6a68ca8788a3d16e0d282dc"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structstd_1_1hash_3_01handlegraph_1_1edge__t_01_4.html#ae02ac63af6a68ca8788a3d16e0d282dc">operator()</a> (const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">handlegraph::edge_t</a> &amp;edge_handle) const</td></tr>
+<tr class="separator:ae02ac63af6a68ca8788a3d16e0d282dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Defines an algorithm for determining whether two graphs are identical </p>
-</div></div><!-- contents -->
+<h2 class="groupheader">Member Function Documentation</h2>
+<a id="ae02ac63af6a68ca8788a3d16e0d282dc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae02ac63af6a68ca8788a3d16e0d282dc">&#9670;&nbsp;</a></span>operator()()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t std::hash&lt; <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">handlegraph::edge_t</a> &gt;::operator() </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">handlegraph::edge_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>edge_handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<hr/>The documentation for this struct was generated from the following file:<ul>
+<li>deps/libhandlegraph/src/include/handlegraph/<a class="el" href="deps_2libhandlegraph_2src_2include_2handlegraph_2types_8hpp.html">types.hpp</a></li>
+</ul>
+</div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

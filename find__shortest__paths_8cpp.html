@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/algorithms/find_shortest_paths.cpp File Reference</title>
+<title>vg: deps/libhandlegraph/src/find_shortest_paths.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,7 +59,7 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_94a36784afa54c0b50996002372b429e.html">deps</a></li><li class="navelem"><a class="el" href="dir_45ce01a577fb65f8a2885157ae4b8f6a.html">libhandlegraph</a></li><li class="navelem"><a class="el" href="dir_eba77e55b752d2a39db5e86e1323675f.html">src</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
@@ -70,21 +70,20 @@ $(function() {
 <div class="title">find_shortest_paths.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="find__shortest__paths_8hpp.html">find_shortest_paths.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="dijkstra_8hpp.html">dijkstra.hpp</a>&quot;</code><br />
-<code>#include &lt;structures/updateable_priority_queue.hpp&gt;</code><br />
+<div class="textblock"><code>#include &quot;handlegraph/algorithms/find_shortest_paths.hpp&quot;</code><br />
+<code>#include &quot;handlegraph/algorithms/dijkstra.hpp&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
+<tr class="memitem:namespacehandlegraph"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html">handlegraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
+<tr class="memitem:namespacehandlegraph_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html">handlegraph::algorithms</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:adf04353684c13c57e117e2f14f749123"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; handle_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#adf04353684c13c57e117e2f14f749123">vg::algorithms::find_shortest_paths</a> (const HandleGraph *g, handle_t start, bool traverse_leftward)</td></tr>
-<tr class="separator:adf04353684c13c57e117e2f14f749123"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af7d99cdf4ea48244031b209b483c8e6a"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; handle_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#af7d99cdf4ea48244031b209b483c8e6a">handlegraph::algorithms::find_shortest_paths</a> (const HandleGraph *g, handle_t start, bool traverse_leftward)</td></tr>
+<tr class="separator:af7d99cdf4ea48244031b209b483c8e6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Implementation for the find_shortest_paths algorithm. </p>

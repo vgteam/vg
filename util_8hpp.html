@@ -77,7 +77,7 @@ $(function() {
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structhandlegraph_1_1number__bool__packing.html">handlegraph::number_bool_packing</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define a way to pack an integer and an orientation bit into a <a class="el" href="structhandlegraph_1_1handle__t.html" title="Represents the internal id of a node traversal. ">handle_t</a>.  <a href="structhandlegraph_1_1number__bool__packing.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define a way to pack an integer and an orientation bit into a <a class="el" href="structhandlegraph_1_1handle__t.html" title="Represents a traversal of a node in a graph in a particular direction. ">handle_t</a>.  <a href="structhandlegraph_1_1number__bool__packing.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -126,6 +126,15 @@ Functions</h2></td></tr>
 <tr class="memitem:a8fc5f1eb104107d55fb043c2a24321aa"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a8fc5f1eb104107d55fb043c2a24321aa">handlegraph::operator&lt;</a> (const step_handle_t &amp;a, const step_handle_t &amp;b)</td></tr>
 <tr class="memdesc:a8fc5f1eb104107d55fb043c2a24321aa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sort of step handles is based on first then second integers.  <a href="namespacehandlegraph.html#a8fc5f1eb104107d55fb043c2a24321aa">More...</a><br /></td></tr>
 <tr class="separator:a8fc5f1eb104107d55fb043c2a24321aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aabfd0eef217d6bf47f85527f5b7df363"><td class="memItemLeft" align="right" valign="top">int64_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#aabfd0eef217d6bf47f85527f5b7df363">handlegraph::as_integers</a> (net_handle_t &amp;net_handle)</td></tr>
+<tr class="memdesc:aabfd0eef217d6bf47f85527f5b7df363"><td class="mdescLeft">&#160;</td><td class="mdescRight">View a net handle as an integer array.  <a href="namespacehandlegraph.html#aabfd0eef217d6bf47f85527f5b7df363">More...</a><br /></td></tr>
+<tr class="separator:aabfd0eef217d6bf47f85527f5b7df363"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6eff38450625c245b465aa4744a67641"><td class="memItemLeft" align="right" valign="top">const int64_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a6eff38450625c245b465aa4744a67641">handlegraph::as_integers</a> (const net_handle_t &amp;net_handle)</td></tr>
+<tr class="memdesc:a6eff38450625c245b465aa4744a67641"><td class="mdescLeft">&#160;</td><td class="mdescRight">View a const net handle as a const integer array.  <a href="namespacehandlegraph.html#a6eff38450625c245b465aa4744a67641">More...</a><br /></td></tr>
+<tr class="separator:a6eff38450625c245b465aa4744a67641"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a926cfa5c0852fd9dfe7685d6eec73fe9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a926cfa5c0852fd9dfe7685d6eec73fe9">handlegraph::operator&lt;</a> (const net_handle_t &amp;a, const net_handle_t &amp;b)</td></tr>
+<tr class="memdesc:a926cfa5c0852fd9dfe7685d6eec73fe9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sort of net handles is based on first then second then third integers.  <a href="namespacehandlegraph.html#a926cfa5c0852fd9dfe7685d6eec73fe9">More...</a><br /></td></tr>
+<tr class="separator:a926cfa5c0852fd9dfe7685d6eec73fe9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Tools for handle graph implementers to pack and unpack handles. </p>

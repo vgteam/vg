@@ -2,6 +2,7 @@ var searchData=
 [
   ['namemapper',['NameMapper',['../classvg_1_1NameMapper.html',1,'vg']]],
   ['nestedtraversalfinder',['NestedTraversalFinder',['../classvg_1_1NestedTraversalFinder.html',1,'vg']]],
+  ['net_5fhandle_5ft',['net_handle_t',['../structhandlegraph_1_1net__handle__t.html',1,'handlegraph']]],
   ['netgraph',['NetGraph',['../classvg_1_1NetGraph.html',1,'vg']]],
   ['netgraphnode',['NetgraphNode',['../structvg_1_1SnarlSeedClusterer_1_1NetgraphNode.html',1,'vg::SnarlSeedClusterer']]],
   ['ngssimulator',['NGSSimulator',['../classvg_1_1NGSSimulator.html',1,'vg']]],

@@ -7,7 +7,6 @@ var searchData=
   ['to_5fgfa_2ecpp',['to_gfa.cpp',['../to__gfa_8cpp.html',1,'']]],
   ['to_5fgfa_2ehpp',['to_gfa.hpp',['../to__gfa_8hpp.html',1,'']]],
   ['topological_5fsort_2ecpp',['topological_sort.cpp',['../topological__sort_8cpp.html',1,'']]],
-  ['topological_5fsort_2ehpp',['topological_sort.hpp',['../topological__sort_8hpp.html',1,'']]],
   ['trace_5fmain_2ecpp',['trace_main.cpp',['../trace__main_8cpp.html',1,'']]],
   ['transcriptome_2ecpp',['transcriptome.cpp',['../transcriptome_8cpp.html',1,'']]],
   ['transcriptome_2ehpp',['transcriptome.hpp',['../transcriptome_8hpp.html',1,'']]],
@@ -20,5 +19,8 @@ var searchData=
   ['traversal_5fsupport_2ehpp',['traversal_support.hpp',['../traversal__support_8hpp.html',1,'']]],
   ['tree_5fsubgraph_2ecpp',['tree_subgraph.cpp',['../tree__subgraph_8cpp.html',1,'']]],
   ['tree_5fsubgraph_2ehpp',['tree_subgraph.hpp',['../tree__subgraph_8hpp.html',1,'']]],
+  ['trivially_5fserializable_2ecpp',['trivially_serializable.cpp',['../trivially__serializable_8cpp.html',1,'']]],
+  ['trivially_5fserializable_2ehpp',['trivially_serializable.hpp',['../trivially__serializable_8hpp.html',1,'']]],
+  ['types_2ecpp',['types.cpp',['../types_8cpp.html',1,'']]],
   ['types_2ehpp',['types.hpp',['../src_2types_8hpp.html',1,'(Global Namespace)'],['../deps_2libhandlegraph_2src_2include_2handlegraph_2types_8hpp.html',1,'(Global Namespace)']]]
 ];

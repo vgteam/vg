@@ -1,7 +1,7 @@
 var searchData=
 [
   ['tag_5fcorrect',['tag_correct',['../classvg_1_1Funnel.html#a4e2ab6878393d0d9aaee56127844b06b',1,'vg::Funnel']]],
-  ['tail_5fnodes',['tail_nodes',['../classvg_1_1VG.html#a25bd74b77e139691555c8d48ecf67d9f',1,'vg::VG::tail_nodes(void)'],['../classvg_1_1VG.html#a61e7ba18ce8d12c48891b6d06caf240a',1,'vg::VG::tail_nodes(vector&lt; Node *&gt; &amp;nodes)'],['../namespacevg_1_1algorithms.html#a93073667fd5b9e1b8c8b24eb3062077e',1,'vg::algorithms::tail_nodes()']]],
+  ['tail_5fnodes',['tail_nodes',['../classvg_1_1VG.html#a25bd74b77e139691555c8d48ecf67d9f',1,'vg::VG::tail_nodes(void)'],['../classvg_1_1VG.html#a61e7ba18ce8d12c48891b6d06caf240a',1,'vg::VG::tail_nodes(vector&lt; Node *&gt; &amp;nodes)'],['../namespacehandlegraph_1_1algorithms.html#ad3eb2f190153333cdee10e6624df34c6',1,'handlegraph::algorithms::tail_nodes()']]],
   ['tail_5foffset',['tail_offset',['../structvg_1_1GaplessExtension.html#a94628e41ab7556750c6ab841ca76fafd',1,'vg::GaplessExtension']]],
   ['tail_5fposition',['tail_position',['../structvg_1_1GaplessExtension.html#adb0c7cc3eee2f406d20fde6db08717b1',1,'vg::GaplessExtension']]],
   ['take',['take',['../classvg_1_1io_1_1MessageIterator.html#ab97d50a333e4f27419f0d661e8669774',1,'vg::io::MessageIterator::take()'],['../classvg_1_1io_1_1ProtobufIterator.html#a32bfe2fea01e8bae7759dff71eb64db8',1,'vg::io::ProtobufIterator::take()']]],
@@ -69,7 +69,7 @@ var searchData=
   ['top_5fdown_5fgenotype',['top_down_genotype',['../classvg_1_1LegacyCaller.html#a01e3b84cc03599fbc8cef1df4fcf43c7',1,'vg::LegacyCaller']]],
   ['top_5flevel_5fchain_5flength',['top_level_chain_length',['../classvg_1_1MinimumDistanceIndex.html#adb1ac6f7ceac1aa123db1b88c523b478',1,'vg::MinimumDistanceIndex']]],
   ['top_5flevel_5fsnarls',['top_level_snarls',['../classvg_1_1SnarlManager.html#af31a29d8e7836bca46b389c01c625339',1,'vg::SnarlManager']]],
-  ['topological_5forder',['topological_order',['../classvg_1_1MEMClusterer_1_1HitGraph.html#ab277385bc0c8b0cd52c850f5368f0339',1,'vg::MEMClusterer::HitGraph::topological_order()'],['../namespacevg_1_1algorithms.html#a8442734145ff14710441ddca0b32bff6',1,'vg::algorithms::topological_order()']]],
+  ['topological_5forder',['topological_order',['../classvg_1_1MEMClusterer_1_1HitGraph.html#ab277385bc0c8b0cd52c850f5368f0339',1,'vg::MEMClusterer::HitGraph::topological_order()'],['../namespacehandlegraph_1_1algorithms.html#a7063506d0cc176b808808147b83d7e33',1,'handlegraph::algorithms::topological_order()']]],
   ['topological_5fsort',['topological_sort',['../classvg_1_1MultipathAlignmentGraph.html#a565b45f37d5be97cd30bce1d29c134fc',1,'vg::MultipathAlignmentGraph']]],
   ['topologically_5forder_5fsubpaths',['topologically_order_subpaths',['../namespacevg.html#a3ca9ccb5a2301ed1ce48f6334b3c4937',1,'vg']]],
   ['total',['total',['../namespacevg.html#a0a064dd8829b2100c6a38780311073f3',1,'vg']]],
@@ -131,6 +131,7 @@ var searchData=
   ['trim_5fto_5fbranch_5fpoints',['trim_to_branch_points',['../classvg_1_1MultipathAlignmentGraph.html#ac3199fb5e097873e2635e3fb34a8eafe',1,'vg::MultipathAlignmentGraph']]],
   ['trim_5fto_5fvariable',['trim_to_variable',['../classvg_1_1Constructor.html#a428cf1b27e402a304c18e40f87e9dc02',1,'vg::Constructor']]],
   ['trimmed_5fend',['trimmed_end',['../namespacevg.html#a9e61398cd459bb9ba3a1ced205491712',1,'vg']]],
+  ['triviallyserializable',['TriviallySerializable',['../classhandlegraph_1_1TriviallySerializable.html#a209a7ede82e8ad286a8a3fb1e51c3604',1,'handlegraph::TriviallySerializable::TriviallySerializable()=default'],['../classhandlegraph_1_1TriviallySerializable.html#a84668187fefcb7f82a3ae0d9593fe420',1,'handlegraph::TriviallySerializable::TriviallySerializable(const TriviallySerializable &amp;other)=delete'],['../classhandlegraph_1_1TriviallySerializable.html#acb0fbb2b032ee47002fe6cc13e094265',1,'handlegraph::TriviallySerializable::TriviallySerializable(TriviallySerializable &amp;&amp;other)=delete']]],
   ['trivialtraversalfinder',['TrivialTraversalFinder',['../classvg_1_1TrivialTraversalFinder.html#a46403401b7efaec8d99b63b2013f7e60',1,'vg::TrivialTraversalFinder']]],
   ['truncate_5fhandle',['truncate_handle',['../classhandlegraph_1_1DeletableHandleGraph.html#aa65cef3b3261f8d1bc2057c5f2ee100a',1,'handlegraph::DeletableHandleGraph']]],
   ['try_5fload_5fone',['try_load_one',['../classvg_1_1io_1_1VPKG.html#aeeac79f6760560223f9ffdc34da527e2',1,'vg::io::VPKG::try_load_one(istream &amp;in)'],['../classvg_1_1io_1_1VPKG.html#ab3a2026ac79ee1539271ba1791108c66',1,'vg::io::VPKG::try_load_one(const string &amp;filename)']]],

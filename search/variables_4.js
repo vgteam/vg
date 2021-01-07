@@ -1,7 +1,7 @@
 var searchData=
 [
   ['dagify_5fsteps',['dagify_steps',['../classvg_1_1Genotyper.html#a384f22f52c2a1f78b7ca613468e2e186',1,'vg::Genotyper']]],
-  ['data',['data',['../classvg_1_1SmallBitset.html#abcef065d7ab95209b8996d1d60969b1f',1,'vg::SmallBitset::data()'],['../classvg_1_1SpliceMotifs.html#a8e7e9315aae430fd9d67da056ca1f31b',1,'vg::SpliceMotifs::data()'],['../structhandlegraph_1_1handle__t.html#a83dd8888c344b33ba7e3ebf8c0b578a9',1,'handlegraph::handle_t::data()'],['../structhandlegraph_1_1path__handle__t.html#a887f73bef5f50884ab956f6cb7b544c0',1,'handlegraph::path_handle_t::data()'],['../structhandlegraph_1_1step__handle__t.html#ad62b1978c001199b0077ea154c350dfe',1,'handlegraph::step_handle_t::data()']]],
+  ['data',['data',['../classvg_1_1SmallBitset.html#abcef065d7ab95209b8996d1d60969b1f',1,'vg::SmallBitset::data()'],['../classvg_1_1SpliceMotifs.html#a8e7e9315aae430fd9d67da056ca1f31b',1,'vg::SpliceMotifs::data()'],['../structhandlegraph_1_1handle__t.html#a83dd8888c344b33ba7e3ebf8c0b578a9',1,'handlegraph::handle_t::data()'],['../structhandlegraph_1_1path__handle__t.html#a887f73bef5f50884ab956f6cb7b544c0',1,'handlegraph::path_handle_t::data()'],['../structhandlegraph_1_1step__handle__t.html#ad62b1978c001199b0077ea154c350dfe',1,'handlegraph::step_handle_t::data()'],['../structhandlegraph_1_1net__handle__t.html#a7f74d8444725266d667c5ea64410eb36',1,'handlegraph::net_handle_t::data()']]],
   ['data_5fwidth',['data_width',['../classvg_1_1Packer.html#a2ebdd5cb535ee0264886e084dbdd00f4',1,'vg::Packer']]],
   ['debug',['debug',['../classvg_1_1BaseMapper.html#a5ce344e730fbb7cdc6b6d57b4ca76cf2',1,'vg::BaseMapper']]],
   ['default_5fmax_5fthreads',['DEFAULT_MAX_THREADS',['../minimizer__main_8cpp.html#a5b3b08bd8224196307cb86df71ff927d',1,'minimizer_main.cpp']]],

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['filtername',['FilterName',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9',1,'vg::Counts']]]
+  ['endpoint_5ft',['endpoint_t',['../classhandlegraph_1_1SnarlDecomposition.html#a17b276026a2c6d99be0f63ffbc92ccd3',1,'handlegraph::SnarlDecomposition']]]
 ];

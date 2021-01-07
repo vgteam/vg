@@ -3,7 +3,7 @@ var searchData=
   ['uf_5fhandle',['uf_handle',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a84a5d20d03e165edd89bdddf7ccfa25f',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
   ['uf_5frank',['uf_rank',['../classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a7d285e6a4baec754e89edd5338589f3e',1,'vg::IntegratedSnarlFinder::MergedAdjacencyGraph']]],
   ['unbacked',['unbacked',['../structvg_1_1GBWTHandler.html#aed5e6775de6c9c96c78a752903a5a3ac',1,'vg::GBWTHandler']]],
-  ['unchop',['unchop',['../namespacevg_1_1algorithms.html#a0109d211ac713194397e14a1f7dc8435',1,'vg::algorithms']]],
+  ['unchop',['unchop',['../namespacehandlegraph_1_1algorithms.html#a0fa8f1f5e1d7b3f520fa676cd1dc6aa4',1,'handlegraph::algorithms']]],
   ['underflow',['underflow',['../classvg_1_1io_1_1fdinbuf.html#a67ea7aab3e21cacec9fb836d4a70673e',1,'vg::io::fdinbuf::underflow()'],['../classvg_1_1io_1_1streaminbuf.html#afa7f9b8f4f3159d819b2c9a2eb6a05cb',1,'vg::io::streaminbuf::underflow()']]],
   ['underlying_5finterval',['underlying_interval',['../classvg_1_1IncrementalSubgraph.html#ab6537f375ee27409fee46bd4dfdcb1a3',1,'vg::IncrementalSubgraph::underlying_interval()'],['../classvg_1_1JoinedSpliceGraph.html#ad9a0c6d572cb5052efa79e66d8cd29ab',1,'vg::JoinedSpliceGraph::underlying_interval()']]],
   ['unescape_5fdelim',['unescape_delim',['../classvg_1_1Packer.html#a32f8697cf4c222f5e207a4b15a1f0883',1,'vg::Packer']]],

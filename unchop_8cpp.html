@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/algorithms/unchop.cpp File Reference</title>
+<title>vg: deps/libhandlegraph/src/unchop.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -59,7 +59,7 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_e6df591b0639d4c4807ef64d058833e2.html">algorithms</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_94a36784afa54c0b50996002372b429e.html">deps</a></li><li class="navelem"><a class="el" href="dir_45ce01a577fb65f8a2885157ae4b8f6a.html">libhandlegraph</a></li><li class="navelem"><a class="el" href="dir_eba77e55b752d2a39db5e86e1323675f.html">src</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
@@ -70,26 +70,27 @@ $(function() {
 <div class="title">unchop.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="unchop_8hpp.html">unchop.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;handlegraph/algorithms/unchop.hpp&quot;</code><br />
 <code>#include &lt;unordered_set&gt;</code><br />
-<code>#include &lt;list&gt;</code><br />
+<code>#include &lt;deque&gt;</code><br />
 <code>#include &lt;set&gt;</code><br />
-<code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;sstream&gt;</code><br />
+<code>#include &lt;utility&gt;</code><br />
+<code>#include &lt;cassert&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
+<tr class="memitem:namespacehandlegraph"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html">handlegraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
+<tr class="memitem:namespacehandlegraph_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html">handlegraph::algorithms</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a0109d211ac713194397e14a1f7dc8435"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0109d211ac713194397e14a1f7dc8435">vg::algorithms::unchop</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph)</td></tr>
-<tr class="separator:a0109d211ac713194397e14a1f7dc8435"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a730fa3757b87183664991d17e182dba4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a730fa3757b87183664991d17e182dba4">vg::algorithms::chop</a> (<a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">handlegraph::MutableHandleGraph</a> *graph, size_t max_node_length)</td></tr>
-<tr class="separator:a730fa3757b87183664991d17e182dba4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0fa8f1f5e1d7b3f520fa676cd1dc6aa4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a0fa8f1f5e1d7b3f520fa676cd1dc6aa4">handlegraph::algorithms::unchop</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph)</td></tr>
+<tr class="separator:a0fa8f1f5e1d7b3f520fa676cd1dc6aa4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8433023fa5c3747d6d1123a886ccbce1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a8433023fa5c3747d6d1123a886ccbce1">handlegraph::algorithms::chop</a> (<a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">handlegraph::MutableHandleGraph</a> *graph, size_t max_node_length)</td></tr>
+<tr class="separator:a8433023fa5c3747d6d1123a886ccbce1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines an algorithm to join adjacent handles. </p>

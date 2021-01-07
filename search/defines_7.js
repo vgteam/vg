@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['str',['STR',['../version_8cpp.html#a6a96991688ffe6ae2293f0a4b5f813d2',1,'version.cpp']]]
+  ['quote',['QUOTE',['../version_8cpp.html#a1e7841038b1293b9a250d8999f6c8ac8',1,'version.cpp']]]
 ];

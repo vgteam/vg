@@ -13,9 +13,10 @@ var searchData=
   ['traversalsupportcalculator',['TraversalSupportCalculator',['../classvg_1_1TraversalSupportCalculator.html',1,'vg']]],
   ['traversalsupportfinder',['TraversalSupportFinder',['../classvg_1_1TraversalSupportFinder.html',1,'vg']]],
   ['tree',['Tree',['../structvg_1_1Tree.html',1,'vg']]],
-  ['treenode',['TreeNode',['../structvg_1_1BitStringTree_1_1TreeNode.html',1,'vg::BitStringTree&lt; Item &gt;::TreeNode'],['../structvg_1_1TreeNode.html',1,'vg::TreeNode&lt; T &gt;']]],
+  ['treenode',['TreeNode',['../structvg_1_1TreeNode.html',1,'vg::TreeNode&lt; T &gt;'],['../structvg_1_1BitStringTree_1_1TreeNode.html',1,'vg::BitStringTree&lt; Item &gt;::TreeNode']]],
   ['treestate',['TreeState',['../structvg_1_1SnarlSeedClusterer_1_1TreeState.html',1,'vg::SnarlSeedClusterer']]],
   ['treesubgraph',['TreeSubgraph',['../classvg_1_1TreeSubgraph.html',1,'vg']]],
+  ['triviallyserializable',['TriviallySerializable',['../classhandlegraph_1_1TriviallySerializable.html',1,'handlegraph']]],
   ['trivialtraversalfinder',['TrivialTraversalFinder',['../classvg_1_1TrivialTraversalFinder.html',1,'vg']]],
   ['tsvalignmentemitter',['TSVAlignmentEmitter',['../classvg_1_1io_1_1TSVAlignmentEmitter.html',1,'vg::io']]],
   ['tvsclusterer',['TVSClusterer',['../classvg_1_1TVSClusterer.html',1,'vg']]]

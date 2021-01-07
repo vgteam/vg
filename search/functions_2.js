@@ -48,5 +48,6 @@ var searchData=
   ['build_5fnode_5findexes_5fno_5finit_5fsize',['build_node_indexes_no_init_size',['../classvg_1_1VG.html#a0ca442744267b08609887cd842ca543d',1,'vg::VG']]],
   ['build_5fposition_5ftable',['build_position_table',['../classvg_1_1Translator.html#a1199f5152e05a5a52d6d00cc00ab0ea1',1,'vg::Translator']]],
   ['build_5fsite_5findices_5finternal',['build_site_indices_internal',['../classvg_1_1PhasedGenome.html#ab7badd2e4e135f118fc14f7e0aad1b5a',1,'vg::PhasedGenome']]],
+  ['build_5fsnarl_5fdecomposition',['build_snarl_decomposition',['../classhandlegraph_1_1BuildableSnarlDecomposition.html#a75213fa82b64e8dadc24df8fad7a1e5c',1,'handlegraph::BuildableSnarlDecomposition']]],
   ['bytecount',['ByteCount',['../classvg_1_1io_1_1BlockedGzipInputStream.html#aa90daab17c2449563e96bbca827c8ccf',1,'vg::io::BlockedGzipInputStream::ByteCount()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a35058523e5b100a0c55af4f4371544a7',1,'vg::io::BlockedGzipOutputStream::ByteCount()']]]
 ];

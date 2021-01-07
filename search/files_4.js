@@ -1,7 +1,6 @@
 var searchData=
 [
-  ['eades_5falgorithm_2ecpp',['eades_algorithm.cpp',['../src_2algorithms_2eades__algorithm_8cpp.html',1,'(Global Namespace)'],['../deps_2libbdsg_2src_2eades__algorithm_8cpp.html',1,'(Global Namespace)']]],
-  ['eades_5falgorithm_2ehpp',['eades_algorithm.hpp',['../eades__algorithm_8hpp.html',1,'']]],
+  ['eades_5falgorithm_2ecpp',['eades_algorithm.cpp',['../libbdsg_2src_2eades__algorithm_8cpp.html',1,'(Global Namespace)'],['../libhandlegraph_2src_2eades__algorithm_8cpp.html',1,'(Global Namespace)']]],
   ['edit_2ecpp',['edit.cpp',['../edit_8cpp.html',1,'']]],
   ['edit_2ehpp',['edit.hpp',['../edit_8hpp.html',1,'']]],
   ['endianness_2ehpp',['endianness.hpp',['../endianness_8hpp.html',1,'']]],
@@ -12,7 +11,6 @@ var searchData=
   ['expanding_5foverlay_5fgraph_2ehpp',['expanding_overlay_graph.hpp',['../expanding__overlay__graph_8hpp.html',1,'']]],
   ['explode_5fmain_2ecpp',['explode_main.cpp',['../explode__main_8cpp.html',1,'']]],
   ['extend_2ecpp',['extend.cpp',['../extend_8cpp.html',1,'']]],
-  ['extend_2ehpp',['extend.hpp',['../extend_8hpp.html',1,'']]],
   ['extra_5fnode_5fgraph_2ecpp',['extra_node_graph.cpp',['../extra__node__graph_8cpp.html',1,'']]],
   ['extra_5fnode_5fgraph_2ehpp',['extra_node_graph.hpp',['../extra__node__graph_8hpp.html',1,'']]],
   ['extract_5fconnecting_5fgraph_2ecpp',['extract_connecting_graph.cpp',['../extract__connecting__graph_8cpp.html',1,'']]],

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['output_5fformat_5ft',['output_format_t',['../classvg_1_1MultipathAlignmentEmitter.html#a9a078e9c7bfe62603e8f359b62519b0b',1,'vg::MultipathAlignmentEmitter']]]
+  ['nodetype',['nodeType',['../structhaplo_1_1linear__haplo__structure.html#a3180d362cdac21750aebf6d4fe77e0d8',1,'haplo::linear_haplo_structure']]]
 ];

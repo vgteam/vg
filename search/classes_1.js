@@ -17,5 +17,6 @@ var searchData=
   ['boolreturningwrapper',['BoolReturningWrapper',['../structhandlegraph_1_1BoolReturningWrapper.html',1,'handlegraph']]],
   ['boolreturningwrapper_3c_20iteratee_2c_20iterated_2c_20bool_20_3e',['BoolReturningWrapper&lt; Iteratee, Iterated, bool &gt;',['../structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01Iterated_00_01bool_01_4.html',1,'handlegraph']]],
   ['boolreturningwrapper_3c_20iteratee_2c_20iterated_2c_20void_20_3e',['BoolReturningWrapper&lt; Iteratee, Iterated, void &gt;',['../structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01Iterated_00_01void_01_4.html',1,'handlegraph']]],
-  ['breakpoint',['BREAKPOINT',['../structvg_1_1BREAKPOINT.html',1,'vg']]]
+  ['breakpoint',['BREAKPOINT',['../structvg_1_1BREAKPOINT.html',1,'vg']]],
+  ['buildablesnarldecomposition',['BuildableSnarlDecomposition',['../classhandlegraph_1_1BuildableSnarlDecomposition.html',1,'handlegraph']]]
 ];
