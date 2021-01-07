@@ -1,7 +1,9 @@
 # vg
 
 [![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Latest Release](https://img.shields.io/github/release/vgteam/vg.svg)](https://github.com/vgteam/vg/releases/latest) [![Build Status](https://travis-ci.org/vgteam/vg.svg?branch=master)](https://travis-ci.org/vgteam/vg) [![Performance Report](https://img.shields.io/badge/performance-report-brightgreen.svg)](https://vg-data.s3.amazonaws.com/vg_ci/vgci_reports/branch/master/index.html) 
-[![Doxygen API Documentation](https://img.shields.io/badge/doxygen-docs-brightgreen.svg)](https://vgteam.github.io/vg/) 
+[![Doxygen API Documentation](https://img.shields.io/badge/doxygen-docs-brightgreen.svg)](https://vgteam.github.io/vg/)
+
+<!-- !test program bash -e -->
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
@@ -47,7 +49,7 @@ First, obtain the repo and its submodules:
     git clone --recursive https://github.com/vgteam/vg.git
     cd vg
     
-Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need `jq`, `bc` and `rs`. On Ubuntu, you should be able to do:
+Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need `jq`, `bc`, `rs`, and `npm`. On Ubuntu, you should be able to do:
 
     make get-deps
     
@@ -55,7 +57,7 @@ On other distros, you will need to perform the equivalent of:
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libprotobuf-dev libjansson-dev \
-                         automake libtool jq bc rs curl unzip redland-utils \
+                         automake libtool jq bc rs npm curl unzip redland-utils \
                          librdf-dev bison flex gawk lzma-dev liblzma-dev liblz4-dev \
                          libffi-dev libcairo-dev libboost-all-dev
                          
@@ -130,6 +132,7 @@ Our team has successfully built vg on Mac with GCC versions 4.9, 5.3, 6, 7, and 
 
 The simplest thing to do with `vg` is to build a graph and align to it. At present, you'll want to use a reference and VCF file to do so. If you're working in the `test/` directory:
 
+<!-- !test check Construct the small graph -->
 ```sh
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 ```
@@ -140,12 +143,16 @@ Note that to build a graph, an index of the VCF file is required. The VCF index 
 
 `vg view` provides a way to convert the graph into various formats:
 
+<!-- !test check Convert the small graph to different formats -->
 ```sh
 # GFA output
 vg view x.vg >x.gfa
 
 # dot output suitable for graphviz
 vg view -d x.vg >x.dot
+
+# And if you have a GAM file
+cp small/x-s1337-n1.gam x.gam
 
 # json version of binary alignments
 vg view -a x.gam >x.json
