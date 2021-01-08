@@ -1435,8 +1435,8 @@ namespace vg {
                         // TODO: contains some redundant code with create_match_nodes
                         
                         handle_t handle = adj_handle;
-                        handle_t adj_handle = graph.get_handle(path_nodes[i].path.mapping(k - incr).position().node_id(),
-                                                               path_nodes[i].path.mapping(k - incr).position().is_reverse());
+                        adj_handle = graph.get_handle(path_nodes[i].path.mapping(k - incr).position().node_id(),
+                                                      path_nodes[i].path.mapping(k - incr).position().is_reverse());
                         graph.follow_edges(handle, left_side, [&](const handle_t& next) {
                             if (next != adj_handle){
                                 // this is an adjacency that the current path doesn't take, so we can
