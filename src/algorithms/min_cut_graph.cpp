@@ -12,7 +12,7 @@
 #include "../contracting_graph.hpp"
 #include <random>
 #include <iostream>
-// #define debug
+#define debug
 
 namespace vg {
     namespace algorithms {
@@ -36,18 +36,18 @@ namespace vg {
                 
             }
             //handles: 2 nodes with edges, 2 nodes without edges
-            if (V==2 ){
+            if (V==2){
                 //check that both nodes have edges
-                if (graph.nodes[0].edges.empty == false && graph.nodes[1].edges.empty == false){
-                    
+                if (graph.nodes[0].edges.empty() == false && graph.nodes[1].edges.empty() == false){
+                    vector<vector<size_t>> disjoint_sets;
                     //disjoint sets will just be two sets, each containing one node
                     //using index starting at 0 for nodes
-                    vector<size_t> supernode0 = 0;
-                    vector<size_t> supernode1 = 1;
+                    vector<size_t> supernode0 = {0};
+                    vector<size_t> supernode1 = {1};
                     disjoint_sets.push_back(supernode0);
                     disjoint_sets.push_back(supernode1);
 
-                    vector<vector<size_t>> disjoint_sets;
+                    
                     //assumes weights from node 1->node 2 and node 2->node 1 are equal
                     size_t weight_of_cut = graph.nodes[0].edges[0].weight;
                     to_return = make_pair(disjoint_sets, weight_of_cut);
@@ -62,12 +62,19 @@ namespace vg {
 
             while(V > 2){
                 
-
                 // get nodes will return the heads of all the nodes
                 // at first call all nodes will be heads
                 vector<size_t> super_nodes = cg.get_nodes();
                 V = super_nodes.size();
-
+#ifdef debug
+                
+                cout << "number of nodes: " << V << endl;
+                for (int i =0; i <V; i++){
+                    cout << "node "<< super_nodes[i] << endl;
+                    
+                }
+                
+#endif 
 
                 //get the total edge weights for super_nodes in contracted graph
                 unordered_map<size_t, unordered_map<size_t, size_t>> contracted_graph;
@@ -105,10 +112,7 @@ namespace vg {
                 //discrete distribution returns an index
                 int random_weight_idx = nodes_distribution(random_engine);
                 size_t random_node = super_nodes[random_weight_idx];
-#ifdef debug
-                cout << "random node " << random_node << endl;
-                
-#endif
+
 
                 //get the edge weights of random node
                 vector <size_t> rand_ew; 
@@ -135,18 +139,33 @@ namespace vg {
                         break;
                     }
                     count++;
-
                 }
 
-    
                 //contract edge between random node and other node 
-                // uf.union_groups(random_node, other_node);
                 cg.contract(random_node, other_node);
+#ifdef debug
                 
+                cout << "random node " << random_node << " and other node " << other_node << " have been unioned" << endl;
+                
+#endif                
 
                 // check the new size of super nodes after contraction
                 // if we have only two we can break out of the while loop
                 if(V == 2){
+#ifdef debug
+                cout << "Printing contracted graph total edge weights " << endl;
+                for (pair<size_t, size_t> element: cgraph_total_edge_weights){
+                        cout << element.first << " : "<< element.second <<endl;
+                }
+
+                cout << "Printing contracted graph  " << endl;
+                for(size_t i = 0; i<V; i++){
+                        for(pair<size_t, size_t> element: contracted_graph[i]){
+                            cout << element.first << " : "<< element.second <<endl;
+                        }
+                }
+
+#endif
                     //compute the min cut of graph which is equal to the total edge weights of two supernodes 
                     size_t weight_of_cut;
                     for (pair<size_t, size_t> element: cgraph_total_edge_weights){
@@ -168,10 +187,7 @@ namespace vg {
                 
                 // will hold most up-to-date contracted graphs weights
                 cgraph_total_edge_weights.clear();
-#ifdef debug
-                cout << "breaking after one loop" << endl;
-                break;
-#endif
+
             }
             
             
@@ -189,7 +205,7 @@ namespace vg {
             pair<vector<vector<size_t>>, size_t> to_return;
             pair<vector<vector<size_t>>, size_t> min_cut1 = kargers_min_cut(graph, n_iterations, seed, V);
             pair<vector<vector<size_t>>, size_t> min_cut2 = kargers_min_cut(graph, n_iterations, seed2, V);
-            if (min_cut1.first = 0 || min_cut2.first == 0 ){
+            if (min_cut1.second = 0 || min_cut2.second == 0 ){
                 // if pair is empty pair.first and pair.second will both be initialized to 0 during contruction
                 //return empty container
                 return to_return;
