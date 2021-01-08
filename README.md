@@ -243,9 +243,9 @@ By default, `vg call` omits `0/0` variants and tries to normalize alleles to mak
 vg call x.xg -k aln.pack -a > snarl_genotypes.vcf
 ```
 
-In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the previous example using `vg augment -A`):
+In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the "Augmentation" example using `vg augment -A`):
 
-<!-- !test check Call from pack without normalizing -->
+<!-- !test check Call from augmentation -->
 ```sh
 # Index our augmented graph
 vg index aug.vg -x aug.xg
@@ -319,7 +319,7 @@ Variants can also be inferred strictly from topology by not using `-e`, though u
 <!-- !test check Deconstruct from construct -->
 ```sh
 # using the same graph from the `map` example
-vg deconstruct x.xg > x.vcf
+vg deconstruct x.xg -p x > x.vcf
 ```
 
 As with `vg call`, it is best to compute snarls separately and pass them in with `-r` when working with large graphs.
