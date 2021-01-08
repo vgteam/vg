@@ -13,6 +13,7 @@ which txm || npm install -g txm
 cd "${HERE}/../test"
 
 # Test the readme
+echo txm --jobs 1 "${HERE}/../README.md"
 txm --jobs 1 "${HERE}/../README.md"
 
 # Run all the wiki tests

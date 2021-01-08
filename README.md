@@ -3,7 +3,7 @@
 [![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Latest Release](https://img.shields.io/github/release/vgteam/vg.svg)](https://github.com/vgteam/vg/releases/latest) [![Build Status](https://travis-ci.org/vgteam/vg.svg?branch=master)](https://travis-ci.org/vgteam/vg) [![Performance Report](https://img.shields.io/badge/performance-report-brightgreen.svg)](https://vg-data.s3.amazonaws.com/vg_ci/vgci_reports/branch/master/index.html) 
 [![Doxygen API Documentation](https://img.shields.io/badge/doxygen-docs-brightgreen.svg)](https://vgteam.github.io/vg/)
 
-<!-- !test program bash -e -->
+<!-- !test program bash -eo pipefail -->
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
@@ -162,12 +162,14 @@ vg view -a x.gam >x.json
 
 As this is a small graph, you could align to it using a full-length partial order alignment:
 
+<!-- !test check Align a string to a graph -->
 ```sh
 vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG x.vg
 ```
 
 Note that you don't have to store the graph on disk at all, you can simply pipe it into the local aligner:
 
+<!-- !test check Align a string to a piped graph -->
 ```sh
 vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -
 ```
@@ -178,6 +180,7 @@ Most commands allow the streaming of graphs into and out of `vg`.
 
 If your graph is large, you want to use `vg index` to store the graph and `vg map` to align reads. `vg map` implements a kmer based seed and extend alignment model that is similar to that used in aligners like novoalign or MOSAIK. First an on-disk index is built with `vg index` which includes the graph itself and kmers of a particular size. When mapping, any kmer size shorter than that used in the index can be employed, and by default the mapper will decrease the kmer size to increase sensitivity when alignment at a particular _k_ fails.
 
+<!-- !test check Simulate and map back with surjection -->
 ```sh
 # construct the graph (paths below assume running from `vg/test` directory)
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -206,6 +209,7 @@ vg map -T x.sim.txt -x x.xg -g x.gcsa --surject-to bam > aln.bam
 
 Variation from alignments can be embedded back into the graph.  This process is called augmentation and is important for variant calling, for example (see below).
 
+<!-- !test check Augment a graph -->
 ```sh
 # augment the graph with all variation from the GAM except that implied by soft clips, saving to aug.vg.  aug.gam contains the same reads as aln.gam but mapped to aug.vg
 vg augment x.vg aln.gam -A aug.gam > aug.vg
@@ -224,6 +228,7 @@ The following examples show how to generate a VCF with vg using read support.  T
 
 Call only variants that are present in the graph (use `-g`):
 
+<!-- !test check Pack and call -->
 ```sh
 # Compute the read support from the gam (ignoring mapping and base qualitiy < 5)
 vg pack -x x.xg -g aln.gam -Q 5 -o aln.pack
@@ -233,12 +238,14 @@ vg call x.xg -k aln.pack > graph_calls.vcf
 ```
 
 By default, `vg call` omits `0/0` variants and tries to normalize alleles to make the VCF more compact.  Both these steps can make it difficult to compare the outputs from different samples as the VCFs will have different coordinates even though they were created using the same graph.  The `-a` option addresses this by calling every snarl using the same coordinates and including reference calls.  Outputs for different samples can be combined with `bcftools merge -m all`.   
+<!-- !test check Call from pack without normalizing -->
 ```
 vg call x.xg -k aln.pack -a > snarl_genotypes.vcf
 ```
 
 In order to also consider *novel* variants from the reads, use the augmented graph and gam (as created in the previous example using `vg augment -A`):
 
+<!-- !test check Call from pack without normalizing -->
 ```sh
 # Index our augmented graph
 vg index aug.vg -x aug.xg
@@ -252,6 +259,7 @@ vg call aug.xg -k aln_aug.pack > calls.vcf
 
 A similar process can by used to *genotype* known variants from a VCF. To do this, the graph must be constructed from the VCF with `vg construct -a`:
 
+<!-- !test check Genotype -->
 ```sh
 # Re-construct the same graph as before but with `-a`
 vg construct -r small/x.fa -v small/x.vcf.gz -a > xa.vg
@@ -266,15 +274,21 @@ vg pack -x xa.xg -g aln.gam -o aln.pack
 vg call xa.xg -k aln.pack -v small/x.vcf.gz > genotypes.vcf
 ```
 
-Pre-filtering the GAM before computing support can improve precision of SNP calling
+Pre-filtering the GAM before computing support can improve precision of SNP calling:
+
+<!-- !test check Pre-filter GAM and call -->
 ```sh
 # filter secondary and ambiguous read mappings out of the gam
 vg filter aln.gam -r 0.90 -fu -m 1 -q 15 -D 999 -x x.xg > aln.filtered.gam
 
 # then compute the support from aln.filtered.gam instead of aln.gam in above etc.
+vg pack -x xa.xg -g aln.filtered.gam -o aln.pack
+vg call xa.xg -k aln.pack -v small/x.vcf.gz > genotypes.vcf
 ```
 
 For larger graphs, it is recommended to compute snarls separately:
+
+<!-- !test check Pre-compute snarls and call -->
 ```sh
 vg snarls x.xg > x.snarls
 
@@ -287,6 +301,8 @@ Note: `vg augment`, `vg pack`, `vg call` and `vg snarls` can now all be run on d
 #### Calling variants from paths in the graph
 
 Infer variants from from alignments implied by paths in the graph.  This can be used, for example, to call SVs directly from a variation graph that was constructed from a multiple alignment of different assemblies:
+
+<!-- !test check MSGA and deconstruct -->
 ```sh
 # create a graph from a multiple alignment of HLA haplotypes (from vg/test directory)
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
@@ -299,6 +315,8 @@ vg deconstruct hla.xg -e -p "gi|568815592:29791752-29792749" > hla_variants.vcf
 ```
 
 Variants can also be inferred strictly from topology by not using `-e`, though unlike the above example, cycles are not supported.  "Deconstruct" the VCF variants that were used to construct the graph. The output will be similar but identical to `small/x.vcf.gz` as `vg construct` can add edges between adjacent alts and/or do some normalization:
+
+<!-- !test check Deconstruct from construct -->
 ```sh
 # using the same graph from the `map` example
 vg deconstruct x.xg > x.vcf
