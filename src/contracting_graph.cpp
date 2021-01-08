@@ -2,7 +2,8 @@
 #include <structures/union_find.hpp>
 #include <iostream>
 
-// #define debug
+
+#define debug
 namespace vg{
     using namespace std;
     using namespace structures;
@@ -28,18 +29,36 @@ namespace vg{
         //if an adj_node exists in group_nodes then it is a contracted edge, we treat it as a special case  
         for(size_t i = 0; i<group_nodes.size(); i++){
             int member = group_nodes[i];
-
+#ifdef debug
+            cout << "============================================================================= " << endl;    
+            cout << "group num " << group_num+1 << endl;       
+#endif
+            
+            if(graph.nodes[member].edges.size() == 0){
+                break;
+            }
             for (size_t j = 0; j < graph.nodes[member].edges.size(); j++){
-
+#ifdef debug
+            cout << "============================================================================= " << endl;    
+            cout << "node member from super group " << member+1 << endl;       
+            cout << "node member other " << graph.nodes[member].edges[j].other+1 << endl;  
+#endif
                 size_t connecting_node = graph.nodes[member].edges[j].other;
                 size_t connecting_node_group_id = uf.find_group(connecting_node);
                 if(connecting_node_group_id == group_num){
                     continue;
                 }else{
-
+#ifdef debug     
+            cout << "node edges prev " << group_edges[connecting_node] << endl;  
+            cout << "node edges new" << graph.nodes[connecting_node].edges[j].weight << endl;  
+#endif
                 //if it doesn't exist add, otherwise add weight to existing value
                 group_edges[connecting_node] += graph.nodes[connecting_node].edges[j].weight;
-
+#ifdef debug     
+            
+            cout << "node edges total" << group_edges[connecting_node] << endl;  
+            cout << "============================================================================= " << endl;  
+#endif
                 }
             }
 
