@@ -171,7 +171,7 @@ int main_normalize(int argc, char **argv) {
 
     if (normalize) {
         //todo: maybe rewrite to mimic mod_main.
-        // vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph *>(graph.get()), cout);
+        vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph *>(graph.get()), cout);
 
         // graph->serialize(std::cout);
     }

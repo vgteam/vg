@@ -246,6 +246,10 @@ SnarlSequenceFinder::find_gbwt_haps() {
 //      snarl.
 vector<vector<handle_t>>
 SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touched_handles) {
+    //todo: debug_statement
+    for (handle_t handle : touched_handles){
+        cerr << "touched handles find_gbwt_haps: " << _graph.get_id(handle) << endl;
+    }
     // cerr << "find_haplotypes_not_at_source" << endl;
 
     /// Search every handle in touched handles for haplotypes starting at that point.
