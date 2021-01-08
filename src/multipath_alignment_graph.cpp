@@ -1373,7 +1373,8 @@ namespace vg {
             }
             
             // TODO: put bookkeeping in place to remove this restriction
-            // only try to jitter of one side of a path node at most (both is complicated)
+            // only try to jitter of one side of a path node at most (both is complicated because
+            // we have to sever the source node)
             bool did_jitter = false;
             for (bool left_side : {true, false}) {
                 if (did_jitter) {
@@ -1450,7 +1451,7 @@ namespace vg {
                                 vector<tuple<string::const_iterator, size_t, vector<handle_t>>> stack;
                                 auto riter = left_side ? path_nodes[i].begin + length_before - 1 : path_nodes[i].end - length_before;
                                 stack.emplace_back(riter, 0, vector<handle_t>(1, next));
-                                while (!stack.empty()) {
+                                while (!stack.empty() && !did_jitter) {
                                     auto& back = stack.back();
                                     if (get<1>(back) == get<2>(back).size()) {
                                         stack.pop_back();
@@ -1461,7 +1462,7 @@ namespace vg {
                                     get<1>(back)++;
                                     
 #ifdef debug_multipath_alignment
-                                    cerr << "checking node " << graph.get_id(trav) << endl;
+                                    cerr << "checking for matches node " << graph.get_id(trav) << endl;
 #endif
                                     string node_seq = graph.get_sequence(trav);
                                     int64_t node_idx = left_side ? node_seq.size() - 1 : 0;
