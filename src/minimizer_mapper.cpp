@@ -1184,6 +1184,11 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         }
                         return false;
                     }
+
+                    if (!fragment_cluster_has_pair[cluster.fragment]){
+                        //If this is the best single-end cluster but it doesn't have a fragment cluster
+                        better_cluster_count[cluster.fragment] = 0;
+                    }
                     if (track_provenance) {
                         funnels[read_num].pass("cluster-coverage", cluster_num, cluster.coverage);
                         funnels[read_num].pass("max-extensions", cluster_num);
