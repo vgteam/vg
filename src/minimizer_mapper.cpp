@@ -1185,7 +1185,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         return false;
                     }
 
-                    if (!fragment_cluster_has_pair[cluster.fragment]){
+                    if (found_paired_cluster && !fragment_cluster_has_pair[cluster.fragment]){
                         //If this is the best single-end cluster but it doesn't have a fragment cluster
                         better_cluster_count[cluster.fragment] = 0;
                     }
