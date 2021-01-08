@@ -1372,7 +1372,13 @@ namespace vg {
                 continue;
             }
             
+            // TODO: put bookkeeping in place to remove this restriction
+            // only try to jitter of one side of a path node at most (both is complicated)
+            bool did_jitter = false;
             for (bool left_side : {true, false}) {
+                if (did_jitter) {
+                    break;
+                }
                 
                 int64_t j_begin, incr;
                 if (left_side) {
@@ -1407,7 +1413,7 @@ namespace vg {
                     // the homopolymer
                     int64_t k = left_side ? 0 : path_nodes[i].path.mapping_size() - 1;
                     int64_t length_before = 0;
-                    for (;k + incr >= 0 && k + incr < path_nodes[i].path.mapping_size(); k += incr) {
+                    for (; k + incr >= 0 && k + incr < path_nodes[i].path.mapping_size(); k += incr) {
                         int64_t length_thru = length_before + mapping_to_length(path_nodes[i].path.mapping(k));
                         if (length_thru > homopolymer_length) {
                             break;
@@ -1418,7 +1424,7 @@ namespace vg {
                     // walk backwards looking for jittered matches
                     handle_t adj_handle = graph.get_handle(path_nodes[i].path.mapping(k).position().node_id(),
                                                            path_nodes[i].path.mapping(k).position().is_reverse());
-                    for (; k - incr >= 0 && k - incr < path_nodes[i].path.mapping_size(); k -= incr) {
+                    for (; k - incr >= 0 && k - incr < path_nodes[i].path.mapping_size() && !did_jitter; k -= incr) {
                         if (length_before <= max_branch_trim_length) {
                             // we won't bother trying to jitter over regions that will
                             // be caught branch point trimming
@@ -1428,8 +1434,8 @@ namespace vg {
                         // TODO: contains some redundant code with create_match_nodes
                         
                         handle_t handle = adj_handle;
-                        handle_t adj_handle = graph.get_handle(path_nodes[i].path.mapping(k - 1).position().node_id(),
-                                                               path_nodes[i].path.mapping(k - 1).position().is_reverse());
+                        handle_t adj_handle = graph.get_handle(path_nodes[i].path.mapping(k - incr).position().node_id(),
+                                                               path_nodes[i].path.mapping(k - incr).position().is_reverse());
                         graph.follow_edges(handle, left_side, [&](const handle_t& next) {
                             if (next != adj_handle){
                                 // this is an adjacency that the current path doesn't take, so we can
@@ -1488,9 +1494,12 @@ namespace vg {
                                         if (length_diff <= max_jitter_diff || jitter_length >= min_jitter_length) {
                                             // we found a jittered anchor with nearly the same length, let's add
                                             // the jittered portion as an alternate anchor
-                                            
+                                            did_jitter = true;
                                             path_nodes.emplace_back();
+                                            path_nodes.emplace_back();
+                                            auto& split_node = path_nodes[path_nodes.size() - 2];
                                             auto& jitter_node = path_nodes.back();
+                                            path_node_provenance.emplace_back(path_node_provenance[i]);
                                             path_node_provenance.emplace_back(path_node_provenance[i]);
                                             if (left_side) {
                                                 jitter_node.begin = read_iter + 1;
@@ -1516,6 +1525,14 @@ namespace vg {
                                                     edit->set_from_length(graph.get_length(h));
                                                     edit->set_to_length(edit->from_length());
                                                 }
+                                                // split up the node that we jittered so that it finds the edge to the jitter
+                                                split_node.begin = path_nodes[i].begin + length_before;
+                                                split_node.end = path_nodes[i].end;
+                                                for (int64_t l = k; l < path_nodes[i].path.mapping_size(); ++l) {
+                                                    *split_node.path.add_mapping() = move(*path_nodes[i].path.mutable_mapping(l));
+                                                }
+                                                path_nodes[i].end = split_node.begin;
+                                                path_nodes[i].path.mutable_mapping()->resize(k);
                                             }
                                             else {
                                                 jitter_node.begin = path_nodes[i].end - length_before + 1;
@@ -1541,19 +1558,33 @@ namespace vg {
                                                     edit->set_from_length(node_idx - 1);
                                                     edit->set_to_length(edit->from_length());
                                                 }
+                                                // split up the node that we jittered so that it finds the edge to the jitter
+                                                split_node.begin = path_nodes[i].end - length_before;
+                                                split_node.end = path_nodes[i].end;
+                                                for (int64_t l = k + 1; l < path_nodes[i].path.mapping_size(); ++l) {
+                                                    *split_node.path.add_mapping() = move(*path_nodes[i].path.mutable_mapping(l));
+                                                }
+                                                path_nodes[i].end = split_node.begin;
+                                                path_nodes[i].path.mutable_mapping()->resize(k + 1);
                                             }
+                                            
 #ifdef debug_multipath_alignment
                                             cerr << "jitter difference of " << length_diff << " was small enough or length of " << jitter_length << " was large enough to make a new jitter anchor: " << endl;
-                                            cerr << string(jitter_node.begin, jitter_node.end) << " " << debug_string(jitter_node.path) << endl;
+                                            cerr << string(jitter_node.begin, jitter_node.end) << " (" << (jitter_node.begin - path_nodes[i].begin) << ":" << (jitter_node.end - path_nodes[i].begin) << ") " << debug_string(jitter_node.path) << endl;
+                                            cerr << "new split nodes in path node " << i << endl;
+                                            cerr << string(path_nodes[i].begin, path_nodes[i].end) << " (" << (path_nodes[i].begin - path_nodes[i].begin) << ":" << (path_nodes[i].end - path_nodes[i].begin) << ") " << debug_string(path_nodes[i].path) << endl;
+                                            cerr << string(split_node.begin, split_node.end) << " (" << (split_node.begin - path_nodes[i].begin) << ":" << (split_node.end - path_nodes[i].begin) << ") " << debug_string(split_node.path) << endl;
 #endif
                                         }
                                     }
                                 }
                             }
+                            return !did_jitter;
                         });
                         
-                        
-                        length_before -= mapping_to_length(path_nodes[i].path.mapping(k));
+                        if (!did_jitter) {
+                            length_before -= mapping_to_length(path_nodes[i].path.mapping(k));
+                        }
                     }
                 }
             }
