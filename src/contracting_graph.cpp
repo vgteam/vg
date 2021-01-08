@@ -44,11 +44,15 @@ namespace vg{
             cout << "node member other " << graph.nodes[member].edges[j].other+1 << endl;  
 #endif
                 size_t connecting_node = graph.nodes[member].edges[j].other;
+
+                // check if the connecting node is contracted with other nodes
                 size_t connecting_node_group_id = uf.find_group(connecting_node);
                 if(connecting_node_group_id == group_num){
+                    cout << "continue" <<endl;
                     continue;
                 }else{
-#ifdef debug     
+#ifdef debug   
+            cout << "connecting node group id " << connecting_node_group_id << endl;
             cout << "node edges prev " << group_edges[connecting_node] << endl;  
             cout << "node edges new" << graph.nodes[connecting_node].edges[j].weight << endl;  
 #endif
@@ -56,7 +60,7 @@ namespace vg{
                 group_edges[connecting_node] += graph.nodes[connecting_node].edges[j].weight;
 #ifdef debug     
             
-            cout << "node edges total" << group_edges[connecting_node] << endl;  
+            cout << "node edges total" << group_edges[connecting_node+1] << endl;  
             cout << "============================================================================= " << endl;  
 #endif
                 }
