@@ -1421,7 +1421,7 @@ namespace vg {
                         }
                         length_before = length_thru;
                     }
-                    
+                                        
                     // walk backwards looking for jittered matches
                     handle_t adj_handle = graph.get_handle(path_nodes[i].path.mapping(k).position().node_id(),
                                                            path_nodes[i].path.mapping(k).position().is_reverse());
@@ -1431,6 +1431,9 @@ namespace vg {
                             // be caught branch point trimming
                             break;
                         }
+#ifdef debug_multipath_alignment
+                        cerr << "at mapping " << k << " (" << debug_string(path_nodes[i].path.mapping(k).position()) << ") having already walked " << length_before << endl;
+#endif
                         
                         // TODO: contains some redundant code with create_match_nodes
                         
@@ -1443,7 +1446,7 @@ namespace vg {
                                 // try to jitter down it
                                 
 #ifdef debug_multipath_alignment
-                                cerr << "homopolymer can branch from " << graph.get_id(handle) << " " << graph.get_is_reverse(handle) << " to " << graph.get_id(next) << " " << graph.get_is_reverse(next) << endl;
+                                cerr << "homopolymer can branch from " << graph.get_id(handle) << " " << graph.get_is_reverse(handle) << " to " << graph.get_id(next) << " " << graph.get_is_reverse(next) << " with " << length_before << " bases to jitter" << endl;
 #endif
                                 
                                 // stack for DFS, each record contains tuples of
@@ -1472,9 +1475,12 @@ namespace vg {
                                     // look for a match along the entire node sequence
                                     for (; node_idx >= 0 && node_idx < node_seq.size()
                                          && read_iter >= path_nodes[i].begin && read_iter < path_nodes[i].end; node_idx -= incr, read_iter -= incr) {
+#ifdef debug_multipath_alignment
+                                        cerr << "comparing MEM index " << (read_iter - path_nodes[i].begin) << " " << *read_iter << " and node index " << node_idx << " " << node_seq[node_idx] << endl;
+#endif
                                         if (node_seq[node_idx] != *read_iter) {
 #ifdef debug_multipath_alignment
-                                            cerr << "found mismatch at MEM index " << (read_iter - path_nodes[i].begin) << ", node index " << node_idx << endl;
+                                            cerr << "found mismatch" << endl;
 #endif
                                             
                                             break;
@@ -1490,7 +1496,7 @@ namespace vg {
                                         });
                                     }
                                     else {
-                                        int64_t length_diff = left_side ? read_iter - path_nodes[i].begin + 1 : path_nodes[i].end - read_iter + 1;
+                                        int64_t length_diff = left_side ? read_iter - path_nodes[i].begin + 1 : path_nodes[i].end - read_iter;
                                         int64_t jitter_length = length_before - length_diff;
                                         if (length_diff <= max_jitter_diff || jitter_length >= min_jitter_length) {
                                             // we found a jittered anchor with nearly the same length, let's add
@@ -1505,7 +1511,7 @@ namespace vg {
                                             if (left_side) {
                                                 jitter_node.begin = read_iter + 1;
                                                 jitter_node.end = path_nodes[i].begin + length_before;
-                                                if (node_idx < node_seq.size() - 1) {
+                                                if (node_idx < (int64_t) node_seq.size() - 1) {
                                                     auto mapping = jitter_node.path.add_mapping();
                                                     auto pos = mapping->mutable_position();
                                                     pos->set_node_id(graph.get_id(trav));
@@ -1536,7 +1542,7 @@ namespace vg {
                                                 path_nodes[i].path.mutable_mapping()->resize(k);
                                             }
                                             else {
-                                                jitter_node.begin = path_nodes[i].end - length_before + 1;
+                                                jitter_node.begin = path_nodes[i].end - length_before;
                                                 jitter_node.end = read_iter;
                                                 for (int64_t l = 0; l + 1 < stack.size(); ++l) {
                                                     handle_t h = get<2>(stack[l])[get<1>(stack[l]) - 1];
@@ -1556,7 +1562,7 @@ namespace vg {
                                                     pos->set_is_reverse(graph.get_is_reverse(trav));
                                                     pos->set_offset(0);
                                                     auto edit = mapping->add_edit();
-                                                    edit->set_from_length(node_idx - 1);
+                                                    edit->set_from_length(node_idx);
                                                     edit->set_to_length(edit->from_length());
                                                 }
                                                 // split up the node that we jittered so that it finds the edge to the jitter
@@ -1584,7 +1590,7 @@ namespace vg {
                         });
                         
                         if (!did_jitter) {
-                            length_before -= mapping_to_length(path_nodes[i].path.mapping(k));
+                            length_before -= mapping_to_length(path_nodes[i].path.mapping(k - incr));
                         }
                     }
                 }
