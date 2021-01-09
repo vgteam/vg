@@ -11,8 +11,6 @@
 #include "random_graph.hpp"
 #include "randomness.hpp"
 
-#include "algorithms/are_equivalent.hpp"
-
 #include "bdsg/packed_graph.hpp"
 
 #include "catch.hpp"
@@ -437,7 +435,7 @@ using namespace std;
             strm.seekg(0);
             bdsg::PackedGraph loaded(strm);
             
-            REQUIRE(algorithms::are_equivalent_with_paths(&graph, &loaded));
+            REQUIRE(handlealgs::are_equivalent_with_paths(&graph, &loaded));
         }
     }
 }

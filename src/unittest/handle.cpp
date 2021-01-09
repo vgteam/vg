@@ -11,8 +11,6 @@
 #include "vg/io/json2pb.h"
 
 
-#include "algorithms/are_equivalent.hpp"
-
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
 
@@ -1835,7 +1833,7 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
         strm.seekg(0);
         VG copy(strm);
         
-        REQUIRE(algorithms::are_equivalent_with_paths(&vg, &copy));
+        REQUIRE(handlealgs::are_equivalent_with_paths(&vg, &copy));
         
         // TODO: check the replaced segments' handles
     }

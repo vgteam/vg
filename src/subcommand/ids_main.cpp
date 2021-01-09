@@ -14,7 +14,6 @@
 
 #include "../vg.hpp"
 #include "../vg_set.hpp"
-#include "../algorithms/topological_sort.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/mutable_path_mutable_handle_graph.hpp>
@@ -149,7 +148,7 @@ int main_ids(int argc, char** argv) {
                 // We are sorting to assign IDs, which inherently compacts.
                 
                 // We only need to sort the ID numbers, not the graph's iteration order (if any).
-                auto handle_order = algorithms::topological_order(graph.get());
+                auto handle_order = handlealgs::topological_order(graph.get());
                 
                 // Now invert the order's mapping
                 new_ids.reserve(handle_order.size());

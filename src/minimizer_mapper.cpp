@@ -9,9 +9,7 @@
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
 #include "split_strand_graph.hpp"
-
-#include "algorithms/dagify.hpp"
-#include "algorithms/dijkstra.hpp"
+#include "subgraph.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 #include <gbwtgraph/algorithms.h>
@@ -2597,7 +2595,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     // Dagify the subgraph.
     bdsg::HashGraph dagified;
     std::unordered_map<id_t, id_t> dagify_trans =
-        algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
+        handlealgs::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
 
     // Align to the subgraph.
     // TODO: Map the seed to the dagified subgraph.

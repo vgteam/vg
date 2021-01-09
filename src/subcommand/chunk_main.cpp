@@ -21,10 +21,8 @@
 #include "../region.hpp"
 #include "../haplotype_extracter.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
-#include "../algorithms/weakly_connected_components.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 #include "../io/save_handle_graph.hpp"
-#include "../algorithms/copy_graph.hpp"
 
 using namespace std;
 using namespace vg;
@@ -524,7 +522,7 @@ int main_chunk(int argc, char** argv) {
     vector<unordered_set<nid_t>> component_ids; 
     if (components == true && regions.empty()) {
         // no regions given, we find our components from scratch and make some dummy regions
-        component_ids = algorithms::weakly_connected_components(graph);
+        component_ids = handlealgs::weakly_connected_components(graph);
         for (int i = 0; i < component_ids.size(); ++i) {
             Region region;
             region.seq = "";
@@ -655,11 +653,11 @@ int main_chunk(int argc, char** argv) {
                 // our graph is not in vg format.  covert it, extend it, convert it back
                 // this can eventually be avoided by handlifying the haplotype tracer
                 VG vg;
-                algorithms::copy_path_handle_graph(subgraph.get(), &vg);
+                handlealgs::copy_path_handle_graph(subgraph.get(), &vg);
                 subgraph.reset();
                 vg.extend(g);
                 subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
-                algorithms::copy_path_handle_graph(&vg, subgraph.get());
+                handlealgs::copy_path_handle_graph(&vg, subgraph.get());
             }
         }
 

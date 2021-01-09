@@ -17,8 +17,6 @@
 #include "../flow_sort.hpp"
 #include "../algorithms/gfa_to_handle.hpp"
 #include "../algorithms/id_sort.hpp"
-#include "../algorithms/topological_sort.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include <vg/io/vpkg.hpp>
 
 using namespace std;
@@ -160,7 +158,7 @@ int main_sort(int argc, char *argv[]) {
         } else {
             // Copy instead.
             vg_graph = new vg::VG();
-            algorithms::copy_path_handle_graph(handle_graph.get(), vg_graph);
+            handlealgs::copy_path_handle_graph(handle_graph.get(), vg_graph);
             // Give the unique_ptr ownership and delete the graph we loaded.
             graph.reset(vg_graph);
             // Make sure the paths are all synced up

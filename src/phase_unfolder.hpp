@@ -19,8 +19,6 @@
 
 #include <gcsa/support.h>
 
-#include "algorithms/extend.hpp"
-
 namespace vg {
 
 /**
