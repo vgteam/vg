@@ -1,6 +1,7 @@
 var searchData=
 [
   ['j2pb_5ferror',['j2pb_error',['../classj2pb__error.html#af314b5998280a0298ef786b0d3e50765',1,'j2pb_error::j2pb_error(const std::string &amp;e)'],['../classj2pb__error.html#a8276d8df905431fe862af63d9e2eb09a',1,'j2pb_error::j2pb_error(const FieldDescriptor *field, const std::string &amp;e)']]],
+  ['jitter_5fhomopolymer_5fends',['jitter_homopolymer_ends',['../classvg_1_1MultipathAlignmentGraph.html#a406e1b266f46b28d5d7b4e2041a9210d',1,'vg::MultipathAlignmentGraph']]],
   ['join_5fheads',['join_heads',['../classvg_1_1VG.html#a817384b8d147371448ad60e1db097b52',1,'vg::VG::join_heads(void)'],['../classvg_1_1VG.html#adc40377520118436b729cd68be16d0ba',1,'vg::VG::join_heads(Node *node, bool from_start=false)']]],
   ['join_5ftails',['join_tails',['../classvg_1_1VG.html#a33e3f7942afd3ca82bfb78083c245146',1,'vg::VG']]],
   ['joinedsplicegraph',['JoinedSpliceGraph',['../classvg_1_1JoinedSpliceGraph.html#ac9f9c336a88b2c291c348cff4c30d563',1,'vg::JoinedSpliceGraph::JoinedSpliceGraph(const HandleGraph &amp;parent_graph, const IncrementalSubgraph &amp;left_subgraph, handle_t left_splice_node, size_t left_splice_offset, const IncrementalSubgraph &amp;right_subgraph, handle_t right_splice_node, size_t right_splice_offset)'],['../classvg_1_1JoinedSpliceGraph.html#a994fd7ad86bf77793da9a6ee2612cabc',1,'vg::JoinedSpliceGraph::JoinedSpliceGraph()=default']]],

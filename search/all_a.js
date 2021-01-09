@@ -1,6 +1,7 @@
 var searchData=
 [
   ['j2pb_5ferror',['j2pb_error',['../classj2pb__error.html',1,'j2pb_error'],['../classj2pb__error.html#af314b5998280a0298ef786b0d3e50765',1,'j2pb_error::j2pb_error(const std::string &amp;e)'],['../classj2pb__error.html#a8276d8df905431fe862af63d9e2eb09a',1,'j2pb_error::j2pb_error(const FieldDescriptor *field, const std::string &amp;e)']]],
+  ['jitter_5fhomopolymer_5fends',['jitter_homopolymer_ends',['../classvg_1_1MultipathAlignmentGraph.html#a406e1b266f46b28d5d7b4e2041a9210d',1,'vg::MultipathAlignmentGraph']]],
   ['job_5ftype',['job_type',['../structjob__type.html',1,'']]],
   ['join_5fheads',['join_heads',['../classvg_1_1VG.html#a817384b8d147371448ad60e1db097b52',1,'vg::VG::join_heads(void)'],['../classvg_1_1VG.html#adc40377520118436b729cd68be16d0ba',1,'vg::VG::join_heads(Node *node, bool from_start=false)']]],
   ['join_5fmain_2ecpp',['join_main.cpp',['../join__main_8cpp.html',1,'']]],
