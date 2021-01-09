@@ -189,6 +189,9 @@ int main_convert(int argc, char** argv) {
             dynamic_cast<xg::XG*>(output_graph.get())->from_gfa(input_stream_name);
         }
         else {
+            if (input_stream_name == "-") {
+                cerr << "warning [vg convert]: Converting a GFA to an indexed sequence graph from piped input can be memory intensive because the entire GFA must be loaded into memory. If memory usage is too high, consider serializing the GFA to disk to allow multiple passes over the file." << endl;
+            }
             try {
                 if (output_path_graph != nullptr) {
                     MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);

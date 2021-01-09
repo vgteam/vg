@@ -261,11 +261,17 @@ namespace vg {
                                 const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                 vector<size_t>& path_node_provenance,
+                                int64_t max_branch_trim_length,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks);
         
         /// If path nodes partially overlap, merge the sections that overlap into a single path node
         void merge_partially_redundant_match_nodes(const unordered_map<int64_t, vector<int64_t>>& node_matches,
                                                    vector<size_t>& path_node_provenance);
+        
+        void jitter_homopolymer_ends(const HandleGraph& graph,
+                                     vector<size_t>& path_node_provenance,
+                                     const MultipathMapper::memcluster_t& hits,
+                                     int64_t max_branch_trim_length);
         
         /// Identifies runs of exact matches that are sub-maximal because they hit the order of the GCSA
         /// index and merges them into a single node, assumes that match nodes are sorted by length and
