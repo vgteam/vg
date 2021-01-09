@@ -341,13 +341,17 @@ std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bo
         });
     });
 
-    // Add missing edges supported by GBWT threads.
+    // Add missing edges supported by GBWT threads, but only if the nodes exist
+    // in the original graph.
     for (gbwt::comp_type comp = 1; comp < this->gbwt_index.effective(); comp++) {
         gbwt::node_type gbwt_node = this->gbwt_index.toNode(comp);
+        if (!this->path_graph.has_node(gbwt::Node::id(gbwt_node))) {
+            continue;
+        }
         
         std::vector<gbwt::edge_type> outgoing = this->gbwt_index.edges(gbwt_node);
         for (gbwt::edge_type outedge : outgoing) {
-            if (outedge.first == gbwt::ENDMARKER) {
+            if (outedge.first == gbwt::ENDMARKER || !this->path_graph.has_node(gbwt::Node::id(outedge.first))) {
                 continue;
             }
             if (!graph_has_gbwt_edge(gbwt_node, outedge.first)) {
