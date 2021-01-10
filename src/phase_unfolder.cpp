@@ -27,7 +27,7 @@ void PhaseUnfolder::unfold(MutableHandleGraph& graph, bool show_progress) {
                   << haplotype_paths << " paths" << std::endl;
     }
     
-    algorithms::extend(&unfolded, &graph);
+    handlealgs::extend(&unfolded, &graph);
 }
 
 void PhaseUnfolder::restore_paths(MutableHandleGraph& graph, bool show_progress) const {

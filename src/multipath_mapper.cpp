@@ -687,7 +687,7 @@ namespace vg {
         unique_ptr<DagifiedGraph> dagified;
         
         ExpandingOverlayGraph* align_dag = nullptr;
-        if (algorithms::is_directed_acyclic(&align_digraph)) {
+        if (handlealgs::is_directed_acyclic(&align_digraph)) {
             align_dag = &undagified;
         }
         else {
@@ -3710,7 +3710,7 @@ namespace vg {
                     cluster_graphs.emplace_back();
                     auto& cluster_graph = cluster_graphs.back();
                     get<0>(cluster_graph) = unique_ptr<bdsg::HashGraph>(new bdsg::HashGraph());
-                    algorithms::copy_handle_graph(get<0>(cluster_graphs[record.first]).get(),
+                    handlealgs::copy_handle_graph(get<0>(cluster_graphs[record.first]).get(),
                                                   get<0>(cluster_graph).get());
                     
                     for (auto i : it->first) {
@@ -4467,7 +4467,7 @@ namespace vg {
             
             // we can avoid a costly algorithm when the cluster was extracted from one position (and therefore
             // must be connected)
-            if (cluster.size() == 1 || algorithms::is_weakly_connected(cluster_graph.get())) {
+            if (cluster.size() == 1 || handlealgs::is_weakly_connected(cluster_graph.get())) {
                 // we consider enough of the graph extracted once it is connected
                 // stop doing further exttraction
                 do_extract = false;
@@ -4612,7 +4612,7 @@ namespace vg {
                     merging_graph = get<0>(cluster_graphs[remaining_idx]).get();
                     
                     // add in the new graph
-                    algorithms::extend(get<0>(cluster_graph).get(), merging_graph);
+                    handlealgs::extend(get<0>(cluster_graph).get(), merging_graph);
                     all_connected = get<1>(cluster_graphs[remaining_idx]) && get<1>(cluster_graph);
                     multiplicity = min(get<2>(cluster_graphs[remaining_idx]), get<2>(cluster_graph));
                 }
@@ -4621,7 +4621,7 @@ namespace vg {
                 for (size_t j : overlapping_graphs) {
                     if (j != remaining_idx) {
                         auto removing_graph = move(cluster_graphs[j]);
-                        algorithms::extend(get<0>(removing_graph).get(), merging_graph);
+                        handlealgs::extend(get<0>(removing_graph).get(), merging_graph);
                         all_connected = all_connected && get<1>(removing_graph);
                         multiplicity = min(multiplicity, get<2>(removing_graph));
                         cluster_graphs.erase(j);
@@ -4648,7 +4648,7 @@ namespace vg {
         size_t max_graph_idx = 0;
         for (const auto& cluster_graph : cluster_graphs) {
             if (!get<1>(cluster_graph.second)) {
-                vector<unordered_set<id_t>> connected_components = algorithms::weakly_connected_components(get<0>(cluster_graph.second).get());
+                vector<unordered_set<id_t>> connected_components = handlealgs::weakly_connected_components(get<0>(cluster_graph.second).get());
                 if (connected_components.size() > 1) {
                     multicomponent_graphs.emplace_back(cluster_graph.first, std::move(connected_components));
                 }
@@ -4859,7 +4859,7 @@ namespace vg {
         size_t target_length = alignment.sequence().size() + min(aligner->longest_detectable_gap(alignment), max_alignment_gap);
         
         // check if we can get away with using only one strand of the graph
-        bool use_single_stranded = algorithms::is_single_stranded(graph);
+        bool use_single_stranded = handlealgs::is_single_stranded(graph);
         bool mem_strand = false;
         if (use_single_stranded) {
             mem_strand = is_rev(graph_mems.first[0].second);
@@ -4913,7 +4913,7 @@ namespace vg {
         unique_ptr<DagifiedGraph> dagified;
         
         ExpandingOverlayGraph* align_dag = nullptr;
-        if (algorithms::is_directed_acyclic(align_digraph)) {
+        if (handlealgs::is_directed_acyclic(align_digraph)) {
             align_dag = &undagified;
         }
         else {

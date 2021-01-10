@@ -240,7 +240,7 @@ int main_mpmap(int argc, char** argv) {
     bool report_group_mapq = false;
     double band_padding_multiplier = 1.0;
     int max_dist_error = 12;
-    int default_num_alt_alns = 10;
+    int default_num_alt_alns = 16;
     int num_alt_alns = default_num_alt_alns;
     bool agglomerate_multipath_alns = false;
     double suboptimal_path_exponent = 1.25;
@@ -799,6 +799,15 @@ int main_mpmap(int argc, char** argv) {
                 exit(1);
                 break;
         }
+    }
+    
+    if (optind != argc) {
+        cerr << "error:[vg mpmap] Unused positional argument(s):";
+        for (int i = optind; i < argc; ++i) {
+            cerr << " " << argv[i];
+        }
+        cerr << endl;
+        exit(1);
     }
     
     // normalize capitalization on preset options

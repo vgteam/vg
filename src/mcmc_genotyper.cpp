@@ -1,5 +1,4 @@
 #include "mcmc_genotyper.hpp"
-#include "algorithms/count_walks.hpp"
 #include "subgraph.hpp"
 #include <algorithm> 
 #include <random> 
@@ -171,7 +170,7 @@ namespace vg {
         
         
         // create a count_map of the subgraph
-        auto count_contents = algorithms::count_walks_through_nodes(&subgraph);
+        auto count_contents = handlealgs::count_walks_through_nodes(&subgraph);
         
         // unpack the count map from the count_contents 
         unordered_map<handle_t, size_t>& count_map = get<1>(count_contents);
@@ -179,7 +178,7 @@ namespace vg {
         
         
         // create a topological order of sub graph count map
-        vector<handle_t> topological_order = algorithms::lazier_topological_order(&subgraph);
+        vector<handle_t> topological_order = handlealgs::lazier_topological_order(&subgraph);
 
         //  we want to get just the sink handle handle
         handle_t start = topological_order.back();  

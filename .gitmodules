@@ -55,9 +55,6 @@
 [submodule "deps/fermi-lite"]
 	path = deps/fermi-lite
     url = https://github.com/edawson/fermi-lite.git
-[submodule "deps/rocksdb"]
-    path = deps/rocksdb
-    url = https://github.com/facebook/rocksdb.git
 [submodule "deps/gbwt"]
 	path = deps/gbwt
 	url = https://github.com/jltsiren/gbwt.git

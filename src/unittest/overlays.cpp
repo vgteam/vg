@@ -11,11 +11,7 @@
 #include "../utility.hpp"
 #include "random_graph.hpp"
 
-#include "algorithms/is_single_stranded.hpp"
-
 #include "../vg.hpp"
-#include "algorithms/dagify.hpp"
-#include "algorithms/is_acyclic.hpp"
 
 #include "bdsg/hash_graph.hpp"
 
@@ -39,7 +35,7 @@ using namespace std;
             random_graph(seq_size, var_len, var_count, &graph);
 
             StrandSplitGraph split(&graph);
-            REQUIRE(algorithms::is_single_stranded(&split));
+            REQUIRE(handlealgs::is_single_stranded(&split));
             
             REQUIRE(split.get_node_count() == 2 * graph.get_node_count());
             

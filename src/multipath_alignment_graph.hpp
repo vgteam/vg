@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <vector>
 #include <unordered_map>
+#include <algorithm>
 
 #include "structures/rank_pairing_heap.hpp"
 
@@ -133,7 +134,10 @@ namespace vg {
         /// end of the alignment sequence.
         void trim_hanging_indels(const Alignment& alignment, bool trim_Ns = true, bool preserve_tail_anchors = false);
         
-        /// Removes all transitive edges from graph (reduces to minimum equivalent graph).
+        /// Removes all transitive edges from graph (reduces to minimum equivalent graph),
+        /// except for edges between path nodes that abut either on the graph or read. These
+        /// edges often correspond to overlap breaks in low complexity sequence, so retaining
+        /// them improves alignment in low-complexity regions like STR expansions.
         /// Note: reorders internal representation of adjacency lists.
         /// Reachability edges must be in the graph.
         void remove_transitive_edges(const vector<size_t>& topological_order);
@@ -257,9 +261,17 @@ namespace vg {
                                 const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                 vector<size_t>& path_node_provenance,
+                                int64_t max_branch_trim_length,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks);
         
+        /// If path nodes partially overlap, merge the sections that overlap into a single path node
+        void merge_partially_redundant_match_nodes(const unordered_map<int64_t, vector<int64_t>>& node_matches,
+                                                   vector<size_t>& path_node_provenance);
         
+        void jitter_homopolymer_ends(const HandleGraph& graph,
+                                     vector<size_t>& path_node_provenance,
+                                     const MultipathMapper::memcluster_t& hits,
+                                     int64_t max_branch_trim_length);
         
         /// Identifies runs of exact matches that are sub-maximal because they hit the order of the GCSA
         /// index and merges them into a single node, assumes that match nodes are sorted by length and

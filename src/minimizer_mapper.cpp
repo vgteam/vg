@@ -9,9 +9,7 @@
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
 #include "split_strand_graph.hpp"
-
-#include "algorithms/dagify.hpp"
-#include "algorithms/dijkstra.hpp"
+#include "subgraph.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 #include <gbwtgraph/algorithms.h>
@@ -27,8 +25,6 @@
 //#define print_minimizer_table
 // Dump local graphs that we align against 
 //#define debug_dump_graph
-// Dump the funnel information about where candidates were lost
-//#define debug_dump_funnel
 // Dump fragment length distribution information
 //#define debug_fragment_distr
 
@@ -743,10 +739,13 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     }
 #endif
 
-#ifdef debug_dump_funnel
-    // Dump the funnel info graph.
-    funnel.to_dot(cerr);
-#endif
+    if (track_provenance && show_work) {
+        // Dump the funnel info graph.
+        #pragma omp critical (cerr)
+        {
+            funnel.to_dot(cerr);
+        }
+    }
 
     return mappings;
 }
@@ -1087,7 +1086,20 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
         // Retain clusters only if their score is better than this, in addition to the coverage cutoff
         double cluster_score_cutoff = 0.0, cluster_coverage_cutoff = 0.0, second_best_cluster_score = 0.0;
+
+        //The score and coverage of the best cluster, "best" is determined first by coverage then score
+        pair<double, double> best_cluster_coverage_score (0.0, 0.0);
         for (auto& cluster : clusters) {
+
+            if (cluster.coverage > best_cluster_coverage_score.first) {
+                //If this is the new best coverage, update both best coverage and best score
+                best_cluster_coverage_score.first = cluster.coverage;
+                best_cluster_coverage_score.second = cluster.score;
+            } else if (cluster.coverage ==  best_cluster_coverage_score.first) {
+                //If this is the same as the best coverage, get best score
+                best_cluster_coverage_score.second = std::max(best_cluster_coverage_score.second, cluster.score);
+            }
+
             cluster_coverage_cutoff = std::max(cluster_coverage_cutoff, cluster.coverage);
 
             if (cluster.score > cluster_score_cutoff) {
@@ -1148,8 +1160,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 // Handle sufficiently good clusters 
                 Cluster& cluster = clusters[cluster_num];
                 if (!found_paired_cluster || fragment_cluster_has_pair[cluster.fragment] || 
-                    (cluster.coverage == cluster_coverage_cutoff + cluster_coverage_threshold &&
-                           cluster.score == cluster_score_cutoff + cluster_score_threshold)) { 
+                    (cluster.coverage == best_cluster_coverage_score.first &&
+                     cluster.score    == best_cluster_coverage_score.second)) { 
                     //If this cluster has a pair or if we aren't looking at pairs
                     //Or if it is the best cluster
                     
@@ -2220,11 +2232,14 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }
 #endif
 
-#ifdef debug_dump_funnel
-    // Dump the funnel info graph.
-    funnels[0].to_dot(cerr);
-    funnels[1].to_dot(cerr);
-#endif
+    if (track_provenance && show_work) {
+        // Dump the funnel info graph.
+        #pragma omp critical (cerr)
+        {
+            funnels[0].to_dot(cerr);
+            funnels[1].to_dot(cerr);
+        }
+    }
 
     // Ship out all the aligned alignments
     return mappings;
@@ -2580,7 +2595,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     // Dagify the subgraph.
     bdsg::HashGraph dagified;
     std::unordered_map<id_t, id_t> dagify_trans =
-        algorithms::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
+        handlealgs::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
 
     // Align to the subgraph.
     // TODO: Map the seed to the dagified subgraph.

@@ -25,7 +25,6 @@
 #include "genotypekit.hpp"
 #include "srpe.hpp"
 #include "path_index.hpp"
-#include "index.hpp"
 #include "statistics.hpp"
 
 namespace vg {

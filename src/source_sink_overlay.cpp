@@ -1,5 +1,4 @@
 #include "source_sink_overlay.hpp"
-#include "algorithms/weakly_connected_components.hpp"
 
 #include <handlegraph/util.hpp>
 
@@ -29,7 +28,7 @@ SourceSinkOverlay::SourceSinkOverlay(const HandleGraph* backing, size_t length, 
 #endif
     
     // We have to divide the graph into connected components and get ahold of the tips.
-    vector<pair<unordered_set<id_t>, vector<handle_t>>> components = algorithms::weakly_connected_components_with_tips(backing);
+    vector<pair<unordered_set<id_t>, vector<handle_t>>> components = handlealgs::weakly_connected_components_with_tips(backing);
     
     for (auto& component : components) {
         // Unpack each component

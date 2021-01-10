@@ -13,26 +13,14 @@
 #include "../algorithms/extract_connecting_graph.hpp"
 #include "../algorithms/extract_containing_graph.hpp"
 #include "../algorithms/extract_extending_graph.hpp"
-#include "../algorithms/topological_sort.hpp"
-#include "../algorithms/weakly_connected_components.hpp"
-#include "../algorithms/is_acyclic.hpp"
-#include "../algorithms/split_strands.hpp"
-#include "../algorithms/is_single_stranded.hpp"
 #include "../algorithms/distance_to_head.hpp"
 #include "../algorithms/distance_to_tail.hpp"
-#include "../algorithms/apply_bulk_modifications.hpp"
-#include "../algorithms/count_walks.hpp"
-#include "../algorithms/strongly_connected_components.hpp"
 #include "../algorithms/a_star.hpp"
-#include "../algorithms/eades_algorithm.hpp"
 #include "../algorithms/shortest_cycle.hpp"
-#include "../algorithms/reverse_complement.hpp"
 #include "../algorithms/jump_along_path.hpp"
 #include "../algorithms/expand_context.hpp"
-#include "../algorithms/are_equivalent.hpp"
 #include "../algorithms/simplify_siblings.hpp"
 #include "../algorithms/normalize.hpp"
-#include "../algorithms/unchop.hpp"
 #include "random_graph.hpp"
 #include "randomness.hpp"
 #include "../vg.hpp"
@@ -1985,8 +1973,8 @@ TEST_CASE( "Topological sort works on a small graph",
     vg.create_edge(n7, n9);
     vg.create_edge(n8, n9);
             
-    SECTION( "algorithms::topological_order produces a consistent total ordering and orientation" ) {
-        auto handle_sort = algorithms::topological_order(&vg);
+    SECTION( "handlealgs::topological_order produces a consistent total ordering and orientation" ) {
+        auto handle_sort = handlealgs::topological_order(&vg);
 
         SECTION( "Ordering and orientation is consistent" ) {
                 
@@ -2046,8 +2034,8 @@ TEST_CASE( "Topological sort works on a more complex graph",
     VG vg;
     vg.extend(proto_graph);
             
-    SECTION( "algorithms::topological_order produces a consistent total ordering and orientation" ) {
-        auto handle_sort = algorithms::topological_order(&vg);
+    SECTION( "handlealgs::topological_order produces a consistent total ordering and orientation" ) {
+        auto handle_sort = handlealgs::topological_order(&vg);
 
         SECTION( "Ordering and orientation is consistent" ) {
                 
@@ -2122,8 +2110,8 @@ TEST_CASE( "Weakly connected components works",
     vg.create_edge(n7, n9);
     vg.create_edge(n8, n9);
             
-    SECTION( "algorithms::weakly_connected_components finds two components" ) {
-        auto components = algorithms::weakly_connected_components(&vg);
+    SECTION( "handlealgs::weakly_connected_components finds two components" ) {
+        auto components = handlealgs::weakly_connected_components(&vg);
 
         REQUIRE(components.size() == 2);
                 
@@ -2143,7 +2131,7 @@ TEST_CASE( "Weakly connected components works",
             
     SECTION( "Components can be joined" ) {
             
-        auto components = algorithms::weakly_connected_components(&vg);
+        auto components = handlealgs::weakly_connected_components(&vg);
 
         REQUIRE(components.size() == 1);
         REQUIRE(components.front().size() == 10);
@@ -2502,8 +2490,8 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         xg1.from_path_handle_graph(vg);
                 
         // the graph has no edges
-        REQUIRE(algorithms::is_directed_acyclic(&vg));
-        REQUIRE(algorithms::is_directed_acyclic(&xg1));
+        REQUIRE(handlealgs::is_directed_acyclic(&vg));
+        REQUIRE(handlealgs::is_directed_acyclic(&xg1));
                 
         vg.create_edge(n0, n0, false, true);
                 
@@ -2511,8 +2499,8 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         xg2.from_path_handle_graph(vg);
                 
         // the graph has a reversing cycle, but no directed cycles
-        REQUIRE(algorithms::is_directed_acyclic(&vg));
-        REQUIRE(algorithms::is_directed_acyclic(&xg2));
+        REQUIRE(handlealgs::is_directed_acyclic(&vg));
+        REQUIRE(handlealgs::is_directed_acyclic(&xg2));
                 
         vg.create_edge(n0, n0, true, false);
                 
@@ -2520,8 +2508,8 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         xg3.from_path_handle_graph(vg);
                 
         // the graph now has a directed cycle
-        REQUIRE(!algorithms::is_directed_acyclic(&vg));
-        REQUIRE(!algorithms::is_directed_acyclic(&xg3));
+        REQUIRE(!handlealgs::is_directed_acyclic(&vg));
+        REQUIRE(!handlealgs::is_directed_acyclic(&xg3));
     }
             
     SECTION("is_directed_acyclic() works on DAG with only simple edges") {
@@ -2550,8 +2538,8 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(algorithms::is_directed_acyclic(&vg));
-        REQUIRE(algorithms::is_directed_acyclic(&xg1));
+        REQUIRE(handlealgs::is_directed_acyclic(&vg));
+        REQUIRE(handlealgs::is_directed_acyclic(&xg1));
     }
             
     SECTION("is_directed_acyclic() works on DAG with some doubly reversing edges") {
@@ -2580,8 +2568,8 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(algorithms::is_directed_acyclic(&vg));
-        REQUIRE(algorithms::is_directed_acyclic(&xg1));
+        REQUIRE(handlealgs::is_directed_acyclic(&vg));
+        REQUIRE(handlealgs::is_directed_acyclic(&xg1));
     }
             
     SECTION("is_directed_acyclic() works on DAG with doubly reversing and singly reversing eges") {
@@ -2610,8 +2598,8 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(algorithms::is_directed_acyclic(&vg));
-        REQUIRE(algorithms::is_directed_acyclic(&xg1));
+        REQUIRE(handlealgs::is_directed_acyclic(&vg));
+        REQUIRE(handlealgs::is_directed_acyclic(&xg1));
     }
             
     SECTION("is_directed_acyclic() works on a non trivial graph a reversing cycle but no directed cycles") {
@@ -2631,8 +2619,8 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(algorithms::is_directed_acyclic(&vg));
-        REQUIRE(algorithms::is_directed_acyclic(&xg1));
+        REQUIRE(handlealgs::is_directed_acyclic(&vg));
+        REQUIRE(handlealgs::is_directed_acyclic(&xg1));
     }
             
     SECTION("is_directed_acyclic() works on a simple directed cycle") {
@@ -2650,8 +2638,8 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(!algorithms::is_directed_acyclic(&vg));
-        REQUIRE(!algorithms::is_directed_acyclic(&xg1));
+        REQUIRE(!handlealgs::is_directed_acyclic(&vg));
+        REQUIRE(!handlealgs::is_directed_acyclic(&xg1));
     }
             
     SECTION("is_directed_acyclic() works on a non trivial graph with a directed cycle") {
@@ -2675,8 +2663,8 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(!algorithms::is_directed_acyclic(&vg));
-        REQUIRE(!algorithms::is_directed_acyclic(&xg1));
+        REQUIRE(!handlealgs::is_directed_acyclic(&vg));
+        REQUIRE(!handlealgs::is_directed_acyclic(&xg1));
     }
 }
         
@@ -2692,8 +2680,8 @@ TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(algorithms::is_single_stranded(&vg));
-        REQUIRE(algorithms::is_single_stranded(&xg1));
+        REQUIRE(handlealgs::is_single_stranded(&vg));
+        REQUIRE(handlealgs::is_single_stranded(&xg1));
     }
             
     SECTION("is_single_stranded() works a non trivial graph with no reversing edges") {
@@ -2717,8 +2705,8 @@ TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(algorithms::is_single_stranded(&vg));
-        REQUIRE(algorithms::is_single_stranded(&xg1));
+        REQUIRE(handlealgs::is_single_stranded(&vg));
+        REQUIRE(handlealgs::is_single_stranded(&xg1));
     }
             
     SECTION("is_single_stranded() works a non trivial graph with a directed cycle but no reversing edges") {
@@ -2744,8 +2732,8 @@ TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(algorithms::is_single_stranded(&vg));
-        REQUIRE(algorithms::is_single_stranded(&xg1));
+        REQUIRE(handlealgs::is_single_stranded(&vg));
+        REQUIRE(handlealgs::is_single_stranded(&xg1));
     }
             
     SECTION("is_single_stranded() works a non trivial graph with no reversing edges, but with doubly reversing edges") {
@@ -2769,8 +2757,8 @@ TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(algorithms::is_single_stranded(&vg));
-        REQUIRE(algorithms::is_single_stranded(&xg1));
+        REQUIRE(handlealgs::is_single_stranded(&vg));
+        REQUIRE(handlealgs::is_single_stranded(&xg1));
     }
             
     SECTION("is_single_stranded() works a non trivial graph with reversing edges") {
@@ -2794,8 +2782,8 @@ TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(!algorithms::is_single_stranded(&vg));
-        REQUIRE(!algorithms::is_single_stranded(&xg1));
+        REQUIRE(!handlealgs::is_single_stranded(&vg));
+        REQUIRE(!handlealgs::is_single_stranded(&xg1));
     }
             
     SECTION("is_single_stranded() works a non trivial graph with reversing edges in the opposite orientation") {
@@ -2819,8 +2807,8 @@ TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(!algorithms::is_single_stranded(&vg));
-        REQUIRE(!algorithms::is_single_stranded(&xg1));
+        REQUIRE(!handlealgs::is_single_stranded(&vg));
+        REQUIRE(!handlealgs::is_single_stranded(&xg1));
     }
 }
         
@@ -2855,8 +2843,8 @@ TEST_CASE("single_stranded_orientation() can identify orientations of nodes that
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
-        REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
+        REQUIRE(validate_single_stranded_orientation(&vg, handlealgs::single_stranded_orientation(&vg)));
+        REQUIRE(validate_single_stranded_orientation(&xg1, handlealgs::single_stranded_orientation(&xg1)));
     }
             
     SECTION("single_stranded_orientation() works a non trivial graph with no reversing edges") {
@@ -2880,8 +2868,8 @@ TEST_CASE("single_stranded_orientation() can identify orientations of nodes that
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
-        REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
+        REQUIRE(validate_single_stranded_orientation(&vg, handlealgs::single_stranded_orientation(&vg)));
+        REQUIRE(validate_single_stranded_orientation(&xg1, handlealgs::single_stranded_orientation(&xg1)));
     }
             
     SECTION("single_stranded_orientation() works a non trivial graph with a directed cycle but no reversing edges") {
@@ -2907,8 +2895,8 @@ TEST_CASE("single_stranded_orientation() can identify orientations of nodes that
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
-        REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
+        REQUIRE(validate_single_stranded_orientation(&vg, handlealgs::single_stranded_orientation(&vg)));
+        REQUIRE(validate_single_stranded_orientation(&xg1, handlealgs::single_stranded_orientation(&xg1)));
     }
             
     SECTION("single_stranded_orientation() works a non trivial graph with no reversing edges, but with doubly reversing edges") {
@@ -2932,8 +2920,8 @@ TEST_CASE("single_stranded_orientation() can identify orientations of nodes that
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
-        REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
+        REQUIRE(validate_single_stranded_orientation(&vg, handlealgs::single_stranded_orientation(&vg)));
+        REQUIRE(validate_single_stranded_orientation(&xg1, handlealgs::single_stranded_orientation(&xg1)));
     }
             
     SECTION("single_stranded_orientation() works a non trivial, single-strand-able graph with reversing edges") {
@@ -2959,8 +2947,8 @@ TEST_CASE("single_stranded_orientation() can identify orientations of nodes that
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
-        REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
+        REQUIRE(validate_single_stranded_orientation(&vg, handlealgs::single_stranded_orientation(&vg)));
+        REQUIRE(validate_single_stranded_orientation(&xg1, handlealgs::single_stranded_orientation(&xg1)));
     }
             
     SECTION("single_stranded_orientation() correctly identifies a graph with no single stranded orientation") {
@@ -2984,8 +2972,8 @@ TEST_CASE("single_stranded_orientation() can identify orientations of nodes that
         xg::XG xg1;
         xg1.from_path_handle_graph(vg);
                 
-        REQUIRE(algorithms::single_stranded_orientation(&vg).empty());
-        REQUIRE(algorithms::single_stranded_orientation(&xg1).empty());
+        REQUIRE(handlealgs::single_stranded_orientation(&vg).empty());
+        REQUIRE(handlealgs::single_stranded_orientation(&xg1).empty());
     }
 }
 
@@ -3023,8 +3011,8 @@ TEST_CASE("lazy_topological_order() and lazier_topological_order() should put a 
         // make the second graph have some locally stored nodes in the reverse orientation
         vg2.apply_orientation(vg2.get_handle(n1->id(), true));
                 
-        auto lazier_order = algorithms::lazier_topological_order(&vg1);
-        auto lazy_order = algorithms::lazy_topological_order(&vg2);
+        auto lazier_order = handlealgs::lazier_topological_order(&vg1);
+        auto lazy_order = handlealgs::lazy_topological_order(&vg2);
                 
         REQUIRE(is_in_topological_order(&vg1, lazier_order));
         REQUIRE(is_in_topological_order(&vg2, lazy_order));
@@ -3043,8 +3031,8 @@ TEST_CASE("lazy_topological_order() and lazier_topological_order() should put a 
         // make the second graph have some locally stored nodes in the reverse orientation
         vg2.apply_orientation(vg2.get_handle(n1->id(), true));
                 
-        auto lazier_order = algorithms::lazier_topological_order(&vg1);
-        auto lazy_order = algorithms::lazy_topological_order(&vg2);
+        auto lazier_order = handlealgs::lazier_topological_order(&vg1);
+        auto lazy_order = handlealgs::lazy_topological_order(&vg2);
                 
         REQUIRE(is_in_topological_order(&vg1, lazier_order));
         REQUIRE(is_in_topological_order(&vg2, lazy_order));
@@ -3086,8 +3074,8 @@ TEST_CASE("lazy_topological_order() and lazier_topological_order() should put a 
         vg2.apply_orientation(vg2.get_handle(n8->id(), true));
         vg2.apply_orientation(vg2.get_handle(n6->id(), true));
                 
-        auto lazier_order = algorithms::lazier_topological_order(&vg1);
-        auto lazy_order = algorithms::lazy_topological_order(&vg2);
+        auto lazier_order = handlealgs::lazier_topological_order(&vg1);
+        auto lazy_order = handlealgs::lazy_topological_order(&vg2);
                 
         REQUIRE(is_in_topological_order(&vg1, lazier_order));
         REQUIRE(is_in_topological_order(&vg2, lazy_order));
@@ -3118,7 +3106,7 @@ TEST_CASE("apply_orientations works as expected", "[algorithms]") {
                     sequence_by_id[vg.get_id(handle)] = vg.get_sequence(orientation.back());
                 });
                     
-            algorithms::apply_orientations(&vg, orientation);
+            handlealgs::apply_orientations(&vg, orientation);
                     
             int idx = 0;
             vg.for_each_handle([&](const handle_t& handle) {
@@ -3136,12 +3124,12 @@ TEST_CASE("is_acyclic can detect cyclic graphs", "[algorithms][cycles]") {
         VG vg1;
                 
         // empty graph is acyclic
-        REQUIRE(algorithms::is_acyclic(&vg1));
+        REQUIRE(handlealgs::is_acyclic(&vg1));
                 
         handle_t n1 = vg1.create_handle("GATTACA");
                 
         // no edges, still acyclic
-        REQUIRE(algorithms::is_acyclic(&vg1));
+        REQUIRE(handlealgs::is_acyclic(&vg1));
                 
         VG vg2 = vg1;
         VG vg3 = vg1;
@@ -3155,9 +3143,9 @@ TEST_CASE("is_acyclic can detect cyclic graphs", "[algorithms][cycles]") {
         vg3.create_edge(vg3.flip(n3), n3);
                 
         // all of these are now cyclic
-        REQUIRE(!algorithms::is_acyclic(&vg1));
-        REQUIRE(!algorithms::is_acyclic(&vg2));
-        REQUIRE(!algorithms::is_acyclic(&vg3));
+        REQUIRE(!handlealgs::is_acyclic(&vg1));
+        REQUIRE(!handlealgs::is_acyclic(&vg2));
+        REQUIRE(!handlealgs::is_acyclic(&vg3));
                 
     }
             
@@ -3178,20 +3166,20 @@ TEST_CASE("is_acyclic can detect cyclic graphs", "[algorithms][cycles]") {
         vg.create_edge(n2, n5);
                 
         // the base is a DAG
-        REQUIRE(algorithms::is_acyclic(&vg));
+        REQUIRE(handlealgs::is_acyclic(&vg));
                 
         // add a non-reversing cycle
         {
             VG cyclic = vg;
             cyclic.create_edge(cyclic.get_handle(vg.get_id(n5), false), cyclic.get_handle(vg.get_id(n2), false));
-            REQUIRE(!algorithms::is_acyclic(&cyclic));
+            REQUIRE(!handlealgs::is_acyclic(&cyclic));
         }
                 
         // add a reversing cycle
         {
             VG cyclic = vg;
             cyclic.create_edge(cyclic.get_handle(vg.get_id(n5), false), cyclic.get_handle(vg.get_id(n3), false));
-            REQUIRE(!algorithms::is_acyclic(&cyclic));
+            REQUIRE(!handlealgs::is_acyclic(&cyclic));
         }
     }
 }
@@ -3209,7 +3197,7 @@ TEST_CASE("split_strands() should properly split the forward and reverse strands
     graph.create_edge(graph.flip(n2), n3);
             
     VG split;
-    unordered_map<id_t, pair<id_t, bool> > node_translation = algorithms::split_strands(&graph, &split);
+    unordered_map<handle_t, handle_t> node_translation = handlealgs::split_strands(&graph, &split);
                     
     Graph& g = split.graph;
             
@@ -3225,8 +3213,8 @@ TEST_CASE("split_strands() should properly split the forward and reverse strands
             
     for (int i = 0; i < g.node_size(); i++) {
         const Node& n = g.node(i);
-        int64_t orig_id = node_translation[n.id()].first;
-        bool flipped =  node_translation[n.id()].second;
+        int64_t orig_id = graph.get_id(node_translation[split.get_handle(n.id())]);
+        bool flipped =  graph.get_is_reverse(node_translation[split.get_handle(n.id())]);
         if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
             node_1 = n.id();
         }
@@ -3331,7 +3319,7 @@ TEST_CASE("count_walks() can count the source-to-sink walks in a DAG", "[algorit
     vg.create_edge(n4, n6);
     vg.create_edge(n4, n7);
             
-    REQUIRE(algorithms::count_walks(&vg) == 6);
+    REQUIRE(handlealgs::count_walks(&vg) == 6);
 }
         
 TEST_CASE("strongly_connected_components() works in a connected graph with reversing edges and no tips", "[algorithms][components]") {
@@ -3352,7 +3340,7 @@ TEST_CASE("strongly_connected_components() works in a connected graph with rever
     Edge* e6 = graph.create_edge(n4, n5);
     Edge* e7 = graph.create_edge(n5, n3, false, true);
             
-    auto components = algorithms::strongly_connected_components(&graph);
+    auto components = handlealgs::strongly_connected_components(&graph);
             
     REQUIRE(components.size() == 1);
     REQUIRE(components.at(0).size() == 5);
@@ -3911,7 +3899,7 @@ TEST_CASE("A* search works on random graphs","[a-star][algorithms]") {
                 handle_t h1 = graph.get_handle(id(pos_1), is_rev(pos_1));
                 handle_t h2 = graph.get_handle(id(pos_2), is_rev(pos_2));
                         
-                unordered_map<handle_t, size_t> shortest_paths = algorithms::find_shortest_paths(&graph, h2, true);
+                unordered_map<handle_t, size_t> shortest_paths = handlealgs::find_shortest_paths(&graph, h2, true);
                         
                 unordered_map<handle_t, int64_t> heuristic_values;
                 for (const auto& handle : all_handles) {
@@ -4001,7 +3989,7 @@ TEST_CASE("A* search works on random graphs","[a-star][algorithms]") {
                 handle_t h1 = graph.get_handle(id(pos_1), is_rev(pos_1));
                 handle_t h2 = graph.get_handle(id(pos_2), is_rev(pos_2));
                         
-                unordered_map<handle_t, size_t> shortest_paths = algorithms::find_shortest_paths(&graph, h2, true);
+                unordered_map<handle_t, size_t> shortest_paths = handlealgs::find_shortest_paths(&graph, h2, true);
                         
                 unordered_map<handle_t, int64_t> heuristic_values;
                 for (const auto& handle : all_handles) {
@@ -4096,7 +4084,7 @@ TEST_CASE("Eades algorithm finds layouts with small feedback arc sets","[eades][
         graph.create_edge(n4, n6);
         graph.create_edge(n5, n6);
                 
-        vector<handle_t> layout = algorithms::eades_algorithm(&graph);
+        vector<handle_t> layout = handlealgs::eades_algorithm(&graph);
                 
         REQUIRE(count_feedback_arcs(&graph, layout) == 0);
     }
@@ -4123,7 +4111,7 @@ TEST_CASE("Eades algorithm finds layouts with small feedback arc sets","[eades][
         graph.create_edge(n5, n6);
         graph.create_edge(n7, n3);
                 
-        vector<handle_t> layout = algorithms::eades_algorithm(&graph);
+        vector<handle_t> layout = handlealgs::eades_algorithm(&graph);
                 
         REQUIRE(count_feedback_arcs(&graph, layout) == 1);
     }
@@ -4136,7 +4124,7 @@ TEST_CASE("Eades algorithm finds layouts with small feedback arc sets","[eades][
                 
         graph.create_edge(n1, n1);
                 
-        vector<handle_t> layout = algorithms::eades_algorithm(&graph);
+        vector<handle_t> layout = handlealgs::eades_algorithm(&graph);
                 
         REQUIRE(layout.size() == 1);
         bool layout_correct = layout[0] == n1 || graph.flip(layout[0]) == n1;
@@ -4280,7 +4268,7 @@ TEST_CASE("Reverse complementing graphs works correctly","[algorithms]") {
             
     VG rev_graph;
             
-    auto trans = algorithms::reverse_complement_graph(&graph, &rev_graph);
+    handlealgs::reverse_complement_graph(&graph, &rev_graph);
             
     handle_t r1, r2, r3, r4;
     bool found1 = false, found2 = false, found3 = false, found4 = false;
@@ -4536,7 +4524,7 @@ TEST_CASE("expand_context behaves as expected","[algorithms][subgraph][expand_co
         path_handle_t q = compare.create_path_handle(path_name);
         compare.append_step(q, c3);
             
-        REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
+        REQUIRE(handlealgs::are_equivalent_with_paths(&subgraph, &compare));
     }
         
     SECTION("expand_context can do 1 step extraction") {
@@ -4560,7 +4548,7 @@ TEST_CASE("expand_context behaves as expected","[algorithms][subgraph][expand_co
         compare.append_step(q, c3);
         compare.append_step(q, c5);
             
-        REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
+        REQUIRE(handlealgs::are_equivalent_with_paths(&subgraph, &compare));
     }
         
     SECTION("expand_context can do 2 step extraction") {
@@ -4589,7 +4577,7 @@ TEST_CASE("expand_context behaves as expected","[algorithms][subgraph][expand_co
         compare.append_step(q, c5);
         compare.append_step(q, c6);
             
-        REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
+        REQUIRE(handlealgs::are_equivalent_with_paths(&subgraph, &compare));
     }
         
     SECTION("expand_context expand by steps only forward") {
@@ -4608,7 +4596,7 @@ TEST_CASE("expand_context behaves as expected","[algorithms][subgraph][expand_co
         compare.append_step(q, c3);
         compare.append_step(q, c5);
             
-        REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
+        REQUIRE(handlealgs::are_equivalent_with_paths(&subgraph, &compare));
     }
         
     SECTION("expand_context expand by steps only backward") {
@@ -4627,7 +4615,7 @@ TEST_CASE("expand_context behaves as expected","[algorithms][subgraph][expand_co
         compare.append_step(q, c1);
         compare.append_step(q, c3);
             
-        REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
+        REQUIRE(handlealgs::are_equivalent_with_paths(&subgraph, &compare));
     }
         
     SECTION("expand_context can do null length-based extraction") {
@@ -4640,7 +4628,7 @@ TEST_CASE("expand_context behaves as expected","[algorithms][subgraph][expand_co
         path_handle_t q = compare.create_path_handle(path_name);
         compare.append_step(q, c3);
             
-        REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
+        REQUIRE(handlealgs::are_equivalent_with_paths(&subgraph, &compare));
     }
         
     SECTION("expand_context can get neighbors by length") {
@@ -4664,7 +4652,7 @@ TEST_CASE("expand_context behaves as expected","[algorithms][subgraph][expand_co
         compare.append_step(q, c3);
         compare.append_step(q, c5);
             
-        REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
+        REQUIRE(handlealgs::are_equivalent_with_paths(&subgraph, &compare));
     }
         
     SECTION("expand_context can get selected neighbors by length") {
@@ -4691,7 +4679,7 @@ TEST_CASE("expand_context behaves as expected","[algorithms][subgraph][expand_co
         compare.append_step(q, c5);
         compare.append_step(q, c6);
             
-        REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
+        REQUIRE(handlealgs::are_equivalent_with_paths(&subgraph, &compare));
     }
         
     SECTION("expand_context can expand by length going only forward") {
@@ -4713,7 +4701,7 @@ TEST_CASE("expand_context behaves as expected","[algorithms][subgraph][expand_co
         compare.append_step(q, c5);
         compare.append_step(q, c6);
             
-        REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
+        REQUIRE(handlealgs::are_equivalent_with_paths(&subgraph, &compare));
     }
         
     SECTION("expand_context can expand by length going only backward") {
@@ -4732,7 +4720,7 @@ TEST_CASE("expand_context behaves as expected","[algorithms][subgraph][expand_co
         compare.append_step(q, c1);
         compare.append_step(q, c3);
             
-        REQUIRE(algorithms::are_equivalent_with_paths(&subgraph, &compare));
+        REQUIRE(handlealgs::are_equivalent_with_paths(&subgraph, &compare));
     }
 }
 
@@ -4797,7 +4785,7 @@ TEST_CASE("simplify_siblings() can actually merge some siblings", "[algorithms][
     REQUIRE(!worked);
     
     // Unchop to normalize
-    algorithms::unchop(&graph);
+    handlealgs::unchop(&graph);
     
     // Make sure we have the right shape (just a SNP left).
     REQUIRE(graph.get_node_count() == 4);

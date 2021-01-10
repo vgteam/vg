@@ -5,7 +5,6 @@
 
 #include <iostream>
 #include <string>
-#include "../algorithms/dijkstra.hpp"
 #include "../handle.hpp"
 #include "vg/io/json2pb.h"
 #include "../vg.hpp"
@@ -43,7 +42,7 @@ TEST_CASE("Dijkstra search handles early stopping correctly", "[dijkstra][algori
     
     SECTION("Does not hit all handles at a given distance when told to stop at one") {
     
-        algorithms::dijkstra(&graph, start, [&](const handle_t& reached, size_t distance) {
+        handlealgs::dijkstra(&graph, start, [&](const handle_t& reached, size_t distance) {
             seen[reached] = distance;
             if (reached == snp1 || reached == snp2) {
                 // Stop at either branch of the SNP
@@ -66,7 +65,7 @@ TEST_CASE("Dijkstra search handles early stopping correctly", "[dijkstra][algori
     
     SECTION("Does hit all handles at a given distance when told to stop after") {
     
-        algorithms::dijkstra(&graph, start, [&](const handle_t& reached, size_t distance) {
+        handlealgs::dijkstra(&graph, start, [&](const handle_t& reached, size_t distance) {
             if (distance > 2) {
                 // Stop after the SNP
                 return false;
@@ -110,7 +109,7 @@ TEST_CASE("Dijkstra search works on a particular problem graph", "[dijkstra][alg
     unordered_map<handle_t, size_t> seen;
     
     
-    algorithms::dijkstra(&graph, start, [&](const handle_t& reached, size_t distance) {
+    handlealgs::dijkstra(&graph, start, [&](const handle_t& reached, size_t distance) {
         seen[reached] = distance;
         return true;
     });

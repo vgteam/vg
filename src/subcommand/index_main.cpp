@@ -1,4 +1,4 @@
-// index.cpp: define the "vg index" subcommand, which makes xg, GCSA2, GBWT, and RocksDB indexes
+// index.cpp: define the "vg index" subcommand, which makes xg, GCSA2, and GBWT indexes
 
 #include <omp.h>
 #include <unistd.h>
@@ -11,7 +11,6 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../index.hpp"
 #include "../haplotype_indexer.hpp"
 #include "xg.hpp"
 #include <vg/io/stream.hpp>
@@ -65,7 +64,7 @@ void help_index(char** argv) {
          << "    -E, --exclude SAMPLE   exclude any samples with the given name from haplotype indexing" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index to the given file" << endl
-         << "    -i, --dbg-in FILE      use kmers from FILE instead of input VG (may repeat)" << endl
+         //<< "    -i, --dbg-in FILE      use kmers from FILE instead of input VG (may repeat)" << endl
          << "    -f, --mapping FILE     use this node mapping in GCSA2 construction" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph (default " << gcsa::Key::MAX_LENGTH << ")" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction (default " << gcsa::ConstructionParameters::DOUBLING_STEPS << ")" << endl
@@ -75,15 +74,6 @@ void help_index(char** argv) {
          << "    -l, --index-sorted-gam input is sorted .gam format alignments, store a GAI index of the sorted GAM in INPUT.gam.gai" << endl
          << "vg in-place indexing options:" << endl
          << "    --index-sorted-vg      input is ID-sorted .vg format graph chunks, store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
-         << "rocksdb options:" << endl
-         << "    -d, --db-name  <X>     store the RocksDB index in <X>" << endl
-         << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
-         << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
-         << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
-         << "    -N, --node-alignments  input is (ideally, sorted) .gam format," << endl
-         << "                           cross reference nodes by alignment traversals" << endl
-         << "    -D, --dump             print the contents of the db to stdout" << endl
-         << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "snarl distance index options" << endl
          << "    -s  --snarl-name FILE  load snarls from FILE (snarls must include trivial snarls)" << endl
          << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
@@ -108,14 +98,14 @@ int main_index(int argc, char** argv) {
     #define OPT_PATHS_AS_SAMPLES 1002
 
     // Which indexes to build.
-    bool build_xg = false, build_gbwt = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
+    bool build_xg = false, build_gbwt = false, build_gcsa = false, build_dist = false;
 
     // Files we should read.
     string vcf_name, mapping_name;
     vector<string> dbg_names;
 
     // Files we should write.
-    string xg_name, gbwt_name, gcsa_name, rocksdb_name, dist_name, snarl_name;
+    string xg_name, gbwt_name, gcsa_name, dist_name, snarl_name;
 
     // General
     bool show_progress = false;
@@ -137,19 +127,9 @@ int main_index(int argc, char** argv) {
     // VG in-place index (VGI)
     bool build_vgi_index = false;
 
-    // RocksDB
-    bool dump_index = false;
-    bool store_alignments = false;
-    bool store_node_alignments = false;
-    bool store_mappings = false;
-    bool dump_alignments = false;
-
     //Distance index
     int cap = -1;
     bool include_maximum = false;
-
-    // Unused?
-    bool compact = false;
 
     // Include alt paths in xg
     bool xg_alts = false;
@@ -204,15 +184,6 @@ int main_index(int argc, char** argv) {
             // VG in-place index (VGI)
             {"index-sorted-vg", no_argument, 0, OPT_BUILD_VGI_INDEX},
 
-            // RocksDB
-            {"db-name", required_argument, 0, 'd'},
-            {"store-mappings", no_argument, 0, 'm'},
-            {"store-alignments", no_argument, 0, 'a'},
-            {"dump-alignments", no_argument, 0, 'A'},
-            {"node-alignments", no_argument, 0, 'N'},
-            {"dump", no_argument, 0, 'D'},
-            {"compact", no_argument, 0, 'C'},
-
             //Snarl distance index
             {"snarl-name", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'j'},
@@ -221,7 +192,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:w:h",
+        c = getopt_long (argc, argv, "b:t:px:Lv:WTM:F:G:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vls:j:w:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -367,6 +338,7 @@ int main_index(int argc, char** argv) {
             gcsa_name = optarg;
             break;
         case 'i':
+            cerr << "warning: -i option is deprecated" << endl;
             dbg_names.push_back(optarg);
             break;
         case 'f':
@@ -393,31 +365,6 @@ int main_index(int argc, char** argv) {
         // VGI index
         case OPT_BUILD_VGI_INDEX:
             build_vgi_index = true;
-            break;
-
-        // RocksDB
-        case 'd':
-            build_rocksdb = true;
-            rocksdb_name = optarg;
-            break;
-        case 'm':
-            store_mappings = true;
-            break;
-        case 'a':
-            store_alignments = true;
-            break;
-        case 'A':
-            dump_alignments = true;
-            break;
-        case 'N':
-            store_node_alignments = true;
-            break;
-        case 'D':
-            dump_index = true;
-            break;
-
-        case 'C':
-            compact = true;
             break;
 
         //Snarl distance index
@@ -457,7 +404,7 @@ int main_index(int argc, char** argv) {
 
 
     if (xg_name.empty() && gbwt_name.empty() &&
-        gcsa_name.empty() && rocksdb_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty()) {
+        gcsa_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty()) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
     }
@@ -712,84 +659,6 @@ int main_index(int argc, char** argv) {
         });
         
     }
-
-    if (build_rocksdb) {
-
-        Index index;
-
-        if (compact) {
-            index.open_for_write(rocksdb_name);
-            index.compact();
-            index.flush();
-            index.close();
-        }
-
-        if (store_node_alignments && file_names.size() > 0) {
-            index.open_for_bulk_load(rocksdb_name);
-            int64_t aln_idx = 0;
-            function<void(Alignment&)> lambda = [&index,&aln_idx](Alignment& aln) {
-                index.cross_alignment(aln_idx++, aln);
-            };
-            for (auto& file_name : file_names) {
-                get_input_file(file_name, [&](istream& in) {
-                    vg::io::for_each(in, lambda);
-                });
-            }
-            index.flush();
-            index.close();
-        }
-
-        if (store_alignments && file_names.size() > 0) {
-            index.open_for_bulk_load(rocksdb_name);
-            function<void(Alignment&)> lambda = [&index](Alignment& aln) {
-                index.put_alignment(aln);
-            };
-            for (auto& file_name : file_names) {
-                get_input_file(file_name, [&](istream& in) {
-                    vg::io::for_each(in, lambda);
-                });
-            }
-            index.flush();
-            index.close();
-        }
-
-        if (dump_alignments) {
-            vector<Alignment> output_buf;
-            index.open_read_only(rocksdb_name);
-            auto lambda = [&output_buf](const Alignment& aln) {
-                output_buf.push_back(aln);
-                vg::io::write_buffered(cout, output_buf, 100);
-            };
-            index.for_each_alignment(lambda);
-            vg::io::write_buffered(cout, output_buf, 0);
-            index.close();
-        }
-
-        if (store_mappings && file_names.size() > 0) {
-            index.open_for_bulk_load(rocksdb_name);
-            function<void(Alignment&)> lambda = [&index](Alignment& aln) {
-                const Path& path = aln.path();
-                for (int i = 0; i < path.mapping_size(); ++i) {
-                    index.put_mapping(path.mapping(i));
-                }
-            };
-            for (auto& file_name : file_names) {
-                get_input_file(file_name, [&](istream& in) {
-                    vg::io::for_each(in, lambda);
-                });
-            }
-            index.flush();
-            index.close();
-        }
-
-        if (dump_index) {
-            index.open_read_only(rocksdb_name);
-            index.dump(cout);
-            index.close();
-        }
-
-    }
-
 
     //Build new snarl-based minimum distance index
     if (build_dist) {
