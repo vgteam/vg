@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <functional>
 #include <string>
 #include <memory>
@@ -15,6 +16,40 @@ using namespace std;
 class IndexFile;
 class IndexRecipe;
 class InsufficientInputException;
+class IndexRegistry;
+
+/**
+ * A struct namespace for global handling of parameters used by
+ * the IndexRegistry
+ */
+struct IndexingParameters {
+    // enums for categorical options
+    enum MutableGraphImplementation {HashGraph, PackedGraph, ODGI, VG};
+    
+    // the actual parameters
+    
+    // the format that "VG" indexes will be created in [HashGraph]
+    static MutableGraphImplementation mut_implementation;
+    // the maximum node length for graphs that are created from VCFs [32]
+    static int max_node_size;
+    // whether indexing algorithms will log progress (if available) [false]
+    static bool verbose;
+};
+
+/**
+ * A struct namespace for standard inputs
+ */
+struct VGIndexes {
+    /// A complete index registry for VG mapping utilities
+    static IndexRegistry get_vg_index_registry();
+    /// A list of the identifiers of the default indexes to run vg map
+    static vector<string> get_default_map_indexes();
+    /// A list of the identifiers of the default indexes to run vg mpmap
+    static vector<string> get_default_mpmap_indexes();
+    /// A list of the identifiers of the default indexes to run vg giraffe
+    static vector<string> get_default_giraffe_indexes();
+};
+
 
 /**
  * An object that can record methods to produce indexes and design
@@ -25,25 +60,34 @@ public:
     /// Constructor
     IndexRegistry() = default;
     
-    /// Register an index with the given identifier
-    void register_index(const string& identifier);
-    /// Register a recipe to produce an index using other indexes
-    /// or input files
-    void register_recipe(const string& identifier,
-                         const vector<string>& input_identifiers,
-                         const function<vector<string>(const vector<const IndexFile*>&)>& exec);
+    /// Prefix for all saved outputs
+    void set_prefix(const string& prefix);
+    
+    /// Should intermediate files be saved to the output directory
+    /// or the temp directory?
+    void set_intermediate_file_keeping(bool keep_intermediates);
+    
     /// Indicate a serialized file that contains some identified index
     void provide(const string& identifier, const string& filename);
     /// Indicate a list of serialized files that contains some identified index
     void provide(const string& identifier, const vector<string>& filenames);
+    
     /// Get a list of all indexes that have already been completed or provided
     vector<string> completed_indexes() const;
-    /// Create a plan to make the indicated indexes using provided inputs
-    /// and execute the plan.
+    
+    /// Create and execute a plan to make the indicated indexes using provided inputs
     /// If provided inputs cannot create the desired indexes, throws a
     /// InsufficientInputException.
     void make_indexes(const vector<string>& identifiers);
     
+    
+    /// Register an index with the given identifier
+    void register_index(const string& identifier, const string& suffix);
+    /// Register a recipe to produce an index using other indexes
+    /// or input files. Also takes a for output as input
+    void register_recipe(const string& identifier,
+                         const vector<string>& input_identifiers,
+                         const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
 protected:
     
     /// get a topological ordering of all registered indexes in the dependency DAG
@@ -61,6 +105,13 @@ protected:
     /// the storage struct for named indexes
     unordered_map<string, unique_ptr<IndexFile>> registry;
     
+    unordered_set<string> registered_suffixes;
+    
+    /// filepath that will prefix all output
+    string output_prefix;
+    
+    /// should intermediate files end up in the scratch or the output directory?
+    bool keep_intermediates = false;
 };
 
 /**
@@ -70,7 +121,7 @@ class IndexFile {
 public:
     
     /// Create a new IndexFile with a unique identifier
-    IndexFile(const string& identifier);
+    IndexFile(const string& identifier, const string& suffix);
         
     /// Get the globally unique identifier for this index
     const string& get_identifier() const;
@@ -88,24 +139,33 @@ public:
     /// for creating this index, if there are any (i.e., recipes must be added in
     /// preference order). Recipes should return the filepath(s) to their output.
     void add_recipe(const vector<const IndexFile*>& inputs,
-                    const function<vector<string>(const vector<const IndexFile*>&)>& exec);
+                    const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
     
     /// Returns true if the index has already been built or provided
     bool is_finished() const;
     
     /// Build the index using the recipe with the provided priority
-    void execute_recipe(size_t recipe_priority);
+    void execute_recipe(size_t recipe_priority, const string& prefix);
+    
+    /// Returns true if the index was provided through provide method
+    bool was_provided_directly() const;
     
 private:
     
     // the global identifier for the
     string identifier;
     
+    // the suffix it adds to output files
+    string suffix;
+    
     // the filename(s) associated with the index
     vector<string> filenames;
     
     // the priority-ordered recipes to make this index file
     vector<IndexRecipe> recipes;
+    
+    // keep track of whether the index was provided directly
+    bool provided_directly = false;
 };
 
 /**
@@ -113,11 +173,11 @@ private:
  */
 struct IndexRecipe {
     IndexRecipe(const vector<const IndexFile*>& inputs,
-                const function<vector<string>(const vector<const IndexFile*>&)>& exec);
+                const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
     // execute the recipe and return the filename(s) of the indexes created
-    vector<string> execute();
+    vector<string> execute(const string& prefix, const string& suffix);
     vector<const IndexFile*> inputs;
-    function<vector<string>(const vector<const IndexFile*>&)> exec;
+    function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)> exec;
 };
 
 
