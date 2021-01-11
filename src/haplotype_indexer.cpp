@@ -123,7 +123,7 @@ std::vector<std::string> HaplotypeIndexer::parse_vcf(const std::string& filename
         }
 
         // Structures to parse the VCF file into.
-        std::string parse_file = (this->batch_file_prefix.empty() ? temp_file::create("parse-" + vcf_contig_name + "-") : this->batch_file_prefix + '_' + vcf_contig_name);
+        std::string parse_file = (this->batch_file_prefix.empty() ? gbwt::TempFile::getName("parse") : this->batch_file_prefix + '_' + vcf_contig_name);
         gbwt::VariantPaths variants(graph.get_step_count(paths[path_id]));
         variants.setSampleNames(sample_names);
         variants.setContigName(path_name);
