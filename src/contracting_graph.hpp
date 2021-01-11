@@ -28,6 +28,7 @@ public:
     //looping through original nodes and sending them to find_group() and determining which nodes are heads
     //return all heads 
     //if node = find_group(node) then its a head otherwise not 
+    vector<vector<size_t>> get_disjoint_sets();
 
     
 

@@ -27,72 +27,72 @@ namespace vg {
             
             SECTION("Test1: Can find a min-cut on a 4 node graph") {
                 /* Let us create following undirected, weighted graph  
-                      e1 10  
-                    1--------2  
+                      e0 10  
+                    0--------1  
                     | \      |  
-                e2 6|   |5 e5 |15  
-                    |      \ |  e4
-                    3--------4  
-                       e3 4 
+                e1 6|   |5 e4 |15  
+                    |      \ |  e3
+                    2--------3  
+                       e2 4 
                 */
                 Graph graph; 
-                Edge edge12, edge21, edge13, edge31, edge14, edge41, edge34, edge43,edge24, edge42; //naming convention edge:source:destination
-                Node node1, node2, node3, node4;
+                Edge edge01,edge10,edge02,edge20,edge03,edge30,edge23,edge32,edge13,edge31; //naming convention edge:source:destination
+                Node node0, node1, node2, node3;
                 size_t V = 4; //size of nodes
                 //weights
-                edge12.weight = 10;
-                edge21.weight = 10;
-                edge13.weight = 6;
-                edge31.weight = 6;
-                edge14.weight = 5;
-                edge41.weight = 5;
-                edge34.weight = 4;
-                edge43.weight = 4;
-                edge24.weight = 15;
-                edge42.weight = 15;
+                edge01.weight = 10;
+                edge10.weight = 10;
+                edge02.weight = 6;
+                edge20.weight = 6;
+                edge03.weight = 5;
+                edge30.weight = 5;
+                edge23.weight = 4;
+                edge32.weight = 4;
+                edge13.weight = 15;
+                edge31.weight = 15;
+
+                
 
                 //other node
-                //edge12.other is edge1->2 but we use the index starting from 0
-                //so, edge12 = edge1->edge1
-                //TODO: fix the indices
-                edge12.other = 1;
-                edge21.other = 0;
-                edge13.other = 2;
-                edge31.other = 0;
-                edge14.other = 3;
-                edge41.other = 0;
-                edge34.other = 3;
-                edge43.other = 2;
-                edge24.other = 3;
-                edge42.other = 1;
+                //edge01.other 1, edge0->1 
+                edge01.other = 1;
+                edge10.other = 0;
+                edge02.other = 2;
+                edge20.other = 0;
+                edge03.other = 3;
+                edge30.other = 0;
+                edge23.other = 3;
+                edge32.other = 2;
+                edge13.other = 3;
+                edge31.other = 1;
+
+                //node 0
+                node0.edges.push_back(edge01);
+                node0.edges.push_back(edge02);
+                node0.edges.push_back(edge03);
+                node0.weight = 21;
+
 
                 //node 1
-                node1.edges.push_back(edge12);
+                node1.edges.push_back(edge10);
                 node1.edges.push_back(edge13);
-                node1.edges.push_back(edge14);
-                node1.weight = 21;
-
+                node1.weight = 25;
 
                 //node 2
-                node2.edges.push_back(edge21);
-                node2.edges.push_back(edge24);
-                node2.weight = 25;
+                node2.edges.push_back(edge20);
+                node2.edges.push_back(edge23);
+                node2.weight = 10;
 
                 //node 3
+                node3.edges.push_back(edge30);
                 node3.edges.push_back(edge31);
-                node3.edges.push_back(edge34);
-                node3.weight = 10;
+                node3.edges.push_back(edge32);
+                node3.weight = 24;
 
-                //node 4
-                node4.edges.push_back(edge41);
-                node4.edges.push_back(edge42);
-                node4.edges.push_back(edge43);
-                node4.weight = 24;
-
+                graph.nodes.push_back(node0);
                 graph.nodes.push_back(node1);
                 graph.nodes.push_back(node2);
                 graph.nodes.push_back(node3);
-                graph.nodes.push_back(node4);
                 
             
                 //Karger's min-cut
@@ -100,8 +100,9 @@ namespace vg {
                 vector<vector<size_t>> disjoint_sets = to_recv.first;
                 size_t mincut = to_recv.second;
                 
+                
                 //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
-                // REQUIRE(mincut == 2);
+                REQUIRE(mincut == 10);
 
   
 #ifdef debug
