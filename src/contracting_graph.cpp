@@ -63,7 +63,9 @@ namespace vg{
 
                 // avoid double counting edges btween members of group num aka contracted edge
                 if(connecting_node_group_id == group_num){
+#ifdef debug     
                     cout << "continue" <<endl;
+#endif      
                     continue;
                 }else{
 #ifdef debug   

@@ -249,33 +249,30 @@ namespace vg {
             SECTION("Test3: Can find a min-cut on a 2 node graph") {
  
                 Graph graph; 
-                Edge edge12, edge21; //naming convention edge:source:destination
-                Node node1, node2;
+                Edge edge01, edge10; //naming convention edge:source:destination
+                Node node0, node1;
                 size_t V = 2; //size of nodes
 
                 //weights
-                edge12.weight = 10;
-                edge21.weight = 10;
+                edge01.weight = 10;
+                edge10.weight = 10;
 
                 //other node
-                //edge12.other is edge1->2 but we use the index starting from 0
-                //so, edge12 = edge1->edge1
-                //TODO: fix the indices
-                edge12.other = 1;
-                edge21.other = 0;
+                edge01.other = 1;
+                edge10.other = 0;
+
+                //node 0
+                node0.edges.push_back(edge01);
+                node0.weight = 10;
+
 
                 //node 1
-                node1.edges.push_back(edge12);
+                node1.edges.push_back(edge10);
                 node1.weight = 10;
 
 
-                //node 2
-                node2.edges.push_back(edge21);
-                node2.weight = 10;
-
-
+                graph.nodes.push_back(node0);
                 graph.nodes.push_back(node1);
-                graph.nodes.push_back(node2);
 
                 
                 //Karger's min-cut
@@ -310,19 +307,19 @@ namespace vg {
             SECTION("Test5: Can find a min-cut on a 2 node graph, 0 edges") {
 
                 Graph graph; 
-                Node node1, node2;
+                Node node0, node1;
                 size_t V = 2; //size of nodes
+
+                //node 0
+                node0.weight = 0;
+
 
                 //node 1
                 node1.weight = 0;
 
 
-                //node 2
-                node2.weight = 0;
-
-
+                graph.nodes.push_back(node0);
                 graph.nodes.push_back(node1);
-                graph.nodes.push_back(node2);
 
                 //Karger's min-cut
                 pair<vector<vector<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
@@ -339,8 +336,11 @@ namespace vg {
             SECTION("Test6: Can find a min-cut on a 4 node graph, 0 edges") {
 
                 Graph graph; 
-                Node node1, node2, node3, node4;
+                Node node0, node1, node2, node3;
                 size_t V = 4; //size of nodes
+
+                //node 0
+                node0.weight = 0;
 
                 //node 1
                 node1.weight = 0;
@@ -349,25 +349,19 @@ namespace vg {
                 node2.weight = 0;
 
                 //node 3
-                node1.weight = 0;
-
-                //node 4
-                node2.weight = 0;
+                node3.weight = 0;
 
 
+                graph.nodes.push_back(node0);
                 graph.nodes.push_back(node1);
                 graph.nodes.push_back(node2);
                 graph.nodes.push_back(node3);
-                graph.nodes.push_back(node4);
 
 
                 //Karger's min-cut
                 pair<vector<vector<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
                 vector<vector<size_t>> disjoint_sets = to_recv.first;
-                size_t mincut = to_recv.second;
-#ifdef debug
-                cout << "mincut"<< mincut << endl;
-#endif                
+                size_t mincut = to_recv.second;           
                 //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
                 REQUIRE(mincut == 0);
             }
