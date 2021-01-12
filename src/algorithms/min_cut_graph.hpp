@@ -21,7 +21,7 @@ namespace vg {
     using namespace std;
        
         struct Edge{
-            int other;
+            int other; //node at other end 
             int weight;
         };
 
@@ -37,6 +37,8 @@ namespace vg {
         pair<vector<vector<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed, size_t V);
 
         pair<vector<vector<size_t>>, size_t> compute_min_cut(Graph graph, const int n_iterations, const int seed, size_t V);
+
+       
 
         
     }

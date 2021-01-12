@@ -26,35 +26,56 @@ namespace vg {
             ContractingGraph cg(graph, V); 
             unordered_map<size_t, size_t> cgraph_total_edge_weights;
             pair<vector<vector<size_t>>, size_t> to_return;
-            
-            //check for empty or unconnected graphs
+#ifdef debug
+            cout << "original graph" <<endl; 
+            cout << "============================================================================= " << endl;
+                   
+            for(size_t i = 0; i < graph.nodes.size(); i++){
+                cout << "node: "<< i  << ", weight: "<<graph.nodes[i].weight << endl;
+                for (size_t j = 0; j < graph.nodes[i].edges.size(); j++){
+                    cout << "edge "<< i  << "->" << graph.nodes[i].edges[j].other <<", weight: " << graph.nodes[i].edges[j].weight << endl;
+                }
+            }
+            cout << "============================================================================= " << endl;
+#endif
+            // check fpr graph containing a node without an edge
+            for(size_t i = 0; i < graph.nodes.size(); i++){
+                if(graph.nodes[i].edges.size() <=0){
+                    //return empty container
+#ifdef debug
+                cout << "============================================================================= " << endl;    
+                cout << "Disconnected graph " << endl;         
+#endif
+                    return to_return;
+                }
+            }
+
+            //check for empty graph or 1-node graph
             if (V == 0 || V==1){
+#ifdef debug
+                cout << "============================================================================= " << endl;    
+                cout << "Empty or 1-node graph "  << endl;         
+#endif
                 //there is no min-cut to calculate
+                //return empty container
                 return to_return;
                 
             }
-            //handle graphs with <= 2 nodes, with and without edges
+            //graph with exactly 2-nodes
             if (V==2){
-                //check that both nodes have edges
-                if (graph.nodes[0].edges.empty() == false && graph.nodes[1].edges.empty() == false){
-                    vector<vector<size_t>> disjoint_sets;
-                    //disjoint sets will just be two sets, each containing one node
-                    //using index starting at 0 for nodes
-                    vector<size_t> supernode0 = {0};
-                    vector<size_t> supernode1 = {1};
-                    disjoint_sets.push_back(supernode0);
-                    disjoint_sets.push_back(supernode1);
+                //both nodes will have edges since we tested for unconnected graph above
+                vector<vector<size_t>> disjoint_sets;
+                //disjoint sets will just be two sets, each containing one node
+                //using index starting at 0 for nodes
+                vector<size_t> supernode0 = {0};
+                vector<size_t> supernode1 = {1};
+                disjoint_sets.push_back(supernode0);
+                disjoint_sets.push_back(supernode1);
 
-                    
-                    //assumes weights from node 0->node 1 and node 1->node 0 are equal
-                    size_t weight_of_cut = graph.nodes[0].edges[0].weight;
-                    to_return = make_pair(disjoint_sets, weight_of_cut);
-                }else{
-                    //not  connected graph
-                    //to_return is empty
-                    return to_return;
-                }
-
+                //assumes weights from node 0->node 1 and node 1->node 0 are equal
+                size_t weight_of_cut = graph.nodes[0].edges[0].weight;
+                to_return = make_pair(disjoint_sets, weight_of_cut);
+                
             }
 
             // get nodes will return the heads of all the nodes
@@ -68,10 +89,7 @@ namespace vg {
                 
 #ifdef debug
                     cout << "============================================================================= " << endl;    
-                    cout << "supernode edge weights for node " << super_nodes[i]   << endl;
-            
-            
-                
+                    cout << "supernode edge weights for node " << super_nodes[i]   << endl;         
 #endif
             // tally up the total weights of incident edges
             int total_weight = 0;
@@ -275,6 +293,7 @@ namespace vg {
             return to_return;
 
         }
+        
          
     }
 }

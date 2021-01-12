@@ -119,110 +119,110 @@ namespace vg {
             SECTION("Test2: Can find a min-cut on a 9 node graph") {
        
                 Graph graph; 
-                Edge edge12, edge13, edge21, edge23, edge31, edge32, edge34, edge35, edge43, edge53, edge56, edge58, edge65, edge67, edge69, edge76, edge78, edge85, edge87, edge89, edge96, edge98; //naming convention edge:source:destination
-                Node node1, node2, node3, node4, node5, node6, node7, node8, node9;
+                Edge edge01, edge02, edge10, edge12, edge20, edge21, edge23, edge24, edge32, edge42, edge45, edge47, edge54, edge56, edge58, edge65, edge67, edge74, edge76, edge78, edge85, edge87; //naming convention edge:source:destination
+                Node node0, node1, node2, node3, node4, node5, node6, node7, node8;
                 size_t V = 9; //size of nodes
                 
                 //weights
-                edge12.weight = 1;
-                edge13.weight = 2;
-                edge21.weight = 1;
-                edge23.weight = 4;
-                edge31.weight = 2;
-                edge32.weight = 4;
-                edge34.weight = 3;
-                edge35.weight = 5;
-                edge43.weight = 3;
-                edge53.weight = 5;
-                edge56.weight = 4;
-                edge58.weight = 1;
-                edge65.weight = 4;
-                edge67.weight = 7;
-                edge69.weight = 5;
-                edge76.weight = 7;
-                edge78.weight = 2;
-                edge85.weight = 1;
-                edge87.weight = 2;
-                edge89.weight = 1;
-                edge96.weight = 5;
-                edge98.weight= 1;
+                edge01.weight = 100;
+                edge02.weight = 200;
+                edge10.weight = 100;
+                edge12.weight = 400;
+                edge20.weight = 200;
+                edge21.weight = 400;
+                edge23.weight = 300;
+                edge24.weight = 5;
+                edge32.weight = 300;
+                edge42.weight = 5;
+                edge45.weight = 400;
+                edge47.weight = 100;
+                edge54.weight = 400;
+                edge56.weight = 700;
+                edge58.weight = 500;
+                edge65.weight = 700;
+                edge67.weight = 200;
+                edge74.weight = 100;
+                edge76.weight = 200;
+                edge78.weight = 100;
+                edge85.weight = 500;
+                edge87.weight= 100;
 
                 //other 
-                //edge12.other is edge1->2 but we use the index starting from 0
-                edge12.other = 1;
-                edge13.other = 2;
-                edge21.other = 0;
-                edge23.other = 2;
-                edge31.other = 0;
-                edge32.other = 1;
-                edge34.other = 3;
-                edge35.other = 4;
-                edge43.other = 2;
-                edge53.other = 2;
-                edge56.other = 5;
-                edge58.other = 7;
-                edge65.other = 4;
-                edge67.other = 6;
-                edge69.other = 8;
-                edge76.other = 5;
-                edge78.other = 7;
-                edge85.other = 4;
-                edge87.other = 6;
-                edge89.other = 8;
-                edge96.other = 5;
-                edge98.other = 7;
+                edge01.other = 1;
+                edge02.other = 2;
+                edge10.other = 0;
+                edge12.other = 2;
+                edge20.other = 0;
+                edge21.other = 1;
+                edge23.other = 3;
+                edge24.other = 4;
+                edge32.other = 2;
+                edge42.other = 2;
+                edge45.other = 5;
+                edge47.other = 7;
+                edge54.other = 4;
+                edge56.other = 6;
+                edge58.other = 8;
+                edge65.other = 5;
+                edge67.other = 7;
+                edge74.other = 4;
+                edge76.other = 6;
+                edge78.other = 8;
+                edge85.other = 5;
+                edge87.other = 7;
+
+
+                //node 0
+                node0.edges.push_back(edge01);
+                node0.edges.push_back(edge02);
+                node0.weight = 3;
 
 
                 //node 1
+                node1.edges.push_back(edge10);
                 node1.edges.push_back(edge12);
-                node1.edges.push_back(edge13);
-                node1.weight = 3;
-
+                node1.weight = 5;
 
                 //node 2
+                node2.edges.push_back(edge20);
                 node2.edges.push_back(edge21);
                 node2.edges.push_back(edge23);
-                node2.weight = 5;
+                node2.edges.push_back(edge24);
+                node2.weight = 14;
 
                 //node 3
-                node3.edges.push_back(edge31);
                 node3.edges.push_back(edge32);
-                node3.edges.push_back(edge34);
-                node3.edges.push_back(edge35);
-                node3.weight = 14;
+                node3.weight = 3;
 
-                //node 4
-                node4.edges.push_back(edge43);
-                node4.weight = 3;
+                //node4
+                node4.edges.push_back(edge42);
+                node4.edges.push_back(edge45);
+                node4.edges.push_back(edge47);
+                node4.weight = 10;
 
                 //node5
-                node5.edges.push_back(edge53);
+                node5.edges.push_back(edge54);
                 node5.edges.push_back(edge56);
                 node5.edges.push_back(edge58);
-                node5.weight = 10;
-
+                node5.weight = 16;
+                
                 //node6
                 node6.edges.push_back(edge65);
                 node6.edges.push_back(edge67);
-                node6.edges.push_back(edge69);
-                node6.weight = 16;
+                node6.weight = 9;
                 
                 //node7
+                node7.edges.push_back(edge74);
                 node7.edges.push_back(edge76);
                 node7.edges.push_back(edge78);
-                node7.weight = 9;
-                
+                node7.weight = 4;
+
                 //node8
                 node8.edges.push_back(edge85);
                 node8.edges.push_back(edge87);
-                node8.edges.push_back(edge89);
-                node8.weight = 4;
-
-                //node9
-                node9.edges.push_back(edge96);
-                node9.edges.push_back(edge98);
-                node9.weight = 6;
+                node8.weight = 6;
                 
+                graph.nodes.push_back(node0);
                 graph.nodes.push_back(node1);
                 graph.nodes.push_back(node2);
                 graph.nodes.push_back(node3);
@@ -231,7 +231,6 @@ namespace vg {
                 graph.nodes.push_back(node6);
                 graph.nodes.push_back(node7);
                 graph.nodes.push_back(node8);
-                graph.nodes.push_back(node9);
             
                 //Karger's min-cut
                 pair<vector<vector<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
@@ -239,7 +238,7 @@ namespace vg {
                 size_t mincut = to_recv.second;
                 
                 //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
-                REQUIRE(mincut == 1);
+                REQUIRE(mincut == 5);
 
             }
  

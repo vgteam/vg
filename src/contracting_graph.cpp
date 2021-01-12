@@ -10,18 +10,7 @@ namespace vg{
 
     ContractingGraph::ContractingGraph(Graph graph, size_t V)
         :graph(graph), V(V){
-#ifdef debug
-            cout << "original graph" <<endl; 
-            cout << "============================================================================= " << endl;
-                   
-            for(size_t i = 0; i < graph.nodes.size(); i++){
-                cout << "node: "<< i  << ", weight: "<<graph.nodes[i].weight << endl;
-                for (size_t j = 0; j < graph.nodes[i].edges.size(); j++){
-                    cout << "edge "<< i  << "->" << graph.nodes[i].edges[j].other <<", weight: " << graph.nodes[i].edges[j].weight << endl;
-                }
-            }
-            cout << "============================================================================= " << endl;
-#endif
+
 
     }
   
@@ -45,12 +34,6 @@ namespace vg{
         //if an adj_node exists in group_nodes then it is a contracted edge, we treat it as a special case  
         for(size_t i = 0; i<group_nodes.size(); i++){
             int member = group_nodes[i];
-
-            
-            if(graph.nodes[member].edges.size() == 0){
-                cout<<"disconnected edge" << endl;
-                break;
-            }
             for (size_t j = 0; j < graph.nodes[member].edges.size(); j++){
 #ifdef debug
             cout << "============================================================================= " << endl;    
