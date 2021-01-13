@@ -6151,30 +6151,6 @@ void VG::collect_subgraph(Node* start_node, set<Node*>& subgraph) {
     //cerr << "node " << start_node->id() << " subgraph size " << subgraph.size() << endl;
 }
 
-void VG::disjoint_subgraphs(list<VG>& subgraphs) {
-    vector<Node*> heads;
-    head_nodes(heads);
-    map<Node*, set<Node*> > subgraph_by_head;
-    map<Node*, set<Node*>* > subgraph_membership;
-    // start at the heads, but keep in mind that we need to explore fully
-    for (vector<Node*>::iterator h = heads.begin(); h != heads.end(); ++h) {
-        if (subgraph_membership.find(*h) == subgraph_membership.end()) {
-            set<Node*>& subgraph = subgraph_by_head[*h];
-            collect_subgraph(*h, subgraph);
-            for (set<Node*>::iterator n = subgraph.begin(); n != subgraph.end(); ++n) {
-                subgraph_membership[*n] = &subgraph;
-            }
-        }
-    }
-    for (map<Node*, set<Node*> >::iterator g = subgraph_by_head.begin();
-         g != subgraph_by_head.end(); ++ g) {
-        set<Node*>& nodes = g->second;
-        set<Edge*> edges;
-        edges_of_nodes(nodes, edges);
-        subgraphs.push_back(VG(nodes, edges));
-    }
-}
-
 bool VG::is_head_node(nid_t id) {
     return is_head_node(get_node(id));
 }

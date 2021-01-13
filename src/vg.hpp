@@ -1268,8 +1268,6 @@ public:
     /// graph will result in some reads from the global reverse strand.
     Alignment random_read(size_t read_len, mt19937& rng, nid_t min_id, nid_t max_id, bool either_strand);
 
-    /// Find subgraphs.
-    void disjoint_subgraphs(list<VG>& subgraphs);
     /// Get the head nodes (nodes with edges only to their right sides). These are required to be oriented forward.
     void head_nodes(vector<Node*>& nodes);
     /// Get the head nodes (nodes with edges only to their right sides). These are required to be oriented forward.

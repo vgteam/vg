@@ -1,5 +1,6 @@
 #include "phase_unfolder.hpp"
 #include "progress_bar.hpp"
+#include "algorithms/disjoint_components.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -14,16 +15,17 @@ PhaseUnfolder::PhaseUnfolder(const PathPositionHandleGraph& path_graph, const gb
 }
 
 void PhaseUnfolder::unfold(MutableHandleGraph& graph, bool show_progress) {
-    std::list<VG> components = this->complement_components(graph, show_progress);
+    
+    std::list<bdsg::HashGraph> components = this->complement_components(graph, show_progress);
     
     size_t haplotype_paths = 0;
-    VG unfolded;
+    bdsg::HashGraph unfolded;
     for (MutableHandleGraph& component : components) {
         haplotype_paths += this->unfold_component(component, graph, unfolded);
     }
     if (show_progress) {
         std::cerr << "Unfolded graph: "
-                  << unfolded.node_count() << " nodes, " << unfolded.edge_count() << " edges on "
+                  << unfolded.get_node_count() << " nodes, " << unfolded.get_edge_count() << " edges on "
                   << haplotype_paths << " paths" << std::endl;
     }
     
@@ -279,9 +281,9 @@ vg::id_t PhaseUnfolder::get_mapping(vg::id_t node) const {
     return this->mapping(node);
 }
 
-std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bool show_progress) {
+std::list<bdsg::HashGraph> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bool show_progress) {
     
-    VG complement;
+    bdsg::HashGraph complement;
 
     // checks whether the graph contains an edge
     auto graph_has_edge = [&](const vg::id_t from_id, const vg::id_t to_id,
@@ -363,11 +365,10 @@ std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bo
         }
     }
 
-    std::list<VG> components;
-    complement.disjoint_subgraphs(components);
+    std::list<bdsg::HashGraph> components = algorithms::disjoint_components(complement);
     if (show_progress) {
         std::cerr << "Complement graph: "
-                  << complement.node_count() << " nodes, " << complement.edge_count() << " edges in "
+                  << complement.get_node_count() << " nodes, " << complement.get_edge_count() << " edges in "
                   << components.size() << " components" << std::endl;
     }
     return components;
