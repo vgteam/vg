@@ -230,6 +230,49 @@ TEST_CASE("Fragment length distribution gets reasonable value", "[giraffe][mappi
         }
 }
 
+class TestableMinimizerMapper : public MinimizerMapper {
+public:
+    using MinimizerMapper::Minimizer;
+    using MinimizerMapper::faster_cap;
+};
+
+TEST_CASE("Mapping quality cap cannot be confused by excessive Gs", "[giraffe][mapping]") {
+    string sequence;
+    string quality;
+    for (size_t i = 0; i < 150; i++) {
+        sequence.push_back('G');
+        quality.push_back((char)0x1E);
+    }
+    
+    // Cover the read in 25bp cores with 10bp flanks on each side
+    int core_width = 25;
+    int flank_width = 10;
+    vector<TestableMinimizerMapper::Minimizer> minimizers;
+    // They are all going to be explored
+    vector<size_t> minimizers_explored;
+    
+    for (int core_start = 0; core_start + core_width < sequence.size(); core_start++) {
+        minimizers_explored.push_back(minimizers.size());
+        minimizers.emplace_back();
+        TestableMinimizerMapper::Minimizer& m = minimizers.back();
+        m.agglomeration_start = max(0, core_start - flank_width);
+        m.agglomeration_length = min((int)sequence.size(), core_start + core_width + flank_width) - core_start;
+        m.hits = 229;
+        // We knowe the occurrences won't be used.
+        m.occs = nullptr;
+        m.length = core_width;
+        m.candidates_per_window = flank_width + 1;
+        m.score = 1;
+    }
+    
+    
+    // Compute the MAPQ cap
+    double cap = TestableMinimizerMapper::faster_cap(minimizers, minimizers_explored, sequence, quality);
+    
+    // The MAPQ cap should not be infinite.
+    REQUIRE(!isinf(cap));
+}
+
 
 
 
