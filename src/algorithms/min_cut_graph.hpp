@@ -13,6 +13,7 @@
 #include <utility>
 #include <unordered_map>
 #include <map>
+#include <unordered_set>
 
 
 namespace vg {
@@ -34,12 +35,12 @@ namespace vg {
 
         }; 
 
-        pair<vector<vector<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed, size_t V);
+        pair<vector<unordered_set<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed, size_t V);
 
-        pair<vector<vector<size_t>>, size_t> compute_min_cut(Graph graph, const int n_iterations, const int seed, size_t V);
+        pair<vector<unordered_set<size_t>>, size_t> compute_min_cut(Graph graph, const int n_iterations, const int seed, size_t V);
 
-       
-
+        // Assumption: handles one connected component at a time
+        // vector<unordered_map<size_t>> min_cut_decomposition(Graph graph, unordered_set<size_t> connected_component);
         
     }
 }

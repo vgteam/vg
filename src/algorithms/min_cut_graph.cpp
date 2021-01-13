@@ -12,6 +12,8 @@
 #include "../contracting_graph.hpp"
 #include <random>
 #include <iostream>
+#include <algorithm>
+#include <unordered_set>
 #define debug
 
 namespace vg {
@@ -19,13 +21,13 @@ namespace vg {
 
         using namespace std;
 
-        pair<vector<vector<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed, size_t V) {
+        pair<vector<unordered_set<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed, size_t V) {
  
      
             minstd_rand0 random_engine(seed);
             ContractingGraph cg(graph, V); 
             unordered_map<size_t, size_t> cgraph_total_edge_weights;
-            pair<vector<vector<size_t>>, size_t> to_return;
+            pair<vector<unordered_set<size_t>>, size_t> to_return;
 #ifdef debug
             cout << "original graph" <<endl; 
             cout << "============================================================================= " << endl;
@@ -38,7 +40,7 @@ namespace vg {
             }
             cout << "============================================================================= " << endl;
 #endif
-            // check fpr graph containing a node without an edge
+            // check for graph containing a node without an edge
             for(size_t i = 0; i < graph.nodes.size(); i++){
                 if(graph.nodes[i].edges.size() <=0){
                     //return empty container
@@ -64,11 +66,11 @@ namespace vg {
             //graph with exactly 2-nodes
             if (V==2){
                 //both nodes will have edges since we tested for unconnected graph above
-                vector<vector<size_t>> disjoint_sets;
+                vector<unordered_set<size_t>> disjoint_sets;
                 //disjoint sets will just be two sets, each containing one node
                 //using index starting at 0 for nodes
-                vector<size_t> supernode0 = {0};
-                vector<size_t> supernode1 = {1};
+                unordered_set<size_t> supernode0 = {0};
+                unordered_set<size_t> supernode1 = {1};
                 disjoint_sets.push_back(supernode0);
                 disjoint_sets.push_back(supernode1);
 
@@ -239,7 +241,49 @@ namespace vg {
                 // check the new size of super nodes after contraction
                 // if we have only two we can break out of the while loop
                 if(V == 2){
-                    vector<vector<size_t>> disjoint_sets = cg.get_disjoint_sets();
+                    vector<vector<size_t>> disjoint_vector = cg.get_disjoint_sets();
+ #ifdef debug   
+                cout << "============================================================================= " << endl;
+                cout << "vector"<<endl;
+                for(int i = 0; i < 2; i++){
+
+                    for ( int j = 0; j< disjoint_vector[i].size(); j++ ){
+                            cout << "vector " <<i <<"element " <<  disjoint_vector[i][j] << endl;
+
+                    }
+                }
+                cout << "============================================================================= " << endl;
+                    
+#endif
+                    // make vector into unordered_set
+                    unordered_set<size_t> disjoint_set1(disjoint_vector[0].begin(), disjoint_vector[0].end());
+                    unordered_set<size_t> disjoint_set2(disjoint_vector[1].begin(), disjoint_vector[1].end());  
+                    // unordered_set<size_t> disjoint_set1;
+                    // unordered_set<size_t> disjoint_set2;  
+                    // for (const int &i: v0) {
+                    //     disjoint_set1.insert(i);
+                    // }
+                    // for (const int &i: v1) {
+                    //     disjoint_set2.insert(i);
+                    // }
+                                   
+                    vector<unordered_set<size_t>> disjoint_sets;
+                    disjoint_sets.push_back(disjoint_set1);
+                    disjoint_sets.push_back(disjoint_set2);
+  #ifdef debug   
+            cout << "============================================================================= " << endl;
+            cout << "sets" <<endl;
+            for(int i = 0; i < disjoint_sets.size(); ++i){
+
+               for ( auto it = disjoint_sets[i].begin(); it != disjoint_sets[i].end(); ++it ){
+                    cout << "set " <<i <<"element " <<  *it << endl;
+
+               }
+            }
+            cout << "============================================================================= " << endl;
+                    
+#endif                     
+
                     //compute the min cut of graph which is equal to the total edge weights of two supernodes 
                     size_t weight_of_cut;
                     for (pair<size_t, size_t> element: cgraph_total_edge_weights){
@@ -262,16 +306,16 @@ namespace vg {
         return to_return;    
         } 
 
-        pair<vector<vector<size_t>>, size_t> compute_min_cut(Graph graph, const int n_iterations, const int seed, size_t V){
+        pair<vector<unordered_set<size_t>>, size_t> compute_min_cut(Graph graph, const int n_iterations, const int seed, size_t V){
 
             // compute min-cut twice and choose the min-cut with least total graph weights
             //the minimum total edge weight of graph will give us the min-cut
             const int seed2 = 3;
 
             //TODO: generate seeds in here or send two seeds
-            pair<vector<vector<size_t>>, size_t> to_return;
-            pair<vector<vector<size_t>>, size_t> min_cut1 = kargers_min_cut(graph, n_iterations, seed, V);          
-            pair<vector<vector<size_t>>, size_t> min_cut2 = kargers_min_cut(graph, n_iterations, seed2, V);
+            pair<vector<unordered_set<size_t>>, size_t> to_return;
+            pair<vector<unordered_set<size_t>>, size_t> min_cut1 = kargers_min_cut(graph, n_iterations, seed, V);          
+            pair<vector<unordered_set<size_t>>, size_t> min_cut2 = kargers_min_cut(graph, n_iterations, seed2, V);
             if (min_cut1.second == 0 || min_cut2.second == 0 ){
                 // if pair is empty pair.first and pair.second will both be initialized to 0 during contruction
                 //return empty container
