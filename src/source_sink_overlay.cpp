@@ -287,6 +287,12 @@ size_t SourceSinkOverlay::get_degree(const handle_t& handle, bool go_left) const
         return degree;
     }
 }
-    
+
+handle_t SourceSinkOverlay::get_underlying_handle(const handle_t& handle) const {
+    if (is_ours(handle)) {
+        throw std::runtime_error("error:[SourceSinkOverlay] cannot request underlying handle of source or sink node");
+    }
+    return to_backing(handle);
+}
 
 }

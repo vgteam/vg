@@ -573,11 +573,6 @@ public:
     /// Remove duplicated nodes and edges.
     void remove_duplicates(void);
 
-    /// Limit the local complexity of the graph, connecting pruned components to a head and tail node
-    /// depending on the direction which we come into the node when the edge_max is passed.
-    void prune_complex_paths(int length, int edge_max, Node* head_node, Node* tail_node);
-    void prune_short_subgraphs(size_t min_size);
-
     /// Send chunked graphs to a function that will write them somewhere.
     /// Used to internally implement saving to many destinations.
     /// Graph will be serialized in internal storage order.
@@ -1212,15 +1207,6 @@ public:
     /// list) that you are talking about.
     void node_starts_in_path(list<NodeTraversal>& path,
                              map<NodeTraversal*, int>& node_start);
-
-    /// Take all nodes that would introduce paths of > edge_max edge crossings, remove them, and link their neighbors to
-    /// head_node or tail_node depending on which direction the path extension was stopped.
-    /// Optionally preserve edges on the embedded paths.
-    /// For pruning graph prior to indexing with gcsa2.
-    void prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node);
-    /// Wrap the graph with heads and tails before doing the prune.
-    /// Utility function for preparing for indexing.
-    void prune_complex_with_head_tail(int path_length, int edge_max);
 
 private:
     /// Call the given function on each kmer. If parallel is specified, goes

@@ -17,9 +17,9 @@
 #include <handlegraph/mutable_path_deletable_handle_graph.hpp>
 #include "../handle.hpp"
 #include "../utility.hpp"
-#include "../algorithms/remove_high_degree.hpp"
 #include "../algorithms/simplify_siblings.hpp"
 #include "../algorithms/normalize.hpp"
+#include "../algorithms/prune.hpp"
 #include "../io/save_handle_graph.hpp"
 
 using namespace std;
@@ -719,8 +719,7 @@ int main_mod(int argc, char** argv) {
             cerr << "[vg mod]: when pruning complex regions you must specify a --path-length and --edge-max" << endl;
             return 1;
         }
-        // TODO: turn into an algorithm
-        ensure_vg()->prune_complex_with_head_tail(path_length, edge_max);
+        algorithms::prune_complex_with_head_tail(*graph, path_length, edge_max);
     }
 
     if (max_degree) {
@@ -729,7 +728,7 @@ int main_mod(int argc, char** argv) {
 
     if (prune_subgraphs) {
         // TODO: turn into an algorithm
-        ensure_vg()->prune_short_subgraphs(path_length);
+        algorithms::prune_short_subgraphs(*graph, path_length);
     }
 
     if (chop_to) {

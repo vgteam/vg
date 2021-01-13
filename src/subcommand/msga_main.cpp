@@ -7,6 +7,7 @@
 #include "../kmer.hpp"
 #include "../build_index.hpp"
 #include "../algorithms/normalize.hpp"
+#include "../algorithms/prune.hpp"
 #include "../chunker.hpp"
 #include "xg.hpp"
 
@@ -620,7 +621,9 @@ int main_msga(int argc, char** argv) {
             vg::id_t tail_id = head_id+1;
             graph->paths.for_each_name([&](const string& name) {
                     VG path_graph = *graph;
-                    if (edge_max) path_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
+                    if (edge_max){
+                        algorithms::prune_complex_with_head_tail(path_graph, idx_kmer_size, edge_max);
+                    }
                     path_graph.keep_path(name);
                     size_t limit = ~(size_t)0;
                     tmpfiles.push_back(
@@ -641,8 +644,10 @@ int main_msga(int argc, char** argv) {
         } else if (edge_max) {
             VG gcsa_graph = *graph; // copy the graph
             // remove complex components
-            gcsa_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
-            if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
+            algorithms::prune_complex_with_head_tail(gcsa_graph, idx_kmer_size, edge_max);
+            if (subgraph_prune){
+                algorithms::prune_short_subgraphs(gcsa_graph, subgraph_prune);
+            }
             // then index
             build_gcsa_lcp(gcsa_graph, gcsaidx, lcpidx, idx_kmer_size, doubling_steps);
         } else {
