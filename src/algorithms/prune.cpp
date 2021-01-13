@@ -163,19 +163,27 @@ void prune_short_subgraphs(DeletableHandleGraph& graph, int min_size) {
     
     // DFS from all tips
     for (auto tip : handlealgs::find_tips(&graph)) {
+        //cerr << "begin trav from " << graph.get_id(tip) << " " << graph.get_is_reverse(tip) << endl;
         auto start = graph.forward(tip);
+        if (to_destroy.count(start)) {
+            // we already found this subgraph from another tip
+            //cerr << "skipping" << endl;
+            continue;
+        }
         vector<handle_t> stack(1, start);
         unordered_set<handle_t> seen{start};
         int size_seen = 0;
         // stop when we've seen a large enough subgraph
-        while (stack.empty() && size_seen < min_size) {
+        while (!stack.empty() && size_seen < min_size) {
             handle_t handle = stack.back();
             stack.pop_back();
             size_seen += graph.get_length(handle);
+            //cerr << "destack " << graph.get_id(handle) << ", update size seen to " << size_seen << endl;
             for (bool go_left : {true, false}) {
                 graph.follow_edges(handle, go_left, [&](const handle_t& next) {
                     handle_t fwd_next = graph.forward(next);
                     if (!seen.count(fwd_next)) {
+                        //cerr << "stack up " << graph.get_id(fwd_next) << ", update size seen to " << size_seen << endl;
                         stack.push_back(fwd_next);
                         seen.insert(fwd_next);
                     }
@@ -183,6 +191,7 @@ void prune_short_subgraphs(DeletableHandleGraph& graph, int min_size) {
             }
         }
         if (size_seen < min_size) {
+            //cerr << "component is small enough to destroy" << endl;
             // this component is under the size limit, mark them for destruction
             for (auto handle : seen) {
                 to_destroy.insert(handle);
