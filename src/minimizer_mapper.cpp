@@ -20,13 +20,13 @@
 #include <cmath>
 
 // Turn on debugging prints
-//#define debug
+#define debug
 // Turn on printing of minimizer fact tables
-//#define print_minimizer_table
+#define print_minimizer_table
 // Dump local graphs that we align against 
-//#define debug_dump_graph
+#define debug_dump_graph
 // Dump fragment length distribution information
-//#define debug_fragment_distr
+#define debug_fragment_distr
 
 namespace vg {
 

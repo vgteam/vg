@@ -251,12 +251,38 @@ TEST_CASE("Mapping quality cap cannot be confused by excessive Gs", "[giraffe][m
     // They are all going to be explored
     vector<size_t> minimizers_explored;
     
+    string min_seq;
+    for (int i = 0; i < core_width; i++) {
+        min_seq.push_back('G');
+    }
+    auto encoded = gbwtgraph::DefaultMinimizerIndex::key_type::encode(min_seq);
+    
     for (int core_start = 0; core_start + core_width < sequence.size(); core_start++) {
         minimizers_explored.push_back(minimizers.size());
         minimizers.emplace_back();
         TestableMinimizerMapper::Minimizer& m = minimizers.back();
-        m.agglomeration_start = max(0, core_start - flank_width);
-        m.agglomeration_length = min((int)sequence.size(), core_start + core_width + flank_width) - core_start;
+        
+        if (core_start <= flank_width) {
+            // Partial left flank
+            m.agglomeration_start = 0;
+            m.agglomeration_length = core_width + flank_width + core_start;
+        } else if (sequence.size() - core_start - core_width <= flank_width) {
+            // Partial right flank
+            m.agglomeration_start = core_start - flank_width;
+            m.agglomeration_length = sequence.size() - m.agglomeration_start - 1;
+        } else {
+            // Full flanks
+            m.agglomeration_start = core_start - flank_width;
+            m.agglomeration_length = core_width + flank_width * 2;
+        }
+        cerr << "For core start at " << core_start << ", run " << m.agglomeration_start << " plus " << m.agglomeration_length << endl;
+        
+        // We need to set the key and its hash
+        m.value.key = encoded;
+        m.value.hash = m.value.key.hash();
+        m.value.offset = core_start;
+        m.value.is_reverse = false;
+        
         m.hits = 229;
         // We knowe the occurrences won't be used.
         m.occs = nullptr;
