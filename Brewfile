@@ -1,5 +1,7 @@
 brew "python"
 brew "jq"
+brew "parallel"
+brew "node"
 brew "jansson"
 brew "protobuf"
 brew "md5sha1sum"
