@@ -40,6 +40,10 @@ struct IndexingParameters {
     static int pruning_max_edge_count;
     // during pruning, remove any isolated components with at less than this total seq length [33]
     static int pruning_min_component_size;
+    // length of the k-mers indexed in GCSA2 before any doubling steps [16]
+    static int gcsa_initial_kmer_length;
+    // number of k-mer length doubling steps in GCSA2 [4]
+    static int gcsa_doubling_steps;
     // whether indexing algorithms will log progress (if available) [false]
     static bool verbose;
 };
@@ -75,8 +79,18 @@ public:
     /// or the temp directory?
     void set_intermediate_file_keeping(bool keep_intermediates);
     
+    /// Register an index with the given identifier
+    void register_index(const string& identifier, const string& suffix);
+    
+    /// Register a recipe to produce an index using other indexes
+    /// or input files. Also takes a for output as input
+    void register_recipe(const string& identifier,
+                         const vector<string>& input_identifiers,
+                         const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
+    
     /// Indicate a serialized file that contains some identified index
     void provide(const string& identifier, const string& filename);
+    
     /// Indicate a list of serialized files that contains some identified index
     void provide(const string& identifier, const vector<string>& filenames);
     
@@ -88,14 +102,12 @@ public:
     /// InsufficientInputException.
     void make_indexes(const vector<string>& identifiers);
     
+    /// Returns the recipe graph in dot format
+    string to_dot() const;
     
-    /// Register an index with the given identifier
-    void register_index(const string& identifier, const string& suffix);
-    /// Register a recipe to produce an index using other indexes
-    /// or input files. Also takes a for output as input
-    void register_recipe(const string& identifier,
-                         const vector<string>& input_identifiers,
-                         const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
+    /// Returns the recipe graph in dot format with a plan highlighted
+    string to_dot(const vector<string>& targets) const;
+    
 protected:
     
     /// get a topological ordering of all registered indexes in the dependency DAG
@@ -115,7 +127,7 @@ protected:
     
     unordered_set<string> registered_suffixes;
     
-    /// filepath that will prefix all output
+    /// filepath that will prefix all saved output
     string output_prefix;
     
     /// should intermediate files end up in the scratch or the output directory?

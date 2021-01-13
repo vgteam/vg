@@ -13,6 +13,8 @@
 #include <xg.hpp>
 #include <gbwt/variants.h>
 #include <vg/io/vpkg.hpp>
+#include <gcsa/gcsa.h>
+#include <gcsa/algorithms.h>
 
 #include "vg.hpp"
 #include "handle.hpp"
@@ -22,6 +24,8 @@
 #include "haplotype_indexer.hpp"
 #include "phase_unfolder.hpp"
 #include "gbwt_helper.hpp"
+#include "kmer.hpp"
+#include "source_sink_overlay.hpp"
 
 #include "io/save_handle_graph.hpp"
 
@@ -29,6 +33,7 @@
 #include "algorithms/prune.hpp"
 
 //#define debug_index_registry
+//#define debug_index_registry_path_state
 
 namespace vg {
 
@@ -38,6 +43,8 @@ int IndexingParameters::pruning_max_node_degree = 128;
 int IndexingParameters::pruning_walk_length = 24;
 int IndexingParameters::pruning_max_edge_count = 3;
 int IndexingParameters::pruning_min_component_size = 33;
+int IndexingParameters::gcsa_initial_kmer_length = gcsa::Key::MAX_LENGTH;
+int IndexingParameters::gcsa_doubling_steps = gcsa::ConstructionParameters::DOUBLING_STEPS;
 bool IndexingParameters::verbose = false;
 
 IndexRegistry VGIndexes::get_vg_index_registry() {
@@ -57,12 +64,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     /// True indexes
     registry.register_index("VG + Variant Paths", "varpaths.vg");
-    //registry.register_index("VG + Node Mapping", "vg_mapping");
-    //registry.register_index("VG + Variant Paths + Node Mapping", "vg_mapping");
+    //registry.register_index("VG + NodeMapping", "vg_mapping");
+    //registry.register_index("VG + Variant Paths + NodeMapping", "vg_mapping");
     registry.register_index("VG", "vg");
     registry.register_index("XG", "xg");
     registry.register_index("GBWT", "gbwt");
-    registry.register_index("Node Mapping", "mapping");
+    registry.register_index("NodeMapping", "mapping");
     registry.register_index("Pruned VG", "pruned.vg");
     registry.register_index("Haplotype-Pruned VG + NodeMapping", "haplopruned.vg");
     registry.register_index("GCSA + LCP", "gcsa");
@@ -125,6 +132,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // VCF Recipes
     ////////////////////////////////////
     
+#ifdef debug_index_registry
+    cerr << "registering VCF recipes" << endl;
+#endif
+    
     // alias a phased VCF as an unphased one
     registry.register_recipe("VCF", {"Phased VCF"},
                              [](const vector<const IndexFile*>& inputs,
@@ -136,8 +147,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // VG Recipes
     ////////////////////////////////////
     
+#ifdef debug_index_registry
+    cerr << "registering VG recipes" << endl;
+#endif
+    
 //    // alias the VG from a co-created VG and node mapping
-//    registry.register_recipe("VG", {"VG + Node Mapping"},
+//    registry.register_recipe("VG", {"VG + NodeMapping"},
 //                             [](const vector<const IndexFile*>& inputs,
 //                                const string& prefix, const string& suffix) {
 //        return inputs.front()->get_filenames().front();
@@ -147,6 +162,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_recipe("VG", {"VG + Variant Paths"},
                              [&](const vector<const IndexFile*>& inputs,
                                 const string& prefix, const string& suffix) {
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Stripping allele paths from VG." << endl;
+        }
         
         // test streams for I/O
         ifstream infile;
@@ -156,7 +174,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         init_out(outfile, output_name);
         
         unique_ptr<MutablePathHandleGraph> graph
-            = vg::io::VPKG::load_one<handlegraph::MutablePathHandleGraph>(infile);
+            = vg::io::VPKG::load_one<MutablePathHandleGraph>(infile);
         
         // gather handles to the alt allele paths
         vector<path_handle_t> alt_paths;
@@ -178,6 +196,46 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // return the filename
         return vector<string>(1, output_name);
     });
+        
+    // meta-recipe for creating a VG from a GFA
+    auto construct_from_gfa = [&](const vector<const IndexFile*>& inputs,
+                                  const string& prefix, const string& suffix,
+                                  nid_t* max_node_id_out) {
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Constructing VG graph from GFA input." << endl;
+        }
+        string output_name = prefix + "." + suffix;
+        ofstream outfile;
+        init_out(outfile, output_name);
+        auto graph = init_mutable_graph();
+        
+        // make the graph from GFA
+        try {
+            algorithms::gfa_to_path_handle_graph(inputs.at(0)->get_filenames().front(), graph.get(), true,
+                                                 IndexingParameters::mut_graph_impl == IndexingParameters::ODGI);
+        }
+        catch (algorithms::GFAFormatError& e) {
+            cerr << "error:[IndexRegistry] Input GFA is not usuable in VG." << endl;
+            cerr << e.what() << endl;
+            exit(1);
+        }
+        
+        if (max_node_id_out) {
+            *max_node_id_out = graph->max_node_id();
+        }
+        
+        // save the file
+        vg::io::save_handle_graph(graph.get(), outfile);
+        
+        // return the filename
+        return vector<string>(1, output_name);
+    };
+    
+    registry.register_recipe("VG", {"Reference GFA"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const string& prefix, const string& suffix) {
+        return construct_from_gfa(inputs, prefix, suffix, nullptr);
+    });
     
     // A meta-recipe to make VG files using the Constructor
     // Expects inputs to be ordered: FASTA, VCF[, Insertion FASTA]
@@ -187,6 +245,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                           bool alt_paths,
                                           nid_t* max_node_id_out) {
         
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Constructing VG graph from FASTA and VCF input." << endl;
+        }
         assert(inputs.size() == 2 || inputs.size() == 3);
         
         // init and configure the constructor
@@ -247,49 +308,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return construct_with_constructor(inputs, prefix, suffix, true, nullptr);
     });
     
-    // meta-recipe for creating a VG from a GFA
-    auto construct_from_gfa = [&](const vector<const IndexFile*>& inputs,
-                                  const string& prefix, const string& suffix,
-                                  nid_t* max_node_id_out) {
-        
-        string output_name = prefix + "." + suffix;
-        ofstream outfile;
-        init_out(outfile, output_name);
-        auto graph = init_mutable_graph();
-        
-        // make the graph from GFA
-        try {
-            algorithms::gfa_to_path_handle_graph(inputs.at(0)->get_filenames().front(), graph.get(), true,
-                                                 IndexingParameters::mut_graph_impl == IndexingParameters::ODGI);
-        }
-        catch (algorithms::GFAFormatError& e) {
-            cerr << "error:[IndexRegistry] Input GFA is not usuable in VG." << endl;
-            cerr << e.what() << endl;
-            exit(1);
-        }
-        
-        if (max_node_id_out) {
-            *max_node_id_out = graph->max_node_id();
-        }
-        
-        // save the file
-        vg::io::save_handle_graph(graph.get(), outfile);
-        
-        // return the filename
-        return vector<string>(1, output_name);
-    };
-    
-    registry.register_recipe("VG", {"Reference GFA"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const string& prefix, const string& suffix) {
-        return construct_from_gfa(inputs, prefix, suffix, nullptr);
-    });
-    
     ////////////////////////////////////
-    // VG + Node Mapping Recipes
+    // VG + NodeMapping Recipes
     ////////////////////////////////////
     
-//    registry.register_recipe("VG + Node Mapping", {"Reference GFA"},
+//    registry.register_recipe("VG + NodeMapping", {"Reference GFA"},
 //                             [](const vector<const IndexFile*>& inputs,
 //                                const string& prefix, const string& suffix) {
 //
@@ -306,10 +329,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // XG Recipes
     ////////////////////////////////////
     
+#ifdef debug_index_registry
+    cerr << "registering XG recipes" << endl;
+#endif
+    
     registry.register_recipe("XG", {"Reference GFA"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
-        
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Constructing XG graph from GFA input." << endl;
+        }
         string output_name = prefix + "." + suffix;
         ofstream outfile;
         init_out(outfile, output_name);
@@ -326,6 +355,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_recipe("XG", {"VG"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Constructing XG graph from VG graph." << endl;
+        }
         // test streams for I/O
         ifstream infile;
         init_in(infile, inputs.at(0)->get_filenames().front());
@@ -333,8 +365,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         ofstream outfile;
         init_out(outfile, output_name);
         
-        unique_ptr<PathHandleGraph> graph
-            = vg::io::VPKG::load_one<handlegraph::PathHandleGraph>(infile);
+        unique_ptr<PathHandleGraph> graph = vg::io::VPKG::load_one<PathHandleGraph>(infile);
         
         xg::XG xg_index;
         xg_index.from_path_handle_graph(*graph);
@@ -346,20 +377,27 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     ////////////////////////////////////
-    // Node Mapping Recipes
+    // NodeMapping Recipes
     ////////////////////////////////////
     
 //    // alias the VG from a co-created VG and node mapping
-//    registry.register_recipe("Node Mapping", {"VG + Node Mapping"},
+//    registry.register_recipe("NodeMapping", {"VG + NodeMapping"},
 //                             [](const vector<const IndexFile*>& inputs,
 //                                const string& prefix, const string& suffix) {
 //        return inputs.front()->get_filenames().back();
 //    });
     
-    registry.register_recipe("Node Mapping", {"VG"},
+    
+#ifdef debug_index_registry
+    cerr << "registering NodeMapping recipes" << endl;
+#endif
+    
+    registry.register_recipe("NodeMapping", {"VG"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
-        
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Initializing NodeMapping from VG." << endl;
+        }
         // TODO: this is pretty unoptimized in that we have to load the whole graph just
         // to read the max node id
         ifstream infile;
@@ -368,8 +406,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         ofstream outfile;
         init_out(outfile, output_name);
         
-        unique_ptr<PathHandleGraph> graph
-            = vg::io::VPKG::load_one<handlegraph::PathHandleGraph>(infile);
+        unique_ptr<PathHandleGraph> graph = vg::io::VPKG::load_one<PathHandleGraph>(infile);
         
         gcsa::NodeMapping mapping(graph->max_node_id() + 1);
         mapping.serialize(outfile);
@@ -381,10 +418,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // GBWT Recipes
     ////////////////////////////////////
     
+#ifdef debug_index_registry
+    cerr << "registering GBWT recipes" << endl;
+#endif
+    
     registry.register_recipe("GBWT", {"VG + Variant Paths", "Phased VCF"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
-        
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Constructing GBWT from VG graph and phased VCF input." << endl;
+        }
         // test streams for I/O
         ifstream infile;
         init_in(infile, inputs.at(0)->get_filenames().front());
@@ -396,7 +439,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         haplotype_indexer.show_progress = IndexingParameters::verbose;
         
         unique_ptr<PathHandleGraph> graph
-            = vg::io::VPKG::load_one<handlegraph::PathHandleGraph>(infile);
+            = vg::io::VPKG::load_one<PathHandleGraph>(infile);
         
         vector<string> parse_files = haplotype_indexer.parse_vcf(inputs.front()->get_filenames().front(),
                                                                  *graph);
@@ -411,6 +454,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     ////////////////////////////////////
     // Pruned VG Recipes
     ////////////////////////////////////
+    
+#ifdef debug_index_registry
+    cerr << "registering pruning recipes" << endl;
+#endif
     
     // meta-recipe for pruning with/without GBWT
     auto prune_graph = [&](const vector<const IndexFile*>& inputs,
@@ -436,8 +483,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             init_out(outfile_mapping, mapping_output_name);
         }
         
-        std::unique_ptr<MutablePathDeletableHandleGraph> graph
-            = vg::io::VPKG::load_one<handlegraph::MutablePathDeletableHandleGraph>(infile_vg);
+        unique_ptr<MutablePathDeletableHandleGraph> graph
+            = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(infile_vg);
         
         // remove all paths
         vector<path_handle_t> paths;
@@ -450,8 +497,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
         
         // prune the graph based on topology
-        algorithms::prune_complex_with_head_tail(*graph,
-                                                 IndexingParameters::pruning_walk_length,
+        if (IndexingParameters::pruning_max_node_degree != 0) {
+            algorithms::remove_high_degree_nodes(*graph, IndexingParameters::pruning_max_node_degree);
+        }
+        algorithms::prune_complex_with_head_tail(*graph, IndexingParameters::pruning_walk_length,
                                                  IndexingParameters::pruning_max_edge_count);
         algorithms::prune_short_subgraphs(*graph, IndexingParameters::pruning_min_component_size);
         
@@ -495,6 +544,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_recipe("Pruned VG", {"VG", "XG"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Pruning complex regions of VG to prepare for GCSA indexing." << endl;
+        }
         // call the meta-recipe
         return prune_graph(inputs, prefix, suffix);
     });
@@ -502,6 +554,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_recipe("Haplotype-Pruned VG + NodeMapping", {"VG", "XG", "GBWT", "NodeMapping"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Pruning complex regions of VG to prepare for GCSA indexing with GBWT unfolding." << endl;
+        }
+        
         // call the meta-recipe
         return prune_graph(inputs, prefix, suffix);
     });
@@ -510,24 +566,93 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // GCSA + LCP Recipes
     ////////////////////////////////////
     
+#ifdef debug_index_registry
+    cerr << "registering GCSA recipes" << endl;
+#endif
+    
+    // meta-recipe for GCSA indexing with or without unfolded input
+    auto construct_gcsa = [&](const vector<const IndexFile*>& inputs,
+                              const string& prefix, const string& suffix) {
+        
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Constructing GCSA/LCP indexes." << endl;
+        }
+        
+        assert(inputs.size() == 1);
+        assert(inputs.front()->get_filenames().size() == 1 ||
+               inputs.front()->get_filenames().size() == 2);
+        bool unfolded = inputs.front()->get_filenames().size() == 2;
+        
+        // test streams for I/O
+        ifstream infile_vg, infile_mapping;
+        init_in(infile_vg, inputs.at(0)->get_filenames().front());
+        string mapping_filename;
+        if (unfolded) {
+            mapping_filename = inputs.at(0)->get_filenames().back();
+            init_in(infile_mapping, mapping_filename);
+        }
+        string gcsa_output_name = prefix + "." + suffix;
+        string lcp_output_name = gcsa_output_name + ".lcp";
+        ofstream outfile_gcsa;
+        ofstream outfile_lcp;
+        init_out(outfile_gcsa, gcsa_output_name);
+        init_out(outfile_lcp, lcp_output_name);
+        
+        // configure
+        gcsa::TempFile::setDirectory(temp_file::get_dir());
+        if (IndexingParameters::verbose) {
+            gcsa::Verbosity::set(gcsa::Verbosity::BASIC);
+        }
+        else {
+            gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+        }
+        auto params = gcsa::ConstructionParameters();
+        params.doubling_steps = IndexingParameters::gcsa_doubling_steps;
+        
+        // load graph to index
+        unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>(infile_vg);
+        SourceSinkOverlay overlay(graph.get(), IndexingParameters::gcsa_initial_kmer_length);
+        size_t kmer_bytes = params.getLimitBytes();
+        
+        // get the intiial k-mers
+        string dbg_name = write_gcsa_kmers_to_tmpfile(overlay, IndexingParameters::gcsa_initial_kmer_length,
+                                                      kmer_bytes, overlay.get_id(overlay.get_source_handle()),
+                                                      overlay.get_id(overlay.get_sink_handle()));
+        
+        // construct the indexes (giving empty mapping name is sufficient to make
+        // indexing skip the unfolded code path)
+        gcsa::InputGraph input_graph(vector<string>(1, dbg_name), true, gcsa::Alphabet(),
+                                     mapping_filename);
+        gcsa::GCSA gcsa_index(input_graph, params);
+        gcsa::LCPArray lcp_array(input_graph, params);
+        
+        // clean up the k-mers file
+        temp_file::remove(dbg_name);
+        
+        vg::io::VPKG::save(gcsa_index, gcsa_output_name);
+        vg::io::VPKG::save(lcp_array, lcp_output_name);
+        
+        return vector<string>{gcsa_output_name, lcp_output_name};
+    };
+    
     registry.register_recipe("GCSA + LCP", {"Haplotype-Pruned VG + NodeMapping"},
                             [&](const vector<const IndexFile*>& inputs,
                                 const string& prefix, const string& suffix) {
-        // TODO: write
-        return vector<string>();
+        // execute meta recipe
+        return construct_gcsa(inputs, prefix, suffix);
     });
     
     registry.register_recipe("GCSA + LCP", {"Pruned VG"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
-        // TODO: write
-        return vector<string>();
+        // execute meta recipe
+        return construct_gcsa(inputs, prefix, suffix);
     });
     
     return registry;
 }
 
-vector<string> get_default_map_indexes() {
+vector<string> VGIndexes::get_default_map_indexes() {
     vector<string> indexes{
         "XG",
         "GCSA + LCP"
@@ -535,7 +660,7 @@ vector<string> get_default_map_indexes() {
     return indexes;
 }
 
-vector<string> get_default_mpmap_indexes() {
+vector<string> VGIndexes::get_default_mpmap_indexes() {
     vector<string> indexes{
         "Spliced XG",
         "Spliced Distance",
@@ -545,7 +670,7 @@ vector<string> get_default_mpmap_indexes() {
     return indexes;
 }
 
-vector<string> get_default_giraffe_indexes() {
+vector<string> VGIndexes::get_default_giraffe_indexes() {
     vector<string> indexes{
         "GBWT",
         "GBWTGraph",
@@ -778,6 +903,9 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
     // TODO: I'm sure there's a more elegant implementation of this algorithm
     unordered_set<pair<string, size_t>> plan_elements;
     for (const auto& product : end_products) {
+#ifdef debug_index_registry
+        cerr << "making a plan for end product " << product << endl;
+#endif
         
         // records of (identifier, lowest level requester, ordinal index of recipe selected)
         vector<tuple<size_t, size_t, size_t>> plan_path;
@@ -788,6 +916,16 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
         queue[dep_order_of_identifier[product]] = pair<size_t, size_t>(identifier_order.size(), 1);
         
         while (!queue.empty()) {
+#ifdef debug_index_registry_path_state
+            cerr << "new iteration, path:" << endl;
+            for (auto pe : plan_path) {
+                cerr << "\t" << identifier_order[get<0>(pe)] << ", requester: " << (get<1>(pe) == identifier_order.size() ? string("PLAN TARGET") : identifier_order[get<1>(pe)]) << ", recipe " << get<2>(pe) << endl;
+            }
+            cerr << "state of queue:" << endl;
+            for (auto q : queue) {
+                cerr << "\t" << identifier_order[q.first] << ", requester: " << (q.second.first == identifier_order.size() ? string("PLAN TARGET") : identifier_order[q.second.first]) << ", num requesters " << q.second.second << endl;
+            }
+#endif
             
             // get the latest file in the dependency order
             // that we have left to build
@@ -852,7 +990,6 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
                     while (!plan_path.empty() && get<0>(plan_path.back()) != requester) {
                         
                         auto index = get_index(identifier_order[get<0>(plan_path.back())]);
-                        
                         if (!index->is_finished() && get<2>(plan_path.back()) < index->get_recipes().size()) {
                             // this index was using a recipe, we need to update its dependencies
                             // that are currently in the queue
@@ -877,6 +1014,25 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
                     
                     if (!plan_path.empty()) {
                         // the requester should now use its next highest priority recipe
+                        auto index = get_index(identifier_order[get<0>(plan_path.back())]);
+                        if (!index->is_finished() && get<2>(plan_path.back()) < index->get_recipes().size()) {
+                            // this index was using a recipe, we need to update its dependencies
+                            // that are currently in the queue
+                            const auto& recipe = index->get_recipes().at(get<2>(plan_path.back()));
+                            for (auto input : recipe.inputs) {
+                                size_t input_dep_order = dep_order_of_identifier[input->get_identifier()];
+                                auto q = queue.find(input_dep_order);
+                                if (q != queue.end()) {
+                                    // there is now one fewer index requesting this index as input
+                                    --q->second.second;
+                                    if (q->second.second == 0) {
+                                        // this is the only index that's requesting this queued index,
+                                        // so we can remove it from the queue
+                                        queue.erase(q);
+                                    }
+                                }
+                            }
+                        }
                         ++get<2>(plan_path.back());
                     }
                 }
@@ -944,6 +1100,79 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
         return get_index(recipe_choice.first)->is_finished();
     }) - plan.begin());
     return plan;
+}
+
+string IndexRegistry::to_dot() const {
+    return to_dot(vector<string>());
+}
+
+string IndexRegistry::to_dot(const vector<string>& targets) const {
+    
+    
+    stringstream strm;
+    strm << "digraph recipegraph {" << endl;
+    
+    unordered_set<string> plan_targets(targets.begin(), targets.end());
+    unordered_set<pair<string, size_t>> plan_elements;
+    unordered_set<string> plan_indexes;
+    if (!targets.empty()) {
+        vector<pair<string, size_t>> plan;
+        try {
+            plan = make_plan(targets);
+        }
+        catch (InsufficientInputException ex) {
+            strm << "labelloc=\"t\";" << endl;
+            strm << "label=\"Insufficient input to create targets\";" << endl;
+        }
+        for (const auto& plan_elem : plan) {
+            plan_elements.insert(plan_elem);
+            plan_indexes.insert(plan_elem.first);
+        }
+    }
+    
+    unordered_map<string, string> index_to_dot_id;
+    size_t index_idx = 0;
+    for (const auto& index_file : registry) {
+        index_to_dot_id[index_file.first] = "I" + to_string(index_idx);
+        ++index_idx;
+        strm << index_to_dot_id[index_file.first] << "[label=\"" << index_file.first << "\" shape=box";
+        if (index_file.second->is_finished()) {
+            strm << " style=\"filled,bold\" fillcolor=lightgray";
+        }
+        else if (plan_targets.count(index_file.first)) {
+            strm << " style=\"filled,bold\" fillcolor=lightblue";
+        }
+        else if (plan_indexes.count(index_file.first)) {
+            strm << " style=bold";
+        }
+        strm << "];" << endl;
+    }
+    size_t recipe_idx = 0;
+    for (const auto& index_file : registry) {
+        const auto& recipes = index_file.second->get_recipes();
+        for (size_t priority_idx = 0; priority_idx < recipes.size(); ++priority_idx, ++recipe_idx) {
+            const auto& recipe = recipes[priority_idx];
+            string recipe_dot_id = "R" + to_string(recipe_idx);
+            if (plan_elements.count(make_pair(index_file.first, priority_idx))) {
+                strm << recipe_dot_id << "[label=\"" << priority_idx << "\" shape=circle style=bold];" << endl;
+                strm << recipe_dot_id << " -> " << index_to_dot_id[index_file.first] << "[style=bold];" << endl;
+            }
+            else {
+                strm << recipe_dot_id << "[label=\"" << priority_idx << "\" shape=circle];" << endl;
+                strm << recipe_dot_id << " -> " << index_to_dot_id[index_file.first] << ";" << endl;
+            }
+            for (const auto& input : recipe.inputs) {
+                if (plan_elements.count(make_pair(index_file.first, priority_idx))) {
+                    strm << index_to_dot_id[input->get_identifier()] << " -> " << recipe_dot_id << "[style=bold];" << endl;
+                }
+                else {
+                    strm << index_to_dot_id[input->get_identifier()] << " -> " << recipe_dot_id << ";" << endl;
+                }
+            }
+        }
+    }
+    strm << "}" << endl;
+    return strm.str();
 }
 
 IndexFile::IndexFile(const string& identifier, const string& suffix) : identifier(identifier), suffix(suffix) {
