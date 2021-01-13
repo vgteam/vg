@@ -26,16 +26,18 @@
 #include "io/save_handle_graph.hpp"
 
 #include "algorithms/gfa_to_handle.hpp"
+#include "algorithms/prune.hpp"
 
 //#define debug_index_registry
 
 namespace vg {
 
-IndexingParameters::MutableGraphImplementation IndexingParameters::mut_implementation = HashGraph;
+IndexingParameters::MutableGraphImplementation IndexingParameters::mut_graph_impl = HashGraph;
 int IndexingParameters::max_node_size = 32;
-int IndexingParameters::pruning_max_node_degree = 256;
+int IndexingParameters::pruning_max_node_degree = 128;
 int IndexingParameters::pruning_walk_length = 24;
 int IndexingParameters::pruning_max_edge_count = 3;
+int IndexingParameters::pruning_min_component_size = 33;
 bool IndexingParameters::verbose = false;
 
 IndexRegistry VGIndexes::get_vg_index_registry() {
@@ -83,9 +85,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             exit(1);
         }
     };
-    auto init_mutable_graph = [&]() -> unique_ptr<MutablePathMutableHandleGraph> {
-        unique_ptr<MutablePathMutableHandleGraph> graph;
-        switch (IndexingParameters::mut_implementation) {
+    auto init_in_out = [](fstream& strm, const string& name) {
+        strm.open(name);
+        if (!strm) {
+            cerr << "error:[IndexRegistry] could not open " << name << endl;
+            exit(1);
+        }
+    };
+    
+    auto init_mutable_graph = [&]() -> unique_ptr<MutablePathDeletableHandleGraph> {
+        unique_ptr<MutablePathDeletableHandleGraph> graph;
+        switch (IndexingParameters::mut_graph_impl) {
             case IndexingParameters::HashGraph:
                 graph = make_unique<bdsg::HashGraph>();
                 break;
@@ -207,6 +217,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         vg::io::save_handle_graph(graph.get(), outfile);
         
         if (max_node_id_out) {
+            // TODO: maybe use this for initializing a NodeMapping
             *max_node_id_out = graph->max_node_id();
         }
         
@@ -244,12 +255,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         string output_name = prefix + "." + suffix;
         ofstream outfile;
         init_out(outfile, output_name);
-        unique_ptr<MutablePathMutableHandleGraph> graph = init_mutable_graph();
+        auto graph = init_mutable_graph();
         
         // make the graph from GFA
         try {
             algorithms::gfa_to_path_handle_graph(inputs.at(0)->get_filenames().front(), graph.get(), true,
-                                                 IndexingParameters::mut_implementation == IndexingParameters::ODGI);
+                                                 IndexingParameters::mut_graph_impl == IndexingParameters::ODGI);
         }
         catch (algorithms::GFAFormatError& e) {
             cerr << "error:[IndexRegistry] Input GFA is not usuable in VG." << endl;
@@ -354,11 +365,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         ifstream infile;
         init_in(infile, inputs.at(0)->get_filenames().front());
         string output_name = prefix + "." + suffix;
-        ofstream outfile(output_name, std::ios_base::binary);
-        if (!outfile) {
-            cerr << "error:[IndexRegistry] unable to write to file at " << output_name << endl;
-            exit(1);
-        }
+        ofstream outfile;
+        init_out(outfile, output_name);
         
         unique_ptr<PathHandleGraph> graph
             = vg::io::VPKG::load_one<handlegraph::PathHandleGraph>(infile);
@@ -404,20 +412,32 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // Pruned VG Recipes
     ////////////////////////////////////
     
-    registry.register_recipe("Pruned VG", {"VG", "XG"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const string& prefix, const string& suffix) {
+    // meta-recipe for pruning with/without GBWT
+    auto prune_graph = [&](const vector<const IndexFile*>& inputs,
+                           const string& prefix, const string& suffix) {
+        
+        // we only want to focus on two specific recipes
+        assert(inputs.size() == 2 || inputs.size() == 4);
+        bool using_haplotypes = inputs.size() == 4;
         
         // test streams for I/O
-        ifstream infile_vg, infile_xg;
+        ifstream infile_vg, infile_xg, infile_gbwt, infile_mapping;
         init_in(infile_vg, inputs.at(0)->get_filenames().front());
         init_in(infile_xg, inputs.at(1)->get_filenames().front());
-        string output_name = prefix + "." + suffix;
-        ofstream outfile;
-        init_out(outfile, output_name);
+        if (using_haplotypes) {
+            init_in(infile_vg, inputs.at(2)->get_filenames().front());
+            init_in(infile_mapping, inputs.at(3)->get_filenames().front());
+        }
+        string vg_output_name = prefix + "." + suffix;
+        string mapping_output_name = prefix + "." + suffix + ".mapping";
+        ofstream outfile_vg, outfile_mapping;
+        init_out(outfile_vg, vg_output_name);
+        if (using_haplotypes) {
+            init_out(outfile_mapping, mapping_output_name);
+        }
         
-        std::unique_ptr<MutablePathMutableHandleGraph> graph
-            = vg::io::VPKG::load_one<handlegraph::MutablePathMutableHandleGraph>(infile);
+        std::unique_ptr<MutablePathDeletableHandleGraph> graph
+            = vg::io::VPKG::load_one<handlegraph::MutablePathDeletableHandleGraph>(infile_vg);
         
         // remove all paths
         vector<path_handle_t> paths;
@@ -426,40 +446,64 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             paths.push_back(path);
         });
         for (auto path : paths) {
-            graph.destroy_path(path);
+            graph->destroy_path(path);
         }
         
-        // TODO: prune_complex_with_head_tail
+        // prune the graph based on topology
+        algorithms::prune_complex_with_head_tail(*graph,
+                                                 IndexingParameters::pruning_walk_length,
+                                                 IndexingParameters::pruning_max_edge_count);
+        algorithms::prune_short_subgraphs(*graph, IndexingParameters::pruning_min_component_size);
         
-        // TODO: prune_short_subgraphs
-        
-        // use the "restore paths" option
-        if (!paths.empty()) {
-            // there were paths we can restore
+        if (!paths.empty() || using_haplotypes) {
+            // there were paths/threads we can restore
             
             xg::XG xg_index;
             xg_index.deserialize(infile_xg);
             
-            // Make an empty GBWT index to pass along
-            gbwt::GBWT empty_gbwt;
-            PhaseUnfolder unfolder(xg_index, empty_gbwt, xg_index.max_node_id() + 1);
-            unfolder.restore_paths(*graph, show_progress);
+            if (!using_haplotypes) {
+                // we can bring back edges on embedded paths
+                
+                // Make an empty GBWT index to pass along
+                gbwt::GBWT empty_gbwt;
+                PhaseUnfolder unfolder(xg_index, empty_gbwt, xg_index.max_node_id() + 1);
+                unfolder.restore_paths(*graph, IndexingParameters::verbose);
+            }
+            else {
+                // we can expand out complex regions using haplotypes
+                
+                // copy the node mapping so that we have a copy that we can alter without
+                // potentially messing up the input for other recipes
+                unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(infile_gbwt);
+                PhaseUnfolder unfolder(xg_index, *gbwt_index, xg_index.max_node_id() + 1);
+                unfolder.read_mapping(inputs.at(3)->get_filenames().front());
+                unfolder.unfold(*graph, IndexingParameters::verbose);
+                unfolder.write_mapping(mapping_output_name);
+            }
         }
         
-        vg::io::save_handle_graph(graph.get(), outfile);
+        vg::io::save_handle_graph(graph.get(), outfile_vg);
         
-        return vector<string>(1, output_name);
+        if (using_haplotypes) {
+            return vector<string>{vg_output_name, mapping_output_name};
+        }
+        else {
+            return vector<string>(1, vg_output_name);
+        }
+    };
+    
+    registry.register_recipe("Pruned VG", {"VG", "XG"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const string& prefix, const string& suffix) {
+        // call the meta-recipe
+        return prune_graph(inputs, prefix, suffix);
     });
     
     registry.register_recipe("Haplotype-Pruned VG + NodeMapping", {"VG", "XG", "GBWT", "NodeMapping"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
-        
-        // we copy the mapping so that we can modify it and leave the original un-touched
-        // (this is a hidden assumption of the whole registry)
-        
-        
-        
+        // call the meta-recipe
+        return prune_graph(inputs, prefix, suffix);
     });
     
     ////////////////////////////////////
@@ -469,15 +513,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_recipe("GCSA + LCP", {"Haplotype-Pruned VG + NodeMapping"},
                             [&](const vector<const IndexFile*>& inputs,
                                 const string& prefix, const string& suffix) {
-        
-        
+        // TODO: write
+        return vector<string>();
     });
     
     registry.register_recipe("GCSA + LCP", {"Pruned VG"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
-        
-        
+        // TODO: write
+        return vector<string>();
     });
     
     return registry;
@@ -486,8 +530,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 vector<string> get_default_map_indexes() {
     vector<string> indexes{
         "XG",
-        "GCSA",
-        "LCP"
+        "GCSA + LCP"
     };
     return indexes;
 }
@@ -496,8 +539,7 @@ vector<string> get_default_mpmap_indexes() {
     vector<string> indexes{
         "Spliced XG",
         "Spliced Distance",
-        "Spliced GCSA",
-        "Spliced LCP",
+        "Spliced GCSA + LCP",
         "Haplotype-Transcript GBWT"
     };
     return indexes;

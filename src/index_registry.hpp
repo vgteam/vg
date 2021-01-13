@@ -29,16 +29,17 @@ struct IndexingParameters {
     // the actual parameters
     
     // the format that "VG" indexes will be created in [HashGraph]
-    static MutableGraphImplementation mut_implementation;
+    static MutableGraphImplementation mut_graph_impl;
     // the maximum node length for graphs that are created from VCFs [32]
     static int max_node_size;
-    // during pruning, remove nodes with degree higher than this [256] // TODO: is this a good default?
+    // during pruning, remove nodes with degree higher than this [128] // TODO: is this a good default?
     static int pruning_max_node_degree;
     // during pruning, identify complex regions using walks of this length [24]
     static int pruning_walk_length;
     // during pruning, remove edges if a walk contains this many branching edges [3]
     static int pruning_max_edge_count;
-    // TODO: prune short subgraphs too?
+    // during pruning, remove any isolated components with at less than this total seq length [33]
+    static int pruning_min_component_size;
     // whether indexing algorithms will log progress (if available) [false]
     static bool verbose;
 };
