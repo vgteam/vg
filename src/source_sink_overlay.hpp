@@ -24,7 +24,7 @@ using namespace handlegraph;
  * connected to a single source node, and all its tail nodes connected to a
  * single sink node.
  */
-class SourceSinkOverlay : public HandleGraph {
+class SourceSinkOverlay : public ExpandingOverlayGraph {
 
 public:
     /**
@@ -100,6 +100,15 @@ public:
     /// graph also provides this facility in O(1) time. Takes O(n) time
     /// otherwise in the returned degree.
     virtual size_t get_degree(const handle_t& handle, bool go_left) const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Overlay interface
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Get the handle in the underlying graph that corresponds to the handle in
+    /// the overlay.
+    /// Throws an error if called on either the source or sink node
+    virtual handle_t get_underlying_handle(const handle_t& handle) const;
     
 protected:
     
