@@ -24,64 +24,84 @@ TEST_CASE("IndexRegistry can make plans on a dummy recipe graph", "[indexregistr
     TestIndexRegistry registry;
     
     // name the indexes
-    registry.register_index("FASTA");
-    registry.register_index("VCF");
-    registry.register_index("GFA");
-    registry.register_index("VG");
-    registry.register_index("Pruned VG");
-    registry.register_index("XG");
-    registry.register_index("GCSA+LCP");
-    registry.register_index("Trivial Snarls");
-    registry.register_index("Distance");
+    registry.register_index("FASTA", "fasta");
+    registry.register_index("VCF", "vcf");
+    registry.register_index("GFA", "gfa");
+    registry.register_index("VG", "vg");
+    registry.register_index("Pruned VG", "pruned.vg");
+    registry.register_index("XG", "xg");
+    registry.register_index("GCSA+LCP", "gcsa_lcp");
+    registry.register_index("Trivial Snarls", "snarls");
+    registry.register_index("Distance", "dist");
     
     // make some dummy recipes that don't actually do anything
     registry.register_recipe("VG", {"FASTA", "VCF"},
-                             [&] (const vector<const IndexFile*>& inputs) {
+                             [&] (const vector<const IndexFile*>& inputs,
+                                  const string& prefix,
+                                  const string& suffix) {
         vector<string> filename(1, "vg-file");
         return filename;
     });
     registry.register_recipe("VG", {"GFA"},
-                             [&] (const vector<const IndexFile*>& inputs) {
+                             [&] (const vector<const IndexFile*>& inputs,
+                                  const string& prefix,
+                                  const string& suffix) {
         vector<string> filename(1, "vg-file");
         return filename;
     });
     registry.register_recipe("XG", {"GFA"},
-                             [&] (const vector<const IndexFile*>& inputs) {
+                             [&] (const vector<const IndexFile*>& inputs,
+                                  const string& prefix,
+                                  const string& suffix) {
         vector<string> filename(1, "xg-file");
         return filename;
     });
     registry.register_recipe("XG", {"VG"},
-                             [&] (const vector<const IndexFile*>& inputs) {
+                             [&] (const vector<const IndexFile*>& inputs,
+                                  const string& prefix,
+                                  const string& suffix) {
         vector<string> filename(1, "xg-file");
         return filename;
     });
     registry.register_recipe("Pruned VG", {"VG"},
-                             [&] (const vector<const IndexFile*>& inputs) {
+                             [&] (const vector<const IndexFile*>& inputs,
+                                  const string& prefix,
+                                  const string& suffix) {
         vector<string> filenames{"pruned-vg-file"};
         return filenames;
     });
     registry.register_recipe("GCSA+LCP", {"Pruned VG"},
-                             [&] (const vector<const IndexFile*>& inputs) {
+                             [&] (const vector<const IndexFile*>& inputs,
+                                  const string& prefix,
+                                  const string& suffix) {
         vector<string> filenames{"gcsa-file", "lcp-file"};
         return filenames;
     });
     registry.register_recipe("Trivial Snarls", {"XG"},
-                             [&] (const vector<const IndexFile*>& inputs) {
+                             [&] (const vector<const IndexFile*>& inputs,
+                                  const string& prefix,
+                                  const string& suffix) {
         vector<string> filenames(1, "snarls-file");
         return filenames;
     });
     registry.register_recipe("Trivial Snarls", {"VG"},
-                             [&] (const vector<const IndexFile*>& inputs) {
+                             [&] (const vector<const IndexFile*>& inputs,
+                                  const string& prefix,
+                                  const string& suffix) {
         vector<string> filenames(1, "snarls-file");
         return filenames;
     });
     registry.register_recipe("Distance", {"XG", "Trivial Snarls"},
-                             [&] (const vector<const IndexFile*>& inputs) {
+                             [&] (const vector<const IndexFile*>& inputs,
+                                  const string& prefix,
+                                  const string& suffix) {
         vector<string> filenames(1, "dist-file");
         return filenames;
     });
     registry.register_recipe("Distance", {"VG", "Trivial Snarls"},
-                             [&] (const vector<const IndexFile*>& inputs) {
+                             [&] (const vector<const IndexFile*>& inputs,
+                                  const string& prefix,
+                                  const string& suffix) {
         vector<string> filenames(1, "dist-file");
         return filenames;
     });

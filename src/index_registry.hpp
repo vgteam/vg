@@ -32,6 +32,13 @@ struct IndexingParameters {
     static MutableGraphImplementation mut_implementation;
     // the maximum node length for graphs that are created from VCFs [32]
     static int max_node_size;
+    // during pruning, remove nodes with degree higher than this [256] // TODO: is this a good default?
+    static int pruning_max_node_degree;
+    // during pruning, identify complex regions using walks of this length [24]
+    static int pruning_walk_length;
+    // during pruning, remove edges if a walk contains this many branching edges [3]
+    static int pruning_max_edge_count;
+    // TODO: prune short subgraphs too?
     // whether indexing algorithms will log progress (if available) [false]
     static bool verbose;
 };
