@@ -72,24 +72,20 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 
-<p>Stores a walk in the context of a graph.  
+<p>Record a &lt;=k-length walk in the context of a graph.  
  <a href="structvg_1_1algorithms_1_1walk__t.html#details">More...</a></p>
 
 <p><code>#include &lt;walk.hpp&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
+<tr class="memitem:a5a5ed7ca0dac4f9e742ddeeb28e317e1"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1walk__t.html#a5a5ed7ca0dac4f9e742ddeeb28e317e1">walk_t</a> (uint16_t l, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;b, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;e, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;c, uint16_t f)</td></tr>
+<tr class="separator:a5a5ed7ca0dac4f9e742ddeeb28e317e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af8c4463befc5bb6cec73b3e493acf545"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1walk__t.html#af8c4463befc5bb6cec73b3e493acf545">walk_t</a> (const std::string &amp;s, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;b, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;e, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;c)</td></tr>
 <tr class="separator:af8c4463befc5bb6cec73b3e493acf545"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:aee19ea04353c3d23bef5d5fd3689965c"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1walk__t.html#aee19ea04353c3d23bef5d5fd3689965c">path</a></td></tr>
-<tr class="memdesc:aee19ea04353c3d23bef5d5fd3689965c"><td class="mdescLeft">&#160;</td><td class="mdescRight">the walk  <a href="#aee19ea04353c3d23bef5d5fd3689965c">More...</a><br /></td></tr>
-<tr class="separator:aee19ea04353c3d23bef5d5fd3689965c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a65bec2a64da1b8f7c3820d49b5bef09f"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1walk__t.html#a65bec2a64da1b8f7c3820d49b5bef09f">seq</a></td></tr>
-<tr class="memdesc:a65bec2a64da1b8f7c3820d49b5bef09f"><td class="mdescLeft">&#160;</td><td class="mdescRight">the sequence  <a href="#a65bec2a64da1b8f7c3820d49b5bef09f">More...</a><br /></td></tr>
-<tr class="separator:a65bec2a64da1b8f7c3820d49b5bef09f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3d07d5849d404936cf9dd87bb5071d4c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1walk__t.html#a3d07d5849d404936cf9dd87bb5071d4c">begin</a></td></tr>
 <tr class="memdesc:a3d07d5849d404936cf9dd87bb5071d4c"><td class="mdescLeft">&#160;</td><td class="mdescRight">our start position  <a href="#a3d07d5849d404936cf9dd87bb5071d4c">More...</a><br /></td></tr>
 <tr class="separator:a3d07d5849d404936cf9dd87bb5071d4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -97,17 +93,81 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:aa9f43084546a1cb2504850e5be168ae1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Used in construction.  <a href="#aa9f43084546a1cb2504850e5be168ae1">More...</a><br /></td></tr>
 <tr class="separator:aa9f43084546a1cb2504850e5be168ae1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0940baf10cc23ee2c424ccf2b2cd61d4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1walk__t.html#a0940baf10cc23ee2c424ccf2b2cd61d4">curr</a></td></tr>
-<tr class="memdesc:a0940baf10cc23ee2c424ccf2b2cd61d4"><td class="mdescLeft">&#160;</td><td class="mdescRight">one past the (current) end of the walk  <a href="#a0940baf10cc23ee2c424ccf2b2cd61d4">More...</a><br /></td></tr>
+<tr class="memdesc:a0940baf10cc23ee2c424ccf2b2cd61d4"><td class="mdescLeft">&#160;</td><td class="mdescRight">one past the (current) end of the kmer  <a href="#a0940baf10cc23ee2c424ccf2b2cd61d4">More...</a><br /></td></tr>
 <tr class="separator:a0940baf10cc23ee2c424ccf2b2cd61d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a10f5d30f390ed54e49b4785d3edf7f98"><td class="memItemLeft" align="right" valign="top">uint16_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1walk__t.html#a10f5d30f390ed54e49b4785d3edf7f98">forks</a></td></tr>
 <tr class="memdesc:a10f5d30f390ed54e49b4785d3edf7f98"><td class="mdescLeft">&#160;</td><td class="mdescRight">the next handle we extend into  <a href="#a10f5d30f390ed54e49b4785d3edf7f98">More...</a><br /></td></tr>
 <tr class="separator:a10f5d30f390ed54e49b4785d3edf7f98"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4be6edd3b92c2b9670ea09ec82aa3846"><td class="memItemLeft" align="right" valign="top">uint16_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1walk__t.html#a4be6edd3b92c2b9670ea09ec82aa3846">length</a></td></tr>
+<tr class="memdesc:a4be6edd3b92c2b9670ea09ec82aa3846"><td class="mdescLeft">&#160;</td><td class="mdescRight">how many branching edge crossings we took to get here  <a href="#a4be6edd3b92c2b9670ea09ec82aa3846">More...</a><br /></td></tr>
+<tr class="separator:a4be6edd3b92c2b9670ea09ec82aa3846"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee19ea04353c3d23bef5d5fd3689965c"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1walk__t.html#aee19ea04353c3d23bef5d5fd3689965c">path</a></td></tr>
+<tr class="memdesc:aee19ea04353c3d23bef5d5fd3689965c"><td class="mdescLeft">&#160;</td><td class="mdescRight">the walk  <a href="#aee19ea04353c3d23bef5d5fd3689965c">More...</a><br /></td></tr>
+<tr class="separator:aee19ea04353c3d23bef5d5fd3689965c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a65bec2a64da1b8f7c3820d49b5bef09f"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1walk__t.html#a65bec2a64da1b8f7c3820d49b5bef09f">seq</a></td></tr>
+<tr class="memdesc:a65bec2a64da1b8f7c3820d49b5bef09f"><td class="mdescLeft">&#160;</td><td class="mdescRight">the sequence  <a href="#a65bec2a64da1b8f7c3820d49b5bef09f">More...</a><br /></td></tr>
+<tr class="separator:a65bec2a64da1b8f7c3820d49b5bef09f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Stores a walk in the context of a graph. </p>
+<div class="textblock"><p>Record a &lt;=k-length walk in the context of a graph. </p>
+<p>Stores a walk in the context of a graph. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a id="a5a5ed7ca0dac4f9e742ddeeb28e317e1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5a5ed7ca0dac4f9e742ddeeb28e317e1">&#9670;&nbsp;</a></span>walk_t() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vg::algorithms::walk_t::walk_t </td>
+          <td>(</td>
+          <td class="paramtype">uint16_t&#160;</td>
+          <td class="paramname"><em>l</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>b</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>e</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>c</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint16_t&#160;</td>
+          <td class="paramname"><em>f</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="af8c4463befc5bb6cec73b3e493acf545"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af8c4463befc5bb6cec73b3e493acf545">&#9670;&nbsp;</a></span>walk_t()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#af8c4463befc5bb6cec73b3e493acf545">&#9670;&nbsp;</a></span>walk_t() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -183,6 +243,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
+<p>one past the (current) end of the kmer </p>
 <p>one past the (current) end of the walk </p>
 
 </div>
@@ -219,6 +280,22 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a4be6edd3b92c2b9670ea09ec82aa3846"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4be6edd3b92c2b9670ea09ec82aa3846">&#9670;&nbsp;</a></span>length</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint16_t vg::algorithms::walk_t::length</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>how many branching edge crossings we took to get here </p>
+
+</div>
+</div>
 <a id="aee19ea04353c3d23bef5d5fd3689965c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aee19ea04353c3d23bef5d5fd3689965c">&#9670;&nbsp;</a></span>path</h2>
 
@@ -251,7 +328,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<hr/>The documentation for this struct was generated from the following file:<ul>
+<hr/>The documentation for this struct was generated from the following files:<ul>
+<li>src/algorithms/<a class="el" href="prune_8cpp.html">prune.cpp</a></li>
 <li>src/algorithms/<a class="el" href="walk_8hpp.html">walk.hpp</a></li>
 </ul>
 </div><!-- contents -->

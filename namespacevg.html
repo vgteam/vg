@@ -614,9 +614,6 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Viz.html">Viz</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1walk__t.html">walk_t</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Record a &lt;=k-length walk in the context of a graph.  <a href="structvg_1_1walk__t.html#details">More...</a><br /></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash.html">wang_hash</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash_3_01handle__t_01_4.html">wang_hash&lt; handle_t &gt;</a></td></tr>
@@ -1671,9 +1668,6 @@ Functions</h2></td></tr>
 <tr class="separator:a99864b7ad9781d2c41c424ae69187e2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a65ac31e5878660a97207b6ade1418c81"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a65ac31e5878660a97207b6ade1418c81">preflight_check</a> ()</td></tr>
 <tr class="separator:a65ac31e5878660a97207b6ade1418c81"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4b1a635d2dfecadd8fe795cb80cedfb7"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1pair__hash__set.html">pair_hash_set</a>&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4b1a635d2dfecadd8fe795cb80cedfb7">find_edges_to_prune</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t k, size_t edge_max)</td></tr>
-<tr class="memdesc:a4b1a635d2dfecadd8fe795cb80cedfb7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all the walks up to length k, adding edges which.  <a href="#a4b1a635d2dfecadd8fe795cb80cedfb7">More...</a><br /></td></tr>
-<tr class="separator:a4b1a635d2dfecadd8fe795cb80cedfb7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a35d8d71a9d6d51760cc7354910d029e9"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a35d8d71a9d6d51760cc7354910d029e9">operator&lt;&lt;</a> (ostream &amp;os, const <a class="el" href="structvg_1_1Counts.html">Counts</a> &amp;counts)</td></tr>
 <tr class="separator:a35d8d71a9d6d51760cc7354910d029e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a253257615743a1cfb948b749be7700e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a253257615743a1cfb948b749be7700e2">parse_region</a> (const string &amp;target, string &amp;name, int64_t &amp;start, int64_t &amp;end)</td></tr>
@@ -2169,8 +2163,6 @@ Variables</h2></td></tr>
 <tr class="separator:afe7fae89b379b5411189ac0ac74b2dd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd1798abb6fcee86ab5b0539fb764eb2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2">fullTrace</a> = false</td></tr>
 <tr class="separator:abd1798abb6fcee86ab5b0539fb764eb2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a63d4077d2f547fd64cf6fc7ed8d03942"><td class="memItemLeft" align="right" valign="top">constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a63d4077d2f547fd64cf6fc7ed8d03942">PRUNE_THREAD_BUFFER_SIZE</a> = 1024 * 1024</td></tr>
-<tr class="separator:a63d4077d2f547fd64cf6fc7ed8d03942"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Typedef Documentation</h2>
 <a id="a4ab10687f0a0cca11ecfd062d9bb0a07"></a>
@@ -7359,42 +7351,6 @@ template&lt;class RandomIt &gt; </div>
 <p>Find all the points at which a <a class="el" href="structvg_1_1Path.html">Path</a> enters or leaves nodes in the graph. Adds them to the given map by node ID of sets of bases in the node that will need to become the starts of new nodes.</p>
 <p>If break_ends is true, emits breakpoints at the ends of the path, even if it starts/ends with perfect matches. Find all the points at which a <a class="el" href="structvg_1_1Path.html">Path</a> enters or leaves nodes in the graph. Adds them to the given map by node ID of sets of bases in the node that will need to become the starts of new nodes.</p>
 <p>If break_ends is true, emits breakpoints at the ends of the path, even if it starts/ends with perfect matches. </p>
-
-</div>
-</div>
-<a id="a4b1a635d2dfecadd8fe795cb80cedfb7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4b1a635d2dfecadd8fe795cb80cedfb7">&#9670;&nbsp;</a></span>find_edges_to_prune()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1pair__hash__set.html">pair_hash_set</a>&lt; <a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">edge_t</a> &gt; vg::find_edges_to_prune </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>k</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>edge_max</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Iterate over all the walks up to length k, adding edges which. </p>
 
 </div>
 </div>
@@ -13571,36 +13527,8 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
-<a id="a1e7a5fc9017560cc1b505641cc4ef6d0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1e7a5fc9017560cc1b505641cc4ef6d0">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[7/13]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::ostream&amp; vg::operator&lt;&lt; </td>
-          <td>(</td>
-          <td class="paramtype">std::ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1PathBranch.html">PathBranch</a>&#160;</td>
-          <td class="paramname"><em>branch</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a81357f8477c9ed2c3839489e0ada1ced"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[8/13]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a81357f8477c9ed2c3839489e0ada1ced">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[7/13]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13626,6 +13554,34 @@ template&lt;typename Scalar &gt; </div>
 </div><div class="memdoc">
 
 <p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
+
+</div>
+</div>
+<a id="a1e7a5fc9017560cc1b505641cc4ef6d0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1e7a5fc9017560cc1b505641cc4ef6d0">&#9670;&nbsp;</a></span>operator<<() <span class="overload">[8/13]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::ostream&amp; vg::operator&lt;&lt; </td>
+          <td>(</td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1PathBranch.html">PathBranch</a>&#160;</td>
+          <td class="paramname"><em>branch</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -21187,20 +21143,6 @@ template&lt;typename T &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">bool vg::fullTrace = false</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a63d4077d2f547fd64cf6fc7ed8d03942"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a63d4077d2f547fd64cf6fc7ed8d03942">&#9670;&nbsp;</a></span>PRUNE_THREAD_BUFFER_SIZE</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">constexpr size_t vg::PRUNE_THREAD_BUFFER_SIZE = 1024 * 1024</td>
         </tr>
       </table>
 </div><div class="memdoc">

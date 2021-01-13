@@ -80,7 +80,8 @@ Inheritance diagram for vg::SourceSinkOverlay:</div>
  <div class="center">
   <img src="classvg_1_1SourceSinkOverlay.png" usemap="#vg::SourceSinkOverlay_map" alt=""/>
   <map id="vg::SourceSinkOverlay_map" name="vg::SourceSinkOverlay_map">
-<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,164,24"/>
+<area href="classhandlegraph_1_1ExpandingOverlayGraph.html" alt="handlegraph::ExpandingOverlayGraph" shape="rect" coords="0,56,229,80"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,229,24"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -129,6 +130,11 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ab9be77971160f356b0ba0721ed17983e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8bfc476463b487d42c77bda6bdfe2a7d"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SourceSinkOverlay.html#a8bfc476463b487d42c77bda6bdfe2a7d">get_degree</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left) const</td></tr>
 <tr class="separator:a8bfc476463b487d42c77bda6bdfe2a7d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abe2d0e58471d1ab7840618a02958fc96"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SourceSinkOverlay.html#abe2d0e58471d1ab7840618a02958fc96">get_underlying_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
+<tr class="separator:abe2d0e58471d1ab7840618a02958fc96"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_methods_classhandlegraph_1_1ExpandingOverlayGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1ExpandingOverlayGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1ExpandingOverlayGraph.html">handlegraph::ExpandingOverlayGraph</a></td></tr>
+<tr class="memitem:a9d7cac3cf3b289fe1980d0575e70be72 inherit pub_methods_classhandlegraph_1_1ExpandingOverlayGraph"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1ExpandingOverlayGraph.html#a9d7cac3cf3b289fe1980d0575e70be72">~ExpandingOverlayGraph</a> ()=default</td></tr>
+<tr class="separator:a9d7cac3cf3b289fe1980d0575e70be72 inherit pub_methods_classhandlegraph_1_1ExpandingOverlayGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1HandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1HandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a></td></tr>
 <tr class="memitem:a24fb796441c9ad8c870fdb716a82b305 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a24fb796441c9ad8c870fdb716a82b305">~HandleGraph</a> ()=default</td></tr>
 <tr class="separator:a24fb796441c9ad8c870fdb716a82b305 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -661,6 +667,35 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Expose the handle to the synthetic source. </p>
+
+</div>
+</div>
+<a id="abe2d0e58471d1ab7840618a02958fc96"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abe2d0e58471d1ab7840618a02958fc96">&#9670;&nbsp;</a></span>get_underlying_handle()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::SourceSinkOverlay::get_underlying_handle </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Get the handle in the underlying graph that corresponds to the handle in the overlay. Throws an error if called on either the source or sink node </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1ExpandingOverlayGraph.html#aacfa30b0166f91f1aa80f0fd566d2b65">handlegraph::ExpandingOverlayGraph</a>.</p>
 
 </div>
 </div>

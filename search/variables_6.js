@@ -30,7 +30,7 @@ var searchData=
   ['force_5fhaplotype_5fcount',['force_haplotype_count',['../classvg_1_1MultipathMapper.html#a4c89cc1e5c4696682c6bc9282de4b034',1,'vg::MultipathMapper']]],
   ['force_5fphasing',['force_phasing',['../classvg_1_1HaplotypeIndexer.html#acb44a055288c0a9debed5662e461959e',1,'vg::HaplotypeIndexer']]],
   ['force_5funequal',['force_unequal',['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#ac1dcdb35b0b8fc51f2aee4abea3ce242',1,'handlegraph::PathForEachSocket::iterator']]],
-  ['forks',['forks',['../structvg_1_1walk__t.html#a24c17fa18ae88290cebb26c0e61a86d1',1,'vg::walk_t::forks()'],['../structvg_1_1algorithms_1_1kmer__t.html#ac3f2de8e523f01cdca5d05ffd5a91a4d',1,'vg::algorithms::kmer_t::forks()'],['../structvg_1_1algorithms_1_1walk__t.html#a10f5d30f390ed54e49b4785d3edf7f98',1,'vg::algorithms::walk_t::forks()']]],
+  ['forks',['forks',['../structvg_1_1algorithms_1_1kmer__t.html#ac3f2de8e523f01cdca5d05ffd5a91a4d',1,'vg::algorithms::kmer_t::forks()'],['../structvg_1_1algorithms_1_1walk__t.html#a10f5d30f390ed54e49b4785d3edf7f98',1,'vg::algorithms::walk_t::forks()']]],
   ['format',['format',['../classvg_1_1HTSWriter.html#a4c549b347cd3dba4710e1a195445a8b0',1,'vg::HTSWriter::format()'],['../classvg_1_1MultipathAlignmentEmitter.html#acfd964033f896160e64be1710025466c',1,'vg::MultipathAlignmentEmitter::format()']]],
   ['forward',['forward',['../structvg_1_1Support.html#afe50d5886e57f3ff8594bddb90dfc8fa',1,'vg::Support']]],
   ['forward_5fgraph',['forward_graph',['../classvg_1_1ReverseGraph.html#ab5cdf413526444fe31d07e3dce91d0f8',1,'vg::ReverseGraph']]],

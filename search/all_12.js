@@ -184,8 +184,6 @@ var searchData=
   ['remove_5fempty_5falignment_5fsections',['remove_empty_alignment_sections',['../namespacevg.html#af3fb034fcd6d50c2b84f40026b40f284',1,'vg']]],
   ['remove_5ffailing_5fedits',['remove_failing_edits',['../classvg_1_1Filter.html#aea2a2fc6de506793111639e609376bf0',1,'vg::Filter']]],
   ['remove_5ffull_5flength_5fbonuses',['remove_full_length_bonuses',['../classvg_1_1Mapper.html#a2e8194d4eb73fe32467ab37ed9468e09',1,'vg::Mapper']]],
-  ['remove_5fhigh_5fdegree_2ecpp',['remove_high_degree.cpp',['../remove__high__degree_8cpp.html',1,'']]],
-  ['remove_5fhigh_5fdegree_2ehpp',['remove_high_degree.hpp',['../remove__high__degree_8hpp.html',1,'']]],
   ['remove_5fhigh_5fdegree_5fnodes',['remove_high_degree_nodes',['../namespacevg_1_1algorithms.html#a5f705a2cab0e4453618c93775a7258ac',1,'vg::algorithms']]],
   ['remove_5finverting_5fedges',['remove_inverting_edges',['../classvg_1_1VG.html#a76005ed499eea217c9f778028751137c',1,'vg::VG']]],
   ['remove_5fmapping',['remove_mapping',['../classvg_1_1Paths.html#ad52958174f83ec940328d8610563dc1a',1,'vg::Paths']]],

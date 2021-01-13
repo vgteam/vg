@@ -122,7 +122,7 @@ var searchData=
   ['compact_5fids',['compact_ids',['../classvg_1_1VG.html#a161ef56bd0eeee937602f60b8617f24d',1,'vg::VG::compact_ids(void)'],['../classvg_1_1VG.html#ae931543bdeed5e60edcf6225489e3ceb',1,'vg::VG::compact_ids(hash_map&lt; nid_t, nid_t &gt; &amp;new_id)'],['../classbdsg_1_1PackedGraph.html#a7d3af382e4be809951d40564237ca4c8',1,'bdsg::PackedGraph::compact_ids()']]],
   ['compact_5fordered',['compact_ordered',['../classvg_1_1Transcriptome.html#a9084366eefa5e787e3f567156ab1ef87',1,'vg::Transcriptome']]],
   ['compact_5franks',['compact_ranks',['../classvg_1_1Paths.html#aaf065b12a8a942c96f6d88a2c6db7c8e',1,'vg::Paths']]],
-  ['complement_5fcomponents',['complement_components',['../classvg_1_1PhaseUnfolder.html#a2d69a65af162a8728f6fb5df88b44b72',1,'vg::PhaseUnfolder']]],
+  ['complement_5fcomponents',['complement_components',['../classvg_1_1PhaseUnfolder.html#a09b845f1fd318a70f5f9e9aa50e5d435',1,'vg::PhaseUnfolder']]],
   ['complement_5fencoded_5fnucleotide',['complement_encoded_nucleotide',['../classbdsg_1_1PackedGraph.html#a82de7c4736713100ba59e8f6f86ac516',1,'bdsg::PackedGraph']]],
   ['completedtranscriptpath',['CompletedTranscriptPath',['../structvg_1_1CompletedTranscriptPath.html#a128d2342a2670ad158b5e6eb73ea4561',1,'vg::CompletedTranscriptPath']]],
   ['component_5ftopological_5forder',['component_topological_order',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a44c8d49fb946c427aca7584dcd28746a',1,'vg::MEMClusterer::HitGraph']]],

@@ -42,8 +42,6 @@ var searchData=
   ['register_5floader_5fsaver_5fxg_2ehpp',['register_loader_saver_xg.hpp',['../register__loader__saver__xg_8hpp.html',1,'']]],
   ['registry_2ecpp',['registry.cpp',['../registry_8cpp.html',1,'']]],
   ['registry_2ehpp',['registry.hpp',['../registry_8hpp.html',1,'']]],
-  ['remove_5fhigh_5fdegree_2ecpp',['remove_high_degree.cpp',['../remove__high__degree_8cpp.html',1,'']]],
-  ['remove_5fhigh_5fdegree_2ehpp',['remove_high_degree.hpp',['../remove__high__degree_8hpp.html',1,'']]],
   ['reverse_5fcomplement_2ecpp',['reverse_complement.cpp',['../reverse__complement_8cpp.html',1,'']]],
   ['reverse_5fgraph_2ecpp',['reverse_graph.cpp',['../reverse__graph_8cpp.html',1,'']]],
   ['reverse_5fgraph_2ehpp',['reverse_graph.hpp',['../reverse__graph_8hpp.html',1,'']]],

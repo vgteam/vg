@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/algorithms/remove_high_degree.hpp File Reference</title>
+<title>vg: src/algorithms/disjoint_components.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -67,12 +67,12 @@ $(function() {
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">remove_high_degree.hpp File Reference</div>  </div>
+<div class="title">disjoint_components.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;vg/vg.pb.h&gt;</code><br />
+<div class="textblock"><code>#include &lt;list&gt;</code><br />
+<code>#include &lt;<a class="el" href="hash__graph_8hpp.html">bdsg/hash_graph.hpp</a>&gt;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">../handle.hpp</a>&quot;</code><br />
-<code>#include &lt;vector&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -83,12 +83,10 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a5f705a2cab0e4453618c93775a7258ac"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5f705a2cab0e4453618c93775a7258ac">vg::algorithms::remove_high_degree_nodes</a> (DeletableHandleGraph &amp;g, int max_degree)</td></tr>
-<tr class="separator:a5f705a2cab0e4453618c93775a7258ac"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a38ba5a6719f9f5496130c72a047ad890"><td class="memItemLeft" align="right" valign="top">list&lt; <a class="el" href="classbdsg_1_1HashGraph.html">bdsg::HashGraph</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a38ba5a6719f9f5496130c72a047ad890">vg::algorithms::disjoint_components</a> (const HandleGraph &amp;graph)</td></tr>
+<tr class="separator:a38ba5a6719f9f5496130c72a047ad890"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Defines a process that removes high-degree nodes from a graph </p>
-</div></div><!-- contents -->
+</div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
