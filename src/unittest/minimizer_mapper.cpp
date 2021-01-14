@@ -275,7 +275,6 @@ TEST_CASE("Mapping quality cap cannot be confused by excessive Gs", "[giraffe][m
             m.agglomeration_start = core_start - flank_width;
             m.agglomeration_length = core_width + flank_width * 2;
         }
-        cerr << "For core start at " << core_start << ", run " << m.agglomeration_start << " plus " << m.agglomeration_length << endl;
         
         // We need to set the key and its hash
         m.value.key = encoded;
