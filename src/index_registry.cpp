@@ -252,7 +252,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // init and configure the constructor
         Constructor constructor;
-        constructor.do_svs = true;
+        //constructor.do_svs = true; // TODO: this crashes the Constructor on simple input. why?
         constructor.alt_paths = alt_paths;
         constructor.max_node_size = IndexingParameters::max_node_size;
         constructor.show_progress = IndexingParameters::verbose;
@@ -1147,6 +1147,7 @@ string IndexRegistry::to_dot(const vector<string>& targets) const {
         }
         strm << "];" << endl;
     }
+    string unselected_col = targets.empty() ? "black" : "gray33";
     size_t recipe_idx = 0;
     for (const auto& index_file : registry) {
         const auto& recipes = index_file.second->get_recipes();
@@ -1159,14 +1160,14 @@ string IndexRegistry::to_dot(const vector<string>& targets) const {
             }
             else {
                 strm << recipe_dot_id << "[label=\"" << priority_idx << "\" shape=circle];" << endl;
-                strm << recipe_dot_id << " -> " << index_to_dot_id[index_file.first] << ";" << endl;
+                strm << recipe_dot_id << " -> " << index_to_dot_id[index_file.first] << " [color=" << unselected_col << "];" << endl;
             }
             for (const auto& input : recipe.inputs) {
                 if (plan_elements.count(make_pair(index_file.first, priority_idx))) {
                     strm << index_to_dot_id[input->get_identifier()] << " -> " << recipe_dot_id << "[style=bold];" << endl;
                 }
                 else {
-                    strm << index_to_dot_id[input->get_identifier()] << " -> " << recipe_dot_id << ";" << endl;
+                    strm << index_to_dot_id[input->get_identifier()] << " -> " << recipe_dot_id << " [color=" << unselected_col << "];" << endl;
                 }
             }
         }

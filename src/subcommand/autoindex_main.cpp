@@ -5,6 +5,9 @@
 #include <getopt.h>
 #include <iostream>
 
+#include <htslib/hts.h>
+#include <htslib/vcf.h>
+
 #include "subcommand.hpp"
 #include "index_registry.hpp"
 #include "utility.hpp"
@@ -14,27 +17,88 @@ using namespace vg;
 using namespace vg::subcommand;
 
 bool vcf_is_phased(const string& filepath) {
-    // TODO: write this
-    return false;
+    
+    if (IndexingParameters::verbose) {
+        cerr << "[IndexRegistry]: Checking for phasing in VCF." << endl;
+    }
+    
+    // check about 30k variants before concluding that the VCF isn't phased
+    // TODO: will there be contig ordering biases that make this a bad assumption?
+    constexpr int vars_to_check = 1 << 15;
+    
+    htsFile* file = hts_open(filepath.c_str(),"rb");
+    bcf_hdr_t* header = bcf_hdr_read(file);
+    int phase_set_id = bcf_hdr_id2int(header, BCF_DT_ID, "PS");
+    if (phase_set_id < 0) {
+        // no PS tag means no phasing
+        bcf_hdr_destroy(header);
+        hts_close(file);
+        return false;
+    }
+    
+    // iterate over records
+    bcf1_t* bcf_rec = bcf_init();
+    int iter = 0;
+    bool found_phased = false;
+    while (bcf_read(file, header, bcf_rec) >= 0 && iter < vars_to_check && !found_phased)
+    {
+        bcf_unpack(bcf_rec, BCF_UN_ALL);
+        if (phase_set_id == BCF_HT_INT) {
+            // phase sets are integers
+            int num_phase_set_arr = 0;
+            int32_t* phase_sets = NULL;
+            int num_phase_sets = bcf_get_format_int32(header, bcf_rec, "PS", &phase_sets, &num_phase_set_arr);
+            for (int i = 0; i < num_phase_sets && !found_phased; ++i) {
+                found_phased = phase_sets[i] != 0;
+            }
+            free(phase_sets);
+        }
+        else if (phase_set_id == BCF_HT_STR) {
+            // phase sets are strings
+            int num_phase_set_arr = 0;
+            char** phase_sets = NULL;
+            int num_phase_sets = bcf_get_format_string(header, bcf_rec, "PS", &phase_sets, &num_phase_set_arr);
+            for (int i = 0; i < num_phase_sets && !found_phased; ++i) {
+                found_phased = strcmp(phase_sets[i], ".") != 0;
+            }
+            if (phase_sets) {
+                // all phase sets are concatenated in one malloc's char*, pointed to by the first pointer
+                free(phase_sets[0]);
+            }
+            // free the array of pointers
+            free(phase_sets);
+        }
+        else {
+            cerr << "warning: unrecognized PS type in VCF file " << filepath << ", interpreting as unphased." << endl;
+            break;
+        }
+        ++iter;
+    }
+    // clean up
+    bcf_destroy(bcf_rec);
+    bcf_hdr_destroy(header);
+    hts_close(file);
+    
+    return found_phased;
 }
 
 void help_autoindex(char** argv) {
     cerr
     << "usage: " << argv[0] << " autoindex [options]" << endl
     << "options:" << endl
-    << " output:" << endl
-    << "  -p, --prefix     prefix to use for all output" << endl
-    << "  -w, --workflow   workflow to produce indexes for: map, mpmap, giraffe [map]" << endl
-    << " input data:" << endl
-    << "  -r, --ref-fasta  FASTA file containing the reference sequence" << endl
-    << "  -v, --vcf        VCF file with sequence names matching -r" << endl
-    << "  -i, --ins-fasta  FASTA file with sequences of INS variants from -v" << endl
-    << "  -g, --gfa        graph in GFA format" << endl
-    << " logging and computation:" << endl
-    << "  -T, --tmp-dir    temporary directory to use for intermediate files" << endl
-    << "  -V, --verbose    log progress to stderr" << endl
-    << "  -d, --dot        print the dot-formatted graph of recipes and exit" << endl
-    << "  -h, --help       print this help message to stderr and exit" << endl;
+    << "  output:" << endl
+    << "    -p, --prefix PREFIX   prefix to use for all output (default: index)" << endl
+    << "    -w, --workflow NAME   workflow to produce indexes for: map, mpmap, giraffe (default: map)" << endl
+    << "  input data:" << endl
+    << "    -r, --ref-fasta FILE  FASTA file containing the reference sequence" << endl
+    << "    -v, --vcf FILE        VCF file with sequence names matching -r" << endl
+    << "    -i, --ins-fasta FILE  FASTA file with sequences of INS variants from -v" << endl
+    << "    -g, --gfa FILE        GFA file to make a graph from" << endl
+    << "  logging and computation:" << endl
+    << "    -T, --tmp-dir DIR     temporary directory to use for intermediate files" << endl
+    << "    -V, --verbose         log progress to stderr" << endl
+    << "    -d, --dot             print the dot-formatted graph of index recipes and exit" << endl
+    << "    -h, --help            print this help message to stderr and exit" << endl;
 }
 
 int main_autoindex(int argc, char** argv) {

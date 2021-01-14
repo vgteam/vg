@@ -62,7 +62,6 @@ struct VGIndexes {
     static vector<string> get_default_giraffe_indexes();
 };
 
-
 /**
  * An object that can record methods to produce indexes and design
  * workflows to create a set of desired indexes
@@ -128,7 +127,7 @@ protected:
     unordered_set<string> registered_suffixes;
     
     /// filepath that will prefix all saved output
-    string output_prefix;
+    string output_prefix = "index";
     
     /// should intermediate files end up in the scratch or the output directory?
     bool keep_intermediates = false;
