@@ -12,6 +12,7 @@ var searchData=
   ['variant_5frecall',['variant_recall',['../namespacevg.html#aeab7595645edfe97e2d193da8ed70acb',1,'vg']]],
   ['variantadder',['VariantAdder',['../classvg_1_1VariantAdder.html#a267056ae90838d3aef2ddfe992a045ff',1,'vg::VariantAdder']]],
   ['vcf_5fheader',['vcf_header',['../classvg_1_1VCFOutputCaller.html#aeb9a75eed0ba2a369439abddf1ac3f65',1,'vg::VCFOutputCaller::vcf_header()'],['../classvg_1_1VCFGenotyper.html#a8dae0df9c45f88aadca9fcaa8d0e7214',1,'vg::VCFGenotyper::vcf_header()'],['../classvg_1_1LegacyCaller.html#a4536625fdb753727a7d8321cadc6946b',1,'vg::LegacyCaller::vcf_header()'],['../classvg_1_1FlowCaller.html#a2c4e7365e43593313a30d7d4ea03c4a9',1,'vg::FlowCaller::vcf_header()'],['../classvg_1_1MCMCCaller.html#af67e8bf51b99831bd5b9f67c2581d084',1,'vg::MCMCCaller::vcf_header()']]],
+  ['vcf_5fis_5fphased',['vcf_is_phased',['../autoindex__main_8cpp.html#a0fb3b6f3a1ad8bc5ce311d7a82b1759c',1,'autoindex_main.cpp']]],
   ['vcf_5fto_5ffasta',['vcf_to_fasta',['../classvg_1_1NameMapper.html#a6e8c36e6207dbc905170bde6a5c396b3',1,'vg::NameMapper']]],
   ['vcfbuffer',['VcfBuffer',['../classvg_1_1VcfBuffer.html#a402d5cadd95f5725876b22b8c9bd830b',1,'vg::VcfBuffer::VcfBuffer(vcflib::VariantCallFile *file=nullptr)'],['../classvg_1_1VcfBuffer.html#ad388f47df62ebab69ab9188efd37be1e',1,'vg::VcfBuffer::VcfBuffer(const VcfBuffer &amp;other)=delete']]],
   ['vcfgenotyper',['VCFGenotyper',['../classvg_1_1VCFGenotyper.html#ab44ede0e60115596f7efc605f888f3f9',1,'vg::VCFGenotyper']]],

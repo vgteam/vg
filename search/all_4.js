@@ -67,6 +67,7 @@ var searchData=
   ['deletions',['deletions',['../structvg_1_1DeleteHaplotypeCommand.html#a33e4ac2752620369abb200e585e667a4',1,'vg::DeleteHaplotypeCommand::deletions()'],['../structvg_1_1ReplaceLocalHaplotypeCommand.html#a3371d6a46feb1f9d218a577156aef698',1,'vg::ReplaceLocalHaplotypeCommand::deletions()']]],
   ['delim1',['delim1',['../classvg_1_1Packer.html#acffc9465bdaa0bb770372edf788aad48',1,'vg::Packer']]],
   ['delim2',['delim2',['../classvg_1_1Packer.html#a0d1336853823c62812b2009e80085800',1,'vg::Packer']]],
+  ['dependency_5forder',['dependency_order',['../classvg_1_1IndexRegistry.html#a1432ad1cb6fc143c75a1417aad0b1b09',1,'vg::IndexRegistry']]],
   ['deprecated',['DEPRECATED',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838a1427d7dc483097fa9ca2fad19ce88f3f',1,'vg::subcommand']]],
   ['depth',['depth',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#acf3587bcb06ec3af96a739fa785115c0',1,'vg::MinimumDistanceIndex::SnarlIndex::depth()'],['../classvg_1_1SRPE.html#a8a7019bfb559eb108b1e7ca22a8afa08',1,'vg::SRPE::depth()']]],
   ['depth_5ferr',['depth_err',['../structvg_1_1PoissonSupportSnarlCaller_1_1PoissonCallInfo.html#ac8c734835666c796508c7714c332c467',1,'vg::PoissonSupportSnarlCaller::PoissonCallInfo']]],

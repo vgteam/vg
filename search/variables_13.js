@@ -123,6 +123,7 @@ var searchData=
   ['subpath',['subpath',['../structvg_1_1MultipathAlignment.html#aa92c4cbfee9b5e076c41ca466b44617c',1,'vg::MultipathAlignment']]],
   ['subsequences',['subsequences',['../classvg_1_1ReadFilter.html#a98cd220c402ec88c512121825ed690df',1,'vg::ReadFilter']]],
   ['substage_5fname',['substage_name',['../classvg_1_1Funnel.html#a4cfa61145fcd97f5710c3d609e72a997',1,'vg::Funnel']]],
+  ['suffix',['suffix',['../classvg_1_1IndexFile.html#aaf697b7250cadf634c11693c97e3b7bd',1,'vg::IndexFile']]],
   ['suffixes',['suffixes',['../classvg_1_1PhaseUnfolder.html#a8e235a2b6022ec40a6e66c63c8dd1df0',1,'vg::PhaseUnfolder']]],
   ['sum',['sum',['../structhaplo_1_1haplo__DP__column.html#aeb237931ba6de582496ded7d42517f3a',1,'haplo::haplo_DP_column']]],
   ['super',['super',['../classvg_1_1PathSubgraph.html#a223501d50e8c102bbd7bf602d19b9400',1,'vg::PathSubgraph::super()'],['../classvg_1_1SubHandleGraph.html#aa17f9e8ba0b1b374b852390a9bf0c56a',1,'vg::SubHandleGraph::super()'],['../classvg_1_1TreeSubgraph.html#a1096d8426347b21730e2d7d81527ffc0',1,'vg::TreeSubgraph::super()'],['../classhandlegraph_1_1algorithms_1_1SubHandleGraph.html#ad63f143f0bebc5d600dca495e9fdff77',1,'handlegraph::algorithms::SubHandleGraph::super()']]],

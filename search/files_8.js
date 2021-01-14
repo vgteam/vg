@@ -10,6 +10,8 @@ var searchData=
   ['index_5fmain_2ecpp',['index_main.cpp',['../index__main_8cpp.html',1,'']]],
   ['index_5fmanager_2ecpp',['index_manager.cpp',['../index__manager_8cpp.html',1,'']]],
   ['index_5fmanager_2ehpp',['index_manager.hpp',['../index__manager_8hpp.html',1,'']]],
+  ['index_5fregistry_2ecpp',['index_registry.cpp',['../index__registry_8cpp.html',1,'']]],
+  ['index_5fregistry_2ehpp',['index_registry.hpp',['../index__registry_8hpp.html',1,'']]],
   ['indexed_5fvg_2ecpp',['indexed_vg.cpp',['../indexed__vg_8cpp.html',1,'']]],
   ['indexed_5fvg_2ehpp',['indexed_vg.hpp',['../indexed__vg_8hpp.html',1,'']]],
   ['inject_5fmain_2ecpp',['inject_main.cpp',['../inject__main_8cpp.html',1,'']]],

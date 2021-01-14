@@ -4,6 +4,7 @@ var searchData=
   ['k_5fwidest_5fpaths_2ecpp',['k_widest_paths.cpp',['../k__widest__paths_8cpp.html',1,'']]],
   ['k_5fwidest_5fpaths_2ehpp',['k_widest_paths.hpp',['../k__widest__paths_8hpp.html',1,'']]],
   ['keep',['keep',['../structvg_1_1Counts.html#a4ffc0e936d50a5bce649cc973f8cbe98',1,'vg::Counts']]],
+  ['keep_5fintermediates',['keep_intermediates',['../classvg_1_1IndexRegistry.html#a1b0ad4bff3fc2a7d514c6e1b46d3ca23',1,'vg::IndexRegistry']]],
   ['keep_5fmultinode_5fstrongly_5fconnected_5fcomponents',['keep_multinode_strongly_connected_components',['../classvg_1_1VG.html#a049393f32addf4071a14de2e874e94ac',1,'vg::VG']]],
   ['keep_5fpath',['keep_path',['../classvg_1_1VG.html#a65cc16f52f478a25e84c6f1fc2805915',1,'vg::VG']]],
   ['keep_5fpaths',['keep_paths',['../classvg_1_1Paths.html#a4ed60968ce4b7d6e4bd7f3d24c895f94',1,'vg::Paths::keep_paths()'],['../classvg_1_1VG.html#ac2aa9d438bcec4d7facbfcc44abea8fd',1,'vg::VG::keep_paths()']]],

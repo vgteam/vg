@@ -29,6 +29,7 @@ var searchData=
   ['add_5fnodes_5fin_5frange',['add_nodes_in_range',['../classvg_1_1MinimumDistanceIndex.html#ab3f950d8f32e2d84043f7ca87fd8473e',1,'vg::MinimumDistanceIndex']]],
   ['add_5fpath_5fto_5fgraph',['add_path_to_graph',['../namespacevg.html#a7ac200a1dbeaf55eb41bebbfd2ce4bdf',1,'vg']]],
   ['add_5freachability_5fedges',['add_reachability_edges',['../classvg_1_1MultipathAlignmentGraph.html#a2bf6b811ae4c3f0c993d3ac4a11359f0',1,'vg::MultipathAlignmentGraph']]],
+  ['add_5frecipe',['add_recipe',['../classvg_1_1IndexFile.html#a526f8dcc0e564eed656f0fa2531f94a2',1,'vg::IndexFile']]],
   ['add_5fsnarl',['add_snarl',['../classvg_1_1SnarlManager.html#ad41eeea8a375f91349a475a1782c3160',1,'vg::SnarlManager']]],
   ['add_5fsplice_5fjunction_5fedges',['add_splice_junction_edges',['../classvg_1_1Transcriptome.html#afdb0ae75032057859ad882400e6c16e5',1,'vg::Transcriptome::add_splice_junction_edges(const list&lt; EditedTranscriptPath &gt; &amp;edited_transcript_paths)'],['../classvg_1_1Transcriptome.html#a9be2d779faebdb40a8048ddc9727c6fb',1,'vg::Transcriptome::add_splice_junction_edges(const vector&lt; CompletedTranscriptPath &gt; &amp;completed_transcript_paths)']]],
   ['add_5fstart',['add_start',['../classvg_1_1multipath__alignment__t.html#a793ba830eaa6fd21ec7af7c7fc12cfed',1,'vg::multipath_alignment_t']]],

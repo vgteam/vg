@@ -17,7 +17,7 @@ var searchData=
   ['file',['file',['../classvg_1_1VcfBuffer.html#a6d744dafd27fb2fdea09d106b1553a55',1,'vg::VcfBuffer']]],
   ['file_5fheader',['file_header',['../classvg_1_1MinimumDistanceIndex.html#a3e515f34b0d941a0f55e15739a3e5014',1,'vg::MinimumDistanceIndex']]],
   ['filename',['filename',['../structvg_1_1GBWTHandler.html#a551e856227d00e32f1c66691d44ec502',1,'vg::GBWTHandler::filename()'],['../structjob__type.html#a9453f5bf04ab3780dcb2fa1c8264eb65',1,'job_type::filename()']]],
-  ['filenames',['filenames',['../structvg_1_1temp__file_1_1Handler.html#a712176aeac999c1930b246fa02dc0f25',1,'vg::temp_file::Handler::filenames()'],['../classvg_1_1VGset.html#a49cf0bee988a30fb024218dd4f4eed56',1,'vg::VGset::filenames()'],['../structxg_1_1temp__file_1_1Handler.html#ad61c52d26a2feddf0770d74d4ff65754',1,'xg::temp_file::Handler::filenames()']]],
+  ['filenames',['filenames',['../classvg_1_1IndexFile.html#ac839a4016a34b52e297f8159d0de9e76',1,'vg::IndexFile::filenames()'],['../structvg_1_1temp__file_1_1Handler.html#a712176aeac999c1930b246fa02dc0f25',1,'vg::temp_file::Handler::filenames()'],['../classvg_1_1VGset.html#a49cf0bee988a30fb024218dd4f4eed56',1,'vg::VGset::filenames()'],['../structxg_1_1temp__file_1_1Handler.html#ad61c52d26a2feddf0770d74d4ff65754',1,'xg::temp_file::Handler::filenames()']]],
   ['filter_5fmatches',['filter_matches',['../classvg_1_1Filter.html#ab1a5ffa8d8e0205909a9ed33e1ff26f5',1,'vg::Filter']]],
   ['filter_5fon_5fall',['filter_on_all',['../classvg_1_1ReadFilter.html#a0789571cd8039786e8eb53e5e6f53cee',1,'vg::ReadFilter']]],
   ['filter_5fshort_5fmems',['filter_short_mems',['../classvg_1_1BaseMapper.html#a883a1d2afe593993dc7e5f0268a3caa6',1,'vg::BaseMapper']]],

@@ -41,6 +41,7 @@ var searchData=
   ['output_5fis_5fbgzf',['output_is_bgzf',['../classvg_1_1HTSWriter.html#a440cfc6e79f5790976ebac5e648a3696',1,'vg::HTSWriter']]],
   ['output_5fnames',['output_names',['../classVectorizer.html#aadb47085d4b369b1c9ea341b06311341',1,'Vectorizer']]],
   ['output_5fpng',['output_png',['../classvg_1_1Viz.html#a8b50b34356875c1c0aa3917c7c67e445',1,'vg::Viz']]],
+  ['output_5fprefix',['output_prefix',['../classvg_1_1IndexRegistry.html#a24555b7ccd83df8e2ccb28b900a6b5b1',1,'vg::IndexRegistry']]],
   ['output_5fsvg',['output_svg',['../classvg_1_1Viz.html#a82a23ca5a5a6ababff6176743247be04',1,'vg::Viz']]],
   ['output_5ftabbed',['output_tabbed',['../classVectorizer.html#a7be5208d3a51438a989dd406fb808fd9',1,'Vectorizer']]],
   ['output_5fvariants',['output_variants',['../classvg_1_1VCFOutputCaller.html#a062e34518eddb55df7831c33a6136ca8',1,'vg::VCFOutputCaller']]],

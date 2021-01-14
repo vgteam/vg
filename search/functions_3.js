@@ -124,6 +124,7 @@ var searchData=
   ['compact_5franks',['compact_ranks',['../classvg_1_1Paths.html#aaf065b12a8a942c96f6d88a2c6db7c8e',1,'vg::Paths']]],
   ['complement_5fcomponents',['complement_components',['../classvg_1_1PhaseUnfolder.html#a09b845f1fd318a70f5f9e9aa50e5d435',1,'vg::PhaseUnfolder']]],
   ['complement_5fencoded_5fnucleotide',['complement_encoded_nucleotide',['../classbdsg_1_1PackedGraph.html#a82de7c4736713100ba59e8f6f86ac516',1,'bdsg::PackedGraph']]],
+  ['completed_5findexes',['completed_indexes',['../classvg_1_1IndexRegistry.html#acb7a5fe912cee92232c5c4af37cf336f',1,'vg::IndexRegistry']]],
   ['completedtranscriptpath',['CompletedTranscriptPath',['../structvg_1_1CompletedTranscriptPath.html#a128d2342a2670ad158b5e6eb73ea4561',1,'vg::CompletedTranscriptPath']]],
   ['component_5ftopological_5forder',['component_topological_order',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a44c8d49fb946c427aca7584dcd28746a',1,'vg::MEMClusterer::HitGraph']]],
   ['componentmindistanceclusterer',['ComponentMinDistanceClusterer',['../classvg_1_1ComponentMinDistanceClusterer.html#a67538a51c0795dfe0b37b5c4be0167db',1,'vg::ComponentMinDistanceClusterer']]],

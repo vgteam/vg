@@ -27,6 +27,7 @@ var searchData=
   ['delete_5fvariant_5findex',['delete_variant_index',['../classvg_1_1VCFTraversalFinder.html#a45b91ad0f95daad0ce2610953873f867',1,'vg::VCFTraversalFinder']]],
   ['deletion_5ffilter',['deletion_filter',['../classvg_1_1Filter.html#a8b867ca7572a1f8687b96cba2687f749',1,'vg::Filter']]],
   ['deletionaligner',['DeletionAligner',['../classvg_1_1DeletionAligner.html#ae118f6eccda2b49e39aed57e6c1a6950',1,'vg::DeletionAligner::DeletionAligner(int8_t gap_open, int8_t gap_extension)'],['../classvg_1_1DeletionAligner.html#a7c942c5a7530fd098f0771956a245862',1,'vg::DeletionAligner::DeletionAligner()=default']]],
+  ['dependency_5forder',['dependency_order',['../classvg_1_1IndexRegistry.html#a1432ad1cb6fc143c75a1417aad0b1b09',1,'vg::IndexRegistry']]],
   ['depth_5ffilter',['depth_filter',['../classvg_1_1Filter.html#a554d7fd6bc98d2c7e720e3edcb98c7d0',1,'vg::Filter']]],
   ['depthmap',['DepthMap',['../classvg_1_1DepthMap.html#a124200aa178e417dbb943ff6666c14f8',1,'vg::DepthMap::DepthMap(int64_t sz)'],['../classvg_1_1DepthMap.html#a2109186b91d5fe83f1ac72456aa10872',1,'vg::DepthMap::DepthMap()'],['../classvg_1_1DepthMap.html#ad316a48570ae392edc08aad77f07c7b4',1,'vg::DepthMap::DepthMap(vg::VG *graph)']]],
   ['describe',['describe',['../classvg_1_1io_1_1VPKG.html#af08bb9c650bfbbf15521ca1a215d0939',1,'vg::io::VPKG']]],

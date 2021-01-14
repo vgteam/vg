@@ -141,6 +141,11 @@ var searchData=
   ['projected_5fcount',['projected_count',['../structvg_1_1Funnel_1_1Stage.html#a74c290d50af94a82c196350d3ee7223d',1,'vg::Funnel::Stage']]],
   ['proto',['proto',['../classvg_1_1io_1_1VGAlignmentEmitter.html#a05cf3104e11f544431c6ed6e709d2361',1,'vg::io::VGAlignmentEmitter::proto()'],['../vg_8proto.html#ace9afe7f815b63b3d93844da5eb8fbbc',1,'proto():&#160;vg.proto']]],
   ['protobuf_5fto_5ftag',['protobuf_to_tag',['../structvg_1_1io_1_1Registry_1_1Tables.html#a9959a1192210db895c2d127dc6a197fc',1,'vg::io::Registry::Tables']]],
+  ['provided_5fdirectly',['provided_directly',['../classvg_1_1IndexFile.html#a32bf1b5189843cdcc3ba7eb6068dd46f',1,'vg::IndexFile']]],
   ['prune_5fthread_5fbuffer_5fsize',['PRUNE_THREAD_BUFFER_SIZE',['../namespacevg_1_1algorithms.html#a64f4abe5d8279f14a52b56ffb47fff34',1,'vg::algorithms']]],
+  ['pruning_5fmax_5fedge_5fcount',['pruning_max_edge_count',['../structvg_1_1IndexingParameters.html#ad673cb8b7687d3a60aef1036d1b1dae3',1,'vg::IndexingParameters']]],
+  ['pruning_5fmax_5fnode_5fdegree',['pruning_max_node_degree',['../structvg_1_1IndexingParameters.html#a8041e911ac757df80b37fbdbc4943f74',1,'vg::IndexingParameters']]],
+  ['pruning_5fmin_5fcomponent_5fsize',['pruning_min_component_size',['../structvg_1_1IndexingParameters.html#a1f955fc9bdfedd418b900163f36a2e15',1,'vg::IndexingParameters']]],
+  ['pruning_5fwalk_5flength',['pruning_walk_length',['../structvg_1_1IndexingParameters.html#ac9f7127d0df7aa1c90ced42a01755763',1,'vg::IndexingParameters']]],
   ['ptr',['ptr',['../structjson__autoptr.html#a8eeb7c64d99d1378d9524ede91d6faa4',1,'json_autoptr']]]
 ];

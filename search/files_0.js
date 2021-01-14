@@ -22,5 +22,6 @@ var searchData=
   ['are_5fequivalent_2ecpp',['are_equivalent.cpp',['../are__equivalent_8cpp.html',1,'']]],
   ['augment_2ecpp',['augment.cpp',['../augment_8cpp.html',1,'']]],
   ['augment_2ehpp',['augment.hpp',['../augment_8hpp.html',1,'']]],
-  ['augment_5fmain_2ecpp',['augment_main.cpp',['../augment__main_8cpp.html',1,'']]]
+  ['augment_5fmain_2ecpp',['augment_main.cpp',['../augment__main_8cpp.html',1,'']]],
+  ['autoindex_5fmain_2ecpp',['autoindex_main.cpp',['../autoindex__main_8cpp.html',1,'']]]
 ];

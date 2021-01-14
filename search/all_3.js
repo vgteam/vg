@@ -187,6 +187,7 @@ var searchData=
   ['complement_5fcomponents',['complement_components',['../classvg_1_1PhaseUnfolder.html#a09b845f1fd318a70f5f9e9aa50e5d435',1,'vg::PhaseUnfolder']]],
   ['complement_5fencoded_5fnucleotide',['complement_encoded_nucleotide',['../classbdsg_1_1PackedGraph.html#a82de7c4736713100ba59e8f6f86ac516',1,'bdsg::PackedGraph']]],
   ['complement_5ffilter',['complement_filter',['../classvg_1_1ReadFilter.html#ab7e72e4f3440fdc2a846de1e81fe2230',1,'vg::ReadFilter']]],
+  ['completed_5findexes',['completed_indexes',['../classvg_1_1IndexRegistry.html#acb7a5fe912cee92232c5c4af37cf336f',1,'vg::IndexRegistry']]],
   ['completedtranscriptpath',['CompletedTranscriptPath',['../structvg_1_1CompletedTranscriptPath.html',1,'vg::CompletedTranscriptPath'],['../structvg_1_1CompletedTranscriptPath.html#a128d2342a2670ad158b5e6eb73ea4561',1,'vg::CompletedTranscriptPath::CompletedTranscriptPath()']]],
   ['component',['component',['../structvg_1_1SnarlSeedClusterer_1_1Seed.html#a927469fe5cf55d71b12f18378f48e5cd',1,'vg::SnarlSeedClusterer::Seed']]],
   ['component_5fmin_5fdist',['component_min_dist',['../classvg_1_1MultipathMapper.html#a0e4207de854cc470b9bd734b459e1b9c',1,'vg::MultipathMapper']]],

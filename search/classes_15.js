@@ -12,6 +12,7 @@ var searchData=
   ['version',['Version',['../classvg_1_1Version.html',1,'vg']]],
   ['vg',['VG',['../classvg_1_1VG.html',1,'vg']]],
   ['vgalignmentemitter',['VGAlignmentEmitter',['../classvg_1_1io_1_1VGAlignmentEmitter.html',1,'vg::io']]],
+  ['vgindexes',['VGIndexes',['../structvg_1_1VGIndexes.html',1,'vg']]],
   ['vgset',['VGset',['../classvg_1_1VGset.html',1,'vg']]],
   ['visit',['Visit',['../structvg_1_1Visit.html',1,'vg']]],
   ['viz',['Viz',['../classvg_1_1Viz.html',1,'vg']]],

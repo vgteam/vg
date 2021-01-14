@@ -63,6 +63,7 @@ var searchData=
   ['help_5falign',['help_align',['../align__main_8cpp.html#ac749b2692aaca8eeaa6b48d7b44e167d',1,'align_main.cpp']]],
   ['help_5fannotate',['help_annotate',['../annotate__main_8cpp.html#a6957d47b527eacd587f20f9d11ccd333',1,'annotate_main.cpp']]],
   ['help_5faugment',['help_augment',['../augment__main_8cpp.html#a7cf03aa52fd6e8d75e480d4d0632b71c',1,'augment_main.cpp']]],
+  ['help_5fautoindex',['help_autoindex',['../autoindex__main_8cpp.html#a4a3c7ba0d785194a42444bdedac4db50',1,'autoindex_main.cpp']]],
   ['help_5fbenchmark',['help_benchmark',['../benchmark__main_8cpp.html#a1e3da44e3dcc6fea154d15a1986ade1b',1,'benchmark_main.cpp']]],
   ['help_5fcall',['help_call',['../call__main_8cpp.html#ab92ccd67b3c20b7be7c46281c4cabfb3',1,'call_main.cpp']]],
   ['help_5fchunk',['help_chunk',['../chunk__main_8cpp.html#a502600dcc3e4e15a338642fe554fbf8d',1,'chunk_main.cpp']]],

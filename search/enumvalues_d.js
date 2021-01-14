@@ -1,10 +1,9 @@
 var searchData=
 [
-  ['sam',['SAM',['../classvg_1_1MultipathAlignmentEmitter.html#a9a078e9c7bfe62603e8f359b62519b0baa4f1866efe56ebd234e7d5135ecca03e',1,'vg::MultipathAlignmentEmitter']]],
-  ['snarl',['SNARL',['../classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225a67ee28d908064db7aa83cd0d11959eff',1,'vg::SnarlSeedClusterer']]],
-  ['snv',['snv',['../structhaplo_1_1linear__haplo__structure.html#a3180d362cdac21750aebf6d4fe77e0d8a80993050ce71b03df8d926cbe0cde822',1,'haplo::linear_haplo_structure']]],
-  ['split',['split',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9aaf22613489ec859693457e82fd026e3b',1,'vg::Counts']]],
-  ['start',['START',['../classhandlegraph_1_1SnarlDecomposition.html#a17b276026a2c6d99be0f63ffbc92ccd3ab5854c3018055ccefae586f717850711',1,'handlegraph::SnarlDecomposition']]],
-  ['string',['String',['../classvg_1_1multipath__alignment__t.html#a6949ef73371981a69cc9223e44e8095eab41cf4db950b9da3d95a7c1400a5369e',1,'vg::multipath_alignment_t']]],
-  ['subsequence',['subsequence',['../structvg_1_1Counts.html#a91171929bace72fa1d2443a075e589a9acf76097b099973339661134c01b30e59',1,'vg::Counts']]]
+  ['packedgraph',['PackedGraph',['../structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10a3355e9401e49629ee5dcd20b107f3f67',1,'vg::IndexingParameters']]],
+  ['path_5fcover_5faugment',['path_cover_augment',['../gbwt__main_8cpp.html#a4689c302ad196e319592baf89a087dadae6691690a732603442821b57afe6615f',1,'gbwt_main.cpp']]],
+  ['path_5fcover_5fgreedy',['path_cover_greedy',['../gbwt__main_8cpp.html#a4689c302ad196e319592baf89a087dadae64c32186b545f99c9926f3a1dae82e6',1,'gbwt_main.cpp']]],
+  ['path_5fcover_5flocal',['path_cover_local',['../gbwt__main_8cpp.html#a4689c302ad196e319592baf89a087dada099704cfeb2149f34691f9bc7b0ff67c',1,'gbwt_main.cpp']]],
+  ['path_5fcover_5fnone',['path_cover_none',['../gbwt__main_8cpp.html#a4689c302ad196e319592baf89a087dadadb4d6a55b1ed5270c9bc2306180eb045',1,'gbwt_main.cpp']]],
+  ['pipeline',['PIPELINE',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838a797a289a67a7dd20502b2436f0c9d305',1,'vg::subcommand']]]
 ];

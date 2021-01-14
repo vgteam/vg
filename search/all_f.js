@@ -2,7 +2,7 @@ var searchData=
 [
   ['occs',['occs',['../structvg_1_1MinimizerMapper_1_1Minimizer.html#a023a81e9cd9f65fe3fa45293d08f643b',1,'vg::MinimizerMapper::Minimizer']]],
   ['occurrences',['occurrences',['../structbdsg_1_1HashGraph_1_1node__t.html#a1bca8e6a29ca8adbd49777e0da6165ff',1,'bdsg::HashGraph::node_t']]],
-  ['odgi',['ODGI',['../classbdsg_1_1ODGI.html',1,'bdsg::ODGI'],['../classbdsg_1_1ODGI.html#aa10931aaf9f517e6c5063ab5aabd6e80',1,'bdsg::ODGI::ODGI()']]],
+  ['odgi',['ODGI',['../classbdsg_1_1ODGI.html',1,'bdsg::ODGI'],['../structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10af8d9318231c0ddf653a73cc4226c2a14',1,'vg::IndexingParameters::ODGI()'],['../classbdsg_1_1ODGI.html#aa10931aaf9f517e6c5063ab5aabd6e80',1,'bdsg::ODGI::ODGI()']]],
   ['odgi_2ecpp',['odgi.cpp',['../odgi_8cpp.html',1,'']]],
   ['odgi_2ehpp',['odgi.hpp',['../odgi_8hpp.html',1,'']]],
   ['of_5fnode',['of_node',['../classvg_1_1Paths.html#abda01c563a3455d491b152a23b22a27a',1,'vg::Paths']]],
@@ -145,6 +145,7 @@ var searchData=
   ['output_5fis_5fbgzf',['output_is_bgzf',['../classvg_1_1HTSWriter.html#a440cfc6e79f5790976ebac5e648a3696',1,'vg::HTSWriter']]],
   ['output_5fnames',['output_names',['../classVectorizer.html#aadb47085d4b369b1c9ea341b06311341',1,'Vectorizer']]],
   ['output_5fpng',['output_png',['../classvg_1_1Viz.html#a8b50b34356875c1c0aa3917c7c67e445',1,'vg::Viz']]],
+  ['output_5fprefix',['output_prefix',['../classvg_1_1IndexRegistry.html#a24555b7ccd83df8e2ccb28b900a6b5b1',1,'vg::IndexRegistry']]],
   ['output_5fsvg',['output_svg',['../classvg_1_1Viz.html#a82a23ca5a5a6ababff6176743247be04',1,'vg::Viz']]],
   ['output_5ftabbed',['output_tabbed',['../classVectorizer.html#a7be5208d3a51438a989dd406fb808fd9',1,'Vectorizer']]],
   ['output_5fvariants',['output_variants',['../classvg_1_1VCFOutputCaller.html#a062e34518eddb55df7831c33a6136ca8',1,'vg::VCFOutputCaller']]],
