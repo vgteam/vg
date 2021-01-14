@@ -2397,7 +2397,7 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_interval(const vector<Mi
     }
    
     // We want an OR over all the columns, but some of the probabilities are tiny.
-    // So insteaad of NOT(AND(NOT())), which also would assume independence the
+    // So instead of NOT(AND(NOT())), which also would assume independence the
     // way we calculate AND by multiplication, we just assume independence and
     // compute OR as (p1 + p2 - (p1 * p2)).
     // Start with the first column.
