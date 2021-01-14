@@ -8,8 +8,9 @@
 #include "../algorithms/min_cut_graph.hpp"
 #include <vector>
 #include "catch.hpp"
+#include <unordered_set>
 
-#define debug
+#define debugs
 
 namespace vg {
     namespace unittest {
@@ -22,7 +23,7 @@ namespace vg {
 
         const int seed = 0;
         const int n_iterations = 100;
-
+        // vg test "[Test1]"
         TEST_CASE("Can find a min-cut on a 4 node graph","[Min-cut-graph][Test1]") {
             
             
@@ -106,16 +107,26 @@ namespace vg {
             REQUIRE(mincut == 10);
             REQUIRE(disjoint_sets.size() == 2);
 
-            vector<size_t> set1 = {1,2,3};
-            vector<size_t> set2 = {0};
-            for (vector<size_t>::iterator it = set1.begin() ; it != set1.end(); ++it){
-                // REQUIRE(disjoint_sets[1].count(*it)==1);
+            unordered_set<size_t> set1 = {1,2,3};
+            unordered_set<size_t> set2 = {0};
+            //     REQUIRE(disjoint_sets[1].size() == 3);
+            // for (vector<size_t>::iterator it = set1.begin() ; it != set1.end(); ++it){
+            //     REQUIRE(disjoint_sets[1].count(*it)==1);
+            //     REQUIRE(disjoint_sets[1].count(*it)==1);
+            //     REQUIRE(disjoint_sets[1].count(*it)==1);
                 
-                cout << "set1, dj1 "<< *it << ": " <<disjoint_sets[1].count(*it) <<endl; 
+            //     // cout << "dj1 "<< *it << ": " <<disjoint_sets[1].count(*it) <<endl; 
+            // }
+            // REQUIRE(disjoint_sets[1].size() == 3);
+
+            for (auto& x:disjoint_sets[1] ) {
+                
+                cout << "set1 has" << x <<endl;
             }
-            for (vector<size_t>::iterator it = set2.begin() ; it != set2.end(); ++it){
-                // REQUIRE(disjoint_sets[0].count(*it)==1);
-                cout << "set2, dj0 "<< *it<<": " <<disjoint_sets[0].count(*it) <<endl; 
+
+            for (auto& x:disjoint_sets[0] ) {
+                cout << "set2 has " << x <<endl;
+                
             }
                 
 
@@ -449,6 +460,15 @@ namespace vg {
             
         
             //Karger's min-cut
+            // min-cut-decom(Graph){
+
+            //     //pair = compute-min_cut(graph)
+            //     // base case V == 2 
+            //     // get disjoint sets (2)
+            //     // conver each disjoint set into a graph using the original graph
+            //     // min-cut-decomp (graph1)
+            //     // min-cut-decomp (graph2)
+            // }
             pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
             vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
             size_t mincut = to_recv.second;

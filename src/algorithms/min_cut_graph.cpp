@@ -257,28 +257,31 @@ namespace vg {
 #endif
                     // make vector into unordered_set
                     unordered_set<size_t> disjoint_set1(disjoint_vector[0].begin(), disjoint_vector[0].end());
-                    unordered_set<size_t> disjoint_set2(disjoint_vector[1].begin(), disjoint_vector[1].end());  
-                    // unordered_set<size_t> disjoint_set1;
-                    // unordered_set<size_t> disjoint_set2;  
-                    // for (const int &i: v0) {
-                    //     disjoint_set1.insert(i);
-                    // }
-                    // for (const int &i: v1) {
-                    //     disjoint_set2.insert(i);
-                    // }
-                                   
+                    unordered_set<size_t> disjoint_set2(disjoint_vector[1].begin(), disjoint_vector[1].end());                                     
                     vector<unordered_set<size_t>> disjoint_sets;
                     disjoint_sets.push_back(disjoint_set1);
                     disjoint_sets.push_back(disjoint_set2);
-  #ifdef debug   
+#ifdef debug   
             cout << "============================================================================= " << endl;
             cout << "sets" <<endl;
-            for(int i = 0; i < disjoint_sets.size(); ++i){
+            cout << "disjoint_sets size " << disjoint_sets.size() <<endl;
+            cout << "disjoint_sets0 size " << disjoint_sets[0].size() <<endl;
+            cout << "disjoint_sets1 size " << disjoint_sets[1].size() <<endl;
+            // for(int i = 0; i < disjoint_sets.size(); ++i){
+                
+                
+            //    for ( auto it = disjoint_sets[i].begin(); it != disjoint_sets[i].end(); ++it ){
+            //         cout << "set " <<i <<"element " <<  *it << endl;
 
-               for ( auto it = disjoint_sets[i].begin(); it != disjoint_sets[i].end(); ++it ){
-                    cout << "set " <<i <<"element " <<  *it << endl;
+            //    }
+            // }
+            for (auto& x:disjoint_sets[1] ) {
 
-               }
+                cout << "set[1] has no " << x <<endl;
+            }
+            for (auto& x:disjoint_sets[0] ) {
+                
+                cout << "set[0] has " << x <<endl;
             }
             cout << "============================================================================= " << endl;
                     
