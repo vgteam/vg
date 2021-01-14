@@ -2396,27 +2396,29 @@ double MinimizerMapper::get_log10_prob_of_disruption_in_interval(const vector<Mi
         return 0;
     }
    
-    // Ww eant an OR over all the columns, so we compute an AND of NOT all the columns, and then NOT at the end. 
+    // We want an OR over all the columns, but some of the probabilities are tiny.
+    // So insteaad of NOT(AND(NOT())), which also would assume independence the
+    // way we calculate AND by multiplication, we just assume independence and
+    // compute OR as (p1 + p2 - (p1 * p2)).
     // Start with the first column.
-    double p = 1.0 - get_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, left);
+    double p = get_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, left);
 #ifdef debug
-    cerr << "\tProbability not disrupted at column " << left << ": " << p << endl;
+    cerr << "\tProbability disrupted at column " << left << ": " << p << endl;
 #endif
     for(size_t i = left + 1 ; i < right; i++) {
         // OR up probability of all the other columns
-        double col_p = 1.0 - get_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, i);
+        double col_p = get_prob_of_disruption_in_column(minimizers, sequence, quality_bytes, disrupt_begin, disrupt_end, i);
 #ifdef debug
-        cerr << "\tProbability not disrupted at column " << i << ": " << col_p << endl;
+        cerr << "\tProbability disrupted at column " << i << ": " << col_p << endl;
 #endif
-        p *= col_p;
+        p = (p + col_p - (p * col_p));
 #ifdef debug
-        cerr << "\tRunning AND of not disrupted anywhere: " << p << endl;
+        cerr << "\tRunning OR of disrupted anywhere: " << p << endl;
 #endif
     }
     
-    // NOT the AND of NOT, so we actually OR over the columns.
-    // Also convert to log10prob.
-    return log10(1.0 - p);
+    // Convert to log10prob.
+    return log10(p);
  
 }
 
