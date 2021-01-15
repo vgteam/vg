@@ -260,32 +260,7 @@ namespace vg {
                     unordered_set<size_t> disjoint_set2(disjoint_vector[1].begin(), disjoint_vector[1].end());                                     
                     vector<unordered_set<size_t>> disjoint_sets;
                     disjoint_sets.push_back(disjoint_set1);
-                    disjoint_sets.push_back(disjoint_set2);
-#ifdef debug   
-            cout << "============================================================================= " << endl;
-            cout << "sets" <<endl;
-            cout << "disjoint_sets size " << disjoint_sets.size() <<endl;
-            cout << "disjoint_sets0 size " << disjoint_sets[0].size() <<endl;
-            cout << "disjoint_sets1 size " << disjoint_sets[1].size() <<endl;
-            // for(int i = 0; i < disjoint_sets.size(); ++i){
-                
-                
-            //    for ( auto it = disjoint_sets[i].begin(); it != disjoint_sets[i].end(); ++it ){
-            //         cout << "set " <<i <<"element " <<  *it << endl;
-
-            //    }
-            // }
-            for (auto& x:disjoint_sets[1] ) {
-
-                cout << "set[1] has no " << x <<endl;
-            }
-            for (auto& x:disjoint_sets[0] ) {
-                
-                cout << "set[0] has " << x <<endl;
-            }
-            cout << "============================================================================= " << endl;
-                    
-#endif                     
+                    disjoint_sets.push_back(disjoint_set2);                   
 
                     //compute the min cut of graph which is equal to the total edge weights of two supernodes 
                     size_t weight_of_cut;
@@ -319,6 +294,7 @@ namespace vg {
             pair<vector<unordered_set<size_t>>, size_t> to_return;
             pair<vector<unordered_set<size_t>>, size_t> min_cut1 = kargers_min_cut(graph, n_iterations, seed, V);          
             pair<vector<unordered_set<size_t>>, size_t> min_cut2 = kargers_min_cut(graph, n_iterations, seed2, V);
+
             if (min_cut1.second == 0 || min_cut2.second == 0 ){
                 // if pair is empty pair.first and pair.second will both be initialized to 0 during contruction
                 //return empty container
@@ -330,6 +306,24 @@ namespace vg {
 #endif
                 return to_return;
             }
+#ifdef debug   
+            cout << "============================================================================= " << endl;
+            cout << "MIN-CUT-GRAPH: set"<<endl;
+            cout << "min cut 1 " << endl;
+            vector<unordered_set<size_t>> disjoint_set = min_cut1.first;
+            
+            for (auto& x:disjoint_set[0] ) {
+                cout << "MCG set0 has" << x <<endl;
+            }
+            cout << "============================================================================= " << endl;
+            cout << "min cut 2 " << endl;
+            for (auto& x:disjoint_set[1] ) {
+                cout << "MCG set1 has" << x <<endl;
+            }
+            cout << "============================================================================= " << endl;
+
+
+#endif
             if (min_cut1.second < min_cut2.second){
                 to_return= min_cut1;
 
@@ -340,6 +334,47 @@ namespace vg {
             return to_return;
 
         }
+
+        vector<unordered_map<size_t>> min_cut_decomposition(Graph graph, const int n_iterations, const int seed, size_t V, vector<size_t>& Gamma){
+
+            
+            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
+            vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
+            size_t mincut = to_recv.second;
+            Graph subgraph1;
+            Graph subgraph2;
+            size_t V = graph.nodes.size();
+            //TODO: remove V from the parameters, can be derived from graph
+            //TODO: remove n_iterations from parameters or we might use it later if we want to run kargers min cut for >2 iterations
+            // if V < 3 
+            //    return Gamma
+            // 
+            // construct subgraph from disjoint set using original graph to get the edges and other node 
+            //iter through original graph nodes
+            for(size_t i =0; i < graph.nodes.size(); i++){
+                // if node from original graph is in the disjoint set
+                if (disjoint_sets[0].count(i)==1){
+                        // check if any edges connect to other nodes in the disjoint set
+                        for(size_t j =0; j < graph.nodes[i].size(); j++){
+                            if (disjoint_sets[0].count(graph.nodes[i].edges[j].other)==1){
+                                Node node;
+                                Edge edge;
+                                edge.other = graph.nodes[i].edges[j].other;
+                                edge.weight = graph.nodes[i].edges[j].weight;
+                                node.edges.push_back(edge);
+                                subgraph.push_back(node);
+                                //how will node number be preserved if not tied to index in graph?use insert?
+                            }
+                        }
+                
+                }
+
+            }
+            // min_cut_decomposition(subgraph1);
+            // min_cut_decomposition(subgraph2);
+            
+        }
+        
         
          
     }

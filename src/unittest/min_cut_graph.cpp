@@ -107,32 +107,22 @@ namespace vg {
             REQUIRE(mincut == 10);
             REQUIRE(disjoint_sets.size() == 2);
 
-            unordered_set<size_t> set1 = {1,2,3};
-            unordered_set<size_t> set2 = {0};
-            //     REQUIRE(disjoint_sets[1].size() == 3);
-            // for (vector<size_t>::iterator it = set1.begin() ; it != set1.end(); ++it){
-            //     REQUIRE(disjoint_sets[1].count(*it)==1);
-            //     REQUIRE(disjoint_sets[1].count(*it)==1);
-            //     REQUIRE(disjoint_sets[1].count(*it)==1);
-                
-            //     // cout << "dj1 "<< *it << ": " <<disjoint_sets[1].count(*it) <<endl; 
-            // }
-            // REQUIRE(disjoint_sets[1].size() == 3);
+            unordered_set<size_t> set1 = {0,1,3};
+            unordered_set<size_t> set2 = {2};
 
-            for (auto& x:disjoint_sets[1] ) {
-                
+            REQUIRE(disjoint_sets[0].size() == 3); 
+            for (auto& x:disjoint_sets[0] ) {
+
+                REQUIRE(set1.count(x)==1);
                 cout << "set1 has" << x <<endl;
             }
+            REQUIRE(disjoint_sets[1].size() == 1);
+            for (auto& x:disjoint_sets[1] ) {
 
-            for (auto& x:disjoint_sets[0] ) {
-                cout << "set2 has " << x <<endl;
-                
+                REQUIRE(set2.count(x)==1);
+                cout << "set2 has" << x <<endl;
             }
-                
 
-
-            
- 
         }
 
         TEST_CASE("Can find a min-cut on a 9 node graph", "[Min-cut-graph][Test2]") {
@@ -262,6 +252,22 @@ namespace vg {
             REQUIRE(mincut == 5);
             REQUIRE(disjoint_sets.size() == 2);
 
+            unordered_set<size_t> set1 = {0,1,2,3};
+            unordered_set<size_t> set2 = {8,7,6,5,4};
+
+            REQUIRE(disjoint_sets[0].size() == 4); 
+            for (auto& x:disjoint_sets[0] ) {
+
+                REQUIRE(set1.count(x)==1);
+                cout << "set1 has" << x <<endl;
+            }
+            REQUIRE(disjoint_sets[1].size() == 5);
+            for (auto& x:disjoint_sets[1] ) {
+
+                REQUIRE(set2.count(x)==1);
+                cout << "set2 has" << x <<endl;
+            }
+
             
  
         }
@@ -304,6 +310,10 @@ namespace vg {
             //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
             REQUIRE(mincut == 10);
             REQUIRE(disjoint_sets.size() == 2);
+            REQUIRE(disjoint_sets[0].size() == 1); 
+            REQUIRE(disjoint_sets[1].size() == 1); 
+            REQUIRE(disjoint_sets[0].count(0) == 1); 
+            REQUIRE(disjoint_sets[1].count(1) == 1);
             
  
         }
@@ -351,7 +361,7 @@ namespace vg {
             //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
             REQUIRE(mincut == 0);
             REQUIRE(disjoint_sets.size() == 0);
-            
+            REQUIRE(disjoint_sets.empty() == true);
     
         }
         TEST_CASE("Can find a min-cut on a 4 node graph, 0 edges", "[Min-cut-graph][Test6]") {
@@ -458,17 +468,7 @@ namespace vg {
             graph.nodes.push_back(node2);
             graph.nodes.push_back(node3);
             
-        
             //Karger's min-cut
-            // min-cut-decom(Graph){
-
-            //     //pair = compute-min_cut(graph)
-            //     // base case V == 2 
-            //     // get disjoint sets (2)
-            //     // conver each disjoint set into a graph using the original graph
-            //     // min-cut-decomp (graph1)
-            //     // min-cut-decomp (graph2)
-            // }
             pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
             vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
             size_t mincut = to_recv.second;
