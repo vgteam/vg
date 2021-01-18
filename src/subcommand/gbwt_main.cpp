@@ -102,8 +102,8 @@ GBWTConfig parse_gbwt_config(int argc, char** argv);
 void validate_gbwt_config(GBWTConfig& config);
 
 void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
-void step_2_merge_gbwts(GBWTHandler& gbwts, const GBWTConfig& config);
-void step_3_remove_samples(GBWTHandler& gbwts, const GBWTConfig& config);
+void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config);
+void step_3_remove_samples(GBWTHandler& gbwts, GBWTConfig& config);
 void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
 void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
 void step_6_r_index(GBWTHandler& gbwts, GBWTConfig& config);
@@ -991,7 +991,7 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
 }
 //----------------------------------------------------------------------------
 
-void step_2_merge_gbwts(GBWTHandler& gbwts, const GBWTConfig& config) {
+void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
     double start = gbwt::readTimer();
     if (config.show_progress) {
         std::string algo_name;
@@ -1055,7 +1055,7 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, const GBWTConfig& config) {
 
 //----------------------------------------------------------------------------
 
-void step_3_remove_samples(GBWTHandler& gbwts, const GBWTConfig& config) {
+void step_3_remove_samples(GBWTHandler& gbwts, GBWTConfig& config) {
     double start = gbwt::readTimer();
     if (config.show_progress) {
         std::cerr << "Removing " << config.to_remove.size() << " sample(s) from the index" << std::endl;

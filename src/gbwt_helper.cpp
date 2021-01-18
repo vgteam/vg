@@ -180,18 +180,18 @@ void GBWTHandler::unbacked() {
 }
 
 void GBWTHandler::serialize(const std::string& new_filename) {
-    this->filename = new_filename;
     if (this->show_progress) {
-        std::cerr << "Serializing the GBWT to " << this->filename << std::endl;
+        std::cerr << "Serializing the GBWT to " << new_filename << std::endl;
     }
     if (this->in_use == index_none) {
         std::cerr << "warning: [GBWTHandler] no GBWT to serialize" << std::endl;
         return;
     } else if (this->in_use == index_compressed) {
-        vg::io::VPKG::save(this->compressed, this->filename);
+        vg::io::VPKG::save(this->compressed, new_filename);
     } else {
-        vg::io::VPKG::save(this->dynamic, this->filename);
+        vg::io::VPKG::save(this->dynamic, new_filename);
     }
+    this->filename = new_filename;
 }
 
 void GBWTHandler::clear() {
