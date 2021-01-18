@@ -101,7 +101,7 @@ struct GraphHandler {
 GBWTConfig parse_gbwt_config(int argc, char** argv);
 void validate_gbwt_config(GBWTConfig& config);
 
-void step_1_build_gbwt(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
+void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
 void step_2_merge_gbwts(GBWTHandler& gbwts, const GBWTConfig& config);
 void step_3_remove_samples(GBWTHandler& gbwts, const GBWTConfig& config);
 void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
@@ -110,6 +110,7 @@ void step_6_r_index(GBWTHandler& gbwts, GBWTConfig& config);
 void step_7_metadata(GBWTHandler& gbwts, GBWTConfig& config);
 void step_8_threads(GBWTHandler& gbwts, GBWTConfig& config);
 
+void report_time_memory(const std::string& what, double start_time, const GBWTConfig& config);
 void print_metadata(std::ostream& out, const GBWTHandler& gbwts);
 
 //----------------------------------------------------------------------------
@@ -130,7 +131,7 @@ int main_gbwt(int argc, char** argv) {
 
     // Input GBWT construction.
     if (config.build != GBWTConfig::build_none) {
-        step_1_build_gbwt(gbwts, graphs, config);
+        step_1_build_gbwts(gbwts, graphs, config);
     }
 
     // Merge multiple input GBWTs.
@@ -152,11 +153,7 @@ int main_gbwt(int argc, char** argv) {
     if (!config.gbwt_output.empty()) {
         double start = gbwt::readTimer();
         gbwts.serialize(config.gbwt_output);
-        if (config.show_progress) {
-            double seconds = gbwt::readTimer() - start;
-            std::cerr << "GBWT serialized in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
-            std::cerr << std::endl;
-        }
+        report_time_memory("GBWT serialized", start, config);
     }
 
     // GBWTGraph construction.
@@ -920,7 +917,7 @@ void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, GBWTHandler& gbwts, 
     }
 }
 
-void step_1_build_gbwt(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
+void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     double start = gbwt::readTimer();
     if (config.show_progress) {
         std::cerr << "Building input GBWTs" << std::endl;
@@ -987,11 +984,7 @@ void step_1_build_gbwt(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& con
         gbwts.use(*temp);
     }
 
-    if (config.show_progress) {
-        double seconds = gbwt::readTimer() - start;
-        std::cerr << "GBWTs built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
-        std::cerr << std::endl;
-    }
+    report_time_memory("GBWTs built", start, config);
     if (config.parse_only) {
         std::exit(EXIT_SUCCESS); // VCF parsing does not produce GBWTs to continue with.
     }
@@ -1056,9 +1049,7 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, const GBWTConfig& config) {
 
     if (config.show_progress) {
         print_metadata(std::cerr, gbwts);
-        double seconds = gbwt::readTimer() - start;
-        std::cerr << "GBWTs merged in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
-        std::cerr << std::endl;
+        report_time_memory("GBWTs merged", start, config);
     }
 }
 
@@ -1099,11 +1090,7 @@ void step_3_remove_samples(GBWTHandler& gbwts, const GBWTConfig& config) {
     }
     gbwts.unbacked(); // We modified the GBWT.
 
-    if (config.show_progress) {
-        double seconds = gbwt::readTimer() - start;
-        std::cerr << "Samples removed in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
-        std::cerr << std::endl;
-    }
+    report_time_memory("Samples removed", start, config);
 }
 
 //----------------------------------------------------------------------------
@@ -1137,11 +1124,7 @@ void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& con
     }
     gbwts.unbacked(); // We modified the GBWT.
 
-    if (config.show_progress) {
-        double seconds = gbwt::readTimer() - start;
-        std::cerr << "Path cover built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
-        std::cerr << std::endl;
-    }
+    report_time_memory("Path cover built", start, config);
 }
 
 //----------------------------------------------------------------------------
@@ -1163,11 +1146,7 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
     }
     vg::io::VPKG::save(graph, config.graph_output);
 
-    if (config.show_progress) {
-        double seconds = gbwt::readTimer() - start;
-        std::cerr << "GBWTGraph built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
-        std::cerr << std::endl;
-    }
+    report_time_memory("GBWTGraph built", start, config);
 }
 
 //----------------------------------------------------------------------------
@@ -1189,11 +1168,7 @@ void step_6_r_index(GBWTHandler& gbwts, GBWTConfig& config) {
     }
     vg::io::VPKG::save(r_index, config.r_index_name);
 
-    if (config.show_progress) {
-        double seconds = gbwt::readTimer() - start;
-        std::cerr << "R-index built in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
-        std::cerr << std::endl;
-    }
+    report_time_memory("R-index built", start, config);
 }
 
 //----------------------------------------------------------------------------
@@ -1277,11 +1252,7 @@ void step_8_threads(GBWTHandler& gbwts, GBWTConfig& config) {
             out.push_back(gbwt::ENDMARKER);
         }
         out.close();
-        if (config.show_progress) {
-            double seconds = gbwt::readTimer() - start;
-            std::cerr << "Threads extracted in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
-            std::cerr << std::endl;
-        }
+        report_time_memory("Threads extracted", start, config);
     }
 
     // There are two sequences for each thread.
@@ -1320,7 +1291,13 @@ void GraphHandler::clear() {
 
 //----------------------------------------------------------------------------
 
-// Utility functions
+void report_time_memory(const std::string& what, double start_time, const GBWTConfig& config) {
+    if (config.show_progress) {
+        double seconds = gbwt::readTimer() - start_time;
+        std::cerr << what << " in " << seconds << " seconds, " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+        std::cerr << std::endl;
+    }
+}
 
 void print_metadata(std::ostream& out, const GBWTHandler& gbwts) {
     if (gbwts.in_use == GBWTHandler::index_compressed) {
