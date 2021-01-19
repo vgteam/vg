@@ -97,7 +97,7 @@ namespace vg {
             
         
             //Karger's min-cut
-            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
+            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
             vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
             size_t mincut = to_recv.second;
 
@@ -244,7 +244,7 @@ namespace vg {
             graph.nodes.push_back(node8);
         
             //Karger's min-cut
-            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
+            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
             vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
             size_t mincut = to_recv.second;
             
@@ -303,7 +303,7 @@ namespace vg {
 
             
             //Karger's min-cut
-            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
+            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
             vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
             size_t mincut = to_recv.second;
             
@@ -324,7 +324,7 @@ namespace vg {
             size_t V = 0; //size of nodes
 
             //Karger's min-cut
-            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
+            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
             vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
             size_t mincut = to_recv.second;
             
@@ -354,7 +354,7 @@ namespace vg {
             graph.nodes.push_back(node1);
 
             //Karger's min-cut
-            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
+            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
             vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
             size_t mincut = to_recv.second;
             
@@ -390,7 +390,7 @@ namespace vg {
 
 
             //Karger's min-cut
-            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
+            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
             vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
             size_t mincut = to_recv.second;           
             //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
@@ -399,7 +399,7 @@ namespace vg {
             REQUIRE(disjoint_sets.empty() == true);
     
         }
-        TEST_CASE("Min-cut decomposition works on connected component of 4 nodes", "[Min-cut-graph][MCG-Test7]") {
+        TEST_CASE("Min-cut decomposition works on connected component of 4 nodes and ouput correct Gamma (set of subsets of snarls)", "[Min-cut-graph][MCG-Test7]") {
                /* Let us create following undirected, weighted graph  
                     e0 10  
                 0--------1  
@@ -469,7 +469,7 @@ namespace vg {
             graph.nodes.push_back(node3);
             
             //Karger's min-cut
-            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed, V);
+            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
             vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
             size_t mincut = to_recv.second;
 

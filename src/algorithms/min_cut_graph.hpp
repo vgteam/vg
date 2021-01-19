@@ -35,12 +35,12 @@ namespace vg {
 
         }; 
 
-        pair<vector<unordered_set<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed, size_t V);
+        pair<vector<unordered_set<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed);
 
-        pair<vector<unordered_set<size_t>>, size_t> compute_min_cut(Graph graph, const int n_iterations, const int seed, size_t V);
+        pair<vector<unordered_set<size_t>>, size_t> compute_min_cut(Graph graph, const int n_iterations, const int seed);
 
         // Assumption: handles one connected component at a time
-        vector<unordered_map<size_t>> min_cut_decomposition(Graph graph, const int n_iterations, const int seed, size_t V, vector<size_t>& Gamma);
+        vector<unordered_set<size_t>> min_cut_decomposition(Graph graph, const int n_iterations, const int seed);
         
         
     }
