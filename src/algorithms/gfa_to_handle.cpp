@@ -4,14 +4,48 @@
 namespace vg {
 namespace algorithms {
 
-static nid_t parse_gfa_sequence_id(const string& str) {
-    if (any_of(str.begin(), str.end(), [](char c) { return !isdigit(c); })) {
-        throw GFAFormatError("error:[gfa_to_handle_graph] Could not parse sequence ID '" + str + "'. GFA sequence IDs must be integers >= 1.");
+// parse a GFA name into a numeric id
+// if all ids are numeric, they will be converted directly with stol
+// if all ids are non-numeric, they will get incrementing ids beginning with 1, in order they are visited
+// if they are a mix of numeric and non-numeric, the numberic ones will be converted with stol until
+// the first non-numeric one is found, then it will revert to using max-id.  this could lead to cases
+//
+// since non-numeric ids are dependent on the order the nodes are scanned, there is the unfortunate side
+// effect that they will be different if read from memory (lex order) or file (file order)
+struct IDMapInfo {
+    bool numeric_mode = true;
+    nid_t max_id = 0;
+    unordered_map<string, nid_t> name_to_id;
+};
+static nid_t parse_gfa_sequence_id(const string& str, IDMapInfo& id_map_info) {
+    
+    if (id_map_info.name_to_id.count(str)) {
+        // already in map, just return
+        return id_map_info.name_to_id[str];
+    } 
+
+    nid_t node_id = -1;
+    if (id_map_info.numeric_mode) {
+        if (any_of(str.begin(), str.end(), [](char c) { return !isdigit(c); })) {
+            // non-numeric: use max id and add to map
+            id_map_info.numeric_mode = false;
+        } else {
+            node_id = stoll(str);
+            if (node_id <= 0) {
+                // treat <= 0 as non-numeric
+                id_map_info.numeric_mode = false;
+            }
+        }
     }
-    nid_t node_id = stoll(str);
-    if (node_id <= 0) {
-        throw GFAFormatError("error:[gfa_to_handle_graph] Could not parse sequence ID '" + str + "'. GFA sequence IDs must be integers >= 1.");
+
+    // if numeric, the id was set to stoll above, otherwise we take it from current max
+    if (!id_map_info.numeric_mode) {
+        node_id = id_map_info.max_id + 1;
     }
+    
+    id_map_info.max_id = std::max(node_id, id_map_info.max_id);
+    id_map_info.name_to_id[str] = node_id;
+
     return node_id;
 }
 
@@ -74,16 +108,16 @@ static bool gfa_sequence_parse_rgfa_tags(const gfak::sequence_elem& s,
 }
 
 static bool gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph,
-                                          gfak::GFAKluge& gg) {
+                                          gfak::GFAKluge& gg, IDMapInfo& id_map_info) {
     if (!in) {
         throw std::ios_base::failure("error:[gfa_to_handle_graph] Couldn't open input stream");
     }
     gg.parse_gfa_file(in);
-    
+
     // create nodes
     bool has_rgfa_tags = false;
     for (const auto& seq_record : gg.get_name_to_seq()) {
-        graph->create_handle(seq_record.second.sequence, parse_gfa_sequence_id(seq_record.first));
+        graph->create_handle(seq_record.second.sequence, parse_gfa_sequence_id(seq_record.first, id_map_info));
         has_rgfa_tags = has_rgfa_tags || gfa_sequence_parse_rgfa_tags(seq_record.second);
     }
     
@@ -92,8 +126,8 @@ static bool gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph
         for (const auto& edge : links_record.second) {
             validate_gfa_edge(edge);
             // note: we're counting on implementations de-duplicating edges
-            handle_t a = graph->get_handle(parse_gfa_sequence_id(edge.source_name), !edge.source_orientation_forward);
-            handle_t b = graph->get_handle(parse_gfa_sequence_id(edge.sink_name), !edge.sink_orientation_forward);
+            handle_t a = graph->get_handle(parse_gfa_sequence_id(edge.source_name, id_map_info), !edge.source_orientation_forward);
+            handle_t b = graph->get_handle(parse_gfa_sequence_id(edge.sink_name, id_map_info), !edge.sink_orientation_forward);
             graph->create_edge(a, b);
         }
     }
@@ -101,7 +135,7 @@ static bool gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph
 }
 
 static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGraph* graph,
-                                        bool try_id_increment_hint, gfak::GFAKluge& gg) {
+                                        bool try_id_increment_hint, gfak::GFAKluge& gg, IDMapInfo& id_map_info) {
     
     // adapted from
     // https://github.com/vgteam/odgi/blob/master/src/gfa_to_handle.cpp
@@ -111,8 +145,8 @@ static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGra
         // find the minimum ID
         nid_t min_id = numeric_limits<nid_t>::max();
         gg.for_each_sequence_line_in_file(filename.c_str(), [&](gfak::sequence_elem s) {
-            min_id = std::min(min_id, parse_gfa_sequence_id(s.name));
-        });
+                min_id = std::min(min_id, parse_gfa_sequence_id(s.name, id_map_info));
+            });
         
         if (min_id != numeric_limits<nid_t>::max()) {
             // we found the min, set it as the increment
@@ -123,15 +157,16 @@ static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGra
     // add in all nodes
     bool has_rgfa_tags = false;
     gg.for_each_sequence_line_in_file(filename.c_str(), [&](gfak::sequence_elem s) {        
-        graph->create_handle(s.sequence, parse_gfa_sequence_id(s.name));
-        has_rgfa_tags = has_rgfa_tags || gfa_sequence_parse_rgfa_tags(s);
+            graph->create_handle(s.sequence, parse_gfa_sequence_id(s.name, id_map_info));
+            has_rgfa_tags = has_rgfa_tags || gfa_sequence_parse_rgfa_tags(s);
     });
     
     // add in all edges
     gg.for_each_edge_line_in_file(filename.c_str(), [&](gfak::edge_elem e) {
+            cerr << " e  source " << e.source_name << " e sink " << e.sink_name << endl;
         validate_gfa_edge(e);
-        handle_t a = graph->get_handle(parse_gfa_sequence_id(e.source_name), !e.source_orientation_forward);
-        handle_t b = graph->get_handle(parse_gfa_sequence_id(e.sink_name), !e.sink_orientation_forward);
+        handle_t a = graph->get_handle(parse_gfa_sequence_id(e.source_name, id_map_info), !e.source_orientation_forward);
+        handle_t b = graph->get_handle(parse_gfa_sequence_id(e.sink_name, id_map_info), !e.sink_orientation_forward);
         graph->create_edge(a, b);
     });
     return has_rgfa_tags;
@@ -143,7 +178,7 @@ static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGra
 /// If the input is not a seekable file, filename may be filled in, and unseekable will be set to a stream to read from.
 /// Returns true if any "SN" rGFA tags are found in the graph nodes
 static bool gfa_to_handle_graph_load_graph(const string& filename, istream* unseekable, MutableHandleGraph* graph,
-                                           bool try_id_increment_hint, gfak::GFAKluge& gg) {
+                                           bool try_id_increment_hint, gfak::GFAKluge& gg, IDMapInfo& id_map_info) {
     
     if (graph->get_node_count() > 0) {
         throw invalid_argument("error:[gfa_to_handle_graph] Must parse GFA into an empty graph");
@@ -151,7 +186,7 @@ static bool gfa_to_handle_graph_load_graph(const string& filename, istream* unse
     bool has_rgfa_tags = false;
     if (!unseekable) {
         // Do the from-disk path
-        has_rgfa_tags = gfa_to_handle_graph_on_disk(filename, graph, try_id_increment_hint, gg);
+        has_rgfa_tags = gfa_to_handle_graph_on_disk(filename, graph, try_id_increment_hint, gg, id_map_info);
     } else {
         // Do the path for streams
         
@@ -161,7 +196,7 @@ static bool gfa_to_handle_graph_load_graph(const string& filename, istream* unse
                  << "If performance suffers, consider using an alternate graph implementation or reading GFA from hard disk." << endl;
         }
         
-        has_rgfa_tags = gfa_to_handle_graph_in_memory(*unseekable, graph, gg);
+        has_rgfa_tags = gfa_to_handle_graph_in_memory(*unseekable, graph, gg, id_map_info);
     }
     return has_rgfa_tags;
 }
@@ -170,7 +205,7 @@ static bool gfa_to_handle_graph_load_graph(const string& filename, istream* unse
 /// If the input is a seekable file, filename will be filled in and unseekable will be nullptr.
 /// If the input is not a seekable file, filename may be filled in, and unseekable will be set to a stream to read from.
 static void gfa_to_handle_graph_add_paths(const string& filename, istream* unseekable, MutablePathHandleGraph* graph,
-                                          gfak::GFAKluge& gg) {
+                                          gfak::GFAKluge& gg, IDMapInfo& id_map_info) {
                                    
                                    
     if (!unseekable) {
@@ -196,7 +231,7 @@ static void gfa_to_handle_graph_add_paths(const string& filename, istream* unsee
             }
             
             // add the step
-            handle_t step = graph->get_handle(parse_gfa_sequence_id(node_id), is_rev);
+            handle_t step = graph->get_handle(parse_gfa_sequence_id(node_id, id_map_info), is_rev);
             graph->append_step(path, step);
         });
     } else {
@@ -213,7 +248,7 @@ static void gfa_to_handle_graph_add_paths(const string& filename, istream* unsee
             path_handle_t path = graph->create_path_handle(path_name);
             
             for (size_t i = 0; i < path_record.second.segment_names.size(); ++i) {
-                handle_t step = graph->get_handle(parse_gfa_sequence_id(path_record.second.segment_names.at(i)),
+                handle_t step = graph->get_handle(parse_gfa_sequence_id(path_record.second.segment_names.at(i), id_map_info),
                                                   !path_record.second.orientations.at(i));
                 graph->append_step(path, step);
             }
@@ -226,7 +261,8 @@ static void gfa_to_handle_graph_add_paths(const string& filename, istream* unsee
 /// add paths from the optional rgfa tags on sequence nodes (SN: name SO: offset SR: rank)
 /// max_rank selects which ranks to consider. Usually, only rank-0 paths are full paths while rank > 0 are subpaths
 static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* unseekable, MutablePathHandleGraph* graph,
-                                               gfak::GFAKluge& gg, int64_t max_rank = numeric_limits<int64_t>::max()) {
+                                               gfak::GFAKluge& gg, IDMapInfo& id_map_info,
+                                               int64_t max_rank = numeric_limits<int64_t>::max()) {
 
     // build up paths in memory using a plain old stl structure
     // maps path-name to <rank, vector<node_id, offset>>
@@ -249,7 +285,7 @@ static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* u
             } else {
                 val.first = rgfa_rank;
             }
-            nid_t seq_id = parse_gfa_sequence_id(s.name);
+            nid_t seq_id = parse_gfa_sequence_id(s.name, id_map_info);
             val.second.push_back(make_pair(seq_id, rgfa_offset));
         }
     };
@@ -320,7 +356,8 @@ void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
     }
     
     gfak::GFAKluge gg;
-    gfa_to_handle_graph_load_graph(filename, unseekable, graph, try_id_increment_hint, gg);
+    IDMapInfo id_map_info;
+    gfa_to_handle_graph_load_graph(filename, unseekable, graph, try_id_increment_hint, gg, id_map_info);
 }
 
 
@@ -348,23 +385,25 @@ void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGr
     }
     
     gfak::GFAKluge gg;
-    bool has_rgfa_tags = gfa_to_handle_graph_load_graph(filename, unseekable, graph, try_id_increment_hint, gg);
+    IDMapInfo id_map_info;
+    bool has_rgfa_tags = gfa_to_handle_graph_load_graph(filename, unseekable, graph, try_id_increment_hint, gg, id_map_info);
     
     // TODO: Deduplicate everything other than this line somehow.
-    gfa_to_handle_graph_add_paths(filename, unseekable, graph, gg);
+    gfa_to_handle_graph_add_paths(filename, unseekable, graph, gg, id_map_info);
 
     if (has_rgfa_tags) {
-        gfa_to_handle_graph_add_rgfa_paths(filename, unseekable, graph, gg);
+        gfa_to_handle_graph_add_rgfa_paths(filename, unseekable, graph, gg, id_map_info);
     }
 }
 
 void gfa_to_path_handle_graph_in_memory(istream& in,
                                         MutablePathMutableHandleGraph* graph) {
     gfak::GFAKluge gg;
-    bool has_rgfa_tags = gfa_to_handle_graph_load_graph("", &in, graph, false, gg);
-    gfa_to_handle_graph_add_paths("", &in, graph, gg);
+    IDMapInfo id_map_info;
+    bool has_rgfa_tags = gfa_to_handle_graph_load_graph("", &in, graph, false, gg, id_map_info);
+    gfa_to_handle_graph_add_paths("", &in, graph, gg, id_map_info);
     if (has_rgfa_tags) {
-        gfa_to_handle_graph_add_rgfa_paths("", &in, graph, gg);
+        gfa_to_handle_graph_add_rgfa_paths("", &in, graph, gg, id_map_info);
     }
     
 }
