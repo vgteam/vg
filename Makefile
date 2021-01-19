@@ -516,7 +516,7 @@ $(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LI
 
 # When building vcflib, make sure to force it to use our libdeflate, since we wnt in and configured its htslib to use libdeflate.
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h $(VCFLIB_DIR)/tabixpp/*.cpp $(VCFLIB_DIR)/tabixpp/*.hpp
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && $(MAKE) clean && CMAKE_FLAGS="-DHTSLIB_EXTRA_LIBS=-ldeflate" $(MAKE) $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && $(MAKE) clean && CMAKE_FLAGS="-DHTSLIB_EXTRA_LIBS=$(CWD)/$(LIB_DIR)/libdeflate.a" $(MAKE) $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
 
 # vcflib binaries are all automatically built. We need this one.
 $(VCFLIB_DIR)/bin/vcf2tsv: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.h $(LIB_DIR)/libvcflib.a
