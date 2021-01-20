@@ -1,0 +1,35 @@
+S	s1	CAAATAAG	SN:Z:x	SO:i:0	SR:i:0
+S	s2	A	SN:Z:y	SO:i:35	SR:i:1
+S	s3	G	SN:Z:x	SO:i:8	SR:i:0
+S	s4	T
+S	s5	C	SN:Z:x	SO:i:9	SR:i:0
+S	s6	TTG	SN:Z:x	SO:i:10	SR:i:0
+S	s7	A
+S	s8	G	SN:Z:x	SO:i:13	SR:i:0
+S	s9	AAATTTTCTGGAGTTCTAT	SN:Z:x	SO:i:14	SR:i:0
+S	s10	A
+S	s11	T	SN:Z:x	SO:i:33	SR:i:0
+S	12	ATAT	SN:Z:x	SO:i:34	SR:i:0
+S	s13	A
+S	s14	T	SN:Z:x	SO:i:38	SR:i:0
+S	s15	CCAACTCTCTG	SN:Z:x	SO:i:39	SR:i:0
+L	s5	+	s6	+	0M
+L	s7	+	s9	+	0M
+L	12	+	s13	+	0M
+L	12	+	s14	+	0M
+L	s8	+	s9	+	0M
+L	s1	+	s2	+	0M
+L	s1	+	s3	+	0M
+L	s4	+	s6	+	0M
+L	s6	+	s7	+	0M
+L	s6	+	s8	+	0M
+L	s2	+	s4	+	0M
+L	s2	+	s5	+	0M
+L	s10	+	12	+	0M
+L	s9	+	s10	+	0M
+L	s9	+	s11	+	0M
+L	s11	+	12	+	0M
+L	s13	+	s15	+	0M
+L	s14	+	s15	+	0M
+L	s3	+	s4	+	0M
+L	s3	+	s5	+	0M
