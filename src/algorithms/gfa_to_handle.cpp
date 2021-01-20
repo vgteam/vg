@@ -49,6 +49,18 @@ static nid_t parse_gfa_sequence_id(const string& str, IDMapInfo& id_map_info) {
     return node_id;
 }
 
+static void write_gfa_translation(const IDMapInfo& id_map_info, const string& translation_filename) {
+    // don't write anything unless we have both an output file and at least one non-trivial mapping
+    if (!translation_filename.empty() && !id_map_info.numeric_mode) {
+        ofstream trans_file(translation_filename);
+        if (!trans_file) {
+            throw runtime_error("error:[gfa_to_handle_graph] Unable to open output translation file: " + translation_filename);
+        }
+        for (const auto& mapping : id_map_info.name_to_id) {
+            trans_file << "T\t" << mapping.first << "\t" << mapping.second << "\n";
+        }
+    }
+}
 
 static void validate_gfa_edge(const gfak::edge_elem& e) {
     string not_blunt = ("error:[gfa_to_handle_graph] Can only load blunt-ended GFAs. "
@@ -261,7 +273,7 @@ static void gfa_to_handle_graph_add_paths(const string& filename, istream* unsee
 /// max_rank selects which ranks to consider. Usually, only rank-0 paths are full paths while rank > 0 are subpaths
 static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* unseekable, MutablePathHandleGraph* graph,
                                                gfak::GFAKluge& gg, IDMapInfo& id_map_info,
-                                               int64_t max_rank = numeric_limits<int64_t>::max()) {
+                                               int64_t max_rank) {
 
     // build up paths in memory using a plain old stl structure
     // maps path-name to <rank, vector<node_id, offset>>
@@ -279,8 +291,8 @@ static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* u
                     cerr << "warning:[gfa_to_handle_graph] Ignoring rGFA tags for sequence " << s.name
                          << " because they identify it as being on path " << rgfa_name << " with rank " << rgfa_rank
                          << " but a path with that name has already been found with a different rank (" << val.first << ")" << endl;
+                    return;
                 }
-                return;
             } else {
                 val.first = rgfa_rank;
             }
@@ -333,7 +345,8 @@ static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* u
 }
 
 void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
-                         bool try_from_disk, bool try_id_increment_hint) {
+                         bool try_from_disk, bool try_id_increment_hint,
+                         const string& translation_filename) {
 
     // What stream should we read from (isntead of opening the file), if any?
     istream* unseekable = nullptr;
@@ -357,11 +370,14 @@ void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
     gfak::GFAKluge gg;
     IDMapInfo id_map_info;
     gfa_to_handle_graph_load_graph(filename, unseekable, graph, try_id_increment_hint, gg, id_map_info);
+
+    write_gfa_translation(id_map_info, translation_filename);
 }
 
 
 void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
-                              bool try_from_disk, bool try_id_increment_hint) {
+                              bool try_from_disk, bool try_id_increment_hint,
+                              int64_t max_rgfa_rank, const string& translation_filename) {
     
     
     // What stream should we read from (isntead of opening the file), if any?
@@ -391,18 +407,21 @@ void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGr
     gfa_to_handle_graph_add_paths(filename, unseekable, graph, gg, id_map_info);
 
     if (has_rgfa_tags) {
-        gfa_to_handle_graph_add_rgfa_paths(filename, unseekable, graph, gg, id_map_info);
+        gfa_to_handle_graph_add_rgfa_paths(filename, unseekable, graph, gg, id_map_info, max_rgfa_rank);
     }
+
+    write_gfa_translation(id_map_info, translation_filename);
 }
 
 void gfa_to_path_handle_graph_in_memory(istream& in,
-                                        MutablePathMutableHandleGraph* graph) {
+                                        MutablePathMutableHandleGraph* graph,
+                                        int64_t max_rgfa_rank) {
     gfak::GFAKluge gg;
     IDMapInfo id_map_info;
     bool has_rgfa_tags = gfa_to_handle_graph_load_graph("", &in, graph, false, gg, id_map_info);
     gfa_to_handle_graph_add_paths("", &in, graph, gg, id_map_info);
     if (has_rgfa_tags) {
-        gfa_to_handle_graph_add_rgfa_paths("", &in, graph, gg, id_map_info);
+        gfa_to_handle_graph_add_rgfa_paths("", &in, graph, gg, id_map_info, max_rgfa_rank);
     }
     
 }
