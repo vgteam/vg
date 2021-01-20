@@ -29,6 +29,7 @@ var searchData=
   ['identity_5ftranslation',['identity_translation',['../classvg_1_1VG.html#ab015755dc8b427f4e226f920eb26c428',1,'vg::VG']]],
   ['identity_5fweight',['identity_weight',['../classvg_1_1Mapper.html#aabc9f9048a56b9b52fdf8d5271f7f60d',1,'vg::Mapper']]],
   ['identityoverlay',['IdentityOverlay',['../classvg_1_1IdentityOverlay.html',1,'vg::IdentityOverlay'],['../classvg_1_1IdentityOverlay.html#ab287d9dd0b6b6c0832dc725a2cdb6740',1,'vg::IdentityOverlay::IdentityOverlay(const HandleGraph *graph)'],['../classvg_1_1IdentityOverlay.html#a8a699d8689c9d93e72a7e78023cc3413',1,'vg::IdentityOverlay::IdentityOverlay()=default']]],
+  ['idmapinfo',['IDMapInfo',['../structvg_1_1algorithms_1_1IDMapInfo.html',1,'vg::algorithms']]],
   ['ids_5fmain_2ecpp',['ids_main.cpp',['../ids__main_8cpp.html',1,'']]],
   ['idscanner',['IDScanner',['../structvg_1_1IDScanner.html',1,'vg']]],
   ['ignore_5fmissing_5fcontigs',['ignore_missing_contigs',['../classvg_1_1VariantAdder.html#a7a8bd35e29cbd240fd0f2a7156630943',1,'vg::VariantAdder']]],

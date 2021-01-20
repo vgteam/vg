@@ -7,7 +7,6 @@ var searchData=
   ['unittest',['unittest',['../namespacevg_1_1unittest.html',1,'vg']]],
   ['v',['v',['../structvg_1_1TreeNode.html#aa4855443d5325cd35ff3d1d5a6855190',1,'vg::TreeNode']]],
   ['valid_5foutput_5fformat',['valid_output_format',['../namespacevg_1_1io.html#accd0bfdce54ff793cf2fae6b1122ec54',1,'vg::io']]],
-  ['validate_5fgfa_5fedge',['validate_gfa_edge',['../namespacevg_1_1algorithms.html#af69b02ea90f7e78fbd75fea9525303f7',1,'vg::algorithms']]],
   ['validate_5fmain_2ecpp',['validate_main.cpp',['../validate__main_8cpp.html',1,'']]],
   ['validate_5fmultipath_5falignment',['validate_multipath_alignment',['../namespacevg.html#a026842b7758f60f2be6a474cf41d3fe1',1,'vg']]],
   ['value',['Value',['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#a74a157bf3bce2696b04754f1c6dd72b9',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;::Value()'],['../structvg_1_1MinimizerMapper_1_1Minimizer.html#abaad50c48424395686b10a95dfc16ab7',1,'vg::MinimizerMapper::Minimizer::value()'],['../classvg_1_1BaseOption.html#aa74c66fcf0f363ce08bb6e5060fd42e5',1,'vg::BaseOption::value()'],['../classvg_1_1SmallBitset.html#a486a8a8a5a30fab268ae96a9cf464fdd',1,'vg::SmallBitset::value()'],['../classvg_1_1io_1_1MessageIterator.html#a698864a67e1e721c06a97875f6cbcbde',1,'vg::io::MessageIterator::value()'],['../classvg_1_1io_1_1ProtobufIterator.html#aa66494ab08ee29d36b1aa04f0213f566',1,'vg::io::ProtobufIterator::value()']]],

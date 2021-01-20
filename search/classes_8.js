@@ -1,6 +1,7 @@
 var searchData=
 [
   ['identityoverlay',['IdentityOverlay',['../classvg_1_1IdentityOverlay.html',1,'vg']]],
+  ['idmapinfo',['IDMapInfo',['../structvg_1_1algorithms_1_1IDMapInfo.html',1,'vg::algorithms']]],
   ['idscanner',['IDScanner',['../structvg_1_1IDScanner.html',1,'vg']]],
   ['incrementalsubgraph',['IncrementalSubgraph',['../classvg_1_1IncrementalSubgraph.html',1,'vg']]],
   ['incrementiter',['IncrementIter',['../structvg_1_1IncrementIter.html',1,'vg']]],
