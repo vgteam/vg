@@ -116,3 +116,6 @@
 [submodule "vgteam_bbhash"]
 	path = deps/BBHash
 	url = https://github.com/vgteam/BBHash.git
+[submodule "doc/wiki"]
+	path = doc/wiki
+	url = https://github.com/vgteam/vg.wiki.git

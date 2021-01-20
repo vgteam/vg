@@ -73,6 +73,10 @@ ifeq ($(strip $(shell $(CXX) -latomic /dev/null -o/dev/null 2>&1 | grep latomic 
 endif
 
 ifeq ($(shell uname -s),Darwin)
+    # Don't try and set an rpath on any dependency utilities because that's not
+    # a thing and install names will work.
+    LD_UTIL_RPATH_FLAGS=""
+
     # We may need libraries from Macports
     # TODO: where does Homebrew keep libraries?
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
@@ -161,11 +165,12 @@ ifeq ($(shell uname -s),Darwin)
     # We don't actually do any static linking on Mac, so we leave this empty.
     START_STATIC =
     END_STATIC =
-    
 else
     # We are not running on OS X
-	# We can also have a normal Unix rpath
-    LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)
+    
+    # Set an rpath for vg and dependency utils to find installed libraries
+    LD_UTIL_RPATH_FLAGS="-Wl,-rpath,$(CWD)/$(LIB_DIR)"
+    LD_LIB_FLAGS += $(LD_UTIL_RPATH_FLAGS)
     # Make sure to allow backtrace access to all our symbols, even those which are not exported.
     # Absolutely no help in a static build.
     LD_LIB_FLAGS += -rdynamic
@@ -185,6 +190,8 @@ else
     START_STATIC = -Wl,-Bstatic
     # Note that END_STATIC is only safe to use in a mostly-dynamic build, and has to appear or we will try to statically link secret trailing libraries.
     END_STATIC = -Wl,-Bdynamic
+    
+   
 endif
 
 # Propagate CXXFLAGS to child makes and other build processes
@@ -374,13 +381,14 @@ $(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
 
 # We have system-level deps to install
 get-deps:
-	sudo apt-get install -qq -y --no-upgrade build-essential git protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq rs samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev 
+	sudo apt-get install -qq -y --no-upgrade build-essential git protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq bc rs parallel npm samtools curl unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev
 
 # And we have submodule deps to build
 deps: $(DEPS)
 
 test: $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(VCFLIB_DIR)/bin/vcf2tsv $(FASTAHACK_DIR)/fastahack $(BIN_DIR)/rapper
 	. ./source_me.sh && cd test && prove -v t
+	. ./source_me.sh && doc/test-docs.sh
 
 docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp
 	doxygen
@@ -511,11 +519,11 @@ $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDE
 # a system path, in case another htslib is installed on the system. Some HTSlib
 # headers look for the current HTSlib with <>.
 $(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
-	+. ./source_me.sh && cd $(HTSLIB_DIR) && rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts* && autoheader && autoconf && CFLAGS="-I$(CWD)/$(HTSLIB_DIR) -isystem $(CWD)/$(HTSLIB_DIR) -I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install && ls $(CWD)/$(INC_DIR)/htslib
+	+. ./source_me.sh && cd $(HTSLIB_DIR) && rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts* && autoheader && autoconf && CFLAGS="-I$(CWD)/$(HTSLIB_DIR) -isystem $(CWD)/$(HTSLIB_DIR) -I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="-L$(CWD)/$(LIB_DIR) $(LD_UTIL_RPATH_FLAGS)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install && ls $(CWD)/$(INC_DIR)/htslib
 
 # When building vcflib, make sure to force it to use our libdeflate, since we wnt in and configured its htslib to use libdeflate.
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h $(VCFLIB_DIR)/tabixpp/*.cpp $(VCFLIB_DIR)/tabixpp/*.hpp
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && $(MAKE) clean && CMAKE_FLAGS="-DHTSLIB_EXTRA_LIBS=-ldeflate" $(MAKE) $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && $(MAKE) clean && CMAKE_FLAGS="-DHTSLIB_EXTRA_LIBS=$(CWD)/$(LIB_DIR)/libdeflate.a" $(MAKE) $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
 
 # vcflib binaries are all automatically built. We need this one.
 $(VCFLIB_DIR)/bin/vcf2tsv: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.h $(LIB_DIR)/libvcflib.a

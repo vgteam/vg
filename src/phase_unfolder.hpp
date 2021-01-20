@@ -18,6 +18,7 @@
 #include <vector>
 
 #include <gcsa/support.h>
+#include <bdsg/hash_graph.hpp>
 
 namespace vg {
 
@@ -105,7 +106,7 @@ private:
      * GBWT index but not in the input graph. Split the complement into
      * disjoint components and return the components.
      */
-    std::list<VG> complement_components(MutableHandleGraph& graph, bool show_progress);
+    std::list<bdsg::HashGraph> complement_components(MutableHandleGraph& graph, bool show_progress);
 
     /**
      * Generate all border-to-border paths in the component supported by the
