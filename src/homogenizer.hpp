@@ -24,7 +24,7 @@ namespace vg{
              * graph becomes stable.
              */
             void homogenize(vg::VG* graph, PathPositionHandleGraph* path_graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths p, int kmer_size);
-            void homogenize(vg::VG* graph, PathPositionHandleGraph* path_graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, vg::Index reads_index);
+            void homogenize(vg::VG* graph, PathPositionHandleGraph* path_graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index);
         private:
 
             Translator translator;

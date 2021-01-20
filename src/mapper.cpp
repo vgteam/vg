@@ -3,10 +3,6 @@
 #include "haplotypes.hpp"
 #include "annotation.hpp"
 
-#include "algorithms/dagify.hpp"
-#include "algorithms/is_acyclic.hpp"
-#include "algorithms/split_strands.hpp"
-
 //#define debug_mapper
 
 //#define debug_strip_match
@@ -2432,7 +2428,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
     bdsg::HashGraph align_graph;
         
     // check if we can get away with using only one strand of the graph
-    bool use_single_stranded = algorithms::is_single_stranded(&graph);
+    bool use_single_stranded = handlealgs::is_single_stranded(&graph);
     bool mem_strand = false;
     if (use_single_stranded) {
         if (mems.size()) {
@@ -2460,7 +2456,11 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         if (mem_strand && xdrop_alignment) {
             // TODO -- investigate if reversing the mems is cheaper
             // xdrop requires that we reverse complement the mems or the graph
-            node_trans = algorithms::reverse_complement_graph(&graph, &align_graph);
+            handlealgs::reverse_complement_graph(&graph, &align_graph);
+            node_trans.reserve(align_graph.get_node_count());
+            align_graph.for_each_handle([&](const handle_t& handle) {
+                node_trans[align_graph.get_id(handle)] = make_pair(align_graph.get_id(handle), true);
+            });
         } else {
             // if we are using only the forward strand of the current graph, a make trivial node translation so
             // the later code's expectations are met
@@ -2480,14 +2480,19 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         }
     }
     else {
-        node_trans = algorithms::split_strands(&graph, &align_graph);
+        auto node_trans_tmp = handlealgs::split_strands(&graph, &align_graph);
+        node_trans.reserve(node_trans_tmp.size());
+        for (const auto& trans : node_trans_tmp) {
+            node_trans[align_graph.get_id(trans.first)] = make_pair(graph.get_id(trans.second),
+                                                                    graph.get_is_reverse(trans.second));
+        }
     }
 
     // if necessary, convert from cyclic to acylic
-    if (!algorithms::is_directed_acyclic(&align_graph)) {
+    if (!handlealgs::is_directed_acyclic(&align_graph)) {
         // make a dagified graph and translation
         bdsg::HashGraph dagified;
-        unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
+        unordered_map<id_t,id_t> dagify_trans = handlealgs::dagify(&align_graph, &dagified, target_length);
         // replace the original with the dagified ones
         align_graph = move(dagified);
         node_trans = overlay_node_translations(dagify_trans, node_trans);

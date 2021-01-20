@@ -3,7 +3,7 @@
 using namespace std;
 using namespace vg;
 
-void Homogenizer::homogenize(vg::VG* o_graph, PathPositionHandleGraph* path_graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, vg::Index reads_index){
+void Homogenizer::homogenize(vg::VG* o_graph, PathPositionHandleGraph* path_graph, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index){
     /**
      * Pattern for SV homogenization
      * 1. Locate SV-indicating reads with Sift. Save them in a gam file

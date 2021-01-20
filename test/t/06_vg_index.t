@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order
 
-plan tests 58
+plan tests 51
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -173,7 +173,6 @@ rm -f x_ref.gbwt
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg bogus123.vg 2>/dev/null
 is $? 1 "fail with nonexistent file"
-rm -rf x.idx
 
 vg kmers -k 16 -gB x.vg >x.graph
 vg index -i x.graph -g x.gcsa
@@ -182,26 +181,6 @@ rm -f x.gcsa x.gcsa.lcp x.graph
 
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 vg map -T <(vg sim -n 100 -x x.xg) -d x > x1337.gam
-vg index -a x1337.gam -d x.vg.aln
-is $(vg index -D -d x.vg.aln | wc -l) 101 "index can store alignments"
-is $(vg index -A -d x.vg.aln | vg view -a - | wc -l) 100 "index can dump alignments"
-
-# repeat with an unmapped read (sequence from phiX)
-rm -rf x.vg.aln
-(vg map -s "CTGATGAGGCCGCCCCTAGTTTTGTTTCTGGTGCTATGGCTAAAGCTGGTAAAGGACTTC" -d x -P 0.9; vg map -s "CTGATGAGGCCGCCCCTAGTTTTGTTTCTGGTGCTATGGCTAAAGCTGGTAAAGGACTTC" -d x ) | vg index -a - -d x.vg.aln
-is $(vg index -A -d x.vg.aln | vg view -a - | wc -l) 2 "alignment index stores unmapped reads"
-
-# load the same data again & see that the records are duplicated.
-# that's not really a wise use-case, but it tests that we don't
-# overwrite anything in an existing alignment index, by virtue
-# of keying each entry with a unqiue nonce.
-rm -rf x.vg.aln
-vg index -a x1337.gam -d x.vg.aln
-vg index -a x1337.gam -d x.vg.aln
-is $(vg index -D -d x.vg.aln | wc -l) 201 "alignment index can be loaded using sequential invocations; next_nonce persistence"
-
-vg map -T small/x-s1337-n100-v2.reads -d x | vg index -m - -d x.vg.map
-is $(vg index -D -d x.vg.map | wc -l) 1477 "index stores all mappings"
 
 # Compare our indexes against gamsort's
 vg gamsort -i x1337.sorted.gam.gai2 x1337.gam > x1337.sorted.gam
@@ -209,7 +188,7 @@ vg index --index-sorted-gam x1337.sorted.gam
 
 is "$(md5sum <x1337.sorted.gam.gai)" "$(md5sum <x1337.sorted.gam.gai2)" "vg index and vg gamsort produce identical sorted GAM indexes"
 
-rm -rf x.idx x.vg.map x.vg.aln x1337.gam x1337.sorted.gam.gai2 x1337.sorted.gam.gai x1337.sorted.gam
+rm -rf x1337.gam x1337.sorted.gam.gai2 x1337.sorted.gam.gai x1337.sorted.gam
 
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
@@ -223,7 +202,7 @@ vg index -x q.xg q.vg
 is $? 0 "storage of multiple graphs in an index succeeds"
 
 rm x.vg y.vg z.vg q.vg
-rm -rf x.idx q.xg
+rm -rf q.xg
 
 # Now test backward nodes
 vg index -x r.xg reversing/reversing_x.vg
@@ -232,16 +211,8 @@ is $? 0 "can index backward nodes"
 vg index -k 11 -g r.gcsa reversing/reversing_x.vg
 is $? 0 "can index kmers for backward nodes"
 
-vg map -T <(vg sim -n 100 -x r.xg) -d r | vg index -a - -d r.aln.idx
-is $(vg index -D -d r.aln.idx | wc -l) 101 "index can store alignments to backward nodes"
+rm -rf r.xg r.gcsa
 
-rm -rf r.aln.idx r.xg r.gcsa
-
-vg index -x c.xg -g c.gcsa -k 11 cyclic/all.vg
-vg map -T <(vg sim -n 100 -x c.xg) -d c | vg index -a - -d all.vg.aln
-is $(vg index -D -d all.vg.aln | wc -l) 101 "index can store alignments to cyclic graphs"
-
-rm -rf all.vg.aln c.xg c.gcsa
 
 is $(vg index -g x.gcsa -k 16 -V <(vg view -Fv cyclic/two_node.gfa) 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 index works on cyclic graphs with heads and tails"
 

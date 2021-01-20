@@ -19,7 +19,6 @@
 #include "../gfa.hpp"
 #include "../io/json_stream_helper.hpp"
 #include "../handle.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include "../algorithms/gfa_to_handle.hpp"
 
 #include <vg/io/message_iterator.hpp>
@@ -909,7 +908,7 @@ int main_view(int argc, char** argv) {
     if (vg_graph == nullptr) {
         // Copy instead. Should be fine because we on;y ever want to run this on small graphs anyway.
         vg_graph = new vg::VG();
-        algorithms::copy_path_handle_graph(graph.get(), vg_graph);
+        handlealgs::copy_path_handle_graph(graph.get(), vg_graph);
         
         // Make sure the new VG has its Proto right
         // TODO: if we didn't reach into vg.graph we wouldn't need to do this.

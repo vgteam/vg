@@ -75,6 +75,9 @@ int main(int argc, char *argv[]) {
     auto* subcommand = vg::subcommand::Subcommand::get(argc, argv);
     if (subcommand != nullptr) {
         // We found a matching subcommand, so run it
+        if (subcommand->get_category() == vg::subcommand::CommandCategory::DEPRECATED) {
+            cerr << endl << "WARNING:[vg] Subcommand '" << argv[1] << "' is deprecated and is no longer being actively maintained. Future releases may eliminate it entirely." << endl << endl;
+        }
         return (*subcommand)(argc, argv);
     } else {
         // No subcommand found

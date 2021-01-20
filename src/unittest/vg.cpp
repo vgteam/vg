@@ -6,8 +6,8 @@
 #include "../vg.hpp"
 #include "../augment.hpp"
 #include "../utility.hpp"
-#include "../algorithms/unchop.hpp"
 #include "../algorithms/normalize.hpp"
+#include "../algorithms/disjoint_components.hpp"
 
 namespace vg {
 namespace unittest {
@@ -1476,7 +1476,7 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         
         VG graph = string_to_graph(graph_json);
         graph.bluntify();
-        algorithms::unchop(&graph);
+        handlealgs::unchop(&graph);
         
         SECTION("the unchopped bluntified graph should have one node") {
             REQUIRE(graph.node_count() == 1);
@@ -1584,8 +1584,7 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     add_nodes_and_edges(&graph, path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling, 1);
     
     // Make sure it's still connected
-    list<VG> subgraphs;
-    graph.disjoint_subgraphs(subgraphs);
+    list<bdsg::HashGraph> subgraphs = algorithms::disjoint_components(graph);
     REQUIRE(subgraphs.size() == 1);
     
 }

@@ -8,8 +8,9 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include "gssw.h"
 #include <vg/vg.pb.h>
+
+#include "gssw.h"
 #include "vg.hpp"
 #include "Variant.h"
 #include "Fasta.h"

@@ -95,7 +95,7 @@ namespace vg {
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) {
         
         // initialize the match nodes
-        create_match_nodes(graph, hits, project, injection_trans, path_node_provenance, fanout_breaks);
+        create_match_nodes(graph, hits, project, injection_trans, path_node_provenance, max_branch_trim_length, fanout_breaks);
         
         if (gcsa) {
             // we indicated that these MEMs came from a GCSA, so there might be order-length MEMs that we can combine
@@ -110,7 +110,7 @@ namespace vg {
         }
         
 #ifdef debug_multipath_alignment
-        cerr << "nodes after adding, trimming, and collapsing:" << endl;
+        cerr << "nodes after adding, jittering, trimming, and collapsing:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& path_node = path_nodes.at(i);
             cerr << i << " (hit " << path_node_provenance[i] << ") " << debug_string(path_node.path) << " ";
@@ -609,6 +609,7 @@ namespace vg {
                                                      const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                                      vector<size_t>& path_node_provenance,
+                                                     int64_t max_branch_trim_length,
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) {
         
 #ifdef debug_multipath_alignment
@@ -1042,8 +1043,12 @@ namespace vg {
             }
         }
         
-        
+        // merge the identical portion of any nodes that overlap exactly
         merge_partially_redundant_match_nodes(node_matches, path_node_provenance);
+        
+        // if the end of a node is a homopolymer, see if it can be jittered at all
+        // and still make a reasonable alignment
+        jitter_homopolymer_ends(graph, path_node_provenance, hits, max_branch_trim_length);
     }
 
     void MultipathAlignmentGraph::merge_partially_redundant_match_nodes(const unordered_map<int64_t, vector<int64_t>>& node_matches,
@@ -1230,7 +1235,7 @@ namespace vg {
                     }
                     else {
 #ifdef debug_multipath_alignment
-                        cerr << "have not yet exhausted (path node index) " << overlapping_group[it->first] << ", keeping on heap with a new uncentered seq index  of " << seq_pos(it->first) - path_nodes.front().begin << endl;
+                        cerr << "have not yet exhausted (path node index) " << overlapping_group[it->first] << ", keeping on heap with a new uncentered seq index of " << seq_pos(it->first) - path_nodes.front().begin << endl;
 #endif
                         ++it;
                     }
@@ -1340,6 +1345,257 @@ namespace vg {
             cerr << i << " (hit " << path_node_provenance[i] << "): " << debug_string(path_nodes[i].path) << " " << string(path_nodes[i].begin, path_nodes[i].end) << endl;
         }
 #endif
+    }
+
+    void MultipathAlignmentGraph::jitter_homopolymer_ends(const HandleGraph& graph,
+                                                          vector<size_t>& path_node_provenance,
+                                                          const MultipathMapper::memcluster_t& hits,
+                                                          int64_t max_branch_trim_length) {
+        
+#ifdef debug_multipath_alignment
+        cerr << "checking for opportunities to jitter homopolymer anchors" << endl;
+#endif
+        
+        // TODO: magic constants
+        static const int64_t min_homopolymer_length = 6;
+        // a homopolymer jitter will be accepted if it meets either of these criteria:
+        static const int64_t max_jitter_diff = 2;
+        static const int64_t min_jitter_length = 5;
+        
+        size_t num_original_path_nodes = path_nodes.size();
+        for (size_t i = 0; i < num_original_path_nodes; ++i) {
+            if (path_nodes[i].end - path_nodes[i].begin != hits.first[path_node_provenance[i]].first->length()
+                || path_nodes[i].end - path_nodes[i].begin <= min_homopolymer_length) {
+                // this node has already been merged with some other node, which gives an indication
+                // that alternate exact matches have already handled the local alignment uncertainty
+                // or alternatively this node is too short to jitter
+                continue;
+            }
+            
+            // TODO: put bookkeeping in place to remove this restriction
+            // only try to jitter of one side of a path node at most (both is complicated because
+            // we have to sever the source node)
+            bool did_jitter = false;
+            for (bool left_side : {true, false}) {
+                if (did_jitter) {
+                    break;
+                }
+                
+                int64_t j_begin, incr;
+                if (left_side) {
+                    j_begin = 0;
+                    incr = 1;
+                }
+                else {
+                    j_begin = path_nodes[i].end - path_nodes[i].begin - 1;
+                    incr = -1;
+                }
+                
+                // find the length of homopolymer there is at the end of this match
+                // TODO: technically these are homodimers now, but whatever
+                int64_t homopolymer_length = 0;
+                for (int64_t j = j_begin, n = path_nodes[i].end - path_nodes[i].begin; j >= 0 && j < n; j += incr) {
+                    if (*(path_nodes[i].begin + j) == *(path_nodes[i].begin + j_begin + (abs(j - j_begin) % 2) * incr)) {
+                        ++homopolymer_length;
+                    }
+                    else {
+                        break;
+                    }
+                }
+                
+                if (homopolymer_length >= min_homopolymer_length) {
+                    // this is a long enough homopolymer that we'll consider some jitter
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "found homopolymer of length " << homopolymer_length << " on path node " << i << " on left side? " << left_side << endl;
+#endif
+                                        
+                    // walk until the furthest mapping that can be reached by peeling off
+                    // the homopolymer
+                    int64_t k = left_side ? 0 : path_nodes[i].path.mapping_size() - 1;
+                    int64_t length_before = 0;
+                    for (; k + incr >= 0 && k + incr < path_nodes[i].path.mapping_size(); k += incr) {
+                        int64_t length_thru = length_before + mapping_to_length(path_nodes[i].path.mapping(k));
+                        if (length_thru > homopolymer_length) {
+                            break;
+                        }
+                        length_before = length_thru;
+                    }
+                                        
+                    // walk backwards looking for jittered matches
+                    handle_t adj_handle = graph.get_handle(path_nodes[i].path.mapping(k).position().node_id(),
+                                                           path_nodes[i].path.mapping(k).position().is_reverse());
+                    for (; k - incr >= 0 && k - incr < path_nodes[i].path.mapping_size() && !did_jitter; k -= incr) {
+                        if (length_before <= max_branch_trim_length) {
+                            // we won't bother trying to jitter over regions that will
+                            // be caught branch point trimming
+                            break;
+                        }
+#ifdef debug_multipath_alignment
+                        cerr << "at mapping " << k << " (" << debug_string(path_nodes[i].path.mapping(k).position()) << ") having already walked " << length_before << endl;
+#endif
+                        
+                        // TODO: contains some redundant code with create_match_nodes
+                        
+                        handle_t handle = adj_handle;
+                        adj_handle = graph.get_handle(path_nodes[i].path.mapping(k - incr).position().node_id(),
+                                                      path_nodes[i].path.mapping(k - incr).position().is_reverse());
+                        graph.follow_edges(handle, left_side, [&](const handle_t& next) {
+                            if (next != adj_handle){
+                                // this is an adjacency that the current path doesn't take, so we can
+                                // try to jitter down it
+                                
+#ifdef debug_multipath_alignment
+                                cerr << "homopolymer can branch from " << graph.get_id(handle) << " " << graph.get_is_reverse(handle) << " to " << graph.get_id(next) << " " << graph.get_is_reverse(next) << " with " << length_before << " bases to jitter" << endl;
+#endif
+                                
+                                // stack for DFS, each record contains tuples of
+                                // (read begin, next node index, next node handles,
+                                vector<tuple<string::const_iterator, size_t, vector<handle_t>>> stack;
+                                auto riter = left_side ? path_nodes[i].begin + length_before - 1 : path_nodes[i].end - length_before;
+                                stack.emplace_back(riter, 0, vector<handle_t>(1, next));
+                                while (!stack.empty() && !did_jitter) {
+                                    auto& back = stack.back();
+                                    if (get<1>(back) == get<2>(back).size()) {
+                                        stack.pop_back();
+                                        continue;
+                                    }
+                                    
+                                    handle_t trav = get<2>(back)[get<1>(back)];
+                                    get<1>(back)++;
+                                    
+#ifdef debug_multipath_alignment
+                                    cerr << "checking for matches node " << graph.get_id(trav) << endl;
+#endif
+                                    string node_seq = graph.get_sequence(trav);
+                                    int64_t node_idx = left_side ? node_seq.size() - 1 : 0;
+                                    string::const_iterator read_iter = get<0>(back);
+                                    
+                                    
+                                    // look for a match along the entire node sequence
+                                    for (; node_idx >= 0 && node_idx < node_seq.size()
+                                         && read_iter >= path_nodes[i].begin && read_iter < path_nodes[i].end; node_idx -= incr, read_iter -= incr) {
+#ifdef debug_multipath_alignment
+                                        cerr << "comparing MEM index " << (read_iter - path_nodes[i].begin) << " " << *read_iter << " and node index " << node_idx << " " << node_seq[node_idx] << endl;
+#endif
+                                        if (node_seq[node_idx] != *read_iter) {
+#ifdef debug_multipath_alignment
+                                            cerr << "found mismatch" << endl;
+#endif
+                                            
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if ((node_idx < 0 || node_idx == node_seq.size())
+                                        && read_iter >= path_nodes[i].begin && read_iter < path_nodes[i].end) {
+                                        // we went off the end of the node without exhausting the MEM
+                                        stack.emplace_back(read_iter, 0, vector<handle_t>());
+                                        graph.follow_edges(trav, left_side, [&](const handle_t& next) {
+                                            get<2>(stack.back()).emplace_back(next);
+                                        });
+                                    }
+                                    else {
+                                        int64_t length_diff = left_side ? read_iter - path_nodes[i].begin + 1 : path_nodes[i].end - read_iter;
+                                        int64_t jitter_length = length_before - length_diff;
+                                        if (length_diff <= max_jitter_diff || jitter_length >= min_jitter_length) {
+                                            // we found a jittered anchor with nearly the same length, let's add
+                                            // the jittered portion as an alternate anchor
+                                            did_jitter = true;
+                                            path_nodes.emplace_back();
+                                            path_nodes.emplace_back();
+                                            auto& split_node = path_nodes[path_nodes.size() - 2];
+                                            auto& jitter_node = path_nodes.back();
+                                            path_node_provenance.emplace_back(path_node_provenance[i]);
+                                            path_node_provenance.emplace_back(path_node_provenance[i]);
+                                            if (left_side) {
+                                                jitter_node.begin = read_iter + 1;
+                                                jitter_node.end = path_nodes[i].begin + length_before;
+                                                if (node_idx < (int64_t) node_seq.size() - 1) {
+                                                    auto mapping = jitter_node.path.add_mapping();
+                                                    auto pos = mapping->mutable_position();
+                                                    pos->set_node_id(graph.get_id(trav));
+                                                    pos->set_is_reverse(graph.get_is_reverse(trav));
+                                                    pos->set_offset(node_idx + 1);
+                                                    auto edit = mapping->add_edit();
+                                                    edit->set_from_length(node_seq.size() - node_idx - 1);
+                                                    edit->set_to_length(edit->from_length());
+                                                }
+                                                for (int64_t l = stack.size() - 2; l >= 0; --l) {
+                                                    handle_t h = get<2>(stack[l])[get<1>(stack[l]) - 1];
+                                                    auto mapping = jitter_node.path.add_mapping();
+                                                    auto pos = mapping->mutable_position();
+                                                    pos->set_node_id(graph.get_id(h));
+                                                    pos->set_is_reverse(graph.get_is_reverse(h));
+                                                    pos->set_offset(0);
+                                                    auto edit = mapping->add_edit();
+                                                    edit->set_from_length(graph.get_length(h));
+                                                    edit->set_to_length(edit->from_length());
+                                                }
+                                                // split up the node that we jittered so that it finds the edge to the jitter
+                                                split_node.begin = path_nodes[i].begin + length_before;
+                                                split_node.end = path_nodes[i].end;
+                                                for (int64_t l = k; l < path_nodes[i].path.mapping_size(); ++l) {
+                                                    *split_node.path.add_mapping() = move(*path_nodes[i].path.mutable_mapping(l));
+                                                }
+                                                path_nodes[i].end = split_node.begin;
+                                                path_nodes[i].path.mutable_mapping()->resize(k);
+                                            }
+                                            else {
+                                                jitter_node.begin = path_nodes[i].end - length_before;
+                                                jitter_node.end = read_iter;
+                                                for (int64_t l = 0; l + 1 < stack.size(); ++l) {
+                                                    handle_t h = get<2>(stack[l])[get<1>(stack[l]) - 1];
+                                                    auto mapping = jitter_node.path.add_mapping();
+                                                    auto pos = mapping->mutable_position();
+                                                    pos->set_node_id(graph.get_id(h));
+                                                    pos->set_is_reverse(graph.get_is_reverse(h));
+                                                    pos->set_offset(0);
+                                                    auto edit = mapping->add_edit();
+                                                    edit->set_from_length(graph.get_length(h));
+                                                    edit->set_to_length(edit->from_length());
+                                                }
+                                                if (node_idx > 0) {
+                                                    auto mapping = jitter_node.path.add_mapping();
+                                                    auto pos = mapping->mutable_position();
+                                                    pos->set_node_id(graph.get_id(trav));
+                                                    pos->set_is_reverse(graph.get_is_reverse(trav));
+                                                    pos->set_offset(0);
+                                                    auto edit = mapping->add_edit();
+                                                    edit->set_from_length(node_idx);
+                                                    edit->set_to_length(edit->from_length());
+                                                }
+                                                // split up the node that we jittered so that it finds the edge to the jitter
+                                                split_node.begin = path_nodes[i].end - length_before;
+                                                split_node.end = path_nodes[i].end;
+                                                for (int64_t l = k + 1; l < path_nodes[i].path.mapping_size(); ++l) {
+                                                    *split_node.path.add_mapping() = move(*path_nodes[i].path.mutable_mapping(l));
+                                                }
+                                                path_nodes[i].end = split_node.begin;
+                                                path_nodes[i].path.mutable_mapping()->resize(k + 1);
+                                            }
+                                            
+#ifdef debug_multipath_alignment
+                                            cerr << "jitter difference of " << length_diff << " was small enough or length of " << jitter_length << " was large enough to make a new jitter anchor: " << endl;
+                                            cerr << string(jitter_node.begin, jitter_node.end) << " (" << (jitter_node.begin - path_nodes[i].begin) << ":" << (jitter_node.end - path_nodes[i].begin) << ") " << debug_string(jitter_node.path) << endl;
+                                            cerr << "new split nodes in path node " << i << endl;
+                                            cerr << string(path_nodes[i].begin, path_nodes[i].end) << " (" << (path_nodes[i].begin - path_nodes[i].begin) << ":" << (path_nodes[i].end - path_nodes[i].begin) << ") " << debug_string(path_nodes[i].path) << endl;
+                                            cerr << string(split_node.begin, split_node.end) << " (" << (split_node.begin - path_nodes[i].begin) << ":" << (split_node.end - path_nodes[i].begin) << ") " << debug_string(split_node.path) << endl;
+#endif
+                                        }
+                                    }
+                                }
+                            }
+                            return !did_jitter;
+                        });
+                        
+                        if (!did_jitter) {
+                            length_before -= mapping_to_length(path_nodes[i].path.mapping(k - incr));
+                        }
+                    }
+                }
+            }
+        }
     }
     
     void MultipathAlignmentGraph::collapse_order_length_runs(const HandleGraph& graph, gcsa::GCSA* gcsa,
@@ -2346,7 +2602,7 @@ namespace vg {
         unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_starts_from_end;
         
         // get a topological order over the nodes in the graph to iterate over
-        vector<handle_t> topological_order = algorithms::lazier_topological_order(&graph);
+        vector<handle_t> topological_order = handlealgs::lazier_topological_order(&graph);
         for (int64_t i = 0; i < topological_order.size(); i++) {
             id_t node_id = graph.get_id(topological_order[i]);
             
@@ -3677,7 +3933,7 @@ namespace vg {
         reorder_adjacency_lists(topological_order);
         
         for (size_t i : topological_order) {
-            vector<pair<size_t, size_t>>& edges = path_nodes.at(i).edges;
+            vector<pair<size_t, size_t>>& edges = path_nodes[i].edges;
             
             // if there is only one edge out of a node, that edge can never be transitive
             // (this optimization covers most cases)
@@ -3690,8 +3946,10 @@ namespace vg {
             
             for (size_t j = 0; j < edges.size(); j++) {
                 const pair<size_t, size_t>& edge = edges[j];
-                if (traversed.count(edge.first)) {
+                if (traversed.count(edge.first) && edge.second != 0 &&
+                    path_nodes[i].end != path_nodes[edge.first].begin) {
                     // we can reach the target of this edge by another path, so it is transitive
+                    // and the path nodes don't abut on either the read or graph
                     keep[j] = false;
                     continue;
                 }
@@ -3990,13 +4248,17 @@ namespace vg {
                     incr = 1;
                 }
                 // if this is a tail alignment, we allow paths of different lengths to be "equal"
-                // if one is a prefix of the other
+                // if one is a prefix of the other and lower-scoring
                 bool is_equal = (path_1.mapping_size() == path_2.mapping_size() || leftward || rightward);
                 for (; i >= 0 && j >= 0 && i < path_1.mapping_size() && j < path_2.mapping_size() && is_equal; i += incr, j += incr) {
                     const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(j).position();
                     is_equal = (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() == pos_2.is_reverse());
                 }
-                return is_equal;
+                // TODO: there has to be a more succinct way to check this condition
+                return (is_equal &&
+                        (path_1.mapping_size() == path_2.mapping_size() ||
+                         (path_1.mapping_size() > path_2.mapping_size() && aln_1.second > aln_2.second) ||
+                         (path_1.mapping_size() < path_2.mapping_size() && aln_1.second < aln_2.second)));
             });
             
             // remove the duplicates at the end
@@ -4074,7 +4336,7 @@ namespace vg {
                     continue;
                 }
                 
-                size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&connecting_graph)) : 
+                size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, handlealgs::count_walks(&connecting_graph)) :
                                                          max_alt_alns;
                 
                 
@@ -4090,14 +4352,12 @@ namespace vg {
                 // if we're doing dynamic alt alignments, possibly expand the number of tracebacks until we get an
                 // alignment to every path or hit the hard max
                 vector<pair<path_t, int32_t>> deduplicated;
-                for (size_t num_alns_iter = num_alt_alns;
-                     deduplicated.size() < num_alt_alns && num_alns_iter <= max_alt_alns;
-                     num_alns_iter *= 2) {
+                if (num_alt_alns > 0) {
                     
-                    intervening_sequence.clear_path();
-                    
-                    vector<Alignment> alt_alignments;
-                    if (num_alns_iter > 0) {
+                    size_t num_alns_iter = num_alt_alns;
+                    while (deduplicated.size() < num_alt_alns) {
+                        
+                        intervening_sequence.clear_path();
                         
 #ifdef debug_multipath_alignment
                         cerr << "making " << num_alns_iter << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
@@ -4112,12 +4372,22 @@ namespace vg {
                         });
 #endif
                         
+                        vector<Alignment> alt_alignments;
                         aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alns_iter,
                                                            band_padding_function(intervening_sequence, connecting_graph), true);
+                        
+                        // remove alignments with the same path
+                        deduplicated = deduplicate_alt_alns(alt_alignments, false, false);
+                        
+                        if (num_alns_iter >= max_alt_alns || !dynamic_alt_alns) {
+                            // we don't want to try again even if we didn't find every path yet
+                            break;
+                        }
+                        else {
+                            // if we didn't find every path, we'll try again with this many tracebacks
+                            num_alns_iter = min(max_alt_alns, num_alns_iter * 2);
+                        }
                     }
-                    
-                    // remove alignments with the same path
-                    deduplicated = deduplicate_alt_alns(alt_alignments, false, false);
                 }
                 
                 bool added_direct_connection = false;
@@ -4200,6 +4470,8 @@ namespace vg {
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns,
                                            max_gap, pessimistic_tail_gap_multiplier, 0, &sources);
                 
+        // TODO: merge and simplify the tail alignments? rescoring would be kind of a pain...
+        
         // Handle the right tails
         for (auto& kv : tail_alignments[true]) {
             // For each sink subpath number
@@ -4336,7 +4608,7 @@ namespace vg {
                 double repetitiveness = max(complexity.repetitiveness(1), complexity.repetitiveness(2));
                 double low_complexity_len = repetitiveness * aln.sequence().size();
                 // TODO: empirically-derived function, not very principled
-                return min(max_multiplier, 0.05 * low_complexity_len * low_complexity_len);
+                return max(1.0, min(max_multiplier, 0.05 * low_complexity_len * low_complexity_len));
             }
             else {
                 return 1.0;
@@ -4396,7 +4668,7 @@ namespace vg {
                 
                 size_t num_alt_alns;
                 if (dynamic_alt_alns) {
-                    size_t num_paths = algorithms::count_walks(&tail_graph);
+                    size_t num_paths = handlealgs::count_walks(&tail_graph);
                     if (num_paths < min_paths) {
                         continue;
                     }
@@ -4513,7 +4785,7 @@ namespace vg {
                     
                     size_t num_alt_alns;
                     if (dynamic_alt_alns) {
-                        size_t num_paths = algorithms::count_walks(&tail_graph);
+                        size_t num_paths = handlealgs::count_walks(&tail_graph);
                         if (num_paths < min_paths) {
                             continue;
                         }

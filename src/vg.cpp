@@ -3,13 +3,11 @@
 #include "aligner.hpp"
 // We need to use ultrabubbles for dot output
 #include "genotypekit.hpp"
-#include "algorithms/topological_sort.hpp"
 #include "algorithms/id_sort.hpp"
 #include "algorithms/simplify_siblings.hpp"
-#include "algorithms/unchop.hpp"
 #include "cactus_snarl_finder.hpp"
 #include "augment.hpp"
-#include "prune.hpp"
+#include "algorithms/prune.hpp"
 #include <raptor2/raptor2.h>
 #include <sonLib/stPinchGraphs.h>
 
@@ -2417,7 +2415,7 @@ void VG::sort() {
         return;
     }
     
-    apply_ordering(algorithms::topological_order(this));
+    apply_ordering(handlealgs::topological_order(this));
 }
     
 void VG::id_sort() {
@@ -6023,93 +6021,6 @@ double VG::path_identity(const Path& path1, const Path& path2) {
     return best_score == 0 ? 0 : (double)aln.score() / (double)best_score;
 }
 
-void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
-    Node* head_node = NULL;
-    Node* tail_node = NULL;
-    nid_t head_id = 0, tail_id = 0;
-    add_start_end_markers(path_length, '#', '$', head_node, tail_node, head_id, tail_id);
-
-    // Duplicate code from prune_complex(). If pruning leaves many loose nodes
-    // (that will usually be deleted in the next step), attaching them to the
-    // head/tail nodes is unnecessary and potentially expensive.
-    pair_hash_set<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
-    for (auto& e : to_destroy) {
-        destroy_edge(e.first, e.second);
-    }
-
-    destroy_node(head_node);
-    destroy_node(tail_node);
-}
-
-void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
-
-    pair_hash_set<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
-    for (auto& e : to_destroy) {
-        destroy_edge(e.first, e.second);
-    }
-
-    for (auto* n : head_nodes()) {
-        if (n != head_node) {
-            // Fix up multiple heads with a left-to-right edge
-            create_edge(head_node, n);
-        }
-    }
-    for (auto* n : tail_nodes()) {
-        if (n != tail_node) {
-            // Fix up multiple tails with a left-to-right edge
-            create_edge(n, tail_node);
-        }
-    }
-}
-
-void VG::prune_short_subgraphs(size_t min_size) {
-
-    // Find the head nodes.
-    std::vector<vg::nid_t> heads;
-    this->for_each_node([&](Node* node) {
-        if (this->is_head_node(node)) {
-            heads.push_back(node->id());
-        }
-    });
-
-    for (vg::nid_t head : heads) {
-        if (!this->has_node(head)) {
-            continue;   // Already pruned.
-        }
-
-        // Explore the neighborhood until the component is too large.
-        Node* head_node = this->get_node(head);
-        size_t subgraph_size = head_node->sequence().size();
-        std::stack<Node*> to_check; to_check.push(head_node);
-        std::unordered_set<vg::nid_t> subgraph { head };
-        while(subgraph_size < min_size && !to_check.empty()) {
-            Node* curr = to_check.top(); to_check.pop();
-            std::vector<Edge*> edges = this->edges_of(curr);
-            for (Edge* edge : edges) {
-                Node* next = this->get_node(edge->from() == curr->id() ? edge->to() : edge->from());
-                if (subgraph.find(next->id()) == subgraph.end()) {
-                    subgraph_size += next->sequence().size();
-                    subgraph.insert(next->id());
-                    to_check.push(next);
-                }
-            }
-        }
-
-        // Destroy the component if it was small enough.
-        if (subgraph_size < min_size) {
-            for (vg::nid_t node : subgraph) {
-                this->destroy_node(node);
-            }
-        }
-    }
-}
-
-/*
-// todo
-void VG::prune_complex_subgraphs(size_t ) {
-
-}
-*/
 
 void VG::collect_subgraph(Node* start_node, set<Node*>& subgraph) {
 
@@ -6151,30 +6062,6 @@ void VG::collect_subgraph(Node* start_node, set<Node*>& subgraph) {
         }
     }
     //cerr << "node " << start_node->id() << " subgraph size " << subgraph.size() << endl;
-}
-
-void VG::disjoint_subgraphs(list<VG>& subgraphs) {
-    vector<Node*> heads;
-    head_nodes(heads);
-    map<Node*, set<Node*> > subgraph_by_head;
-    map<Node*, set<Node*>* > subgraph_membership;
-    // start at the heads, but keep in mind that we need to explore fully
-    for (vector<Node*>::iterator h = heads.begin(); h != heads.end(); ++h) {
-        if (subgraph_membership.find(*h) == subgraph_membership.end()) {
-            set<Node*>& subgraph = subgraph_by_head[*h];
-            collect_subgraph(*h, subgraph);
-            for (set<Node*>::iterator n = subgraph.begin(); n != subgraph.end(); ++n) {
-                subgraph_membership[*n] = &subgraph;
-            }
-        }
-    }
-    for (map<Node*, set<Node*> >::iterator g = subgraph_by_head.begin();
-         g != subgraph_by_head.end(); ++ g) {
-        set<Node*>& nodes = g->second;
-        set<Edge*> edges;
-        edges_of_nodes(nodes, edges);
-        subgraphs.push_back(VG(nodes, edges));
-    }
 }
 
 bool VG::is_head_node(nid_t id) {

@@ -122,3 +122,6 @@
 [submodule "src/simde"]
 	path = src/simde
 	url = https://github.com/nemequ/simde-no-tests
+[submodule "doc/wiki"]
+	path = doc/wiki
+	url = https://github.com/vgteam/vg.wiki.git

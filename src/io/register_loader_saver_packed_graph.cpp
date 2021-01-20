@@ -2,7 +2,7 @@
  * \file register_loader_saver_packed_graph.cpp
  * Defines IO for a PackedGraph from stream files.
  */
-
+#include <arpa/inet.h>
 #include <vg/io/registry.hpp>
 #include "register_loader_saver_packed_graph.hpp"
 
