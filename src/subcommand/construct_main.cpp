@@ -33,13 +33,14 @@ void help_construct(char** argv) {
          << "    -I, --insertions FILE  a FASTA file containing insertion sequences "<< endl
          << "                           (referred to in VCF) to add to graph." << endl
          << "    -f, --flat-alts N      don't chop up alternate alleles from input VCF" << endl
+         << "    -l, --parse-max N      don't chop up alternate alleles from input VCF longer than N (default: 100)" << endl
          << "    -i, --no-trim-indels   don't remove the 1bp reference base from alt alleles of indels." << endl
          << "construct from a multiple sequence alignment:" << endl
          << "    -M, --msa FILE         input multiple sequence alignment" << endl
          << "    -F, --msa-format       format of the MSA file (options: fasta, clustal; default fasta)" << endl
          << "    -d, --drop-msa-paths   don't add paths for the MSA sequences into the graph" << endl
          << "shared construction options:" << endl
-         << "    -m, --node-max N       limit the maximum allowable node sequence size (defaults to 32)" << endl
+         << "    -m, --node-max N       limit the maximum allowable node sequence size (default: 32)" << endl
          << "                           nodes greater than this threshold will be divided" << endl
          << "                           Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
          << "    -p, --progress         show progress" << endl;
@@ -89,14 +90,15 @@ int main_construct(int argc, char** argv) {
                 {"threads", required_argument, 0, 't'},
                 {"region", required_argument, 0, 'R'},
                 {"region-is-chrom", no_argument, 0, 'C'},
-                {"node-max", required_argument, 0, 'm'},\
+                {"node-max", required_argument, 0, 'm'},
                 {"flat-alts", no_argument, 0, 'f'},
+                {"parse-max", required_argument, 0, 'l'},
                 {"no-trim-indels", no_argument, 0, 'i'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:CfSI:M:dF:i",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:aCfl:SI:M:dF:i",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -186,6 +188,10 @@ int main_construct(int argc, char** argv) {
         case 'f':
             constructor.flat = true;
             break;
+            
+        case 'l':
+            constructor.max_parsed_variant_size = parse<size_t>(optarg);
+            break;
 
         case 'h':
         case '?':
@@ -195,8 +201,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         default:
-            abort ();
-
+            throw runtime_error("Not implemented: " + to_string(c));
         }
     }
     

@@ -60,23 +60,18 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         p_elem.name = graph->get_path_name(h);
         if (!rgfa_paths.count(p_elem.name)) {
             graph->for_each_step_in_path(h, [&](const step_handle_t& ph) {
-
+                    
                     handle_t step_handle = graph->get_handle_of_step(ph);
 
                     p_elem.segment_names.push_back( std::to_string(graph->get_id(step_handle)) );
                     p_elem.orientations.push_back( !graph->get_is_reverse(step_handle) );
-                    stringstream cigaro;
-                    //cigaro << n->sequence().size() << (p.mapping(m_ind.position().is_reverse()) ? "M" : "M");
-                    cigaro << graph->get_sequence(step_handle).size() << (graph->get_is_reverse(step_handle) ? "M" : "M");
-                    p_elem.overlaps.push_back( cigaro.str() );
                     return true;
                 });
+            p_elem.overlaps.push_back("*");
             //gg.add_path(p_elem.name, p_elem);
             out << p_elem.to_string_1() << endl;
         }
-        return true;
-    });
-
+        });
 
     graph->for_each_edge([&](const edge_t& h) {
         edge_elem ee;
@@ -87,7 +82,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         ee.source_orientation_forward = ! graph->get_is_reverse(h.first);
         ee.sink_orientation_forward =  ! graph->get_is_reverse(h.second);
 
-        ee.alignment = "0M";
+        ee.alignment = "*";
         
         if (graph->get_is_reverse(h.first) && (graph->get_is_reverse(h.second) || graph->get_id(h.second) < graph->get_id(h.first))) {
             // Canonicalize edges to be + orientation first if possible, and
