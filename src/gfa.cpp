@@ -38,12 +38,9 @@ void graph_to_gfa(const unique_ptr<PathHandleGraph>& graph, ostream& out) {
 
             p_elem.segment_names.push_back( std::to_string(graph->get_id(step_handle)) );
             p_elem.orientations.push_back( !graph->get_is_reverse(step_handle) );
-            stringstream cigaro;
-            //cigaro << n->sequence().size() << (p.mapping(m_ind.position().is_reverse()) ? "M" : "M");
-            cigaro << graph->get_sequence(step_handle).size() << (graph->get_is_reverse(step_handle) ? "M" : "M");
-            p_elem.overlaps.push_back( cigaro.str() );
             return true;
         });
+        p_elem.overlaps.push_back("*");
         //gg.add_path(p_elem.name, p_elem);
         out << p_elem.to_string_1() << endl;
         return true;
@@ -59,7 +56,7 @@ void graph_to_gfa(const unique_ptr<PathHandleGraph>& graph, ostream& out) {
         ee.source_orientation_forward = ! graph->get_is_reverse(h.first);
         ee.sink_orientation_forward =  ! graph->get_is_reverse(h.second);
 
-        ee.alignment = "0M";
+        ee.alignment = "*";
         
         if (graph->get_is_reverse(h.first) && (graph->get_is_reverse(h.second) || graph->get_id(h.second) < graph->get_id(h.first))) {
             // Canonicalize edges to be + orientation first if possible, and
