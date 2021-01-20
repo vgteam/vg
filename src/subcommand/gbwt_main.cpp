@@ -567,9 +567,6 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             break;
         case OPT_MAX_NODE:
             config.gfa_parameters.max_node_length = parse<size_t>(optarg);
-            if (config.gfa_parameters.max_node_length == 0) {
-                config.gfa_parameters.max_node_length = std::numeric_limits<size_t>::max();
-            }
             break;
         case OPT_PATH_REGEX:
             config.gfa_parameters.path_name_regex = optarg;
@@ -1233,7 +1230,6 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
     }
     gbwtgraph::GBWTGraph graph;
     if (graphs.in_use == GraphHandler::graph_source) {
-        // TODO: What should we do with the segment translation table?
         graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.sequence_source));
     } else {
         graphs.get_graph(config);
