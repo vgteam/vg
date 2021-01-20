@@ -83,7 +83,7 @@ int main_convert(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hgr:vxapxofp:Q:T:G:F:t:",
+        c = getopt_long (argc, argv, "hgr:vxapxofP:Q:T:G:F:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -307,7 +307,22 @@ int main_convert(int argc, char** argv) {
         } else {
             graph_to_write = dynamic_cast<const PathHandleGraph*>(input_graph.get());
         }
-        graph_to_gfa(graph_to_write, std::cout);
+        for (const string& path_name : rgfa_paths) {
+            if (!graph_to_write->has_path(path_name)) {
+                cerr << "error [vg convert]: specified path, " << " not found in graph" << path_name << endl;
+                return 1;
+            }
+        }
+        graph_to_write->for_each_path_handle([&](path_handle_t path_handle) {
+                string path_name = graph_to_write->get_path_name(path_handle);
+                for (const string& prefix : rgfa_prefixes) {
+                    if (path_name.substr(0, prefix.length()) == prefix) {
+                        rgfa_paths.insert(path_name);
+                        continue;
+                    }
+                }
+            });
+        graph_to_gfa(graph_to_write, std::cout, rgfa_paths);
     } else {
         // Serialize the graph using VPKG.
         vg::io::save_handle_graph(output_graph.get(), cout);

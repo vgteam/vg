@@ -18,7 +18,7 @@ namespace vg {
 using namespace std;
 
 /// Export the given VG graph to the given GFA file.
-void graph_to_gfa(const PathHandleGraph* graph, ostream& out);
+void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths = {});
 
 
 }

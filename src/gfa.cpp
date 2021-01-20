@@ -6,25 +6,51 @@ namespace vg {
 using namespace std;
 using namespace gfak;
 
-void graph_to_gfa(const PathHandleGraph* graph, ostream& out) {
-  GFAKluge gg;
-  gg.set_version(1.0);
-  for (auto h : gg.get_header()){
-    out << h.second.to_string();
-  }
+void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths) {
+    GFAKluge gg;
+    gg.set_version(1.0);
+    for (auto h : gg.get_header()){
+        out << h.second.to_string();
+    }
 
     // TODO moving to GFAKluge
     // problem: protobuf longs don't easily go to strings....
-
     
+    //Compute the rGFA tags of given paths (todo: support non-zero ranks)
+    unordered_map<nid_t, pair<path_handle_t, size_t>> node_offsets;
+    for (const string& path_name : rgfa_paths) {
+        path_handle_t path_handle = graph->get_path_handle(path_name);
+        size_t offset = 0;
+        graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                handle_t handle = graph->get_handle_of_step(step_handle);
+                nid_t node_id = graph->get_id(handle);
+                if (node_offsets.count(node_id)) {
+                    cerr << "warning [gfa]: multiple selected rgfa paths found on node " << node_id << ": keeping tags for "
+                         << graph->get_path_name(node_offsets[node_id].first) << " and ignoring those for " << path_name << endl;
+                } else {
+                    node_offsets[node_id] = make_pair(path_handle, offset);
+                }
+                offset += graph->get_length(handle);
+            });
+    }
+  
     //Go through each node in the graph
     graph->for_each_handle([&](const handle_t& h) {
         sequence_elem s_elem;
         // Fill seq element for a node
-        s_elem.name = to_string(graph->get_id(h));
+        nid_t node_id = graph->get_id(h);
+        s_elem.name = to_string(node_id);
         s_elem.sequence = graph->get_sequence(h);
-        out << s_elem.to_string_1() << endl;
+        out << s_elem.to_string_1();
         //gg.add_sequence(s_elem);
+        auto it = node_offsets.find(node_id);
+        if (it != node_offsets.end()) {
+            // add rGFA tags
+            out << "\t" << "SN:Z:" << graph->get_path_name(it->second.first)
+                << "\t" << "SO:i:" << it->second.second
+                << "\t" << "SR:i:0"; // todo: support non-zero ranks?
+        }
+        out << endl;
         return true;
     });
     
@@ -32,20 +58,22 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out) {
     graph->for_each_path_handle([&](const path_handle_t& h) {
         path_elem p_elem;
         p_elem.name = graph->get_path_name(h);
-        graph->for_each_step_in_path(h, [&](const step_handle_t& ph) {
+        if (!rgfa_paths.count(p_elem.name)) {
+            graph->for_each_step_in_path(h, [&](const step_handle_t& ph) {
 
-            handle_t step_handle = graph->get_handle_of_step(ph);
+                    handle_t step_handle = graph->get_handle_of_step(ph);
 
-            p_elem.segment_names.push_back( std::to_string(graph->get_id(step_handle)) );
-            p_elem.orientations.push_back( !graph->get_is_reverse(step_handle) );
-            stringstream cigaro;
-            //cigaro << n->sequence().size() << (p.mapping(m_ind.position().is_reverse()) ? "M" : "M");
-            cigaro << graph->get_sequence(step_handle).size() << (graph->get_is_reverse(step_handle) ? "M" : "M");
-            p_elem.overlaps.push_back( cigaro.str() );
-            return true;
-        });
-        //gg.add_path(p_elem.name, p_elem);
-        out << p_elem.to_string_1() << endl;
+                    p_elem.segment_names.push_back( std::to_string(graph->get_id(step_handle)) );
+                    p_elem.orientations.push_back( !graph->get_is_reverse(step_handle) );
+                    stringstream cigaro;
+                    //cigaro << n->sequence().size() << (p.mapping(m_ind.position().is_reverse()) ? "M" : "M");
+                    cigaro << graph->get_sequence(step_handle).size() << (graph->get_is_reverse(step_handle) ? "M" : "M");
+                    p_elem.overlaps.push_back( cigaro.str() );
+                    return true;
+                });
+            //gg.add_path(p_elem.name, p_elem);
+            out << p_elem.to_string_1() << endl;
+        }
         return true;
     });
 
