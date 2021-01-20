@@ -75,6 +75,8 @@ var searchData=
   ['num_5fnodes_5fdynamic',['num_nodes_dynamic',['../classvg_1_1Packer.html#a9f406ddaf008b85d23ea1262ab95ad68',1,'vg::Packer']]],
   ['num_5fnull_5fnodes',['num_null_nodes',['../classvg_1_1DozeuPinningOverlay.html#aad4a7969c5c7263cfd5072169b60f6fa',1,'vg::DozeuPinningOverlay::num_null_nodes()'],['../classvg_1_1NullMaskingGraph.html#a789adb0e97e25f480f18c7158aec51ac',1,'vg::NullMaskingGraph::num_null_nodes()']]],
   ['num_5fpairs',['num_pairs',['../classvg_1_1ShuffledPairs.html#abf8913c70ff6595d8b288bdab3c88981',1,'vg::ShuffledPairs']]],
+  ['num_5fpaths',['num_paths',['../structGBWTConfig.html#ad3dc88b3f829f932b976fc182257b987',1,'GBWTConfig']]],
+  ['num_5fpaths_5fset',['num_paths_set',['../structGBWTConfig.html#aefbd9bdd79f88ab07ee18a12df56e513',1,'GBWTConfig']]],
   ['num_5freads',['num_reads',['../structvg_1_1EdgePileup.html#aa95aa0337a5bc6229762abaa56dcdbff',1,'vg::EdgePileup']]],
   ['num_5fthreads',['num_threads',['../classvg_1_1Transcriptome.html#ac2261cd2e4236c02dbfded216253c923',1,'vg::Transcriptome']]],
   ['numeric_5fmode',['numeric_mode',['../structvg_1_1algorithms_1_1IDMapInfo.html#a629ac16a260d151d6b1f9b771f3fad50',1,'vg::algorithms::IDMapInfo']]],

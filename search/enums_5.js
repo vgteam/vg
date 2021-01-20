@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['index_5ftype',['index_type',['../structvg_1_1GBWTHandler.html#aad418d9725da4ccbb6c60055eb5e9033',1,'vg::GBWTHandler']]]
+  ['graph_5ftype',['graph_type',['../structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50',1,'GraphHandler']]]
 ];

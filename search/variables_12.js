@@ -1,6 +1,7 @@
 var searchData=
 [
   ['r',['R',['../structhaplo_1_1haplo__DP__rectangle.html#a93bec5529e8477c30fca8118e3e44f5f',1,'haplo::haplo_DP_rectangle']]],
+  ['r_5findex_5fname',['r_index_name',['../structGBWTConfig.html#a230387b96ed4b3bee6cfa11c27cccc63',1,'GBWTConfig']]],
   ['r_5fiv',['r_iv',['../classxg_1_1XG.html#aa5b5890158459739ca5e986555bcf74e',1,'xg::XG']]],
   ['random_5fengine',['random_engine',['../classvg_1_1MCMCGenotyper.html#a742e3fb0ca54f531f23d1a8f18cb4da5',1,'vg::MCMCGenotyper']]],
   ['range',['range',['../classvg_1_1MaximalExactMatch.html#a8652369dde83e159dd8c5638745a749c',1,'vg::MaximalExactMatch']]],

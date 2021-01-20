@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['rescuealgorithm',['RescueAlgorithm',['../classvg_1_1MinimizerMapper.html#ad9b497a766015dfbcefce5586e2396f4',1,'vg::MinimizerMapper']]]
+  ['path_5fcover_5fmode',['path_cover_mode',['../structGBWTConfig.html#a6607b41ac0d4eaad9b9ec03e4513a8e1',1,'GBWTConfig']]],
+  ['pruningmode',['PruningMode',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248',1,'prune_main.cpp']]]
 ];
