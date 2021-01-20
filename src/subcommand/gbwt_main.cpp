@@ -59,13 +59,16 @@ struct GBWTConfig {
 
     // Input data.
     std::vector<std::string> input_filenames;
-    std::string gbwt_name;
+    std::string gbwt_name; // Single input GBWT to load.
+    std::string graph_name;
 
     // File/sample names.
-    std::string gbwt_output, thread_output;
-    std::string graph_output, graph_name;
-    std::string r_index_name;
-    std::set<std::string> to_remove;
+    std::string gbwt_output; // Output GBWT.
+    std::string thread_output; // Threads in SDSL format.
+    std::string graph_output; // Output GBWTGraph.
+    std::string segment_translation; // Segment to node translation output.
+    std::string r_index_name; // Output r-index.
+    std::set<std::string> to_remove; // Sample names to remove.
 
     GBWTConfig() {
         this->merge_parameters.setMergeJobs(default_merge_jobs());
@@ -108,6 +111,9 @@ struct GraphHandler {
     void use(std::unique_ptr<gbwtgraph::SequenceSource>& source);
 
     void clear();
+
+    // If the handler contains a `SequenceSource`, serialize it according to the config.
+    void serialize_segment_translation(const GBWTConfig& config) const;
 };
 
 //----------------------------------------------------------------------------
@@ -167,6 +173,7 @@ int main_gbwt(int argc, char** argv) {
     if (!config.gbwt_output.empty()) {
         double start = gbwt::readTimer();
         gbwts.serialize(config.gbwt_output);
+        graphs.serialize_segment_translation(config);
         report_time_memory("GBWT serialized", start, config);
     }
 
@@ -239,6 +246,7 @@ void help_gbwt(char** argv) {
     std::cerr << "        --max-node N        chop long segments into nodes of at most N bp (default " << gbwtgraph::MAX_NODE_LENGTH << ", use 0 to disable)" << std::endl;
     std::cerr << "        --path-regex X      parse metadata from path names using regex X (default " << gbwtgraph::GFAParsingParameters::DEFAULT_REGEX << ")" << std::endl;
     std::cerr << "        --path-fields X     map regex submatches to these fields (default " << gbwtgraph::GFAParsingParameters::DEFAULT_FIELDS << ")" << std::endl;
+    std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (requires -x, no input args)" << std::endl;
     std::cerr << "        --paths-as-samples  each path becomes a sample instead of a contig in the metadata" << std::endl;
     std::cerr << "    -A, --alignment-input   index the alignments in the GAF files specified in input args (requires -x)" << std::endl;
@@ -328,8 +336,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_MAX_NODE = 1114;
     constexpr int OPT_PATH_REGEX = 1115;
     constexpr int OPT_PATH_FIELDS = 1116;
-    constexpr int OPT_PATHS_AS_SAMPLES = 1117;
-    constexpr int OPT_GAM_FORMAT = 1118;
+    constexpr int OPT_TRANSLATION = 1117;
+    constexpr int OPT_PATHS_AS_SAMPLES = 1118;
+    constexpr int OPT_GAM_FORMAT = 1119;
     constexpr int OPT_CHUNK_SIZE = 1200;
     constexpr int OPT_POS_BUFFER = 1201;
     constexpr int OPT_THREAD_BUFFER = 1202;
@@ -351,7 +360,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         // Search parameters
         { "num-threads", required_argument, 0, OPT_NUM_THREADS },
 
-        // Input GBWT construction
+        // Input GBWT construction: VCF
         { "vcf-input", no_argument, 0, 'v' },
         { "preset", required_argument, 0, OPT_PRESET },
         { "num-jobs", required_argument, 0, OPT_NUM_JOBS },
@@ -367,12 +376,19 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         { "vcf-variants", no_argument, 0, OPT_VCF_VARIANTS },
         { "vcf-region", required_argument, 0, OPT_VCF_REGION },
         { "exclude-sample", required_argument, 0, OPT_EXCLUDE_SAMPLE },
+
+        // Input GBWT construction: GFA
         { "gfa-input", no_argument, 0, 'G' },
         { "max-node", required_argument, 0, OPT_MAX_NODE },
         { "path-regex", required_argument, 0, OPT_PATH_REGEX },
         { "path-fields", required_argument, 0, OPT_PATH_FIELDS },
+        { "translation", required_argument, 0, OPT_TRANSLATION },
+
+        // Input GBWT construction: paths
         { "index-paths", no_argument, 0, 'E' },
         { "paths-as-samples", no_argument, 0, OPT_PATHS_AS_SAMPLES },
+
+        // Input GBWT construction: GAF/GAM
         { "alignment-input", no_argument, 0, 'A' },
         { "gam-format", no_argument, 0, OPT_GAM_FORMAT },
 
@@ -459,7 +475,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.search_threads = std::max(parse<size_t>(optarg), 1ul);
             break;
 
-        // Input GBWT construction
+        // Input GBWT construction: VCF
         case 'v':
             assert(config.build == GBWTConfig::build_none);
             config.build = GBWTConfig::build_vcf;
@@ -541,6 +557,8 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         case OPT_EXCLUDE_SAMPLE:
             config.haplotype_indexer.excluded_samples.insert(optarg);
             break;
+
+        // Input GBWT construction: GFA
         case 'G':
             assert(config.build == GBWTConfig::build_none);
             config.build = GBWTConfig::build_gfa;
@@ -559,6 +577,11 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         case OPT_PATH_FIELDS:
             config.gfa_parameters.path_name_fields = optarg;
             break;
+        case OPT_TRANSLATION:
+            config.segment_translation = optarg;
+            break;
+
+        // Input GBWT construction: paths
         case 'E':
             assert(config.build == GBWTConfig::build_none);
             config.build = GBWTConfig::build_paths;
@@ -567,6 +590,8 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         case OPT_PATHS_AS_SAMPLES:
             config.haplotype_indexer.paths_as_samples = true;
             break;
+
+        // Input GBWT construction: GAF/GAM
         case 'A':
             assert(config.build == GBWTConfig::build_none);
             config.build = GBWTConfig::build_alignments;
@@ -1364,6 +1389,30 @@ void GraphHandler::clear() {
     this->path_graph.reset();
     this->sequence_source.reset();
     this->in_use = graph_none;
+}
+
+void GraphHandler::serialize_segment_translation(const GBWTConfig& config) const {
+    if (this->in_use != graph_source || config.segment_translation.empty()) {
+        return;
+    }
+    if (config.show_progress) {
+        std::cerr << "Serializing segment to node translation to " << config.segment_translation << std::endl;
+    }
+
+    // FIXME This is a temporary format. Once the format is finalized,
+    // GBWTGraph can handle the serialization.
+    std::ofstream out(config.segment_translation, std::ios_base::binary);
+    if (this->sequence_source->uses_translation()) {
+        auto& translation = this->sequence_source->segment_translation;
+        for (auto iter = translation.begin(); iter != translation.end(); ++iter) {
+            out << "T\t" << iter->first << "\t" << iter->second.first;
+            for(nid_t i = iter->second.first + 1; i < iter->second.second; i++) {
+            out << "," << i;
+            }
+            out << "\n";
+        }
+    }
+    out.close();
 }
 
 //----------------------------------------------------------------------------
