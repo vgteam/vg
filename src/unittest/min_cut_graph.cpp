@@ -10,7 +10,7 @@
 #include "catch.hpp"
 #include <unordered_set>
 
-#define debugs
+#define debug
 
 namespace vg {
     namespace unittest {
@@ -39,7 +39,7 @@ namespace vg {
             Graph graph; 
             Edge edge01,edge10,edge02,edge20,edge03,edge30,edge23,edge32,edge13,edge31; //naming convention edge:source:destination
             Node node0, node1, node2, node3;
-            size_t V = 4; //size of nodes
+
             //weights
             edge01.weight = 10;
             edge10.weight = 10;
@@ -90,10 +90,10 @@ namespace vg {
             node3.edges.push_back(edge32);
             node3.weight = 24;
 
-            graph.nodes.push_back(node0);
-            graph.nodes.push_back(node1);
-            graph.nodes.push_back(node2);
-            graph.nodes.push_back(node3);
+            graph.nodes.emplace(0,node0);
+            graph.nodes.emplace(1,node1);
+            graph.nodes.emplace(2,node2);
+            graph.nodes.emplace(3,node3);
             
         
             //Karger's min-cut
@@ -114,13 +114,17 @@ namespace vg {
             for (auto& x:disjoint_sets[0] ) {
 
                 REQUIRE(set1.count(x)==1);
+#ifdef debug
                 cout << "set1 has" << x <<endl;
+#endif    
             }
             REQUIRE(disjoint_sets[1].size() == 1);
             for (auto& x:disjoint_sets[1] ) {
 
                 REQUIRE(set2.count(x)==1);
+#ifdef debug
                 cout << "set2 has" << x <<endl;
+#endif       
             }
 
         }
@@ -132,7 +136,6 @@ namespace vg {
             Graph graph; 
             Edge edge01, edge02, edge10, edge12, edge20, edge21, edge23, edge24, edge32, edge42, edge45, edge47, edge54, edge56, edge58, edge65, edge67, edge74, edge76, edge78, edge85, edge87; //naming convention edge:source:destination
             Node node0, node1, node2, node3, node4, node5, node6, node7, node8;
-            size_t V = 9; //size of nodes
             
             //weights
             edge01.weight = 100;
@@ -233,15 +236,15 @@ namespace vg {
             node8.edges.push_back(edge87);
             node8.weight = 6;
             
-            graph.nodes.push_back(node0);
-            graph.nodes.push_back(node1);
-            graph.nodes.push_back(node2);
-            graph.nodes.push_back(node3);
-            graph.nodes.push_back(node4);
-            graph.nodes.push_back(node5);
-            graph.nodes.push_back(node6);
-            graph.nodes.push_back(node7);
-            graph.nodes.push_back(node8);
+            graph.nodes.emplace(0,node0);
+            graph.nodes.emplace(1,node1);
+            graph.nodes.emplace(2,node2);
+            graph.nodes.emplace(3,node3);
+            graph.nodes.emplace(4,node4);
+            graph.nodes.emplace(5,node5);
+            graph.nodes.emplace(6,node6);
+            graph.nodes.emplace(7,node7);
+            graph.nodes.emplace(8,node8);
         
             //Karger's min-cut
             pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
@@ -259,13 +262,17 @@ namespace vg {
             for (auto& x:disjoint_sets[0] ) {
 
                 REQUIRE(set1.count(x)==1);
+#ifdef debug
                 cout << "set1 has" << x <<endl;
+#endif 
             }
             REQUIRE(disjoint_sets[1].size() == 5);
             for (auto& x:disjoint_sets[1] ) {
 
                 REQUIRE(set2.count(x)==1);
+#ifdef debug
                 cout << "set2 has" << x <<endl;
+#endif 
             }
 
             
@@ -278,7 +285,6 @@ namespace vg {
             Graph graph; 
             Edge edge01, edge10; //naming convention edge:source:destination
             Node node0, node1;
-            size_t V = 2; //size of nodes
 
             //weights
             edge01.weight = 10;
@@ -298,8 +304,8 @@ namespace vg {
             node1.weight = 10;
 
 
-            graph.nodes.push_back(node0);
-            graph.nodes.push_back(node1);
+            graph.nodes.emplace(0,node0);
+            graph.nodes.emplace(1,node1);
 
             
             //Karger's min-cut
@@ -321,7 +327,6 @@ namespace vg {
                 
             
             Graph graph; 
-            size_t V = 0; //size of nodes
 
             //Karger's min-cut
             pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
@@ -340,7 +345,6 @@ namespace vg {
             
             Graph graph; 
             Node node0, node1;
-            size_t V = 2; //size of nodes
 
             //node 0
             node0.weight = 0;
@@ -350,8 +354,8 @@ namespace vg {
             node1.weight = 0;
 
 
-            graph.nodes.push_back(node0);
-            graph.nodes.push_back(node1);
+            graph.nodes.emplace(0,node0);
+            graph.nodes.emplace(1,node1);
 
             //Karger's min-cut
             pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
@@ -383,10 +387,10 @@ namespace vg {
             node3.weight = 0;
 
 
-            graph.nodes.push_back(node0);
-            graph.nodes.push_back(node1);
-            graph.nodes.push_back(node2);
-            graph.nodes.push_back(node3);
+            graph.nodes.emplace(0,node0);
+            graph.nodes.emplace(1,node1);
+            graph.nodes.emplace(2,node2);
+            graph.nodes.emplace(3,node3);
 
 
             //Karger's min-cut
@@ -463,22 +467,22 @@ namespace vg {
             node3.edges.push_back(edge32);
             node3.weight = 24;
 
-            graph.nodes.push_back(node0);
-            graph.nodes.push_back(node1);
-            graph.nodes.push_back(node2);
-            graph.nodes.push_back(node3);
+            graph.nodes.emplace(0,node0);
+            graph.nodes.emplace(1,node1);
+            graph.nodes.emplace(2,node2);
+            graph.nodes.emplace(3,node3);
             
-            //Karger's min-cut
-            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
-            vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
-            size_t mincut = to_recv.second;
+            //call min-cut-decomposition
+            vector<unordered_set<size_t>> to_recv =  min_cut_decomposition(graph, n_iterations, seed);
+            unordered_set<size_t> truth_set = {1,3};
+            REQUIRE(to_recv[0].size()==2);
+            for (auto& x:to_recv[0] ) {
 
-            
-          
-            //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
-            REQUIRE(mincut == 10);
-            REQUIRE(disjoint_sets.size() == 2); 
-            
+                REQUIRE(truth_set.count(x)==1);
+#ifdef debug
+                cout << "set has" << x <<endl;
+#endif       
+            }
     
         }
 

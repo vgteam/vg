@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <unordered_set>
 #include <functional>
+
 #define debug
 
 namespace vg {
@@ -29,18 +30,7 @@ namespace vg {
             ContractingGraph cg(graph, V); 
             unordered_map<size_t, size_t> cgraph_total_edge_weights;
             pair<vector<unordered_set<size_t>>, size_t> to_return;
-#ifdef debug
-            cout << "original graph" <<endl; 
-            cout << "============================================================================= " << endl;
-                   
-            for(size_t i = 0; i < graph.nodes.size(); i++){
-                cout << "node: "<< i  << ", weight: "<<graph.nodes[i].weight << endl;
-                for (size_t j = 0; j < graph.nodes[i].edges.size(); j++){
-                    cout << "edge "<< i  << "->" << graph.nodes[i].edges[j].other <<", weight: " << graph.nodes[i].edges[j].weight << endl;
-                }
-            }
-            cout << "============================================================================= " << endl;
-#endif
+
             // check for graph containing a node without an edge
             for(size_t i = 0; i < graph.nodes.size(); i++){
                 if(graph.nodes[i].edges.size() <=0){
@@ -66,12 +56,28 @@ namespace vg {
             }
             //graph with exactly 2-nodes
             if (V==2){
+#ifdef debug
+                cout << "============================================================================= " << endl;
+                cout << "2-node graph "  << endl; 
+#endif
                 //both nodes will have edges since we tested for unconnected graph above
                 vector<unordered_set<size_t>> disjoint_sets;
                 //disjoint sets will just be two sets, each containing one node
                 //using index starting at 0 for nodes
-                unordered_set<size_t> supernode0 = {0};
-                unordered_set<size_t> supernode1 = {1};
+                vector<size_t> vnodes;
+                
+                for(auto it = graph.nodes.begin(); it != graph.nodes.end(); ++it ){
+#ifdef debug            
+                   
+                    // node id
+                    cout << "it first "<<it->first  << endl; 
+#endif
+                    vnodes.push_back(it->first);                   
+                }    
+                
+                
+                unordered_set<size_t> supernode0 = {vnodes[1]};
+                unordered_set<size_t> supernode1 = {vnodes[0]};
                 disjoint_sets.push_back(supernode0);
                 disjoint_sets.push_back(supernode1);
 
@@ -344,11 +350,31 @@ namespace vg {
             const int rand_seed = seed;
 
             function<void(Graph)> recurse = [&](Graph graph){
+ #ifdef debug
+            cout << "============================================================================= " << endl;
+            cout << "MIN-CUT-DECOMPOSITION"  <<endl;
+            cout << "============================================================================= " << endl;
+            cout << "============================================================================= " << endl;
+            cout << "original graph" <<endl;        
+            for (auto& id_and_node : graph.nodes){
+            
+                cout << "Node: "<<id_and_node.first  << ",weight: "<< id_and_node.second.weight <<endl; 
+                for (size_t j = 0; j < id_and_node.second.edges.size(); j++){
+                    cout << "edge "<< j  << "->" << id_and_node.second.edges[j].other <<", weight: " << id_and_node.second.edges[j].weight << endl;
+                }                       
+            } 
+            cout << "============================================================================= " << endl;
+#endif               
+                size_t V = graph.nodes.size();
 
-                
+                //base case
+                //singleton nodes won't be added to Gamma
+                if(V <= 2){
+                    return;
+                }
                 pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iters, rand_seed);
                 vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
-                size_t V = graph.nodes.size();
+                
 
                 //push sets into Gamma at each iteration, only if size >=2
                 if(disjoint_sets[0].size() >=2){
@@ -358,44 +384,77 @@ namespace vg {
                     Gamma.push_back(disjoint_sets[1]);
                 }
                 
-                //base case
-                //singleton nodes won't be added to Gamma
-                if(V < 3){
-                    return;
-                }
+                
 
                 //build the subgraphs from disjoint sets
-                Graph subgraph1,subgraph2;
-                vector<Graph> subgraph;
-                subgraph.push_back(subgraph1);
-                subgraph.push_back(subgraph2);
-
-                for(size_t i =0; i < graph.nodes.size(); i++){
+                vector<Graph> subgraph(2);
+                for(size_t h =0; h < disjoint_sets.size(); h++){
+#ifdef debug
+                cout << "============================================================================= " << endl;
+                cout << "set "  << h<<endl;
+                
+                
+#endif
+                    for(auto& id_and_node : graph.nodes){
                     // if node from original graph is in the disjoint set
-                    if (disjoint_sets[0].count(i)==1){
-                        // check if any edges connect to other nodes in the disjoint set
-                        for(size_t j =0; j < graph.nodes[i].edges.size(); j++){
-                            if (disjoint_sets[0].count(graph.nodes[i].edges[j].other)==1){
-                                Node node;
-                                Edge edge;
-                                edge.other = graph.nodes[i].edges[j].other;
-                                edge.weight = graph.nodes[i].edges[j].weight;
-                                node.edges.push_back(edge);
-                                subgraph[i].nodes.push_back(node);
-                                //how will node number be preserved if not tied to index in graph?use insert?
+                        if (disjoint_sets[h].count(id_and_node.first)==1){
+#ifdef debug
+                
+                cout << "node "  << id_and_node.first<<endl;   
+
+#endif
+                            // check if any edges connect to other nodes in the disjoint set
+                            for(size_t j =0; j < id_and_node.second.edges.size(); j++){
+
+                                if (disjoint_sets[h].count(id_and_node.second.edges[j].other)==1){
+                                    Node node;
+                                    Edge edge;
+                                    edge.other = id_and_node.second.edges[j].other;
+                                    edge.weight = id_and_node.second.edges[j].weight;
+                                    node.weight = id_and_node.second.weight;
+#ifdef debug
+                
+                                    cout << "edge.other "  << edge.other <<endl;  
+                                    cout << "edge.weight "  << edge.weight <<endl;   
+
+#endif
+                                    node.edges.push_back(edge);
+                                    subgraph[h].nodes.emplace(id_and_node.first, node);
+                                    
+                                }
                             }
+                        
                         }
                     
                     }
-                }
 
-                recurse(subgraph1);
-                recurse(subgraph2);
+                }
+                
+                recurse(subgraph[0]);
+#ifdef debug
+                
+                cout << "done recursing subgraph 0 " <<endl;  
+
+#endif
+                recurse(subgraph[1]);
+#ifdef debug
+                
+                cout << "done recursing subgraph 1 " <<endl;  
+
+#endif
 
             };
             
             recurse(graph);
+#ifdef debug
+            for(size_t i = 0; i < Gamma.size(); i++){
+                for (auto& x:Gamma[i] ) {
+                    cout << "Gamma " << i <<"has " << x <<endl; 
+                }
 
+            }
+            
+#endif
             return Gamma;
         }
 

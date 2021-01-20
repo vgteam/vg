@@ -31,7 +31,7 @@ namespace vg {
             vector<Edge> edges;
         };
         struct Graph {
-            vector<Node> nodes;
+            unordered_map<size_t,Node> nodes;
 
         }; 
 
