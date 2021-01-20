@@ -894,7 +894,7 @@ int main_view(int argc, char** argv) {
     }
 
     if (output_type == "gfa") {
-        graph_to_gfa(graph, std::cout);
+        graph_to_gfa(graph.get(), std::cout);
         return 0;
     } 
 

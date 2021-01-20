@@ -6,7 +6,7 @@ namespace vg {
 using namespace std;
 using namespace gfak;
 
-void graph_to_gfa(const unique_ptr<PathHandleGraph>& graph, ostream& out) {
+void graph_to_gfa(const PathHandleGraph* graph, ostream& out) {
   GFAKluge gg;
   gg.set_version(1.0);
   for (auto h : gg.get_header()){

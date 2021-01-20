@@ -4,6 +4,7 @@
 #include "xg.hpp"
 #include "../algorithms/gfa_to_handle.hpp"
 #include "../io/save_handle_graph.hpp"
+#include "../gfa.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <vg/io/alignment_emitter.hpp>
@@ -30,7 +31,10 @@ void help_convert(char** argv) {
          << "    -p, --packed-out       output in PackedGraph format" << endl
          << "    -x, --xg-out           output in XG format" << endl
          << "    -o, --odgi-out         output in ODGI format" << endl
-         << "    -T, --gfa-trans FILE   write gfa id conversions to FILE" << endl
+         << "    -f, --gfa-out          ouput in GFA format" << endl
+         << "    -P, --rgfa-path STR    write given path as rGFA tags instead of P-line (use with -f, multiple allowed, only rank-0 supported)" << endl
+         << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of P-line (use with -f, multiple allowed, only rank-0 supported)" << endl
+         << "    -T, --gfa-trans FILE   write gfa id conversions to FILE (use with -g)" << endl       
          << "alignment options:" << endl
          << "    -G, --gam-to-gaf FILE  convert GAM FILE to GAF" << endl
          << "    -F, --gaf-to-gam FILE  convert GAF FILE to GAM" << endl
@@ -47,6 +51,8 @@ int main_convert(int argc, char** argv) {
     string input_aln;
     bool gam_to_gaf = false;
     bool gaf_to_gam = false;
+    set<string> rgfa_paths;
+    vector<string> rgfa_prefixes;
 
     if (argc == 2) {
         help_convert(argv);
@@ -66,6 +72,9 @@ int main_convert(int argc, char** argv) {
             {"packed-out", no_argument, 0, 'p'},
             {"xg-out", no_argument, 0, 'x'},
             {"odgi-out", no_argument, 0, 'o'},
+            {"gfa-out", no_argument, 0, 'f'},
+            {"rgfa-path", required_argument, 0, 'P'},
+            {"rgfa-prefix", required_argument, 0, 'Q'},
             {"gfa-trans", required_argument, 0, 'T'},
             {"gam-to-gaf", required_argument, 0, 'G'},
             {"gaf-to-gam", required_argument, 0, 'F'},
@@ -74,7 +83,7 @@ int main_convert(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hgr:vxapxoT:G:F:t:",
+        c = getopt_long (argc, argv, "hgr:vxapxofp:Q:T:G:F:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -109,6 +118,15 @@ int main_convert(int argc, char** argv) {
         case 'o':
             output_format = "odgi";
             break;
+        case 'f':
+            output_format = "gfa";
+            break;
+        case 'P':
+            rgfa_paths.insert(optarg);
+            break;
+        case 'Q':
+            rgfa_prefixes.push_back(optarg);
+            break;
         case 'T':
             gfa_trans_path = optarg;
             break;
@@ -137,6 +155,10 @@ int main_convert(int argc, char** argv) {
 
     if (!gfa_trans_path.empty() && !input_gfa) {
         cerr << "error [vg convert]: -T can only be used with -g" << endl;
+        return 1;
+    }
+    if (output_format != "gfa" && (!rgfa_paths.empty() || !rgfa_prefixes.empty())) {
+        cerr << "error [vg convert]: -P and -Q can only be used with -f" << endl;
         return 1;
     }
 
@@ -180,17 +202,21 @@ int main_convert(int argc, char** argv) {
     // allocate a graph using the graph_type string to decide a class
     unique_ptr<HandleGraph> output_graph;
     if (output_format == "vg") {
-      output_graph = unique_ptr<HandleGraph>(new VG());
+        output_graph = unique_ptr<HandleGraph>(new VG());
     } else if (output_format == "hash") {
-      output_graph = unique_ptr<HandleGraph>(new bdsg::HashGraph());
+        output_graph = unique_ptr<HandleGraph>(new bdsg::HashGraph());
     } else if (output_format == "packed") {
-      output_graph = unique_ptr<HandleGraph>(new bdsg::PackedGraph());
+        output_graph = unique_ptr<HandleGraph>(new bdsg::PackedGraph());
     } else if (output_format == "xg") {
-      output_graph = unique_ptr<HandleGraph>(new xg::XG());
+        output_graph = unique_ptr<HandleGraph>(new xg::XG());
     } else if (output_format == "odgi") {
-      output_graph = unique_ptr<HandleGraph>(new bdsg::ODGI());
+        output_graph = unique_ptr<HandleGraph>(new bdsg::ODGI());
+    } else if (output_format == "gfa") {
+        // we need an intermediary for going gfa to gfa, use packed graph
+        output_graph = unique_ptr<HandleGraph>(new bdsg::PackedGraph());
     }
-    
+
+    unique_ptr<HandleGraph> input_graph;
     PathHandleGraph* output_path_graph = dynamic_cast<PathHandleGraph*>(output_graph.get());
     
     if (input_gfa) {
@@ -239,46 +265,56 @@ int main_convert(int argc, char** argv) {
         }
     }
     else {
-        unique_ptr<HandleGraph> input_graph;
         get_input_file(optind, argc, argv, [&](istream& in) {
             input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
         });
         
         PathHandleGraph* input_path_graph = dynamic_cast<PathHandleGraph*>(input_graph.get());
-        
-        if (output_format == "xg") {
-            if (input_path_graph != nullptr) {
-                dynamic_cast<xg::XG*>(output_graph.get())->from_path_handle_graph(*input_path_graph);
+
+        if (output_format != "gfa") {
+            if (output_format == "xg") {
+                if (input_path_graph != nullptr) {
+                    dynamic_cast<xg::XG*>(output_graph.get())->from_path_handle_graph(*input_path_graph);
+                }
+                else {
+                    dynamic_cast<xg::XG*>(output_graph.get())->from_handle_graph(*input_graph);
+                }
+            }
+            else if (input_path_graph != nullptr && output_path_graph != nullptr) {
+                MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
+                assert(mutable_output_graph != nullptr);
+                // ID hint (currently only for odgi)
+                mutable_output_graph->set_id_increment(input_graph->min_node_id());
+                handlealgs::copy_path_handle_graph(input_path_graph, mutable_output_graph);
             }
             else {
-                dynamic_cast<xg::XG*>(output_graph.get())->from_handle_graph(*input_graph);
+                if (input_path_graph != nullptr) {
+                    cerr << "warning [vg convert]: output format does not support paths, they are being dopped from the input" << endl;
+                }
+                MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
+                assert(mutable_output_graph != nullptr);
+                // ID hint (currently only for odgi)
+                mutable_output_graph->set_id_increment(input_graph->min_node_id());
+                handlealgs::copy_handle_graph(input_graph.get(), mutable_output_graph);
             }
-        }
-        else if (input_path_graph != nullptr && output_path_graph != nullptr) {
-            MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
-            assert(mutable_output_graph != nullptr);
-            // ID hint (currently only for odgi)
-            mutable_output_graph->set_id_increment(input_graph->min_node_id());
-            handlealgs::copy_path_handle_graph(input_path_graph, mutable_output_graph);
-        }
-        else {
-            if (input_path_graph != nullptr) {
-                cerr << "warning [vg convert]: output format does not support paths, they are being dopped from the input" << endl;
-            }
-            MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
-            assert(mutable_output_graph != nullptr);
-            // ID hint (currently only for odgi)
-            mutable_output_graph->set_id_increment(input_graph->min_node_id());
-            handlealgs::copy_handle_graph(input_graph.get(), mutable_output_graph);
         }
     }
     
-
-    // Serialize the graph using VPKG.
-    vg::io::save_handle_graph(output_graph.get(), cout);
+    if (output_format == "gfa") {
+        const PathHandleGraph* graph_to_write;
+        if (input_gfa) {
+            graph_to_write = dynamic_cast<const PathHandleGraph*>(output_graph.get());
+        } else {
+            graph_to_write = dynamic_cast<const PathHandleGraph*>(input_graph.get());
+        }
+        graph_to_gfa(graph_to_write, std::cout);
+    } else {
+        // Serialize the graph using VPKG.
+        vg::io::save_handle_graph(output_graph.get(), cout);
+    }
 
     return 0;
 }
 
 // Register subcommand
-static Subcommand vg_convert("convert", "convert graphs between handle-graph compiant formats", main_convert);
+static Subcommand vg_convert("convert", "convert graphs between handle-graph compliant formats as well as GFA", main_convert);
