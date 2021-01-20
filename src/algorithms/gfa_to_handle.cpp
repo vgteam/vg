@@ -163,7 +163,6 @@ static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGra
     
     // add in all edges
     gg.for_each_edge_line_in_file(filename.c_str(), [&](gfak::edge_elem e) {
-            cerr << " e  source " << e.source_name << " e sink " << e.sink_name << endl;
         validate_gfa_edge(e);
         handle_t a = graph->get_handle(parse_gfa_sequence_id(e.source_name, id_map_info), !e.source_orientation_forward);
         handle_t b = graph->get_handle(parse_gfa_sequence_id(e.sink_name, id_map_info), !e.sink_orientation_forward);
@@ -277,7 +276,7 @@ static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* u
             pair<int64_t, vector<pair<nid_t, int64_t>>>& val = path_map[rgfa_name];
             if (!val.second.empty()) {
                 if (val.first != rgfa_rank) {
-                    cerr << "[gfa-to-handle] warning: Ignoring rGFA tags for sequence " << s.name
+                    cerr << "warning:[gfa_to_handle_graph] Ignoring rGFA tags for sequence " << s.name
                          << " because they identify it as being on path " << rgfa_name << " with rank " << rgfa_rank
                          << " but a path with that name has already been found with a different rank (" << val.first << ")" << endl;
                 }
@@ -308,7 +307,7 @@ static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* u
         int64_t rank = path_offsets.second.first;
         vector<pair<nid_t, int64_t>>& node_offsets = path_offsets.second.second;
         if (graph->has_path(name)) {
-            cerr << "[gfa-to-handle] warning: Ignoring rGFA tags for path " << name << " as a path with that name "
+            cerr << "warning:[gfa_to_handle_graph] Ignoring rGFA tags for path " << name << " as a path with that name "
                  << "has already been imported from a P-line" << endl;
             continue;
         }
