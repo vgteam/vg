@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 30
+plan tests 32
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -187,3 +187,17 @@ diff gfa_nodes gfa_translated_nodes
 is "$?" 0 "3rd column of gfa id translation file contains all gfa nodes"
 
 rm -f  gfa-id-mapping.tsv rgfa_nodes gfa_nodes rgfa_translated_nodes gfa_translated_nodes
+
+
+# GFA to GBWTGraph to HashGraph to GFA
+vg gbwt -o components.gbwt -g components.gg -G graphs/components_walks.gfa
+vg convert -b components.gbwt -a components.gg > components.hg
+is $? 0 "GBWTGraph to HashGraph conversion"
+grep "^S" graphs/components_walks.gfa | sort > sorted.gfa
+vg view components.hg | grep "^S" | sort > converted.gfa
+cmp sorted.gfa converted.gfa
+is $? 0 "GFA -> GBWTGraph -> HashGraph -> GFA conversion maintains segments"
+
+rm -f components.gbwt components.gg
+rm -f components.hg
+rm -f sorted.gfa converted.gfa
