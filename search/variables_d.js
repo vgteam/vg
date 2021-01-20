@@ -84,6 +84,7 @@ var searchData=
   ['max_5fnodes_5ffor_5fexhaustive',['max_nodes_for_exhaustive',['../classvg_1_1Deconstructor.html#a109f4d81196e52d38a8406eaa1d4e2b3',1,'vg::Deconstructor']]],
   ['max_5foverhang',['max_overhang',['../classvg_1_1ReadFilter.html#a54c30818834f623c78a2cb0a0e9b4a91',1,'vg::ReadFilter']]],
   ['max_5fp_5fvalue_5fmemo_5fsize',['max_p_value_memo_size',['../classvg_1_1MultipathMapper.html#ada39acac8f403bf92632024be4e448e1',1,'vg::MultipathMapper']]],
+  ['max_5fparsed_5fvariant_5fsize',['max_parsed_variant_size',['../classvg_1_1Constructor.html#a2725e8e6876deb0ca0ccf597955163c2',1,'vg::Constructor']]],
   ['max_5fpath_5fid',['max_path_id',['../classvg_1_1Paths.html#ac5e9e182ecf09166f516c6fbf9923a29',1,'vg::Paths']]],
   ['max_5fpath_5flength',['max_path_length',['../classvg_1_1Filter.html#a77225b4859a55b509396332e96c81c0e',1,'vg::Filter']]],
   ['max_5fpath_5fsearch_5fsteps',['max_path_search_steps',['../classvg_1_1Genotyper.html#a500af110546f9572fe40d5ef098552d9',1,'vg::Genotyper::max_path_search_steps()'],['../classvg_1_1ReadRestrictedTraversalFinder.html#aa61be13e0e070bd8af8fe890b47dfde5',1,'vg::ReadRestrictedTraversalFinder::max_path_search_steps()'],['../classvg_1_1PathRestrictedTraversalFinder.html#af24fb970905bbb3d2e04631fd3d0918b',1,'vg::PathRestrictedTraversalFinder::max_path_search_steps()']]],
