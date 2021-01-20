@@ -236,7 +236,7 @@ void help_gbwt(char** argv) {
     std::cerr << "        --vcf-region C:X-Y  restrict VCF contig C to coordinates X to Y (inclusive, 1-based; may repeat)" << std::endl;
     std::cerr << "        --exclude-sample X  do not index the sample with name X (faster than -R; may repeat)" << std::endl;
     std::cerr << "    -G, --gfa-input         index the walks or paths in the GFA file (one input arg)" << std::endl;
-    std::cerr << "        --max-node N        chop long segments into nodes of at most N bp (default " << gbwtgraph::MAX_NODE_LENGTH << ")" << std::endl;
+    std::cerr << "        --max-node N        chop long segments into nodes of at most N bp (default " << gbwtgraph::MAX_NODE_LENGTH << ", use 0 to disable)" << std::endl;
     std::cerr << "        --path-regex X      parse metadata from path names using regex X (default " << gbwtgraph::GFAParsingParameters::DEFAULT_REGEX << ")" << std::endl;
     std::cerr << "        --path-fields X     map regex submatches to these fields (default " << gbwtgraph::GFAParsingParameters::DEFAULT_FIELDS << ")" << std::endl;
     std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (requires -x, no input args)" << std::endl;
@@ -977,7 +977,9 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         std::cerr << "Building input GBWTs" << std::endl;
     }
     gbwts.unbacked(); // We will build a new GBWT.
-    graphs.get_graph(config);
+    if (config.build != GBWTConfig::build_gfa) {
+        graphs.get_graph(config);
+    }
 
     if (config.build == GBWTConfig::build_vcf) {
         if (config.show_progress) {
@@ -1200,17 +1202,17 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
         std::cerr << "Building GBWTGraph" << std::endl;
     }
 
-    graphs.get_graph(config);
     gbwts.use_compressed();
     if (config.show_progress) {
         std::cerr << "Starting the construction" << std::endl;
     }
     gbwtgraph::GBWTGraph graph;
-    if (graphs.in_use == GraphHandler::graph_path) {
-        graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.path_graph));
-    } else if (graphs.in_use == GraphHandler::graph_source) {
+    if (graphs.in_use == GraphHandler::graph_source) {
         // TODO: What should we do with the segment translation table?
         graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.sequence_source));
+    } else {
+        graphs.get_graph(config);
+        graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.path_graph));
     }
     if (config.show_progress) {
         std::cerr << "Serializing GBWTGraph to " << config.graph_output << std::endl;
