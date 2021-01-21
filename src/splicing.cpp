@@ -1236,9 +1236,6 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     for (const auto& pos : left_mp_aln_trace) {
         is_bridge_left[get<0>(pos)] = true;
     }
-    for (auto i : left_mp_aln.start()) {
-        to_keep_left[i] = true;
-    }
     for (int64_t i = left_mp_aln.subpath_size() - 1; i >= 0; --i) {
         if (is_bridge_left[i]) {
             to_keep_left[i] = true;
@@ -1420,9 +1417,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         is_bridge_right[get<0>(pos)] = true;
     }
     for (int64_t i = 0; i < right_mp_aln.subpath_size(); ++i) {
-        if (is_bridge_right[i]) {
-            to_keep_right[i] = true;
-        }
+        to_keep_right[i] = to_keep_right[i] || is_bridge_right[i];
         for (auto j : right_mp_aln.subpath(i).next()) {
             to_keep_right[j] = to_keep_right[j] || to_keep_right[i];
         }
