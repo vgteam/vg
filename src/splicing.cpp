@@ -1200,6 +1200,14 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         }
     }
     
+    // now also walk back the multipath locations to match
+    vector<vector<int64_t>> left_rev_nexts;
+    for (size_t i = 0; i < left_mp_aln_trace.size(); ++i) {
+        int64_t s, m, e, b;
+        tie(s, m, e, b) = left_mp_aln_trace[i];
+    }
+    
+    
     // ensure that the connection locations are unique and in increasing order by subpath index
     sort(left_mp_aln_trace.begin(), left_mp_aln_trace.end());
     sort(right_mp_aln_trace.begin(), right_mp_aln_trace.end());
@@ -1231,13 +1239,16 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     for (auto i : left_mp_aln.start()) {
         to_keep_left[i] = true;
     }
-    for (int64_t i = 0; i < left_mp_aln.subpath_size(); ++i) {
-        if (!is_bridge_left[i]) {
+    for (int64_t i = left_mp_aln.subpath_size() - 1; i >= 0; --i) {
+        if (is_bridge_left[i]) {
+            to_keep_left[i] = true;
+        }
+        else {
             for (auto j : left_mp_aln.subpath(i).next()) {
-                to_keep_left[j] = to_keep_left[j] || to_keep_left[i];
+                to_keep_left[i] = to_keep_left[j] || to_keep_left[i];
             }
             for (const auto& connection : left_mp_aln.subpath(i).connection()) {
-                to_keep_left[connection.next()] = to_keep_left[connection.next()] || to_keep_left[i];
+                to_keep_left[i] = to_keep_left[connection.next()] || to_keep_left[i];
             }
         }
     }
@@ -1405,40 +1416,18 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     
     vector<bool> to_keep_right(right_mp_aln.subpath_size(), false);
     vector<bool> is_bridge_right(right_mp_aln.subpath_size(), false);
-    
     for (const auto& pos : right_mp_aln_trace) {
         is_bridge_right[get<0>(pos)] = true;
     }
-    for (int64_t i = right_mp_aln.subpath_size() - 1; i >= 0; --i) {
-        auto subpath = right_mp_aln.mutable_subpath(i);
-        if (subpath->next_size() == 0 && subpath->connection_size() == 0) {
+    for (int64_t i = 0; i < right_mp_aln.subpath_size(); ++i) {
+        if (is_bridge_right[i]) {
             to_keep_right[i] = true;
         }
-        else {
-            for (size_t j = 0; j < subpath->next_size();) {
-                if (!is_bridge_right[subpath->next(j)]) {
-                    to_keep_right[i] = to_keep_right[i] || to_keep_right[subpath->next(j)];
-                    ++j;
-                }
-                else {
-                    // this next is to the side of the subpath that's getting removed
-                    subpath->set_next(j, subpath->next().back());
-                    subpath->mutable_next()->pop_back();
-                }
-            }
-            // TODO: i really don't like arbitrarily destroying these connections...
-            for (size_t j = 0; j < subpath->connection_size();) {
-                auto connection = subpath->mutable_connection(j);
-                if (!is_bridge_right[connection->next()]) {
-                    to_keep_right[i] = to_keep_right[i] || to_keep_right[connection->next()];
-                    ++j;
-                }
-                else {
-                    // this connection is to the side of the subpath that's getting removed
-                    *connection = subpath->connection().back();
-                    subpath->mutable_connection()->pop_back();
-                }
-            }
+        for (auto j : right_mp_aln.subpath(i).next()) {
+            to_keep_right[j] = to_keep_right[j] || to_keep_right[i];
+        }
+        for (const auto& connection : right_mp_aln.subpath(i).connection()) {
+            to_keep_right[connection.next()] = to_keep_right[connection.next()] || to_keep_right[i];
         }
     }
     
