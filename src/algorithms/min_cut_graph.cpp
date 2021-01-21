@@ -32,13 +32,13 @@ namespace vg {
             pair<vector<unordered_set<size_t>>, size_t> to_return;
 
             // check for graph containing a node without an edge
-            for(size_t i = 0; i < graph.nodes.size(); i++){
-                if(graph.nodes[i].edges.size() <=0){
+            for (auto& id_and_node : graph.nodes){
+                if(id_and_node.second.edges.size() <=0){
                     //return empty container
 #ifdef debug
                     cout << "============================================================================= " << endl;    
                     cout << "Disconnected graph " << endl; 
-                            
+                    cout << "Node " <<id_and_node.first << "has 0 edges"<<endl;         
 #endif
                     return to_return;
                 }
@@ -67,13 +67,13 @@ namespace vg {
                 //using index starting at 0 for nodes
                 vector<size_t> vnodes;
                 
-                for(auto it = graph.nodes.begin(); it != graph.nodes.end(); ++it ){
+                for(auto& id_and_node : graph.nodes){
 #ifdef debug            
                    
                     // node id
-                    cout << "it first "<<it->first  << endl; 
+                    cout << "node "<<id_and_node.first  << endl; 
 #endif
-                    vnodes.push_back(it->first);                   
+                    vnodes.push_back(id_and_node.first);                   
                 }    
                 
                 
