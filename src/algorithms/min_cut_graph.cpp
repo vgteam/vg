@@ -36,8 +36,9 @@ namespace vg {
                 if(graph.nodes[i].edges.size() <=0){
                     //return empty container
 #ifdef debug
-                cout << "============================================================================= " << endl;    
-                cout << "Disconnected graph " << endl;         
+                    cout << "============================================================================= " << endl;    
+                    cout << "Disconnected graph " << endl; 
+                            
 #endif
                     return to_return;
                 }
@@ -162,14 +163,7 @@ namespace vg {
                 unordered_map<size_t, size_t> rand_node_edges = cg.get_edges(random_node);
                 
                 for_each(rand_node_edges.begin(), rand_node_edges.end() , [&](pair<size_t, size_t > element){
-// #ifdef debug
-//                 cout << "============================================================================= " << endl;
-                
-//                 cout << "random node  " << random_node<< endl;
-//                 cout << "edge" << random_node << "->" << element.first << "weight " << element.second <<endl;
-//                 cout << "============================================================================= " << endl;
-                
-// #endif  
+ 
                         //push back the weights 
                          rand_ew.push_back(element.second);
                 });
@@ -351,31 +345,45 @@ namespace vg {
 
             function<void(Graph)> recurse = [&](Graph graph){
  #ifdef debug
-            cout << "============================================================================= " << endl;
-            cout << "MIN-CUT-DECOMPOSITION"  <<endl;
-            cout << "============================================================================= " << endl;
-            cout << "============================================================================= " << endl;
-            cout << "original graph" <<endl;        
-            for (auto& id_and_node : graph.nodes){
-            
-                cout << "Node: "<<id_and_node.first  << ",weight: "<< id_and_node.second.weight <<endl; 
-                for (size_t j = 0; j < id_and_node.second.edges.size(); j++){
-                    cout << "edge "<< j  << "->" << id_and_node.second.edges[j].other <<", weight: " << id_and_node.second.edges[j].weight << endl;
-                }                       
-            } 
-            cout << "============================================================================= " << endl;
+                cout << "============================================================================= " << endl;
+                cout << "MIN-CUT-DECOMPOSITION"  <<endl;
+                cout << "============================================================================= " << endl;
+                cout << "============================================================================= " << endl;
+                cout << "original graph" <<endl;        
+                for (auto& id_and_node : graph.nodes){
+                
+                    cout << "Node: "<<id_and_node.first  << ",weight: "<< id_and_node.second.weight <<endl; 
+                    for (size_t j = 0; j < id_and_node.second.edges.size(); j++){
+                        cout << "edge "<< id_and_node.first  << "->" << id_and_node.second.edges[j].other <<", weight: " << id_and_node.second.edges[j].weight << endl;
+                    }                       
+                } 
+                
+                cout << "============================================================================= " << endl;
 #endif               
                 size_t V = graph.nodes.size();
 
                 //base case
                 //singleton nodes won't be added to Gamma
                 if(V <= 2){
+#ifdef debug             
+                    cout << "V <=2"  <<endl;
+                    cout << "V= " << V <<endl;
+           
+#endif
                     return;
                 }
                 pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iters, rand_seed);
                 vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
-                
-
+               
+                if(disjoint_sets.empty()==1){
+#ifdef debug             
+                    cout << "Empty sets"  <<endl;
+#endif
+                    return;
+                }
+#ifdef debug             
+                cout << "set size "<<disjoint_sets[0].size() << ", " << disjoint_sets[1].size() <<endl;
+#endif
                 //push sets into Gamma at each iteration, only if size >=2
                 if(disjoint_sets[0].size() >=2){
                     Gamma.push_back(disjoint_sets[0]);
@@ -389,40 +397,30 @@ namespace vg {
                 //build the subgraphs from disjoint sets
                 vector<Graph> subgraph(2);
                 for(size_t h =0; h < disjoint_sets.size(); h++){
-#ifdef debug
-                cout << "============================================================================= " << endl;
-                cout << "set "  << h<<endl;
-                
-                
-#endif
+
                     for(auto& id_and_node : graph.nodes){
                     // if node from original graph is in the disjoint set
                         if (disjoint_sets[h].count(id_and_node.first)==1){
-#ifdef debug
-                
-                cout << "node "  << id_and_node.first<<endl;   
-
-#endif
+                     
+                            size_t node_weight =0;
+                            Node node;
+                            Edge edge;
                             // check if any edges connect to other nodes in the disjoint set
                             for(size_t j =0; j < id_and_node.second.edges.size(); j++){
-
+                                
                                 if (disjoint_sets[h].count(id_and_node.second.edges[j].other)==1){
-                                    Node node;
-                                    Edge edge;
                                     edge.other = id_and_node.second.edges[j].other;
                                     edge.weight = id_and_node.second.edges[j].weight;
-                                    node.weight = id_and_node.second.weight;
-#ifdef debug
-                
-                                    cout << "edge.other "  << edge.other <<endl;  
-                                    cout << "edge.weight "  << edge.weight <<endl;   
+                                    node_weight += edge.weight;
+                                    node.edges.push_back(edge);                                   
 
-#endif
-                                    node.edges.push_back(edge);
-                                    subgraph[h].nodes.emplace(id_and_node.first, node);
-                                    
+
                                 }
                             }
+                            //tally the node weight using the edges
+                            node.weight = node_weight; 
+                            subgraph[h].nodes.emplace(id_and_node.first, node);
+
                         
                         }
                     
@@ -431,17 +429,9 @@ namespace vg {
                 }
                 
                 recurse(subgraph[0]);
-#ifdef debug
-                
-                cout << "done recursing subgraph 0 " <<endl;  
 
-#endif
                 recurse(subgraph[1]);
-#ifdef debug
-                
-                cout << "done recursing subgraph 1 " <<endl;  
 
-#endif
 
             };
             
