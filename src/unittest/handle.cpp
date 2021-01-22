@@ -560,51 +560,61 @@ TEST_CASE("Deletable handle graphs work", "[handle][vg]") {
     }
 }
 
-TEST_CASE("divide_handle works on reverse strand", "[handle][vg][odgi][packed][hashgraph]") {
-    vector<MutableHandleGraph*> implementations;
+TEST_CASE("divide_handle works on both strands", "[handle][vg][odgi][packed][hashgraph]") {
+    vector<pair<MutablePathMutableHandleGraph*, MutablePathMutableHandleGraph*>> implementations;
     
     // Add implementations
     
-    VG vg;
-    implementations.push_back(&vg);
+    VG vg, vg2;
+    implementations.push_back(make_pair(&vg, &vg2));
 
-    bdsg::ODGI og;
-    implementations.push_back(&og);
-    
-    bdsg::PackedGraph pg;
-    implementations.push_back(&pg);
-    
-    bdsg::HashGraph hg;
-    implementations.push_back(&hg);
-    
+    bdsg::ODGI og, og2;
+    implementations.push_back(make_pair(&og, &og2));
+
+    bdsg::HashGraph hg, hg2;
+    implementations.push_back(make_pair(&hg, &hg2));
+
+    bdsg::PackedGraph pg, pg2;
+    implementations.push_back(make_pair(&pg, &pg2));
+        
     // And test them
-    
-    for (MutableHandleGraph* implementation : implementations) {
-        
-        MutableHandleGraph* g = implementation;
-        
-        REQUIRE(g->get_node_count() == 0);
+    for (int imp = 0; imp < implementations.size(); ++imp) {
 
-        handle_t handle = g->create_handle("TTATATTCCAACTCTCTG");
-        // Should get (C,AGAG,AGTTG,GAATATAA)
-        auto parts = g->divide_handle(g->flip(handle), {1, 5, 10});
+        for (bool backwards : {false, true}) {
 
-        //cerr << endl;
-        //for (int i = 0; i < parts.size(); ++i) {
-        //    handle_t p = parts[i];
-        //    cerr << "Part " << i << " " << g->get_id(p) << ":" << g->get_is_reverse(p) << " seq=" << g->get_sequence(p) << endl;
-        //}
+            MutablePathMutableHandleGraph* g = backwards ? implementations[imp].first : implementations[imp].second;
+        
+            REQUIRE(g->get_node_count() == 0);
+
+            handle_t handle = g->create_handle("TTATATTCCAACTCTCTG");
+            if (backwards) {
+                handle = g->flip(handle);
+            }
+            path_handle_t path_handle = g->create_path_handle("Path");
+            g->append_step(path_handle, handle);
+            string seq = g->get_sequence(handle);
+            vector<string> true_parts = { seq.substr(0, 1), seq.substr(1, 4), seq.substr(5, 5), seq.substr(10) };
+
+            // Should get (C,AGAG,AGTTG,GAATATAA)  (forward)
+            // Should get (T,TATA,TTCCA,ACTCTCTG)  (reverse)
+            auto parts = g->divide_handle(handle, {1, 5, 10});
             
-        REQUIRE(parts.size() == 4);
-        REQUIRE(g->get_sequence(parts[0]) == "C");
-        REQUIRE(g->get_is_reverse(parts[0]) == true);
-        REQUIRE(g->get_sequence(parts[1]) == "AGAG");
-        REQUIRE(g->get_is_reverse(parts[1]) == true);
-        REQUIRE(g->get_sequence(parts[2]) == "AGTTG");
-        REQUIRE(g->get_is_reverse(parts[2]) == true);
-        REQUIRE(g->get_sequence(parts[3]) == "GAATATAA");
-        REQUIRE(g->get_is_reverse(parts[3]) == true);
-
+            REQUIRE(parts.size() == true_parts.size());
+            for (int i = 0; i < parts.size(); ++i) {
+                REQUIRE(g->get_sequence(parts[i]) == true_parts[i]);
+                REQUIRE(g->get_is_reverse(parts[i]) == backwards);
+            }
+        
+            vector<handle_t> steps;
+            g->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                    steps.push_back(g->get_handle_of_step(step_handle));
+                });
+            REQUIRE(steps.size() == true_parts.size());
+            for (int i = 0; i < parts.size(); ++i) {
+                REQUIRE(g->get_sequence(steps[i]) == true_parts[i]);
+                REQUIRE(g->get_is_reverse(steps[i]) == backwards);
+            }
+        }
     }
 }
 
