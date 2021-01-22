@@ -867,6 +867,27 @@ TEST_CASE("QualAdjXdropAligner uses quality adjusted full length bonuses",
     REQUIRE(aln1.score() == 1);
     REQUIRE(aln2.score() == 1);
 }
+
+TEST_CASE("QualAdjXdropAligner doesn't crash when a traceback goes through an X-dropped vector",
+          "[xdrop][alignment][mapping][pinned]") {
+    
+    bdsg::HashGraph graph;
+    
+    handle_t h0 = graph.create_handle("ACCTACCAAATCACT");
+    
+    Alignment aln;
+    aln.set_sequence("TCCTACCTAATCA");
+    aln.set_quality(":F:F,FFF:::F,");
+    alignment_quality_char_to_short(aln);
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 20);
+    const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
+    
+    aligner.align_pinned(aln, graph, true, true, 0);
+    
+    REQUIRE(path_to_length(aln.path()) == aln.sequence().size());
+}
    
 }
 }
