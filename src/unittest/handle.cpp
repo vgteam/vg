@@ -13,6 +13,7 @@
 
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
+#include "bdsg/odgi.hpp"
 
 #include <handlegraph/util.hpp>
 
@@ -556,6 +557,54 @@ TEST_CASE("Deletable handle graphs work", "[handle][vg]") {
                 }
             }
         }
+    }
+}
+
+TEST_CASE("divide_handle works on reverse strand", "[handle][vg][odgi][packed][hashgraph]") {
+    vector<MutableHandleGraph*> implementations;
+    
+    // Add implementations
+    
+    VG vg;
+    implementations.push_back(&vg);
+
+    bdsg::ODGI og;
+    implementations.push_back(&og);
+    
+    bdsg::PackedGraph pg;
+    implementations.push_back(&pg);
+    
+    bdsg::HashGraph hg;
+    implementations.push_back(&hg);
+    
+    // And test them
+    
+    for (MutableHandleGraph* implementation : implementations) {
+        
+        MutableHandleGraph* g = implementation;
+        
+        REQUIRE(g->get_node_count() == 0);
+
+        handle_t handle = g->create_handle("TTATATTCCAACTCTCTG");
+        // Should get (C,AGAG,AGTTG,GAATATAA)
+        auto parts = g->divide_handle(g->flip(handle), {1, 5, 10});
+
+        //cerr << endl;
+        //for (int i = 0; i < parts.size(); ++i) {
+        //    handle_t p = parts[i];
+        //    cerr << "Part " << i << " " << g->get_id(p) << ":" << g->get_is_reverse(p) << " seq=" << g->get_sequence(p) << endl;
+        //}
+            
+        REQUIRE(parts.size() == 4);
+        REQUIRE(g->get_sequence(parts[0]) == "C");
+        REQUIRE(g->get_is_reverse(parts[0]) == true);
+        REQUIRE(g->get_sequence(parts[1]) == "AGAG");
+        REQUIRE(g->get_is_reverse(parts[1]) == true);
+        REQUIRE(g->get_sequence(parts[2]) == "AGTTG");
+        REQUIRE(g->get_is_reverse(parts[2]) == true);
+        REQUIRE(g->get_sequence(parts[3]) == "GAATATAA");
+        REQUIRE(g->get_is_reverse(parts[3]) == true);
+
     }
 }
 
