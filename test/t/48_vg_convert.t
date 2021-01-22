@@ -199,7 +199,7 @@ is "$?" 0 "3rd column of gfa id translation file contains all gfa nodes"
 rm -f  gfa-id-mapping.tsv rgfa_nodes gfa_nodes rgfa_translated_nodes gfa_translated_nodes
 
 vg convert -g tiny/tiny.gfa -v | vg convert - -f -P x > tiny.gfa.rgfa
-is "$(grep ^P tiny.gfa.rgfa | wc -l)" 0 "rgfa output wrote not P-lines"
+is "$(grep ^P tiny.gfa.rgfa | wc -l)" 0 "rgfa output wrote no P-lines"
 vg convert -g tiny/tiny.gfa -v | vg convert - -f | sort > tiny.gfa.gfa
 vg convert -g tiny.gfa.rgfa -f | sort > tiny.gfa.rgfa.gfa
 diff tiny.gfa.gfa tiny.gfa.rgfa.gfa

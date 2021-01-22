@@ -36,7 +36,7 @@ void help_convert(char** argv) {
          << "    -o, --odgi-out         output in ODGI format" << endl
          << "    -f, --gfa-out          ouput in GFA format" << endl
          << "    -P, --rgfa-path STR    write given path as rGFA tags instead of P-line (use with -f, multiple allowed, only rank-0 supported)" << endl
-         << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of P-line (use with -f, multiple allowed, only rank-0 supported)" << endl
+         << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of P-lines (use with -f, multiple allowed, only rank-0 supported)" << endl
          << "    -T, --gfa-trans FILE   write gfa id conversions to FILE (use with -g)" << endl       
          << "alignment options:" << endl
          << "    -G, --gam-to-gaf FILE  convert GAM FILE to GAF" << endl
@@ -273,7 +273,6 @@ int main_convert(int argc, char** argv) {
         }
     }
     else {
-        unique_ptr<HandleGraph> input_graph;
         unique_ptr<gbwt::GBWT> input_gbwt;
 
         // Load a GBWTGraph or another HandleGraph.
