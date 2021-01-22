@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 35
+plan tests 37
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -205,3 +205,17 @@ vg convert -g tiny.gfa.rgfa -f | sort > tiny.gfa.rgfa.gfa
 diff tiny.gfa.gfa tiny.gfa.rgfa.gfa
 is "$?" 0 "rgfa export roundtrips back to normal P-lines"
 
+rm -f tiny.gfa.rgfa tiny.gfa.gfa tiny.gfa.rgfa.gfa
+
+# GFA to GBWTGraph to HashGraph to GFA
+vg gbwt -o components.gbwt -g components.gg -G graphs/components_walks.gfa
+vg convert -b components.gbwt -a components.gg > components.hg
+is $? 0 "GBWTGraph to HashGraph conversion"
+grep "^S" graphs/components_walks.gfa | sort > sorted.gfa
+vg view components.hg | grep "^S" | sort > converted.gfa
+cmp sorted.gfa converted.gfa
+is $? 0 "GFA -> GBWTGraph -> HashGraph -> GFA conversion maintains segments"
+
+rm -f components.gbwt components.gg
+rm -f components.hg
+rm -f sorted.gfa converted.gfa

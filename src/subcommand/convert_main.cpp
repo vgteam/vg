@@ -13,6 +13,8 @@
 #include "bdsg/hash_graph.hpp"
 #include "bdsg/odgi.hpp"
 
+#include <gbwtgraph/gbwtgraph.h>
+
 #include <unistd.h>
 #include <getopt.h>
 
@@ -24,7 +26,8 @@ void help_convert(char** argv) {
     cerr << "usage: " << argv[0] << " convert [options] <input-graph>" << endl
          << "input options:" << endl
          << "    -g, --gfa-in           input in GFA format" << endl
-         << "    -r, --in-rgfa-rank N   import rgfa tags with rank <= N as paths [default=0]"
+         << "    -r, --in-rgfa-rank N   import rgfa tags with rank <= N as paths [default=0]" << endl
+         << "    -b, --gbwt-in FILE     input graph is a GBWTGraph using the GBWT in FILE" << endl
          << "output options:" << endl
          << "    -v, --vg-out           output in VG format [default]" << endl
          << "    -a, --hash-out         output in HashGraph format" << endl
@@ -49,6 +52,7 @@ int main_convert(int argc, char** argv) {
     int64_t input_rgfa_rank = 0;
     string gfa_trans_path;
     string input_aln;
+    string gbwt_name;
     bool gam_to_gaf = false;
     bool gaf_to_gam = false;
     set<string> rgfa_paths;
@@ -67,6 +71,7 @@ int main_convert(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"gfa-in", no_argument, 0, 'g'},
             {"in-rgfa-rank", required_argument, 0, 'r'},
+            {"gbwt-in", required_argument, 0, 'b'},
             {"vg-out", no_argument, 0, 'v'},
             {"hash-out", no_argument, 0, 'a'},
             {"packed-out", no_argument, 0, 'p'},
@@ -83,7 +88,7 @@ int main_convert(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hgr:vxapxofP:Q:T:G:F:t:",
+        c = getopt_long (argc, argv, "hgr:b:vxapxofP:Q:T:G:F:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -102,6 +107,9 @@ int main_convert(int argc, char** argv) {
             break;
         case 'r':
             input_rgfa_rank = stol(optarg);
+            break;
+        case 'b':
+            gbwt_name = optarg;
             break;
         case 'v':
             output_format = "vg";
@@ -265,9 +273,26 @@ int main_convert(int argc, char** argv) {
         }
     }
     else {
-        get_input_file(optind, argc, argv, [&](istream& in) {
-            input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
-        });
+        unique_ptr<HandleGraph> input_graph;
+        unique_ptr<gbwt::GBWT> input_gbwt;
+
+        // Load a GBWTGraph or another HandleGraph.
+        if (!gbwt_name.empty()) {
+            get_input_file(optind, argc, argv, [&](istream& in) {
+                input_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(in);
+            });
+            gbwtgraph::GBWTGraph* gbwt_graph = dynamic_cast<gbwtgraph::GBWTGraph*>(input_graph.get());
+            if (gbwt_graph == nullptr) {
+                cerr << "error [vg convert]: input graph is not a GBWTGraph" << endl;
+                exit(1);
+            }
+            input_gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
+            gbwt_graph->set_gbwt(*input_gbwt);
+        } else {
+            get_input_file(optind, argc, argv, [&](istream& in) {
+                input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
+            });
+        }
         
         PathHandleGraph* input_path_graph = dynamic_cast<PathHandleGraph*>(input_graph.get());
 
