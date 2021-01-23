@@ -888,6 +888,38 @@ TEST_CASE("QualAdjXdropAligner doesn't crash when a traceback goes through an X-
     
     REQUIRE(path_to_length(aln.path()) == aln.sequence().size());
 }
+
+TEST_CASE("QualAdjXdropAligner doesn't crash with a long sequence",
+          "[xdrop][alignment][mapping][pinned][longsequence]") {
+    
+    bdsg::HashGraph graph;
+    
+    handle_t h0 = graph.create_handle("TC");
+    handle_t h1 = graph.create_handle("ATCATTATGTTTTTGAGTATAGTATAGTTACT");
+    handle_t h2 = graph.create_handle("TGTTTTCACTGCTTTATATACCATTGTATAAA");
+    handle_t h3 = graph.create_handle("TATACCACAATTTATCCATTCTAGTATTAATG");
+    handle_t h4 = graph.create_handle("GACATTAGGTTTGTTGTTATTACAGTGTTCCT");
+    handle_t h5 = graph.create_handle("GCAAGTAACCTTGCACATTTCTCCTGATACAC");
+    
+    graph.create_edge(h0, h1);
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, h5);
+    
+    Alignment aln;
+    aln.set_sequence("CTTTAGGTAATTTTAAACAAACAAAAGCTATCTCAAAATTTTTTCACACTTTTCAAACCCCTGATCCCTCATTTACTCTTTGGAGATGCCCCACCTTATCTCTTTCCAAAAACTAAGGACAACTANNNNNNNNNCNNNNTNG");
+    aln.set_quality("<0FI000F<I0FII7I77B0B00I077007<077<<I07FI0IB0FFB00FF0F<I00FIF77F<0II0<000<000<F<0B<F000000FB0BF<B7F0BBBF077000I0F00000000F000'''''''''0''''0'<");
+    alignment_quality_char_to_short(aln);
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 5);
+    const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
+    
+    aligner.align_pinned(aln, graph, true, true, 9);
+    
+    REQUIRE(path_to_length(aln.path()) == aln.sequence().size());
+}
    
 }
 }
