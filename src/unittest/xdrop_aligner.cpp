@@ -889,8 +889,8 @@ TEST_CASE("QualAdjXdropAligner doesn't crash when a traceback goes through an X-
     REQUIRE(path_to_length(aln.path()) == aln.sequence().size());
 }
 
-TEST_CASE("QualAdjXdropAligner doesn't crash with a long sequence",
-          "[xdrop][alignment][mapping][pinned][longsequence]") {
+TEST_CASE("XdropAligner can align across multiple nodes",
+          "[xdrop][alignment][mapping][pinned]") {
     
     bdsg::HashGraph graph;
     
@@ -920,7 +920,39 @@ TEST_CASE("QualAdjXdropAligner doesn't crash with a long sequence",
     
     REQUIRE(path_to_length(aln.path()) == aln.sequence().size());
 }
-   
+
+TEST_CASE("XdropAligner can align to a graph where some nodes are entirely unaligned",
+          "[xdrop][alignment][mapping][pinned]") {
+    
+    bdsg::HashGraph graph;
+    
+    handle_t h0 = graph.create_handle("CTTCAGGAGGCAACATCAAGGTAACCCGAGTT");
+    handle_t h1 = graph.create_handle("TAGGGATATTCTGCAAAATAACTGGCCTGTAA");
+    handle_t h2 = graph.create_handle("ACCTCAAAATTAAGTCAAGATCATGGAACCAA");
+    handle_t h3 = graph.create_handle("GAAAACACTGAGGAATTGTTCCACACTAAAGA");
+    handle_t h4 = graph.create_handle("AGTGTGCAGAAACATGGCAACTCCATGTGGTT");
+    handle_t h5 = graph.create_handle("CATGATTCTGAATCGGCA");
+    
+    graph.create_edge(h0, h1);
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, h5);
+    
+    Alignment aln;
+    aln.set_sequence("CGGGGCCTTCCTCCAGTGAATATCTCTTCTAACATTGTCAATCATATCCAACAGAAGAAGAGATCGCTCCATTGGTACAAAAAGCTATAGCGCTGAATAATAGTTGGACGCTGACGGGCTATCTGAGTATGACAGAGCGCN");
+    aln.set_quality("B7FFFFFIFIBFFFIII0FIIIIIF<IIBFIIIIIFF7F0BI7IFFF07FIIF00<0B<FB7BF00B007FF<0BI0BFF000000<000<0B07F00F<0B0B0F000007000000000000000000<000000F00'");
+    alignment_quality_char_to_short(aln);
+    
+    TestAligner aligner_source;
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 5);
+    const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
+    
+    aligner.align_pinned(aln, graph, false, true, 10);
+    
+    REQUIRE(path_to_length(aln.path()) == aln.sequence().size());
+}
+
 }
 }
         
