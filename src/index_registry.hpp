@@ -71,6 +71,18 @@ public:
     /// Constructor
     IndexRegistry() = default;
     
+    /// Destructor to clean up temp files.
+    ~IndexRegistry();
+    
+    // Because we own temporary files and unique pointers, we should not be copied.
+    IndexRegistry(const IndexRegistry& other) = delete;
+    IndexRegistry& operator=(const IndexRegistry& other) = delete;
+    
+    // And we need to be moved carefully
+    IndexRegistry(IndexRegistry&& other);
+    IndexRegistry& operator=(IndexRegistry&& other);
+    
+    
     /// Prefix for all saved outputs
     void set_prefix(const string& prefix);
     
@@ -121,10 +133,16 @@ protected:
     /// access const index file
     const IndexFile* get_index(const string& identifier) const;
     
+    /// Function to get and/or initialize the temporary directory in which indexes will live
+    string get_work_dir();
+    
     /// the storage struct for named indexes
     unordered_map<string, unique_ptr<IndexFile>> registry;
     
     unordered_set<string> registered_suffixes;
+    
+    /// Temporary directory in which indexes will live
+    string work_dir;
     
     /// filepath that will prefix all saved output
     string output_prefix = "index";

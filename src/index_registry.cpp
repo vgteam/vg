@@ -598,7 +598,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         init_out(outfile_gcsa, gcsa_output_name);
         init_out(outfile_lcp, lcp_output_name);
         
-        // configure
+        // configure GCSA to use scratch in the general temp directory
         gcsa::TempFile::setDirectory(temp_file::get_dir());
         if (IndexingParameters::verbose) {
             gcsa::Verbosity::set(gcsa::Verbosity::BASIC);
@@ -627,7 +627,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         gcsa::LCPArray lcp_array(input_graph, params);
         
         // clean up the k-mers file
-        temp_file::remove(dbg_name);
+        std::remove(dbg_name.c_str());
         
         vg::io::VPKG::save(gcsa_index, gcsa_output_name);
         vg::io::VPKG::save(lcp_array, lcp_output_name);
@@ -680,6 +680,38 @@ vector<string> VGIndexes::get_default_giraffe_indexes() {
     return indexes;
 }
 
+IndexRegistry::~IndexRegistry() {
+    if (!work_dir.empty()) {
+        // Clean up our work directory with its temporary indexes.
+        temp_file::remove(work_dir);
+        work_dir.clear();
+    }
+}
+
+IndexRegistry::IndexRegistry(IndexRegistry&& other) :
+    registry(std::move(other.registry)),
+    registered_suffixes(std::move(other.registered_suffixes)),
+    work_dir(std::move(other.work_dir)),
+    output_prefix(std::move(other.output_prefix)),
+    keep_intermediates(std::move(other.keep_intermediates)) {
+    
+    // Make sure other doesn't delete our work dir when it goes away
+    other.work_dir.clear();
+}
+
+IndexRegistry& IndexRegistry::operator=(IndexRegistry&& other) {
+    registry = std::move(other.registry);
+    registered_suffixes = std::move(other.registered_suffixes);
+    work_dir = std::move(other.work_dir);
+    output_prefix = std::move(other.output_prefix);
+    keep_intermediates = std::move(other.keep_intermediates);
+    
+    // Make sure other doesn't delete our work dir when it goes away
+    other.work_dir.clear();
+    
+    return *this;
+}
+
 void IndexRegistry::set_prefix(const string& prefix) {
     this->output_prefix = prefix;
 }
@@ -716,7 +748,7 @@ void IndexRegistry::make_indexes(const vector<string>& identifiers) {
         }
         else {
             // we're not saving this file, make it
-            index_prefix = temp_file::get_dir() + "/" + sha1sum(index->get_identifier());
+            index_prefix = get_work_dir() + "/" + sha1sum(index->get_identifier());
         }
         
         index->execute_recipe(step.second, index_prefix);
@@ -803,6 +835,14 @@ IndexFile* IndexRegistry::get_index(const string& identifier) {
 
 const IndexFile* IndexRegistry::get_index(const string& identifier) const {
     return registry.at(identifier).get();
+}
+
+string IndexRegistry::get_work_dir() {
+    if (work_dir.empty()) {
+        // Ensure the directory exists
+        work_dir = temp_file::create_directory();
+    }
+    return work_dir;
 }
 
 vector<string> IndexRegistry::dependency_order() const {
