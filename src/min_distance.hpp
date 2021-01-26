@@ -149,7 +149,17 @@ class MinimumDistanceIndex {
             ///Rank 0 is the start node and rank num_nodes*2-1 is the end node,
             /// both pointing into the snarl
             int64_t snarl_distance(size_t start, size_t end) const {
-                return int64_t(distances[index(start, end)]) - 1;
+                if (num_nodes <= max_snarl_size) {
+                    return int64_t(distances[index(start, end)]) - 1;
+                } else {
+                    if (start == 0 || end == 1 || start == num_nodes*2-1 || end == num_nodes*2) {
+                        return int64_t(distances[index(start, end)]) - 1;
+
+                    } else {
+                    //TODO
+                    throw std::runtime_error( " Trying to find distances in a snarl that's too big");
+                    }
+                }
             }
              
             ///Length of a node in the netgraph of the snarl
@@ -232,6 +242,9 @@ class MinimumDistanceIndex {
 
             ///The index into distances for distance start->end
             size_t index(size_t start, size_t end) const;
+
+            ///If the snarl has more than this many nodes, only store the distances to the boundaries
+            size_t max_snarl_size = 500;
 
 
         friend class MinimumDistanceIndex;
