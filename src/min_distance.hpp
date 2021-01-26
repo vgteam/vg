@@ -8,7 +8,7 @@
 #include "hash_map.hpp"
 
 #include "bdsg/hash_graph.hpp"
-
+#include <handlegraph/algorithms/dijkstra.hpp>
 using namespace sdsl;
 namespace vg { 
 
@@ -53,7 +53,7 @@ class MinimumDistanceIndex {
     /// Distance includes only one of the positions. The distance from a 
     /// position to itself would be 1
     ///If there is no path between the two positions then the distance is -1
-    int64_t min_distance( pos_t pos1, pos_t pos2) const;
+    int64_t min_distance( pos_t pos1, pos_t pos2, const HandleGraph* graph) const;
 
     ///Get a maximum distance bound between the positions, ignoring direction
     ///Returns a positive value even if the two nodes are unreachable
@@ -105,6 +105,7 @@ class MinimumDistanceIndex {
         return static_cast<int64_t>(std::min(static_cast<uint64_t>(x), static_cast<uint64_t>(y)));
     }
 
+
     ///Write snarls out to stout
     void write_snarls_to_json();
 
@@ -120,78 +121,8 @@ class MinimumDistanceIndex {
      * Also keeps track of the parent of the snarl
     */
     class SnarlIndex {
-        
-
-        public:
-        
-            ///Constructor for the snarl index
-            ///if inChain is true, parent_id and rev_in_parent are for the chain
-            /// chain the snarl participates in. otherwise, for the parent snarl
-            SnarlIndex(id_t parent_id, bool rev_in_parent, 
-                       id_t id_in_parent, id_t end_id, bool is_unary_snarl, size_t depth,
-                       size_t num_nodes, bool in_chain);
-           
-            //Construct an empty SnarlIndex. Must call load after construction to populate it 
-            SnarlIndex();
-
-            //Load data from serialization
-            void load(istream& in, bool include_component);
-
-            ///Serialize the snarl
-            void serialize(ostream& out) const;
-            
-            ///Distance between start and end, not including the lengths of
-            ///the two nodes
-            ///start and end are the ranks of the node+direction, given by
-            ///primary_snarls and secondary_snarl
-            ///Only works for nodes heading their chains (which represent the 
-            ///chains), or snarl boundaries.
-            ///Rank 0 is the start node and rank num_nodes*2-1 is the end node,
-            /// both pointing into the snarl
-            int64_t snarl_distance(size_t start, size_t end) const {
-                if (num_nodes <= max_snarl_size) {
-                    return int64_t(distances[index(start, end)]) - 1;
-                } else {
-                    if (start == 0 || end == 1 || start == num_nodes*2-1 || end == num_nodes*2) {
-                        return int64_t(distances[index(start, end)]) - 1;
-
-                    } else {
-                    //TODO
-                    throw std::runtime_error( " Trying to find distances in a snarl that's too big");
-                    }
-                }
-            }
-             
-            ///Length of a node in the netgraph of the snarl
-            ///If it is a node, then the length of the node. If it is a snarl or
-            ///chain, then the shortest distance between the boundaries
-            /// i is the rank of the node in the snarl
-            int64_t node_length(size_t i) const {
-                return distances[i / 2] - 1;
-            }
-        
-            ///Total length of the snarl-shortest distance from start to end
-            ///including the lengths of boundary nodes
-            int64_t snarl_length() const;
-
-            ///Given distances from a position to either end of a node, find the
-            ///shortest distance from that position to the start and end 
-            ///nodes of the snarl
-            ///rank is in the forward direction, but checks both forward and reverse
-            
-            pair<int64_t, int64_t> dist_to_ends(size_t rank, 
-                                              int64_t distL, int64_t distR) const;
-
-            ///For use during construction,
-            ///add the distance from start to end to the index
-            void insert_distance(size_t start, size_t end, int64_t dist);
-
-
-            bool is_trivial_snarl() const;
-
-            void print_self() const;
-            json_t* snarl_to_json();
-
+ 
+ //TODO: public things should probably go first and snarl_distance should be moved to cpp file
         protected:
  
             /// Store the distance between every pair nodes, not including the 
@@ -244,13 +175,113 @@ class MinimumDistanceIndex {
             size_t index(size_t start, size_t end) const;
 
             ///If the snarl has more than this many nodes, only store the distances to the boundaries
-            size_t max_snarl_size = 500;
+            size_t max_snarl_size = 20;
 
+       
+
+        public:
+        
+            ///Constructor for the snarl index
+            ///if inChain is true, parent_id and rev_in_parent are for the chain
+            /// chain the snarl participates in. otherwise, for the parent snarl
+            SnarlIndex(id_t parent_id, bool rev_in_parent, 
+                       id_t id_in_parent, id_t end_id, bool is_unary_snarl, size_t depth,
+                       size_t num_nodes, bool in_chain);
+           
+            //Construct an empty SnarlIndex. Must call load after construction to populate it 
+            SnarlIndex();
+
+            //Load data from serialization
+            void load(istream& in, bool include_component);
+
+            ///Serialize the snarl
+            void serialize(ostream& out) const;
+            
+            ///Distance between start and end, not including the lengths of
+            ///the two nodes
+            ///start and end are the ranks of the node+direction, given by
+            ///primary_snarls and secondary_snarl
+            ///Only works for nodes heading their chains (which represent the 
+            ///chains), or snarl boundaries.
+            ///Rank 0 is the start node and rank num_nodes*2-1 is the end node,
+            /// both pointing into the snarl
+            int64_t snarl_distance(size_t start, size_t end) const {
+                if (num_nodes <= max_snarl_size) {
+                    return int64_t(distances[index(start, end)]) - 1;
+                } else {
+                    if (start == 0 || end == 1 || start == num_nodes*2-1 || end == num_nodes*2) {
+                        return int64_t(distances[index(start, end)]) - 1;
+
+                    } else {
+                    //TODO
+                    throw std::runtime_error( " Trying to find distances in a snarl that's too big");
+                    }
+                }
+            }
+
+            int64_t snarl_distance(handle_t start, handle_t end, const HandleGraph* graph) const {
+                //TODO: Only do this when the snarl is too big
+                if (num_nodes <= max_snarl_size) {
+                    cerr << "Should be using snarl table instead of traversal" << endl;
+                } 
+                cerr << "Too big" << endl;
+                int64_t snarl_distance;
+                handlegraph::algorithms::dijkstra(graph, start, 
+                [&](const handle_t& h, size_t dist){
+                    if (h == end) {
+                        //Finished search
+                        snarl_distance=dist;
+                        return false;
+                    } else if (graph->get_id(h) == id_in_parent || graph->get_id(h) == end_id) {
+                        //Leaving snarl
+                        snarl_distance= -1;
+                        return false;
+                    } else {
+                        return true;
+                    }
+                });
+                return snarl_distance;
+                
+            }
+             
+            ///Length of a node in the netgraph of the snarl
+            ///If it is a node, then the length of the node. If it is a snarl or
+            ///chain, then the shortest distance between the boundaries
+            /// i is the rank of the node in the snarl
+            int64_t node_length(size_t i) const {
+                return distances[i / 2] - 1;
+            }
+        
+            ///Total length of the snarl-shortest distance from start to end
+            ///including the lengths of boundary nodes
+            int64_t snarl_length() const;
+
+            ///Given distances from a position to either end of a node, find the
+            ///shortest distance from that position to the start and end 
+            ///nodes of the snarl
+            ///rank is in the forward direction, but checks both forward and reverse
+            
+            pair<int64_t, int64_t> dist_to_ends(size_t rank, 
+                                              int64_t distL, int64_t distR) const;
+
+            ///For use during construction,
+            ///add the distance from start to end to the index
+            void insert_distance(size_t start, size_t end, int64_t dist);
+
+
+            bool is_trivial_snarl() const;
+
+            void print_self() const;
+            json_t* snarl_to_json();
 
         friend class MinimumDistanceIndex;
         friend class SnarlSeedClusterer;
     };
 
+    public:
+    pair<handle_t, handle_t> get_handles_in_snarl(pair<id_t, bool> snarl_node, const SnarlIndex& snarl_index, const HandleGraph* graph) const;
+
+    protected:
 
     /**Stores distances between snarls in a chain*/
     class ChainIndex {

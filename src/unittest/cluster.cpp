@@ -270,7 +270,7 @@ namespace unittest {
                 pos_t pos2 = make_pos_t(nodeID2, 
                   uniform_int_distribution<int>(0,1)(generator) == 0, offset2 );
  
-                int64_t minDist = di.min_distance(pos1, pos2);
+                int64_t minDist = di.min_distance(pos1, pos2, &graph);
                 int64_t maxDist = di.max_distance(pos1, pos2);
                 if (minDist != -1 && maxDist != 20 && minDist <= maxDist) {
 

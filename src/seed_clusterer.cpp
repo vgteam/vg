@@ -9,13 +9,13 @@ namespace vg {
                                             dist_index(dist_index){
     };
 
-    vector<SnarlSeedClusterer::Cluster> SnarlSeedClusterer::cluster_seeds (const vector<Seed>& seeds, int64_t read_distance_limit) const {
+    vector<SnarlSeedClusterer::Cluster> SnarlSeedClusterer::cluster_seeds (const vector<Seed>& seeds, const HandleGraph* graph, int64_t read_distance_limit) const {
         //Wrapper for single ended
 
         vector<const vector<Seed>*> all_seeds;
         all_seeds.push_back(&seeds);
         std::vector<std::vector<size_t>> all_clusters =
-            std::get<0>(cluster_seeds_internal(all_seeds, read_distance_limit, 0))[0].all_groups();
+            std::get<0>(cluster_seeds_internal(all_seeds, graph, read_distance_limit, 0))[0].all_groups();
 
         std::vector<Cluster> result;
         result.reserve(all_clusters.size());
@@ -32,7 +32,7 @@ namespace vg {
     };
 
     vector<vector<SnarlSeedClusterer::Cluster>> SnarlSeedClusterer::cluster_seeds (
-                  const vector<vector<Seed>>& all_seeds, int64_t read_distance_limit,
+                  const vector<vector<Seed>>& all_seeds, const HandleGraph* graph, int64_t read_distance_limit,
                   int64_t fragment_distance_limit) const {
 
         //Wrapper for paired end
@@ -41,7 +41,7 @@ namespace vg {
         for (const vector<Seed>& v : all_seeds) seed_pointers.push_back(&v);
 
         //Actually cluster the seeds
-        auto union_finds = cluster_seeds_internal(seed_pointers, read_distance_limit, fragment_distance_limit);
+        auto union_finds = cluster_seeds_internal(seed_pointers, graph, read_distance_limit, fragment_distance_limit);
 
         vector<structures::UnionFind>* read_union_finds = &std::get<0>(union_finds);
         structures::UnionFind* fragment_union_find = &std::get<1>(union_finds);
@@ -91,7 +91,7 @@ namespace vg {
     }
 
     tuple<vector<structures::UnionFind>, structures::UnionFind> SnarlSeedClusterer::cluster_seeds_internal (
-                  const vector<const vector<Seed>*>& all_seeds, int64_t read_distance_limit,
+                  const vector<const vector<Seed>*>& all_seeds, const HandleGraph* graph, int64_t read_distance_limit,
                   int64_t fragment_distance_limit) const {
         /* Given a vector of seeds and a limit, find a clustering of seeds where
          * seeds that are closer than the limit cluster together.
@@ -150,7 +150,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
             //Cluster all the snarls at this depth
             //Also records which snarls are in chains and the parents of these
             //snarls in tree_state.parent_snarl_to_node
-            cluster_snarl_level(tree_state, depth);
+            cluster_snarl_level(tree_state, graph, depth);
 
             //And cluster all the chains, record the parents of these chains
             cluster_chain_level(tree_state, depth);
@@ -347,7 +347,7 @@ cerr << "Nested positions: " << endl << "\t";
     }
 
 
-    void SnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state, size_t depth) const {
+    void SnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state, const HandleGraph* graph, size_t depth) const {
 
         for (auto& kv : tree_state.snarl_to_nodes){
             //Go through each of the snarls at this level, cluster them,
@@ -376,7 +376,7 @@ cerr << "Nested positions: " << endl << "\t";
                 size_t chain_rank = dist_index.get_chain_rank(snarl_index.id_in_parent);
 
                 tree_state.chain_to_snarls[chain_assignment].emplace(
-                        chain_rank, make_pair(snarl_i, cluster_one_snarl(tree_state, snarl_i)));
+                        chain_rank, make_pair(snarl_i, cluster_one_snarl(tree_state, snarl_i, graph)));
 
 #ifdef DEBUG_CLUSTER
                 cerr << "Recording snarl number " << snarl_i << " headed by "
@@ -397,7 +397,7 @@ cerr << "Nested positions: " << endl << "\t";
                     size_t parent_snarl_i = dist_index.get_primary_assignment( snarl_index.parent_id);
 
                     tree_state.parent_snarl_to_nodes[parent_snarl_i].emplace_back(
-                            NetgraphNode (snarl_i, SNARL), cluster_one_snarl(tree_state, snarl_i));
+                            NetgraphNode (snarl_i, SNARL), cluster_one_snarl(tree_state, snarl_i, graph));
 
 #ifdef DEBUG_CLUSTER
                     cerr << "Recording snarl number " << snarl_i
@@ -412,7 +412,7 @@ cerr << "Nested positions: " << endl << "\t";
                     //If it doesn't have a parent, don't need to keep track of
                     //its contents
 
-                    NodeClusters top_snarl_clusters = cluster_one_snarl(tree_state, snarl_i);
+                    NodeClusters top_snarl_clusters = cluster_one_snarl(tree_state, snarl_i, graph);
                 }
             }
         }
@@ -751,7 +751,7 @@ cerr << "Nested positions: " << endl << "\t";
 
 
     SnarlSeedClusterer::NodeClusters SnarlSeedClusterer::cluster_one_snarl(
-                    TreeState& tree_state, size_t snarl_index_i) const {
+                    TreeState& tree_state, size_t snarl_index_i, const HandleGraph* graph) const {
         /*Get the clusters on this snarl.
          * Nodes have not yet been clustered */
         MinimumDistanceIndex::SnarlIndex& snarl_index = dist_index.snarl_indexes[snarl_index_i];
@@ -933,10 +933,26 @@ cerr << "\tcluster: " << c_i << "dists to ends in snarl" << snarl_index.id_in_pa
 
                 //Find distance from each end of current node (i) to
                 //each end of other node (j)
-                int64_t dist_l_l = snarl_index.snarl_distance(rev_rank, other_rank);
-                int64_t dist_l_r = snarl_index.snarl_distance(rev_rank, other_rev);
-                int64_t dist_r_l = snarl_index.snarl_distance(node_rank, other_rank);
-                int64_t dist_r_r = snarl_index.snarl_distance(node_rank, other_rev);
+                int64_t dist_l_l;
+                int64_t dist_l_r;
+                int64_t dist_r_l;
+                int64_t dist_r_r;
+
+                
+                if (snarl_index.num_nodes <= snarl_index.max_snarl_size) {
+                    dist_l_l = snarl_index.snarl_distance(rev_rank, other_rank);
+                    dist_l_r = snarl_index.snarl_distance(rev_rank, other_rev) ;
+                    dist_r_l = snarl_index.snarl_distance(node_rank, other_rank);
+                    dist_r_r = snarl_index.snarl_distance(node_rank, other_rev);
+                } else {
+
+                    pair<handle_t, handle_t> node_handles = dist_index.get_handles_in_snarl(make_pair( child.id_in_parent(dist_index), false), snarl_index, graph); 
+                    pair<handle_t, handle_t> other_handles = dist_index.get_handles_in_snarl(make_pair(other_node.id_in_parent(dist_index), false ), snarl_index, graph); 
+                    dist_l_l = snarl_index.snarl_distance(node_handles.second,other_handles.first, graph);
+                    dist_l_r = snarl_index.snarl_distance(node_handles.second, other_handles.second, graph);
+                    dist_r_l = snarl_index.snarl_distance(node_handles.first, other_handles.first, graph);
+                    dist_r_r = snarl_index.snarl_distance(node_handles.first, other_handles.second, graph);
+                }
 
 #ifdef DEBUG_CLUSTER
 cerr << "\t distances between ranks " << node_rank << " and " << other_rank

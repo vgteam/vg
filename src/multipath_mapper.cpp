@@ -1096,8 +1096,9 @@ namespace vg {
         if (use_min_dist_clusterer || use_tvs_clusterer) {
             assert(!forward_strand);
             // measure the distance in both directions and choose the minimum (or the only) absolute distance
-            int64_t forward_dist = distance_index->min_distance(pos_1, pos_2);
-            int64_t reverse_dist = distance_index->min_distance(pos_2, pos_1);
+            bdsg::HashGraph empty_graph;
+            int64_t forward_dist = distance_index->min_distance(pos_1, pos_2, &empty_graph);
+            int64_t reverse_dist = distance_index->min_distance(pos_2, pos_1, &empty_graph);
             if (forward_dist == -1 && reverse_dist == -1) {
                 // unreachable both ways, convert to the sentinel that the client code expects
                 dist = numeric_limits<int64_t>::max();
@@ -1118,7 +1119,8 @@ namespace vg {
 
     int64_t MultipathMapper::distance(const pos_t& pos_1, const pos_t& pos_2) const {
         if (distance_index) {
-            return distance_index->min_distance(pos_1, pos_2);
+            bdsg::HashGraph empty_graph;
+            return distance_index->min_distance(pos_1, pos_2, &empty_graph);
         }
         else {
             return PathOrientedDistanceMeasurer(xindex).oriented_distance(pos_1, pos_2);
@@ -2325,7 +2327,8 @@ namespace vg {
                             int64_t dist;
                             if (distance_index) {
                                 // use the distance index to judge reachability
-                                dist = distance_index->min_distance(l_pos, r_pos);
+                                bdsg::HashGraph empty_graph;
+                                dist = distance_index->min_distance(l_pos, r_pos, &empty_graph);
                                 // TODO: i still might want to activate this later, but it will only be important
                                 // if i get the intron length distribution up and running
 //                                if (dist >= 0 && xindex->get_path_count() != 0) {

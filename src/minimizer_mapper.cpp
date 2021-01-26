@@ -170,7 +170,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     if (track_provenance) {
         funnel.stage("cluster");
     }
-    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, get_distance_limit(aln.sequence().size()));
+    std::vector<Cluster> clusters = clusterer.cluster_seeds(seeds, &gbwt_graph, get_distance_limit(aln.sequence().size()));
 
     // Determine the scores and read coverages for each cluster.
     // Also find the best and second-best cluster scores.
@@ -923,7 +923,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         funnels[0].stage("cluster");
         funnels[1].stage("cluster");
     }
-    std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
+    std::vector<std::vector<Cluster>> all_clusters = clusterer.cluster_seeds(seeds_by_read, &gbwt_graph, get_distance_limit(aln1.sequence().size()), fragment_distance_limit);
 
 
     //Keep track of which fragment clusters (clusters of clusters) have read clusters from each end
@@ -2670,7 +2670,7 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
     pos_t pos1 = initial_position(aln1.path()); 
     pos_t pos2 = final_position(aln2.path());
 
-    int64_t min_dist = distance_index.min_distance(pos1, pos2);
+    int64_t min_dist = distance_index.min_distance(pos1, pos2, &this->gbwt_graph);
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
 }
 

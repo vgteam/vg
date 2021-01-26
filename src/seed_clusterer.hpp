@@ -51,7 +51,7 @@ class SnarlSeedClusterer {
         //between them (including both of the positions) is less than
         // the distance limit are in the same cluster
 
-        vector<Cluster> cluster_seeds ( const vector<Seed>& seeds, int64_t read_distance_limit) const;
+        vector<Cluster> cluster_seeds ( const vector<Seed>& seeds, const HandleGraph* graph, int64_t read_distance_limit) const;
         
         ///The same thing, but for paired end reads.
         //Given seeds from multiple reads of a fragment, cluster each read
@@ -65,14 +65,14 @@ class SnarlSeedClusterer {
         // Returns: For each read, a vector of clusters.
 
         vector<vector<Cluster>> cluster_seeds ( 
-                const vector<vector<Seed>>& all_seeds, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
+                const vector<vector<Seed>>& all_seeds, const HandleGraph* graph, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
 
     private:
 
 
         //Actual clustering function that takes a vector of pointers to seeds
         tuple<vector<structures::UnionFind>, structures::UnionFind> cluster_seeds_internal ( 
-                const vector<const vector<Seed>*>& all_seeds,
+                const vector<const vector<Seed>*>& all_seeds, const HandleGraph* graph,
                 int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
 
         MinimumDistanceIndex& dist_index;
@@ -285,7 +285,7 @@ class SnarlSeedClusterer {
 
         //Cluster all the snarls at the current level and update the tree_state
         //to add each of the snarls to the parent level
-        void cluster_snarl_level(TreeState& tree_state, size_t depth) const;
+        void cluster_snarl_level(TreeState& tree_state, const HandleGraph* graph, size_t depth) const;
 
         //Cluster all the chains at the current level
         void cluster_chain_level(TreeState& tree_state, size_t depth) const;
@@ -298,7 +298,7 @@ class SnarlSeedClusterer {
         //Cluster the seeds in a snarl given by snarl_index_i, an index into
         //dist_index.snarl_indexes
         NodeClusters cluster_one_snarl(TreeState& tree_state,
-                                       size_t snarl_index_i) const;
+                                       size_t snarl_index_i, const HandleGraph* graph) const;
 
         //Cluster the seeds in a chain given by chain_index_i, an index into
         //dist_index.chain_indexes

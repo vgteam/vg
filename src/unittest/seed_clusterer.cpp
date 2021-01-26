@@ -60,7 +60,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 6); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 6); 
             REQUIRE(clusters.size() == 1); 
 
         }
@@ -76,7 +76,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 3); 
             REQUIRE(clusters.size() == 1); 
 
         }
@@ -96,7 +96,7 @@ namespace unittest {
             seeds[1].push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
 
-            vector<vector<SnarlSeedClusterer::Cluster>> clusters = clusterer.cluster_seeds(seeds, 3, 3); 
+            vector<vector<SnarlSeedClusterer::Cluster>> clusters = clusterer.cluster_seeds(seeds,&graph, 3, 3); 
             REQUIRE(clusters.size() == 2); 
             REQUIRE(clusters[0][0].fragment == clusters[1][0].fragment);
 
@@ -113,7 +113,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 3); 
             REQUIRE(clusters.size() == 1); 
 
         }
@@ -165,7 +165,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 11); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 11); 
             REQUIRE(clusters.size() == 1); 
 
         }
@@ -181,7 +181,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 3); 
             REQUIRE(clusters.size() == 1); 
 
         }
@@ -197,7 +197,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 8); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 8); 
             REQUIRE(clusters.size() == 1); 
 
         }
@@ -213,7 +213,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 3); 
             REQUIRE(clusters.size() == 3); 
 
         }
@@ -279,7 +279,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 10); 
             REQUIRE(clusters.size() == 1); 
 
         }
@@ -320,7 +320,7 @@ namespace unittest {
             }
 
 
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 7); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 7); 
             vector<hash_set<size_t>> cluster_sets;
             for (auto& c : clusters) {
                 hash_set<size_t> h;
@@ -373,7 +373,7 @@ namespace unittest {
             all_seeds.push_back(seeds1);
 
 
-            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 7, 15); 
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds,&graph, 7, 15); 
             //Should be [[<[0,1,2], 0>],[<[3,4,5,6], 0>]] 
             REQUIRE( paired_clusters.size() == 2);
             REQUIRE( paired_clusters[0].size() == 1);
@@ -407,7 +407,7 @@ namespace unittest {
             all_seeds.push_back(seeds1);
 
 
-            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 7, 15); 
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds,&graph, 7, 15); 
             //Should be [[<[0,1,2], 0>],[<[3,4,5,6], 0>]] 
             REQUIRE( paired_clusters.size() == 2);
             REQUIRE( paired_clusters[0].size() == 1);
@@ -441,7 +441,7 @@ namespace unittest {
             all_seeds.push_back(seeds1);
 
 
-            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds,&graph, 2, 7); 
             // read_clusters = [ [[0,1,2]],[[3,4],[5,6]] ]
             // fragment_clusters = [ [0,1,2], [3,4,5,6] ]
             REQUIRE( paired_clusters.size() == 2) ;
@@ -477,7 +477,7 @@ namespace unittest {
             all_seeds.push_back(seeds1);
 
 
-            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 2, 7); 
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds,&graph, 2, 7); 
             // read_clusters = [ [[0,1,2]],[[3,4],[5,6]] ]
             // fragment_clusters = [ [0,1,2], [3,4,5,6] ]
             REQUIRE( paired_clusters.size() == 2) ;
@@ -538,7 +538,7 @@ namespace unittest {
             }
 
 
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 13); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 13); 
 
             REQUIRE( clusters.size() == 1);
         }
@@ -556,7 +556,7 @@ namespace unittest {
 
 
 
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 8); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 8); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -609,7 +609,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 20); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -624,7 +624,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 20); 
 
 
         }
@@ -638,7 +638,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 20); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -683,7 +683,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 3); 
 
             REQUIRE( clusters.size() == 1);
         }
@@ -760,7 +760,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 3); 
 
             REQUIRE( clusters.size() == 2);
 
@@ -809,14 +809,14 @@ namespace unittest {
                 seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 3); 
 
             REQUIRE( clusters.size() == 4);
 
             vector<vector<SnarlSeedClusterer::Seed>> all_seeds;
 
             all_seeds.push_back(seeds);
-            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3); 
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds,&graph, 3, 3); 
 
             REQUIRE( paired_clusters.size() == 1);
             REQUIRE( paired_clusters[0].size() == 4);
@@ -859,7 +859,7 @@ namespace unittest {
             }
             all_seeds.push_back(seeds);
 
-            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 3);
+            vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds,&graph, 3, 3);
 
             REQUIRE( paired_clusters.size() == 2);
             REQUIRE( paired_clusters[0].size() == 2);
@@ -872,7 +872,7 @@ namespace unittest {
 
             //New fragment clusters
 
-            paired_clusters = clusterer.cluster_seeds(all_seeds, 3, 5);
+            paired_clusters = clusterer.cluster_seeds(all_seeds,&graph, 3, 5);
 
             REQUIRE( paired_clusters.size() == 2);
             REQUIRE( paired_clusters[0].size() == 2);
@@ -896,7 +896,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 7); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 7); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -946,7 +946,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters= clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters= clusterer.cluster_seeds(seeds,&graph, 10); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -964,7 +964,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 10); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -980,7 +980,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 10); 
 
 
 
@@ -998,7 +998,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
-            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds,&graph, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1006,7 +1006,7 @@ namespace unittest {
         SECTION("No clusters") {
             vector<SnarlSeedClusterer::Seed> seeds;
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 5); 
 
 
             REQUIRE( clusters.size() == 0);
@@ -1067,7 +1067,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1084,7 +1084,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1101,7 +1101,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 4); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 4); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1129,7 +1129,7 @@ namespace unittest {
             all_seeds.emplace_back(seeds);
             all_seeds.emplace_back(seeds1);
 
-            vector<vector<SnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds, 4, 5); 
+            vector<vector<SnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds,&graph, 4, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1150,7 +1150,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 9); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 9); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1167,7 +1167,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 6); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 6); 
 
             REQUIRE( clusters.size() == 1);
         }
@@ -1229,7 +1229,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1246,7 +1246,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1263,7 +1263,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1295,7 +1295,7 @@ namespace unittest {
             all_seeds.emplace_back(seeds1);
 
 
-            vector<vector<SnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds, 5, 10); 
+            vector<vector<SnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds,&graph, 5, 10); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1336,7 +1336,7 @@ namespace unittest {
             all_seeds.emplace_back(seeds1);
 
 
-            vector<vector<SnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds, 5, 10); 
+            vector<vector<SnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(all_seeds,&graph, 5, 10); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1400,7 +1400,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 3); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1418,7 +1418,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 6); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 6); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1434,7 +1434,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 3); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1486,7 +1486,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 10); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1500,7 +1500,7 @@ namespace unittest {
                 seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 10); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1515,7 +1515,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 3); 
 
 
 
@@ -1531,7 +1531,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 15); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 15); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1569,7 +1569,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 3); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1612,7 +1612,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1628,7 +1628,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 10); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1644,7 +1644,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 18); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 18); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1687,7 +1687,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 5); 
 
 
             REQUIRE( clusters.size() == 2);
@@ -1703,7 +1703,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 5); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1718,7 +1718,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 5); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1733,7 +1733,7 @@ namespace unittest {
                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
             }
 
-            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 7); 
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 7); 
 
 
             REQUIRE( clusters.size() == 1);
@@ -1769,7 +1769,7 @@ namespace unittest {
             seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
         }
-        vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 30); 
+        vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 30); 
         REQUIRE(clusters.size() == 1);
     }//end test case
     */
@@ -1801,7 +1801,7 @@ namespace unittest {
             seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
                std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
         }
-        vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 30); 
+        vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds,&graph, 30); 
 
         assert(clusters.size() == 1);
         REQUIRE(false);
@@ -1869,7 +1869,7 @@ namespace unittest {
 
                     }
                 }
-                vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds, read_lim, fragment_lim); 
+                vector<vector<SnarlSeedClusterer::Cluster>> paired_clusters = clusterer.cluster_seeds(all_seeds,&graph, read_lim, fragment_lim); 
                
                 vector<vector<pos_t>> fragment_clusters;
 
@@ -1906,10 +1906,10 @@ namespace unittest {
                                                              !is_rev(pos2),
                                                              len2 - get_offset(pos2)-1); 
 
-                                            int64_t dist1 = dist_index.min_distance(pos1, pos2);
-                                            int64_t dist2 = dist_index.min_distance(pos1, rev2);
-                                            int64_t dist3 = dist_index.min_distance(rev1, pos2);
-                                            int64_t dist4 = dist_index.min_distance(rev1, rev2);
+                                            int64_t dist1 = dist_index.min_distance(pos1, pos2, &graph);
+                                            int64_t dist2 = dist_index.min_distance(pos1, rev2, &graph);
+                                            int64_t dist3 = dist_index.min_distance(rev1, pos2, &graph);
+                                            int64_t dist4 = dist_index.min_distance(rev1, rev2, &graph);
                                             int64_t dist = MinimumDistanceIndex::min_pos({dist1, 
                                                                dist2, dist3, dist4});
                                             if ( dist != -1 && dist <= read_lim) {
@@ -1931,10 +1931,10 @@ namespace unittest {
                                     pos_t rev2 = make_pos_t(get_id(pos2), 
                                                          !is_rev(pos2),
                                                          len2 - get_offset(pos2)-1); 
-                                    int64_t dist1 = dist_index.min_distance(pos1, pos2);
-                                    int64_t dist2 = dist_index.min_distance(pos1, rev2);
-                                    int64_t dist3 = dist_index.min_distance(rev1, pos2);
-                                    int64_t dist4 = dist_index.min_distance(rev1, rev2);
+                                    int64_t dist1 = dist_index.min_distance(pos1, pos2, &graph);
+                                    int64_t dist2 = dist_index.min_distance(pos1, rev2, &graph);
+                                    int64_t dist3 = dist_index.min_distance(rev1, pos2, &graph);
+                                    int64_t dist4 = dist_index.min_distance(rev1, rev2, &graph);
                                     int64_t dist = MinimumDistanceIndex::min_pos({dist1, 
                                                        dist2, dist3, dist4});
                                     if ( dist != -1 && dist <= read_lim) {
@@ -1987,10 +1987,10 @@ namespace unittest {
                                                      !is_rev(pos2),
                                                      len2 - get_offset(pos2)-1); 
 
-                                    int64_t dist1 = dist_index.min_distance(pos1, pos2);
-                                    int64_t dist2 = dist_index.min_distance(pos1, rev2);
-                                    int64_t dist3 = dist_index.min_distance(rev1, pos2);
-                                    int64_t dist4 = dist_index.min_distance(rev1, rev2);
+                                    int64_t dist1 = dist_index.min_distance(pos1, pos2, &graph);
+                                    int64_t dist2 = dist_index.min_distance(pos1, rev2, &graph);
+                                    int64_t dist3 = dist_index.min_distance(rev1, pos2, &graph);
+                                    int64_t dist4 = dist_index.min_distance(rev1, rev2, &graph);
                                     int64_t dist = MinimumDistanceIndex::min_pos({dist1, 
                                                        dist2, dist3, dist4});
                                     if ( dist != -1 && dist <= fragment_lim) {
@@ -2012,10 +2012,10 @@ namespace unittest {
                             pos_t rev2 = make_pos_t(get_id(pos2), 
                                                  !is_rev(pos2),
                                                  len2 - get_offset(pos2)-1); 
-                            int64_t dist1 = dist_index.min_distance(pos1, pos2);
-                            int64_t dist2 = dist_index.min_distance(pos1, rev2);
-                            int64_t dist3 = dist_index.min_distance(rev1, pos2);
-                            int64_t dist4 = dist_index.min_distance(rev1, rev2);
+                            int64_t dist1 = dist_index.min_distance(pos1, pos2, &graph);
+                            int64_t dist2 = dist_index.min_distance(pos1, rev2, &graph);
+                            int64_t dist3 = dist_index.min_distance(rev1, pos2, &graph);
+                            int64_t dist4 = dist_index.min_distance(rev1, rev2, &graph);
                             int64_t dist = MinimumDistanceIndex::min_pos({dist1, 
                                                dist2, dist3, dist4});
                             if ( dist != -1 && dist <= fragment_lim) {

@@ -1674,8 +1674,9 @@ int64_t SnarlOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, con
     cerr << "measuring distance between " << pos_1 << " and " << pos_2 << endl;
 #endif
     
-    int64_t forward_dist = distance_index->min_distance(pos_1, pos_2);
-    int64_t backward_dist = distance_index->min_distance(pos_2, pos_1);
+    bdsg::HashGraph empty_graph;
+    int64_t forward_dist = distance_index->min_distance(pos_1, pos_2,  &empty_graph);
+    int64_t backward_dist = distance_index->min_distance(pos_2, pos_1, &empty_graph);
     
     // -1 is the sentinel returned by the distance index if the distance is not measurable
     if (forward_dist == -1 && backward_dist == -1) {
@@ -2656,7 +2657,8 @@ SnarlMinDistance::SnarlMinDistance(MinimumDistanceIndex& distance_index) : dista
 }
 
 int64_t SnarlMinDistance::operator()(const pos_t& pos_1, const pos_t& pos_2) {
-    return distance_index.min_distance(pos_1, pos_2);
+    bdsg::HashGraph empty_graph;
+    return distance_index.min_distance(pos_1, pos_2, &empty_graph);
 }
 
 TipAnchoredMaxDistance::TipAnchoredMaxDistance(MinimumDistanceIndex& distance_index) : distance_index(distance_index) {
@@ -3371,9 +3373,9 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
 #endif
             
             // what is the minimum distance between these hits?
-            int64_t min_dist = distance_index->min_distance(left_clust_hit.second, right_clust_hit.second);
+            int64_t min_dist = distance_index->min_distance(left_clust_hit.second, right_clust_hit.second, handle_graph);
             if (min_dist == -1) {
-                int64_t rev_min_dist = distance_index->min_distance(left_clust_hit.second, right_clust_hit.second);
+                int64_t rev_min_dist = distance_index->min_distance(left_clust_hit.second, right_clust_hit.second, handle_graph);
                 if (rev_min_dist == -1) {
                     // these are not reachable, don't make a pair
                     continue;
@@ -3445,7 +3447,7 @@ MEMClusterer::HitGraph MinDistanceClusterer::make_hit_graph(const Alignment& ali
             HitNode& hit_node_2 = hit_graph.nodes[j];
             
             // what is the minimum distance between these hits?
-            int64_t min_dist = distance_index->min_distance(hit_node_1.start_pos, hit_node_2.start_pos);
+            int64_t min_dist = distance_index->min_distance(hit_node_1.start_pos, hit_node_2.start_pos, handle_graph);
             if (min_dist == -1) {
                 // these are not reachable, don't make an edge
                 continue;
@@ -3578,7 +3580,7 @@ MEMClusterer::HitGraph GreedyMinDistanceClusterer::make_hit_graph(const Alignmen
         if (!blocked[comparison.second].first) {
             
             // what is the minimum distance between these hits?
-            int64_t min_dist = distance_index->min_distance(hit_node_1.start_pos, hit_node_2.start_pos);
+            int64_t min_dist = distance_index->min_distance(hit_node_1.start_pos, hit_node_2.start_pos, handle_graph);
             
 #ifdef debug_mem_clusterer
             cerr << "read dist: " << read_dist << ", min dist: " << min_dist << ", graph dist: " << min_dist - (hit_node_1.mem->end - hit_node_1.mem->begin) << endl;
@@ -3664,7 +3666,8 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
     SnarlSeedClusterer seed_clusterer(*distance_index);
     // TODO: magic number, want enough space for the max gap and the inter-seed distance but how to do this in
     // a principled way?
-    std::vector<Cluster> distance_components = seed_clusterer.cluster_seeds(positions, 2 * max_gap);
+    // TODO: empty_graph needs to be an actual graph 
+    std::vector<Cluster> distance_components = seed_clusterer.cluster_seeds(positions, handle_graph, 2 * max_gap);
     
     // these components are returned by the structures::UnionFind::all_groups() method, which
     // always returns them in sorted order, so we can assume that they are still lexicographically
@@ -3707,7 +3710,7 @@ MEMClusterer::HitGraph ComponentMinDistanceClusterer::make_hit_graph(const Align
                 
                 // TODO: this code is getting repetitive, i should probably factor it into a MinDistanceClusterer method
                 
-                int64_t min_dist = distance_index->min_distance(hit_node_1.start_pos, hit_node_2.start_pos);
+                int64_t min_dist = distance_index->min_distance(hit_node_1.start_pos, hit_node_2.start_pos, handle_graph);
                 if (min_dist >= 0) {
                     // how long of an insert/deletion could we detect based on the scoring parameters?
                     int64_t longest_gap = min<int64_t>(min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
