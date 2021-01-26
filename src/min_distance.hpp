@@ -175,7 +175,7 @@ class MinimumDistanceIndex {
             size_t index(size_t start, size_t end) const;
 
             ///If the snarl has more than this many nodes, only store the distances to the boundaries
-            size_t max_snarl_size = 20;
+            size_t max_snarl_size = 500;
 
        
 
