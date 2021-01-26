@@ -407,14 +407,16 @@ string create_directory() {
 void remove(const string& filename) {
     lock_guard<recursive_mutex> lock(monitor);
     
-    if (handler.filenames.count(filename)) {
-        std::remove(filename.c_str());
-        handler.filenames.erase(filename);
-    } else if (handler.dirnames.count(filename)) {
+    if (handler.dirnames.count(filename)) {
         handler.remove_directory(filename);
         handler.dirnames.erase(filename);
+    } else if (handler.filenames.count(filename)) {
+        std::remove(filename.c_str());
+        handler.filenames.erase(filename);
     } else {
-        throw runtime_error("Temporary file system asked to remove " + filename + " which is not its responsibility");
+        // Probably e.g. a .fai file. Just remove it and fail if it's a
+        // nonempty directory.
+        std::remove(filename.c_str());
     }
 }
 
