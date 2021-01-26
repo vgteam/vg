@@ -323,6 +323,11 @@ struct Handler {
         while ((dp = readdir(directory)) != nullptr) {
             // For every item still in it
             
+            if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0) {
+                // This is a special here or up entry, so skip it.
+                continue;
+            }
+            
             // Compute the full path
             string path = name + "/" + dp->d_name;
             
