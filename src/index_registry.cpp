@@ -35,6 +35,23 @@
 //#define debug_index_registry
 //#define debug_index_registry_path_state
 
+namespace std {
+    
+/// Convert IndexNames to strings, without defining it for all things sharing
+/// the same underlying type.
+static string to_string(const vg::IndexName& name) {
+    stringstream ss;
+    for (auto it = name.begin(); it != name.end(); ++it) {
+        if (it != name.begin()) {
+            ss << " + ";
+        }
+        ss << *it;
+    }
+    return ss.str();
+}
+    
+}
+
 namespace vg {
 
 IndexingParameters::MutableGraphImplementation IndexingParameters::mut_graph_impl = HashGraph;
@@ -56,23 +73,23 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
      ***********************/
     
     /// Data files
-    registry.register_index("Reference FASTA", "fasta");
-    registry.register_index("VCF", "vcf");
-    registry.register_index("Phased VCF", "phased.vcf");
-    registry.register_index("Insertion Sequence FASTA", "insertions.fasta");
-    registry.register_index("Reference GFA", "gfa");
+    registry.register_index({"Reference FASTA"}, "fasta");
+    registry.register_index({"VCF"}, "vcf");
+    registry.register_index({"Phased VCF"}, "phased.vcf");
+    registry.register_index({"Insertion Sequence FASTA"}, "insertions.fasta");
+    registry.register_index({"Reference GFA"}, "gfa");
     
     /// True indexes
-    registry.register_index("VG + Variant Paths", "varpaths.vg");
+    registry.register_index({"VG + Variant Paths"}, "varpaths.vg");
     //registry.register_index("VG + NodeMapping", "vg_mapping");
     //registry.register_index("VG + Variant Paths + NodeMapping", "vg_mapping");
-    registry.register_index("VG", "vg");
-    registry.register_index("XG", "xg");
-    registry.register_index("GBWT", "gbwt");
-    registry.register_index("NodeMapping", "mapping");
-    registry.register_index("Pruned VG", "pruned.vg");
-    registry.register_index("Haplotype-Pruned VG + NodeMapping", "haplopruned.vg");
-    registry.register_index("GCSA + LCP", "gcsa");
+    registry.register_index({"VG"}, "vg");
+    registry.register_index({"XG"}, "xg");
+    registry.register_index({"GBWT"}, "gbwt");
+    registry.register_index({"NodeMapping"}, "mapping");
+    registry.register_index({"Pruned VG"}, "pruned.vg");
+    registry.register_index({"Haplotype-Pruned VG", "NodeMapping"}, "haplopruned.vg");
+    registry.register_index({"GCSA", "LCP"}, "gcsa");
     
     /*********************
      * A few handy lambda functions
@@ -137,7 +154,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 #endif
     
     // alias a phased VCF as an unphased one
-    registry.register_recipe("VCF", {"Phased VCF"},
+    registry.register_recipe({"VCF"}, {{"Phased VCF"}},
                              [](const vector<const IndexFile*>& inputs,
                                 const string& prefix, const string& suffix) {
         return inputs.front()->get_filenames();
@@ -159,7 +176,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 //    });
     
     // strip alt allele paths from a graph that has them
-    registry.register_recipe("VG", {"VG + Variant Paths"},
+    registry.register_recipe({"VG"}, {{"VG + Variant Paths"}},
                              [&](const vector<const IndexFile*>& inputs,
                                 const string& prefix, const string& suffix) {
         if (IndexingParameters::verbose) {
@@ -231,7 +248,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return vector<string>(1, output_name);
     };
     
-    registry.register_recipe("VG", {"Reference GFA"},
+    registry.register_recipe({"VG"}, {{"Reference GFA"}},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
         return construct_from_gfa(inputs, prefix, suffix, nullptr);
@@ -287,22 +304,22 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     };
     
     // the specific instantiations of the meta-recipe above
-    registry.register_recipe("VG", {"Reference FASTA", "VCF", "Insertion Sequence FASTA"},
+    registry.register_recipe({"VG"}, {{"Reference FASTA"}, {"VCF"}, {"Insertion Sequence FASTA"}},
                              [&](const vector<const IndexFile*>& inputs,
                                 const string& prefix, const string& suffix) {
         return construct_with_constructor(inputs, prefix, suffix, false, nullptr);
     });
-    registry.register_recipe("VG", {"Reference FASTA", "VCF"},
+    registry.register_recipe({"VG"}, {{"Reference FASTA"}, {"VCF"}},
                              [&](const vector<const IndexFile*>& inputs,
                                 const string& prefix, const string& suffix) {
         return construct_with_constructor(inputs, prefix, suffix, false, nullptr);
     });
-    registry.register_recipe("VG + Variant Paths", {"Reference FASTA", "Phased VCF", "Insertion Sequence FASTA"},
+    registry.register_recipe({"VG + Variant Paths"}, {{"Reference FASTA"}, {"Phased VCF"}, {"Insertion Sequence FASTA"}},
                              [&](const vector<const IndexFile*>& inputs,
                                 const string& prefix, const string& suffix) {
         return construct_with_constructor(inputs, prefix, suffix, true, nullptr);
     });
-    registry.register_recipe("VG + Variant Paths", {"Reference FASTA", "Phased VCF"},
+    registry.register_recipe({"VG + Variant Paths"}, {{"Reference FASTA"}, {"Phased VCF"}},
                              [&](const vector<const IndexFile*>& inputs,
                                 const string& prefix, const string& suffix) {
         return construct_with_constructor(inputs, prefix, suffix, true, nullptr);
@@ -333,7 +350,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     cerr << "registering XG recipes" << endl;
 #endif
     
-    registry.register_recipe("XG", {"Reference GFA"},
+    registry.register_recipe({"XG"}, {{"Reference GFA"}},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
         if (IndexingParameters::verbose) {
@@ -352,7 +369,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return vector<string>(1, output_name);
     });
     
-    registry.register_recipe("XG", {"VG"},
+    registry.register_recipe({"XG"}, {{"VG"}},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
         if (IndexingParameters::verbose) {
@@ -392,7 +409,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     cerr << "registering NodeMapping recipes" << endl;
 #endif
     
-    registry.register_recipe("NodeMapping", {"VG"},
+    registry.register_recipe({"NodeMapping"}, {{"VG"}},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
         if (IndexingParameters::verbose) {
@@ -422,7 +439,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     cerr << "registering GBWT recipes" << endl;
 #endif
     
-    registry.register_recipe("GBWT", {"VG + Variant Paths", "Phased VCF"},
+    registry.register_recipe({"GBWT"}, {{"VG + Variant Paths"}, {"Phased VCF"}},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
         if (IndexingParameters::verbose) {
@@ -541,7 +558,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
     };
     
-    registry.register_recipe("Pruned VG", {"VG", "XG"},
+    registry.register_recipe({"Pruned VG"}, {{"VG"}, {"XG"}},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
         if (IndexingParameters::verbose) {
@@ -551,7 +568,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return prune_graph(inputs, prefix, suffix);
     });
     
-    registry.register_recipe("Haplotype-Pruned VG + NodeMapping", {"VG", "XG", "GBWT", "NodeMapping"},
+    registry.register_recipe({"Haplotype-Pruned VG", "NodeMapping"}, {{"VG"}, {"XG"}, {"GBWT"}, {"NodeMapping"}},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
         if (IndexingParameters::verbose) {
@@ -635,14 +652,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return vector<string>{gcsa_output_name, lcp_output_name};
     };
     
-    registry.register_recipe("GCSA + LCP", {"Haplotype-Pruned VG + NodeMapping"},
+    registry.register_recipe({"GCSA", "LCP"}, {{"Haplotype-Pruned VG"}, {"NodeMapping"}},
                             [&](const vector<const IndexFile*>& inputs,
                                 const string& prefix, const string& suffix) {
         // execute meta recipe
         return construct_gcsa(inputs, prefix, suffix);
     });
     
-    registry.register_recipe("GCSA + LCP", {"Pruned VG"},
+    registry.register_recipe({"GCSA", "LCP"}, {{"Pruned VG"}},
                              [&](const vector<const IndexFile*>& inputs,
                                  const string& prefix, const string& suffix) {
         // execute meta recipe
@@ -652,30 +669,30 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     return registry;
 }
 
-vector<string> VGIndexes::get_default_map_indexes() {
-    vector<string> indexes{
-        "XG",
-        "GCSA + LCP"
+vector<IndexName> VGIndexes::get_default_map_indexes() {
+    vector<IndexName> indexes{
+        {"XG"},
+        {"GCSA", "LCP"}
     };
     return indexes;
 }
 
-vector<string> VGIndexes::get_default_mpmap_indexes() {
-    vector<string> indexes{
-        "Spliced XG",
-        "Spliced Distance",
-        "Spliced GCSA + LCP",
-        "Haplotype-Transcript GBWT"
+vector<IndexName> VGIndexes::get_default_mpmap_indexes() {
+    vector<IndexName> indexes{
+        {"Spliced XG"},
+        {"Spliced Distance"},
+        {"Spliced GCSA", "Spliced LCP"},
+        {"Haplotype-Transcript GBWT"}
     };
     return indexes;
 }
 
-vector<string> VGIndexes::get_default_giraffe_indexes() {
-    vector<string> indexes{
-        "GBWT",
-        "GBWTGraph",
-        "Distance",
-        "Minimizer"
+vector<IndexName> VGIndexes::get_default_giraffe_indexes() {
+    vector<IndexName> indexes{
+        {"GBWT"},
+        {"GBWTGraph"},
+        {"Distance"},
+        {"Minimizer"}
     };
     return indexes;
 }
@@ -720,7 +737,7 @@ void IndexRegistry::set_intermediate_file_keeping(bool keep_intermediates) {
     this->keep_intermediates = keep_intermediates;
 }
 
-void IndexRegistry::make_indexes(const vector<string>& identifiers) {
+void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
     
     // utility function, checks if an index is neither directly requested
     // or provided as input
@@ -748,7 +765,7 @@ void IndexRegistry::make_indexes(const vector<string>& identifiers) {
         }
         else {
             // we're not saving this file, make it
-            index_prefix = get_work_dir() + "/" + sha1sum(index->get_identifier());
+            index_prefix = get_work_dir() + "/" + sha1sum(to_string(index->get_identifier()));
         }
         
         index->execute_recipe(step.second, index_prefix);
@@ -758,11 +775,11 @@ void IndexRegistry::make_indexes(const vector<string>& identifiers) {
     if (!keep_intermediates) {
         // collect the names of everything we want to keep (i.e. considered non-
         // intermediate by at least one index)
-        unordered_set<string> to_keep;
+        unordered_set<string> filenames_to_keep;
         for (const auto& registered_index : registry) {
             if (!is_intermediate(registered_index.second.get())) {
                 for (auto& filename : registered_index.second->get_filenames()) {
-                    to_keep.insert(filename);
+                    filenames_to_keep.insert(filename);
                 }
             }
         }
@@ -770,7 +787,7 @@ void IndexRegistry::make_indexes(const vector<string>& identifiers) {
         // delete everything else
         for (const auto& registered_index : registry) {
             for (auto& filename : registered_index.second->get_filenames()) {
-                if (!to_keep.count(filename)) {
+                if (!filenames_to_keep.count(filename)) {
                     std::remove(filename.c_str());
                 }
             }
@@ -778,7 +795,7 @@ void IndexRegistry::make_indexes(const vector<string>& identifiers) {
     }
 }
 
-void IndexRegistry::register_index(const string& identifier, const string& suffix) {
+void IndexRegistry::register_index(const IndexName& identifier, const string& suffix) {
     // Add this index to the registry
     if (identifier.empty()) {
         cerr << "error:[IndexRegistry] indexes must have a non-empty identifier" << endl;
@@ -789,7 +806,7 @@ void IndexRegistry::register_index(const string& identifier, const string& suffi
         exit(1);
     }
     if (registry.count(identifier)) {
-        cerr << "error:[IndexRegistry] index registry contains a duplicated identifier: " << identifier << endl;
+        cerr << "error:[IndexRegistry] index registry contains a duplicated identifier: " << to_string(identifier) << endl;
         exit(1);
     }
     if (registered_suffixes.count(suffix)) {
@@ -801,16 +818,16 @@ void IndexRegistry::register_index(const string& identifier, const string& suffi
 }
 
 
-void IndexRegistry::provide(const string& identifier, const string& filename) {
+void IndexRegistry::provide(const IndexName& identifier, const string& filename) {
     provide(identifier, vector<string>(1, filename));
 }
 
-void IndexRegistry::provide(const string& identifier, const vector<string>& filenames) {
+void IndexRegistry::provide(const IndexName& identifier, const vector<string>& filenames) {
     get_index(identifier)->provide(filenames);
 }
 
-vector<string> IndexRegistry::completed_indexes() const {
-    vector<string> indexes;
+vector<IndexName> IndexRegistry::completed_indexes() const {
+    vector<IndexName> indexes;
     for (const auto& index : registry) {
         if (index.second->is_finished()) {
             indexes.push_back(index.first);
@@ -819,8 +836,8 @@ vector<string> IndexRegistry::completed_indexes() const {
     return indexes;
 }
 
-void IndexRegistry::register_recipe(const string& identifier,
-                                    const vector<string>& input_identifiers,
+void IndexRegistry::register_recipe(const IndexName& identifier,
+                                    const vector<IndexName>& input_identifiers,
                                     const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec) {
     vector<const IndexFile*> inputs;
     for (const auto& input_identifier : input_identifiers) {
@@ -829,11 +846,11 @@ void IndexRegistry::register_recipe(const string& identifier,
     get_index(identifier)->add_recipe(inputs, exec);
 }
 
-IndexFile* IndexRegistry::get_index(const string& identifier) {
+IndexFile* IndexRegistry::get_index(const IndexName& identifier) {
     return registry.at(identifier).get();
 }
 
-const IndexFile* IndexRegistry::get_index(const string& identifier) const {
+const IndexFile* IndexRegistry::get_index(const IndexName& identifier) const {
     return registry.at(identifier).get();
 }
 
@@ -845,15 +862,15 @@ string IndexRegistry::get_work_dir() {
     return work_dir;
 }
 
-vector<string> IndexRegistry::dependency_order() const {
+vector<IndexName> IndexRegistry::dependency_order() const {
     
 #ifdef debug_index_registry
     cerr << "finding topological order in dependency graph" << endl;
 #endif
     
     // assign each index file an index in a vector (arbitrarily)
-    unordered_map<string, size_t> graph_idx;
-    vector<string> graph_label;
+    map<IndexName, size_t> graph_idx;
+    vector<IndexName> graph_label;
     for (const auto& idx_file : registry) {
         graph_idx[idx_file.first] = graph_label.size();
         graph_label.push_back(idx_file.first);
@@ -910,7 +927,7 @@ vector<string> IndexRegistry::dependency_order() const {
     }
     
     // convert to return format
-    vector<string> ordered_identifiers(order.size());
+    vector<IndexName> ordered_identifiers(order.size());
     for (size_t i = 0; i < order.size(); ++i) {
         ordered_identifiers[i] = graph_label[order[i]];
     }
@@ -924,7 +941,7 @@ vector<string> IndexRegistry::dependency_order() const {
     return ordered_identifiers;
 }
 
-vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_products) const {
+vector<pair<IndexName, size_t>> IndexRegistry::make_plan(const vector<IndexName>& end_products) const {
     
 #ifdef debug_index_registry
     cerr << "generating plan for indexes:" << endl;
@@ -934,14 +951,14 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
 #endif
     
     // get the dependency ordering of the indexes
-    vector<string> identifier_order = dependency_order();
-    unordered_map<string, size_t> dep_order_of_identifier;
+    vector<IndexName> identifier_order = dependency_order();
+    map<IndexName, size_t> dep_order_of_identifier;
     for (size_t i = 0; i < identifier_order.size(); ++i) {
         dep_order_of_identifier[identifier_order[i]] = i;
     }
     
     // TODO: I'm sure there's a more elegant implementation of this algorithm
-    unordered_set<pair<string, size_t>> plan_elements;
+    set<pair<IndexName, size_t>> plan_elements;
     for (const auto& product : end_products) {
 #ifdef debug_index_registry
         cerr << "making a plan for end product " << product << endl;
@@ -959,11 +976,11 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
 #ifdef debug_index_registry_path_state
             cerr << "new iteration, path:" << endl;
             for (auto pe : plan_path) {
-                cerr << "\t" << identifier_order[get<0>(pe)] << ", requester: " << (get<1>(pe) == identifier_order.size() ? string("PLAN TARGET") : identifier_order[get<1>(pe)]) << ", recipe " << get<2>(pe) << endl;
+                cerr << "\t" << identifier_order[get<0>(pe)] << ", requester: " << (get<1>(pe) == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[get<1>(pe)])) << ", recipe " << get<2>(pe) << endl;
             }
             cerr << "state of queue:" << endl;
             for (auto q : queue) {
-                cerr << "\t" << identifier_order[q.first] << ", requester: " << (q.second.first == identifier_order.size() ? string("PLAN TARGET") : identifier_order[q.second.first]) << ", num requesters " << q.second.second << endl;
+                cerr << "\t" << identifier_order[q.first] << ", requester: " << (q.second.first == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[q.second.first])) << ", num requesters " << q.second.second << endl;
             }
 #endif
             
@@ -973,7 +990,7 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
             plan_path.emplace_back(it->first, it->second.first, 0);
             
 #ifdef debug_index_registry
-            cerr << "dequeue " << identifier_order[it->first] << " requested from " << (it->second.first == identifier_order.size() ? string("PLAN TARGET") : identifier_order[it->second.first]) << " and " << (it->second.second - 1) << " other indexes" << endl;
+            cerr << "dequeue " << to_string(identifier_order[it->first]) << " requested from " << (it->second.first == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[it->second.first])) << " and " << (it->second.second - 1) << " other indexes" << endl;
 #endif
             queue.erase(it);
             
@@ -991,7 +1008,7 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
 #ifdef debug_index_registry
                 cerr << "index can be made by a recipe requiring";
                 for (auto input : recipe.inputs) {
-                    cerr << " " << input->get_identifier();
+                    cerr << " " << to_string(input->get_identifier());
                 }
                 cerr << endl;
 #endif
@@ -1025,7 +1042,7 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
                     // this one
                     size_t requester = get<1>(plan_path.back());
 #ifdef debug_index_registry
-                    cerr << "pruning path to previous requester: " << (requester == identifier_order.size() ? "PLAN TARGET" : identifier_order[requester]) << endl;
+                    cerr << "pruning path to previous requester: " << (requester == identifier_order.size() ? "PLAN TARGET" : to_string(identifier_order[requester])) << endl;
 #endif
                     while (!plan_path.empty() && get<0>(plan_path.back()) != requester) {
                         
@@ -1081,7 +1098,7 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
                     const auto& recipe = get_index(identifier_order[get<0>(plan_path.back())])->get_recipes()[get<2>(plan_path.back())];
                     
 #ifdef debug_index_registry
-                    cerr << "advancing to recipe " << get<2>(plan_path.back()) << " for index " << identifier_order[get<0>(plan_path.back())] << ", which requires";
+                    cerr << "advancing to recipe " << get<2>(plan_path.back()) << " for index " << to_string(identifier_order[get<0>(plan_path.back())]) << ", which requires";
                     for (auto input : recipe.inputs) {
                         cerr << " " << input->get_identifier();
                     }
@@ -1108,7 +1125,7 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
 #ifdef debug_index_registry
         cerr << "final plan path for index " << product << ":" << endl;
         for (auto path_elem : plan_path) {
-            cerr << "\t" << identifier_order[get<0>(path_elem)] << ", from " << (get<1>(path_elem) == identifier_order.size() ? "PLAN START" : identifier_order[get<1>(path_elem)]) << ", recipe " << get<2>(path_elem) << endl;
+            cerr << "\t" << identifier_order[get<0>(path_elem)] << ", from " << (get<1>(path_elem) == identifier_order.size() ? "PLAN START" : to_string(identifier_order[get<1>(path_elem)])) << ", recipe " << get<2>(path_elem) << endl;
         }
 #endif
         
@@ -1124,8 +1141,8 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
     }
     
     // convert the aggregated plan elements into a forward ordered plan
-    vector<pair<string, size_t>> plan(plan_elements.begin(), plan_elements.end());
-    sort(plan.begin(), plan.end(), [&](const pair<string, size_t>& a, const pair<string, size_t>& b) {
+    vector<pair<IndexName, size_t>> plan(plan_elements.begin(), plan_elements.end());
+    sort(plan.begin(), plan.end(), [&](const pair<IndexName, size_t>& a, const pair<IndexName, size_t>& b) {
         return dep_order_of_identifier[a.first] < dep_order_of_identifier[b.first];
     });
 #ifdef debug_index_registry
@@ -1136,27 +1153,27 @@ vector<pair<string, size_t>> IndexRegistry::make_plan(const vector<string>& end_
 #endif
     
     // and remove the input data from the plan
-    plan.resize(remove_if(plan.begin(), plan.end(), [&](const pair<string, size_t>& recipe_choice) {
+    plan.resize(remove_if(plan.begin(), plan.end(), [&](const pair<IndexName, size_t>& recipe_choice) {
         return get_index(recipe_choice.first)->is_finished();
     }) - plan.begin());
     return plan;
 }
 
 string IndexRegistry::to_dot() const {
-    return to_dot(vector<string>());
+    return to_dot(vector<IndexName>());
 }
 
-string IndexRegistry::to_dot(const vector<string>& targets) const {
+string IndexRegistry::to_dot(const vector<IndexName>& targets) const {
     
     
     stringstream strm;
     strm << "digraph recipegraph {" << endl;
     
-    unordered_set<string> plan_targets(targets.begin(), targets.end());
-    unordered_set<pair<string, size_t>> plan_elements;
-    unordered_set<string> plan_indexes;
+    set<IndexName> plan_targets(targets.begin(), targets.end());
+    set<pair<IndexName, size_t>> plan_elements;
+    set<IndexName> plan_indexes;
     if (!targets.empty()) {
-        vector<pair<string, size_t>> plan;
+        vector<pair<IndexName, size_t>> plan;
         try {
             plan = make_plan(targets);
         }
@@ -1170,12 +1187,12 @@ string IndexRegistry::to_dot(const vector<string>& targets) const {
         }
     }
     
-    unordered_map<string, string> index_to_dot_id;
+    map<IndexName, string> index_to_dot_id;
     size_t index_idx = 0;
     for (const auto& index_file : registry) {
         index_to_dot_id[index_file.first] = "I" + to_string(index_idx);
         ++index_idx;
-        strm << index_to_dot_id[index_file.first] << "[label=\"" << index_file.first << "\" shape=box";
+        strm << index_to_dot_id[index_file.first] << "[label=\"" << to_string(index_file.first) << "\" shape=box";
         if (index_file.second->is_finished()) {
             strm << " style=\"filled,bold\" fillcolor=lightgray";
         }
@@ -1216,7 +1233,7 @@ string IndexRegistry::to_dot(const vector<string>& targets) const {
     return strm.str();
 }
 
-IndexFile::IndexFile(const string& identifier, const string& suffix) : identifier(identifier), suffix(suffix) {
+IndexFile::IndexFile(const IndexName& identifier, const string& suffix) : identifier(identifier), suffix(suffix) {
     // nothing more to do
 }
 
@@ -1224,7 +1241,7 @@ bool IndexFile::is_finished() const {
     return !filenames.empty();
 }
 
-const string& IndexFile::get_identifier() const {
+const IndexName& IndexFile::get_identifier() const {
     return identifier;
 }
 
@@ -1270,9 +1287,9 @@ vector<string> IndexRecipe::execute(const string& prefix, const string& suffix) 
     return exec(inputs, prefix, suffix);
 }
 
-InsufficientInputException::InsufficientInputException(const string& target,
+InsufficientInputException::InsufficientInputException(const IndexName& target,
                                                        const IndexRegistry& registry) :
-    runtime_error("Insufficient input to create " + target), target(target), inputs(registry.completed_indexes())
+    runtime_error("Insufficient input to create " + to_string(target)), target(target), inputs(registry.completed_indexes())
 {
     // nothing else to do
 }
@@ -1281,9 +1298,9 @@ const char* InsufficientInputException::what() const throw () {
     stringstream ss;
     ss << "Inputs" << endl;
     for (const auto& input : inputs) {
-        ss << "\t" << input << endl;
+        ss << "\t" << to_string(input) << endl;
     }
-    ss << "are insufficient to create target index " << target << endl;
+    ss << "are insufficient to create target index " << to_string(target) << endl;
     return ss.str().c_str();
 }
 

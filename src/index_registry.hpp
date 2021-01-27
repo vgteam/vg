@@ -2,7 +2,8 @@
 #define VG_INDEX_REGISTRY_HPP_INCLUDED
 
 #include <vector>
-#include <unordered_map>
+#include <map>
+#include <set>
 #include <unordered_set>
 #include <functional>
 #include <string>
@@ -17,6 +18,12 @@ class IndexFile;
 class IndexRecipe;
 class InsufficientInputException;
 class IndexRegistry;
+
+/**
+ * Names an index. Each index may have multiple components.
+ */
+using IndexName = set<string>;
+// We use a sorted set so that we can know which item in the name corresponds to which file
 
 /**
  * A struct namespace for global handling of parameters used by
@@ -55,11 +62,11 @@ struct VGIndexes {
     /// A complete index registry for VG mapping utilities
     static IndexRegistry get_vg_index_registry();
     /// A list of the identifiers of the default indexes to run vg map
-    static vector<string> get_default_map_indexes();
+    static vector<IndexName> get_default_map_indexes();
     /// A list of the identifiers of the default indexes to run vg mpmap
-    static vector<string> get_default_mpmap_indexes();
+    static vector<IndexName> get_default_mpmap_indexes();
     /// A list of the identifiers of the default indexes to run vg giraffe
-    static vector<string> get_default_giraffe_indexes();
+    static vector<IndexName> get_default_giraffe_indexes();
 };
 
 /**
@@ -90,54 +97,54 @@ public:
     /// or the temp directory?
     void set_intermediate_file_keeping(bool keep_intermediates);
     
-    /// Register an index with the given identifier
-    void register_index(const string& identifier, const string& suffix);
+    /// Register an index containing the given identifier
+    void register_index(const IndexName& identifier, const string& suffix);
     
     /// Register a recipe to produce an index using other indexes
     /// or input files. Also takes a for output as input
-    void register_recipe(const string& identifier,
-                         const vector<string>& input_identifiers,
+    void register_recipe(const IndexName& identifier,
+                         const vector<IndexName>& input_identifiers,
                          const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
     
     /// Indicate a serialized file that contains some identified index
-    void provide(const string& identifier, const string& filename);
+    void provide(const IndexName& identifier, const string& filename);
     
     /// Indicate a list of serialized files that contains some identified index
-    void provide(const string& identifier, const vector<string>& filenames);
+    void provide(const IndexName& identifier, const vector<string>& filenames);
     
     /// Get a list of all indexes that have already been completed or provided
-    vector<string> completed_indexes() const;
+    vector<IndexName> completed_indexes() const;
     
     /// Create and execute a plan to make the indicated indexes using provided inputs
     /// If provided inputs cannot create the desired indexes, throws a
     /// InsufficientInputException.
-    void make_indexes(const vector<string>& identifiers);
+    void make_indexes(const vector<IndexName>& identifiers);
     
     /// Returns the recipe graph in dot format
     string to_dot() const;
     
     /// Returns the recipe graph in dot format with a plan highlighted
-    string to_dot(const vector<string>& targets) const;
+    string to_dot(const vector<IndexName>& targets) const;
     
 protected:
     
     /// get a topological ordering of all registered indexes in the dependency DAG
-    vector<string> dependency_order() const;
+    vector<IndexName> dependency_order() const;
     
     /// generate a plan to create the indexes
-    vector<pair<string, size_t>> make_plan(const vector<string>& end_products) const;
+    vector<pair<IndexName, size_t>> make_plan(const vector<IndexName>& end_products) const;
     
     /// access index file
-    IndexFile* get_index(const string& identifier);
+    IndexFile* get_index(const IndexName& identifier);
     
     /// access const index file
-    const IndexFile* get_index(const string& identifier) const;
+    const IndexFile* get_index(const IndexName& identifier) const;
     
     /// Function to get and/or initialize the temporary directory in which indexes will live
     string get_work_dir();
     
-    /// the storage struct for named indexes
-    unordered_map<string, unique_ptr<IndexFile>> registry;
+    /// The storage struct for named indexes. Ordered so it is easier to key on index names.
+    map<IndexName, unique_ptr<IndexFile>> registry;
     
     unordered_set<string> registered_suffixes;
     
@@ -158,10 +165,10 @@ class IndexFile {
 public:
     
     /// Create a new IndexFile with a unique identifier
-    IndexFile(const string& identifier, const string& suffix);
+    IndexFile(const IndexName& identifier, const string& suffix);
         
     /// Get the globally unique identifier for this index
-    const string& get_identifier() const;
+    const IndexName& get_identifier() const;
     
     /// Get the filename(s) that contain this index
     const vector<string>& get_filenames() const;
@@ -190,7 +197,7 @@ public:
 private:
     
     // the global identifier for the
-    string identifier;
+    IndexName identifier;
     
     // the suffix it adds to output files
     string suffix;
@@ -225,12 +232,12 @@ struct IndexRecipe {
 class InsufficientInputException : public runtime_error {
 public:
     InsufficientInputException() = delete;
-    InsufficientInputException(const string& target,
+    InsufficientInputException(const IndexName& target,
                                const IndexRegistry& registry);
     const char* what() const throw ();
 private:
-    string target;
-    vector<string> inputs;
+    IndexName target;
+    vector<IndexName> inputs;
 };
 
 }
