@@ -3,21 +3,23 @@
 
 #include "algorithms/min_cut_graph.hpp"
 #include <structures/union_find.hpp>
+#include "sparse_union_find.hpp"
 
 namespace vg{
     using namespace std;
     using vg::algorithms::Graph;
     using namespace structures;
 
-class ContractingGraph{   
-    Graph graph;
-    size_t V;   
+class ContractingGraph{
+       
     
     
 public:
-    UnionFind uf = UnionFind(V, true);
+    vector<size_t> node_ids;   
+    Graph graph;
+    SparseUnionFind uf = SparseUnionFind(true, node_ids);  
 
-    ContractingGraph(Graph graph, size_t V);
+    ContractingGraph(Graph graph);
 
     void contract(size_t random_node, size_t other_node);
 
@@ -29,6 +31,7 @@ public:
     //return all heads 
     //if node = find_group(node) then its a head otherwise not 
     vector<vector<size_t>> get_disjoint_sets();
+
 
     
 

@@ -9,6 +9,7 @@
 #include <vector>
 #include "catch.hpp"
 #include <unordered_set>
+#include "sparse_union_find.hpp"
 
 #define debug
 
@@ -483,6 +484,152 @@ namespace vg {
                 cout << "set has" << x <<endl;
 #endif       
             }
+    
+        }
+
+        TEST_CASE("SparseUnionFind can work with non-consecutive node ids", "[SparseUnionFind]") {
+
+
+            /* Let us create following undirected, weighted graph  
+                    e0 10  
+                5--------6  
+                | \      |  
+            e1 6|   |5 e4 |15  
+                |      \ |  e3
+                7--------8  
+                    e2 4 
+            */
+            Graph graph; 
+            Edge edge01,edge10,edge02,edge20,edge03,edge30,edge23,edge32,edge13,edge31; //naming convention edge:source:destination
+            Node node0, node1, node2, node3;
+
+            //weights
+            edge01.weight = 10;
+            edge10.weight = 10;
+            edge02.weight = 6;
+            edge20.weight = 6;
+            edge03.weight = 5;
+            edge30.weight = 5;
+            edge23.weight = 4;
+            edge32.weight = 4;
+            edge13.weight = 15;
+            edge31.weight = 15;
+
+            
+
+            //other node
+            //edge01.other 1, edge0->1 
+            edge01.other = 1;
+            edge10.other = 0;
+            edge02.other = 2;
+            edge20.other = 0;
+            edge03.other = 3;
+            edge30.other = 0;
+            edge23.other = 3;
+            edge32.other = 2;
+            edge13.other = 3;
+            edge31.other = 1;
+
+            //id 5
+            node0.edges.push_back(edge01);
+            node0.edges.push_back(edge02);
+            node0.edges.push_back(edge03);
+            node0.weight = 21;
+
+
+            //id 6
+            node1.edges.push_back(edge10);
+            node1.edges.push_back(edge13);
+            node1.weight = 25;
+
+            //id 7
+            node2.edges.push_back(edge20);
+            node2.edges.push_back(edge23);
+            node2.weight = 10;
+
+            //id 8
+            node3.edges.push_back(edge30);
+            node3.edges.push_back(edge31);
+            node3.edges.push_back(edge32);
+            node3.weight = 24;
+
+            graph.nodes.emplace(5,node0);
+            graph.nodes.emplace(6,node1);
+            graph.nodes.emplace(7,node2);
+            graph.nodes.emplace(8,node3);
+            
+
+            SparseUnionFind suf = SparseUnionFind(true, graph.get_node_ids());
+
+
+                cout << "suf has " << suf.size() << " nodes" <<endl;
+                REQUIRE(suf.size() == 4);
+                vector<vector<size_t>> all = suf.all_groups(); 
+                for(int i = 0 ; i < all.size(); i++){
+                    for(int j = 0 ; j < all[i].size(); j++){
+                        cout <<"group " <<all[i][j] << " has " << suf.group_size(all[i][j]) << " members"<<endl;
+                    }
+                        
+                }
+
+                suf.union_groups(5, 6);
+                cout << "union between 5,6" <<endl;
+
+                cout << "suf now has " << suf.all_groups().size() << " groups" <<endl;
+                REQUIRE(suf.all_groups().size() ==3);
+
+                vector<vector<size_t>> new_all = suf.all_groups(); 
+                for(int i = 0 ; i < new_all.size(); i++){
+                    for(int j = 0 ; j < new_all[i].size(); j++){
+                        cout <<"group " <<new_all[i][j] << " has " << suf.group_size(new_all[i][j]) << " members"<<endl;
+                    }
+                        
+                }
+                size_t group_5_id = suf.find_group(5);
+                size_t group_6_id = suf.find_group(6);
+                cout << "group 5 is now in " << group_5_id <<endl;
+                cout << "group 6 is now in " << group_6_id <<endl;
+
+                size_t group_5_size = suf.group_size(5);
+                size_t group_6_size = suf.group_size(6);
+
+                cout << "group 5 size " << group_5_size <<endl;
+                cout << "group 6 size " << group_6_size <<endl;
+
+                
+                if(5 != group_5_id){
+                    vector<size_t> group_members = suf.group(5);
+                    for (size_t i = 0 ; i < group_members.size(); i++){
+                        cout << "super node is "<< group_5_id <<endl;
+                        cout << "member "<< group_members[i] <<endl;
+                    }
+                }
+                if(6 != group_6_id){
+                    vector<size_t> group_members = suf.group(6);
+                    for (size_t i = 0 ; i < group_members.size(); i++){
+                        cout << "super node is "<< group_6_id <<endl;
+                        cout << "member "<< group_members[i] <<endl;
+                    }
+                }
+
+                suf.union_groups(7, 6);
+                cout << "union between 7,6" <<endl;
+                cout << "suf now has " << suf.all_groups().size() << " groups" <<endl;
+                REQUIRE(suf.all_groups().size() ==2);
+
+                size_t group_7_id = suf.find_group(7);
+                size_t group_six_id = suf.find_group(6);
+                cout << "group 7 is now in " << group_7_id <<endl;
+                cout << "group 6 is now in " << group_six_id <<endl;
+
+                vector<vector<size_t>> g = suf.all_groups(); 
+                for(int i = 0 ; i < g.size(); i++){
+                    for(int j = 0 ; j < g[i].size(); j++){
+                        cout <<"group " <<g[i][j] << " has " << suf.group_size(g[i][j]) << " members"<<endl;
+                    }
+                        
+                }
+
     
         }
 

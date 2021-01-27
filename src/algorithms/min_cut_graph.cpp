@@ -27,7 +27,7 @@ namespace vg {
  
             size_t V = graph.nodes.size();
             minstd_rand0 random_engine(seed);
-            ContractingGraph cg(graph, V); 
+            ContractingGraph cg(graph); 
             unordered_map<size_t, size_t> cgraph_total_edge_weights;
             pair<vector<unordered_set<size_t>>, size_t> to_return;
 
@@ -366,7 +366,7 @@ namespace vg {
                 //singleton nodes won't be added to Gamma
                 if(V <= 2){
 #ifdef debug             
-                    cout << "V <=2"  <<endl;
+                    cout << "Base Case"  <<endl;
                     cout << "V= " << V <<endl;
            
 #endif

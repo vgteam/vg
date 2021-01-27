@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <cassert>
-#include "deps/structures/src/include/structures/union_find.hpp"
+#include <structures/union_find.hpp>
 
 namespace vg {
 
